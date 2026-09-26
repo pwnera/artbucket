@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fieldsValidator, type FieldDef } from "./fields.ts";
+import { fieldsValidator, relaxInherited, type FieldDef } from "./fields.ts";
 
 const defs: FieldDef[] = [
   { key: "campaign", label: "Campaign", type: "text", options: [], required: true },
@@ -41,4 +41,10 @@ test("patch: partial, null clears an optional field but not a required one", () 
   assert.deepEqual(patch.parse({ channel: null }), { channel: null });
   assert.deepEqual(patch.parse({}), {});
   assert.equal(patch.safeParse({ campaign: null }).success, false);
+});
+
+test("an inherited value satisfies a required field", () => {
+  const relaxed = relaxInherited(defs, { campaign: "Autumn" });
+  assert.equal(fieldsValidator(relaxed, "upload").safeParse({}).success, true);
+  assert.deepEqual(fieldsValidator(relaxed, "patch").parse({ campaign: null }), { campaign: null });
 });

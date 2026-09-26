@@ -5,12 +5,13 @@ import { finalizeUpload, searchAssets } from "@/lib/core/assets";
 const Query = z.object({
   q: z.string().max(512).optional(),
   tag: z.array(z.string().max(64)).max(20),
+  collection: z.uuid().optional(),
   limit: z.coerce.number().int().optional(),
   offset: z.coerce.number().int().optional(),
 });
 
 /**
- * GET /api/v1/assets?q=fox&tag=brand&tag=logo
+ * GET /api/v1/assets?q=fox&tag=brand&tag=logo&collection={id}
  *
  * Browse and search in one: `q` is prefix full-text over filename, tags and
  * embedded metadata; each `tag` narrows to assets carrying it. The response
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
     const { tag, ...rest } = Query.parse({
       q: p.get("q") ?? undefined,
       tag: p.getAll("tag"),
+      collection: p.get("collection") ?? undefined,
       limit: p.get("limit") ?? undefined,
       offset: p.get("offset") ?? undefined,
     });
@@ -37,6 +39,8 @@ const Finalize = z.object({
   mime: z.string().min(1).max(255),
   /** Custom field values; validated against the schema, required ones enforced. */
   fields: z.record(z.string(), z.unknown()).optional(),
+  /** Collections to file it into; their values count toward required fields. */
+  collections: z.array(z.uuid()).max(50).optional(),
 });
 
 /** POST /api/v1/assets - promote a staged upload. Idempotent by content hash. */

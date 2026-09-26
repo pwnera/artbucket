@@ -1,7 +1,7 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, fields } from "@/lib/db/schema";
-import { AssetError } from "@/lib/core/assets";
+import { assets, collections, fields } from "@/lib/db/schema";
+import { AssetError } from "@/lib/core/errors";
 import type { FieldDef, FieldType } from "@/lib/fields";
 
 const toDef = (f: typeof fields.$inferSelect): FieldDef => ({
@@ -37,15 +37,25 @@ export async function updateField(
   return toDef(row);
 }
 
-/** Removes the definition and every value stored under it, in one transaction. */
+/**
+ * Removes the definition and every value stored under it, in one transaction.
+ * Values live in three places (own, collection, inherited); all three go.
+ */
 export async function deleteField(key: string): Promise<boolean> {
   return db.transaction(async (tx) => {
     const gone = await tx.delete(fields).where(eq(fields.key, key)).returning();
     if (!gone.length) return false;
     await tx
       .update(assets)
-      .set({ fields: sql`${assets.fields} - ${key}::text` })
-      .where(sql`${assets.fields} ? ${key}`);
+      .set({
+        fields: sql`${assets.fields} - ${key}::text`,
+        inherited: sql`${assets.inherited} - ${key}::text`,
+      })
+      .where(sql`${assets.fields} ? ${key} or ${assets.inherited} ? ${key}`);
+    await tx
+      .update(collections)
+      .set({ fields: sql`${collections.fields} - ${key}::text` })
+      .where(sql`${collections.fields} ? ${key}`);
     return true;
   });
 }

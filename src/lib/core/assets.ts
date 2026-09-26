@@ -4,9 +4,11 @@ import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { assets } from "@/lib/db/schema";
+import { assets, collectionAssets } from "@/lib/db/schema";
+import { inheritedFrom, joinCollections } from "@/lib/core/collections";
+import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { fieldsValidator, type FieldValues } from "@/lib/fields";
+import { fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
 import { extractMetadata } from "@/lib/metadata";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { buildXmp, embedXmp } from "@/lib/xmp";
@@ -29,8 +31,16 @@ import {
 
 // The search vector is an index, not data: it never leaves the database.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { search: _search, ...columns } = getTableColumns(assets);
-export type Asset = Omit<typeof assets.$inferSelect, "search">;
+const { search: _search, ...own } = getTableColumns(assets);
+const columns = {
+  ...own,
+  /** Ids of the collections this asset is in. */
+  collections: sql<string[]>`(
+    select coalesce(jsonb_agg(ca.collection_id), '[]'::jsonb)
+    from ${collectionAssets} ca where ca.asset_id = ${assets.id}
+  )`,
+};
+export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[] };
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 
@@ -70,6 +80,8 @@ export async function finalizeUpload(input: {
   filename: string;
   mime: string;
   fields?: Record<string, unknown>;
+  /** Collections to file it into. Their values count toward required fields. */
+  collections?: string[];
 }): Promise<{ asset: Asset; deduped: boolean }> {
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
@@ -77,7 +89,8 @@ export async function finalizeUpload(input: {
   }
   // Checked before any bytes move: a rejected upload stays staged, so the
   // client can fix the fields and retry with the same token.
-  const values = await validFields(input.fields ?? {}, "upload");
+  const into = input.collections ?? [];
+  const values = await validFields(input.fields ?? {}, "upload", await inheritedFrom(into));
 
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -85,7 +98,7 @@ export async function finalizeUpload(input: {
   const existing = await bySha(sha256);
   if (existing) {
     await deleteObject(staged);
-    return { asset: existing, deduped: true };
+    return { asset: await fileInto(into, existing.id), deduped: true };
   }
 
   const probe = await probeImage(bytes);
@@ -95,7 +108,7 @@ export async function finalizeUpload(input: {
   await putObject(originalKey(sha256), bytes, input.mime);
   await deleteObject(staged);
 
-  const [asset] = await db
+  const [row] = await db
     .insert(assets)
     .values({
       sha256,
@@ -112,14 +125,20 @@ export async function finalizeUpload(input: {
       fields: values as FieldValues,
     })
     .onConflictDoNothing({ target: assets.sha256 })
-    .returning(columns);
+    .returning({ id: assets.id });
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
-  if (!asset) {
-    return { asset: (await bySha(sha256))!, deduped: true };
-  }
+  if (!row) return { asset: await fileInto(into, (await bySha(sha256))!.id), deduped: true };
+  return { asset: await fileInto(into, row.id), deduped: false };
+}
 
-  return { asset, deduped: false };
+/**
+ * File an asset into the upload's collections and return it fresh. A deduped
+ * upload is filed too: same bytes, but the uploader aimed them somewhere.
+ */
+async function fileInto(collectionIds: string[], id: string): Promise<Asset> {
+  if (collectionIds.length) await db.transaction((tx) => joinCollections(tx, collectionIds, id));
+  return (await getAsset(id))!;
 }
 
 export type AssetQuery = {
@@ -127,6 +146,8 @@ export type AssetQuery = {
   q?: string;
   /** Assets carrying all of these tags. */
   tags?: string[];
+  /** Assets in this collection. */
+  collection?: string;
   limit?: number;
   offset?: number;
 };
@@ -139,13 +160,22 @@ export type AssetQuery = {
  * ponytail: facet counts scan the matching set on every request. Fine at the
  * v0.2 target (1,000 assets, <100ms); cache or approximate past ~100k.
  */
-export async function searchAssets({ q, tags = [], limit = 100, offset = 0 }: AssetQuery) {
+export async function searchAssets({
+  q,
+  tags = [],
+  collection,
+  limit = 100,
+  offset = 0,
+}: AssetQuery) {
   const tsq = q ? prefixQuery(q) : null;
   const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
   const wanted = normalizeTags(tags);
   const where = and(
     match,
     wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
+    collection
+      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
+      : undefined,
   );
 
   const [data, facets] = await Promise.all([
@@ -205,7 +235,9 @@ export async function updateAsset(
   const set: PgUpdateSetSource<typeof assets> = {};
   if (tags) set.tags = normalizeTags(tags);
   if (custom && Object.keys(custom).length) {
-    const values = await validFields(custom, "patch");
+    const current = await getAsset(id);
+    if (!current) return null;
+    const values = await validFields(custom, "patch", current.inherited);
     set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
   }
   if (Object.keys(fields).length) {
@@ -250,8 +282,12 @@ export async function deleteAsset(id: string) {
   return true;
 }
 
-async function validFields(values: Record<string, unknown>, mode: "upload" | "patch") {
-  const parsed = fieldsValidator(await listFields(), mode).safeParse(values);
+async function validFields(
+  values: Record<string, unknown>,
+  mode: "upload" | "patch",
+  inherited: FieldValues = {},
+) {
+  const parsed = fieldsValidator(relaxInherited(await listFields(), inherited), mode).safeParse(values);
   if (!parsed.success) {
     throw new AssetError("invalid", "Custom field values are invalid", z.treeifyError(parsed.error));
   }
@@ -271,15 +307,5 @@ async function probeImage(bytes: Buffer) {
     };
   } catch {
     return null; // Not an image sharp understands. Still a perfectly good asset.
-  }
-}
-
-export class AssetError extends Error {
-  constructor(
-    readonly code: "not_found" | "too_large" | "unsupported" | "invalid" | "conflict",
-    message: string,
-    readonly detail?: unknown,
-  ) {
-    super(message);
   }
 }

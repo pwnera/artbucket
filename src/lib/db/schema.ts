@@ -4,6 +4,7 @@ import {
   check,
   customType,
   index,
+  primaryKey,
   integer,
   jsonb,
   pgTable,
@@ -40,6 +41,12 @@ export const assets = pgTable(
     /** Values for the library's custom fields, keyed by `fields.key`. */
     fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
     /**
+     * Values this asset inherits from its collections, materialized by
+     * lib/core/collections.ts whenever membership or a collection changes, so
+     * search and filters read one row. The asset's own `fields` win over these.
+     */
+    inherited: jsonb("inherited").$type<FieldValues>().notNull().default({}),
+    /**
      * Maintained by Postgres, so it cannot drift from the columns it indexes.
      * 'simple' rather than 'english': asset search is names and keywords, where
      * stemming "logos" to "logo" matters less than matching "fox_v3" by "fox".
@@ -49,7 +56,7 @@ export const assets = pgTable(
     search: tsvector("search")
       .notNull()
       .generatedAlwaysAs(
-        sql`setweight(to_tsvector('simple', regexp_replace(filename, '[._-]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', tags), 'A') || setweight(jsonb_to_tsvector('simple', coalesce(metadata, '{}'), '["string"]'), 'B') || setweight(jsonb_to_tsvector('simple', fields, '["string"]'), 'B')`,
+        sql`setweight(to_tsvector('simple', regexp_replace(filename, '[._-]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', tags), 'A') || setweight(jsonb_to_tsvector('simple', coalesce(metadata, '{}'), '["string"]'), 'B') || setweight(jsonb_to_tsvector('simple', fields || inherited, '["string"]'), 'B')`,
       ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -67,6 +74,33 @@ export const assets = pgTable(
 
 export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
+
+/** A named set of assets that can carry field values its members inherit. */
+export const collections = pgTable("collections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const collectionAssets = pgTable(
+  "collection_assets",
+  {
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.collectionId, t.assetId] }),
+    // The primary key serves "members of a collection"; this serves "collections of an asset".
+    index("collection_assets_asset_idx").on(t.assetId),
+  ],
+);
 
 /**
  * The library's custom field schema. `key` is the identity: it is what asset

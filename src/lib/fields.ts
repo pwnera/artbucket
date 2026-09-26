@@ -62,6 +62,13 @@ export function fieldsValidator(defs: FieldDef[], mode: "upload" | "patch") {
   return z.strictObject(shape) as unknown as z.ZodType<Record<string, FieldValue | null>>;
 }
 
+/**
+ * A required field is satisfied by an inherited value: it is neither demanded
+ * at upload nor protected from being cleared on the asset itself.
+ */
+export const relaxInherited = (defs: FieldDef[], inherited: Record<string, unknown>) =>
+  defs.map((d) => (d.key in inherited ? { ...d, required: false } : d));
+
 /** What a client sends to define a field. `key` and `type` are fixed at creation. */
 export const FieldDefInput = z
   .strictObject({

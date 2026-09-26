@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Collection } from "@/components/collections";
 import { FieldInputs, inputClass as input, readFieldValues } from "@/components/fields";
 import { AlertIcon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,13 @@ const FIELDS = [
 export function AssetEditor({
   asset,
   fields,
+  collections,
   onClose,
   onSaved,
 }: {
   asset: Asset;
   fields: FieldDef[];
+  collections: Collection[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -53,8 +56,27 @@ export function AssetEditor({
         fields: readFieldValues(form, fields),
       }),
     });
+    if (!res.ok) {
+      setBusy(false);
+      return setError((await res.json()).error?.message ?? "Couldn't save");
+    }
+    // Membership goes through each collection's endpoint, only where it changed.
+    const want = new Set(form.getAll("collection").map(String));
+    const changes = collections.flatMap((c) => {
+      const had = asset.collections.includes(c.id);
+      if (had === want.has(c.id)) return [];
+      const change = want.has(c.id) ? { add: [asset.id] } : { remove: [asset.id] };
+      return [
+        fetch(`/api/v1/collections/${c.id}/assets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(change),
+        }),
+      ];
+    });
+    const failed = (await Promise.all(changes)).some((r) => !r.ok);
     setBusy(false);
-    if (!res.ok) return setError((await res.json()).error?.message ?? "Couldn't save");
+    if (failed) return setError("Saved, but a collection change didn't go through");
     onSaved();
     ref.current?.close();
   }
@@ -109,7 +131,24 @@ export function AssetEditor({
             Tags, comma separated
             <input name="tags" defaultValue={asset.tags.join(", ")} className={input} />
           </label>
-          <FieldInputs defs={fields} values={asset.fields} />
+          <FieldInputs defs={fields} values={asset.fields} inherited={asset.inherited} />
+          {collections.length > 0 && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-label text-ink-muted mb-1">Collections</legend>
+              {collections.map((c) => (
+                <label key={c.id} className="text-body flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="collection"
+                    value={c.id}
+                    defaultChecked={asset.collections.includes(c.id)}
+                    className="accent-teal size-4"
+                  />
+                  {c.name}
+                </label>
+              ))}
+            </fieldset>
+          )}
 
           {error && (
             <p role="status" className="text-body text-danger flex items-center gap-2">

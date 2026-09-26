@@ -97,6 +97,11 @@ key is canonical. Renditions are generated once and cached forever.
 | `POST` | `/api/v1/fields` | Define a field |
 | `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
 | `DELETE` | `/api/v1/fields/{key}` | Remove it, and every value stored under it |
+| `GET` | `/api/v1/collections` | Collections, with member counts |
+| `POST` | `/api/v1/collections` | Create one, with the `fields` its members inherit |
+| `PATCH` | `/api/v1/collections/{id}` | Rename it or change its `fields` |
+| `DELETE` | `/api/v1/collections/{id}` | Delete it; its assets stay |
+| `POST` | `/api/v1/collections/{id}/assets` | `{ "add": [...], "remove": [...] }` |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
 | `GET` | `/a/{id}?download` | The original with current metadata written in |
 
@@ -126,6 +131,16 @@ Types are `text`, `number`, `date` (`YYYY-MM-DD`), `boolean` and `select`
 `fields` when an asset is promoted or patched; a missing required value, a
 wrong type or an unknown key is a `422` naming the field, and the staged upload
 stays put so the same token can be retried. Text values are searchable.
+
+### Collections
+
+A collection groups assets and can carry field values its members inherit:
+file 200 photos into "Autumn 26" and they all read `campaign: Autumn 26`
+without anyone typing it 200 times. An asset's own value always wins; across
+several collections, the oldest collection wins. Inherited values are
+searchable, and they count toward required fields, so an upload aimed at a
+collection (`"collections": [id]` on promote) needs only what the collection
+doesn't already say. Filter with `/api/v1/assets?collection={id}`.
 
 ### Your metadata, in your files
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AssetError } from "@/lib/core/assets";
+import { AssetError } from "@/lib/core/errors";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
 

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
 import { AssetEditor } from "@/components/asset-editor";
+import { CollectionDialog, type Collection } from "@/components/collections";
 import { UploadFieldsDialog } from "@/components/fields";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
-import type { FieldDef, FieldValue } from "@/lib/fields";
+import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 
 export type Asset = {
@@ -18,6 +19,8 @@ export type Asset = {
   height: number | null;
   tags: string[];
   fields: Record<string, FieldValue>;
+  inherited: Record<string, FieldValue>;
+  collections: string[];
   metadata: {
     title?: string;
     description?: string;
@@ -34,8 +37,21 @@ export type Listing = { data: Asset[]; facets: { tags: { value: string; count: n
 // This component talks to /api/v1 and nothing else. There are no private
 // endpoints: if the UI needs something the public API cannot do, the API is
 // not finished.
-export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDef[] }) {
+export function Gallery({
+  initial,
+  fields,
+  collections: initialCollections,
+}: {
+  initial: Listing;
+  fields: FieldDef[];
+  collections: Collection[];
+}) {
   const [{ data: assets, facets }, setListing] = useState(initial);
+  const [collections, setCollections] = useState(initialCollections);
+  // The collection being browsed. Uploads made while it is selected land in it.
+  const [current, setCurrent] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Collection | "new" | null>(null);
+  const inCollection = collections.find((c) => c.id === current);
   const [q, setQ] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [open, setOpen] = useState<Asset | null>(null);
@@ -50,9 +66,14 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
   const refresh = useCallback(async () => {
     const params = new URLSearchParams(q.trim() ? { q } : {});
     for (const t of tags) params.append("tag", t);
-    const res = await fetch(`/api/v1/assets?${params}`);
+    if (current) params.set("collection", current);
+    const [res, cols] = await Promise.all([
+      fetch(`/api/v1/assets?${params}`),
+      fetch("/api/v1/collections"),
+    ]);
     if (res.ok) setListing(await res.json());
-  }, [q, tags]);
+    if (cols.ok) setCollections((await cols.json()).data);
+  }, [q, tags, current]);
 
   // Search as you type, settled for a beat so each keystroke isn't a request.
   const first = useRef(true);
@@ -65,11 +86,13 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
     return () => clearTimeout(t);
   }, [refresh]);
 
-  // With required fields in the schema, files wait for them; otherwise straight up.
+  // With required fields still unmet, files wait for them; otherwise straight up.
+  // Values inherited from the collection being uploaded into count as met.
+  const inherited = inCollection?.fields ?? {};
   const start = (list: FileList) => {
     const files = Array.from(list);
     if (!files.length) return;
-    if (fields.some((f) => f.required)) setPending(files);
+    if (relaxInherited(fields, inherited).some((f) => f.required)) setPending(files);
     else void upload(files);
   };
 
@@ -102,7 +125,13 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
           const done = await fetch("/api/v1/assets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, filename: file.name, mime, fields: values }),
+            body: JSON.stringify({
+              token,
+              filename: file.name,
+              mime,
+              fields: values,
+              collections: current ? [current] : [],
+            }),
           });
           if (!done.ok) throw new Error((await done.json()).error?.message ?? "Finalize failed");
         }
@@ -113,7 +142,7 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
         setBusy(false);
       }
     },
-    [refresh],
+    [refresh, current],
   );
 
   // A selected tag stays on screen even when nothing matches, or it could never be cleared.
@@ -121,7 +150,7 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
     ...tags.filter((t) => !facets.tags.some((f) => f.value === t)).map((value) => ({ value, count: 0 })),
     ...facets.tags,
   ];
-  const filtered = q.trim() !== "" || tags.length > 0;
+  const filtered = q.trim() !== "" || tags.length > 0 || current !== null;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
 
@@ -185,6 +214,33 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
 
         {!empty && (
           <div className="mb-6 space-y-3">
+            <nav aria-label="Collections" className="flex flex-wrap items-center gap-2">
+              {[{ id: null, name: "All files" }, ...collections].map((c) => {
+                const on = current === c.id;
+                return (
+                  <button
+                    key={c.id ?? "all"}
+                    type="button"
+                    aria-current={on ? "page" : undefined}
+                    onClick={() => setCurrent(c.id)}
+                    className={`text-control rounded-pill px-3 py-1.5 transition-colors duration-150 ${
+                      on ? "bg-teal-strong text-on-teal-strong" : "text-ink-muted hover:bg-teal-soft hover:text-teal-ink"
+                    }`}
+                  >
+                    {c.name}
+                    {"count" in c && <span className="ml-1.5 opacity-70">{c.count}</span>}
+                  </button>
+                );
+              })}
+              <Button variant="ghost" size="sm" onClick={() => setEditing("new")}>
+                New collection
+              </Button>
+              {inCollection && (
+                <Button variant="ghost" size="sm" onClick={() => setEditing(inCollection)}>
+                  Edit
+                </Button>
+              )}
+            </nav>
             <label className="bg-surface-raised border-line focus-within:border-line-strong text-ink-muted flex max-w-md items-center gap-2 rounded-pill border px-4 py-2">
               <SearchIcon size={20} />
               <input
@@ -247,7 +303,9 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
           </div>
         ) : assets.length === 0 ? (
           <p className="text-body text-ink-muted py-12 text-center">
-            Nothing matches. Try fewer words or clear a tag.
+            {inCollection && !q.trim() && !tags.length
+              ? "Nothing in this collection yet. Upload while it's selected, or add files from their editor."
+              : "Nothing matches. Try fewer words or clear a tag."}
           </p>
         ) : (
           <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
@@ -300,6 +358,7 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
           key={open.id}
           asset={open}
           fields={fields}
+          collections={collections}
           onClose={() => setOpen(null)}
           onSaved={refresh}
         />
@@ -309,10 +368,25 @@ export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDe
         <UploadFieldsDialog
           defs={fields}
           count={pending.length}
+          inherited={inherited}
           onCancel={() => setPending(null)}
           onSubmit={(values) => {
             setPending(null);
             void upload(pending, values);
+          }}
+        />
+      )}
+
+      {editing && (
+        <CollectionDialog
+          collection={editing === "new" ? undefined : editing}
+          fields={fields}
+          onClose={() => setEditing(null)}
+          onSaved={(c) => {
+            // A new collection opens; a deleted one drops back to everything.
+            if (editing === "new" && c) setCurrent(c.id);
+            else if (!c) setCurrent(null);
+            void refresh();
           }}
         />
       )}

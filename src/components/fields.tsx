@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import type { FieldDef, FieldValue } from "@/lib/fields";
+import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 
 export const inputClass =
   "bg-surface border-line focus:border-line-strong text-body text-ink w-full rounded-sm border px-3 py-2 outline-none";
@@ -11,10 +11,20 @@ export const inputClass =
  * Form controls for the custom field schema, one per definition. Names are
  * `field:{key}` so they can share a <form> with the built-in fields.
  */
-export function FieldInputs({ defs, values = {} }: { defs: FieldDef[]; values?: Record<string, FieldValue> }) {
-  return defs.map((d) => {
+export function FieldInputs({
+  defs,
+  values = {},
+  inherited = {},
+}: {
+  defs: FieldDef[];
+  values?: Record<string, FieldValue>;
+  /** Shown as the placeholder: what applies when this is left empty. */
+  inherited?: Record<string, FieldValue>;
+}) {
+  return relaxInherited(defs, inherited).map((d) => {
     const name = `field:${d.key}`;
     const v = values[d.key];
+    const from = inherited[d.key] === undefined ? undefined : String(inherited[d.key]);
     const label = (
       <>
         {d.label}
@@ -34,7 +44,7 @@ export function FieldInputs({ defs, values = {} }: { defs: FieldDef[]; values?: 
         <span>{label}</span>
         {d.type === "select" ? (
           <select name={name} defaultValue={String(v ?? "")} required={d.required} className={inputClass}>
-            <option value="">{d.required ? "Choose one" : "None"}</option>
+            <option value="">{from ? `Inherited: ${from}` : d.required ? "Choose one" : "None"}</option>
             {d.options.map((o) => (
               <option key={o}>{o}</option>
             ))}
@@ -45,6 +55,7 @@ export function FieldInputs({ defs, values = {} }: { defs: FieldDef[]; values?: 
             type={d.type === "text" ? "text" : d.type}
             step={d.type === "number" ? "any" : undefined}
             defaultValue={v === undefined ? "" : String(v)}
+            placeholder={from && `Inherited: ${from}`}
             required={d.required}
             maxLength={d.type === "text" ? 2000 : undefined}
             className={inputClass}
@@ -86,11 +97,14 @@ export function readFieldValues(form: FormData, defs: FieldDef[]) {
 export function UploadFieldsDialog({
   defs,
   count,
+  inherited,
   onSubmit,
   onCancel,
 }: {
   defs: FieldDef[];
   count: number;
+  /** From the collection being uploaded into. */
+  inherited: Record<string, FieldValue>;
   onSubmit: (values: Record<string, FieldValue>) => void;
   onCancel: () => void;
 }) {
@@ -118,7 +132,7 @@ export function UploadFieldsDialog({
           </h2>
           <p className="text-body text-ink-muted mt-1">Fields marked * are required by this library.</p>
         </div>
-        <FieldInputs defs={defs} />
+        <FieldInputs defs={defs} inherited={inherited} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" type="button" onClick={() => ref.current?.close()}>
             Cancel
