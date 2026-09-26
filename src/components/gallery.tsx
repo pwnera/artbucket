@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
+import { AssetEditor } from "@/components/asset-editor";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
@@ -14,6 +15,14 @@ export type Asset = {
   width: number | null;
   height: number | null;
   tags: string[];
+  metadata: {
+    title?: string;
+    description?: string;
+    creator?: string;
+    copyright?: string;
+    camera?: string;
+    capturedAt?: string;
+  } | null;
   createdAt: string;
 };
 
@@ -26,6 +35,7 @@ export function Gallery({ initial }: { initial: Listing }) {
   const [{ data: assets, facets }, setListing] = useState(initial);
   const [q, setQ] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [open, setOpen] = useState<Asset | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,9 +237,10 @@ export function Gallery({ initial }: { initial: Listing }) {
           <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
             {assets.map((a) => (
               <li key={a.id}>
-                <a
-                  href={`/a/${a.id}`}
-                  className="bg-surface-raised border-line shadow-card hover:shadow-lift hover:border-line-strong block rounded-card border p-2 transition-[box-shadow,border-color] duration-150"
+                <button
+                  type="button"
+                  onClick={() => setOpen(a)}
+                  className="bg-surface-raised w-full text-left border-line shadow-card hover:shadow-lift hover:border-line-strong block rounded-card border p-2 transition-[box-shadow,border-color] duration-150"
                 >
                   {/* The art is the hero: a neutral well, contained, never cropped, never tinted. */}
                   <div className="bg-surface-sunken relative aspect-square overflow-hidden rounded-sm">
@@ -261,12 +272,16 @@ export function Gallery({ initial }: { initial: Listing }) {
                       {formatBytes(a.size)}
                     </p>
                   </div>
-                </a>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </main>
+
+      {open && (
+        <AssetEditor key={open.id} asset={open} onClose={() => setOpen(null)} onSaved={refresh} />
+      )}
 
       {/* Dragging over a populated library: one calm overlay, not a moving target. */}
       {dragging && !empty && (

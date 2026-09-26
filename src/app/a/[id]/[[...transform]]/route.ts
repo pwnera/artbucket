@@ -1,5 +1,5 @@
 import { fail, handle } from "@/lib/api";
-import { getAsset } from "@/lib/core/assets";
+import { downloadAsset, getAsset } from "@/lib/core/assets";
 import { isRenderable, renderAsset } from "@/lib/core/renditions";
 import { getObject, originalKey } from "@/lib/storage";
 import { parseTransform } from "@/lib/transform";
@@ -7,18 +7,33 @@ import { parseTransform } from "@/lib/transform";
 type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
 
 /**
- * GET /a/{id}                  → the original bytes
+ * GET /a/{id}                  → the original bytes, exactly as uploaded
+ * GET /a/{id}?download         → the original with current metadata written in
  * GET /a/{id}/w_800,f_webp     → a rendition, generated once and cached
  *
  * The URL is the whole API. Nothing here needs a session, a download button, or
  * a prior round trip - an agent can build the URL it wants and fetch it.
  */
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(req: Request, { params }: Ctx) {
   try {
     const { id, transform } = await params;
 
     const asset = await getAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
+
+    if (!transform?.length && new URL(req.url).searchParams.has("download")) {
+      const { body, embedded } = await downloadAsset(asset);
+      return new Response(new Uint8Array(body), {
+        headers: {
+          "Content-Type": asset.mime,
+          "Content-Length": String(body.byteLength),
+          // Metadata is editable, so unlike every other byte here this changes.
+          "Cache-Control": "private, no-cache",
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(asset.filename)}`,
+          "X-Metadata-Embedded": String(embedded),
+        },
+      });
+    }
 
     if (!transform?.length) {
       const body = await getObject(originalKey(asset.sha256));

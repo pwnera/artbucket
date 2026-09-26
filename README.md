@@ -36,7 +36,7 @@ So artbucket is built API-first for agents as much as people:
   app needs something the API can't do, the API isn't finished.
 - **Content-addressed storage.** Upload the same bytes twice, get one asset.
 - **Your metadata stays yours.** IPTC/XMP written back into the file on
-  download, so leaving costs nothing. *(v0.2)*
+  download, so leaving costs nothing.
 - **MCP server as a first-class surface**, not a bolted-on integration. *(v0.4)*
 
 ## Quick start
@@ -91,9 +91,10 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/assets` | List or search assets, with tag facet counts |
 | `POST` | `/api/v1/assets` | Promote a staged upload |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
-| `PATCH` | `/api/v1/assets/{id}` | Replace its `tags` |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `title`, `description`, `creator`, `copyright` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
+| `GET` | `/a/{id}?download` | The original with current metadata written in |
 
 ### Search
 
@@ -106,6 +107,13 @@ key is canonical. Renditions are generated once and cached forever.
 (title, caption, keywords, creator, copyright, camera). Embedded keywords
 become the asset's initial tags. Each response carries `facets.tags`: tag
 counts over the same filter.
+
+### Your metadata, in your files
+
+`/a/{id}` is always the exact bytes you uploaded. `/a/{id}?download` is the same
+file with the library's title, description, creator, copyright and tags written
+in as XMP, spliced in without re-encoding a pixel. JPEG and PNG today; other
+formats download as stored, and `X-Metadata-Embedded: false` says so.
 
 ## Configuration
 

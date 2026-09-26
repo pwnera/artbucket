@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import { extractMetadata } from "@/lib/metadata";
 import { normalizeTags, prefixQuery } from "@/lib/search";
+import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   deleteObject,
   ensureBucket,
@@ -80,7 +82,9 @@ export async function finalizeUpload(input: {
   }
 
   const probe = await probeImage(bytes);
-  const metadata = extractMetadata(bytes);
+  // Keywords move into tags, which own them from here on. Kept in metadata too,
+  // a removed tag would stay searchable through its stale copy.
+  const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
   await putObject(originalKey(sha256), bytes, input.mime);
   await deleteObject(staged);
 
@@ -94,10 +98,10 @@ export async function finalizeUpload(input: {
       width: probe?.width ?? null,
       height: probe?.height ?? null,
       probe: probe ?? null,
-      metadata,
+      metadata: Object.keys(metadata).length ? metadata : null,
       // Embedded keywords seed the tags, so a library imported from Lightroom
       // is searchable by what it was already tagged with.
-      tags: normalizeTags(metadata?.keywords ?? []),
+      tags: normalizeTags(keywords ?? []),
     })
     .onConflictDoNothing({ target: assets.sha256 })
     .returning(columns);
@@ -174,15 +178,50 @@ async function bySha(sha256: string): Promise<Asset | null> {
   return asset ?? null;
 }
 
-/** Only tags are editable in this slice; metadata edits land with write-back. */
-export async function updateAsset(id: string, patch: { tags?: string[] }): Promise<Asset | null> {
-  if (!patch.tags) return getAsset(id);
+/** The descriptive fields a person edits. Everything else is read from the file. */
+export const EDITABLE = ["title", "description", "creator", "copyright"] as const;
+export type AssetPatch = {
+  tags?: string[];
+} & { [K in (typeof EDITABLE)[number]]?: string | null };
+
+/**
+ * Edits merge into `metadata` over what was extracted; null clears a field.
+ * One statement, so concurrent edits to different fields don't clobber.
+ */
+export async function updateAsset(id: string, { tags, ...fields }: AssetPatch): Promise<Asset | null> {
+  const set: PgUpdateSetSource<typeof assets> = {};
+  if (tags) set.tags = normalizeTags(tags);
+  if (Object.keys(fields).length) {
+    const clean = Object.fromEntries(
+      Object.entries(fields).map(([k, v]) => [k, v?.trim() || null]),
+    );
+    set.metadata = sql`jsonb_strip_nulls(coalesce(${assets.metadata}, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb)`;
+  }
+  if (!Object.keys(set).length) return getAsset(id);
   const [asset] = await db
     .update(assets)
-    .set({ tags: normalizeTags(patch.tags), updatedAt: sql`now()` })
+    .set({ ...set, updatedAt: sql`now()` })
     .where(eq(assets.id, id))
     .returning(columns);
   return asset ?? null;
+}
+
+/**
+ * The original with the library's current metadata written into it. Formats
+ * that can't carry XMP yet come back as stored, flagged so the caller can say so.
+ */
+export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embedded: boolean }> {
+  const bytes = await getObject(originalKey(asset.sha256));
+  const m = asset.metadata ?? {};
+  const xmp = buildXmp({
+    title: m.title,
+    description: m.description,
+    creator: m.creator,
+    copyright: m.copyright,
+    tags: asset.tags,
+  });
+  const out = embedXmp(bytes, asset.mime, xmp);
+  return { body: out ?? bytes, embedded: out !== null };
 }
 
 export async function deleteAsset(id: string) {
