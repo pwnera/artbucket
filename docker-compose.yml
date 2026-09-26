@@ -28,7 +28,9 @@ services:
       - ".s3-data:/data"
       - "./docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status || exit 1"]
+      # 127.0.0.1, not localhost: localhost resolves to ::1 first and SeaweedFS
+      # binds IPv4 only, so the probe fails while the service is perfectly fine.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9333/cluster/status || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 20
