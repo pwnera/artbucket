@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "artbucket",
+      "credentials": [{ "accessKey": "artbucket", "secretKey": "artbucket" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

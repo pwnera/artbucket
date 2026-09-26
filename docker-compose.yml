@@ -1,0 +1,34 @@
+# Local development services. Production self-hosters point S3_* at real S3,
+# Cloudflare R2, Backblaze B2, Garage, or MinIO — anything S3-compatible.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: artbucket
+      POSTGRES_PASSWORD: artbucket
+      POSTGRES_DB: artbucket
+    ports: ["5433:5432"]
+    volumes: [".pgdata:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artbucket"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # SeaweedFS rather than MinIO: Apache-2.0, and its images are not gated
+  # behind a registry login.
+  s3:
+    image: chrislusf/seaweedfs:latest
+    command: >
+      server -dir=/data -s3 -s3.port=9000
+      -s3.config=/etc/seaweedfs/s3.json
+      -master.volumeSizeLimitMB=1024
+    ports: ["9000:9000", "9333:9333"]
+    volumes:
+      - ".s3-data:/data"
+      - "./docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

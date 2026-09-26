@@ -1,0 +1,27 @@
+# private
+.local/
+.env
+.env.*
+!.env.example
+
+# deps
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+next-env.d.ts
+
+# build / cache
+dist/
+*.tsbuildinfo
+.turbo/
+
+# local services
+.s3-data/
+.pgdata/
+
+# os / editor
+.DS_Store
+*.log

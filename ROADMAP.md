@@ -1,0 +1,188 @@
+# artbucket — Roadmap
+
+Agent-first, headless-by-design asset management. A brand knowledge graph with a
+blob store attached — not a blob store with tags.
+
+One maintainer. Every milestone below is independently shippable and demoable.
+Estimates assume evenings and weekends, and are guesses.
+
+---
+
+## How this order was chosen
+
+Three rules, in priority order:
+
+1. **Vertical slices, not layers.** Never "all the backend, then all the UI."
+   Each version works end to end.
+2. **Enforce the API rule before the code grows.** The UI-is-a-client-of-the-API
+   constraint (v0.3) lands early. Retrofitting it later means rewriting everything.
+3. **Ship the differentiator before the table stakes.** MCP (v0.4) and the canon
+   (v0.5–0.6) come *before* multi-user auth (v0.7), because they are what makes
+   the project worth looking at. Auth is a time sink that proves nothing.
+
+---
+
+## v0.1 — Walking skeleton
+**Question it answers:** can a file get in, and come back out in any shape?
+
+- `docker compose up` → Postgres + MinIO + app
+- Upload an image (presigned PUT, direct to S3 — server never proxies bytes)
+- SHA-256 content hash, dedupe on collision
+- Rendition delivery: `/a/{id}/w_800,f_webp` — generated on first request via
+  sharp, cached to S3, served thereafter
+- Minimal grid UI: Tailwind 4 + shadcn + DM Sans
+- Single user, no auth
+
+**Not in this one:** metadata, search, tags, anything multi-user.
+**Done when:** a fresh clone reaches a visible thumbnail in under five minutes.
+_~2 weekends._
+
+---
+
+## v0.2 — It becomes a DAM
+**Question:** can you find the thing again?
+
+- EXIF / IPTC / XMP extraction on ingest (exifreader)
+- Write metadata *back* into file on download — portability is the anti-lock-in promise
+- Custom field schemas, required-at-upload fields
+- Tags, collections, collection→asset field inheritance
+- Postgres FTS across filename, metadata, tags, custom fields
+- Faceted filtering, saved searches
+
+**Not in this one:** semantic/vector search. Postgres FTS until it visibly fails.
+**Done when:** 1,000 assets are searchable and a query returns in <100ms.
+_~3 weekends._
+
+---
+
+## v0.3 — The API becomes the product
+**Question:** is the public API good enough to build the product on?
+
+- `/api/v1` — the only write path, versioned, public
+- **Every private endpoint deleted.** The web UI may call nothing else.
+- All logic moves to `lib/core/`; the API is a thin adapter over it
+- API keys, scoped
+- OpenAPI spec generated from Zod schemas
+- Content negotiation: `Accept: application/json` on an asset URI returns the
+  *description* (rights, constraints, alternatives), not the bytes
+
+**Not in this one:** new features. This milestone is entirely structural.
+**Done when:** the UI has zero endpoints of its own, and the OpenAPI spec is complete.
+_~2 weekends. Painful, non-negotiable, and cheap only if done now._
+
+---
+
+## v0.4 — Agent surface
+**Question:** can Claude or Cursor use this without a human?
+
+- MCP server, same `lib/core/` as REST — a second adapter, not an integration
+- Tools: search, describe, resolve rendition URL, ingest, propose tags
+- Agent writes land in `proposed` state; a human promotes them
+- `artbucket` CLI (thin client over the same API)
+
+**Not in this one:** a chatbot in the sidebar. The agent lives in the user's
+editor, not in this app.
+**Done when:** an agent finds an asset and returns a correctly-sized URL, unaided.
+_~2 weekends. This is the launch-worthy milestone._
+
+---
+
+## v0.5 — The canon
+**Question:** can the brand itself be queried?
+
+- Brand rules as structured records, not documents: `color.primary.hex`,
+  `logo.minClearSpace`, `logo.neverDo[]`, `tone.avoid[]`, `type.scale`
+- Guidelines page *rendered from* that data — inverting Frontify, who author
+  documents and try to extract data
+- `GET /brand/rules?context=instagram-story` → actionable constraints
+- Exposed as MCP resources
+
+**Done when:** an agent asks "what's our primary blue for dark backgrounds"
+and gets a hex code with its usage rule.
+_~3 weekends._
+
+---
+
+## v0.6 — Verdict and provenance
+**Question:** can something else decide whether a use is allowed?
+
+- `POST /check` → `{allowed, reasons[], suggest}` — the primitive no DAM has
+- Rights fields: license, territory, channel, embargo, expiry, model releases
+- Provenance columns: `origin` (shot / licensed / generated), `parent_asset_id`,
+  `generator`, prompt
+- C2PA manifest read and preserve
+
+**Done when:** `/check` correctly refuses a superseded logo and names its replacement.
+_~3 weekends. This is the moat._
+
+---
+
+## v0.7 — Multi-user
+**Question:** can a team use it?
+
+- better-auth: email + OIDC. **OIDC stays free forever** — no SSO tax.
+- Organizations, workspaces
+- RBAC: org → workspace → collection → asset
+- Share links with expiry and password; guest collect-upload links
+- Audit log (also free — cheap trust)
+
+**Not in this one:** SAML, SCIM. Those are the eventual commercial line.
+_~4 weekends. Deliberately deferred: single-user validates the thesis fine._
+
+---
+
+## v0.8 — Lifecycle
+**Question:** can the wrong version stop leaking out?
+
+- Version stacks with a "current approved" pointer, rollback, side-by-side compare
+- States: draft → in review → approved → expired → archived
+- **Expiry enforced at delivery** — rendition URLs 410 and caches purge
+- Bulk operations
+
+_~3 weekends._
+
+---
+
+## v0.9 — Hardening
+**Question:** can a stranger run this in production without paging you?
+
+- Backup and restore that is actually tested
+- Migration path guarantees across versions
+- S3 lifecycle rules, storage accounting
+- Rate limits, CSP, security headers
+- Docs site, deploy guides (Docker, Fly, Coolify, bare VPS)
+- Importers: Brandfolder, Bynder, Canto exports
+- Telemetry **off by default**
+
+_~4 weekends. The unglamorous one that decides adoption._
+
+---
+
+## v1.0 — Stable contract
+**Question:** can someone integrate and trust it?
+
+- `/api/v1` frozen — semver, deprecation policy, no breaking changes without v2
+- MCP tool signatures frozen
+- SECURITY.md, CONTRIBUTING.md, ADRs for the load-bearing decisions
+- AGPLv3 core; `ee/` reserved but empty
+- Published benchmarks on a 100k-asset library
+
+**v1.0 means one thing:** a promise not to break your integration.
+
+---
+
+## Non-goals
+
+PIM. Project management. A CMS. Video editing. Custom model training.
+A sidebar chatbot. Integrate or skip.
+
+## Deferred, with triggers
+
+| Thing | Add when |
+|---|---|
+| pgvector / CLIP semantic search | Postgres FTS visibly fails on real queries |
+| Job queue | Rendition p99 hurts |
+| Video renditions, posters, transcripts | Someone actually asks |
+| Elasticsearch / Typesense | Never, probably |
+| SAML, SCIM | First paying customer requires it |
+| Approval routing, annotations, analytics, portals | After v1.0, if the thesis held |

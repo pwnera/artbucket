@@ -1,0 +1,38 @@
+name: Bug report
+description: Something behaves differently from how it is documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact error, and the response body if it was an API call.
+    validations: { required: true }
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Upload a 40MB TIFF
+        2. Request /a/{id}/w_800,f_webp
+        3. 500
+    validations: { required: true }
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations: { required: true }
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations: { required: true }
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, storage provider (S3, R2, MinIO, SeaweedFS…), Postgres version.

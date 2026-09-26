@@ -1,0 +1,5 @@
+# Dependencies allowed to run install scripts. Everything else is blocked.
+allowBuilds:
+  esbuild: true # drizzle-kit
+  unrs-resolver: true # eslint resolver
+  exifreader: false
