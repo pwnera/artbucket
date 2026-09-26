@@ -69,6 +69,8 @@ export const assets = pgTable(
     index("assets_created_at_idx").on(t.createdAt.desc()),
     index("assets_search_idx").using("gin", t.search),
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
+    // Field filters match the effective value, own over inherited: `inherited || fields`.
+    index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
   ],
 );
 
@@ -124,3 +126,16 @@ export const fields = pgTable(
     check("fields_type_check", sql`${t.type} in ('text', 'number', 'date', 'boolean', 'select')`),
   ],
 );
+
+/**
+ * A named query. `query` is the /api/v1/assets query string, validated when
+ * saved, so running one is a plain GET any client can make.
+ */
+export const savedSearches = pgTable("saved_searches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  query: text("query").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});

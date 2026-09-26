@@ -13,8 +13,9 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.1, early.** The walking skeleton works - upload, content-addressed
-> dedupe, and on-the-fly renditions. The API is not stable until v1.0.
+> **Status: v0.2, early.** Upload, content-addressed dedupe, on-the-fly
+> renditions, metadata extraction and write-back, custom fields, collections,
+> faceted search and saved searches. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -102,6 +103,9 @@ key is canonical. Renditions are generated once and cached forever.
 | `PATCH` | `/api/v1/collections/{id}` | Rename it or change its `fields` |
 | `DELETE` | `/api/v1/collections/{id}` | Delete it; its assets stay |
 | `POST` | `/api/v1/collections/{id}/assets` | `{ "add": [...], "remove": [...] }` |
+| `GET` | `/api/v1/searches` | Saved searches |
+| `POST` | `/api/v1/searches` | Save a `{ name, query }` |
+| `DELETE` | `/api/v1/searches/{id}` | Forget one |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
 | `GET` | `/a/{id}?download` | The original with current metadata written in |
 
@@ -112,10 +116,29 @@ key is canonical. Renditions are generated once and cached forever.
 /api/v1/assets?tag=mascot&tag=autumn       assets carrying every tag
 ```
 
-`q` covers the filename, tags, and the EXIF / IPTC / XMP read on ingest
-(title, caption, keywords, creator, copyright, camera). Embedded keywords
-become the asset's initial tags. Each response carries `facets.tags`: tag
-counts over the same filter.
+`q` covers the filename, tags, text field values, and the EXIF / IPTC / XMP
+read on ingest (title, caption, creator, copyright, camera). Embedded keywords
+become the asset's initial tags.
+
+Custom fields filter with `f.`, matching an asset's own value or else the one
+it inherits:
+
+```
+/api/v1/assets?f.channel=web&f.channel=print   either value
+/api/v1/assets?f.approved=true                 booleans
+/api/v1/assets?f.budget.gte=10&f.expires.lte=2027-01-31
+```
+
+A filter on an unknown field or with a value of the wrong type is a `422`,
+not an empty result. Each response carries `facets`: tag counts, and value
+counts for every select and boolean field, over the same filter. A field's own
+facet ignores that field's filter, so the other values stay visible to OR in.
+
+A saved search is a name and one of these query strings, checked when saved.
+Running it is a plain `GET /api/v1/assets?{query}`.
+
+On a library of 1,000+ assets every query above answers in under 20ms end to
+end, facets included.
 
 ### Custom fields
 

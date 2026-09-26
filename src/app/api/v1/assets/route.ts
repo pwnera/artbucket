@@ -1,33 +1,18 @@
 import { z } from "zod";
 import { body, handle, ok } from "@/lib/api";
-import { finalizeUpload, searchAssets } from "@/lib/core/assets";
-
-const Query = z.object({
-  q: z.string().max(512).optional(),
-  tag: z.array(z.string().max(64)).max(20),
-  collection: z.uuid().optional(),
-  limit: z.coerce.number().int().optional(),
-  offset: z.coerce.number().int().optional(),
-});
+import { finalizeUpload, parseAssetQuery, searchAssets } from "@/lib/core/assets";
 
 /**
- * GET /api/v1/assets?q=fox&tag=brand&tag=logo&collection={id}
+ * GET /api/v1/assets?q=fox&tag=brand&collection={id}&f.channel=web&f.budget.gte=10
  *
- * Browse and search in one: `q` is prefix full-text over filename, tags and
- * embedded metadata; each `tag` narrows to assets carrying it. The response
- * carries tag facet counts for the same filter.
+ * Browse and search in one: `q` is prefix full-text over filename, tags,
+ * embedded metadata and field values; each `tag` narrows to assets carrying
+ * it; `f.*` filters custom fields (see lib/filters.ts). The response carries
+ * facet counts for tags and for select and boolean fields.
  */
 export async function GET(req: Request) {
   try {
-    const p = new URL(req.url).searchParams;
-    const { tag, ...rest } = Query.parse({
-      q: p.get("q") ?? undefined,
-      tag: p.getAll("tag"),
-      collection: p.get("collection") ?? undefined,
-      limit: p.get("limit") ?? undefined,
-      offset: p.get("offset") ?? undefined,
-    });
-    return ok(await searchAssets({ ...rest, tags: tag }));
+    return ok(await searchAssets(await parseAssetQuery(new URL(req.url).searchParams)));
   } catch (err) {
     return handle(err);
   }

@@ -8,6 +8,7 @@ import { UploadFieldsDialog } from "@/components/fields";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
+import { isFacetable } from "@/lib/filters";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 
 export type Asset = {
@@ -32,7 +33,20 @@ export type Asset = {
   createdAt: string;
 };
 
-export type Listing = { data: Asset[]; facets: { tags: { value: string; count: number }[] } };
+type Count = { value: string; count: number };
+export type Listing = {
+  data: Asset[];
+  facets: { tags: Count[]; fields?: Record<string, Count[]> };
+};
+type SavedSearch = { id: string; name: string; query: string };
+
+const toggle = (xs: string[], x: string) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
+
+/** "f.budget.gte=10" as a person would say it. */
+const describe = (k: string, v: string) => {
+  const [, key, op] = k.split(".");
+  return `${key} ${op === "gte" ? "≥" : op === "lte" ? "≤" : "="} ${v}`;
+};
 
 // This component talks to /api/v1 and nothing else. There are no private
 // endpoints: if the UI needs something the public API cannot do, the API is
@@ -41,10 +55,12 @@ export function Gallery({
   initial,
   fields,
   collections: initialCollections,
+  searches: initialSearches,
 }: {
   initial: Listing;
   fields: FieldDef[];
   collections: Collection[];
+  searches: SavedSearch[];
 }) {
   const [{ data: assets, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(initialCollections);
@@ -54,6 +70,11 @@ export function Gallery({
   const inCollection = collections.find((c) => c.id === current);
   const [q, setQ] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  // Selected values per select/boolean field; values of one field OR together.
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
+  // Params the UI has no control for (ranges from a saved search): kept, shown, removable.
+  const [extra, setExtra] = useState<[string, string][]>([]);
+  const [searches, setSearches] = useState(initialSearches);
   const [open, setOpen] = useState<Asset | null>(null);
   // Files waiting on the required-fields step before they upload.
   const [pending, setPending] = useState<File[] | null>(null);
@@ -63,17 +84,67 @@ export function Gallery({
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
 
-  const refresh = useCallback(async () => {
+  // The whole view as an /api/v1/assets query string: what runs, and what saves.
+  const query = useCallback(() => {
     const params = new URLSearchParams(q.trim() ? { q } : {});
     for (const t of tags) params.append("tag", t);
     if (current) params.set("collection", current);
+    for (const [k, vs] of Object.entries(filters)) for (const v of vs) params.append(`f.${k}`, v);
+    for (const [k, v] of extra) params.append(k, v);
+    return params;
+  }, [q, tags, current, filters, extra]);
+
+  // Responses can land out of order; only the latest request may paint.
+  const latest = useRef(0);
+  const refresh = useCallback(async () => {
+    const params = query();
+    const ticket = ++latest.current;
     const [res, cols] = await Promise.all([
       fetch(`/api/v1/assets?${params}`),
       fetch("/api/v1/collections"),
     ]);
-    if (res.ok) setListing(await res.json());
-    if (cols.ok) setCollections((await cols.json()).data);
-  }, [q, tags, current]);
+    const [listing, colsBody] = await Promise.all([res.json(), cols.ok ? cols.json() : null]);
+    if (ticket !== latest.current) return;
+    if (res.ok) setListing(listing);
+    else setError(listing.error?.message ?? "Search failed");
+    if (colsBody) setCollections(colsBody.data);
+  }, [query]);
+
+  /** Restore a saved query string into the view's state. */
+  const apply = (qs: string) => {
+    const p = new URLSearchParams(qs);
+    const byField: Record<string, string[]> = {};
+    const rest: [string, string][] = [];
+    for (const [k, v] of p) {
+      const m = k.match(/^f\.([a-z0-9_]+)$/);
+      if (m) (byField[m[1]] ??= []).push(v);
+      else if (k.startsWith("f.")) rest.push([k, v]);
+    }
+    setError(null);
+    setQ(p.get("q") ?? "");
+    setTags(p.getAll("tag"));
+    setCurrent(p.get("collection"));
+    setFilters(byField);
+    setExtra(rest);
+  };
+
+  async function saveSearch() {
+    const name = prompt("Name this search")?.trim();
+    if (!name) return;
+    const res = await fetch("/api/v1/searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, query: query().toString() }),
+    });
+    if (!res.ok) return setError((await res.json()).error?.message ?? "Couldn't save the search");
+    const saved: SavedSearch = (await res.json()).data;
+    setSearches((ss) => [...ss, saved].sort((a, b) => a.name.localeCompare(b.name)));
+  }
+
+  async function forget(id: string) {
+    const res = await fetch(`/api/v1/searches/${id}`, { method: "DELETE" });
+    if (res.ok) setSearches((ss) => ss.filter((sv) => sv.id !== id));
+  }
 
   // Search as you type, settled for a beat so each keystroke isn't a request.
   const first = useRef(true);
@@ -96,8 +167,6 @@ export function Gallery({
     else void upload(files);
   };
 
-  const toggleTag = (t: string) =>
-    setTags((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]));
 
   const upload = useCallback(
     async (files: File[], values: Record<string, FieldValue> = {}) => {
@@ -145,12 +214,12 @@ export function Gallery({
     [refresh, current],
   );
 
-  // A selected tag stays on screen even when nothing matches, or it could never be cleared.
-  const chips = [
-    ...tags.filter((t) => !facets.tags.some((f) => f.value === t)).map((value) => ({ value, count: 0 })),
-    ...facets.tags,
-  ];
-  const filtered = q.trim() !== "" || tags.length > 0 || current !== null;
+  const filtered =
+    q.trim() !== "" ||
+    tags.length > 0 ||
+    current !== null ||
+    extra.length > 0 ||
+    Object.values(filters).some((vs) => vs.length > 0);
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
 
@@ -252,28 +321,60 @@ export function Gallery({
                 className="text-body text-ink placeholder:text-ink-muted w-full bg-transparent outline-none"
               />
             </label>
-            {chips.length > 0 && (
-              <ul className="flex flex-wrap gap-2" aria-label="Filter by tag">
-                {chips.map(({ value, count }) => {
-                  const on = tags.includes(value);
-                  return (
-                    <li key={value}>
-                      <button
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => toggleTag(value)}
-                        className={`text-label rounded-pill border px-3 py-1 transition-colors duration-150 ${
-                          on
-                            ? "bg-teal-soft border-teal text-teal-ink"
-                            : "border-line text-ink-muted hover:border-line-strong hover:text-ink"
-                        }`}
-                      >
-                        {value} <span className="opacity-70">{count}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+            <FacetRow
+              label="Tags"
+              counts={facets.tags}
+              selected={tags}
+              onToggle={(v) => setTags((ts) => toggle(ts, v))}
+            />
+            {fields.filter(isFacetable).map((d) => (
+              <FacetRow
+                key={d.key}
+                label={d.label}
+                counts={facets.fields?.[d.key] ?? []}
+                selected={filters[d.key] ?? []}
+                format={d.type === "boolean" ? (v) => (v === "true" ? "Yes" : "No") : undefined}
+                onToggle={(v) => setFilters((f) => ({ ...f, [d.key]: toggle(f[d.key] ?? [], v) }))}
+              />
+            ))}
+            {(extra.length > 0 || filtered || searches.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {extra.map(([k, v]) => (
+                  <Button
+                    key={`${k}=${v}`}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setExtra((xs) => xs.filter((x) => x[0] !== k || x[1] !== v))}
+                    aria-label={`Remove filter ${describe(k, v)}`}
+                  >
+                    {describe(k, v)} ×
+                  </Button>
+                ))}
+                {searches.map((sv) => (
+                  <span key={sv.id} className="border-line flex items-center rounded-pill border">
+                    <button
+                      type="button"
+                      onClick={() => apply(sv.query)}
+                      className="text-control text-ink hover:text-teal-ink py-1 pr-1 pl-3"
+                    >
+                      {sv.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => forget(sv.id)}
+                      aria-label={`Delete saved search ${sv.name}`}
+                      className="text-ink-muted hover:text-danger px-2 py-1"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {filtered && (
+                  <Button variant="ghost" size="sm" onClick={saveSearch}>
+                    Save this search
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -404,5 +505,53 @@ export function Gallery({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * One facet: a label and its value chips. A selected value stays on screen
+ * even when its count drops to zero, or it could never be cleared.
+ */
+function FacetRow({
+  label,
+  counts,
+  selected,
+  onToggle,
+  format = (v) => v,
+}: {
+  label: string;
+  counts: Count[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  format?: (value: string) => string;
+}) {
+  const chips = [
+    ...selected.filter((v) => !counts.some((c) => c.value === v)).map((value) => ({ value, count: 0 })),
+    ...counts,
+  ];
+  if (!chips.length) return null;
+  return (
+    <ul className="flex flex-wrap items-center gap-2" aria-label={`Filter by ${label}`}>
+      <li className="text-label text-ink-muted mr-1">{label}</li>
+      {chips.map(({ value, count }) => {
+        const on = selected.includes(value);
+        return (
+          <li key={value}>
+            <button
+              type="button"
+              aria-pressed={on}
+              onClick={() => onToggle(value)}
+              className={`text-label rounded-pill border px-3 py-1 transition-colors duration-150 ${
+                on
+                  ? "bg-teal-soft border-teal text-teal-ink"
+                  : "border-line text-ink-muted hover:border-line-strong hover:text-ink"
+              }`}
+            >
+              {format(value)} <span className="opacity-70">{count}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

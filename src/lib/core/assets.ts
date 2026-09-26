@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, or, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
@@ -9,6 +9,7 @@ import { inheritedFrom, joinCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
+import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { extractMetadata } from "@/lib/metadata";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { buildXmp, embedXmp } from "@/lib/xmp";
@@ -148,50 +149,109 @@ export type AssetQuery = {
   tags?: string[];
   /** Assets in this collection. */
   collection?: string;
+  /** Custom field filters, matched against own-else-inherited values. */
+  filters?: FieldFilter[];
   limit?: number;
   offset?: number;
 };
 
+const QueryParams = z.object({
+  q: z.string().max(512).optional(),
+  tag: z.array(z.string().max(64)).max(20),
+  collection: z.uuid().optional(),
+  limit: z.coerce.number().int().optional(),
+  offset: z.coerce.number().int().optional(),
+});
+
 /**
- * Search and browse are one call: no query means newest first. The tag facet
- * is counted over the same filter, so every count it shows is a click that
- * returns exactly that many results.
+ * Parse an /api/v1/assets query string. Shared by the list endpoint and saved
+ * searches, so a search that saves is a search that runs.
+ */
+export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQuery> {
+  const { tag, ...rest } = QueryParams.parse({
+    q: params.get("q") ?? undefined,
+    tag: params.getAll("tag"),
+    collection: params.get("collection") ?? undefined,
+    limit: params.get("limit") ?? undefined,
+    offset: params.get("offset") ?? undefined,
+  });
+  try {
+    return { ...rest, tags: tag, filters: parseFieldFilters(params, await listFields()) };
+  } catch (err) {
+    if (err instanceof FilterError) throw new AssetError("invalid", err.message);
+    throw err;
+  }
+}
+
+/** Own values over inherited ones. Must match assets_effective_fields_idx exactly. */
+const effective = sql`(${assets.inherited} || ${assets.fields})`;
+
+function filterSql(f: FieldFilter): SQL {
+  if (f.op === "in") {
+    return or(...f.values.map((v) => sql`${effective} @> ${JSON.stringify({ [f.key]: v })}::jsonb`))!;
+  }
+  const cmp = f.op === "gte" ? sql`>=` : sql`<=`;
+  // Numbers compare as numbers; dates are ISO strings, which compare correctly as text.
+  return typeof f.value === "number"
+    ? sql`(jsonb_typeof(${effective} -> ${f.key}) = 'number' and (${effective} ->> ${f.key})::numeric ${cmp} ${f.value})`
+    : sql`(${effective} ->> ${f.key}) ${cmp} ${f.value}`;
+}
+
+/**
+ * Search and browse are one call: no query means newest first.
  *
- * ponytail: facet counts scan the matching set on every request. Fine at the
- * v0.2 target (1,000 assets, <100ms); cache or approximate past ~100k.
+ * Facets are counted over the same filter, so every count is a click that
+ * returns exactly that many results. A field's own facet ignores that field's
+ * filter: pick "web" and "print" still shows its count, because values of one
+ * field OR together.
+ *
+ * ponytail: one facet query per select/boolean field, each scanning the
+ * matching set. Fine at the v0.2 target (1,000 assets, <100ms); cache or
+ * approximate past ~100k.
  */
 export async function searchAssets({
   q,
   tags = [],
   collection,
+  filters = [],
   limit = 100,
   offset = 0,
 }: AssetQuery) {
   const tsq = q ? prefixQuery(q) : null;
   const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
   const wanted = normalizeTags(tags);
-  const where = and(
-    match,
-    wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
-    collection
-      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
-      : undefined,
-  );
+  const where = (except?: string) =>
+    and(
+      match,
+      wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
+      collection
+        ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
+        : undefined,
+      ...filters.filter((f) => f.key !== except).map(filterSql),
+    );
 
-  const [data, facets] = await Promise.all([
+  const facetable = (await listFields()).filter(isFacetable);
+  const [data, tagCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)
       .from(assets)
-      .where(where)
+      .where(where())
       .orderBy(
         ...(match ? [desc(sql`ts_rank(${assets.search}, to_tsquery('simple', ${tsq}))`)] : []),
         desc(assets.createdAt),
       )
       .limit(Math.min(Math.max(limit, 1), 200))
       .offset(Math.max(offset, 0)),
-    tagFacet(where),
+    tagFacet(where()),
+    ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
-  return { data, facets: { tags: facets } };
+  return {
+    data,
+    facets: {
+      tags: tagCounts,
+      fields: Object.fromEntries(facetable.map((d, i) => [d.key, fieldCounts[i]])),
+    },
+  };
 }
 
 async function tagFacet(where: SQL | undefined) {
@@ -204,6 +264,20 @@ async function tagFacet(where: SQL | undefined) {
     .orderBy(sql`count(*) desc`, sql`t.value`)
     .limit(50);
   return rows;
+}
+
+/** Values as strings ("web", "true"): exactly what goes back in as `f.key=value`. */
+async function fieldFacet(key: string, where: SQL | undefined) {
+  const value = sql<string>`${effective} ->> ${key}`;
+  return db
+    .select({ value, count: sql<number>`count(*)::int` })
+    .from(assets)
+    .where(and(where, sql`${effective} ? ${key}`))
+    // By position: the key is a bind parameter, and Postgres won't match
+    // `->> $1` in the select to `->> $3` in a GROUP BY as the same expression.
+    .groupBy(sql`1`)
+    .orderBy(sql`2 desc`, sql`1`)
+    .limit(50);
 }
 
 export async function getAsset(id: string): Promise<Asset | null> {

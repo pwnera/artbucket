@@ -12,14 +12,17 @@ export const dynamic = "force-dynamic";
  */
 export default async function Home() {
   const get = (path: string) => fetch(`${env.APP_URL}/api/v1/${path}`, { cache: "no-store" });
-  const [res, fieldsRes, collectionsRes] = await Promise.all([
+  const [res, fieldsRes, collectionsRes, searchesRes] = await Promise.all([
     get("assets"),
     get("fields"),
     get("collections"),
+    get("searches"),
   ]);
   const initial: Listing = res.ok ? await res.json() : { data: [], facets: { tags: [] } };
   const fields: FieldDef[] = fieldsRes.ok ? (await fieldsRes.json()).data : [];
   const collections: Collection[] = collectionsRes.ok ? (await collectionsRes.json()).data : [];
 
-  return <Gallery initial={initial} fields={fields} collections={collections} />;
+  const searches = searchesRes.ok ? (await searchesRes.json()).data : [];
+
+  return <Gallery initial={initial} fields={fields} collections={collections} searches={searches} />;
 }
