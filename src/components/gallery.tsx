@@ -1,14 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
+import { IconBookmarkPlus, IconCloudUpload, IconPhoto, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
+import { toast } from "sonner";
 import { AssetEditor } from "@/components/asset-editor";
-import { FieldManager } from "@/components/field-manager";
-import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
-import { CollectionDialog, type Collection } from "@/components/collections";
+import { CollectionDialog, send, type Collection } from "@/components/collections";
+import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
-import { Drip, Mascot } from "@/components/mascot";
+import { FieldManager } from "@/components/field-manager";
+import { LibrarySidebar, type SavedSearch } from "@/components/library-sidebar";
+import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
@@ -36,14 +43,10 @@ export type Asset = {
   createdAt: string;
 };
 
-type Count = { value: string; count: number };
 export type Listing = {
   data: Asset[];
   facets: { tags: Count[]; fields?: Record<string, Count[]> };
 };
-type SavedSearch = { id: string; name: string; query: string };
-
-const toggle = (xs: string[], x: string) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
 
 /** "f.budget.gte=10" as a person would say it. */
 const describe = (k: string, v: string) => {
@@ -87,7 +90,6 @@ export function Gallery({
   const [pending, setPending] = useState<File[] | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
 
@@ -118,7 +120,7 @@ export function Gallery({
     ]);
     if (ticket !== latest.current) return;
     if (res.ok) setListing(listing);
-    else setError(listing.error?.message ?? "Search failed");
+    else toast.error(listing.error?.message ?? "Search failed", { id: "search" });
     if (colsBody) setCollections(colsBody.data);
     if (defsBody) {
       const next: FieldDef[] = defsBody.data;
@@ -141,7 +143,6 @@ export function Gallery({
       if (m) (byField[m[1]] ??= []).push(v);
       else if (k.startsWith("f.")) rest.push([k, v]);
     }
-    setError(null);
     setQ(p.get("q") ?? "");
     setTags(p.getAll("tag"));
     setCurrent(p.get("collection"));
@@ -149,23 +150,24 @@ export function Gallery({
     setExtra(rest);
   };
 
-  async function saveSearch() {
-    const name = prompt("Name this search")?.trim();
-    if (!name) return;
-    const res = await fetch("/api/v1/searches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, query: query().toString() }),
-    });
-    if (!res.ok) return setError((await res.json()).error?.message ?? "Couldn't save the search");
-    const saved: SavedSearch = (await res.json()).data;
+  async function saveSearch(name: string) {
+    const saved: SavedSearch | null = await send("POST", "/api/v1/searches", { name, query: query().toString() });
+    if (!saved) return false;
     setSearches((ss) => [...ss, saved].sort((a, b) => a.name.localeCompare(b.name)));
+    toast.success(`Saved "${name}"`);
+    return true;
   }
 
   async function forget(id: string) {
-    const res = await fetch(`/api/v1/searches/${id}`, { method: "DELETE" });
-    if (res.ok) setSearches((ss) => ss.filter((sv) => sv.id !== id));
+    if (await send("DELETE", `/api/v1/searches/${id}`)) setSearches((ss) => ss.filter((sv) => sv.id !== id));
   }
+
+  const clear = () => {
+    setQ("");
+    setTags([]);
+    setFilters({});
+    setExtra([]);
+  };
 
   // Search as you type, settled for a beat so each keystroke isn't a request.
   const first = useRef(true);
@@ -264,11 +266,14 @@ export function Gallery({
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
 
+  const narrowed = q.trim() !== "" || tags.length > 0 || extra.length > 0 || Object.values(filters).some((vs) => vs.length > 0);
+  const qs = query().toString();
+  const activeSearch = searches.find((sv) => sv.query === qs)?.query ?? null;
+
   return (
     // Drag is tracked on the whole page: dropping only inside a bordered box is
-    // a worse target than the window, and it forces an empty frame to sit under
-    // a full grid just to have somewhere to aim.
-    <div
+    // a worse target than the window.
+    <SidebarProvider
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current += 1;
@@ -285,33 +290,48 @@ export function Gallery({
         setDragging(false);
         start(e.dataTransfer.files);
       }}
-      className="min-h-dvh"
     >
-      <main className="mx-auto max-w-6xl px-8 py-8">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-2">
-            {/* The mark is centred on the wordmark's line box, not on the whole
-                block, so the count below still starts at the wordmark's edge. */}
-            <span className="flex h-[30px] items-center">
-              <Logo size={30} />
-            </span>
-            <div>
-              <h1 className="text-title-1">Artbucket</h1>
-              <p className="text-meta text-ink-muted mt-1">
-                {assets.length} {filtered ? "found" : assets.length === 1 ? "file" : "files"}
-              </p>
-            </div>
-          </div>
+      <LibrarySidebar
+        collections={collections}
+        current={current}
+        onSelect={(id) => {
+          setCurrent(id);
+          if (id === null) clear();
+        }}
+        onNewCollection={() => setEditing("new")}
+        onEditCollection={setEditing}
+        searches={searches}
+        activeSearch={activeSearch}
+        onApplySearch={(sv) => apply(sv.query)}
+        onDeleteSearch={forget}
+        onManageFields={() => setManagingFields(true)}
+      />
 
-          <span className="ml-auto" />
-          <Button variant="ghost" onClick={() => setManagingFields(true)}>
-            Custom fields
-          </Button>
-          {/* The one coral CTA on this view. */}
+      <SidebarInset>
+        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold">{inCollection?.name ?? "All files"}</h1>
+          </div>
+          <Badge variant="secondary" className="font-mono tabular-nums">
+            {assets.length}
+          </Badge>
+          <div className="relative ml-auto w-full max-w-sm">
+            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            <Input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search names, tags, captions"
+              aria-label="Search assets"
+              className="h-8 pl-8"
+            />
+          </div>
           {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
-          <Button size="lg" onClick={() => input.current?.click()} aria-busy={uploading}>
-            <UploadIcon size={20} />
-            Upload files
+          <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
+            <IconUpload />
+            <span className="hidden sm:inline">Upload</span>
           </Button>
           <input
             ref={input}
@@ -327,178 +347,67 @@ export function Gallery({
           />
         </header>
 
-        {!empty && (
-          <div className="mb-6 space-y-3">
-            <nav aria-label="Collections" className="flex flex-wrap items-center gap-2">
-              {[{ id: null, name: "All files" }, ...collections].map((c) => {
-                const on = current === c.id;
-                return (
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          {!empty && (
+            <div className="flex flex-wrap items-center gap-2">
+              <FacetFilter label="Tags" counts={facets.tags} selected={tags} onChange={setTags} />
+              {fields.filter(isFacetable).map((d) => (
+                <FacetFilter
+                  key={d.key}
+                  label={d.label}
+                  counts={facets.fields?.[d.key] ?? []}
+                  selected={filters[d.key] ?? []}
+                  format={d.type === "boolean" ? (v) => (v === "true" ? "Yes" : "No") : undefined}
+                  onChange={(vs) => setFilters((f) => ({ ...f, [d.key]: vs }))}
+                />
+              ))}
+              {extra.map(([k, v]) => (
+                <Badge key={`${k}=${v}`} variant="secondary" className="h-8 gap-1 pr-1">
+                  {describe(k, v)}
                   <button
-                    key={c.id ?? "all"}
                     type="button"
-                    aria-current={on ? "page" : undefined}
-                    onClick={() => setCurrent(c.id)}
-                    className={`text-control rounded-pill px-3 py-1.5 transition-colors duration-150 ${
-                      on ? "bg-teal-strong text-on-teal-strong" : "text-ink-muted hover:bg-teal-soft hover:text-teal-ink"
-                    }`}
-                  >
-                    {c.name}
-                    {"count" in c && <span className="ml-1.5 opacity-70">{c.count}</span>}
-                  </button>
-                );
-              })}
-              <Button variant="ghost" size="sm" onClick={() => setEditing("new")}>
-                New collection
-              </Button>
-              {inCollection && (
-                <Button variant="ghost" size="sm" onClick={() => setEditing(inCollection)}>
-                  Edit
-                </Button>
-              )}
-            </nav>
-            <label className="bg-surface-raised border-line focus-within:border-line-strong text-ink-muted flex max-w-md items-center gap-2 rounded-pill border px-4 py-2">
-              <SearchIcon size={20} />
-              <input
-                type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search names, tags, captions"
-                aria-label="Search assets"
-                className="text-body text-ink placeholder:text-ink-muted w-full bg-transparent outline-none"
-              />
-            </label>
-            <FacetRow
-              label="Tags"
-              counts={facets.tags}
-              selected={tags}
-              onToggle={(v) => setTags((ts) => toggle(ts, v))}
-            />
-            {fields.filter(isFacetable).map((d) => (
-              <FacetRow
-                key={d.key}
-                label={d.label}
-                counts={facets.fields?.[d.key] ?? []}
-                selected={filters[d.key] ?? []}
-                format={d.type === "boolean" ? (v) => (v === "true" ? "Yes" : "No") : undefined}
-                onToggle={(v) => setFilters((f) => ({ ...f, [d.key]: toggle(f[d.key] ?? [], v) }))}
-              />
-            ))}
-            {(extra.length > 0 || filtered || searches.length > 0) && (
-              <div className="flex flex-wrap items-center gap-2">
-                {extra.map(([k, v]) => (
-                  <Button
-                    key={`${k}=${v}`}
-                    variant="secondary"
-                    size="sm"
                     onClick={() => setExtra((xs) => xs.filter((x) => x[0] !== k || x[1] !== v))}
                     aria-label={`Remove filter ${describe(k, v)}`}
+                    className="hover:bg-muted-foreground/20 rounded-full p-0.5"
                   >
-                    {describe(k, v)} ×
-                  </Button>
-                ))}
-                {searches.map((sv) => (
-                  <span key={sv.id} className="border-line flex items-center rounded-pill border">
-                    <button
-                      type="button"
-                      onClick={() => apply(sv.query)}
-                      className="text-control text-ink hover:text-teal-ink py-1 pr-1 pl-3"
-                    >
-                      {sv.name}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => forget(sv.id)}
-                      aria-label={`Delete saved search ${sv.name}`}
-                      className="text-ink-muted hover:text-danger px-2 py-1"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {filtered && (
-                  <Button variant="ghost" size="sm" onClick={saveSearch}>
-                    Save this search
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                    <IconX className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+              {narrowed && (
+                <Button variant="ghost" size="sm" className="h-8" onClick={clear}>
+                  Reset <IconX />
+                </Button>
+              )}
+              {filtered && !activeSearch && <SaveSearch onSave={saveSearch} />}
+            </div>
+          )}
 
-        {/* Status: icon, word and colour together — never colour alone. */}
-        {error && (
-          <p
-            role="status"
-            className="bg-surface-raised border-line text-body text-danger mb-6 flex items-center gap-2 rounded-card border px-4 py-3"
-          >
-            <AlertIcon size={20} />
-            {error}
-          </p>
-        )}
-
-        {empty ? (
-          <div className="relative flex flex-col items-center rounded-lg px-6 py-12 text-center">
-            <DashedOutline active={dragging} />
-            {/* One drip, one Pip: the only decoration on this screen. */}
-            <span className="bg-line block h-px w-16" />
-            <Drip size={28} />
-            <Mascot size={96} className="mt-2" />
-            <h2 className="text-display mt-6">Your art, all in one bucket</h2>
-            <p className="text-body text-ink-muted mt-2 max-w-sm">
-              Drop files anywhere on this page to add them. Pip will keep them tidy.
-            </p>
-          </div>
-        ) : assets.length === 0 ? (
-          <p className="text-body text-ink-muted py-12 text-center">
-            {inCollection && !q.trim() && !tags.length
-              ? "Nothing in this collection yet. Upload while it's selected, or add files from their editor."
-              : "Nothing matches. Try fewer words or clear a tag."}
-          </p>
-        ) : (
-          <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
-            {assets.map((a) => (
-              <li key={a.id}>
-                <button
-                  type="button"
-                  onClick={() => setOpen(a)}
-                  className="bg-surface-raised w-full text-left border-line shadow-card hover:shadow-lift hover:border-line-strong block rounded-card border p-2 transition-[box-shadow,border-color] duration-150"
-                >
-                  {/* The art is the hero: a neutral well, contained, never cropped, never tinted. */}
-                  <div className="bg-surface-sunken relative aspect-square overflow-hidden rounded-sm">
-                    {a.mime.startsWith("image/") ? (
-                      // Rendition URLs are pure functions of the asset id — no
-                      // export step, no signing, no prior round trip.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/a/${a.id}/w_480,f_webp`}
-                        alt={a.filename}
-                        loading="lazy"
-                        className="size-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-ink-muted flex size-full items-center justify-center">
-                        <ImageIcon size={24} />
-                      </span>
-                    )}
-                    <span className="text-badge bg-scrim text-on-scrim absolute top-2 left-2 rounded-xs px-1.5 py-1">
-                      {fileTypeBadge(a.filename, a.mime)}
-                    </span>
-                  </div>
-                  <div className="px-1 pt-2 pb-1">
-                    <p className="text-filename text-ink" title={a.filename}>
-                      {truncateFilename(a.filename, 20)}
-                    </p>
-                    <p className="text-meta text-ink-muted mt-1">
-                      {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
-                      {formatBytes(a.size)}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </main>
+          {empty ? (
+            <EmptyState dragging={dragging} onUpload={() => input.current?.click()} />
+          ) : assets.length === 0 ? (
+            <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-12 text-center text-sm">
+              <IconSearch className="size-8" stroke={1.5} />
+              {inCollection && !narrowed
+                ? "Nothing in this collection yet. Upload while it's open, or add files from their editor."
+                : "Nothing matches. Try fewer words or clear a filter."}
+              {narrowed && (
+                <Button variant="outline" size="sm" onClick={clear}>
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
+              {assets.map((a) => (
+                <li key={a.id}>
+                  <AssetCard asset={a} onOpen={() => setOpen(a)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </SidebarInset>
 
       {open && (
         <AssetEditor
@@ -546,64 +455,113 @@ export function Gallery({
 
       {/* Dragging over a populated library: one calm overlay, not a moving target. */}
       {dragging && !empty && (
-        <div className="pointer-events-none fixed inset-4 z-50">
-          <div className="bg-teal-soft/80 relative flex size-full items-center justify-center rounded-lg backdrop-blur-[2px]">
-            <DashedOutline active />
-            <p className="text-title-2 text-teal-ink flex items-center gap-2">
-              <UploadIcon size={24} />
-              Drop to add to your library
-            </p>
+        <div className="bg-background/80 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="border-primary/40 bg-muted/50 flex size-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed">
+            <IconCloudUpload className="size-10" stroke={1.5} />
+            <p className="text-lg font-medium">Drop to add to {inCollection ? inCollection.name : "your library"}</p>
           </div>
         </div>
       )}
+    </SidebarProvider>
+  );
+}
+
+/** A thumbnail tile. The art is contained, never cropped, on a neutral well. */
+export function AssetCard({ asset: a, onOpen }: { asset: Asset; onOpen?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group bg-card text-card-foreground focus-visible:ring-ring/50 block w-full overflow-hidden rounded-xl border text-left shadow-xs transition-shadow outline-none hover:shadow-md focus-visible:ring-[3px]"
+    >
+      <div className="bg-muted relative aspect-square overflow-hidden">
+        {a.mime.startsWith("image/") ? (
+          // Rendition URLs are pure functions of the asset id: no export step,
+          // no signing, no prior round trip.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`/a/${a.id}/w_480,f_webp`}
+            alt={a.filename}
+            loading="lazy"
+            className="size-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <span className="text-muted-foreground flex size-full items-center justify-center">
+            <IconPhoto className="size-8" stroke={1.5} />
+          </span>
+        )}
+        <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[10px] backdrop-blur">
+          {fileTypeBadge(a.filename, a.mime)}
+        </Badge>
+      </div>
+      <div className="grid gap-0.5 border-t px-3 py-2">
+        <p className="truncate text-sm font-medium" title={a.filename}>
+          {truncateFilename(a.filename, 24)}
+        </p>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
+          {formatBytes(a.size)}
+        </p>
+        {a.tags.length > 0 && (
+          <div className="mt-1 flex gap-1 overflow-hidden">
+            {a.tags.slice(0, 3).map((t) => (
+              <Badge key={t} variant="outline" className="font-normal">
+                {t}
+              </Badge>
+            ))}
+            {a.tags.length > 3 && <span className="text-muted-foreground text-xs">+{a.tags.length - 3}</span>}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () => void }) {
+  return (
+    <div
+      className={`flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${
+        dragging ? "border-primary bg-muted/50" : ""
+      }`}
+    >
+      <span className="bg-muted flex size-14 items-center justify-center rounded-full">
+        <IconCloudUpload className="size-7" stroke={1.5} />
+      </span>
+      <div className="grid gap-1">
+        <h2 className="text-xl font-semibold tracking-tight">Your art, all in one bucket</h2>
+        <p className="text-muted-foreground max-w-sm text-sm">Drop files anywhere on this page, or pick them to upload.</p>
+      </div>
+      <Button onClick={onUpload}>
+        <IconUpload /> Upload files
+      </Button>
     </div>
   );
 }
 
-/**
- * One facet: a label and its value chips. A selected value stays on screen
- * even when its count drops to zero, or it could never be cleared.
- */
-function FacetRow({
-  label,
-  counts,
-  selected,
-  onToggle,
-  format = (v) => v,
-}: {
-  label: string;
-  counts: Count[];
-  selected: string[];
-  onToggle: (value: string) => void;
-  format?: (value: string) => string;
-}) {
-  const chips = [
-    ...selected.filter((v) => !counts.some((c) => c.value === v)).map((value) => ({ value, count: 0 })),
-    ...counts,
-  ];
-  if (!chips.length) return null;
+/** Name the current view and keep it in the sidebar. */
+function SaveSearch({ onSave }: { onSave: (name: string) => Promise<boolean> }) {
+  const [open, setOpen] = useState(false);
   return (
-    <ul className="flex flex-wrap items-center gap-2" aria-label={`Filter by ${label}`}>
-      <li className="text-label text-ink-muted mr-1">{label}</li>
-      {chips.map(({ value, count }) => {
-        const on = selected.includes(value);
-        return (
-          <li key={value}>
-            <button
-              type="button"
-              aria-pressed={on}
-              onClick={() => onToggle(value)}
-              className={`text-label rounded-pill border px-3 py-1 transition-colors duration-150 ${
-                on
-                  ? "bg-teal-soft border-teal text-teal-ink"
-                  : "border-line text-ink-muted hover:border-line-strong hover:text-ink"
-              }`}
-            >
-              {format(value)} <span className="opacity-70">{count}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="ml-auto h-8">
+          <IconBookmarkPlus /> Save search
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72">
+        <form
+          action={async (form) => {
+            const name = String(form.get("name") ?? "").trim();
+            if (name && (await onSave(name))) setOpen(false);
+          }}
+          className="flex gap-2"
+        >
+          <Input name="name" placeholder="Name this search" required maxLength={120} autoFocus className="h-8" />
+          <Button type="submit" size="sm">
+            Save
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }

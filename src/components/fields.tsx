@@ -1,11 +1,41 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useId } from "react";
+import { Combobox } from "@/components/combobox";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 
-export const inputClass =
-  "bg-surface border-line focus:border-line-strong text-body text-ink w-full rounded-sm border px-3 py-2 outline-none";
+/** A label over its control, with an optional hint under it. */
+export function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: React.ReactNode;
+  htmlFor?: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+    </div>
+  );
+}
 
 /**
  * Form controls for the custom field schema, one per definition. Names are
@@ -21,49 +51,55 @@ export function FieldInputs({
   /** Shown as the placeholder: what applies when this is left empty. */
   inherited?: Record<string, FieldValue>;
 }) {
-  return relaxInherited(defs, inherited).map((d) => {
-    const name = `field:${d.key}`;
-    const v = values[d.key];
-    const from = inherited[d.key] === undefined ? undefined : String(inherited[d.key]);
-    const label = (
-      <>
-        {d.label}
-        {d.required && <span aria-hidden> *</span>}
-      </>
-    );
-    if (d.type === "boolean") {
-      return (
-        <label key={d.key} className="text-label text-ink-muted flex items-center gap-2">
-          <input type="checkbox" name={name} defaultChecked={v === true} className="accent-teal size-4" />
-          {label}
-        </label>
-      );
-    }
+  return relaxInherited(defs, inherited).map((d) => (
+    <FieldInput key={d.key} def={d} value={values[d.key]} inherited={inherited[d.key]} />
+  ));
+}
+
+function FieldInput({ def: d, value: v, inherited }: { def: FieldDef; value?: FieldValue; inherited?: FieldValue }) {
+  const id = useId();
+  const name = `field:${d.key}`;
+  const from = inherited === undefined ? undefined : `Inherited: ${inherited}`;
+  const label = (
+    <>
+      {d.label}
+      {d.required && <span className="text-destructive">*</span>}
+    </>
+  );
+
+  if (d.type === "boolean") {
     return (
-      <label key={d.key} className="text-label text-ink-muted flex flex-col gap-1">
-        <span>{label}</span>
-        {d.type === "select" ? (
-          <select name={name} defaultValue={String(v ?? "")} required={d.required} className={inputClass}>
-            <option value="">{from ? `Inherited: ${from}` : d.required ? "Choose one" : "None"}</option>
-            {d.options.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
-        ) : (
-          <input
-            name={name}
-            type={d.type === "text" ? "text" : d.type}
-            step={d.type === "number" ? "any" : undefined}
-            defaultValue={v === undefined ? "" : String(v)}
-            placeholder={from && `Inherited: ${from}`}
-            required={d.required}
-            maxLength={d.type === "text" ? 2000 : undefined}
-            className={inputClass}
-          />
-        )}
-      </label>
+      <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+        <Label htmlFor={id}>{label}</Label>
+        <Switch id={id} name={name} defaultChecked={v === true} />
+      </div>
     );
-  });
+  }
+  return (
+    <Field label={label} htmlFor={id}>
+      {d.type === "select" ? (
+        <Combobox
+          id={id}
+          name={name}
+          options={d.options.map((o) => ({ value: o }))}
+          defaultValue={v === undefined ? "" : String(v)}
+          placeholder={from ?? (d.required ? "Choose one" : "None")}
+          required={d.required}
+        />
+      ) : (
+        <Input
+          id={id}
+          name={name}
+          type={d.type === "text" ? "text" : d.type}
+          step={d.type === "number" ? "any" : undefined}
+          defaultValue={v === undefined ? "" : String(v)}
+          placeholder={from}
+          required={d.required}
+          maxLength={d.type === "text" ? 2000 : undefined}
+        />
+      )}
+    </Field>
+  );
 }
 
 /**
@@ -108,38 +144,34 @@ export function UploadFieldsDialog({
   onSubmit: (values: Record<string, FieldValue>) => void;
   onCancel: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => ref.current?.showModal(), []);
-
   return (
-    <dialog
-      ref={ref}
-      onClose={onCancel}
-      aria-labelledby="upload-fields-title"
-      className="bg-surface-raised text-ink border-line shadow-lift m-auto w-[min(420px,calc(100vw-32px))] rounded-lg border p-0 backdrop:bg-black/40"
-    >
-      <form
-        action={(form) => {
-          const values = readFieldValues(form, defs);
-          // Upload takes a complete set: drop the nulls that mean "clear".
-          onSubmit(Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null)) as Record<string, FieldValue>);
-        }}
-        className="flex flex-col gap-4 p-6"
-      >
-        <div>
-          <h2 id="upload-fields-title" className="text-title-2">
-            Describe {count === 1 ? "this file" : `these ${count} files`}
-          </h2>
-          <p className="text-body text-ink-muted mt-1">Fields marked * are required by this library.</p>
-        </div>
-        <FieldInputs defs={defs} inherited={inherited} />
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" type="button" onClick={() => ref.current?.close()}>
-            Cancel
-          </Button>
-          <Button type="submit">Upload</Button>
-        </div>
-      </form>
-    </dialog>
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <form
+          action={(form) => {
+            const values = readFieldValues(form, defs);
+            // Upload takes a complete set: drop the nulls that mean "clear".
+            onSubmit(
+              Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null)) as Record<string, FieldValue>,
+            );
+          }}
+          className="grid gap-6"
+        >
+          <DialogHeader>
+            <DialogTitle>Describe {count === 1 ? "this file" : `these ${count} files`}</DialogTitle>
+            <DialogDescription>Fields marked * are required by this library.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <FieldInputs defs={defs} inherited={inherited} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit">Upload</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
