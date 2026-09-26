@@ -8,6 +8,34 @@
       "when": 1790454456605,
       "tag": "0000_careful_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790457462463,
+      "tag": "0001_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790457970095,
+      "tag": "0002_custom_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790458182927,
+      "tag": "0003_collections",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790458550233,
+      "tag": "0004_saved_searches",
+      "breakpoints": true
     }
   ]
 }

@@ -13,8 +13,9 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.1, early.** The walking skeleton works - upload, content-addressed
-> dedupe, and on-the-fly renditions. The API is not stable until v1.0.
+> **Status: v0.2, early.** Upload, content-addressed dedupe, on-the-fly
+> renditions, metadata extraction and write-back, custom fields, collections,
+> faceted search and saved searches. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -36,7 +37,7 @@ So artbucket is built API-first for agents as much as people:
   app needs something the API can't do, the API isn't finished.
 - **Content-addressed storage.** Upload the same bytes twice, get one asset.
 - **Your metadata stays yours.** IPTC/XMP written back into the file on
-  download, so leaving costs nothing. *(v0.2)*
+  download, so leaving costs nothing.
 - **MCP server as a first-class surface**, not a bolted-on integration. *(v0.4)*
 
 ## Quick start
@@ -88,11 +89,88 @@ key is canonical. Renditions are generated once and cached forever.
 | Method | Path | |
 |---|---|---|
 | `POST` | `/api/v1/uploads` | Create a presigned upload ticket |
-| `GET` | `/api/v1/assets` | List assets |
+| `GET` | `/api/v1/assets` | List or search assets, with tag facet counts |
 | `POST` | `/api/v1/assets` | Promote a staged upload |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
+| `GET` | `/api/v1/fields` | The custom field schema |
+| `POST` | `/api/v1/fields` | Define a field |
+| `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
+| `DELETE` | `/api/v1/fields/{key}` | Remove it, and every value stored under it |
+| `GET` | `/api/v1/collections` | Collections, with member counts |
+| `POST` | `/api/v1/collections` | Create one, with the `fields` its members inherit |
+| `PATCH` | `/api/v1/collections/{id}` | Rename it or change its `fields` |
+| `DELETE` | `/api/v1/collections/{id}` | Delete it; its assets stay |
+| `POST` | `/api/v1/collections/{id}/assets` | `{ "add": [...], "remove": [...] }` |
+| `GET` | `/api/v1/searches` | Saved searches |
+| `POST` | `/api/v1/searches` | Save a `{ name, query }` |
+| `DELETE` | `/api/v1/searches/{id}` | Forget one |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
+| `GET` | `/a/{id}?download` | The original with current metadata written in |
+
+### Search
+
+```
+/api/v1/assets?q=fox her                   every word, as a prefix
+/api/v1/assets?tag=mascot&tag=autumn       assets carrying every tag
+```
+
+`q` covers the filename, tags, text field values, and the EXIF / IPTC / XMP
+read on ingest (title, caption, creator, copyright, camera). Embedded keywords
+become the asset's initial tags.
+
+Custom fields filter with `f.`, matching an asset's own value or else the one
+it inherits:
+
+```
+/api/v1/assets?f.channel=web&f.channel=print   either value
+/api/v1/assets?f.approved=true                 booleans
+/api/v1/assets?f.budget.gte=10&f.expires.lte=2027-01-31
+```
+
+A filter on an unknown field or with a value of the wrong type is a `422`,
+not an empty result. Each response carries `facets`: tag counts, and value
+counts for every select and boolean field, over the same filter. A field's own
+facet ignores that field's filter, so the other values stay visible to OR in.
+
+A saved search is a name and one of these query strings, checked when saved.
+Running it is a plain `GET /api/v1/assets?{query}`.
+
+On a library of 1,000+ assets every query above answers in under 20ms end to
+end, facets included.
+
+### Custom fields
+
+A library defines its own fields, and required ones must be filled at upload:
+
+```bash
+curl -X POST localhost:3000/api/v1/fields -H 'content-type: application/json' \
+  -d '{"key":"campaign","label":"Campaign","type":"text","required":true}'
+```
+
+Types are `text`, `number`, `date` (`YYYY-MM-DD`), `boolean` and `select`
+(with `options`). `key` and `type` are fixed once created. Values go in
+`fields` when an asset is promoted or patched; a missing required value, a
+wrong type or an unknown key is a `422` naming the field, and the staged upload
+stays put so the same token can be retried. Text values are searchable.
+
+### Collections
+
+A collection groups assets and can carry field values its members inherit:
+file 200 photos into "Autumn 26" and they all read `campaign: Autumn 26`
+without anyone typing it 200 times. An asset's own value always wins; across
+several collections, the oldest collection wins. Inherited values are
+searchable, and they count toward required fields, so an upload aimed at a
+collection (`"collections": [id]` on promote) needs only what the collection
+doesn't already say. Filter with `/api/v1/assets?collection={id}`.
+
+### Your metadata, in your files
+
+`/a/{id}` is always the exact bytes you uploaded. `/a/{id}?download` is the same
+file with the library's title, description, creator, copyright and tags written
+in as XMP, spliced in without re-encoding a pixel. JPEG and PNG today; other
+formats download as stored, and `X-Metadata-Embedded: false` says so.
 
 ## Configuration
 

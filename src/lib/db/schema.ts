@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
+  check,
+  customType,
   index,
+  primaryKey,
   integer,
   jsonb,
   pgTable,
@@ -8,13 +12,15 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { FieldType, FieldValues } from "@/lib/fields";
+import type { Metadata } from "@/lib/metadata";
+
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 /**
  * Assets are content-addressed: `sha256` is the identity of the bytes, and the
  * storage key is derived from it. Uploading the same file twice is a no-op.
  *
- * v0.1 keeps this deliberately flat. Metadata, tags, collections and custom
- * fields arrive in v0.2 - see ROADMAP.md.
  */
 export const assets = pgTable(
   "assets",
@@ -26,8 +32,32 @@ export const assets = pgTable(
     size: integer("size").notNull(),
     width: integer("width"),
     height: integer("height"),
-    /** Freeform probe output (format, pages, colour space). Shaped in v0.2. */
+    /** Freeform probe output (format, pages, colour space). */
     probe: jsonb("probe").$type<Record<string, unknown>>(),
+    /** EXIF / IPTC / XMP read from the file on ingest. See lib/metadata.ts. */
+    metadata: jsonb("metadata").$type<Metadata>(),
+    /** Lowercased and deduped by lib/tags.ts before they get here. */
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    /** Values for the library's custom fields, keyed by `fields.key`. */
+    fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+    /**
+     * Values this asset inherits from its collections, materialized by
+     * lib/core/collections.ts whenever membership or a collection changes, so
+     * search and filters read one row. The asset's own `fields` win over these.
+     */
+    inherited: jsonb("inherited").$type<FieldValues>().notNull().default({}),
+    /**
+     * Maintained by Postgres, so it cannot drift from the columns it indexes.
+     * 'simple' rather than 'english': asset search is names and keywords, where
+     * stemming "logos" to "logo" matters less than matching "fox_v3" by "fox".
+     * Filenames are split on . _ - first, since the parser keeps "fox_v3.png"
+     * as one token.
+     */
+    search: tsvector("search")
+      .notNull()
+      .generatedAlwaysAs(
+        sql`setweight(to_tsvector('simple', regexp_replace(filename, '[._-]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', tags), 'A') || setweight(jsonb_to_tsvector('simple', coalesce(metadata, '{}'), '["string"]'), 'B') || setweight(jsonb_to_tsvector('simple', fields || inherited, '["string"]'), 'B')`,
+      ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -35,8 +65,77 @@ export const assets = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (t) => [index("assets_created_at_idx").on(t.createdAt.desc())],
+  (t) => [
+    index("assets_created_at_idx").on(t.createdAt.desc()),
+    index("assets_search_idx").using("gin", t.search),
+    index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
+    // Field filters match the effective value, own over inherited: `inherited || fields`.
+    index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
+  ],
 );
 
 export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
+
+/** A named set of assets that can carry field values its members inherit. */
+export const collections = pgTable("collections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const collectionAssets = pgTable(
+  "collection_assets",
+  {
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.collectionId, t.assetId] }),
+    // The primary key serves "members of a collection"; this serves "collections of an asset".
+    index("collection_assets_asset_idx").on(t.assetId),
+  ],
+);
+
+/**
+ * The library's custom field schema. `key` is the identity: it is what asset
+ * values are stored under, so it and `type` never change once created. Make a
+ * new field instead.
+ */
+export const fields = pgTable(
+  "fields",
+  {
+  key: text("key").primaryKey(),
+  label: text("label").notNull(),
+  type: text("type").$type<FieldType>().notNull(),
+  options: jsonb("options").$type<string[]>().notNull().default([]),
+  required: boolean("required").notNull().default(false),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+  },
+  (t) => [
+    check("fields_type_check", sql`${t.type} in ('text', 'number', 'date', 'boolean', 'select')`),
+  ],
+);
+
+/**
+ * A named query. `query` is the /api/v1/assets query string, validated when
+ * saved, so running one is a plain GET any client can make.
+ */
+export const savedSearches = pgTable("saved_searches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  query: text("query").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});
