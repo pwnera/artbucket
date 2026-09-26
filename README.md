@@ -110,7 +110,7 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 ## Stack
 
 Next.js 16 · React 19 · Postgres + Drizzle · S3-compatible storage · sharp ·
-Tailwind 4 · Fredoka + Inter.
+Tailwind 4 · DM Sans.
 
 No monorepo, no job queue, no Redis, no search cluster. Renditions are pure
 functions, so generate-on-first-request plus a cache removes the entire job
@@ -120,9 +120,12 @@ list in [ROADMAP.md](ROADMAP.md).
 ## Design
 
 The interface follows the **ArtBucket design system**: warm off-white grounds,
-Bucket Teal for identity and state, one Paint Coral CTA per view, Fredoka for
-display and Inter for everything else, pills and 12px cards, and Pip the mascot
-confined to empty states.
+Bucket Teal for identity and state, one Paint Coral CTA per view, pills and
+12px cards, and Pip the mascot confined to empty states.
+
+Typography departs from the system on purpose: DM Sans carries every style
+rather than the system's Fredoka/Inter pair, with the display sizes retuned for
+a single family. Everything else is mirrored as written.
 
 `src/app/globals.css` mirrors the system's tokens verbatim and is the only place
 raw colour values appear. The type scale lives there as whole styles

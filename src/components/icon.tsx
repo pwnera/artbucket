@@ -47,10 +47,22 @@ export function AlertIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** The mark: the bucket with its drip, no face. Never Pip. */
-export function Logo({ size = 28, className }: { size?: number; className?: string }) {
+/**
+ * The mark: the bucket with its drip, no face. Never Pip.
+ *
+ * The viewBox is cropped to the artwork (the 64-unit source carries ~15% empty
+ * margin), so `size` is the mark's real optical height and it can be set
+ * against the wordmark's cap height rather than guessed.
+ */
+export function Logo({ size = 26, className }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className={className}>
+    <svg
+      width={(size * 46) / 48}
+      height={size}
+      viewBox="9 11 46 48"
+      aria-hidden
+      className={className}
+    >
       <path
         d="M16 23C16 9 48 9 48 23"
         fill="none"
@@ -81,6 +93,37 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
         stroke="var(--ink)"
         strokeWidth="2"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The dropzone's dashed outline, as an SVG rather than `border-dashed`: CSS
+ * gives no control over the gap between dashes, and the default pattern reads
+ * as noise at this radius.
+ */
+export function DashedOutline({ active }: { active: boolean }) {
+  return (
+    // The 1px inset lives in CSS, where calc() is portable; the rect itself uses
+    // plain percentages, which every SVG engine supports as attributes.
+    <svg
+      className="pointer-events-none absolute inset-px h-[calc(100%-2px)] w-[calc(100%-2px)] overflow-visible"
+      aria-hidden
+      preserveAspectRatio="none"
+    >
+      <rect
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+        rx="20"
+        ry="20"
+        fill="none"
+        stroke={active ? "var(--teal-strong)" : "var(--line-strong)"}
+        strokeWidth="2"
+        strokeDasharray="6 10"
+        strokeLinecap="round"
       />
     </svg>
   );

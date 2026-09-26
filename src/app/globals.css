@@ -7,8 +7,7 @@
  */
 
 :root {
-  --font-display: var(--font-fredoka), Nunito, ui-rounded, system-ui, sans-serif;
-  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-dm-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 
   --surface: #faf6f0;
   --surface-raised: #fffcf7;
@@ -168,29 +167,28 @@
  */
 @layer components {
   .text-display {
-    font-family: var(--font-display);
     font-size: 32px;
     line-height: 38px;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.022em;
   }
   .text-title-1 {
-    font-family: var(--font-display);
     font-size: 24px;
     line-height: 30px;
     font-weight: 600;
+    letter-spacing: -0.018em;
   }
   .text-title-2 {
-    font-family: var(--font-display);
     font-size: 18px;
     line-height: 24px;
     font-weight: 600;
+    letter-spacing: -0.012em;
   }
   .text-title-3 {
-    font-family: var(--font-display);
     font-size: 15px;
     line-height: 20px;
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: -0.008em;
   }
   .text-body {
     font-size: 14px;
@@ -230,5 +228,14 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
