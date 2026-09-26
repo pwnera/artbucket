@@ -13,9 +13,10 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.2, early.** Upload, content-addressed dedupe, on-the-fly
+> **Status: v0.4, early.** Upload, content-addressed dedupe, on-the-fly
 > renditions, metadata extraction and write-back, custom fields, collections,
-> faceted search and saved searches. The API is not stable until v1.0.
+> faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
+> server and a CLI. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -38,7 +39,8 @@ So artbucket is built API-first for agents as much as people:
 - **Content-addressed storage.** Upload the same bytes twice, get one asset.
 - **Your metadata stays yours.** IPTC/XMP written back into the file on
   download, so leaving costs nothing.
-- **MCP server as a first-class surface**, not a bolted-on integration. *(v0.4)*
+- **MCP server as a first-class surface**, not a bolted-on integration. Agents
+  search, describe, size and ingest; what they add waits for a person.
 
 ## Quick start
 
@@ -90,10 +92,11 @@ key is canonical. Renditions are generated once and cached forever.
 |---|---|---|
 | `POST` | `/api/v1/uploads` | Create a presigned upload ticket |
 | `GET` | `/api/v1/assets` | List or search assets, with tag facet counts |
-| `POST` | `/api/v1/assets` | Promote a staged upload |
+| `POST` | `/api/v1/assets` | Promote a staged upload (`token`), or ingest one from a `url` |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
-| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright` |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`; review with `status`, `proposedTags` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
+| `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
 | `GET` | `/api/v1/fields` | The custom field schema |
 | `POST` | `/api/v1/fields` | Define a field |
 | `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
@@ -106,8 +109,51 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/searches` | Saved searches |
 | `POST` | `/api/v1/searches` | Save a `{ name, query }` |
 | `DELETE` | `/api/v1/searches/{id}` | Forget one |
+| `GET` | `/api/v1/keys` | API keys, without their secrets |
+| `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key; the secret is in this response only |
+| `DELETE` | `/api/v1/keys/{id}` | Revoke one |
+| `POST` | `/api/v1/mcp` | The MCP server |
+| `GET` | `/api/v1/openapi.json` | This table, as OpenAPI 3.1 |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
+| `GET` | `/a/{id}` with `Accept: application/json` | The asset's description |
 | `GET` | `/a/{id}?download` | The original with current metadata written in |
+
+The spec at `/api/v1/openapi.json` is generated from the Zod schemas the
+handlers validate with, and a test fails if a route exists that it doesn't
+describe. The web UI calls nothing outside this table.
+
+### Keys and scopes
+
+Send `Authorization: Bearer ab_...`. A key has one scope, and each includes
+the ones before it:
+
+| Scope | May |
+|---|---|
+| `read` | search, list, describe |
+| `propose` | upload and suggest tags; what it adds lands `proposed` |
+| `write` | edit, delete, approve, and manage collections, fields, searches |
+| `admin` | mint and revoke keys |
+
+A request without a key gets `ANONYMOUS_SCOPE`, which defaults to `admin`: a
+single user on localhost needs no key at all. Before exposing the app, mint
+the keys you need, then set `ANONYMOUS_SCOPE=read` (or `none`). An unknown or
+revoked key is a `401`, never a fallback to anonymous. Rendition bytes stay
+public, so they can be embedded anywhere; the web UI has no login until v0.7
+and runs as anonymous.
+
+```bash
+curl -X POST localhost:3000/api/v1/keys -H 'content-type: application/json' \
+  -d '{"name":"claude","scope":"propose"}'
+```
+
+### Review
+
+What a `propose` key adds is not final. An upload lands with
+`status: "proposed"` and stays out of the library and search; suggested tags
+wait in `proposedTags`. `GET /api/v1/assets?review=true` lists everything
+waiting, and so does Review in the sidebar. Approving is a plain `PATCH`:
+`{"status":"active"}` for a file, moving a tag from `proposedTags` into `tags`
+for a suggestion.
 
 ### Search
 
@@ -165,12 +211,66 @@ searchable, and they count toward required fields, so an upload aimed at a
 collection (`"collections": [id]` on promote) needs only what the collection
 doesn't already say. Filter with `/api/v1/assets?collection={id}`.
 
+### Describe an asset
+
+The asset URL answers JSON when asked for it:
+
+```bash
+curl -H 'Accept: application/json' localhost:3000/a/{id}
+```
+
+It returns what a client needs to decide whether and how to use the asset:
+title, credit, tags, effective field values, its URLs, the transforms it
+allows (`constraints`), and ready-made rendition URLs (`alternatives`).
+`rights` is `null` until v0.6 brings licenses and expiry. Browsers still get
+the bytes: only an explicit `application/json` switches it.
+
 ### Your metadata, in your files
 
 `/a/{id}` is always the exact bytes you uploaded. `/a/{id}?download` is the same
 file with the library's title, description, creator, copyright and tags written
 in as XMP, spliced in without re-encoding a pixel. JPEG and PNG today; other
 formats download as stored, and `X-Metadata-Embedded: false` says so.
+
+## Agents
+
+`/api/v1/mcp` is an MCP server over Streamable HTTP, built on the same
+`lib/core` as the REST API. Give an agent a `propose` key:
+
+```bash
+claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
+  --header "Authorization: Bearer ab_..."
+```
+
+| Tool | Scope | |
+|---|---|---|
+| `search_assets` | read | Full text, tags, collections, field filters; its description lists your fields and collections |
+| `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json` |
+| `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
+| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
+| `propose_tags` | propose | Suggest tags for a person to accept |
+
+`tools/list` shows a key only the tools its scope can run. `ingest_asset` and
+`POST /api/v1/assets` with a `url` fetch public addresses only: loopback,
+private and link-local ranges are refused, checked at connect time, on every
+redirect.
+
+## CLI
+
+`bin/artbucket.ts` is a thin client over the same API.
+
+```bash
+pnpm artbucket search sintel poster
+pnpm artbucket url {id} --width 1200 --format webp
+pnpm artbucket ingest ./hero.png https://example.com/logo.png --tag launch
+pnpm artbucket review
+pnpm artbucket approve {id}
+pnpm artbucket keys create claude --scope propose
+```
+
+It reads `ARTBUCKET_URL` (default `http://localhost:3000`) and `ARTBUCKET_KEY`,
+and `--json` prints raw responses. `pnpm link --global` puts `artbucket` on
+your path.
 
 ## Configuration
 
@@ -184,6 +284,7 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 | `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | Storage credentials |
 | `S3_FORCE_PATH_STYLE` | `true` for most non-AWS providers |
 | `APP_URL` | Public origin; also the CORS origin for browser uploads |
+| `ANONYMOUS_SCOPE` | What a request without a key may do: `none`, `read`, `propose`, `write`, `admin` (default) |
 
 ## Stack
 

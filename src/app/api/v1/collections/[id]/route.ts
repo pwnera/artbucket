@@ -1,47 +1,25 @@
 import { z } from "zod";
-import { COLLECTION_ICONS } from "@/lib/collection-icons";
-import { body, fail, handle, ok } from "@/lib/api";
+import { body, ok, route } from "@/lib/api";
 import { deleteCollection, getCollection, updateCollection } from "@/lib/core/collections";
+import { CollectionPatch } from "@/lib/schemas";
 
-type Ctx = { params: Promise<{ id: string }> };
+type P = { id: string };
+const missing = "No such collection";
+/** A malformed id is simply a collection that doesn't exist. */
+const valid = (id: string) => z.uuid().safeParse(id).success;
 
-const Id = z.uuid();
-const notFound = () => fail(404, "not_found", "No such collection");
-
-export async function GET(_req: Request, { params }: Ctx) {
-  try {
-    const id = Id.safeParse((await params).id);
-    const c = id.success ? await getCollection(id.data) : null;
-    return c ? ok({ data: c }) : notFound();
-  } catch (err) {
-    return handle(err);
-  }
-}
-
-const Patch = z.strictObject({
-  /** One of lib/collection-icons.ts; null resets to the default. */
-  icon: z.enum(COLLECTION_ICONS).nullable().optional(),
-  name: z.string().trim().min(1).max(120).optional(),
-  fields: z.record(z.string(), z.unknown()).optional(),
-});
+export const GET = route<P>("read", async (_req, { id }) => {
+  const c = valid(id) ? await getCollection(id) : null;
+  return c && ok({ data: c });
+}, missing);
 
 /** PATCH /api/v1/collections/{id} - `fields` merges, null clears; members re-inherit. */
-export async function PATCH(req: Request, { params }: Ctx) {
-  try {
-    const id = Id.safeParse((await params).id);
-    const c = id.success ? await updateCollection(id.data, await body(req, Patch)) : null;
-    return c ? ok({ data: c }) : notFound();
-  } catch (err) {
-    return handle(err);
-  }
-}
+export const PATCH = route<P>("write", async (req, { id }) => {
+  const c = valid(id) ? await updateCollection(id, await body(req, CollectionPatch)) : null;
+  return c && ok({ data: c });
+}, missing);
 
 /** DELETE /api/v1/collections/{id} - the assets stay; they stop inheriting from it. */
-export async function DELETE(_req: Request, { params }: Ctx) {
-  try {
-    const id = Id.safeParse((await params).id);
-    return id.success && (await deleteCollection(id.data)) ? ok({ data: { deleted: true } }) : notFound();
-  } catch (err) {
-    return handle(err);
-  }
-}
+export const DELETE = route<P>("write", async (_req, { id }) =>
+  valid(id) && (await deleteCollection(id)) ? ok({ data: { deleted: true } }) : null,
+missing);

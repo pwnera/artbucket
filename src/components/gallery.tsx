@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IconBookmarkPlus, IconCloudUpload, IconLoader2, IconPhoto, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
+import {
+  IconBookmarkPlus,
+  IconCloudUpload,
+  IconInbox,
+  IconLoader2,
+  IconPhoto,
+  IconSearch,
+  IconSparkles,
+  IconUpload,
+  IconX,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AssetEditor } from "@/components/asset-editor";
 import { CollectionDialog, CollectionIcon, send, type Collection } from "@/components/collections";
@@ -38,6 +48,10 @@ export type Asset = {
   fields: Record<string, FieldValue>;
   inherited: Record<string, FieldValue>;
   collections: string[];
+  /** `proposed`: added by an agent, waiting for a person to approve it. */
+  status: "active" | "proposed";
+  /** Tags an agent suggested, waiting to be accepted or dismissed. */
+  proposedTags: string[];
   metadata: {
     title?: string;
     description?: string;
@@ -47,6 +61,7 @@ export type Asset = {
     capturedAt?: string;
   } | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type Listing = {
@@ -82,6 +97,8 @@ export function Gallery({
   const [managingFields, setManagingFields] = useState(false);
   // The collection being browsed. Uploads made while it is selected land in it.
   const [current, setCurrent] = useState<string | null>(null);
+  // Reviewing what agents proposed, instead of browsing the library.
+  const [review, setReview] = useState(false);
   const [editing, setEditing] = useState<Collection | "new" | null>(null);
   const inCollection = collections.find((c) => c.id === current);
   const [q, setQ] = useState("");
@@ -108,10 +125,11 @@ export function Gallery({
     const params = new URLSearchParams(q.trim() ? { q } : {});
     for (const t of tags) params.append("tag", t);
     if (current) params.set("collection", current);
+    if (review) params.set("review", "true");
     for (const [k, vs] of Object.entries(filters)) for (const v of vs) params.append(`f.${k}`, v);
     for (const [k, v] of extra) params.append(k, v);
     return params;
-  }, [q, tags, current, filters, extra]);
+  }, [q, tags, current, review, filters, extra]);
 
   // Responses can land out of order; only the latest request may paint.
   const latest = useRef(0);
@@ -160,6 +178,7 @@ export function Gallery({
     setQ(p.get("q") ?? "");
     setTags(p.getAll("tag"));
     setCurrent(p.get("collection"));
+    setReview(p.get("review") === "true");
     setFilters(byField);
     setExtra(rest);
   };
@@ -275,6 +294,7 @@ export function Gallery({
     q.trim() !== "" ||
     tags.length > 0 ||
     current !== null ||
+    review ||
     extra.length > 0 ||
     Object.values(filters).some((vs) => vs.length > 0);
   // The welcome is for an empty library, not for a search that found nothing.
@@ -343,8 +363,15 @@ export function Gallery({
       <LibrarySidebar
         collections={collections}
         current={current}
+        reviewing={review}
+        onReview={() => {
+          clear();
+          setCurrent(null);
+          setReview(true);
+        }}
         onSelect={(id) => {
           setCurrent(id);
+          setReview(false);
           if (id === null) clear();
         }}
         onNewCollection={() => setEditing("new")}
@@ -361,7 +388,7 @@ export function Gallery({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">{inCollection?.name ?? "All files"}</h1>
+            <h1 className="truncate text-sm font-semibold">{review ? "Review" : (inCollection?.name ?? "All files")}</h1>
           </div>
           <Badge variant="secondary" className="font-mono tabular-nums">
             {assets.length}
@@ -453,6 +480,19 @@ export function Gallery({
           ) : assets.length === 0 && searching ? (
             // Don't flash "no matches" for a search that hasn't answered yet.
             <GridSkeleton count={8} />
+          ) : assets.length === 0 && review && !narrowed ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconInbox />
+                </EmptyMedia>
+                <EmptyTitle>Nothing to review</EmptyTitle>
+                <EmptyDescription>
+                  Files and tags that agents propose, through MCP or a propose-scoped API key, wait here until you
+                  approve them.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : assets.length === 0 && inCollection && !narrowed ? (
             <Empty className="border">
               <EmptyHeader>
@@ -525,6 +565,10 @@ export function Gallery({
           collections={collections}
           onClose={() => setOpen(null)}
           onSaved={refresh}
+          onReviewed={(a) => {
+            setOpen(a);
+            void refresh();
+          }}
         />
       )}
 
@@ -626,6 +670,12 @@ export function AssetCard({
           <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[10px] backdrop-blur">
             {fileTypeBadge(a.filename, a.mime)}
           </Badge>
+          {(a.status === "proposed" || a.proposedTags.length > 0) && (
+            <Badge className="absolute bottom-2 left-2 text-[10px]">
+              <IconSparkles />
+              {a.status === "proposed" ? "Proposed" : `${a.proposedTags.length} suggested`}
+            </Badge>
+          )}
         </div>
         <div className="grid gap-0.5 border-t px-3 py-2">
           <p className="truncate text-sm font-medium" title={a.filename}>

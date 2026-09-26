@@ -1,8 +1,11 @@
 {
   "name": "artbucket",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "artbucket": "./bin/artbucket.ts"
+  },
   "engines": {
     "node": ">=22"
   },
@@ -19,6 +22,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "services": "docker compose up -d",
+    "artbucket": "node --experimental-strip-types --no-warnings bin/artbucket.ts",
     "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts"
   },
   "dependencies": {

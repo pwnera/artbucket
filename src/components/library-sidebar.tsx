@@ -5,6 +5,7 @@ import {
   IconAdjustments,
   IconBookmark,
   IconDots,
+  IconInbox,
   IconPalette,
   IconPencil,
   IconPhoto,
@@ -43,6 +44,8 @@ export type SavedSearch = { id: string; name: string; query: string };
 export function LibrarySidebar({
   collections,
   current,
+  reviewing,
+  onReview,
   onSelect,
   onNewCollection,
   onEditCollection,
@@ -54,6 +57,8 @@ export function LibrarySidebar({
 }: {
   collections: Collection[];
   current: string | null;
+  reviewing: boolean;
+  onReview: () => void;
   onSelect: (id: string | null) => void;
   onNewCollection: () => void;
   onEditCollection: (c: Collection) => void;
@@ -89,11 +94,16 @@ export function LibrarySidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={current === null && !activeSearch}
+                  isActive={current === null && !activeSearch && !reviewing}
                   onClick={go(() => onSelect(null))}
                   tooltip="All files"
                 >
                   <IconPhoto /> <span>All files</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={reviewing} onClick={go(onReview)} tooltip="Review">
+                  <IconInbox /> <span>Review</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
