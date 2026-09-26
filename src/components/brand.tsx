@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBucket, IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { IconBucketDroplet, IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-/** The mark: Tabler's bucket on a primary tile. */
+/** The mark: Tabler's tipped paint bucket on a primary tile. */
 export function Logo({ className }: { className?: string }) {
   return (
     <span
@@ -21,7 +21,7 @@ export function Logo({ className }: { className?: string }) {
         className,
       )}
     >
-      <IconBucket className="size-5" stroke={2} />
+      <IconBucketDroplet className="size-5" stroke={2} />
     </span>
   );
 }

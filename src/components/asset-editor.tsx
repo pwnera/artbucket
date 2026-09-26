@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
+import { Renditions } from "@/components/renditions";
 import type { Asset } from "@/components/gallery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,17 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
+
+/** Every tag in the library, for autocomplete: an unfiltered search's facets. */
+export function useLibraryTags() {
+  const [tags, setTags] = useState<Option[]>([]);
+  useEffect(() => {
+    fetch("/api/v1/assets?limit=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => b && setTags(b.facets.tags.map((t: { value: string; count: number }) => ({ value: t.value, hint: t.count }))));
+  }, []);
+  return tags;
+}
 
 const TEXT = [
   { key: "title", label: "Title" },
@@ -41,15 +53,8 @@ export function AssetEditor({
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
-  const [tags, setTags] = useState<Option[]>([]);
+  const tags = useLibraryTags();
   const m = asset.metadata ?? {};
-
-  // Every tag in the library, for autocomplete: an unfiltered search's facets.
-  useEffect(() => {
-    fetch("/api/v1/assets?limit=1")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => b && setTags(b.facets.tags.map((t: { value: string; count: number }) => ({ value: t.value, hint: t.count }))));
-  }, []);
 
   async function save(form: FormData) {
     setBusy(true);
@@ -118,7 +123,9 @@ export function AssetEditor({
           <div className="flex items-center gap-2 border-t px-4 py-3">
             <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
             <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
-            <Button variant="outline" size="sm" className="ml-auto" asChild>
+            <span className="ml-auto" />
+            {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
+            <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}
               <a href={`/a/${asset.id}?download`} download>
                 <IconDownload /> Download

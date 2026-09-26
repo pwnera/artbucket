@@ -9,9 +9,11 @@ import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
 import { FieldManager } from "@/components/field-manager";
 import { LibrarySidebar, type SavedSearch } from "@/components/library-sidebar";
+import { SelectionBar } from "@/components/selection-bar";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +22,7 @@ import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
+import { cn } from "@/lib/utils";
 
 export type Asset = {
   id: string;
@@ -90,6 +93,10 @@ export function Gallery({
   const [pending, setPending] = useState<File[] | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
+  // Selected asset ids. Only the ones on screen count (`picked`), so a filter
+  // change can't leave hidden files in a bulk action.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const anchor = useRef<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
 
@@ -266,6 +273,40 @@ export function Gallery({
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
 
+  const picked = assets.filter((a) => selected.has(a.id));
+  const selectAll = () => setSelected(new Set(assets.map((a) => a.id)));
+  const clearSelection = () => setSelected(new Set());
+  // Shift extends from the last one clicked, as in a file manager.
+  const pick = (i: number, range: boolean) => {
+    const id = assets[i].id;
+    // Read now: the updater below runs later, after the anchor has moved.
+    const from0 = anchor.current;
+    setSelected((s) => {
+      const next = new Set(s);
+      if (range && from0 !== null) {
+        const [from, to] = [from0, i].sort((x, y) => x - y);
+        for (const a of assets.slice(from, to + 1)) next.add(a.id);
+      } else if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    anchor.current = i;
+  };
+
+  // Cmd/Ctrl+A selects the grid, Escape clears; both leave text fields and dialogs alone.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof Element && t.closest("input, textarea, [contenteditable], [role=dialog], [role=alertdialog]")) return;
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        setSelected(new Set(assets.map((a) => a.id)));
+      } else if (e.key === "Escape") setSelected(new Set());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [assets]);
+
   const narrowed = q.trim() !== "" || tags.length > 0 || extra.length > 0 || Object.values(filters).some((vs) => vs.length > 0);
   const qs = query().toString();
   const activeSearch = searches.find((sv) => sv.query === qs)?.query ?? null;
@@ -350,6 +391,18 @@ export function Gallery({
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
           {!empty && (
             <div className="flex flex-wrap items-center gap-2">
+              {assets.length > 0 && (
+                <label className="hover:bg-accent flex h-8 items-center gap-2 rounded-md px-2 text-sm">
+                  <Checkbox
+                    checked={picked.length === 0 ? false : picked.length === assets.length ? true : "indeterminate"}
+                    onCheckedChange={() => (picked.length === assets.length ? clearSelection() : selectAll())}
+                    aria-label="Select all"
+                  />
+                  <span className="text-muted-foreground hidden sm:inline">
+                    {picked.length ? `${picked.length} selected` : "Select"}
+                  </span>
+                </label>
+              )}
               <FacetFilter label="Tags" counts={facets.tags} selected={tags} onChange={setTags} />
               {fields.filter(isFacetable).map((d) => (
                 <FacetFilter
@@ -399,9 +452,16 @@ export function Gallery({
             </div>
           ) : (
             <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
-              {assets.map((a) => (
+              {assets.map((a, i) => (
                 <li key={a.id}>
-                  <AssetCard asset={a} onOpen={() => setOpen(a)} />
+                  <AssetCard
+                    asset={a}
+                    onOpen={() => setOpen(a)}
+                    selected={selected.has(a.id)}
+                    // Once anything is selected, a click selects instead of opening.
+                    selecting={picked.length > 0}
+                    onPick={(range) => pick(i, range)}
+                  />
                 </li>
               ))}
             </ul>
@@ -435,6 +495,16 @@ export function Gallery({
 
       <UploadTray uploads={uploads} onDismiss={() => setUploads([])} />
 
+      <SelectionBar
+        picked={picked}
+        total={assets.length}
+        collections={collections}
+        current={inCollection}
+        onSelectAll={selectAll}
+        onClear={clearSelection}
+        onDone={refresh}
+      />
+
       {managingFields && (
         <FieldManager fields={fields} onClose={() => setManagingFields(false)} onChanged={refresh} />
       )}
@@ -467,53 +537,89 @@ export function Gallery({
 }
 
 /** A thumbnail tile. The art is contained, never cropped, on a neutral well. */
-export function AssetCard({ asset: a, onOpen }: { asset: Asset; onOpen?: () => void }) {
+export function AssetCard({
+  asset: a,
+  onOpen,
+  selected = false,
+  selecting = false,
+  onPick,
+}: {
+  asset: Asset;
+  onOpen?: () => void;
+  selected?: boolean;
+  selecting?: boolean;
+  /** `range` is true for a shift-click. */
+  onPick?: (range: boolean) => void;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group bg-card text-card-foreground focus-visible:ring-ring/50 block w-full overflow-hidden rounded-xl border text-left shadow-xs transition-shadow outline-none hover:shadow-md focus-visible:ring-[3px]"
-    >
-      <div className="bg-muted relative aspect-square overflow-hidden">
-        {a.mime.startsWith("image/") ? (
-          // Rendition URLs are pure functions of the asset id: no export step,
-          // no signing, no prior round trip.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/a/${a.id}/w_480,f_webp`}
-            alt={a.filename}
-            loading="lazy"
-            className="size-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <span className="text-muted-foreground flex size-full items-center justify-center">
-            <IconPhoto className="size-8" stroke={1.5} />
-          </span>
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          // Cmd/Ctrl/Shift-click selects, as in a file manager.
+          if (onPick && (selecting || e.metaKey || e.ctrlKey || e.shiftKey)) onPick(e.shiftKey);
+          else onOpen?.();
+        }}
+        className={cn(
+          "bg-card text-card-foreground focus-visible:ring-ring/50 block w-full overflow-hidden rounded-xl border text-left shadow-xs transition-shadow outline-none select-none hover:shadow-md focus-visible:ring-[3px]",
+          selected && "border-primary ring-primary ring-2",
         )}
-        <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[10px] backdrop-blur">
-          {fileTypeBadge(a.filename, a.mime)}
-        </Badge>
-      </div>
-      <div className="grid gap-0.5 border-t px-3 py-2">
-        <p className="truncate text-sm font-medium" title={a.filename}>
-          {truncateFilename(a.filename, 24)}
-        </p>
-        <p className="text-muted-foreground text-xs tabular-nums">
-          {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
-          {formatBytes(a.size)}
-        </p>
-        {a.tags.length > 0 && (
-          <div className="mt-1 flex gap-1 overflow-hidden">
-            {a.tags.slice(0, 3).map((t) => (
-              <Badge key={t} variant="outline" className="font-normal">
-                {t}
-              </Badge>
-            ))}
-            {a.tags.length > 3 && <span className="text-muted-foreground text-xs">+{a.tags.length - 3}</span>}
-          </div>
-        )}
-      </div>
-    </button>
+      >
+        <div className="bg-muted relative aspect-square overflow-hidden">
+          {a.mime.startsWith("image/") ? (
+            // Rendition URLs are pure functions of the asset id: no export step,
+            // no signing, no prior round trip.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/a/${a.id}/w_480,f_webp`}
+              alt={a.filename}
+              loading="lazy"
+              className="size-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <span className="text-muted-foreground flex size-full items-center justify-center">
+              <IconPhoto className="size-8" stroke={1.5} />
+            </span>
+          )}
+          <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[10px] backdrop-blur">
+            {fileTypeBadge(a.filename, a.mime)}
+          </Badge>
+        </div>
+        <div className="grid gap-0.5 border-t px-3 py-2">
+          <p className="truncate text-sm font-medium" title={a.filename}>
+            {truncateFilename(a.filename, 24)}
+          </p>
+          <p className="text-muted-foreground text-xs tabular-nums">
+            {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
+            {formatBytes(a.size)}
+          </p>
+          {a.tags.length > 0 && (
+            <div className="mt-1 flex gap-1 overflow-hidden">
+              {a.tags.slice(0, 3).map((t) => (
+                <Badge key={t} variant="outline" className="font-normal">
+                  {t}
+                </Badge>
+              ))}
+              {a.tags.length > 3 && <span className="text-muted-foreground text-xs">+{a.tags.length - 3}</span>}
+            </div>
+          )}
+        </div>
+      </button>
+      {onPick && (
+        <Checkbox
+          checked={selected}
+          onClick={(e) => {
+            e.preventDefault();
+            onPick(e.shiftKey);
+          }}
+          aria-label={`Select ${a.filename}`}
+          className={cn(
+            "bg-background/90 absolute top-2 right-2 size-5 shadow-sm backdrop-blur transition-opacity",
+            selecting || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+          )}
+        />
+      )}
+    </div>
   );
 }
 

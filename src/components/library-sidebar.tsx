@@ -5,7 +5,6 @@ import {
   IconAdjustments,
   IconBookmark,
   IconDots,
-  IconFolder,
   IconPalette,
   IconPencil,
   IconPhoto,
@@ -13,7 +12,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { Logo, ThemeToggle } from "@/components/brand";
-import type { Collection } from "@/components/collections";
+import { CollectionIcon, type Collection } from "@/components/collections";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,7 +110,7 @@ export function LibrarySidebar({
               {collections.map((c) => (
                 <SidebarMenuItem key={c.id}>
                   <SidebarMenuButton isActive={current === c.id} onClick={go(() => onSelect(c.id))} tooltip={c.name}>
-                    <IconFolder /> <span>{c.name}</span>
+                    <CollectionIcon icon={c.icon} /> <span>{c.name}</span>
                   </SidebarMenuButton>
                   <SidebarMenuBadge className="group-hover/menu-item:opacity-0">{c.count}</SidebarMenuBadge>
                   <DropdownMenu>

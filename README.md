@@ -99,8 +99,8 @@ key is canonical. Renditions are generated once and cached forever.
 | `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
 | `DELETE` | `/api/v1/fields/{key}` | Remove it, and every value stored under it |
 | `GET` | `/api/v1/collections` | Collections, with member counts |
-| `POST` | `/api/v1/collections` | Create one, with the `fields` its members inherit |
-| `PATCH` | `/api/v1/collections/{id}` | Rename it or change its `fields` |
+| `POST` | `/api/v1/collections` | Create one, with an `icon` and the `fields` its members inherit |
+| `PATCH` | `/api/v1/collections/{id}` | Rename it, change its `icon` or its `fields` |
 | `DELETE` | `/api/v1/collections/{id}` | Delete it; its assets stay |
 | `POST` | `/api/v1/collections/{id}/assets` | `{ "add": [...], "remove": [...] }` |
 | `GET` | `/api/v1/searches` | Saved searches |
@@ -198,8 +198,9 @@ list in [ROADMAP.md](ROADMAP.md).
 ## Design
 
 The interface is stock [shadcn/ui](https://ui.shadcn.com) (new-york, neutral)
-with [Tabler icons](https://tabler.io/icons) and Geist. The mark is Tabler's
-bucket. Restyle through the tokens in `src/app/globals.css`, not per component.
+with Google green (#34A853) as the primary, [Tabler icons](https://tabler.io/icons)
+and DM Sans. The mark is Tabler's tipped paint bucket. Restyle through the
+tokens in `src/app/globals.css`, not per component.
 
 Every component in use is on the living reference at `/design`.
 

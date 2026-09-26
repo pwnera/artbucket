@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COLLECTION_ICONS } from "@/lib/collection-icons";
 import { body, handle, ok } from "@/lib/api";
 import { createCollection, listCollections } from "@/lib/core/collections";
 
@@ -12,6 +13,8 @@ export async function GET() {
 }
 
 const Create = z.strictObject({
+  /** One of lib/collection-icons.ts; null resets to the default. */
+  icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   name: z.string().trim().min(1).max(120),
   /** Values its members inherit. Validated against the field schema. */
   fields: z.record(z.string(), z.unknown()).optional(),

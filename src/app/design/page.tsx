@@ -6,7 +6,7 @@ import {
   IconAdjustments,
   IconArrowLeft,
   IconBookmark,
-  IconBucket,
+  IconBucketDroplet,
   IconCloudUpload,
   IconDots,
   IconDownload,
@@ -87,7 +87,7 @@ const COLORS = [
 ];
 
 const ICONS = [
-  IconBucket,
+  IconBucketDroplet,
   IconUpload,
   IconCloudUpload,
   IconDownload,
@@ -166,7 +166,7 @@ export default function DesignSystem() {
         </Button>
         <Logo className="size-7" />
         <h1 className="text-sm font-semibold">Design system</h1>
-        <span className="text-muted-foreground hidden text-sm sm:inline">shadcn/ui · Tabler icons · Geist</span>
+        <span className="text-muted-foreground hidden text-sm sm:inline">shadcn/ui · Tabler icons · DM Sans</span>
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -186,18 +186,18 @@ export default function DesignSystem() {
         </nav>
 
         <main className="grid min-w-0 gap-6">
-          <Section id="brand" title="Brand" description="Tabler's bucket on a primary tile, set beside the wordmark.">
+          <Section id="brand" title="Brand" description="Tabler's tipped paint bucket on a primary tile, set beside the wordmark.">
             <div className="flex flex-wrap items-center gap-8">
               <div className="flex items-center gap-3">
                 <Logo />
                 <span className="text-base font-semibold tracking-tight">Artbucket</span>
               </div>
               <Logo className="size-12 rounded-xl [&_svg]:size-8" />
-              <IconBucket className="size-8" stroke={1.5} />
+              <IconBucketDroplet className="size-8" stroke={1.5} />
             </div>
           </Section>
 
-          <Section id="color" title="Color" description="Stock shadcn neutral tokens in globals.css. Switch theme to see dark.">
+          <Section id="color" title="Color" description="shadcn neutral tokens with Google green (#34A853) as the primary, in globals.css. Switch theme to see dark.">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {COLORS.map((c) => (
                 <div key={c} className="grid gap-1.5">
@@ -208,7 +208,7 @@ export default function DesignSystem() {
             </div>
           </Section>
 
-          <Section id="type" title="Typography" description="Geist Sans for text, Geist Mono for counts and codes.">
+          <Section id="type" title="Typography" description="DM Sans for text, Geist Mono for counts and codes.">
             <div className="grid gap-3">
               <p className="text-3xl font-semibold tracking-tight">Your art, all in one bucket</p>
               <p className="text-xl font-semibold tracking-tight">Section heading</p>
@@ -500,10 +500,11 @@ export default function DesignSystem() {
             </ToggleGroup>
           </Section>
 
-          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped.">
+          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped. Cmd, Ctrl or Shift-click selects.">
             <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
               <AssetCard asset={SAMPLE} />
               <AssetCard asset={{ ...SAMPLE, id: "b", filename: "logo.svg", tags: [], width: null, height: null, size: 4200 }} />
+              <AssetCard asset={{ ...SAMPLE, id: "c", filename: "selected.png" }} selected selecting onPick={() => {}} />
             </div>
           </Section>
         </main>
