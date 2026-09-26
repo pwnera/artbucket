@@ -7,3 +7,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## No em dashes
+
+The em dash (U+2014) is banned everywhere in this repo: prose, code, comments,
+commit messages, PR descriptions. Use ` - `, a comma, a colon, or two sentences.
+`pnpm check:dashes` fails the build if one lands.
+
+The generated block above is the one exception; `next dev` rewrites it, so the
+check skips `AGENTS.md`.

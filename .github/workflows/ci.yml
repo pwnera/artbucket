@@ -58,5 +58,6 @@ jobs:
 
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm check:dashes
       - run: pnpm test
       - run: pnpm build

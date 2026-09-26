@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Check [ROADMAP.md](https://github.com/pwnera/artbucket/blob/main/ROADMAP.md)
-        first — several things are deferred on purpose, each with a stated
+        first - several things are deferred on purpose, each with a stated
         trigger for adding them. If yours is one of those, say what changed.
 
   - type: textarea

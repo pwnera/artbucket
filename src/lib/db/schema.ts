@@ -14,7 +14,7 @@ import {
  * storage key is derived from it. Uploading the same file twice is a no-op.
  *
  * v0.1 keeps this deliberately flat. Metadata, tags, collections and custom
- * fields arrive in v0.2 — see ROADMAP.md.
+ * fields arrive in v0.2 - see ROADMAP.md.
  */
 export const assets = pgTable(
   "assets",

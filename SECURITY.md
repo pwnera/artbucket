@@ -29,4 +29,4 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
 - The rendition endpoint decodes untrusted images with libvips. Keep `sharp`
   current, and put a CDN or rate limiter in front of `/a/*` on a public install.
 - v0.1 ships **no authentication**. Do not expose it to the internet. Multi-user
-  auth and RBAC land in v0.7 — see [ROADMAP.md](ROADMAP.md).
+  auth and RBAC land in v0.7 - see [ROADMAP.md](ROADMAP.md).

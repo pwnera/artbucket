@@ -74,7 +74,7 @@ export async function exists(key: string) {
  * Create the bucket if it is missing and allow browser PUTs from APP_URL.
  *
  * Direct-to-storage uploads mean the browser talks to S3, so the bucket needs a
- * CORS rule. Some providers only allow that from their console — a failure here
+ * CORS rule. Some providers only allow that from their console - a failure here
  * is logged and tolerated rather than fatal.
  */
 let ensured: Promise<void> | null = null;

@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  * GET /a/{id}/w_800,f_webp     → a rendition, generated once and cached
  *
  * The URL is the whole API. Nothing here needs a session, a download button, or
- * a prior round trip — an agent can build the URL it wants and fetch it.
+ * a prior round trip - an agent can build the URL it wants and fetch it.
  */
 export async function GET(_req: Request, { params }: Ctx) {
   try {

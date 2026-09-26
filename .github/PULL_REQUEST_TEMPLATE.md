@@ -6,7 +6,7 @@
 
 - [ ] `pnpm typecheck && pnpm lint && pnpm test && pnpm build` all pass
 - [ ] Business logic lives in `src/lib/core/`, not in a route handler
-- [ ] The web UI still calls `/api/v1` only — no private endpoints added
+- [ ] The web UI still calls `/api/v1` only - no private endpoints added
 - [ ] Non-trivial logic has a test that fails without the change
 - [ ] Any deliberate shortcut carries a `ponytail:` comment naming its ceiling
 - [ ] New migration committed (if the schema changed)

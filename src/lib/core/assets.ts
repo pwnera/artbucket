@@ -15,7 +15,7 @@ import {
 } from "@/lib/storage";
 
 /**
- * The service layer. Every adapter — REST, MCP, CLI, the web UI — goes through
+ * The service layer. Every adapter - REST, MCP, CLI, the web UI - goes through
  * here and nowhere else. That constraint is what keeps the public API honest:
  * if the UI can't be built on it, it isn't finished.
  */
@@ -47,7 +47,7 @@ export async function createUploadTicket(input: {
  * Step 2: promote a staged upload into an asset.
  *
  * The hash is computed server-side from the stored bytes, never taken from the
- * client — a client-supplied digest would let anyone claim an existing asset by
+ * client - a client-supplied digest would let anyone claim an existing asset by
  * guessing its hash.
  *
  * ponytail: buffers the whole object to hash and probe it. Fine to ~512MB on a
@@ -90,7 +90,7 @@ export async function finalizeUpload(input: {
     .onConflictDoNothing({ target: assets.sha256 })
     .returning();
 
-  // Lost a race with a concurrent upload of identical bytes — that upload won.
+  // Lost a race with a concurrent upload of identical bytes - that upload won.
   if (!asset) {
     const [won] = await db.select().from(assets).where(eq(assets.sha256, sha256)).limit(1);
     return { asset: won, deduped: true };

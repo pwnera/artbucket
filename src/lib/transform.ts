@@ -38,7 +38,7 @@ const int = (raw: string, min: number, max: number): number | null => {
   return n >= min && n <= max ? n : null;
 };
 
-/** Returns null for anything malformed — callers should 400, never guess. */
+/** Returns null for anything malformed - callers should 400, never guess. */
 export function parseTransform(spec: string): Transform | null {
   if (spec.length > 120) return null;
 

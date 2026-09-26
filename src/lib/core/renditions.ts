@@ -11,7 +11,7 @@ import {
 /**
  * Renditions are pure functions of (content hash, transform), so they are
  * generated on first request and cached to object storage forever. That removes
- * the entire job queue from v0.1 — add one when p99 on a cold request hurts.
+ * the entire job queue from v0.1 - add one when p99 on a cold request hurts.
  */
 export async function renderAsset(
   asset: Asset,

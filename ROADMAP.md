@@ -1,7 +1,7 @@
-# artbucket — Roadmap
+# artbucket - Roadmap
 
 Agent-first, headless-by-design asset management. A brand knowledge graph with a
-blob store attached — not a blob store with tags.
+blob store attached - not a blob store with tags.
 
 One maintainer. Every milestone below is independently shippable and demoable.
 Estimates assume evenings and weekends, and are guesses.
@@ -22,13 +22,13 @@ Three rules, in priority order:
 
 ---
 
-## v0.1 — Walking skeleton
+## v0.1 - Walking skeleton
 **Question it answers:** can a file get in, and come back out in any shape?
 
 - `docker compose up` → Postgres + MinIO + app
-- Upload an image (presigned PUT, direct to S3 — server never proxies bytes)
+- Upload an image (presigned PUT, direct to S3 - server never proxies bytes)
 - SHA-256 content hash, dedupe on collision
-- Rendition delivery: `/a/{id}/w_800,f_webp` — generated on first request via
+- Rendition delivery: `/a/{id}/w_800,f_webp` - generated on first request via
   sharp, cached to S3, served thereafter
 - Minimal grid UI: Tailwind 4 + shadcn + DM Sans
 - Single user, no auth
@@ -39,11 +39,11 @@ _~2 weekends._
 
 ---
 
-## v0.2 — It becomes a DAM
+## v0.2 - It becomes a DAM
 **Question:** can you find the thing again?
 
 - EXIF / IPTC / XMP extraction on ingest (exifreader)
-- Write metadata *back* into file on download — portability is the anti-lock-in promise
+- Write metadata *back* into file on download - portability is the anti-lock-in promise
 - Custom field schemas, required-at-upload fields
 - Tags, collections, collection→asset field inheritance
 - Postgres FTS across filename, metadata, tags, custom fields
@@ -55,10 +55,10 @@ _~3 weekends._
 
 ---
 
-## v0.3 — The API becomes the product
+## v0.3 - The API becomes the product
 **Question:** is the public API good enough to build the product on?
 
-- `/api/v1` — the only write path, versioned, public
+- `/api/v1` - the only write path, versioned, public
 - **Every private endpoint deleted.** The web UI may call nothing else.
 - All logic moves to `lib/core/`; the API is a thin adapter over it
 - API keys, scoped
@@ -72,10 +72,10 @@ _~2 weekends. Painful, non-negotiable, and cheap only if done now._
 
 ---
 
-## v0.4 — Agent surface
+## v0.4 - Agent surface
 **Question:** can Claude or Cursor use this without a human?
 
-- MCP server, same `lib/core/` as REST — a second adapter, not an integration
+- MCP server, same `lib/core/` as REST - a second adapter, not an integration
 - Tools: search, describe, resolve rendition URL, ingest, propose tags
 - Agent writes land in `proposed` state; a human promotes them
 - `artbucket` CLI (thin client over the same API)
@@ -87,12 +87,12 @@ _~2 weekends. This is the launch-worthy milestone._
 
 ---
 
-## v0.5 — The canon
+## v0.5 - The canon
 **Question:** can the brand itself be queried?
 
 - Brand rules as structured records, not documents: `color.primary.hex`,
   `logo.minClearSpace`, `logo.neverDo[]`, `tone.avoid[]`, `type.scale`
-- Guidelines page *rendered from* that data — inverting Frontify, who author
+- Guidelines page *rendered from* that data - inverting Frontify, who author
   documents and try to extract data
 - `GET /brand/rules?context=instagram-story` → actionable constraints
 - Exposed as MCP resources
@@ -103,10 +103,10 @@ _~3 weekends._
 
 ---
 
-## v0.6 — Verdict and provenance
+## v0.6 - Verdict and provenance
 **Question:** can something else decide whether a use is allowed?
 
-- `POST /check` → `{allowed, reasons[], suggest}` — the primitive no DAM has
+- `POST /check` → `{allowed, reasons[], suggest}` - the primitive no DAM has
 - Rights fields: license, territory, channel, embargo, expiry, model releases
 - Provenance columns: `origin` (shot / licensed / generated), `parent_asset_id`,
   `generator`, prompt
@@ -117,33 +117,33 @@ _~3 weekends. This is the moat._
 
 ---
 
-## v0.7 — Multi-user
+## v0.7 - Multi-user
 **Question:** can a team use it?
 
-- better-auth: email + OIDC. **OIDC stays free forever** — no SSO tax.
+- better-auth: email + OIDC. **OIDC stays free forever** - no SSO tax.
 - Organizations, workspaces
 - RBAC: org → workspace → collection → asset
 - Share links with expiry and password; guest collect-upload links
-- Audit log (also free — cheap trust)
+- Audit log (also free - cheap trust)
 
 **Not in this one:** SAML, SCIM. Those are the eventual commercial line.
 _~4 weekends. Deliberately deferred: single-user validates the thesis fine._
 
 ---
 
-## v0.8 — Lifecycle
+## v0.8 - Lifecycle
 **Question:** can the wrong version stop leaking out?
 
 - Version stacks with a "current approved" pointer, rollback, side-by-side compare
 - States: draft → in review → approved → expired → archived
-- **Expiry enforced at delivery** — rendition URLs 410 and caches purge
+- **Expiry enforced at delivery** - rendition URLs 410 and caches purge
 - Bulk operations
 
 _~3 weekends._
 
 ---
 
-## v0.9 — Hardening
+## v0.9 - Hardening
 **Question:** can a stranger run this in production without paging you?
 
 - Backup and restore that is actually tested
@@ -158,10 +158,10 @@ _~4 weekends. The unglamorous one that decides adoption._
 
 ---
 
-## v1.0 — Stable contract
+## v1.0 - Stable contract
 **Question:** can someone integrate and trust it?
 
-- `/api/v1` frozen — semver, deprecation policy, no breaking changes without v2
+- `/api/v1` frozen - semver, deprecation policy, no breaking changes without v2
 - MCP tool signatures frozen
 - SECURITY.md, CONTRIBUTING.md, ADRs for the load-bearing decisions
 - AGPLv3 core; `ee/` reserved but empty

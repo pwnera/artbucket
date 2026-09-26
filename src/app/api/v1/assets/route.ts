@@ -20,7 +20,7 @@ const Finalize = z.object({
   mime: z.string().min(1).max(255),
 });
 
-/** POST /api/v1/assets — promote a staged upload. Idempotent by content hash. */
+/** POST /api/v1/assets - promote a staged upload. Idempotent by content hash. */
 export async function POST(req: Request) {
   try {
     const { asset, deduped } = await finalizeUpload(await body(req, Finalize));

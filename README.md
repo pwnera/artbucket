@@ -4,7 +4,7 @@
 
 **Agent-first, headless-by-design asset management.**
 
-A brand knowledge graph with a blob store attached — not a blob store with tags.
+A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 [![CI](https://github.com/pwnera/artbucket/actions/workflows/ci.yml/badge.svg)](https://github.com/pwnera/artbucket/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -13,14 +13,14 @@ A brand knowledge graph with a blob store attached — not a blob store with tag
 
 ---
 
-> **Status: v0.1, early.** The walking skeleton works — upload, content-addressed
+> **Status: v0.1, early.** The walking skeleton works - upload, content-addressed
 > dedupe, and on-the-fly renditions. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
 
 Commercial DAM costs $25k–$50k a year, is quoted only by sales, and charges per
-seat — so every contractor and agency partner raises the bill. The open-source
+seat - so every contractor and agency partner raises the bill. The open-source
 alternatives are all a decade old.
 
 Meanwhile AI changed what the job is. Finding files is a solved, commoditized
@@ -58,14 +58,14 @@ Open http://localhost:3000 and drop in a file.
 ## Using it
 
 ```bash
-# 1. Get a presigned upload URL — bytes never touch the app server
+# 1. Get a presigned upload URL - bytes never touch the app server
 curl -X POST localhost:3000/api/v1/uploads \
   -H 'content-type: application/json' \
   -d '{"filename":"hero.png","mime":"image/png","size":20135}'
 
 # 2. PUT the file straight to storage using the returned uploadUrl
 
-# 3. Promote it to an asset (idempotent — identical bytes dedupe)
+# 3. Promote it to an asset (idempotent - identical bytes dedupe)
 curl -X POST localhost:3000/api/v1/assets \
   -H 'content-type: application/json' \
   -d '{"token":"<token>","filename":"hero.png","mime":"image/png"}'
@@ -80,7 +80,7 @@ Then build any rendition URL you like, no API call needed:
 ```
 
 Transforms: `w` `h` (1–8000), `fit` (cover, contain, inside, outside, fill),
-`q` (1–100), `f` (jpeg, png, webp, avif). Key order doesn't matter — the cache
+`q` (1–100), `f` (jpeg, png, webp, avif). Key order doesn't matter - the cache
 key is canonical. Renditions are generated once and cached forever.
 
 ## API
@@ -96,7 +96,7 @@ key is canonical. Renditions are generated once and cached forever.
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Any S3-compatible storage works — AWS S3,
+Copy `.env.example` to `.env`. Any S3-compatible storage works - AWS S3,
 Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 
 | Variable | |
@@ -110,16 +110,30 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 ## Stack
 
 Next.js 16 · React 19 · Postgres + Drizzle · S3-compatible storage · sharp ·
-Tailwind 4 + shadcn/ui · DM Sans.
+Tailwind 4 · Fredoka + Inter.
 
 No monorepo, no job queue, no Redis, no search cluster. Renditions are pure
 functions, so generate-on-first-request plus a cache removes the entire job
-system. Things get added when something measurably hurts — see the deferred
+system. Things get added when something measurably hurts - see the deferred
 list in [ROADMAP.md](ROADMAP.md).
+
+## Design
+
+The interface follows the **ArtBucket design system**: warm off-white grounds,
+Bucket Teal for identity and state, one Paint Coral CTA per view, Fredoka for
+display and Inter for everything else, pills and 12px cards, and Pip the mascot
+confined to empty states.
+
+`src/app/globals.css` mirrors the system's tokens verbatim and is the only place
+raw colour values appear. The type scale lives there as whole styles
+(`.text-title-1`, `.text-meta`, …) so size, line-height, weight and tracking
+travel together and a screen cannot drift half a step off the scale.
+
+Change a value in the design system first, then mirror it here.
 
 ## Contributing
 
-Issues and PRs welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) first. The
+Issues and PRs welcome - read [CONTRIBUTING.md](CONTRIBUTING.md) first. The
 roadmap is opinionated on purpose; if you want to build something on it, open an
 issue before writing the code.
 

@@ -1,5 +1,5 @@
 # Local development services. Production self-hosters point S3_* at real S3,
-# Cloudflare R2, Backblaze B2, Garage, or MinIO — anything S3-compatible.
+# Cloudflare R2, Backblaze B2, Garage, or MinIO - anything S3-compatible.
 services:
   postgres:
     image: postgres:18-alpine

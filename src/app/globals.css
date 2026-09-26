@@ -1,84 +1,234 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * ArtBucket design system - tokens mirrored from the system at
+ * https://claude.ai/code/artifact/ae73b5c9-6dc4-4ed1-810c-768a526e0e52
+ * Values are copied exactly. Change them there first, then here.
+ */
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --font-display: var(--font-fredoka), Nunito, ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --surface: #faf6f0;
+  --surface-raised: #fffcf7;
+  --surface-sunken: #f2ece3;
+  --line: #e5ddd1;
+  --line-strong: #958b7e;
+  --ink: #2e2a28;
+  --ink-muted: #675f57;
+
+  --teal: #6fa3ae;
+  --teal-strong: #3b7c88;
+  --on-teal-strong: #fffcf7;
+  --teal-ink: #2e6a76;
+  --teal-soft: #ddedef;
+
+  --coral: #f08770;
+  --on-coral: #3b1810;
+  --coral-ink: #b0442d;
+  --coral-soft: #fce3dc;
+
+  --sun: #f5c94e;
+  --sun-soft: #fbefc6;
+  --sun-ink: #735300;
+
+  --lilac: #b9a6e3;
+  --lilac-soft: #ede6f8;
+  --lilac-ink: #5b4791;
+
+  --success: #2c7651;
+  --danger: #b23a2e;
+
+  --scrim: #2e2a28d9;
+  --on-scrim: #fffcf7;
+  --focus-ring: var(--teal-ink);
+
+  --shadow-card: 0 1px 2px rgba(46, 42, 40, 0.06), 0 1px 1px rgba(46, 42, 40, 0.04);
+  --shadow-lift: 0 6px 18px rgba(46, 42, 40, 0.1), 0 2px 4px rgba(46, 42, 40, 0.06);
+  --shadow-toast: 0 12px 32px rgba(46, 42, 40, 0.16), 0 2px 6px rgba(46, 42, 40, 0.08);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1c1a18;
+    --surface-raised: #252220;
+    --surface-sunken: #151412;
+    --line: #38332e;
+    --line-strong: #766d63;
+    --ink: #f1ebe3;
+    --ink-muted: #b1a79b;
+
+    --teal: #79b2bd;
+    --teal-strong: #8fc5cf;
+    --on-teal-strong: #10272c;
+    --teal-ink: #8fc5cf;
+    --teal-soft: #1f3a40;
+
+    --coral: #f4937e;
+    --on-coral: #3b1810;
+    --coral-ink: #f6a591;
+    --coral-soft: #46231b;
+
+    --sun: #f2cb5e;
+    --sun-soft: #3f3414;
+    --sun-ink: #f2d27a;
+
+    --lilac: #c2b1ea;
+    --lilac-soft: #322a47;
+    --lilac-ink: #cbbdf0;
+
+    --success: #72c69c;
+    --danger: #f2887c;
+
+    --scrim: #151412d9;
+    --on-scrim: #f1ebe3;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-toast: 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
 }
 
 @theme inline {
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-teal: var(--teal);
+  --color-teal-strong: var(--teal-strong);
+  --color-on-teal-strong: var(--on-teal-strong);
+  --color-teal-ink: var(--teal-ink);
+  --color-teal-soft: var(--teal-soft);
+  --color-coral: var(--coral);
+  --color-on-coral: var(--on-coral);
+  --color-coral-ink: var(--coral-ink);
+  --color-coral-soft: var(--coral-soft);
+  --color-sun: var(--sun);
+  --color-sun-soft: var(--sun-soft);
+  --color-sun-ink: var(--sun-ink);
+  --color-lilac: var(--lilac);
+  --color-lilac-soft: var(--lilac-soft);
+  --color-lilac-ink: var(--lilac-ink);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-scrim: var(--scrim);
+  --color-on-scrim: var(--on-scrim);
+
+  /* 4px grid */
+  --spacing-0\.5: 2px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-card: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-toast: var(--shadow-toast);
+
+  --size-control-sm: 28px;
+  --size-control-md: 36px;
+  --size-control-lg: 44px;
+  --size-icon-sm: 16px;
+  --size-icon-md: 20px;
+  --size-icon-lg: 24px;
+  --size-thumb-min: 160px;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "cv11";
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+
+  /* Focus: solid 2px teal-ink ring, 2px offset, on every interactive element. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * The type scale, as whole styles. Size, line-height, weight and tracking
+ * travel together so a screen cannot drift half a step off the scale.
+ * Fredoka never below 15px, Inter never above 18px.
+ */
+@layer components {
+  .text-display {
+    font-family: var(--font-display);
+    font-size: 32px;
+    line-height: 38px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .text-title-1 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    line-height: 30px;
+    font-weight: 600;
+  }
+  .text-title-2 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 600;
+  }
+  .text-title-3 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+  .text-body {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+  .text-body-strong {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+  .text-control {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+  }
+  .text-filename {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .text-label {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+  }
+  .text-meta {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  .text-badge {
+    font-size: 10px;
+    line-height: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 }
