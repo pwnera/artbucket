@@ -8,7 +8,7 @@ import { assets, collectionAssets } from "@/lib/db/schema";
 import { inheritedFrom, joinCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
+import { describeIssues, fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
 import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { extractMetadata } from "@/lib/metadata";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -363,7 +363,11 @@ async function validFields(
 ) {
   const parsed = fieldsValidator(relaxInherited(await listFields(), inherited), mode).safeParse(values);
   if (!parsed.success) {
-    throw new AssetError("invalid", "Custom field values are invalid", z.treeifyError(parsed.error));
+    throw new AssetError(
+      "invalid",
+      `Custom fields: ${describeIssues(parsed.error)}`,
+      z.treeifyError(parsed.error),
+    );
   }
   return parsed.data;
 }

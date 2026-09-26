@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { assets, collectionAssets, collections } from "@/lib/db/schema";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { fieldsValidator, type FieldValues } from "@/lib/fields";
+import { describeIssues, fieldsValidator, type FieldValues } from "@/lib/fields";
 
 /**
  * Collections group assets and carry field values their members inherit.
@@ -179,7 +179,7 @@ async function validValues(values: Record<string, unknown>) {
   if (!parsed.success) {
     throw new AssetError(
       "invalid",
-      "Collection field values are invalid",
+      `Collection fields: ${describeIssues(parsed.error)}`,
       z.treeifyError(parsed.error),
     );
   }

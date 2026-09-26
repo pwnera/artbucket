@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fieldsValidator, relaxInherited, type FieldDef } from "./fields.ts";
+import { describeIssues, fieldsValidator, relaxInherited, type FieldDef } from "./fields.ts";
 
 const defs: FieldDef[] = [
   { key: "campaign", label: "Campaign", type: "text", options: [], required: true },
@@ -47,4 +47,13 @@ test("an inherited value satisfies a required field", () => {
   const relaxed = relaxInherited(defs, { campaign: "Autumn" });
   assert.equal(fieldsValidator(relaxed, "upload").safeParse({}).success, true);
   assert.deepEqual(fieldsValidator(relaxed, "patch").parse({ campaign: null }), { campaign: null });
+});
+
+test("errors name the field and the problem", () => {
+  const r = upload.safeParse({ campaign: "x", budget: "12", channel: "tv", nope: 1 });
+  assert.equal(r.success, false);
+  const msg = describeIssues(r.error!);
+  assert.match(msg, /unknown field "nope"/);
+  assert.match(msg, /budget: expected number/);
+  assert.match(msg, /channel: /);
 });

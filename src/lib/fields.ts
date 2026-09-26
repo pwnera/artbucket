@@ -63,6 +63,20 @@ export function fieldsValidator(defs: FieldDef[], mode: "upload" | "patch") {
 }
 
 /**
+ * One readable line per problem, naming the field: "budget: expected number;
+ * unknown field "channel"". The raw tree still goes out as the error detail.
+ */
+export function describeIssues(error: z.ZodError): string {
+  return error.issues
+    .map((i) =>
+      i.code === "unrecognized_keys"
+        ? i.keys.map((k) => `unknown field "${k}"`).join("; ")
+        : `${i.path.join(".") || "fields"}: ${i.message.replace(/^Invalid input: /, "")}`,
+    )
+    .join("; ");
+}
+
+/**
  * A required field is satisfied by an inherited value: it is neither demanded
  * at upload nor protected from being cleared on the asset itself.
  */

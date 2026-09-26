@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
 import { AssetEditor } from "@/components/asset-editor";
+import { FieldManager } from "@/components/field-manager";
+import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { CollectionDialog, type Collection } from "@/components/collections";
 import { UploadFieldsDialog } from "@/components/fields";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
+import { pool } from "@/lib/pool";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 
 export type Asset = {
@@ -53,7 +56,7 @@ const describe = (k: string, v: string) => {
 // not finished.
 export function Gallery({
   initial,
-  fields,
+  fields: initialFields,
   collections: initialCollections,
   searches: initialSearches,
 }: {
@@ -64,6 +67,10 @@ export function Gallery({
 }) {
   const [{ data: assets, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(initialCollections);
+  // The field schema can change under an open page (here or elsewhere), so it
+  // refreshes with everything else. A stale copy sends values for deleted fields.
+  const [fields, setFields] = useState(initialFields);
+  const [managingFields, setManagingFields] = useState(false);
   // The collection being browsed. Uploads made while it is selected land in it.
   const [current, setCurrent] = useState<string | null>(null);
   const [editing, setEditing] = useState<Collection | "new" | null>(null);
@@ -78,7 +85,7 @@ export function Gallery({
   const [open, setOpen] = useState<Asset | null>(null);
   // Files waiting on the required-fields step before they upload.
   const [pending, setPending] = useState<File[] | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -99,15 +106,29 @@ export function Gallery({
   const refresh = useCallback(async () => {
     const params = query();
     const ticket = ++latest.current;
-    const [res, cols] = await Promise.all([
+    const [res, cols, defs] = await Promise.all([
       fetch(`/api/v1/assets?${params}`),
       fetch("/api/v1/collections"),
+      fetch("/api/v1/fields"),
     ]);
-    const [listing, colsBody] = await Promise.all([res.json(), cols.ok ? cols.json() : null]);
+    const [listing, colsBody, defsBody] = await Promise.all([
+      res.json(),
+      cols.ok ? cols.json() : null,
+      defs.ok ? defs.json() : null,
+    ]);
     if (ticket !== latest.current) return;
     if (res.ok) setListing(listing);
     else setError(listing.error?.message ?? "Search failed");
     if (colsBody) setCollections(colsBody.data);
+    if (defsBody) {
+      const next: FieldDef[] = defsBody.data;
+      setFields(next);
+      // Drop filters on fields that no longer exist, or every search would 422.
+      setFilters((f) => {
+        const kept = Object.fromEntries(Object.entries(f).filter(([k]) => next.some((d) => d.key === k)));
+        return Object.keys(kept).length === Object.keys(f).length ? f : kept;
+      });
+    }
   }, [query]);
 
   /** Restore a saved query string into the view's state. */
@@ -168,14 +189,30 @@ export function Gallery({
   };
 
 
+  const track = (id: string, patch: Partial<Upload>) =>
+    setUploads((us) => us.map((u) => (u.id === id ? { ...u, ...patch } : u)));
+
+  // Three files at a time. One file failing doesn't stop the rest of the batch;
+  // it's marked in the tray with its reason.
   const upload = useCallback(
     async (files: File[], values: Record<string, FieldValue> = {}) => {
-      setBusy(true);
-      setError(null);
-      try {
-        for (const file of files) {
-          const mime = file.type || "application/octet-stream";
+      const batch = files.map((file) => ({ file, id: crypto.randomUUID() }));
+      setUploads((us) => [
+        // A new batch clears finished rows from an earlier one, keeps anything in flight.
+        ...us.filter(isActive),
+        ...batch.map(({ file, id }) => ({
+          id,
+          name: file.name,
+          size: file.size,
+          loaded: 0,
+          status: "queued" as const,
+        })),
+      ]);
 
+      await pool(batch, 3, async ({ file, id }) => {
+        const mime = file.type || "application/octet-stream";
+        try {
+          track(id, { status: "uploading" });
           const ticket = await fetch("/api/v1/uploads", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -184,13 +221,9 @@ export function Gallery({
           if (!ticket.ok) throw new Error((await ticket.json()).error?.message ?? "Upload failed");
           const { token, uploadUrl } = await ticket.json();
 
-          const put = await fetch(uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": mime },
-            body: file,
-          });
-          if (!put.ok) throw new Error("Storage rejected the upload");
+          await putWithProgress(uploadUrl, file, mime, (loaded) => track(id, { loaded }));
 
+          track(id, { status: "saving", loaded: file.size });
           const done = await fetch("/api/v1/assets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -202,17 +235,25 @@ export function Gallery({
               collections: current ? [current] : [],
             }),
           });
-          if (!done.ok) throw new Error((await done.json()).error?.message ?? "Finalize failed");
+          const body = await done.json();
+          if (!done.ok) throw new Error(body.error?.message ?? "Couldn't add it to the library");
+          track(id, { status: body.deduped ? "deduped" : "done" });
+          void refresh(); // the grid fills in as files land, not all at the end
+        } catch (e) {
+          track(id, { status: "failed", error: e instanceof Error ? e.message : "Upload failed" });
         }
-        await refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Files couldn't be uploaded");
-      } finally {
-        setBusy(false);
-      }
+      });
     },
     [refresh, current],
   );
+
+  // A clean batch clears itself shortly after; one with failures waits to be read.
+  const uploading = uploads.some(isActive);
+  useEffect(() => {
+    if (!uploads.length || uploading || uploads.some((u) => u.status === "failed")) return;
+    const t = setTimeout(() => setUploads([]), 4000);
+    return () => clearTimeout(t);
+  }, [uploads, uploading]);
 
   const filtered =
     q.trim() !== "" ||
@@ -262,10 +303,15 @@ export function Gallery({
             </div>
           </div>
 
+          <span className="ml-auto" />
+          <Button variant="ghost" onClick={() => setManagingFields(true)}>
+            Custom fields
+          </Button>
           {/* The one coral CTA on this view. */}
-          <Button size="lg" onClick={() => input.current?.click()} disabled={busy} aria-busy={busy}>
+          {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
+          <Button size="lg" onClick={() => input.current?.click()} aria-busy={uploading}>
             <UploadIcon size={20} />
-            {busy ? "Uploading" : "Upload files"}
+            Upload files
           </Button>
           <input
             ref={input}
@@ -476,6 +522,12 @@ export function Gallery({
             void upload(pending, values);
           }}
         />
+      )}
+
+      <UploadTray uploads={uploads} onDismiss={() => setUploads([])} />
+
+      {managingFields && (
+        <FieldManager fields={fields} onClose={() => setManagingFields(false)} onChanged={refresh} />
       )}
 
       {editing && (
