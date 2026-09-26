@@ -88,11 +88,24 @@ key is canonical. Renditions are generated once and cached forever.
 | Method | Path | |
 |---|---|---|
 | `POST` | `/api/v1/uploads` | Create a presigned upload ticket |
-| `GET` | `/api/v1/assets` | List assets |
+| `GET` | `/api/v1/assets` | List or search assets, with tag facet counts |
 | `POST` | `/api/v1/assets` | Promote a staged upload |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
+| `PATCH` | `/api/v1/assets/{id}` | Replace its `tags` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
+
+### Search
+
+```
+/api/v1/assets?q=fox her                   every word, as a prefix
+/api/v1/assets?tag=mascot&tag=autumn       assets carrying every tag
+```
+
+`q` covers the filename, tags, and the EXIF / IPTC / XMP read on ingest
+(title, caption, keywords, creator, copyright, camera). Embedded keywords
+become the asset's initial tags. Each response carries `facets.tags`: tag
+counts over the same filter.
 
 ## Configuration
 

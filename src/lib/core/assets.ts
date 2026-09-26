@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { db } from "@/lib/db";
-import { assets, type Asset } from "@/lib/db/schema";
+import { assets } from "@/lib/db/schema";
+import { extractMetadata } from "@/lib/metadata";
+import { normalizeTags, prefixQuery } from "@/lib/search";
 import {
   deleteObject,
   ensureBucket,
@@ -19,6 +21,11 @@ import {
  * here and nowhere else. That constraint is what keeps the public API honest:
  * if the UI can't be built on it, it isn't finished.
  */
+
+// The search vector is an index, not data: it never leaves the database.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { search: _search, ...columns } = getTableColumns(assets);
+export type Asset = Omit<typeof assets.$inferSelect, "search">;
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 
@@ -66,13 +73,14 @@ export async function finalizeUpload(input: {
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
-  const [existing] = await db.select().from(assets).where(eq(assets.sha256, sha256)).limit(1);
+  const existing = await bySha(sha256);
   if (existing) {
     await deleteObject(staged);
     return { asset: existing, deduped: true };
   }
 
   const probe = await probeImage(bytes);
+  const metadata = extractMetadata(bytes);
   await putObject(originalKey(sha256), bytes, input.mime);
   await deleteObject(staged);
 
@@ -86,30 +94,94 @@ export async function finalizeUpload(input: {
       width: probe?.width ?? null,
       height: probe?.height ?? null,
       probe: probe ?? null,
+      metadata,
+      // Embedded keywords seed the tags, so a library imported from Lightroom
+      // is searchable by what it was already tagged with.
+      tags: normalizeTags(metadata?.keywords ?? []),
     })
     .onConflictDoNothing({ target: assets.sha256 })
-    .returning();
+    .returning(columns);
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
   if (!asset) {
-    const [won] = await db.select().from(assets).where(eq(assets.sha256, sha256)).limit(1);
-    return { asset: won, deduped: true };
+    return { asset: (await bySha(sha256))!, deduped: true };
   }
 
   return { asset, deduped: false };
 }
 
-export async function listAssets(limit = 100, offset = 0) {
-  return db
-    .select()
-    .from(assets)
-    .orderBy(desc(assets.createdAt))
-    .limit(Math.min(limit, 200))
-    .offset(offset);
+export type AssetQuery = {
+  /** Free text over filename, tags and embedded metadata. Every word must match. */
+  q?: string;
+  /** Assets carrying all of these tags. */
+  tags?: string[];
+  limit?: number;
+  offset?: number;
+};
+
+/**
+ * Search and browse are one call: no query means newest first. The tag facet
+ * is counted over the same filter, so every count it shows is a click that
+ * returns exactly that many results.
+ *
+ * ponytail: facet counts scan the matching set on every request. Fine at the
+ * v0.2 target (1,000 assets, <100ms); cache or approximate past ~100k.
+ */
+export async function searchAssets({ q, tags = [], limit = 100, offset = 0 }: AssetQuery) {
+  const tsq = q ? prefixQuery(q) : null;
+  const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
+  const wanted = normalizeTags(tags);
+  const where = and(
+    match,
+    wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
+  );
+
+  const [data, facets] = await Promise.all([
+    db
+      .select(columns)
+      .from(assets)
+      .where(where)
+      .orderBy(
+        ...(match ? [desc(sql`ts_rank(${assets.search}, to_tsquery('simple', ${tsq}))`)] : []),
+        desc(assets.createdAt),
+      )
+      .limit(Math.min(Math.max(limit, 1), 200))
+      .offset(Math.max(offset, 0)),
+    tagFacet(where),
+  ]);
+  return { data, facets: { tags: facets } };
+}
+
+async function tagFacet(where: SQL | undefined) {
+  const tag = sql<string>`jsonb_array_elements_text(${assets.tags})`;
+  const rows = await db
+    .select({ value: sql<string>`t.value`, count: sql<number>`count(*)::int` })
+    .from(sql`${assets}, ${tag} as t(value)`)
+    .where(where)
+    .groupBy(sql`t.value`)
+    .orderBy(sql`count(*) desc`, sql`t.value`)
+    .limit(50);
+  return rows;
 }
 
 export async function getAsset(id: string): Promise<Asset | null> {
-  const [asset] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);
+  const [asset] = await db.select(columns).from(assets).where(eq(assets.id, id)).limit(1);
+  return asset ?? null;
+}
+
+async function bySha(sha256: string): Promise<Asset | null> {
+  const [asset] = await db.select(columns).from(assets).where(eq(assets.sha256, sha256)).limit(1);
+  return asset ?? null;
+}
+
+/** Only tags are editable in this slice; metadata edits land with write-back. */
+export async function updateAsset(id: string, patch: { tags?: string[] }): Promise<Asset | null> {
+  if (!patch.tags) return getAsset(id);
+  const [asset] = await db
+    .update(assets)
+    .set({ tags: normalizeTags(patch.tags), updatedAt: sql`now()` })
+    .where(eq(assets.id, id))
+    .returning(columns);
   return asset ?? null;
 }
 

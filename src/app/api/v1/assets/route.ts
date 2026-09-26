@@ -1,14 +1,31 @@
 import { z } from "zod";
 import { body, handle, ok } from "@/lib/api";
-import { finalizeUpload, listAssets } from "@/lib/core/assets";
+import { finalizeUpload, searchAssets } from "@/lib/core/assets";
 
-/** GET /api/v1/assets */
+const Query = z.object({
+  q: z.string().max(512).optional(),
+  tag: z.array(z.string().max(64)).max(20),
+  limit: z.coerce.number().int().optional(),
+  offset: z.coerce.number().int().optional(),
+});
+
+/**
+ * GET /api/v1/assets?q=fox&tag=brand&tag=logo
+ *
+ * Browse and search in one: `q` is prefix full-text over filename, tags and
+ * embedded metadata; each `tag` narrows to assets carrying it. The response
+ * carries tag facet counts for the same filter.
+ */
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const limit = Number(url.searchParams.get("limit") ?? 100);
-    const offset = Number(url.searchParams.get("offset") ?? 0);
-    return ok({ data: await listAssets(limit, offset) });
+    const p = new URL(req.url).searchParams;
+    const { tag, ...rest } = Query.parse({
+      q: p.get("q") ?? undefined,
+      tag: p.getAll("tag"),
+      limit: p.get("limit") ?? undefined,
+      offset: p.get("offset") ?? undefined,
+    });
+    return ok(await searchAssets({ ...rest, tags: tag }));
   } catch (err) {
     return handle(err);
   }

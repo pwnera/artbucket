@@ -38,6 +38,15 @@ export function ImageIcon({ size = 20, className }: IconProps) {
   );
 }
 
+export function SearchIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l4.5 4.5" />
+    </svg>
+  );
+}
+
 export function AlertIcon({ size = 20, className }: IconProps) {
   return (
     <svg {...base(size, className)}>

@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { Asset } from "@/lib/db/schema";
+import type { Asset } from "@/lib/core/assets";
 import { exists, getObject, originalKey, putObject, renditionKey } from "@/lib/storage";
 import {
   CONTENT_TYPE,

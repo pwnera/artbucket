@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { Gallery, type Asset } from "@/components/gallery";
+import { Gallery, type Listing } from "@/components/gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function Home() {
   const res = await fetch(`${env.APP_URL}/api/v1/assets`, { cache: "no-store" });
-  const initial: Asset[] = res.ok ? (await res.json()).data : [];
+  const initial: Listing = res.ok ? await res.json() : { data: [], facets: { tags: [] } };
 
   return <Gallery initial={initial} />;
 }

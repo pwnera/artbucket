@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
-  serverExternalPackages: ["sharp"],
+  // exifreader loads @xmldom/xmldom (its optional XMP parser) with a runtime
+  // require that bundling drops, which silently loses every XMP field.
+  serverExternalPackages: ["sharp", "exifreader"],
   async headers() {
     return [
       {

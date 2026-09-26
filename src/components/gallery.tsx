@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { AlertIcon, DashedOutline, ImageIcon, Logo, UploadIcon } from "@/components/icon";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
@@ -13,14 +13,19 @@ export type Asset = {
   size: number;
   width: number | null;
   height: number | null;
+  tags: string[];
   createdAt: string;
 };
+
+export type Listing = { data: Asset[]; facets: { tags: { value: string; count: number }[] } };
 
 // This component talks to /api/v1 and nothing else. There are no private
 // endpoints: if the UI needs something the public API cannot do, the API is
 // not finished.
-export function Gallery({ initial }: { initial: Asset[] }) {
-  const [assets, setAssets] = useState(initial);
+export function Gallery({ initial }: { initial: Listing }) {
+  const [{ data: assets, facets }, setListing] = useState(initial);
+  const [q, setQ] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,9 +33,25 @@ export function Gallery({ initial }: { initial: Asset[] }) {
   const dragDepth = useRef(0);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/v1/assets");
-    if (res.ok) setAssets((await res.json()).data);
-  }, []);
+    const params = new URLSearchParams(q.trim() ? { q } : {});
+    for (const t of tags) params.append("tag", t);
+    const res = await fetch(`/api/v1/assets?${params}`);
+    if (res.ok) setListing(await res.json());
+  }, [q, tags]);
+
+  // Search as you type, settled for a beat so each keystroke isn't a request.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const t = setTimeout(refresh, 150);
+    return () => clearTimeout(t);
+  }, [refresh]);
+
+  const toggleTag = (t: string) =>
+    setTags((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]));
 
   const upload = useCallback(
     async (files: FileList | File[]) => {
@@ -72,7 +93,14 @@ export function Gallery({ initial }: { initial: Asset[] }) {
     [refresh],
   );
 
-  const empty = assets.length === 0;
+  // A selected tag stays on screen even when nothing matches, or it could never be cleared.
+  const chips = [
+    ...tags.filter((t) => !facets.tags.some((f) => f.value === t)).map((value) => ({ value, count: 0 })),
+    ...facets.tags,
+  ];
+  const filtered = q.trim() !== "" || tags.length > 0;
+  // The welcome is for an empty library, not for a search that found nothing.
+  const empty = assets.length === 0 && !filtered;
 
   return (
     // Drag is tracked on the whole page: dropping only inside a bordered box is
@@ -108,7 +136,7 @@ export function Gallery({ initial }: { initial: Asset[] }) {
             <div>
               <h1 className="text-title-1">Artbucket</h1>
               <p className="text-meta text-ink-muted mt-1">
-                {assets.length} {assets.length === 1 ? "file" : "files"}
+                {assets.length} {filtered ? "found" : assets.length === 1 ? "file" : "files"}
               </p>
             </div>
           </div>
@@ -128,6 +156,45 @@ export function Gallery({ initial }: { initial: Asset[] }) {
             onChange={(e) => e.target.files && upload(e.target.files)}
           />
         </header>
+
+        {!empty && (
+          <div className="mb-6 space-y-3">
+            <label className="bg-surface-raised border-line focus-within:border-line-strong text-ink-muted flex max-w-md items-center gap-2 rounded-pill border px-4 py-2">
+              <SearchIcon size={20} />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search names, tags, captions"
+                aria-label="Search assets"
+                className="text-body text-ink placeholder:text-ink-muted w-full bg-transparent outline-none"
+              />
+            </label>
+            {chips.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Filter by tag">
+                {chips.map(({ value, count }) => {
+                  const on = tags.includes(value);
+                  return (
+                    <li key={value}>
+                      <button
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleTag(value)}
+                        className={`text-label rounded-pill border px-3 py-1 transition-colors duration-150 ${
+                          on
+                            ? "bg-teal-soft border-teal text-teal-ink"
+                            : "border-line text-ink-muted hover:border-line-strong hover:text-ink"
+                        }`}
+                      >
+                        {value} <span className="opacity-70">{count}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Status: icon, word and colour together — never colour alone. */}
         {error && (
@@ -152,6 +219,10 @@ export function Gallery({ initial }: { initial: Asset[] }) {
               Drop files anywhere on this page to add them. Pip will keep them tidy.
             </p>
           </div>
+        ) : assets.length === 0 ? (
+          <p className="text-body text-ink-muted py-12 text-center">
+            Nothing matches. Try fewer words or clear a tag.
+          </p>
         ) : (
           <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
             {assets.map((a) => (
