@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import {
   IconCalendarEvent,
+  IconForms,
   IconHash,
   IconList,
   IconToggleLeft,
@@ -25,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Dialog,
   DialogContent,
@@ -117,9 +119,17 @@ export function FieldManager({
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
-            No custom fields yet.
-          </p>
+          <Empty className="border p-6 md:p-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconForms />
+              </EmptyMedia>
+              <EmptyTitle>No custom fields yet</EmptyTitle>
+              <EmptyDescription>
+                Add fields like Campaign, Usage rights or Approved. Pick lists and yes/no fields become filters.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
 
         <form key={round} action={add} className="bg-muted/40 grid gap-4 rounded-lg border p-4">

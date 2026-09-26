@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IconBookmarkPlus, IconCloudUpload, IconPhoto, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
+import { IconBookmarkPlus, IconCloudUpload, IconLoader2, IconPhoto, IconSearch, IconUpload, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AssetEditor } from "@/components/asset-editor";
-import { CollectionDialog, send, type Collection } from "@/components/collections";
+import { CollectionDialog, CollectionIcon, send, type Collection } from "@/components/collections";
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
 import { FieldManager } from "@/components/field-manager";
 import { LibrarySidebar, type SavedSearch } from "@/components/library-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
+import { GridSkeleton } from "@/components/skeletons";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
@@ -112,6 +115,9 @@ export function Gallery({
 
   // Responses can land out of order; only the latest request may paint.
   const latest = useRef(0);
+  // The query behind what's on screen. When it differs from the current one,
+  // a search is in flight: derived, so no effect has to toggle a flag.
+  const [shown, setShown] = useState("");
   const refresh = useCallback(async () => {
     const params = query();
     const ticket = ++latest.current;
@@ -126,6 +132,7 @@ export function Gallery({
       defs.ok ? defs.json() : null,
     ]);
     if (ticket !== latest.current) return;
+    setShown(params.toString());
     if (res.ok) setListing(listing);
     else toast.error(listing.error?.message ?? "Search failed", { id: "search" });
     if (colsBody) setCollections(colsBody.data);
@@ -307,6 +314,7 @@ export function Gallery({
     return () => window.removeEventListener("keydown", onKey);
   }, [assets]);
 
+  const searching = shown !== query().toString();
   const narrowed = q.trim() !== "" || tags.length > 0 || extra.length > 0 || Object.values(filters).some((vs) => vs.length > 0);
   const qs = query().toString();
   const activeSearch = searches.find((sv) => sv.query === qs)?.query ?? null;
@@ -359,7 +367,11 @@ export function Gallery({
             {assets.length}
           </Badge>
           <div className="relative ml-auto w-full max-w-sm">
-            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            {searching ? (
+              <IconLoader2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 animate-spin" />
+            ) : (
+              <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            )}
             <Input
               type="search"
               value={q}
@@ -438,20 +450,56 @@ export function Gallery({
 
           {empty ? (
             <EmptyState dragging={dragging} onUpload={() => input.current?.click()} />
+          ) : assets.length === 0 && searching ? (
+            // Don't flash "no matches" for a search that hasn't answered yet.
+            <GridSkeleton count={8} />
+          ) : assets.length === 0 && inCollection && !narrowed ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <CollectionIcon icon={inCollection.icon} />
+                </EmptyMedia>
+                <EmptyTitle>{inCollection.name} is empty</EmptyTitle>
+                <EmptyDescription>
+                  Upload while it&apos;s open and files land here. Or pick files in All files and use Add to.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className="flex-row justify-center">
+                <Button onClick={() => input.current?.click()}>
+                  <IconUpload /> Upload here
+                </Button>
+                <Button variant="outline" onClick={() => setCurrent(null)}>
+                  Browse all files
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : assets.length === 0 ? (
-            <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-12 text-center text-sm">
-              <IconSearch className="size-8" stroke={1.5} />
-              {inCollection && !narrowed
-                ? "Nothing in this collection yet. Upload while it's open, or add files from their editor."
-                : "Nothing matches. Try fewer words or clear a filter."}
-              {narrowed && (
-                <Button variant="outline" size="sm" onClick={clear}>
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconSearch />
+                </EmptyMedia>
+                <EmptyTitle>No matches</EmptyTitle>
+                <EmptyDescription>
+                  {q.trim() ? <>Nothing matches &ldquo;{q.trim()}&rdquo;</> : "Nothing matches these filters"}
+                  {inCollection ? ` in ${inCollection.name}` : ""}. Try fewer words or drop a filter.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className="flex-row justify-center">
+                <Button variant="outline" onClick={clear}>
                   Clear filters
                 </Button>
-              )}
-            </div>
+                {inCollection && <Button variant="ghost" onClick={() => setCurrent(null)}>Search all files</Button>}
+              </EmptyContent>
+            </Empty>
           ) : (
-            <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
+            <ul
+              aria-busy={searching}
+              className={cn(
+                "grid gap-4 transition-opacity [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]",
+                searching && "opacity-60",
+              )}
+            >
               {assets.map((a, i) => (
                 <li key={a.id}>
                   <AssetCard
@@ -569,13 +617,7 @@ export function AssetCard({
           {a.mime.startsWith("image/") ? (
             // Rendition URLs are pure functions of the asset id: no export step,
             // no signing, no prior round trip.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/a/${a.id}/w_480,f_webp`}
-              alt={a.filename}
-              loading="lazy"
-              className="size-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.03]"
-            />
+            <Thumb src={`/a/${a.id}/w_480,f_webp`} alt={a.filename} />
           ) : (
             <span className="text-muted-foreground flex size-full items-center justify-center">
               <IconPhoto className="size-8" stroke={1.5} />
@@ -623,24 +665,53 @@ export function AssetCard({
   );
 }
 
+/** A lazy image that pulses until it arrives, then fades in. Its parent must be `relative`. */
+export function Thumb({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      {!loaded && <Skeleton className="absolute inset-0 rounded-none" />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        // A cached image can finish before hydration attaches onLoad.
+        ref={(img) => {
+          if (img?.complete && img.naturalWidth) setLoaded(true);
+        }}
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+        className={cn(
+          "relative size-full object-contain p-2 transition duration-200 group-hover:scale-[1.03]",
+          loaded ? "opacity-100" : "opacity-0",
+          className,
+        )}
+      />
+    </>
+  );
+}
+
+/** An empty library: the one place the whole page is the upload target. */
 function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () => void }) {
   return (
-    <div
-      className={`flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${
-        dragging ? "border-primary bg-muted/50" : ""
-      }`}
-    >
-      <span className="bg-muted flex size-14 items-center justify-center rounded-full">
-        <IconCloudUpload className="size-7" stroke={1.5} />
-      </span>
-      <div className="grid gap-1">
-        <h2 className="text-xl font-semibold tracking-tight">Your art, all in one bucket</h2>
-        <p className="text-muted-foreground max-w-sm text-sm">Drop files anywhere on this page, or pick them to upload.</p>
-      </div>
-      <Button onClick={onUpload}>
-        <IconUpload /> Upload files
-      </Button>
-    </div>
+    <Empty className={cn("border-2 transition-colors", dragging && "border-primary bg-primary/5")}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="size-14 rounded-full [&_svg:not([class*='size-'])]:size-7">
+          <IconCloudUpload stroke={1.5} />
+        </EmptyMedia>
+        <EmptyTitle className="text-xl">Your art, all in one bucket</EmptyTitle>
+        <EmptyDescription>
+          Upload images, and Artbucket reads their metadata, makes them searchable and serves any size on demand.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button onClick={onUpload}>
+          <IconUpload /> Upload files
+        </Button>
+        <p className="text-muted-foreground text-xs">or drop files anywhere on this page</p>
+      </EmptyContent>
+    </Empty>
   );
 }
 

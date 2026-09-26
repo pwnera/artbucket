@@ -25,6 +25,7 @@ import { Logo, ThemeToggle } from "@/components/brand";
 import { Combobox, MultiCombobox } from "@/components/combobox";
 import { FacetFilter } from "@/components/facet-filter";
 import { Field } from "@/components/fields";
+import { GridSkeleton } from "@/components/skeletons";
 import { AssetCard, type Asset } from "@/components/gallery";
 import {
   AlertDialog,
@@ -41,6 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Dialog,
   DialogContent,
@@ -460,7 +462,21 @@ export default function DesignSystem() {
             </div>
           </Section>
 
-          <Section id="feedback" title="Feedback">
+          <Section id="feedback" title="Feedback" description="Empty states say what's missing and offer the next step; skeletons hold the layout while data loads.">
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconSearch />
+                </EmptyMedia>
+                <EmptyTitle>No matches</EmptyTitle>
+                <EmptyDescription>Nothing matches &ldquo;fox&rdquo; in Spring 2026. Try fewer words or drop a filter.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className="flex-row justify-center">
+                <Button variant="outline">Clear filters</Button>
+                <Button variant="ghost">Search all files</Button>
+              </EmptyContent>
+            </Empty>
+            <GridSkeleton count={4} />
             <div className="grid gap-4">
               <Progress value={64} aria-label="Example progress" />
               <div className="flex items-center gap-4">

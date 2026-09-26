@@ -7,7 +7,8 @@ import type { Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
 import { Renditions } from "@/components/renditions";
-import type { Asset } from "@/components/gallery";
+import { Thumb, type Asset } from "@/components/gallery";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -112,12 +113,22 @@ export function AssetEditor({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[1fr_380px] md:grid-rows-1 md:overflow-hidden">
         <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
-          <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
             {asset.mime.startsWith("image/") ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/a/${asset.id}/w_960,f_webp`} alt="" className="max-h-[60vh] max-w-full rounded-md object-contain md:max-h-full" />
+              <Thumb src={`/a/${asset.id}/w_960,f_webp`} alt="" className="absolute inset-0 p-6 group-hover:scale-100" />
             ) : (
-              <IconPhoto className="text-muted-foreground size-12" stroke={1.5} />
+              <Empty className="p-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconPhoto />
+                  </EmptyMedia>
+                  <EmptyTitle>No preview</EmptyTitle>
+                  <EmptyDescription>
+                    Renditions are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
+                    stored, with these edits written in where the format allows.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
           </div>
           <div className="flex items-center gap-2 border-t px-4 py-3">
