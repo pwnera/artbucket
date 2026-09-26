@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FieldInputs, inputClass as input, readFieldValues } from "@/components/fields";
 import { AlertIcon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import type { Asset } from "@/components/gallery";
+import type { FieldDef } from "@/lib/fields";
 import { formatBytes } from "@/lib/filename";
 
 const FIELDS = [
@@ -19,10 +21,12 @@ const FIELDS = [
  */
 export function AssetEditor({
   asset,
+  fields,
   onClose,
   onSaved,
 }: {
   asset: Asset;
+  fields: FieldDef[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -46,6 +50,7 @@ export function AssetEditor({
         creator: str("creator"),
         copyright: str("copyright"),
         tags: str("tags").split(","),
+        fields: readFieldValues(form, fields),
       }),
     });
     setBusy(false);
@@ -53,9 +58,6 @@ export function AssetEditor({
     onSaved();
     ref.current?.close();
   }
-
-  const input =
-    "bg-surface border-line focus:border-line-strong text-body text-ink w-full rounded-sm border px-3 py-2 outline-none";
 
   return (
     <dialog
@@ -107,6 +109,7 @@ export function AssetEditor({
             Tags, comma separated
             <input name="tags" defaultValue={asset.tags.join(", ")} className={input} />
           </label>
+          <FieldInputs defs={fields} values={asset.fields} />
 
           {error && (
             <p role="status" className="text-body text-danger flex items-center gap-2">

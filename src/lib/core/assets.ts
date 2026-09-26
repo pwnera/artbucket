@@ -1,9 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
+import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
+import { listFields } from "@/lib/core/fields";
+import { fieldsValidator, type FieldValues } from "@/lib/fields";
 import { extractMetadata } from "@/lib/metadata";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { buildXmp, embedXmp } from "@/lib/xmp";
@@ -66,11 +69,15 @@ export async function finalizeUpload(input: {
   token: string;
   filename: string;
   mime: string;
+  fields?: Record<string, unknown>;
 }): Promise<{ asset: Asset; deduped: boolean }> {
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
     throw new AssetError("not_found", "No staged upload for that token");
   }
+  // Checked before any bytes move: a rejected upload stays staged, so the
+  // client can fix the fields and retry with the same token.
+  const values = await validFields(input.fields ?? {}, "upload");
 
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -102,6 +109,7 @@ export async function finalizeUpload(input: {
       // Embedded keywords seed the tags, so a library imported from Lightroom
       // is searchable by what it was already tagged with.
       tags: normalizeTags(keywords ?? []),
+      fields: values as FieldValues,
     })
     .onConflictDoNothing({ target: assets.sha256 })
     .returning(columns);
@@ -182,15 +190,24 @@ async function bySha(sha256: string): Promise<Asset | null> {
 export const EDITABLE = ["title", "description", "creator", "copyright"] as const;
 export type AssetPatch = {
   tags?: string[];
+  /** Custom field values to merge; null clears one. */
+  fields?: Record<string, unknown>;
 } & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
  * Edits merge into `metadata` over what was extracted; null clears a field.
  * One statement, so concurrent edits to different fields don't clobber.
  */
-export async function updateAsset(id: string, { tags, ...fields }: AssetPatch): Promise<Asset | null> {
+export async function updateAsset(
+  id: string,
+  { tags, fields: custom, ...fields }: AssetPatch,
+): Promise<Asset | null> {
   const set: PgUpdateSetSource<typeof assets> = {};
   if (tags) set.tags = normalizeTags(tags);
+  if (custom && Object.keys(custom).length) {
+    const values = await validFields(custom, "patch");
+    set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
+  }
   if (Object.keys(fields).length) {
     const clean = Object.fromEntries(
       Object.entries(fields).map(([k, v]) => [k, v?.trim() || null]),
@@ -233,6 +250,14 @@ export async function deleteAsset(id: string) {
   return true;
 }
 
+async function validFields(values: Record<string, unknown>, mode: "upload" | "patch") {
+  const parsed = fieldsValidator(await listFields(), mode).safeParse(values);
+  if (!parsed.success) {
+    throw new AssetError("invalid", "Custom field values are invalid", z.treeifyError(parsed.error));
+  }
+  return parsed.data;
+}
+
 async function probeImage(bytes: Buffer) {
   try {
     const m = await sharp(bytes).metadata();
@@ -251,8 +276,9 @@ async function probeImage(bytes: Buffer) {
 
 export class AssetError extends Error {
   constructor(
-    readonly code: "not_found" | "too_large" | "unsupported",
+    readonly code: "not_found" | "too_large" | "unsupported" | "invalid" | "conflict",
     message: string,
+    readonly detail?: unknown,
   ) {
     super(message);
   }

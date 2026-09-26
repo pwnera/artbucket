@@ -35,6 +35,8 @@ const Finalize = z.object({
   token: z.uuid(),
   filename: z.string().min(1).max(512),
   mime: z.string().min(1).max(255),
+  /** Custom field values; validated against the schema, required ones enforced. */
+  fields: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** POST /api/v1/assets - promote a staged upload. Idempotent by content hash. */

@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertIcon, DashedOutline, ImageIcon, Logo, SearchIcon, UploadIcon } from "@/components/icon";
 import { AssetEditor } from "@/components/asset-editor";
+import { UploadFieldsDialog } from "@/components/fields";
 import { Drip, Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
+import type { FieldDef, FieldValue } from "@/lib/fields";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 
 export type Asset = {
@@ -15,6 +17,7 @@ export type Asset = {
   width: number | null;
   height: number | null;
   tags: string[];
+  fields: Record<string, FieldValue>;
   metadata: {
     title?: string;
     description?: string;
@@ -31,11 +34,13 @@ export type Listing = { data: Asset[]; facets: { tags: { value: string; count: n
 // This component talks to /api/v1 and nothing else. There are no private
 // endpoints: if the UI needs something the public API cannot do, the API is
 // not finished.
-export function Gallery({ initial }: { initial: Listing }) {
+export function Gallery({ initial, fields }: { initial: Listing; fields: FieldDef[] }) {
   const [{ data: assets, facets }, setListing] = useState(initial);
   const [q, setQ] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [open, setOpen] = useState<Asset | null>(null);
+  // Files waiting on the required-fields step before they upload.
+  const [pending, setPending] = useState<File[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,15 +65,23 @@ export function Gallery({ initial }: { initial: Listing }) {
     return () => clearTimeout(t);
   }, [refresh]);
 
+  // With required fields in the schema, files wait for them; otherwise straight up.
+  const start = (list: FileList) => {
+    const files = Array.from(list);
+    if (!files.length) return;
+    if (fields.some((f) => f.required)) setPending(files);
+    else void upload(files);
+  };
+
   const toggleTag = (t: string) =>
     setTags((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]));
 
   const upload = useCallback(
-    async (files: FileList | File[]) => {
+    async (files: File[], values: Record<string, FieldValue> = {}) => {
       setBusy(true);
       setError(null);
       try {
-        for (const file of Array.from(files)) {
+        for (const file of files) {
           const mime = file.type || "application/octet-stream";
 
           const ticket = await fetch("/api/v1/uploads", {
@@ -89,7 +102,7 @@ export function Gallery({ initial }: { initial: Listing }) {
           const done = await fetch("/api/v1/assets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, filename: file.name, mime }),
+            body: JSON.stringify({ token, filename: file.name, mime, fields: values }),
           });
           if (!done.ok) throw new Error((await done.json()).error?.message ?? "Finalize failed");
         }
@@ -131,7 +144,7 @@ export function Gallery({ initial }: { initial: Listing }) {
         e.preventDefault();
         dragDepth.current = 0;
         setDragging(false);
-        void upload(e.dataTransfer.files);
+        start(e.dataTransfer.files);
       }}
       className="min-h-dvh"
     >
@@ -163,7 +176,10 @@ export function Gallery({ initial }: { initial: Listing }) {
             className="hidden"
             aria-hidden
             tabIndex={-1}
-            onChange={(e) => e.target.files && upload(e.target.files)}
+            onChange={(e) => {
+              if (e.target.files) start(e.target.files);
+              e.target.value = ""; // the same file can be picked again after a cancel
+            }}
           />
         </header>
 
@@ -280,7 +296,25 @@ export function Gallery({ initial }: { initial: Listing }) {
       </main>
 
       {open && (
-        <AssetEditor key={open.id} asset={open} onClose={() => setOpen(null)} onSaved={refresh} />
+        <AssetEditor
+          key={open.id}
+          asset={open}
+          fields={fields}
+          onClose={() => setOpen(null)}
+          onSaved={refresh}
+        />
+      )}
+
+      {pending && (
+        <UploadFieldsDialog
+          defs={fields}
+          count={pending.length}
+          onCancel={() => setPending(null)}
+          onSubmit={(values) => {
+            setPending(null);
+            void upload(pending, values);
+          }}
+        />
       )}
 
       {/* Dragging over a populated library: one calm overlay, not a moving target. */}

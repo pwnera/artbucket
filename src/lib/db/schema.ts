@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
+  check,
   customType,
   index,
   integer,
@@ -9,6 +11,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
@@ -34,6 +37,8 @@ export const assets = pgTable(
     metadata: jsonb("metadata").$type<Metadata>(),
     /** Lowercased and deduped by lib/tags.ts before they get here. */
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    /** Values for the library's custom fields, keyed by `fields.key`. */
+    fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
     /**
      * Maintained by Postgres, so it cannot drift from the columns it indexes.
      * 'simple' rather than 'english': asset search is names and keywords, where
@@ -44,7 +49,7 @@ export const assets = pgTable(
     search: tsvector("search")
       .notNull()
       .generatedAlwaysAs(
-        sql`setweight(to_tsvector('simple', regexp_replace(filename, '[._-]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', tags), 'A') || setweight(jsonb_to_tsvector('simple', coalesce(metadata, '{}'), '["string"]'), 'B')`,
+        sql`setweight(to_tsvector('simple', regexp_replace(filename, '[._-]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', tags), 'A') || setweight(jsonb_to_tsvector('simple', coalesce(metadata, '{}'), '["string"]'), 'B') || setweight(jsonb_to_tsvector('simple', fields, '["string"]'), 'B')`,
       ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -62,3 +67,26 @@ export const assets = pgTable(
 
 export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
+
+/**
+ * The library's custom field schema. `key` is the identity: it is what asset
+ * values are stored under, so it and `type` never change once created. Make a
+ * new field instead.
+ */
+export const fields = pgTable(
+  "fields",
+  {
+  key: text("key").primaryKey(),
+  label: text("label").notNull(),
+  type: text("type").$type<FieldType>().notNull(),
+  options: jsonb("options").$type<string[]>().notNull().default([]),
+  required: boolean("required").notNull().default(false),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+  },
+  (t) => [
+    check("fields_type_check", sql`${t.type} in ('text', 'number', 'date', 'boolean', 'select')`),
+  ],
+);

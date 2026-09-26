@@ -17,6 +17,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 const field = z.string().max(2000).nullable().optional();
 const Patch = z.strictObject({
   tags: z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS).optional(),
+  fields: z.record(z.string(), z.unknown()).optional(),
   ...(Object.fromEntries(EDITABLE.map((k) => [k, field])) as Record<(typeof EDITABLE)[number], typeof field>),
 });
 
@@ -24,6 +25,7 @@ const Patch = z.strictObject({
  * PATCH /api/v1/assets/{id}
  * `tags` replaces the whole set. `title`, `description`, `creator` and
  * `copyright` override what was read from the file; null clears one.
+ * `fields` merges custom field values; null clears one unless it is required.
  */
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
