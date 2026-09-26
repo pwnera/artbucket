@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconDownload, IconPhoto } from "@tabler/icons-react";
+import { IconCheck, IconDownload, IconPhoto, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
-import type { Collection } from "@/components/collections";
+import { send, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
 import { Renditions } from "@/components/renditions";
@@ -45,12 +45,15 @@ export function AssetEditor({
   collections,
   onClose,
   onSaved,
+  onReviewed,
 }: {
   asset: Asset;
   fields: FieldDef[];
   collections: Collection[];
   onClose: () => void;
   onSaved: () => void;
+  /** A review action changed the asset (or deleted it: null). */
+  onReviewed: (asset: Asset | null) => void;
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
@@ -145,13 +148,15 @@ export function AssetEditor({
           </div>
         </div>
 
-        <form action={save} className="flex min-h-0 flex-col md:h-full">
+        {/* A review action returns the asset changed; remount the form so it shows that. */}
+        <form key={asset.updatedAt} action={save} className="flex min-h-0 flex-col md:h-full">
           <div className="border-b px-6 pt-6 pb-4 pr-12">
             <DialogTitle className="break-all">{asset.filename}</DialogTitle>
             <DialogDescription className="mt-1">Edits are written into the file on download.</DialogDescription>
           </div>
 
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
+            <Review asset={asset} onReviewed={onReviewed} />
             {TEXT.map(({ key, label }) => (
               <Field key={key} label={label} htmlFor={`${id}-${key}`}>
                 <Input id={`${id}-${key}`} name={key} defaultValue={m[key] ?? ""} maxLength={2000} />
@@ -202,5 +207,102 @@ export function AssetEditor({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * What an agent proposed about this asset, and the buttons that decide it.
+ * Each acts at once through the public PATCH (or DELETE), separately from Save.
+ */
+function Review({ asset, onReviewed }: { asset: Asset; onReviewed: (asset: Asset | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  if (asset.status !== "proposed" && !asset.proposedTags.length) return null;
+
+  const patch = async (body: object) => {
+    setBusy(true);
+    const next = await send("PATCH", `/api/v1/assets/${asset.id}`, body);
+    setBusy(false);
+    if (next) onReviewed(next);
+  };
+  const accept = (tags: string[]) =>
+    patch({ tags: [...asset.tags, ...tags], proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
+  const dismiss = (tags: string[]) => patch({ proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
+  const reject = async () => {
+    if (!confirming) return setConfirming(true);
+    setBusy(true);
+    const gone = await send("DELETE", `/api/v1/assets/${asset.id}`);
+    setBusy(false);
+    if (gone) {
+      toast.success("Rejected and deleted");
+      onReviewed(null);
+    }
+  };
+
+  return (
+    <div className="border-primary/30 bg-primary/5 grid gap-3 rounded-lg border p-3">
+      {asset.status === "proposed" && (
+        <div className="grid gap-2">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <IconSparkles className="text-primary size-4" /> Proposed by an agent
+          </p>
+          <p className="text-muted-foreground text-xs">
+            It stays out of the library and search until you approve it.
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" disabled={busy} onClick={() => patch({ status: "active" })}>
+              <IconCheck /> Approve
+            </Button>
+            <Button type="button" size="sm" variant={confirming ? "destructive" : "outline"} disabled={busy} onClick={reject}>
+              <IconX /> {confirming ? "Delete it" : "Reject"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {asset.proposedTags.length > 0 && (
+        <div className="grid gap-2">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <IconSparkles className="text-primary size-4" /> Suggested tags
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {asset.proposedTags.map((t) => (
+              <li key={t}>
+                <Badge variant="outline" className="gap-0.5 border-dashed pr-0.5">
+                  {t}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => accept([t])}
+                    aria-label={`Accept tag ${t}`}
+                    className="hover:bg-primary/15 rounded-full p-0.5"
+                  >
+                    <IconCheck className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => dismiss([t])}
+                    aria-label={`Dismiss tag ${t}`}
+                    className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                  >
+                    <IconX className="size-3" />
+                  </button>
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          {asset.proposedTags.length > 1 && (
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => accept(asset.proposedTags)}>
+                Accept all
+              </Button>
+              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => dismiss(asset.proposedTags)}>
+                Dismiss all
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

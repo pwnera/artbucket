@@ -14,6 +14,9 @@ import {
 } from "drizzle-orm/pg-core";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
+import type { Scope } from "@/lib/scopes";
+
+export type AssetStatus = "active" | "proposed";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -47,6 +50,13 @@ export const assets = pgTable(
      */
     inherited: jsonb("inherited").$type<FieldValues>().notNull().default({}),
     /**
+     * `proposed` until a human promotes it: what a propose-scoped key (an
+     * agent) uploads. Default searches show `active` only.
+     */
+    status: text("status").$type<AssetStatus>().notNull().default("active"),
+    /** Tags an agent suggested, waiting for a human to accept or dismiss. */
+    proposedTags: jsonb("proposed_tags").$type<string[]>().notNull().default([]),
+    /**
      * Maintained by Postgres, so it cannot drift from the columns it indexes.
      * 'simple' rather than 'english': asset search is names and keywords, where
      * stemming "logos" to "logo" matters less than matching "fox_v3" by "fox".
@@ -71,6 +81,7 @@ export const assets = pgTable(
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
     // Field filters match the effective value, own over inherited: `inherited || fields`.
     index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
+    check("assets_status_check", sql`${t.status} in ('active', 'proposed')`),
   ],
 );
 
@@ -141,3 +152,23 @@ export const savedSearches = pgTable("saved_searches", {
     .notNull()
     .default(sql`now()`),
 });
+
+/**
+ * API keys. Only a SHA-256 of the secret is stored: keys are 256 random bits,
+ * so a fast hash is enough and a leaked table leaks no usable key. `prefix`
+ * is the first characters of the secret, to tell keys apart in a list.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    hash: text("hash").notNull().unique(),
+    scope: text("scope").$type<Scope>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`)],
+);

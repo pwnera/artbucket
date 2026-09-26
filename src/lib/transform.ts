@@ -17,6 +17,18 @@ export type Fit = (typeof FITS)[number];
 
 export const MAX_DIMENSION = 8000;
 
+/** Common sizes, as rendition specs (lib/transform.ts). */
+export const PRESETS = [
+  { name: "Thumbnail", spec: "w_320,h_320,fit_cover,f_webp" },
+  { name: "Web", spec: "w_1200,f_webp" },
+  { name: "Large", spec: "w_2400,q_85,f_jpeg" },
+  { name: "Social square", spec: "w_1080,h_1080,fit_cover,f_jpeg" },
+  { name: "Open Graph", spec: "w_1200,h_630,fit_cover,f_jpeg" },
+  { name: "Story", spec: "w_1080,h_1920,fit_cover,f_jpeg" },
+  { name: "PNG", spec: "f_png" },
+  { name: "AVIF", spec: "w_1600,f_avif" },
+] as const;
+
 export type Transform = {
   w?: number;
   h?: number;

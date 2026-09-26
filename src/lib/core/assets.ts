@@ -4,14 +4,19 @@ import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { assets, collectionAssets } from "@/lib/db/schema";
+import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
 import { inheritedFrom, joinCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
+import { isRenderable } from "@/lib/core/renditions";
+import { env } from "@/lib/env";
+import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
 import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { extractMetadata } from "@/lib/metadata";
+import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { normalizeTags, prefixQuery } from "@/lib/search";
+import { FITS, FORMATS, MAX_DIMENSION, PRESETS } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   deleteObject,
@@ -43,7 +48,7 @@ const columns = {
 };
 export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[] };
 
-export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+export { MAX_UPLOAD_BYTES };
 
 export type UploadTicket = {
   token: string;
@@ -83,6 +88,10 @@ export async function finalizeUpload(input: {
   fields?: Record<string, unknown>;
   /** Collections to file it into. Their values count toward required fields. */
   collections?: string[];
+  /** Added to any keywords read from the file. */
+  tags?: string[];
+  /** `proposed` when an agent (a propose-scoped key) is the uploader. */
+  status?: AssetStatus;
 }): Promise<{ asset: Asset; deduped: boolean }> {
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
@@ -122,8 +131,9 @@ export async function finalizeUpload(input: {
       metadata: Object.keys(metadata).length ? metadata : null,
       // Embedded keywords seed the tags, so a library imported from Lightroom
       // is searchable by what it was already tagged with.
-      tags: normalizeTags(keywords ?? []),
+      tags: normalizeTags([...(keywords ?? []), ...(input.tags ?? [])]),
       fields: values as FieldValues,
+      status: input.status ?? "active",
     })
     .onConflictDoNothing({ target: assets.sha256 })
     .returning({ id: assets.id });
@@ -142,6 +152,38 @@ async function fileInto(collectionIds: string[], id: string): Promise<Asset> {
   return (await getAsset(id))!;
 }
 
+/**
+ * Ingest from a URL: the server fetches it, stages it, and promotes it like
+ * any upload. For agents, which can name a URL but can't PUT bytes. The fetch
+ * refuses private and loopback addresses (lib/fetch-public.ts).
+ */
+export async function ingestFromUrl(
+  input: Omit<Parameters<typeof finalizeUpload>[0], "token" | "filename" | "mime"> & { url: string; filename?: string },
+) {
+  const { url, filename, ...rest } = input;
+  let fetched;
+  try {
+    fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
+  } catch (err) {
+    if (err instanceof FetchError || (err as NodeJS.ErrnoException).code) {
+      throw new AssetError("invalid", `Couldn't fetch ${url}: ${(err as Error).message}`);
+    }
+    throw err;
+  }
+  const name =
+    filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
+  await ensureBucket();
+  const token = randomUUID();
+  await putObject(stagingKey(token), fetched.bytes, fetched.mime);
+  try {
+    return await finalizeUpload({ ...rest, token, filename: name.slice(0, 512), mime: fetched.mime });
+  } catch (err) {
+    // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
+    await deleteObject(stagingKey(token)).catch(() => {});
+    throw err;
+  }
+}
+
 export type AssetQuery = {
   /** Free text over filename, tags and embedded metadata. Every word must match. */
   q?: string;
@@ -151,6 +193,11 @@ export type AssetQuery = {
   collection?: string;
   /** Custom field filters, matched against own-else-inherited values. */
   filters?: FieldFilter[];
+  /**
+   * What waits on a human: proposed assets, and assets with suggested tags.
+   * Otherwise only active assets are listed.
+   */
+  review?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -159,6 +206,7 @@ const QueryParams = z.object({
   q: z.string().max(512).optional(),
   tag: z.array(z.string().max(64)).max(20),
   collection: z.uuid().optional(),
+  review: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().optional(),
   offset: z.coerce.number().int().optional(),
 });
@@ -168,15 +216,16 @@ const QueryParams = z.object({
  * searches, so a search that saves is a search that runs.
  */
 export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQuery> {
-  const { tag, ...rest } = QueryParams.parse({
+  const { tag, review, ...rest } = QueryParams.parse({
     q: params.get("q") ?? undefined,
     tag: params.getAll("tag"),
     collection: params.get("collection") ?? undefined,
+    review: params.get("review") ?? undefined,
     limit: params.get("limit") ?? undefined,
     offset: params.get("offset") ?? undefined,
   });
   try {
-    return { ...rest, tags: tag, filters: parseFieldFilters(params, await listFields()) };
+    return { ...rest, tags: tag, review: review === "true", filters: parseFieldFilters(params, await listFields()) };
   } catch (err) {
     if (err instanceof FilterError) throw new AssetError("invalid", err.message);
     throw err;
@@ -214,6 +263,7 @@ export async function searchAssets({
   tags = [],
   collection,
   filters = [],
+  review = false,
   limit = 100,
   offset = 0,
 }: AssetQuery) {
@@ -222,6 +272,9 @@ export async function searchAssets({
   const wanted = normalizeTags(tags);
   const where = (except?: string) =>
     and(
+      review
+        ? sql`(${assets.status} = 'proposed' or ${assets.proposedTags} <> '[]'::jsonb)`
+        : eq(assets.status, "active"),
       match,
       wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
       collection
@@ -281,6 +334,8 @@ async function fieldFacet(key: string, where: SQL | undefined) {
 }
 
 export async function getAsset(id: string): Promise<Asset | null> {
+  // A malformed id is an asset that doesn't exist, not a database error.
+  if (!z.uuid().safeParse(id).success) return null;
   const [asset] = await db.select(columns).from(assets).where(eq(assets.id, id)).limit(1);
   return asset ?? null;
 }
@@ -294,6 +349,9 @@ async function bySha(sha256: string): Promise<Asset | null> {
 export const EDITABLE = ["title", "description", "creator", "copyright"] as const;
 export type AssetPatch = {
   tags?: string[];
+  status?: AssetStatus;
+  /** Replaces the pending suggestions. */
+  proposedTags?: string[];
   /** Custom field values to merge; null clears one. */
   fields?: Record<string, unknown>;
 } & { [K in (typeof EDITABLE)[number]]?: string | null };
@@ -304,10 +362,12 @@ export type AssetPatch = {
  */
 export async function updateAsset(
   id: string,
-  { tags, fields: custom, ...fields }: AssetPatch,
+  { tags, status, proposedTags, fields: custom, ...fields }: AssetPatch,
 ): Promise<Asset | null> {
   const set: PgUpdateSetSource<typeof assets> = {};
   if (tags) set.tags = normalizeTags(tags);
+  if (status) set.status = status;
+  if (proposedTags) set.proposedTags = normalizeTags(proposedTags);
   if (custom && Object.keys(custom).length) {
     const current = await getAsset(id);
     if (!current) return null;
@@ -327,6 +387,73 @@ export async function updateAsset(
     .where(eq(assets.id, id))
     .returning(columns);
   return asset ?? null;
+}
+
+/**
+ * Suggest tags without applying them: they wait in `proposedTags` for a human
+ * to accept (move into `tags`) or dismiss. Tags the asset already has are
+ * dropped, so a suggestion is always something new.
+ */
+export async function proposeTags(id: string, suggested: string[]): Promise<Asset | null> {
+  const fresh = normalizeTags(suggested);
+  const [asset] = await db
+    .update(assets)
+    .set({
+      proposedTags: sql`(
+        select coalesce(jsonb_agg(distinct t), '[]'::jsonb)
+        from jsonb_array_elements_text(${assets.proposedTags} || ${JSON.stringify(fresh)}::jsonb) t
+        where not ${assets.tags} ? t
+      )`,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(assets.id, id))
+    .returning(columns);
+  return asset ?? null;
+}
+
+/**
+ * What an asset is, for a machine deciding whether and how to use it:
+ * `GET /a/{id}` with `Accept: application/json`, and MCP's describe tool.
+ * Rights arrive in v0.6; the key is here now so clients can code against it.
+ */
+export function describeAsset(asset: Asset) {
+  const base = `${env.APP_URL}/a/${asset.id}`;
+  const m = asset.metadata ?? {};
+  const renderable = isRenderable(asset.mime);
+  return {
+    id: asset.id,
+    filename: asset.filename,
+    mime: asset.mime,
+    size: asset.size,
+    width: asset.width,
+    height: asset.height,
+    sha256: asset.sha256,
+    status: asset.status,
+    title: m.title ?? null,
+    description: m.description ?? null,
+    creator: m.creator ?? null,
+    copyright: m.copyright ?? null,
+    tags: asset.tags,
+    fields: { ...asset.inherited, ...asset.fields },
+    collections: asset.collections,
+    rights: null,
+    urls: {
+      original: base,
+      download: `${base}?download`,
+      rendition: renderable ? `${base}/{transform}` : null,
+    },
+    constraints: renderable
+      ? {
+          w: [1, MAX_DIMENSION] as [number, number],
+          h: [1, MAX_DIMENSION] as [number, number],
+          q: [1, 100] as [number, number],
+          fit: [...FITS],
+          f: [...FORMATS],
+          enlarges: false as const,
+        }
+      : null,
+    alternatives: renderable ? PRESETS.map((p) => ({ name: p.name, url: `${base}/${p.spec}` })) : [],
+  };
 }
 
 /**

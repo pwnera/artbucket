@@ -43,6 +43,13 @@
       "when": 1790461336828,
       "tag": "0005_collection_icon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790463271799,
+      "tag": "0006_agents",
+      "breakpoints": true
     }
   ]
 }

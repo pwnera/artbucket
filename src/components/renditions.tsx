@@ -11,19 +11,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { FITS, FORMATS, MAX_DIMENSION, type Fit, type Format } from "@/lib/transform";
+import { FITS, FORMATS, MAX_DIMENSION, PRESETS, type Fit, type Format } from "@/lib/transform";
 
-/** Common sizes, as rendition specs (lib/transform.ts). */
-export const PRESETS = [
-  { name: "Thumbnail", spec: "w_320,h_320,fit_cover,f_webp" },
-  { name: "Web", spec: "w_1200,f_webp" },
-  { name: "Large", spec: "w_2400,q_85,f_jpeg" },
-  { name: "Social square", spec: "w_1080,h_1080,fit_cover,f_jpeg" },
-  { name: "Open Graph", spec: "w_1200,h_630,fit_cover,f_jpeg" },
-  { name: "Story", spec: "w_1080,h_1920,fit_cover,f_jpeg" },
-  { name: "PNG", spec: "f_png" },
-  { name: "AVIF", spec: "w_1600,f_avif" },
-] as const;
+export { PRESETS };
 
 export const extOf = (spec: string) => spec.match(/f_(\w+)/)?.[1]?.replace("jpeg", "jpg");
 export const stem = (filename: string) => filename.replace(/\.[^.]+$/, "");

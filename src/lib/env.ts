@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -12,6 +13,18 @@ const schema = z.object({
     .default("true")
     .transform((v) => v === "true"),
   APP_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * What a request without an API key may do. Defaults to everything, which is
+   * what a single-user install on localhost wants; see lib/scopes.ts.
+   */
+  ANONYMOUS_SCOPE: z.string().optional().transform((v, ctx) => {
+    try {
+      return parseAnonymous(v);
+    } catch (e) {
+      ctx.addIssue({ code: "custom", message: (e as Error).message });
+      return z.NEVER;
+    }
+  }),
 });
 
 const parsed = schema.safeParse(process.env);

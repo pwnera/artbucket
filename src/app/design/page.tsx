@@ -117,8 +117,11 @@ const SAMPLE: Asset = {
   fields: {},
   inherited: {},
   collections: [],
+  status: "active",
+  proposedTags: [],
   metadata: null,
   createdAt: "2026-09-27T00:00:00Z",
+  updatedAt: "2026-09-27T00:00:00Z",
 };
 
 const TAGS = ["brand", "spring", "hero", "print", "social", "web", "logo", "draft"].map((value, i) => ({
@@ -516,11 +519,13 @@ export default function DesignSystem() {
             </ToggleGroup>
           </Section>
 
-          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped. Cmd, Ctrl or Shift-click selects.">
+          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped. Cmd, Ctrl or Shift-click selects. Proposed files and suggested tags are flagged for review.">
             <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
               <AssetCard asset={SAMPLE} />
               <AssetCard asset={{ ...SAMPLE, id: "b", filename: "logo.svg", tags: [], width: null, height: null, size: 4200 }} />
               <AssetCard asset={{ ...SAMPLE, id: "c", filename: "selected.png" }} selected selecting onPick={() => {}} />
+              <AssetCard asset={{ ...SAMPLE, id: "d", filename: "agent-upload.jpg", status: "proposed" }} />
+              <AssetCard asset={{ ...SAMPLE, id: "e", filename: "suggested.jpg", proposedTags: ["sunset", "hero"] }} />
             </div>
           </Section>
         </main>

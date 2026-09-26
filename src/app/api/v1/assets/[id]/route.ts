@@ -1,46 +1,28 @@
-import { z } from "zod";
-import { body, fail, handle, ok } from "@/lib/api";
-import { deleteAsset, EDITABLE, getAsset, updateAsset } from "@/lib/core/assets";
-import { MAX_TAG_LENGTH, MAX_TAGS } from "@/lib/search";
+import { body, ok, route } from "@/lib/api";
+import { deleteAsset, getAsset, updateAsset } from "@/lib/core/assets";
+import { AssetPatch } from "@/lib/schemas";
 
-type Ctx = { params: Promise<{ id: string }> };
+type P = { id: string };
+const missing = "No such asset";
 
-export async function GET(_req: Request, { params }: Ctx) {
-  try {
-    const asset = await getAsset((await params).id);
-    return asset ? ok({ data: asset }) : fail(404, "not_found", "No such asset");
-  } catch (err) {
-    return handle(err);
-  }
-}
-
-const field = z.string().max(2000).nullable().optional();
-const Patch = z.strictObject({
-  tags: z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS).optional(),
-  fields: z.record(z.string(), z.unknown()).optional(),
-  ...(Object.fromEntries(EDITABLE.map((k) => [k, field])) as Record<(typeof EDITABLE)[number], typeof field>),
-});
+export const GET = route<P>("read", async (_req, { id }) => {
+  const asset = await getAsset(id);
+  return asset && ok({ data: asset });
+}, missing);
 
 /**
  * PATCH /api/v1/assets/{id}
  * `tags` replaces the whole set. `title`, `description`, `creator` and
  * `copyright` override what was read from the file; null clears one.
  * `fields` merges custom field values; null clears one unless it is required.
+ * `status: "active"` promotes a proposed asset; `proposedTags` replaces the
+ * pending suggestions, so accepting one is moving it into `tags`.
  */
-export async function PATCH(req: Request, { params }: Ctx) {
-  try {
-    const asset = await updateAsset((await params).id, await body(req, Patch));
-    return asset ? ok({ data: asset }) : fail(404, "not_found", "No such asset");
-  } catch (err) {
-    return handle(err);
-  }
-}
+export const PATCH = route<P>("write", async (req, { id }) => {
+  const asset = await updateAsset(id, await body(req, AssetPatch));
+  return asset && ok({ data: asset });
+}, missing);
 
-export async function DELETE(_req: Request, { params }: Ctx) {
-  try {
-    const gone = await deleteAsset((await params).id);
-    return gone ? ok({ data: { deleted: true } }) : fail(404, "not_found", "No such asset");
-  } catch (err) {
-    return handle(err);
-  }
-}
+export const DELETE = route<P>("write", async (_req, { id }) =>
+  (await deleteAsset(id)) ? ok({ data: { deleted: true } }) : null,
+missing);
