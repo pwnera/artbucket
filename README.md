@@ -99,8 +99,8 @@ key is canonical. Renditions are generated once and cached forever.
 | `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
 | `DELETE` | `/api/v1/fields/{key}` | Remove it, and every value stored under it |
 | `GET` | `/api/v1/collections` | Collections, with member counts |
-| `POST` | `/api/v1/collections` | Create one, with the `fields` its members inherit |
-| `PATCH` | `/api/v1/collections/{id}` | Rename it or change its `fields` |
+| `POST` | `/api/v1/collections` | Create one, with an `icon` and the `fields` its members inherit |
+| `PATCH` | `/api/v1/collections/{id}` | Rename it, change its `icon` or its `fields` |
 | `DELETE` | `/api/v1/collections/{id}` | Delete it; its assets stay |
 | `POST` | `/api/v1/collections/{id}/assets` | `{ "add": [...], "remove": [...] }` |
 | `GET` | `/api/v1/searches` | Saved searches |
@@ -197,20 +197,12 @@ list in [ROADMAP.md](ROADMAP.md).
 
 ## Design
 
-The interface follows the **ArtBucket design system**: warm off-white grounds,
-Bucket Teal for identity and state, one Paint Coral CTA per view, pills and
-12px cards, and Pip the mascot confined to empty states.
+The interface is stock [shadcn/ui](https://ui.shadcn.com) (new-york, neutral)
+with Google green (#34A853) as the primary, [Tabler icons](https://tabler.io/icons)
+and DM Sans. The mark is Tabler's tipped paint bucket. Restyle through the
+tokens in `src/app/globals.css`, not per component.
 
-Typography departs from the system on purpose: DM Sans carries every style
-rather than the system's Fredoka/Inter pair, with the display sizes retuned for
-a single family. Everything else is mirrored as written.
-
-`src/app/globals.css` mirrors the system's tokens verbatim and is the only place
-raw colour values appear. The type scale lives there as whole styles
-(`.text-title-1`, `.text-meta`, …) so size, line-height, weight and tracking
-travel together and a screen cannot drift half a step off the scale.
-
-Change a value in the design system first, then mirror it here.
+Every component in use is on the living reference at `/design`.
 
 ## Contributing
 

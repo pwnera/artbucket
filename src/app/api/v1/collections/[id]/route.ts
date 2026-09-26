@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COLLECTION_ICONS } from "@/lib/collection-icons";
 import { body, fail, handle, ok } from "@/lib/api";
 import { deleteCollection, getCollection, updateCollection } from "@/lib/core/collections";
 
@@ -18,6 +19,8 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 const Patch = z.strictObject({
+  /** One of lib/collection-icons.ts; null resets to the default. */
+  icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   name: z.string().trim().min(1).max(120).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
 });

@@ -81,6 +81,8 @@ export type NewAsset = typeof assets.$inferInsert;
 export const collections = pgTable("collections", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
+  icon: text("icon"),
   fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

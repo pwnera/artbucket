@@ -1,6 +1,9 @@
 "use client";
 
-import { AlertIcon } from "@/components/icon";
+import { IconAlertCircle, IconCircleCheck, IconLoader2, IconX } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { formatBytes, truncateFilename } from "@/lib/filename";
 
 export type Upload = {
@@ -70,78 +73,54 @@ export function UploadTray({ uploads, onDismiss }: { uploads: Upload[]; onDismis
   return (
     <section
       aria-label="Uploads"
-      className="bg-surface-raised border-line shadow-lift fixed right-4 bottom-4 z-40 w-[min(360px,calc(100vw-32px))] rounded-card border"
+      className="bg-popover text-popover-foreground fixed right-4 bottom-4 z-40 w-[min(360px,calc(100vw-32px))] rounded-xl border shadow-lg"
     >
-      <header className="flex items-center gap-3 px-4 pt-3 pb-2">
-        <p role="status" className="text-body-strong flex-1">
+      <header className="flex items-center gap-2 px-4 pt-3 pb-2">
+        {active ? (
+          <IconLoader2 className="text-muted-foreground size-4 animate-spin" />
+        ) : failed ? (
+          <IconAlertCircle className="text-destructive size-4" />
+        ) : (
+          <IconCircleCheck className="size-4 text-emerald-600" />
+        )}
+        <p role="status" className="flex-1 text-sm font-medium">
           {summary}
         </p>
         {!active && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            aria-label="Dismiss uploads"
-            className="text-ink-muted hover:text-ink -mr-1 px-1"
-          >
-            ×
-          </button>
+          <Button variant="ghost" size="icon-xs" onClick={onDismiss} aria-label="Dismiss uploads">
+            <IconX />
+          </Button>
         )}
       </header>
-      <Bar pct={pct} label="Overall upload progress" tone={failed && !active ? "danger" : "teal"} />
+      <Progress
+        value={pct}
+        aria-label="Overall upload progress"
+        className={cn("mx-4 w-auto", failed && !active && "[&>div]:bg-destructive")}
+      />
       <ul className="max-h-64 overflow-y-auto px-4 py-2">
         {uploads.map((u) => {
           const p = u.size ? Math.round((u.loaded / u.size) * 100) : 0;
           return (
             <li key={u.id} className="py-1.5">
               <div className="flex items-baseline gap-2">
-                <span className="text-filename text-ink flex-1" title={u.name}>
+                <span className="flex-1 truncate text-sm" title={u.name}>
                   {truncateFilename(u.name, 28)}
                 </span>
                 <span
-                  className={`text-meta shrink-0 ${u.status === "failed" ? "text-danger" : "text-ink-muted"}`}
+                  className={cn(
+                    "shrink-0 text-xs tabular-nums",
+                    u.status === "failed" ? "text-destructive" : "text-muted-foreground",
+                  )}
                 >
                   {u.status === "uploading" ? `${p}% of ${formatBytes(u.size)}` : LABEL[u.status]}
                 </span>
               </div>
-              {u.status === "uploading" && <Bar pct={p} label={`${u.name} progress`} thin />}
-              {u.error && (
-                <p className="text-meta text-danger mt-1 flex items-center gap-1">
-                  <AlertIcon size={16} />
-                  {u.error}
-                </p>
-              )}
+              {u.status === "uploading" && <Progress value={p} aria-label={`${u.name} progress`} className="mt-1 h-1" />}
+              {u.error && <p className="text-destructive mt-1 text-xs">{u.error}</p>}
             </li>
           );
         })}
       </ul>
     </section>
-  );
-}
-
-function Bar({
-  pct,
-  label,
-  thin,
-  tone = "teal",
-}: {
-  pct: number;
-  label: string;
-  thin?: boolean;
-  tone?: "teal" | "danger";
-}) {
-  return (
-    <div
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={pct}
-      className={`bg-surface-sunken overflow-hidden rounded-pill ${thin ? "mt-1 h-1" : "mx-4 h-1.5"}`}
-    >
-      <div
-        className={`h-full rounded-pill transition-[width] duration-150 ${tone === "danger" ? "bg-danger" : "bg-teal"}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
   );
 }

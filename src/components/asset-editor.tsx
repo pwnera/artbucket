@@ -1,24 +1,43 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { IconDownload, IconPhoto } from "@tabler/icons-react";
+import { toast } from "sonner";
 import type { Collection } from "@/components/collections";
-import { FieldInputs, inputClass as input, readFieldValues } from "@/components/fields";
-import { AlertIcon } from "@/components/icon";
+import { MultiCombobox, type Option } from "@/components/combobox";
+import { Field, FieldInputs, readFieldValues } from "@/components/fields";
+import { Renditions } from "@/components/renditions";
+import { Thumb, type Asset } from "@/components/gallery";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Asset } from "@/components/gallery";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
-import { formatBytes } from "@/lib/filename";
+import { fileTypeBadge, formatBytes } from "@/lib/filename";
 
-const FIELDS = [
+/** Every tag in the library, for autocomplete: an unfiltered search's facets. */
+export function useLibraryTags() {
+  const [tags, setTags] = useState<Option[]>([]);
+  useEffect(() => {
+    fetch("/api/v1/assets?limit=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => b && setTags(b.facets.tags.map((t: { value: string; count: number }) => ({ value: t.value, hint: t.count }))));
+  }, []);
+  return tags;
+}
+
+const TEXT = [
   { key: "title", label: "Title" },
   { key: "creator", label: "Creator" },
   { key: "copyright", label: "Copyright" },
 ] as const;
 
 /**
- * One asset, editable. A native modal <dialog>: focus trapping, Escape and the
- * inert background come from the platform. Saves through the public PATCH, and
- * Download returns the file with these edits written into it.
+ * One asset, editable. Saves through the public PATCH, and Download returns
+ * the file with these edits written into it.
  */
 export function AssetEditor({
   asset,
@@ -33,16 +52,13 @@ export function AssetEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const id = useId();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const tags = useLibraryTags();
   const m = asset.metadata ?? {};
-
-  useEffect(() => ref.current?.showModal(), []);
 
   async function save(form: FormData) {
     setBusy(true);
-    setError(null);
     const str = (k: string) => String(form.get(k) ?? "");
     const res = await fetch(`/api/v1/assets/${asset.id}`, {
       method: "PATCH",
@@ -52,13 +68,14 @@ export function AssetEditor({
         description: str("description"),
         creator: str("creator"),
         copyright: str("copyright"),
-        tags: str("tags").split(","),
+        tags: form.getAll("tags").map(String),
         fields: readFieldValues(form, fields),
       }),
     });
     if (!res.ok) {
       setBusy(false);
-      return setError((await res.json()).error?.message ?? "Couldn't save");
+      toast.error((await res.json()).error?.message ?? "Couldn't save");
+      return;
     }
     // Membership goes through each collection's endpoint, only where it changed.
     const want = new Set(form.getAll("collection").map(String));
@@ -76,103 +93,114 @@ export function AssetEditor({
     });
     const failed = (await Promise.all(changes)).some((r) => !r.ok);
     setBusy(false);
-    if (failed) return setError("Saved, but a collection change didn't go through");
     onSaved();
-    ref.current?.close();
+    if (failed) {
+      toast.warning("Saved, but a collection change didn't go through");
+      return;
+    }
+    toast.success("Saved");
+    onClose();
   }
 
+  const facts = [
+    asset.width && asset.height ? `${asset.width} × ${asset.height}` : null,
+    formatBytes(asset.size),
+    m.camera,
+    m.capturedAt?.slice(0, 10),
+  ].filter(Boolean);
+
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      // A click on the backdrop lands on the dialog element itself.
-      onClick={(e) => e.target === ref.current && ref.current.close()}
-      aria-labelledby="asset-editor-title"
-      className="bg-surface-raised text-ink border-line shadow-lift m-auto w-[min(880px,calc(100vw-32px))] rounded-lg border p-0 backdrop:bg-black/40"
-    >
-      <form action={save} className="grid gap-6 p-6 md:grid-cols-[1fr_320px]">
-        <div className="bg-surface-sunken flex min-h-64 items-center justify-center overflow-hidden rounded-card">
-          {asset.mime.startsWith("image/") && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/a/${asset.id}/w_960,f_webp`} alt="" className="max-h-[60vh] object-contain" />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div>
-            <h2 id="asset-editor-title" className="text-title-2 break-all">
-              {asset.filename}
-            </h2>
-            <p className="text-meta text-ink-muted mt-1">
-              {asset.width && asset.height ? `${asset.width} × ${asset.height} · ` : ""}
-              {formatBytes(asset.size)}
-              {m.camera ? ` · ${m.camera}` : ""}
-              {m.capturedAt ? ` · ${m.capturedAt.slice(0, 10)}` : ""}
-            </p>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[1fr_380px] md:grid-rows-1 md:overflow-hidden">
+        <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
+          <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
+            {asset.mime.startsWith("image/") ? (
+              <Thumb src={`/a/${asset.id}/w_960,f_webp`} alt="" className="absolute inset-0 p-6 group-hover:scale-100" />
+            ) : (
+              <Empty className="p-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconPhoto />
+                  </EmptyMedia>
+                  <EmptyTitle>No preview</EmptyTitle>
+                  <EmptyDescription>
+                    Renditions are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
+                    stored, with these edits written in where the format allows.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
           </div>
-
-          {FIELDS.map(({ key, label }) => (
-            <label key={key} className="text-label text-ink-muted flex flex-col gap-1">
-              {label}
-              <input name={key} defaultValue={m[key] ?? ""} maxLength={2000} className={input} />
-            </label>
-          ))}
-          <label className="text-label text-ink-muted flex flex-col gap-1">
-            Description
-            <textarea
-              name="description"
-              defaultValue={m.description ?? ""}
-              maxLength={2000}
-              rows={3}
-              className={input}
-            />
-          </label>
-          <label className="text-label text-ink-muted flex flex-col gap-1">
-            Tags, comma separated
-            <input name="tags" defaultValue={asset.tags.join(", ")} className={input} />
-          </label>
-          <FieldInputs defs={fields} values={asset.fields} inherited={asset.inherited} />
-          {collections.length > 0 && (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-label text-ink-muted mb-1">Collections</legend>
-              {collections.map((c) => (
-                <label key={c.id} className="text-body flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="collection"
-                    value={c.id}
-                    defaultChecked={asset.collections.includes(c.id)}
-                    className="accent-teal size-4"
-                  />
-                  {c.name}
-                </label>
-              ))}
-            </fieldset>
-          )}
-
-          {error && (
-            <p role="status" className="text-body text-danger flex items-center gap-2">
-              <AlertIcon size={20} />
-              {error}
-            </p>
-          )}
-
-          <div className="mt-auto flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" type="button" onClick={() => ref.current?.close()}>
-              Cancel
-            </Button>
-            <Button variant="secondary" asChild>
+          <div className="flex items-center gap-2 border-t px-4 py-3">
+            <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
+            <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
+            <span className="ml-auto" />
+            {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
+            <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}
               <a href={`/a/${asset.id}?download`} download>
-                Download
+                <IconDownload /> Download
               </a>
             </Button>
-            <Button type="submit" disabled={busy} aria-busy={busy}>
+          </div>
+        </div>
+
+        <form action={save} className="flex min-h-0 flex-col md:h-full">
+          <div className="border-b px-6 pt-6 pb-4 pr-12">
+            <DialogTitle className="break-all">{asset.filename}</DialogTitle>
+            <DialogDescription className="mt-1">Edits are written into the file on download.</DialogDescription>
+          </div>
+
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
+            {TEXT.map(({ key, label }) => (
+              <Field key={key} label={label} htmlFor={`${id}-${key}`}>
+                <Input id={`${id}-${key}`} name={key} defaultValue={m[key] ?? ""} maxLength={2000} />
+              </Field>
+            ))}
+            <Field label="Description" htmlFor={`${id}-description`}>
+              <Textarea
+                id={`${id}-description`}
+                name="description"
+                defaultValue={m.description ?? ""}
+                maxLength={2000}
+                rows={3}
+              />
+            </Field>
+
+            <Separator className="my-1" />
+            <Field label="Tags" htmlFor={`${id}-tags`} hint="Enter or comma adds a new tag.">
+              <MultiCombobox id={`${id}-tags`} name="tags" options={tags} defaultValue={asset.tags} placeholder="Add tags" creatable />
+            </Field>
+            {collections.length > 0 && (
+              <Field label="Collections" htmlFor={`${id}-collections`}>
+                <MultiCombobox
+                  id={`${id}-collections`}
+                  name="collection"
+                  options={collections.map((c) => ({ value: c.id, label: c.name, hint: c.count }))}
+                  defaultValue={asset.collections}
+                  placeholder="Add to a collection"
+                />
+              </Field>
+            )}
+
+            {fields.length > 0 && (
+              <>
+                <Separator className="my-1" />
+                <FieldInputs defs={fields} values={asset.fields} inherited={asset.inherited} />
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t px-6 py-4">
+            <Button variant="outline" type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy}>
               {busy ? "Saving" : "Save"}
             </Button>
           </div>
-        </div>
-      </form>
-    </dialog>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

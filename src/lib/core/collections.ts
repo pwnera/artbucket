@@ -37,16 +37,19 @@ export async function getCollection(id: string): Promise<Collection | null> {
   return c ?? null;
 }
 
-export async function createCollection(input: { name: string; fields?: Record<string, unknown> }) {
+export async function createCollection(input: { name: string; icon?: string | null; fields?: Record<string, unknown> }) {
   const values = stripNulls(await validValues(input.fields ?? {}));
-  const [c] = await db.insert(collections).values({ name: input.name, fields: values }).returning();
+  const [c] = await db
+    .insert(collections)
+    .values({ name: input.name, icon: input.icon ?? null, fields: values })
+    .returning();
   return { ...c, count: 0 };
 }
 
 /** `fields` merges; null clears a value. Members are re-inherited in the same transaction. */
 export async function updateCollection(
   id: string,
-  patch: { name?: string; fields?: Record<string, unknown> },
+  patch: { name?: string; icon?: string | null; fields?: Record<string, unknown> },
 ): Promise<Collection | null> {
   const values = patch.fields ? await validValues(patch.fields) : null;
   const found = await db.transaction(async (tx) => {
@@ -54,6 +57,7 @@ export async function updateCollection(
       .update(collections)
       .set({
         ...(patch.name ? { name: patch.name } : {}),
+        ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
         ...(values
           ? {
               fields: sql`jsonb_strip_nulls(${collections.fields} || ${JSON.stringify(values)}::jsonb)`,
