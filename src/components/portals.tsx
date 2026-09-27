@@ -49,7 +49,12 @@ export type Portal = {
   theme: { logo: string | null; accent: string | null; background: string | null };
   collections: { id: string; name: string }[];
   brands: { slug: string; name: string }[];
-  domain: { host: string; verified: boolean; record: { type: "TXT"; name: string; value: string } } | null;
+  domain: {
+    host: string;
+    verified: boolean;
+    record: { type: "TXT"; name: string; value: string };
+    cname: { type: "CNAME"; name: string; value: string } | null;
+  } | null;
   url: string;
   pending: number;
   createdBy: string;
@@ -443,9 +448,24 @@ function PortalDialog({
                 </p>
               ) : (
                 <div className="bg-muted/50 grid gap-2 rounded-md p-3 text-xs">
-                  <p>
-                    At your DNS host, point <span className="font-mono">{current.domain.host}</span> at this server, and add a TXT record to prove it is yours:
-                  </p>
+                  {current.domain.cname ? (
+                    <>
+                      <p>At your DNS host, point it here with a CNAME record:</p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-mono break-all">
+                          {current.domain.cname.name} → {current.domain.cname.value}
+                        </span>
+                        <IconButton variant="ghost" label="Copy the target" onClick={() => copy(current.domain!.cname!.value, "the target")}>
+                          <IconCopy />
+                        </IconButton>
+                      </p>
+                      <p>And add a TXT record to prove it is yours:</p>
+                    </>
+                  ) : (
+                    <p>
+                      At your DNS host, point <span className="font-mono">{current.domain.host}</span> at this server, and add a TXT record to prove it is yours:
+                    </p>
+                  )}
                   <p className="flex items-center gap-2">
                     <span className="font-mono break-all">{current.domain.record.name}</span>
                     <IconButton variant="ghost" label="Copy the name" onClick={() => copy(current.domain!.record.name, "the name")}>

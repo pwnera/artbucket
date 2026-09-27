@@ -18,7 +18,8 @@ import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
-export type Domain = { host: string; verified: boolean; record: { type: "TXT"; name: string; value: string }; portal: string | null; url: string };
+type Dns<T extends string> = { type: T; name: string; value: string };
+export type Domain = { host: string; verified: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
 
 const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 
@@ -177,6 +178,15 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                 </div>
                 {!d.verified && (
                   <div className="bg-muted/50 grid gap-1 rounded-md p-2.5 font-mono text-xs">
+                    {d.cname && (
+                      <p className="flex items-center gap-2 break-all">
+                        <span className="text-muted-foreground w-10 shrink-0 font-sans">CNAME</span>
+                        {d.cname.name} → {d.cname.value}
+                        <IconButton variant="ghost" label="Copy the target" onClick={() => copy(d.cname!.value, "the target")}>
+                          <IconCopy />
+                        </IconButton>
+                      </p>
+                    )}
                     {[d.record.name, d.record.value].map((x, i) => (
                       <p key={x} className="flex items-center gap-2 break-all">
                         <span className="text-muted-foreground w-10 shrink-0 font-sans">{i ? "Value" : "TXT"}</span>

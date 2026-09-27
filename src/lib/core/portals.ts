@@ -10,7 +10,7 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, claimable, claimHost, forgetHosts, proveHost, releaseHost } from "@/lib/core/domains";
+import { appUrlFor, claimable, claimHost, cnameFor, forgetHosts, proveHost, releaseHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
@@ -89,7 +89,7 @@ async function present(p: Row) {
     theme: p.theme,
     collections: cols,
     brands: brandList.map(({ slug, name }) => ({ slug, name })),
-    domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token } },
+    domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token }, cname: cnameFor(d.host) },
     url: await urlOf(p, d),
     pending,
     createdBy: p.createdBy,
