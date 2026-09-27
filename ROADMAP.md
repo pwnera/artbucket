@@ -150,8 +150,17 @@ _~3 weekends._
 - Migration path guarantees across versions
 - S3 lifecycle rules, storage accounting
 - Rate limits, CSP, security headers
-- Docs site, deploy guides (Docker, Fly, Coolify, bare VPS)
-- Importers: Brandfolder, Bynder, Canto exports
+- Docs site on [Mintlify](https://mintlify.com), modeled on
+  [Postiz docs](https://docs.postiz.com/general/introduction), served at a custom
+  domain (`docs.<domain>`), sidebar grouped into sections, one page per topic
+  - **General:** introduction, quickstart, how it works (API, MCP, canon), support
+  - **Installation:** Docker Compose, Docker, Fly, Coolify, bare VPS
+  - **Configuration:** every env var in one reference table, storage, auth providers
+  - **Guides:** assets, canon, `/check`, portals
+  - **Developers:** API reference generated from the v0.3 OpenAPI spec, MCP tools, CLI
+  - Lives in `docs/` as MDX + `docs.json` in this repo, so docs change in the same
+    PR as the code; Mintlify deploys from the GitHub app. Plain MDX keeps it portable
+    if the hosted plan stops fitting
 - Telemetry **off by default**
 
 _~4 weekends. The unglamorous one that decides adoption._
@@ -201,6 +210,38 @@ _~3 weekends._
 
 **Not in this one:** branded API docs, branded MCP server names.
 _~3 weekends._
+
+---
+
+## v1.3 - Migration
+**Question:** can a team leave their current DAM in an afternoon?
+
+A complete switching strategy, not a pile of one-off scripts.
+
+- **Sources:** Brandfolder, Bynder, Canto, Frontify, plus a generic
+  folder + CSV/JSON sidecar format that anything else can export to
+- **One pipeline:** each source is an adapter that emits a common manifest;
+  ingest, dedupe, and metadata mapping are shared, and go through `/api/v1`
+  like every other client
+- **Field mapping:** source fields map to v0.2 custom schemas, with a saved,
+  reusable mapping file; unmapped fields are kept, not dropped
+- **Structure preserved:** collections, tags, versions, rights and expiry
+  (v0.6, v0.8), and original IDs stored for cross-reference
+- **Canon import:** Frontify guidelines and brand portal colors, fonts, and
+  logos land as v0.5 brand rules, as `proposed` records a human promotes
+- **Safe to run:** dry-run report first (counts, conflicts, unmappable
+  fields), resumable after failure, idempotent on rerun thanks to SHA-256 dedupe
+- **Delta sync:** rerun against the old system during a cutover window to
+  pick up late changes, so teams can run both side by side
+- **Link continuity:** redirect map from old public URLs to artbucket
+  rendition URLs, so embedded links keep working
+- Available from the CLI (v0.4) and a migration page in the UI; docs get a
+  per-source migration guide
+
+**Not in this one:** two-way sync, migrating *out* beyond the standard export.
+**Done when:** a 10k-asset Brandfolder export imports with zero lost metadata
+and a clean dry-run diff on rerun.
+_~4 weekends._
 
 ---
 
