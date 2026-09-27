@@ -1,29 +1,25 @@
-import { env } from "@/lib/env";
-import type { Collection } from "@/components/collections";
-import { Gallery, type Listing } from "@/components/gallery";
 import type { FieldDef } from "@/lib/fields";
+import { Gallery, type Listing } from "@/components/gallery";
+import { get, sidebarData } from "@/lib/sidebar";
+import { parseView, viewQuery } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
 
 /**
  * The initial list comes from the public API over real HTTP, exactly as any
  * other client would fetch it. That keeps the API honest: there is no private
- * server-only path into the data.
+ * server-only path into the data. The URL is the view (lib/view.ts), so a
+ * link to a collection, a search or an asset opens on it.
  */
-export default async function Home({ searchParams }: { searchParams: Promise<{ review?: string }> }) {
-  const review = (await searchParams).review !== undefined;
-  const get = (path: string) => fetch(`${env.APP_URL}/api/v1/${path}`, { cache: "no-store" });
-  const [res, fieldsRes, collectionsRes, searchesRes] = await Promise.all([
-    get(review ? "assets?review=true" : "assets"),
-    get("fields"),
-    get("collections"),
-    get("searches"),
+export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[]>> }) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(await searchParams)) for (const x of [v].flat()) params.append(k, x);
+  const query = viewQuery(parseView(params), false);
+  const empty: Listing = { data: [], total: 0, facets: { tags: [] } };
+  const [initial, fields, sidebar] = await Promise.all([
+    get(`assets?${query}`, (b: Listing) => b, empty),
+    get("fields", (b: { data: FieldDef[] }) => b.data, []),
+    sidebarData(),
   ]);
-  const initial: Listing = res.ok ? await res.json() : { data: [], facets: { tags: [] } };
-  const fields: FieldDef[] = fieldsRes.ok ? (await fieldsRes.json()).data : [];
-  const collections: Collection[] = collectionsRes.ok ? (await collectionsRes.json()).data : [];
-
-  const searches = searchesRes.ok ? (await searchesRes.json()).data : [];
-
-  return <Gallery initial={initial} fields={fields} collections={collections} searches={searches} review={review} />;
+  return <Gallery initial={initial} fields={fields} sidebar={sidebar} />;
 }

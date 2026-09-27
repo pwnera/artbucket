@@ -59,7 +59,11 @@ export const AssetPatch = z.strictObject({
   description: text,
   creator: text,
   copyright: text,
-  status: z.enum(["active", "proposed"]).optional().describe('"active" promotes a proposed asset'),
+  status: z
+    .enum(["active", "proposed", "rejected"])
+    .optional()
+    .describe('"active" approves a proposed asset; "rejected" turns it down and keeps it, with `reviewNote`'),
+  reviewNote: z.string().max(2000).nullable().optional().describe("Why it was rejected, for whoever proposed it"),
   proposedTags: tags.optional().describe("Replaces the pending suggestions; [] dismisses them all"),
 });
 
@@ -139,7 +143,9 @@ export const Asset = z.object({
   tags: z.array(z.string()),
   fields: fieldValues.describe("The asset's own values"),
   inherited: fieldValues.describe("Values inherited from its collections; own values win"),
-  status: z.enum(["active", "proposed"]),
+  status: z.enum(["active", "proposed", "rejected"]),
+  proposedBy: z.string().nullable().describe('For a proposal: the API key\'s name, or "web"'),
+  reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
   collections: z.array(uuid),
   createdAt: date,
@@ -149,6 +155,7 @@ export const Asset = z.object({
 const Count = z.object({ value: z.string(), count: z.number().int() });
 export const Listing = z.object({
   data: z.array(Asset),
+  total: z.number().int().describe("Every match; page through with offset and limit"),
   facets: z.object({ tags: z.array(Count), fields: z.record(z.string(), z.array(Count)) }),
 });
 
@@ -186,7 +193,17 @@ export const BrandRule = z.object({
   value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
   usage: z.string().nullable(),
   assets: z
-    .array(z.object({ id: uuid, rendition: z.string().nullable() }))
+    .array(
+      z.object({
+        id: uuid,
+        rendition: z.string().nullable(),
+        title: z.string().nullable(),
+        filename: z.string(),
+        mime: z.string(),
+        width: z.number().int().nullable(),
+        height: z.number().int().nullable(),
+      }),
+    )
     .describe("Assets it points at, in order: /a/{id}, or /a/{id}/{rendition} when it names one"),
   updatedAt: date,
 });
@@ -255,7 +272,9 @@ export const Description = z.object({
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   sha256: z.string(),
-  status: z.enum(["active", "proposed"]),
+  status: z.enum(["active", "proposed", "rejected"]),
+  proposedBy: z.string().nullable(),
+  reviewNote: z.string().nullable(),
   title: z.string().nullable(),
   description: z.string().nullable(),
   creator: z.string().nullable(),
@@ -281,6 +300,24 @@ export const Description = z.object({
     .nullable()
     .describe("What a rendition of this asset may ask for; null when it can't be transformed"),
   alternatives: z.array(z.object({ name: z.string(), url: z.url() })).describe("Ready-made renditions"),
+});
+
+export const ActivityItem = z.object({
+  id: uuid,
+  at: date,
+  actor: z.string().describe('An API key\'s name, or "web" for the app'),
+  verb: z.enum(["added", "suggested", "approved", "rejected", "deleted", "suggested_tags", "edited_rules", "restored_rules"]),
+  label: z.string().describe("The asset's title or filename then, or the brand's name"),
+  assetId: uuid.nullable(),
+  brand: z.object({ slug: z.string(), name: z.string(), version: z.number().int() }).nullable(),
+  detail: z
+    .object({ tags: z.array(z.string()), note: z.string(), rules: z.array(z.string()), summary: z.string() })
+    .partial()
+    .nullable(),
+});
+export const Activity = z.object({
+  data: z.array(ActivityItem),
+  next: date.nullable().describe("Pass as `before` for the next page; null at the end"),
 });
 
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });

@@ -1,13 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { IconDownload, IconFolderMinus, IconFolderPlus, IconTag, IconTagOff, IconTrash, IconX } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconDownload,
+  IconFolderMinus,
+  IconFolderPlus,
+  IconTag,
+  IconTagOff,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import { useLibraryTags } from "@/components/asset-editor";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import type { Asset } from "@/components/gallery";
 import { extOf, PRESETS, stem } from "@/components/renditions";
+import { approve, reject } from "@/components/review-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,10 +40,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { pool } from "@/lib/pool";
 import { uniqueNames, zip } from "@/lib/zip";
 
-const files = (n: number) => `${n} ${n === 1 ? "file" : "files"}`;
+const files = (n: number) => `${n} ${n === 1 ? "asset" : "assets"}`;
 
 /**
  * Bulk actions over the selected assets. Each one is the same public call the
@@ -44,6 +55,7 @@ export function SelectionBar({
   total,
   collections,
   current,
+  review = false,
   onSelectAll,
   onClear,
   onDone,
@@ -53,6 +65,8 @@ export function SelectionBar({
   collections: Collection[];
   /** The collection being browsed, if any: offers "remove from" it. */
   current?: Collection;
+  /** In the review queue: approve and reject come first. */
+  review?: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   onDone: () => void;
@@ -64,16 +78,21 @@ export function SelectionBar({
   async function each(verb: string, fn: (a: Asset) => Promise<Response>) {
     setBusy(true);
     let failed = 0;
+    let why: string | undefined;
     await pool(picked, 4, async (a) => {
       const res = await fn(a).catch(() => null);
-      if (!res?.ok) failed++;
+      if (res?.ok) return;
+      failed++;
+      why ??= (await res?.json().catch(() => null))?.error?.message;
     });
     setBusy(false);
     onDone();
-    if (failed) toast.error(`${verb} ${files(picked.length - failed)}, ${failed} failed`);
+    if (failed) toast.error(`${verb} ${files(picked.length - failed)}, ${failed} failed`, { description: why });
     else toast.success(`${verb} ${files(picked.length)}`);
     return failed === 0;
   }
+
+
 
   const patchTags = (a: Asset, tags: string[]) =>
     fetch(`/api/v1/assets/${a.id}`, {
@@ -150,6 +169,23 @@ export function SelectionBar({
         </Button>
       )}
       <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-5" />
+
+      {review && (
+        <>
+          <Button size="sm" disabled={busy} onClick={async () => (await each("Approved", approve)) && onClear()}>
+            <IconCheck /> Approve
+          </Button>
+          <RejectAction
+            disabled={busy}
+            onReject={async (reason) => {
+              const ok = await each("Rejected", (a) => reject(a, reason));
+              if (ok) onClear();
+              return ok;
+            }}
+          />
+          <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-5" />
+        </>
+      )}
 
       <TagAction
         label="Tag"
@@ -239,6 +275,61 @@ export function SelectionBar({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** Reject, with one reason the agents read back. */
+export function RejectAction({
+  disabled,
+  compact,
+  side = "top",
+  onReject,
+}: {
+  disabled?: boolean;
+  /** An icon button, for a table row. */
+  compact?: boolean;
+  side?: "top" | "bottom" | "left";
+  onReject: (reason: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {compact ? (
+          <Button variant="ghost" size="icon-sm" disabled={disabled} aria-label="Reject" title="Reject…">
+            <IconX />
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" disabled={disabled}>
+            <IconX /> Reject…
+          </Button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent side={side} align="end" className="grid w-80 gap-3">
+        <Textarea
+          autoFocus
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Why not? The agents read this"
+          aria-label="Reason for rejecting"
+          maxLength={2000}
+          rows={2}
+        />
+        <p className="text-muted-foreground text-xs">
+          Suggested assets are kept out of the library, with this reason. Suggested tags are dismissed.
+        </p>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={async () => {
+            if (await onReject(reason.trim())) setOpen(false);
+          }}
+        >
+          Reject
+        </Button>
+      </PopoverContent>
+    </Popover>
   );
 }
 

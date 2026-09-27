@@ -32,7 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Editable } from "@/components/brand-values";
 import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/history";
-import { ruleLabel, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { day } from "@/lib/time";
+import { contextLabel, ruleLabel, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Meta = {
@@ -52,15 +53,6 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-/** "Today", "Yesterday", or the date: how a doc's history groups its versions. */
-function day(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today.getTime() - 86_400_000);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-}
 
 /**
  * A brand's version history, like a doc's: every change is kept, grouped by
@@ -328,11 +320,15 @@ function Change({ change: c }: { change: RuleChange }) {
   return (
     <div className="space-y-2 rounded-xl border p-3">
       <div className="flex items-center gap-2">
-        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase", CHANGE_STYLE[c.change])}>
+        <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase", CHANGE_STYLE[c.change])}>
           {c.change}
         </span>
         <span className="truncate text-sm font-medium">{ruleLabel(c.key)}</span>
-        {c.context && <Badge variant="secondary">{c.context}</Badge>}
+        {c.context && (
+          <Badge variant="secondary" title={c.context}>
+            {contextLabel(c.context)}
+          </Badge>
+        )}
         <code className="text-muted-foreground ml-auto truncate font-mono text-xs">{c.key}</code>
       </div>
       {c.change === "added" && <Value rule={c.after} />}
@@ -438,9 +434,9 @@ function Assets({ list, dim }: { list: RuleAsset[]; dim?: boolean }) {
       {list.map((a) => (
         <div key={a.id} className="grid w-14 gap-0.5">
           <div className="bg-checker relative size-14 overflow-hidden rounded-md border">
-            <Thumb src={`/a/${a.id}/w_160,f_webp`} alt="" className="p-1" />
+            <Thumb src={`/a/${a.id}/w_56,f_webp`} alt="" className="p-1" />
           </div>
-          <span className="text-muted-foreground truncate text-center text-[10px]">{renditionLabel(a.rendition)}</span>
+          <span className="text-muted-foreground truncate text-center text-[11px]">{renditionLabel(a.rendition)}</span>
         </div>
       ))}
     </div>

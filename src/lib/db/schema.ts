@@ -20,7 +20,7 @@ import type { SnapRule, VersionKind } from "@/lib/history";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 
-export type AssetStatus = "active" | "proposed";
+export type AssetStatus = "active" | "proposed" | "rejected";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -58,6 +58,16 @@ export const assets = pgTable(
      * agent) uploads. Default searches show `active` only.
      */
     status: text("status").$type<AssetStatus>().notNull().default("active"),
+    /**
+     * Who proposed it: the API key's name, or "web". Kept after review, so a
+     * person sees who sent what and an agent can find its own proposals.
+     */
+    proposedBy: text("proposed_by"),
+    /**
+     * Why a person rejected it. A rejected asset is kept, out of the library
+     * and the review queue, so the agent that proposed it can read the reason.
+     */
+    reviewNote: text("review_note"),
     /** Tags an agent suggested, waiting for a human to accept or dismiss. */
     proposedTags: jsonb("proposed_tags").$type<string[]>().notNull().default([]),
     /**
@@ -85,7 +95,8 @@ export const assets = pgTable(
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
     // Field filters match the effective value, own over inherited: `inherited || fields`.
     index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
-    check("assets_status_check", sql`${t.status} in ('active', 'proposed')`),
+    check("assets_status_check", sql`${t.status} in ('active', 'proposed', 'rejected')`),
+    index("assets_proposed_by_idx").on(t.proposedBy),
   ],
 );
 
@@ -282,4 +293,30 @@ export const brandVersions = pgTable(
     unique("brand_versions_brand_number_unique").on(t.brandId, t.number),
     check("brand_versions_kind_check", sql`${t.kind} in ('baseline', 'edit', 'restore')`),
   ],
+);
+
+export type ActivityVerb = "added" | "suggested" | "approved" | "rejected" | "deleted" | "suggested_tags";
+
+/**
+ * What happened to assets, and who did it: a person in the app ("web") or an
+ * API key by name. Brand rule changes are not here: brand_versions already
+ * keeps them, and /api/v1/activity reads both. `assetId` is not a foreign
+ * key: an asset's history outlives the asset.
+ */
+export const activity = pgTable(
+  "activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: timestamp("at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    actor: text("actor").notNull(),
+    verb: text("verb").$type<ActivityVerb>().notNull(),
+    assetId: uuid("asset_id"),
+    /** The asset's title or filename when it happened, so a deleted one still reads. */
+    label: text("label").notNull(),
+    /** Suggested tags, a rejection's reason. */
+    detail: jsonb("detail").$type<{ tags?: string[]; note?: string }>(),
+  },
+  (t) => [index("activity_at_idx").on(t.at.desc())],
 );

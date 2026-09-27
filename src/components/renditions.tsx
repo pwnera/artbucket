@@ -36,7 +36,7 @@ export function Renditions({ asset }: { asset: Asset }) {
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
-          <IconPhotoScan /> Renditions
+          <IconPhotoScan /> <span className="sr-only sm:not-sr-only">Sizes &amp; formats</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-96 p-0">

@@ -108,6 +108,38 @@
   }
 }
 
+/*
+ * Tabler draws a 2 stroke on a 24 grid: 1.33px at 16px, which blurs on a 1x
+ * screen and reads heavier than DM Sans at 400. 1.5 is exactly 1px at 16px.
+ * Only the default is changed: an icon that asks for its own stroke keeps it,
+ * and 12px icons (in badges) keep 2, which is 1px there.
+ */
+.tabler-icon[stroke-width="2"] {
+  stroke-width: 1.5;
+}
+.tabler-icon.size-3[stroke-width="2"],
+[data-slot="badge"] > .tabler-icon[stroke-width="2"] {
+  stroke-width: 2;
+}
+
+/*
+ * Icons one step quieter than their words, as in PostHog and Notion: the
+ * label leads, the icon is a cue. Pointing at an item brings its icon up to
+ * the text; the item you are on marks its icon in the brand green. An icon
+ * with its own color class keeps it.
+ */
+[data-sidebar="menu-button"] > svg:not([class*="text-"]),
+[data-sidebar="group-label"] > svg:not([class*="text-"]) {
+  color: var(--muted-foreground);
+  transition: color 150ms;
+}
+[data-sidebar="menu-button"]:hover > svg:not([class*="text-"]) {
+  color: var(--sidebar-accent-foreground);
+}
+[data-sidebar="menu-button"][data-active="true"] > svg:not([class*="text-"]) {
+  color: var(--primary);
+}
+
 /* A transparency checkerboard: logos and cut-outs show their true edges on it. */
 @utility bg-checker {
   background-color: var(--muted);

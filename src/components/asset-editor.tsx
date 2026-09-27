@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconBook, IconCheck, IconDownload, IconPhoto, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBook, IconCheck, IconDownload, IconLink, IconPhoto, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
+import { call, curl, ForAgents } from "@/components/agent-access";
 import { Renditions } from "@/components/renditions";
 import { Thumb, type Asset } from "@/components/gallery";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -16,8 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
-import { ruleLabel, type Rule } from "@/lib/rules";
+import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
+import { ago } from "@/lib/time";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
 export function useLibraryTags() {
@@ -53,8 +55,8 @@ export function AssetEditor({
   collections: Collection[];
   onClose: () => void;
   onSaved: () => void;
-  /** A review action changed the asset (or deleted it: null). */
-  onReviewed: (asset: Asset | null) => void;
+  /** A review action changed the asset. */
+  onReviewed: (asset: Asset) => void;
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
@@ -106,6 +108,24 @@ export function AssetEditor({
     onClose();
   }
 
+  // Where each inherited value comes from: the oldest collection that sets it wins.
+  const sources: Record<string, string> = {};
+  for (const c of collections
+    .filter((c) => asset.collections.includes(c.id))
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))) {
+    for (const k of Object.keys(c.fields)) sources[k] ??= c.name;
+  }
+
+  const copyLink = async () => {
+    const href = new URL(`/?asset=${asset.id}`, location.origin).href;
+    try {
+      await navigator.clipboard.writeText(href);
+      toast.success("Copied a link to this asset");
+    } catch {
+      toast.error("Couldn't copy the link", { description: href });
+    }
+  };
+
   const facts = [
     asset.width && asset.height ? `${asset.width} × ${asset.height}` : null,
     formatBytes(asset.size),
@@ -119,7 +139,7 @@ export function AssetEditor({
         <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
           <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
             {asset.mime.startsWith("image/") ? (
-              <Thumb src={`/a/${asset.id}/w_960,f_webp`} alt="" className="absolute inset-0 p-6 group-hover:scale-100" />
+              <Thumb src={`/a/${asset.id}/w_640,f_webp`} alt="" className="absolute inset-0 p-6" />
             ) : (
               <Empty className="p-6">
                 <EmptyHeader>
@@ -128,7 +148,7 @@ export function AssetEditor({
                   </EmptyMedia>
                   <EmptyTitle>No preview</EmptyTitle>
                   <EmptyDescription>
-                    Renditions are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
+                    Sizes and formats are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
                     stored, with these edits written in where the format allows.
                   </EmptyDescription>
                 </EmptyHeader>
@@ -139,6 +159,9 @@ export function AssetEditor({
             <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
             <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
             <span className="ml-auto" />
+            <Button variant="outline" size="sm" type="button" onClick={copyLink} title="A link to this asset, in the library">
+              <IconLink /> <span className="sr-only sm:not-sr-only">Copy link</span>
+            </Button>
             {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
             <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}
@@ -151,9 +174,27 @@ export function AssetEditor({
 
         {/* A review action returns the asset changed; remount the form so it shows that. */}
         <form key={asset.updatedAt} action={save} className="flex min-h-0 flex-col md:h-full">
-          <div className="border-b px-6 pt-6 pb-4 pr-12">
-            <DialogTitle className="break-all">{asset.filename}</DialogTitle>
-            <DialogDescription className="mt-1">Edits are written into the file on download.</DialogDescription>
+          {/* The dialog's header, like every page's, ends with For agents. */}
+          <div className="flex items-start gap-3 border-b px-6 pt-6 pb-4 pr-12">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className={m.title ? "break-words" : "break-all"}>{m.title || asset.filename}</DialogTitle>
+              <DialogDescription className="mt-1">
+                {m.title && <span className="block break-all">{asset.filename}</span>}
+                Edits are written into the file on download.
+              </DialogDescription>
+            </div>
+            <ForAgents
+              className="shrink-0"
+              subject="This asset"
+              about="What an agent reads before using this asset: its title, credit and fields, the brand rules that point at it, and ready-made sizes."
+              reads={(origin) => [
+                { label: "MCP tool", text: call("describe_asset", { id: asset.id }) },
+                ...(asset.mime.startsWith("image/")
+                  ? [{ label: "A size to hand out", text: call("rendition_url", { id: asset.id, width: 1200, format: "webp" }) }]
+                  : []),
+                { label: "REST", text: curl(`${origin}/a/${asset.id}`, ["Accept: application/json"]) },
+              ]}
+            />
           </div>
 
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
@@ -193,7 +234,7 @@ export function AssetEditor({
             {fields.length > 0 && (
               <>
                 <Separator className="my-1" />
-                <FieldInputs defs={fields} values={asset.fields} inherited={asset.inherited} />
+                <FieldInputs defs={fields} values={asset.fields} inherited={asset.inherited} sources={sources} />
               </>
             )}
           </div>
@@ -238,10 +279,9 @@ function BrandRules({ assetId }: { assetId: string }) {
               {several && <span className="text-muted-foreground">{r.brand} / </span>}
               {ruleLabel(r.key)}
             </a>
-            <code className="text-muted-foreground ml-2 font-mono text-xs">{r.key}</code>
             {r.context && (
-              <Badge variant="secondary" className="ml-2">
-                {r.context}
+              <Badge variant="secondary" className="ml-2" title={r.context}>
+                {contextLabel(r.context)}
               </Badge>
             )}
           </li>
@@ -252,12 +292,26 @@ function BrandRules({ assetId }: { assetId: string }) {
 }
 
 /**
- * What an agent proposed about this asset, and the buttons that decide it.
- * Each acts at once through the public PATCH (or DELETE), separately from Save.
+ * What an agent suggested about this asset, and the buttons that decide it.
+ * Each acts at once through the public PATCH, separately from Save. A
+ * rejection is kept, with its reason, for the agent that suggested it.
  */
-function Review({ asset, onReviewed }: { asset: Asset; onReviewed: (asset: Asset | null) => void }) {
+function Review({ asset, onReviewed }: { asset: Asset; onReviewed: (asset: Asset) => void }) {
   const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  if (asset.status === "rejected") {
+    return (
+      <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-sm">
+        <p className="font-medium">Rejected</p>
+        <p className="text-muted-foreground text-xs">
+          Suggested by {asset.proposedBy ?? "an agent"}.{" "}
+          {asset.reviewNote ? <>Reason: &ldquo;{asset.reviewNote}&rdquo;</> : "No reason given."} It stays out of the
+          library; the agent can read why.
+        </p>
+      </div>
+    );
+  }
   if (asset.status !== "proposed" && !asset.proposedTags.length) return null;
 
   const patch = async (body: object) => {
@@ -270,13 +324,12 @@ function Review({ asset, onReviewed }: { asset: Asset; onReviewed: (asset: Asset
     patch({ tags: [...asset.tags, ...tags], proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
   const dismiss = (tags: string[]) => patch({ proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
   const reject = async () => {
-    if (!confirming) return setConfirming(true);
     setBusy(true);
-    const gone = await send("DELETE", `/api/v1/assets/${asset.id}`);
+    const next = await send("PATCH", `/api/v1/assets/${asset.id}`, { status: "rejected", reviewNote: reason || null });
     setBusy(false);
-    if (gone) {
-      toast.success("Rejected and deleted");
-      onReviewed(null);
+    if (next) {
+      toast.success(`Rejected. ${asset.proposedBy ?? "The agent"} can read why.`);
+      onReviewed(next);
     }
   };
 
@@ -285,19 +338,44 @@ function Review({ asset, onReviewed }: { asset: Asset; onReviewed: (asset: Asset
       {asset.status === "proposed" && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
-            <IconSparkles className="text-primary size-4" /> Proposed by an agent
+            <IconSparkles className="text-primary size-4" /> Suggested by {asset.proposedBy ?? "an agent"}
+            <span className="text-muted-foreground font-normal" suppressHydrationWarning>
+              · {ago(asset.createdAt)}
+            </span>
           </p>
           <p className="text-muted-foreground text-xs">
-            It stays out of the library and search until you approve it.
+            It stays out of the library and search until you approve it. Fill in any required fields first.
           </p>
-          <div className="flex gap-2">
-            <Button type="button" size="sm" disabled={busy} onClick={() => patch({ status: "active" })}>
-              <IconCheck /> Approve
-            </Button>
-            <Button type="button" size="sm" variant={confirming ? "destructive" : "outline"} disabled={busy} onClick={reject}>
-              <IconX /> {confirming ? "Delete it" : "Reject"}
-            </Button>
-          </div>
+          {rejecting ? (
+            <div className="grid gap-2">
+              <Textarea
+                autoFocus
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why not? The agent reads this, e.g. off-brand colors, low resolution"
+                aria-label="Reason for rejecting"
+                maxLength={2000}
+                rows={2}
+              />
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={reject}>
+                  <IconX /> Reject
+                </Button>
+                <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button type="button" size="sm" disabled={busy} onClick={() => patch({ status: "active" })}>
+                <IconCheck /> Approve
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setRejecting(true)}>
+                <IconX /> Reject…
+              </Button>
+            </div>
+          )}
         </div>
       )}
       {asset.proposedTags.length > 0 && (

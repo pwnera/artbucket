@@ -156,7 +156,7 @@ function Contrast({ hex, on }: { hex: string; on: "#ffffff" | "#000000" }) {
         Aa
       </span>
       <span className="font-mono text-xs tabular-nums">{ratio.toFixed(1)}</span>
-      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>
+      <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>
         {g}
       </span>
     </div>
@@ -246,7 +246,7 @@ export function CopyButton({ onClick, label }: { onClick: () => void; label: str
       title={label}
       className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1 transition-colors"
     >
-      <IconCopy className="size-3.5" />
+      <IconCopy className="size-4" />
     </button>
   );
 }

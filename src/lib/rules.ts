@@ -19,8 +19,19 @@ export const RULE_TYPES = ["color", "text", "number", "list"] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 export type RuleValue = string | number | (string | number)[];
 
-/** An asset a rule points at, as the original or at one rendition. */
-export type RuleAsset = { id: string; rendition: string | null };
+/**
+ * An asset a rule points at, as the original or at one rendition. Reads carry
+ * what the asset is; writes need only `id` and `rendition`.
+ */
+export type RuleAsset = {
+  id: string;
+  rendition: string | null;
+  title?: string | null;
+  filename?: string;
+  mime?: string;
+  width?: number | null;
+  height?: number | null;
+};
 
 export type Rule = {
   id: string;
@@ -65,7 +76,8 @@ export const rendition = z
   .describe("A rendition spec, e.g. w_512,f_png; null for the original");
 
 const ruleAsset = z
-  .union([z.uuid(), z.strictObject({ id: z.uuid(), rendition: rendition.nullable().optional() })])
+  // Not strict: a rule's assets as read can be written back as they are.
+  .union([z.uuid(), z.object({ id: z.uuid(), rendition: rendition.nullable().optional() })])
   .transform((a): RuleAsset => (typeof a === "string" ? { id: a, rendition: null } : { id: a.id, rendition: a.rendition ?? null }));
 
 const assets = z
@@ -119,6 +131,12 @@ export const section = (key: string) => key.split(".")[0];
 export const ruleLabel = (key: string) => {
   const rest = key.split(".").slice(1).join(" ") || key;
   const words = rest.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words[0].toUpperCase() + words.slice(1);
+};
+
+/** `dark-background` as a person reads it: "Dark background". The slug stays in URLs and the API. */
+export const contextLabel = (context: string) => {
+  const words = context.replace(/-/g, " ");
   return words[0].toUpperCase() + words.slice(1);
 };
 

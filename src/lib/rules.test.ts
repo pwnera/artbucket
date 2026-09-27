@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { listStyle, resolve, RuleInput, ruleContext, ruleKey, ruleLabel } from "./rules.ts";
+import { contextLabel, listStyle, resolve, RuleInput, ruleContext, ruleKey, ruleLabel } from "./rules.ts";
 
 const r = (key: string, context: string | null, value: string) => ({ key, context, value });
 
@@ -62,6 +62,7 @@ test("a list's key says how it reads", () => {
 test("labels read as words", () => {
   assert.equal(ruleLabel("logo.minClearSpace"), "Min clear space");
   assert.equal(ruleLabel("color"), "Color");
+  assert.equal(contextLabel("dark-background"), "Dark background");
 });
 
 test("assets take an id or { id, rendition }; renditions are checked and put in canonical order", () => {

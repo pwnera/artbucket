@@ -92,7 +92,7 @@ export function openapi(serverUrl: string) {
           query: {
             q: { schema: str, description: "Every word must match, each as a prefix" },
             tag: { schema: { type: "array", items: str }, description: "Repeat; assets carrying every tag" },
-            collection: { schema: { type: "string", format: "uuid" }, description: "Only this collection" },
+            collection: { schema: str, description: "Only this collection: its id, or its name" },
             review: {
               schema: { type: "string", enum: ["true", "false"] },
               description: "true: proposed assets and assets with suggested tags. Otherwise active only",
@@ -107,7 +107,8 @@ export function openapi(serverUrl: string) {
           scope: "propose",
           description:
             "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). " +
-            "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`.",
+            "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
+            "and required fields may be left for the person who approves it.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },
@@ -174,6 +175,20 @@ export function openapi(serverUrl: string) {
           summary: "Delete a field and every value stored under it",
           scope: "write",
           ok: [200, "Deleted", S.Deleted],
+        }),
+      },
+      "/api/v1/activity": {
+        get: op({
+          summary: "Who did what",
+          scope: "read",
+          description:
+            "Newest first: assets added, suggested, approved, rejected and deleted, tags suggested, and brand rule " +
+            "changes (one per brand version). An actor is an API key's name, or `web` for the app.",
+          query: {
+            before: { schema: { type: "string", format: "date-time" }, description: "Only before this time: the previous page's `next`" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 50 }, description: "Page size" },
+          },
+          ok: [200, "Activity", S.Activity],
         }),
       },
       "/api/v1/searches": {

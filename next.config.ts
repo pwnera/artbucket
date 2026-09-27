@@ -4,6 +4,8 @@ const config: NextConfig = {
   // exifreader loads @xmldom/xmldom (its optional XMP parser) with a runtime
   // require that bundling drops, which silently loses every XMP field.
   serverExternalPackages: ["sharp", "exifreader"],
+  // The dev badge sits bottom-left by default, on top of the sidebar's footer.
+  devIndicators: { position: "bottom-right" },
   async headers() {
     return [
       {

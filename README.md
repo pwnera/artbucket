@@ -91,10 +91,10 @@ key is canonical. Renditions are generated once and cached forever.
 | Method | Path | |
 |---|---|---|
 | `POST` | `/api/v1/uploads` | Create a presigned upload ticket |
-| `GET` | `/api/v1/assets` | List or search assets, with tag facet counts |
+| `GET` | `/api/v1/assets` | List or search assets, with tag facet counts and the `total` |
 | `POST` | `/api/v1/assets` | Promote a staged upload (`token`), or ingest one from a `url` |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
-| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`; review with `status`, `proposedTags` |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`; review with `status`, `reviewNote`, `proposedTags` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
 | `GET` | `/api/v1/fields` | The custom field schema |
@@ -122,6 +122,7 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/brands/{slug}/versions/{n}` | A version's rules and diff; `?against=` a number or `current` |
 | `PATCH` | `/api/v1/brands/{slug}/versions/{n}` | `{ name }` keeps it as a checkpoint |
 | `POST` | `/api/v1/brands/{slug}/versions/{n}/restore` | Put it back, as a new version |
+| `GET` | `/api/v1/activity` | Who did what, newest first: asset events and brand rule changes; page with `before` |
 | `GET` | `/api/v1/keys` | API keys, without their secrets |
 | `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key; the secret is in this response only |
 | `DELETE` | `/api/v1/keys/{id}` | Revoke one |
@@ -163,17 +164,34 @@ curl -X POST localhost:3000/api/v1/keys -H 'content-type: application/json' \
 
 What a `propose` key adds is not final. An upload lands with
 `status: "proposed"` and stays out of the library and search; suggested tags
-wait in `proposedTags`. `GET /api/v1/assets?review=true` lists everything
-waiting, and so does Review in the sidebar. Approving is a plain `PATCH`:
-`{"status":"active"}` for a file, moving a tag from `proposedTags` into `tags`
-for a suggestion.
+wait in `proposedTags`. Each proposal records who made it (`proposedBy`, the
+key's name). `GET /api/v1/assets?review=true` lists everything waiting, and so
+does the Review tab, whose count also shows on Assets in the sidebar. A proposal may leave required fields
+empty; the person approving fills them in.
+
+Approving is a plain `PATCH`: `{"status":"active"}` for a file (a `422` names
+any required field still empty), moving a tag from `proposedTags` into `tags`
+for a suggestion. Rejecting is `{"status":"rejected","reviewNote":"..."}`: the
+file is kept, out of the library and the queue, so the agent that proposed it
+can read why (MCP `my_proposals`) and do better next time. Review lists
+what waits as a table, with who suggested it and when; approve or reject a
+row in place, or a whole selection at once.
+
+Every addition, suggestion, decision and deletion, and every brand rule
+change, is on the Activity tab and at `GET /api/v1/activity`, by actor: an
+API key's name, or `web` for the app. Press ⌘K anywhere to find an asset, a
+brand rule, a collection or a saved search, or to jump to any page.
 
 ### Search
 
 ```
 /api/v1/assets?q=fox her                   every word, as a prefix
 /api/v1/assets?tag=mascot&tag=autumn       assets carrying every tag
+/api/v1/assets?collection=Autumn 26        a collection, by id or by name
 ```
+
+A page is 100 assets (`limit`, up to 200); `total` counts every match, so
+page with `offset` until you reach it.
 
 `q` covers the filename, tags, text field values, and the EXIF / IPTC / XMP
 read on ingest (title, caption, creator, copyright, camera). Embedded keywords
@@ -189,7 +207,7 @@ it inherits:
 ```
 
 A filter on an unknown field or with a value of the wrong type is a `422`,
-not an empty result. Each response carries `facets`: tag counts, and value
+not an empty result, and its message lists the fields there are. Each response carries `facets`: tag counts, and value
 counts for every select and boolean field, over the same filter. A field's own
 facet ignores that field's filter, so the other values stay visible to OR in.
 
@@ -243,11 +261,12 @@ the bytes: only an explicit `application/json` switches it.
 Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
 `text`, `number` or `list`), a sentence on how to use it, and the assets it
 points at (the logo it governs, examples). [`/brand`](http://localhost:3000/brand)
-is the guidelines, drawn from those records and edited in place: click any
+(Guidelines, in the sidebar) is the guidelines, drawn from those records and edited in place: click any
 value to change it, click a rule's title to rename it, press `/` to add a rule
 from a searchable menu of named building blocks (brand color, clear space,
 logo don'ts, type scale, words to avoid...) without knowing its key, drag a rule's handle to move it,
-or click the handle to attach assets or add a version for a context. An
+and use Assets or Variant on a rule (shown on hover) to attach assets or add a
+variant for one context. An
 attached asset can name a rendition (`w_512,f_png`, or a standard size like
 Open Graph): agents then get that exact URL, not the original. Colors
 show their RGB, HSL and WCAG contrast on white and black; a numeric `type.scale`
@@ -293,7 +312,9 @@ formats download as stored, and `X-Metadata-Embedded: false` says so.
 ## Agents
 
 `/api/v1/mcp` is an MCP server over Streamable HTTP, built on the same
-`lib/core` as the REST API. Give an agent a `propose` key:
+`lib/core` as the REST API. [`/agents`](http://localhost:3000/agents) makes a
+key and prints the command with it filled in, for Claude Code, Cursor or any
+MCP client. By hand, give an agent a `propose` key:
 
 ```bash
 claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
@@ -302,12 +323,13 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
 
 | Tool | Scope | |
 |---|---|---|
-| `search_assets` | read | Full text, tags, collections, field filters; its description lists your fields and collections |
+| `search_assets` | read | Full text, tags, collections (by name), field filters, and the `total`; its description lists your fields and collections |
 | `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json`, plus the brand rules that point at it |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
-| `brand_rules` | read | A brand's rules for a context; its description lists the brands and their contexts |
+| `my_proposals` | propose | What this key proposed and what became of it: approved, waiting, or rejected with the person's reason |
+| `brand_rules` | read | A brand's rules for a context, each asset with its title, type and size; its description lists the brands and their contexts |
 
 Brand rules are also MCP resources: `artbucket://brand/rules` for the default
 brand, `artbucket://brands/{slug}/rules` for any other, and `/{context}` on
@@ -328,6 +350,7 @@ pnpm artbucket url {id} --width 1200 --format webp
 pnpm artbucket ingest ./hero.png https://example.com/logo.png --tag launch
 pnpm artbucket review
 pnpm artbucket approve {id}
+pnpm artbucket reject {id} --reason "off-brand colors"
 pnpm artbucket rules --context instagram-story
 pnpm artbucket keys create claude --scope propose
 ```
@@ -367,7 +390,8 @@ with Google green (#34A853) as the primary, [Tabler icons](https://tabler.io/ico
 and DM Sans. The mark is Tabler's tipped paint bucket. Restyle through the
 tokens in `src/app/globals.css`, not per component.
 
-Every component in use is on the living reference at `/design`.
+Every component in use is on the living reference at `/design`, served while
+developing (`pnpm dev`) and not in production.
 
 ## Contributing
 
