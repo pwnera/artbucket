@@ -4,9 +4,10 @@ import { BrandEditor } from "@/components/brand-editor";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { env } from "@/lib/env";
 import type { Rule } from "@/lib/rules";
+import { sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Brand guidelines - Artbucket" };
+export const metadata: Metadata = { title: "Guidelines - Artbucket" };
 
 /**
  * A brand's guidelines, drawn from /api/v1/brand/rules and /api/v1/brands,
@@ -24,7 +25,11 @@ export default async function BrandPage({
   const q = new URLSearchParams();
   if (slug) q.set("brand", slug);
   if (context) q.set("context", context);
-  const [brandsRes, rulesRes] = await Promise.all([get("brands"), get(`brand/rules${q.size ? `?${q}` : ""}`)]);
+  const [brandsRes, rulesRes, sidebar] = await Promise.all([
+    get("brands"),
+    get(`brand/rules${q.size ? `?${q}` : ""}`),
+    sidebarData(),
+  ]);
   const brands: BrandInfo[] = brandsRes.ok ? (await brandsRes.json()).data : [];
   const brand = brands.find((b) => (slug ? b.slug === slug : b.default));
   if (!brand || !rulesRes.ok) notFound();
@@ -34,7 +39,7 @@ export default async function BrandPage({
     <BrandEditor
       key={`${brand.slug}/${context ?? ""}`}
       brand={brand}
-      brands={brands}
+      sidebar={sidebar}
       initial={data}
       contexts={contexts}
       context={context}

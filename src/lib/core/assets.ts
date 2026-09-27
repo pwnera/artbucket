@@ -1,18 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, getTableColumns, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, or, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
-import { inheritedFrom, joinCollections } from "@/lib/core/collections";
+import { record } from "@/lib/core/activity";
+import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
-import { describeIssues, fieldsValidator, relaxInherited, type FieldValues } from "@/lib/fields";
+import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
 import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
+import { fontMime } from "@/lib/font";
 import { extractMetadata } from "@/lib/metadata";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -92,6 +94,8 @@ export async function finalizeUpload(input: {
   tags?: string[];
   /** `proposed` when an agent (a propose-scoped key) is the uploader. */
   status?: AssetStatus;
+  /** Who is uploading: a key's name, or "web". Recorded on proposed assets. */
+  actor?: string;
 }): Promise<{ asset: Asset; deduped: boolean }> {
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
@@ -100,7 +104,10 @@ export async function finalizeUpload(input: {
   // Checked before any bytes move: a rejected upload stays staged, so the
   // client can fix the fields and retry with the same token.
   const into = input.collections ?? [];
-  const values = await validFields(input.fields ?? {}, "upload", await inheritedFrom(into));
+  // A proposal may leave required fields empty: an agent can't always know
+  // them. The person approving it fills them in (updateAsset checks).
+  const proposed = input.status === "proposed";
+  const values = withoutNulls(await validFields(input.fields ?? {}, proposed ? "patch" : "upload", await inheritedFrom(into)));
 
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -115,7 +122,8 @@ export async function finalizeUpload(input: {
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
-  await putObject(originalKey(sha256), bytes, input.mime);
+  const mime = fontMime(bytes) ?? input.mime;
+  await putObject(originalKey(sha256), bytes, mime);
   await deleteObject(staged);
 
   const [row] = await db
@@ -123,7 +131,7 @@ export async function finalizeUpload(input: {
     .values({
       sha256,
       filename: input.filename,
-      mime: input.mime,
+      mime,
       size: bytes.byteLength,
       width: probe?.width ?? null,
       height: probe?.height ?? null,
@@ -134,13 +142,16 @@ export async function finalizeUpload(input: {
       tags: normalizeTags([...(keywords ?? []), ...(input.tags ?? [])]),
       fields: values as FieldValues,
       status: input.status ?? "active",
+      proposedBy: proposed ? (input.actor ?? null) : null,
     })
     .onConflictDoNothing({ target: assets.sha256 })
     .returning({ id: assets.id });
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
   if (!row) return { asset: await fileInto(into, (await bySha(sha256))!.id), deduped: true };
-  return { asset: await fileInto(into, row.id), deduped: false };
+  const asset = await fileInto(into, row.id);
+  await record(input.actor ?? "web", proposed ? "suggested" : "added", asset);
+  return { asset, deduped: false };
 }
 
 /**
@@ -198,6 +209,8 @@ export type AssetQuery = {
    * Otherwise only active assets are listed.
    */
   review?: boolean;
+  /** Everything this actor proposed, whatever became of it: active, proposed or rejected. */
+  proposedBy?: string;
   limit?: number;
   offset?: number;
 };
@@ -205,7 +218,7 @@ export type AssetQuery = {
 const QueryParams = z.object({
   q: z.string().max(512).optional(),
   tag: z.array(z.string().max(64)).max(20),
-  collection: z.uuid().optional(),
+  collection: z.string().max(120).optional(),
   review: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().optional(),
   offset: z.coerce.number().int().optional(),
@@ -224,12 +237,30 @@ export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQue
     limit: params.get("limit") ?? undefined,
     offset: params.get("offset") ?? undefined,
   });
+  const collection = rest.collection && (await collectionId(rest.collection));
   try {
-    return { ...rest, tags: tag, review: review === "true", filters: parseFieldFilters(params, await listFields()) };
+    return {
+      ...rest,
+      collection,
+      tags: tag,
+      review: review === "true",
+      filters: parseFieldFilters(params, await listFields()),
+    };
   } catch (err) {
     if (err instanceof FilterError) throw new AssetError("invalid", err.message);
     throw err;
   }
+}
+
+/** A collection by id, or by name (any case): agents and people remember names. */
+async function collectionId(ref: string): Promise<string> {
+  const all = await listCollections();
+  const hit = all.find((c) => c.id === ref) ?? all.find((c) => c.name.toLowerCase() === ref.trim().toLowerCase());
+  if (hit) return hit.id;
+  throw new AssetError(
+    "invalid",
+    `No collection "${ref}". ${all.length ? `Collections: ${all.map((c) => c.name).join(", ")}` : "There are no collections yet"}`,
+  );
 }
 
 /** Own values over inherited ones. Must match assets_effective_fields_idx exactly. */
@@ -264,6 +295,7 @@ export async function searchAssets({
   collection,
   filters = [],
   review = false,
+  proposedBy,
   limit = 100,
   offset = 0,
 }: AssetQuery) {
@@ -272,9 +304,11 @@ export async function searchAssets({
   const wanted = normalizeTags(tags);
   const where = (except?: string) =>
     and(
-      review
-        ? sql`(${assets.status} = 'proposed' or ${assets.proposedTags} <> '[]'::jsonb)`
-        : eq(assets.status, "active"),
+      proposedBy !== undefined
+        ? eq(assets.proposedBy, proposedBy)
+        : review
+          ? sql`(${assets.status} = 'proposed' or (${assets.status} = 'active' and ${assets.proposedTags} <> '[]'::jsonb))`
+          : eq(assets.status, "active"),
       match,
       wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
       collection
@@ -284,7 +318,7 @@ export async function searchAssets({
     );
 
   const facetable = (await listFields()).filter(isFacetable);
-  const [data, tagCounts, ...fieldCounts] = await Promise.all([
+  const [data, [{ total }], tagCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)
       .from(assets)
@@ -295,11 +329,14 @@ export async function searchAssets({
       )
       .limit(Math.min(Math.max(limit, 1), 200))
       .offset(Math.max(offset, 0)),
+    db.select({ total: count() }).from(assets).where(where()),
     tagFacet(where()),
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
   return {
     data,
+    /** Every match, not just this page: page with `offset` until it is reached. */
+    total,
     facets: {
       tags: tagCounts,
       fields: Object.fromEntries(facetable.map((d, i) => [d.key, fieldCounts[i]])),
@@ -350,6 +387,8 @@ export const EDITABLE = ["title", "description", "creator", "copyright"] as cons
 export type AssetPatch = {
   tags?: string[];
   status?: AssetStatus;
+  /** Why it was rejected; read back by whoever proposed it. */
+  reviewNote?: string | null;
   /** Replaces the pending suggestions. */
   proposedTags?: string[];
   /** Custom field values to merge; null clears one. */
@@ -362,17 +401,29 @@ export type AssetPatch = {
  */
 export async function updateAsset(
   id: string,
-  { tags, status, proposedTags, fields: custom, ...fields }: AssetPatch,
+  { tags, status, reviewNote, proposedTags, fields: custom, ...fields }: AssetPatch,
+  actor = "web",
 ): Promise<Asset | null> {
   const set: PgUpdateSetSource<typeof assets> = {};
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
+  if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
   if (proposedTags) set.proposedTags = normalizeTags(proposedTags);
+  const current = (custom && Object.keys(custom).length) || status ? await getAsset(id) : null;
   if (custom && Object.keys(custom).length) {
-    const current = await getAsset(id);
     if (!current) return null;
     const values = await validFields(custom, "patch", current.inherited);
     set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
+  }
+  // A proposal could skip required fields; it can't go live without them.
+  if (status === "active" && current && current.status !== "active") {
+    const merged = { ...current.inherited, ...current.fields, ...(custom ?? {}) };
+    const missing = missingRequired(await listFields(), merged);
+    if (missing.length) {
+      throw new AssetError("invalid", `Fill in ${missing.map((d) => d.label).join(", ")} before approving`, {
+        missing: missing.map((d) => d.key),
+      });
+    }
   }
   if (Object.keys(fields).length) {
     const clean = Object.fromEntries(
@@ -386,6 +437,10 @@ export async function updateAsset(
     .set({ ...set, updatedAt: sql`now()` })
     .where(eq(assets.id, id))
     .returning(columns);
+  // A review decision is worth a line in the activity; routine edits are not.
+  if (asset && current?.status === "proposed" && (status === "active" || status === "rejected")) {
+    await record(actor, status === "active" ? "approved" : "rejected", asset, asset.reviewNote ? { note: asset.reviewNote } : undefined);
+  }
   return asset ?? null;
 }
 
@@ -394,8 +449,10 @@ export async function updateAsset(
  * to accept (move into `tags`) or dismiss. Tags the asset already has are
  * dropped, so a suggestion is always something new.
  */
-export async function proposeTags(id: string, suggested: string[]): Promise<Asset | null> {
+export async function proposeTags(id: string, suggested: string[], actor = "web"): Promise<Asset | null> {
   const fresh = normalizeTags(suggested);
+  const before = await getAsset(id);
+  if (!before) return null;
   const [asset] = await db
     .update(assets)
     .set({
@@ -404,10 +461,15 @@ export async function proposeTags(id: string, suggested: string[]): Promise<Asse
         from jsonb_array_elements_text(${assets.proposedTags} || ${JSON.stringify(fresh)}::jsonb) t
         where not ${assets.tags} ? t
       )`,
+      // Whoever first proposed something about it: shown in Review, and in their my_proposals.
+      proposedBy: sql`coalesce(${assets.proposedBy}, ${actor})`,
       updatedAt: sql`now()`,
     })
     .where(eq(assets.id, id))
     .returning(columns);
+  // Only what is new, so suggesting the same tag twice is one line of activity.
+  const added = fresh.filter((t) => !before.tags.includes(t) && !before.proposedTags.includes(t));
+  if (asset && added.length) await record(actor, "suggested_tags", asset, { tags: added });
   return asset ?? null;
 }
 
@@ -429,6 +491,8 @@ export function describeAsset(asset: Asset) {
     height: asset.height,
     sha256: asset.sha256,
     status: asset.status,
+    proposedBy: asset.proposedBy,
+    reviewNote: asset.reviewNote,
     title: m.title ?? null,
     description: m.description ?? null,
     creator: m.creator ?? null,
@@ -474,14 +538,18 @@ export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embed
   return { body: out ?? bytes, embedded: out !== null };
 }
 
-export async function deleteAsset(id: string) {
+export async function deleteAsset(id: string, actor = "web") {
   const asset = await getAsset(id);
   if (!asset) return false;
   await db.delete(assets).where(eq(assets.id, id));
+  await record(actor, "deleted", asset);
   // Renditions are left to an S3 lifecycle rule; they are derivable and cheap.
   await deleteObject(originalKey(asset.sha256));
   return true;
 }
+
+const withoutNulls = (v: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null));
 
 async function validFields(
   values: Record<string, unknown>,

@@ -18,7 +18,9 @@ const HELP = `artbucket <command>
   propose-tags <id> <tag>...
   review                  what waits on a human
   approve <id>            promote a proposed asset and accept its suggested tags
-  reject <id>             delete a proposed asset, or dismiss its suggested tags
+  reject <id> [--reason text]
+                          turn down a proposed asset (kept, with the reason,
+                          for whoever proposed it), or dismiss its suggested tags
   brands                  list brands; the default is starred
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
@@ -55,6 +57,7 @@ const { values: opt, positionals } = parseArgs({
     brand: { type: "string" },
     usage: { type: "string" },
     asset: { type: "string", multiple: true },
+    reason: { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -169,8 +172,8 @@ async function main() {
     case "reject": {
       const { data: a } = await api("GET", `/api/v1/assets/${need(args[0], "asset id")}`);
       if (a.status === "proposed") {
-        const r = await api("DELETE", `/api/v1/assets/${a.id}`);
-        return out(r, () => `deleted   ${a.id}  ${a.filename}`);
+        const r = await api("PATCH", `/api/v1/assets/${a.id}`, { status: "rejected", reviewNote: opt.reason ?? null });
+        return out(r, () => `rejected  ${a.id}  ${a.filename}`);
       }
       const r = await api("PATCH", `/api/v1/assets/${a.id}`, { proposedTags: [] });
       return out(r, () => `dismissed ${a.proposedTags.join(", ") || "nothing"} on ${a.filename}`);

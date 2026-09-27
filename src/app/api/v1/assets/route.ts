@@ -1,5 +1,6 @@
 import { body, ok, route } from "@/lib/api";
 import { finalizeUpload, ingestFromUrl, parseAssetQuery, searchAssets } from "@/lib/core/assets";
+import { actorOf } from "@/lib/core/brands";
 import { Finalize } from "@/lib/schemas";
 import { allows } from "@/lib/scopes";
 
@@ -24,7 +25,10 @@ export const GET = route("read", async (req) =>
 export const POST = route("propose", async (req, _params, caller) => {
   const input = await body(req, Finalize);
   const status = allows(caller.scope, "write") ? "active" : "proposed";
+  const actor = await actorOf(caller);
   const { asset, deduped } =
-    "url" in input ? await ingestFromUrl({ ...input, status }) : await finalizeUpload({ ...input, status });
+    "url" in input
+      ? await ingestFromUrl({ ...input, status, actor })
+      : await finalizeUpload({ ...input, status, actor });
   return ok({ data: asset, deduped }, { status: deduped ? 200 : 201 });
 });

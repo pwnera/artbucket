@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { describeIssues, fieldsValidator, relaxInherited, type FieldDef } from "./fields.ts";
+import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldDef } from "./fields.ts";
 
 const defs: FieldDef[] = [
   { key: "campaign", label: "Campaign", type: "text", options: [], required: true },
@@ -56,4 +56,10 @@ test("errors name the field and the problem", () => {
   assert.match(msg, /unknown field "nope"/);
   assert.match(msg, /budget: expected number/);
   assert.match(msg, /channel: /);
+});
+
+test("approving needs every required field, own or inherited", () => {
+  assert.deepEqual(missingRequired(defs, {}).map((d) => d.key), ["campaign"]);
+  assert.deepEqual(missingRequired(defs, { campaign: "" }).map((d) => d.key), ["campaign"]);
+  assert.deepEqual(missingRequired(defs, { campaign: "Autumn" }), []);
 });

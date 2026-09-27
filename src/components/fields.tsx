@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { Combobox } from "@/components/combobox";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,15 +22,17 @@ export function Field({
   label,
   htmlFor,
   hint,
+  className,
   children,
 }: {
   label: React.ReactNode;
   htmlFor?: string;
   hint?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className={className ? `grid gap-2 ${className}` : "grid gap-2"}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
@@ -45,38 +48,62 @@ export function FieldInputs({
   defs,
   values = {},
   inherited = {},
+  sources = {},
 }: {
   defs: FieldDef[];
   values?: Record<string, FieldValue>;
-  /** Shown as the placeholder: what applies when this is left empty. */
+  /** What applies when a field is left empty: shown in it, and marked where it comes from. */
   inherited?: Record<string, FieldValue>;
+  /** The collection each inherited value comes from, by field key. */
+  sources?: Record<string, string>;
 }) {
   return relaxInherited(defs, inherited).map((d) => (
-    <FieldInput key={d.key} def={d} value={values[d.key]} inherited={inherited[d.key]} />
+    <FieldInput key={d.key} def={d} value={values[d.key]} inherited={inherited[d.key]} source={sources[d.key]} />
   ));
 }
 
-function FieldInput({ def: d, value: v, inherited }: { def: FieldDef; value?: FieldValue; inherited?: FieldValue }) {
+function FieldInput({
+  def: d,
+  value: v,
+  inherited,
+  source,
+}: {
+  def: FieldDef;
+  value?: FieldValue;
+  inherited?: FieldValue;
+  source?: string;
+}) {
   const id = useId();
   const name = `field:${d.key}`;
-  const from = inherited === undefined ? undefined : `Inherited: ${inherited}`;
+  const from = inherited === undefined ? undefined : String(inherited === true ? "Yes" : inherited === false ? "No" : inherited);
+  // An inherited value is a value, not a hint: it reads as one, and says where it's from.
   const label = (
     <>
       {d.label}
       {d.required && <span className="text-destructive">*</span>}
+      {d.type === "boolean" && from !== undefined && v === undefined && (
+        <span className="text-muted-foreground font-normal">{from}</span>
+      )}
+      {from !== undefined && (v === undefined || v === "") && (
+        <Badge variant="secondary" className="ml-auto font-normal" title="Inherited: leave it empty to keep it">
+          from {source ?? "a collection"}
+        </Badge>
+      )}
     </>
   );
 
   if (d.type === "boolean") {
     return (
       <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
-        <Label htmlFor={id}>{label}</Label>
+        <Label htmlFor={id} className="flex-1">
+          {label}
+        </Label>
         <Switch id={id} name={name} defaultChecked={v === true} />
       </div>
     );
   }
   return (
-    <Field label={label} htmlFor={id}>
+    <Field label={label} htmlFor={id} className={from !== undefined ? "[&_input::placeholder]:text-foreground/80 [&_[data-placeholder]]:text-foreground/80" : undefined}>
       {d.type === "select" ? (
         <Combobox
           id={id}
@@ -134,6 +161,7 @@ export function UploadFieldsDialog({
   defs,
   count,
   inherited,
+  from,
   onSubmit,
   onCancel,
 }: {
@@ -141,6 +169,8 @@ export function UploadFieldsDialog({
   count: number;
   /** From the collection being uploaded into. */
   inherited: Record<string, FieldValue>;
+  /** That collection's name. */
+  from?: string;
   onSubmit: (values: Record<string, FieldValue>) => void;
   onCancel: () => void;
 }) {
@@ -162,7 +192,11 @@ export function UploadFieldsDialog({
             <DialogDescription>Fields marked * are required by this library.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
-            <FieldInputs defs={defs} inherited={inherited} />
+            <FieldInputs
+              defs={defs}
+              inherited={inherited}
+              sources={from ? Object.fromEntries(Object.keys(inherited).map((k) => [k, from])) : {}}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onCancel}>

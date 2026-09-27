@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** The guidelines' shell while the rules load: sidebar, header, a cover, a section. */
 export default function Loading() {
   return (
-    <div className="flex min-h-svh" role="status" aria-label="Loading brand guidelines">
+    <div className="flex min-h-svh" role="status" aria-label="Loading guidelines">
       <aside className="bg-sidebar hidden w-64 shrink-0 flex-col gap-6 border-r p-4 md:flex">
         <div className="flex items-center gap-3">
           <Skeleton className="size-8 rounded-lg" />

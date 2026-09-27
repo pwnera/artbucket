@@ -48,7 +48,10 @@ export function parseFieldFilters(params: URLSearchParams, defs: FieldDef[]): Fi
     if (!name.startsWith("f.")) continue;
     const m = name.match(PARAM);
     const def = m && byKey.get(m[1]);
-    if (!m || !def) throw new FilterError(`Unknown field filter "${name}"`);
+    if (!m || !def) {
+      const known = defs.map((d) => d.key).join(", ");
+      throw new FilterError(`No field "${m?.[1] ?? name.slice(2)}" to filter on. ${known ? `Fields: ${known}` : "The library has no custom fields"}`);
+    }
     const op = m[2] as "gte" | "lte" | undefined;
     if (op) {
       if (def.type !== "number" && def.type !== "date") {

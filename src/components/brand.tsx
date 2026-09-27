@@ -21,17 +21,19 @@ export function Logo({ className }: { className?: string }) {
         className,
       )}
     >
-      <IconBucketDroplet className="size-5" stroke={2} />
+      {/* The mark keeps its full weight: a stroke of 2 is the logo, not the icon default. */}
+      <IconBucketDroplet className="size-5" style={{ strokeWidth: 2 }} />
     </span>
   );
 }
 
-export function ThemeToggle() {
+/** Light, dark or the system's: the last item in every page's header. */
+export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Theme">
+        <Button variant="ghost" size="icon-sm" aria-label="Theme" title="Theme" className={className}>
           <IconSun className="dark:hidden" />
           <IconMoon className="hidden dark:block" />
         </Button>

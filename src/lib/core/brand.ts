@@ -39,16 +39,29 @@ function checkValue(type: RuleType, raw: unknown) {
   return parsed.data;
 }
 
-/** Each rule's assets, in order. */
+/**
+ * Each rule's assets, in order, with what a reader needs to tell them apart
+ * (title, size, type) so nobody has to look each one up.
+ */
 async function assetsOf(ruleIds: string[], tx: Db = db) {
-  const out = new Map<string, RuleAsset[]>(ruleIds.map((id) => [id, []]));
+  const out = new Map<string, Required<RuleAsset>[]>(ruleIds.map((id) => [id, []]));
   if (!ruleIds.length) return out;
   const rows = await tx
-    .select()
+    .select({
+      ruleId: brandRuleAssets.ruleId,
+      id: brandRuleAssets.assetId,
+      rendition: brandRuleAssets.rendition,
+      title: sql<string | null>`${assets.metadata} ->> 'title'`,
+      filename: assets.filename,
+      mime: assets.mime,
+      width: assets.width,
+      height: assets.height,
+    })
     .from(brandRuleAssets)
+    .innerJoin(assets, eq(assets.id, brandRuleAssets.assetId))
     .where(inArray(brandRuleAssets.ruleId, ruleIds))
     .orderBy(asc(brandRuleAssets.position));
-  for (const r of rows) out.get(r.ruleId)!.push({ id: r.assetId, rendition: r.rendition });
+  for (const { ruleId, ...a } of rows) out.get(ruleId)!.push(a);
   return out;
 }
 
@@ -93,7 +106,8 @@ async function snapshot(tx: Db, brandId: string): Promise<SnapRule[]> {
     value: r.value,
     usage: r.usage,
     position: r.position,
-    assets: refs.get(r.id)!,
+    // History keeps references only: a later retitle is not a rule change.
+    assets: refs.get(r.id)!.map(({ id, rendition }) => ({ id, rendition })),
   }));
 }
 
@@ -237,7 +251,7 @@ export async function createRule(slug: string | undefined, input: RuleInput, act
       .returning();
     if (!row) throw new AssetError("conflict", `${label(input.key, context)} already exists; edit it instead`);
     await setAssets(tx, row.id, input.assets ?? []);
-    return toRule(row, brand.slug, input.assets ?? []);
+    return toRule(row, brand.slug, (await assetsOf([row.id], tx)).get(row.id)!);
   });
 }
 

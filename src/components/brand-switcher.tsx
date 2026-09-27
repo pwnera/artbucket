@@ -35,11 +35,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropLine, MoveItems, SectionAdd, SidebarSection, useSortable, type SortableItem } from "@/components/sidebar-prefs";
 import {
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
@@ -60,8 +57,9 @@ export const brandHref = (b: { slug: string; default: boolean }, context?: strin
 type Editing = { kind: "new" } | { kind: "rename"; brand: BrandInfo } | { kind: "copy"; brand: BrandInfo };
 
 /** The sidebar's brands: switch between them, and make, rename, copy, promote or delete one. */
-export function Brands({ brands, current }: { brands: BrandInfo[]; current: string }) {
+export function Brands({ brands, current, section }: { brands: BrandInfo[]; current?: string; section: SortableItem }) {
   const router = useRouter();
+  const { sorted, item } = useSortable("brands", brands, (b) => b.slug);
   const { setOpenMobile } = useSidebar();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<BrandInfo | null>(null);
@@ -76,27 +74,30 @@ export function Brands({ brands, current }: { brands: BrandInfo[]; current: stri
   async function remove(b: BrandInfo) {
     if (!(await send("DELETE", `/api/v1/brands/${b.slug}`))) return;
     toast.success(`Deleted ${b.name}`);
-    router.push(b.slug === current ? "/brand" : brandHref(brands.find((x) => x.slug === current)!));
+    if (b.slug === current) router.push("/brand");
     router.refresh();
   }
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Brands</SidebarGroupLabel>
-      <SidebarGroupAction title="New brand" onClick={() => setEditing({ kind: "new" })}>
-        <IconPlus /> <span className="sr-only">New brand</span>
-      </SidebarGroupAction>
-      <SidebarGroupContent>
+    <SidebarSection
+      id="brands"
+      label="Brands"
+      sortable={section}
+      action={<SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setEditing({ kind: "new" })} />}
+    >
         <SidebarMenu>
-          {brands.map((b) => (
-            <SidebarMenuItem key={b.slug}>
+          {sorted.map((b) => {
+            const s = item(b.slug);
+            return (
+            <SidebarMenuItem key={b.slug} {...s.target} {...s.handle} className={s.dragging ? "opacity-50" : undefined}>
+              <DropLine line={s.line} />
               <SidebarMenuButton asChild isActive={b.slug === current} tooltip={b.name}>
-                <Link href={brandHref(b)} onClick={() => setOpenMobile(false)}>
-                  <span className="bg-muted text-muted-foreground flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold uppercase">
+                <Link href={brandHref(b)} onClick={() => setOpenMobile(false)} draggable={false}>
+                  <span className="bg-muted text-muted-foreground flex size-4 shrink-0 items-center justify-center rounded text-[11px] font-semibold uppercase">
                     {b.name[0]}
                   </span>
                   <span className="truncate">{b.name}</span>
-                  {b.default && <IconStar className="text-muted-foreground ml-auto size-3.5" aria-label="default" />}
+                  {b.default && <IconStar className="text-muted-foreground ml-auto size-4" aria-label="default" />}
                 </Link>
               </SidebarMenuButton>
               <DropdownMenu>
@@ -117,6 +118,8 @@ export function Brands({ brands, current }: { brands: BrandInfo[]; current: stri
                       <IconStar /> Make default
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuSeparator />
+                  <MoveItems s={s} />
                   {!b.default && (
                     <>
                       <DropdownMenuSeparator />
@@ -128,9 +131,9 @@ export function Brands({ brands, current }: { brands: BrandInfo[]; current: stri
                 </DropdownMenuContent>
               </DropdownMenu>
             </SidebarMenuItem>
-          ))}
+            );
+          })}
         </SidebarMenu>
-      </SidebarGroupContent>
 
       {editing && (
         <BrandDialog
@@ -161,7 +164,7 @@ export function Brands({ brands, current }: { brands: BrandInfo[]; current: stri
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </SidebarGroup>
+    </SidebarSection>
   );
 }
 

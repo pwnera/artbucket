@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -7,17 +8,19 @@ import {
   IconArrowUp,
   IconBook,
   IconChevronDown,
+  IconCode,
   IconCopy,
   IconExternalLink,
   IconGripVertical,
   IconHash,
+  IconLetterCase,
   IconHistory,
+  IconLink,
   IconList,
   IconMessage,
   IconPalette,
   IconPhotoPlus,
   IconPlus,
-  IconRobot,
   IconSearch,
   IconShape,
   IconTrash,
@@ -28,10 +31,14 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
+import { call, curl, ForAgents } from "@/components/agent-access";
+import { ThemeToggle } from "@/components/brand";
 import { History } from "@/components/brand-history";
-import { brandHref, Brands, type BrandInfo } from "@/components/brand-switcher";
+import { remember } from "@/components/sidebar-prefs";
+import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
-import { CopyButton, copy, Editable, ValueEditor } from "@/components/brand-values";
+import { copy, Editable, fontFiles, isFontAsset, ValueEditor } from "@/components/brand-values";
+import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Thumb, type Asset } from "@/components/gallery";
 import { Badge } from "@/components/ui/badge";
@@ -57,22 +64,22 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { inkOn } from "@/lib/color";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { isFont, pickFace } from "@/lib/font";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
-import { ruleContext, ruleLabel, section, type RuleAsset, type Rule, type RuleType } from "@/lib/rules";
+import {
+  contextLabel,
+  fontValue,
+  listStyle,
+  ruleContext,
+  ruleLabel,
+  section,
+  type RuleAsset,
+  type Rule,
+  type RuleType,
+} from "@/lib/rules";
+import type { SidebarData } from "@/lib/sidebar";
+import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const label = ruleLabel;
@@ -88,7 +95,13 @@ const ORDER = Object.keys(SECTIONS);
 const rank = (s: string) => (ORDER.includes(s) ? ORDER.indexOf(s) : ORDER.length);
 const meta = (name: string) => SECTIONS[name] ?? { title: label(name), icon: IconBook, blurb: "" };
 
-const TYPE_ICON: Record<RuleType, Icon> = { color: IconPalette, text: IconTypography, number: IconHash, list: IconList };
+const TYPE_ICON: Record<RuleType, Icon> = {
+  color: IconPalette,
+  text: IconTypography,
+  number: IconHash,
+  list: IconList,
+  font: IconLetterCase,
+};
 
 /** What the note under a rule is for, by section: an empty note says what to write. */
 const USAGE_HINT: Record<string, string> = {
@@ -119,13 +132,13 @@ type Draft =
  */
 export function BrandEditor({
   brand,
-  brands,
+  sidebar,
   initial,
   contexts: initialContexts,
   context,
 }: {
   brand: BrandInfo;
-  brands: BrandInfo[];
+  sidebar: SidebarData;
   initial: Rule[];
   contexts: string[];
   context?: string;
@@ -157,6 +170,11 @@ export function BrandEditor({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Opening a brand's guidelines puts them at the top of Recents.
+  useEffect(() => {
+    remember({ kind: "brand", id: brand.slug, label: `${brand.name} guidelines`, href: brandHref(brand) });
+  }, [brand]);
 
   const [history, setHistory] = useState(false);
   // Bumped after every change, so an open history shows it.
@@ -197,6 +215,8 @@ export function BrandEditor({
   }
 
   const taken = new Set(rules.map((r) => r.key));
+  // The first of each font key: what a type scale can be set in.
+  const fonts = rules.filter((r, i) => r.type === "font" && rules.findIndex((x) => x.key === r.key) === i);
 
   /** Make a rule from a preset, named `name` in section `at`. */
   async function fromPreset(p: Preset, at: string, name: string) {
@@ -250,7 +270,7 @@ export function BrandEditor({
   async function remove(r: Rule) {
     if (!(await send("DELETE", `/api/v1/brand/rules/${r.id}`))) return;
     await reload();
-    toast(`Deleted ${r.key}${r.context ? ` for ${r.context}` : ""}`, {
+    toast(`Deleted ${label(r.key)}${r.context ? ` for ${contextLabel(r.context)}` : ""}`, {
       action: { label: "Undo", onClick: () => void create(copyOf(r)) },
       duration: 8000,
     });
@@ -272,7 +292,7 @@ export function BrandEditor({
   const sections = new Map<string, Rule[]>();
   for (const r of rules) sections.set(section(r.key), [...(sections.get(section(r.key)) ?? []), r]);
   const names = [...sections.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
-  const scope = context ? ` for ${context}` : "";
+  const scope = context ? ` for ${contextLabel(context)}` : "";
 
   // The contents in the sidebar follow the section you are reading.
   const order = names.join();
@@ -329,26 +349,43 @@ export function BrandEditor({
 
   return (
     <SidebarProvider>
-      <AppSidebar place="brand">
-        <Brands brands={brands} current={brand.slug} />
-        {names.length > 0 && (
-          <Contents names={names} counts={sections} active={active} />
-        )}
-      </AppSidebar>
+      <AppSidebar
+        collections={sidebar.collections}
+        brands={sidebar.brands}
+        searches={sidebar.searches}
+        reviewCount={sidebar.reviewCount}
+        currentBrand={brand.slug}
+      />
+      {names.length > 1 && <Toc names={names} active={active} />}
 
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
           {/* On a phone the cover says it; the header keeps its room for the controls. */}
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 sm:block" />
-          <span className="hidden truncate text-sm font-semibold sm:inline">{brand.name}</span>
+          <Breadcrumb brand={brand} section={active ? meta(active).title : undefined} />
           <div className="ml-auto flex items-center gap-2">
+            <Edited brand={brand} edits={edits} />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Copy a link to this page"
+              title="Copy link"
+              onClick={() => copy(window.location.href, "link")}
+            >
+              <IconLink />
+            </Button>
             {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
+            <TokensMenu brand={brand} context={context} />
             <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
               <IconHistory />
-              <span className="hidden sm:inline">History</span>
+              <span className="sr-only sm:not-sr-only">History</span>
             </Button>
-            <ForAgents brand={brand} context={context} />
+            <ForAgents
+              about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
+              reads={brandReads(brand, context)}
+            />
+            <ThemeToggle />
           </div>
         </header>
 
@@ -427,6 +464,7 @@ export function BrandEditor({
                     setOver(null);
                   },
                 }}
+                fonts={fonts}
                 onPatch={(body) => patch(r, body)}
                 onDelete={() => remove(r)}
                 onVariant={() => setDraft({ kind: "variant", of: r })}
@@ -437,8 +475,8 @@ export function BrandEditor({
                   <DraftLine
                     icon={IconVersions}
                     initial=""
-                    placeholder="context, e.g. dark-background"
-                    hint={`A version of ${r.key} for one context. Enter to add, Esc to cancel.`}
+                    placeholder="Where it differs, e.g. dark-background"
+                    hint={`A variant of ${label(r.key)} for one context: agents working there get it instead. Enter to add, Esc to cancel.`}
                     check={(v) => ruleContext.safeParse(v).error?.issues[0]?.message}
                     onCancel={() => setDraft(null)}
                     onCommit={async (c) => {
@@ -484,30 +522,113 @@ export function BrandEditor({
 
 // ---- page furniture ---------------------------------------------------------
 
-/** The sidebar's table of contents, following the scroll. */
-function Contents({ names, counts, active }: { names: string[]; counts: Map<string, Rule[]>; active: string | null }) {
-  const { setOpenMobile } = useSidebar();
+/** Where you are, Notion style: the guidelines, this brand, the section you are reading. */
+function Breadcrumb({ brand, section }: { brand: BrandInfo; section?: string }) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>On this page</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {names.map((name) => {
-            const { title, icon: I } = meta(name);
-            return (
-              <SidebarMenuItem key={name}>
-                <SidebarMenuButton asChild isActive={active === name} tooltip={title}>
-                  <a href={`#section-${name}`} onClick={() => setOpenMobile(false)}>
-                    <I /> <span>{title}</span>
-                  </a>
-                </SidebarMenuButton>
-                <SidebarMenuBadge>{new Set(counts.get(name)!.map((r) => r.key)).size}</SidebarMenuBadge>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <nav aria-label="Breadcrumb" className="min-w-0">
+      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm">
+        <li className="hidden md:block">
+          <Link href="/brand" className="hover:text-foreground">
+            Guidelines
+          </Link>
+        </li>
+        <li aria-hidden className="hidden md:block">
+          /
+        </li>
+        <li className="text-foreground truncate font-medium">
+          <a href="#top" className="hover:underline">
+            {brand.name}
+          </a>
+        </li>
+        {section && (
+          <>
+            <li aria-hidden className="hidden sm:block">
+              /
+            </li>
+            <li className="hidden truncate sm:block" aria-current="location">
+              {section}
+            </li>
+          </>
+        )}
+      </ol>
+    </nav>
+  );
+}
+
+/** "Edited 2 hours ago by claude": the latest version, refreshed after every change here. */
+function Edited({ brand, edits }: { brand: BrandInfo; edits: number }) {
+  const [last, setLast] = useState<{ actor: string; updatedAt: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/brands/${brand.slug}/versions`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => live && setLast(b?.data?.[0] ?? null));
+    return () => {
+      live = false;
+    };
+  }, [brand.slug, edits]);
+  if (!last) return null;
+  const who = last.actor === "web" ? "the web app" : last.actor === "artbucket" ? null : last.actor;
+  return (
+    <span className="text-muted-foreground hidden text-xs whitespace-nowrap xl:inline" title={exact(last.updatedAt)} suppressHydrationWarning>
+      Edited {ago(last.updatedAt)}
+      {who && ` by ${who}`}
+    </span>
+  );
+}
+
+/**
+ * The page's contents, Notion style: a dash per section on the right edge,
+ * the one you are reading drawn longer, names on hover. The sidebar stays the
+ * app's; this is the page's.
+ */
+function Toc({ names, active }: { names: string[]; active: string | null }) {
+  return (
+    <nav
+      aria-label="On this page"
+      className="group/toc hover:bg-popover fixed top-1/3 right-3 z-20 hidden rounded-lg border border-transparent p-2 transition-colors hover:border-inherit hover:shadow-md lg:block"
+    >
+      <ul className="flex flex-col gap-1">
+        {names.map((name) => {
+          const on = active === name;
+          return (
+            <li key={name}>
+              <a href={`#section-${name}`} className="flex items-center justify-end gap-3 py-1" aria-current={on ? "location" : undefined}>
+                <span
+                  className={cn(
+                    "hidden text-sm whitespace-nowrap group-hover/toc:inline",
+                    on ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {meta(name).title}
+                </span>
+                <span className={cn("h-0.5 rounded-full transition-all", on ? "bg-foreground w-5" : "bg-muted-foreground/40 w-3")} />
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * The brand's face, as a Notion page's icon: its logo when a logo rule points
+ * at one, its initial otherwise.
+ */
+function BrandIcon({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
+  const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.length);
+  const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)$/.test(r.key)) ?? logos[0];
+  const a = named?.assets.find((x) => !x.mime || x.mime.startsWith("image/"));
+  // The logo stands on its own, like a page icon; only the initial gets a tile.
+  return a ? (
+    <span className="relative flex size-16 shrink-0">
+      <Thumb src={`/a/${a.id}/w_64,f_webp`} alt={`${brand.name} logo`} className="rounded-2xl p-0" />
+    </span>
+  ) : (
+    <span className="bg-muted flex size-16 shrink-0 items-center justify-center rounded-2xl border text-2xl font-semibold">
+      {brand.name[0]?.toUpperCase()}
+    </span>
   );
 }
 
@@ -532,7 +653,7 @@ function SectionHeader({ name, count }: { name: string; count: number }) {
 /** The cover: what this is, how much of it there is, and the palette at a glance. */
 function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; context?: string }) {
   const keys = new Set(rules.map((r) => r.key)).size;
-  const versions = rules.filter((r) => r.context).length;
+  const variants = rules.filter((r) => r.context).length;
   const assets = new Set(rules.flatMap((r) => r.assets.map((a) => a.id))).size;
   const updated = rules
     .map((r) => r.updatedAt)
@@ -540,57 +661,55 @@ function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; cont
     .sort()
     .at(-1);
   const colors = rules.filter((r) => r.type === "color");
-  const stats: [number | string, string][] = [
-    [keys, keys === 1 ? "rule" : "rules"],
-    ...(versions && !context ? [[versions, versions === 1 ? "context version" : "context versions"] as [number, string]] : []),
-    [assets, assets === 1 ? "asset" : "assets"],
-  ];
+  const facts = [
+    `${keys} ${keys === 1 ? "rule" : "rules"}`,
+    variants && !context && `${variants} ${variants === 1 ? "variant" : "variants"}`,
+    `${assets} ${assets === 1 ? "asset" : "assets"}`,
+  ].filter(Boolean);
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-3">
-        <p className="text-primary text-sm font-medium">
-          Brand guidelines{brand.default && " · the default brand"}
-          {context && ` · as they apply to ${context}`}
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{brand.name}</h1>
-        <p className="text-muted-foreground max-w-2xl text-lg text-pretty">
-          Every rule on this page is data. Agents read exactly this over the API and MCP, so a change here is a change
-          everywhere, at once.
-        </p>
+    <div id="top" className="scroll-mt-20 space-y-8">
+      <div className="flex items-center gap-4">
+        <BrandIcon brand={brand} rules={rules} />
+        <div className="min-w-0 space-y-1">
+          <h1 className="truncate text-3xl font-semibold tracking-tight sm:text-4xl">{brand.name}</h1>
+          <p className="text-muted-foreground text-sm">
+            {brand.default ? "Default brand" : "Brand guidelines"}
+            {context && ` · as they apply to ${contextLabel(context)}`}
+            {facts.map((f) => ` · ${f}`)}
+            {updated && (
+              <span suppressHydrationWarning title={exact(updated)}>
+                {` · updated ${ago(updated)}`}
+              </span>
+            )}
+          </p>
+        </div>
       </div>
 
-      <dl className="flex flex-wrap gap-x-10 gap-y-4">
-        {stats.map(([n, what]) => (
-          <div key={what} className="flex flex-col-reverse">
-            <dt className="text-muted-foreground text-sm">{what}</dt>
-            <dd className="text-3xl font-semibold tracking-tight tabular-nums">{n}</dd>
-          </div>
-        ))}
-        {updated && (
-          <div className="flex flex-col-reverse">
-            <dt className="text-muted-foreground text-sm">last change</dt>
-            <dd className="text-3xl font-semibold tracking-tight" suppressHydrationWarning>
-              {new Date(updated).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            </dd>
-          </div>
-        )}
-      </dl>
+      <p className="text-muted-foreground max-w-xl text-pretty">
+        Every rule here is data. Agents read exactly this over the API and MCP, so a change here is a change everywhere,
+        at once.
+      </p>
 
       {colors.length > 0 && (
-        <div className="flex h-28 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/10 dark:ring-white/10">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {colors.map((c) => (
             <a
               key={c.id}
               href={`#rule-${c.key}`}
-              style={{ backgroundColor: c.value as string, color: inkOn((c.value as string).slice(0, 7)) }}
-              className="flex min-w-0 flex-1 flex-col justify-end p-3 text-xs transition-[flex-grow] duration-300 hover:flex-[1.8]"
+              className="group/swatch bg-card hover:border-foreground/20 overflow-hidden rounded-xl border transition-colors"
             >
-              <span className="truncate font-medium">
-                {label(c.key)}
-                {c.context && <span className="opacity-70"> · {c.context}</span>}
-              </span>
-              <span className="truncate font-mono opacity-80">{c.value as string}</span>
+              <div
+                className="h-16 border-b transition-[height] duration-200 group-hover/swatch:h-20"
+                style={{ backgroundColor: c.value as string }}
+              />
+              <div className="space-y-0.5 px-3 py-2">
+                <p className="text-sm font-medium">
+                  {label(c.key)}
+                  {c.context && <span className="text-muted-foreground font-normal"> · {contextLabel(c.context)}</span>}
+                </p>
+                <p className="text-muted-foreground font-mono text-xs uppercase">{c.value as string}</p>
+              </div>
             </a>
           ))}
         </div>
@@ -599,20 +718,20 @@ function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; cont
   );
 }
 
-/** Which context the page shows: every rule and version, or what one context resolves to. */
+/** Which context the page shows: every rule and variant, or what one context resolves to. */
 function ContextPicker({ brand, contexts, context }: { brand: BrandInfo; contexts: string[]; context?: string }) {
   const router = useRouter();
   return (
     <Select value={context ?? "*"} onValueChange={(v) => router.push(brandHref(brand, v === "*" ? undefined : v))}>
-      <SelectTrigger size="sm" aria-label="Context">
+      <SelectTrigger size="sm" aria-label="Show the rules for a context" title="Show the rules as they apply in one context">
         <IconVersions />
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
-        <SelectItem value="*">Every context</SelectItem>
+        <SelectItem value="*">All contexts</SelectItem>
         {contexts.map((c) => (
           <SelectItem key={c} value={c}>
-            {c}
+            {contextLabel(c)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -620,56 +739,62 @@ function ContextPicker({ brand, contexts, context }: { brand: BrandInfo; context
   );
 }
 
-/** How an agent gets what this page shows. */
-function ForAgents({ brand, context }: { brand: BrandInfo; context?: string }) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <IconRobot />
-          <span className="hidden sm:inline">For agents</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(26rem,calc(100vw-2rem))] space-y-4">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Agents read these rules as data</p>
-          <p className="text-muted-foreground text-xs">
-            The same rules, in the same order, over MCP (the brand_rules tool and resources) or REST.
-            {context && ` These resolve for ${context}.`}
-          </p>
-        </div>
-        <Snippets brand={brand} context={context} />
-      </PopoverContent>
-    </Popover>
-  );
+/** How an agent reads this page: the same rules, in the same order, resolved for the context shown. */
+function brandReads(brand: BrandInfo, context?: string) {
+  return (origin: string) => {
+    const uri = brand.default ? "artbucket://brand/rules" : `artbucket://brands/${brand.slug}/rules`;
+    const q = new URLSearchParams();
+    if (!brand.default) q.set("brand", brand.slug);
+    if (context) q.set("context", context);
+    return [
+      { label: "MCP tool", text: call("brand_rules", { brand: brand.default ? undefined : brand.slug, context }) },
+      { label: "MCP resource", text: `${uri}${context ? `/${context}` : ""}` },
+      { label: "REST", text: curl(`${origin}/api/v1/brand/rules${q.size ? `?${q}` : ""}`) },
+      { label: "Design tokens", text: curl(`${origin}${tokensPath(brand, context, "json")}`) },
+    ];
+  };
 }
 
-/** Mounted only while the popover is open, so reading the page's origin is safe. */
-function Snippets({ brand, context }: { brand: BrandInfo; context?: string }) {
-  const origin = window.location.origin;
-  const uri = brand.default ? "artbucket://brand/rules" : `artbucket://brands/${brand.slug}/rules`;
-  const q = new URLSearchParams();
+const tokensPath = (brand: BrandInfo, context: string | undefined, format: "css" | "json") => {
+  const q = new URLSearchParams({ format });
   if (!brand.default) q.set("brand", brand.slug);
   if (context) q.set("context", context);
-  const rows = [
-    ["MCP resource", `${uri}${context ? `/${context}` : ""}`],
-    ["REST", `curl '${origin}/api/v1/brand/rules${q.size ? `?${q}` : ""}'`],
-    ["Connect Claude Code", `claude mcp add --transport http artbucket ${origin}/api/v1/mcp`],
-  ];
+  return `/api/v1/brand/tokens?${q}`;
+};
+
+/**
+ * The brand as code: colors, numbers, fonts and the scale as CSS custom
+ * properties (with @font-face for the font files) or W3C design tokens.
+ */
+function TokensMenu({ brand, context }: { brand: BrandInfo; context?: string }) {
+  const name = `${brand.slug}${context ? `-${context}` : ""}`;
   return (
-    <div className="space-y-3">
-      {rows.map(([what, text]) => (
-        <div key={what} className="space-y-1">
-          <p className="text-muted-foreground text-xs">{what}</p>
-          <div className="bg-muted flex items-center gap-2 rounded-md py-1 pr-1 pl-2">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs" title={text}>
-              {text}
-            </code>
-            <CopyButton onClick={() => copy(text, what)} label={`Copy ${what}`} />
-          </div>
-        </div>
-      ))}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" title="Export colors, fonts and the type scale as code">
+          <IconCode />
+          <span className="sr-only sm:not-sr-only">Tokens</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem asChild>
+          <a href={tokensPath(brand, context, "css")} download={`${name}.tokens.css`}>
+            CSS variables
+            <span className="text-muted-foreground ml-auto text-xs">.css</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href={tokensPath(brand, context, "json")} download={`${name}.tokens.json`}>
+            Design tokens
+            <span className="text-muted-foreground ml-auto text-xs">W3C .json</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => copy(new URL(tokensPath(brand, context, "css"), location.origin).href, "stylesheet link")}>
+          <IconLink /> Copy stylesheet link
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -686,6 +811,7 @@ function Block({
   dnd: { onDragStart, onDragEnd, ...target },
   onMove,
   canMove: [canUp, canDown],
+  fonts,
   onPatch,
   onDelete,
   onVariant,
@@ -702,6 +828,8 @@ function Block({
   dnd: Dnd;
   onMove: (step: -1 | 1) => void;
   canMove: [boolean, boolean];
+  /** The brand's font rules, one per key: what a type scale can be set in. */
+  fonts: Rule[];
   onPatch: (body: Partial<Pick<Rule, "value" | "usage" | "assets">>) => void;
   onDelete: () => void;
   onVariant: () => void;
@@ -773,7 +901,7 @@ function Block({
               <IconPhotoPlus /> Assets…
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void (after.current = onVariant)}>
-              <IconVersions /> Add a version for a context
+              <IconVersions /> Add a variant for a context
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(r.key)}>
               <IconCopy /> Copy key
@@ -803,10 +931,47 @@ function Block({
               onSave={(v) => v && onRename(v)}
             />
           </h3>
-          {r.context && <Badge variant="secondary">{r.context}</Badge>}
-          <code className="text-muted-foreground ml-auto truncate font-mono text-xs">{r.key}</code>
+          {r.context && (
+            <Badge variant="secondary" title={`Only in ${r.context}`}>
+              {contextLabel(r.context)}
+            </Badge>
+          )}
+          {/* What the handle's menu does, in plain sight on hover; the key is for developers, so it waits there too. */}
+          <div className="ml-auto flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within/block:opacity-100 sm:group-hover/block:opacity-100">
+            <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={onPickAssets}>
+              <IconPhotoPlus /> Assets
+            </Button>
+            {!r.context && (
+              <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={onVariant}>
+                <IconVersions /> Variant
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={() => copy(r.key, "key")}
+              title="The rule's key, as agents and the API name it. Click to copy"
+              className="text-muted-foreground hover:text-foreground hidden truncate font-mono text-xs sm:inline"
+            >
+              {r.key}
+            </button>
+          </div>
         </div>
         <ValueEditor rule={r} autoFocus={autoFocus} onSave={(value) => onPatch({ value })} />
+        {r.type === "font" && fontFiles(r).length === 0 && (
+          <ImportFamily
+            family={fontValue(r.value).family}
+            onImported={(family, ids) =>
+              onPatch({
+                value: { ...fontValue(r.value), family },
+                assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))],
+              })
+            }
+          />
+        )}
+        {section(r.key) === "type" &&
+          (r.type === "text" || (r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale")) && (
+            <SetIn rule={r} fonts={fonts} onPatch={onPatch} />
+          )}
         <Editable
           value={r.usage ?? ""}
           placeholder={USAGE_HINT[section(r.key)] ?? "Add a note on when and how to use it"}
@@ -814,9 +979,17 @@ function Block({
           className="text-muted-foreground text-sm"
           onSave={(usage) => onPatch({ usage: usage || null })}
         />
-        {r.assets.length > 0 && (
+        {/* A font rule's files read as its styles; on any other rule, a font is what SetIn chose. */}
+        {r.type === "font" && fontFiles(r).length > 0 && (
+          <FontStyles
+            files={fontFiles(r)}
+            onRemove={(id) => onPatch({ assets: r.assets.filter((x) => x.id !== id) })}
+            onAdd={onPickAssets}
+          />
+        )}
+        {r.assets.some((a) => !isFontAsset(a)) && (
           <div className="flex flex-wrap gap-2 pt-1">
-            {r.assets.map((a) => (
+            {r.assets.filter((a) => !isFontAsset(a)).map((a) => (
               <AssetTile
                 key={a.id}
                 asset={a}
@@ -843,6 +1016,45 @@ function Block({
 }
 
 /**
+ * Which of the brand's fonts a typography rule (a scale, a sentence) is set
+ * in. The choice is the font rule's file at its weight, attached to the rule,
+ * so an agent reading it gets the file to set it in.
+ */
+function SetIn({ rule: r, fonts, onPatch }: { rule: Rule; fonts: Rule[]; onPatch: (body: Pick<Rule, "assets">) => void }) {
+  const current = r.assets.find(isFontAsset);
+  const chosen = current && fonts.find((f) => f.assets.some((a) => a.id === current.id));
+  return (
+    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+      Set in
+      <Select
+        value={chosen?.key ?? (current ? "file" : "none")}
+        onValueChange={(k) => {
+          if (k === "file") return;
+          const f = fonts.find((x) => x.key === k);
+          const file = f && pickFace(fontFiles(f), fontValue(f.value).weight);
+          onPatch({ assets: [...r.assets.filter((a) => !isFontAsset(a)), ...(file ? [{ id: file.id, rendition: null }] : [])] });
+        }}
+      >
+        <SelectTrigger size="sm" className="h-7 text-xs" aria-label="The font this rule is set in">
+          <IconLetterCase />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">The page&apos;s font</SelectItem>
+          {current && !chosen && <SelectItem value="file">{current.title || current.filename}</SelectItem>}
+          {fonts.map((f) => (
+            <SelectItem key={f.key} value={f.key} disabled={!fontFiles(f).length}>
+              {label(f.key)} · {fontValue(f.value).family}
+              {!fontFiles(f).length && " (no files yet)"}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/**
  * An asset on a rule: its thumbnail, the rendition the rule means, and a
  * menu to change it, open it, copy its URL, or take it off the rule.
  */
@@ -856,21 +1068,34 @@ function AssetTile({
   onRemove: () => void;
 }) {
   const path = a.rendition ? `/a/${a.id}/${a.rendition}` : `/a/${a.id}`;
+  const name = a.title || a.filename || "Asset";
   return (
     <Popover>
-      <div className="grid w-28 gap-1">
+      <div className="grid w-28 gap-0.5">
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={`Asset, ${renditionLabel(a.rendition)}. Change the rendition`}
+            aria-label={`${name}, ${renditionLabel(a.rendition)}. Change the size`}
             className="bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2"
           >
-            <Thumb src={`/a/${a.id}/w_320,f_webp`} alt="" className="p-2" />
+            {a.mime && isFont(a.mime, a.filename ?? "") ? (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <FontThumb id={a.id} className="text-4xl" />
+              </span>
+            ) : (
+              <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
+            )}
           </button>
         </PopoverTrigger>
-        <span className="text-muted-foreground truncate text-center text-xs" title={a.rendition ?? "The original"}>
-          {renditionLabel(a.rendition)}
+        {/* What it is first; the size only when the rule means a particular one. */}
+        <span className="truncate text-center text-xs" title={a.filename ?? name}>
+          {name}
         </span>
+        {a.rendition && (
+          <span className="text-muted-foreground truncate text-center text-xs" title={a.rendition}>
+            {renditionLabel(a.rendition)}
+          </span>
+        )}
       </div>
       <PopoverContent align="start" className="w-80 p-0">
         <RenditionMenu value={a.rendition} onChange={onChange} />
@@ -1041,7 +1266,8 @@ function AssetPicker({
   onClose: () => void;
   onSave: (assets: RuleAsset[]) => Promise<void>;
 }) {
-  const [q, setQ] = useState("");
+  // A font rule's files are named after the family, without its spaces: DMSans-Bold.ttf.
+  const [q, setQ] = useState(rule.type === "font" ? fontValue(rule.value).family.replace(/ +/g, "") : "");
   const [results, setResults] = useState<Asset[] | null>(null);
   const [picked, setPicked] = useState(rule.assets);
   const [busy, setBusy] = useState(false);
@@ -1058,18 +1284,21 @@ function AssetPicker({
     setPicked((p) => (p.some((x) => x.id === id) ? p.filter((x) => x.id !== id) : [...p, { id, rendition: null }]));
   const setRendition = (id: string, rendition: string | null) =>
     setPicked((p) => p.map((x) => (x.id === id ? { ...x, rendition } : x)));
-  // What the search has shown: a file that isn't an image has no renditions to offer.
-  const [mimes, setMimes] = useState<Record<string, string>>({});
+  // What the rule and the search have shown: a file that isn't an image has no renditions to offer.
+  const [mimes, setMimes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, a.mime]] : []))),
+  );
   if (results?.some((a) => !(a.id in mimes))) setMimes((m) => ({ ...m, ...Object.fromEntries(results.map((a) => [a.id, a.mime])) }));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Assets for {label(rule.key)}</DialogTitle>
+          <DialogTitle>{rule.type === "font" ? "Files" : "Assets"} for {label(rule.key)}</DialogTitle>
           <DialogDescription>
-            The logo it governs, examples of it done right. Pick a rendition under each to say which size the rule
-            means; agents get that exact URL.
+            {rule.type === "font"
+              ? "The family's font files, one per style. Agents get each file's URL."
+              : "The logo it governs, examples of it done right. Pick a size under each to say which one the rule means; agents get that exact URL."}
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -1087,8 +1316,14 @@ function AssetPicker({
             {picked.map(({ id, rendition }, i) => (
               <div key={id} className="grid w-20 shrink-0 gap-1">
                 <div className="bg-checker relative size-20 overflow-hidden rounded-md border">
-                  <Thumb src={`/a/${id}/w_240,f_webp`} alt="" className="p-1" />
-                  <span className="bg-primary text-primary-foreground absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded-full text-[10px]">
+                  {mimes[id] && isFont(mimes[id], "") ? (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <FontThumb id={id} className="text-2xl" />
+                    </span>
+                  ) : (
+                    <Thumb src={`/a/${id}/w_80,f_webp`} alt="" className="p-1" />
+                  )}
+                  <span className="bg-primary text-primary-foreground absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded-full text-[11px]">
                     {i + 1}
                   </span>
                   <button
@@ -1100,7 +1335,7 @@ function AssetPicker({
                     <IconX className="size-3" />
                   </button>
                 </div>
-                {mimes[id] && !mimes[id].startsWith("image/") ? (
+                {mimes[id] && isFont(mimes[id], "") ? null : mimes[id] && !mimes[id].startsWith("image/") ? (
                   <span className="text-muted-foreground truncate text-center text-[11px]">Original</span>
                 ) : (
                   <Popover>
@@ -1108,7 +1343,7 @@ function AssetPicker({
                       <button
                         type="button"
                         className="hover:bg-muted flex items-center justify-center gap-0.5 truncate rounded px-1 text-[11px] font-medium"
-                        title="Which rendition the rule means"
+                        title="Which size the rule means"
                       >
                         <span className="truncate">{renditionLabel(rendition)}</span>
                         <IconChevronDown className="size-3 shrink-0" />
@@ -1140,7 +1375,12 @@ function AssetPicker({
                   )}
                 >
                   {a.mime.startsWith("image/") ? (
-                    <Thumb src={`/a/${a.id}/w_240,f_webp`} alt={a.filename} />
+                    <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
+                  ) : isFont(a.mime, a.filename) ? (
+                    <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">
+                      <FontThumb id={a.id} className="text-3xl" />
+                      <span className="text-muted-foreground w-full truncate text-center text-[11px]">{a.filename}</span>
+                    </span>
                   ) : (
                     <span className="text-muted-foreground absolute inset-0 flex items-center justify-center p-2 text-center text-xs break-all">
                       {a.filename}

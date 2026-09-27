@@ -48,7 +48,7 @@ export function RenditionMenu({ value, onChange }: { value: string | null; onCha
           e.preventDefault();
           const t = parseTransform(custom.trim());
           const spec = t && serializeTransform(t);
-          if (!spec) return void toast.error("Not a rendition. Try w_512,f_png");
+          if (!spec) return void toast.error("Not a size. Try w_512,f_png");
           setCustom(spec);
           onChange(spec);
         }}
@@ -57,7 +57,7 @@ export function RenditionMenu({ value, onChange }: { value: string | null; onCha
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           placeholder="Custom, e.g. w_512,h_512,f_png"
-          aria-label="Custom rendition"
+          aria-label="Custom size"
           className={cn("h-8 font-mono text-xs", !known && "ring-primary/40 ring-2")}
         />
         <Button type="submit" size="sm" variant="secondary">

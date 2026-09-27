@@ -59,6 +59,7 @@ export type Collection = {
   icon: IconName | null;
   fields: Record<string, FieldValue>;
   count: number;
+  createdAt?: string;
 };
 
 const ICONS: Record<IconName, Icon> = {

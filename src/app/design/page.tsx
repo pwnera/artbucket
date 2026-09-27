@@ -118,6 +118,8 @@ const SAMPLE: Asset = {
   inherited: {},
   collections: [],
   status: "active",
+  proposedBy: null,
+  reviewNote: null,
   proposedTags: [],
   metadata: null,
   createdAt: "2026-09-27T00:00:00Z",
@@ -519,7 +521,7 @@ export default function DesignSystem() {
             </ToggleGroup>
           </Section>
 
-          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped. Cmd, Ctrl or Shift-click selects. Proposed files and suggested tags are flagged for review.">
+          <Section id="cards" title="Asset card" description="The library tile. The art is contained, never cropped. Cmd, Ctrl or Shift-click selects. Suggested assets and tags are flagged for review. A title, when there is one, reads before the filename.">
             <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
               <AssetCard asset={SAMPLE} />
               <AssetCard asset={{ ...SAMPLE, id: "b", filename: "logo.svg", tags: [], width: null, height: null, size: 4200 }} />

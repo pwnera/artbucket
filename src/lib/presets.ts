@@ -36,7 +36,7 @@ export const PRESETS: Preset[] = [
   { id: "logo-do", label: "Logo do's", hint: "How the mark should be used", section: "logo", type: "list", name: "Do", value: ["Use the approved files as they are"] },
   { id: "logo-never", label: "Logo don'ts", hint: "How the mark is never used", section: "logo", type: "list", name: "Never do", value: ["Stretch or skew it", "Recolor it"] },
 
-  { id: "type-face", label: "Typeface", hint: "A font, shown in that font", section: "type", type: "text", suggest: "Font family", value: "Inter" },
+  { id: "type-face", label: "Typeface", hint: "A font family with its files, shown in that face", section: "type", type: "font", suggest: "Headings", value: "Inter" },
   { id: "type-scale", label: "Type scale", hint: "The sizes, as a specimen", section: "type", type: "list", name: "Scale", value: [12, 14, 16, 20, 24, 32, 48] },
   { id: "type-weight", label: "Weights", hint: "Which weights, for what", section: "type", type: "list", name: "Weights", value: ["Regular for body", "Semibold for headings"] },
 

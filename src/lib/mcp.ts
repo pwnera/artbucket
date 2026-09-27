@@ -10,12 +10,14 @@ import {
   type Asset,
 } from "@/lib/core/assets";
 import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
-import { listBrands } from "@/lib/core/brands";
+import { actorOf, listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
+import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/keys";
 import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
+import { GOOGLE_FAMILY } from "@/lib/font";
 import { allows, type Scope } from "@/lib/scopes";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
@@ -31,7 +33,7 @@ import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -58,7 +60,15 @@ const forAgent = (rules: BrandRule[]) =>
     type,
     value,
     usage,
-    assets: assets.map(({ id, rendition }) => ({ id, rendition, url: rendition ? `${base(id)}/${rendition}` : base(id) })),
+    assets: assets.map(({ id, rendition, title, filename, mime, width, height }) => ({
+      id,
+      title: title ?? filename,
+      mime,
+      width,
+      height,
+      rendition,
+      url: rendition ? `${base(id)}/${rendition}` : base(id),
+    })),
   }));
 
 const rulesFor = async (context?: string, brand?: string) => ({
@@ -104,12 +114,13 @@ const TOOLS: Record<string, Tool> = {
       const [fields, collections] = await Promise.all([listFields(), listCollections()]);
       return [
         "Search the library. Every word of `q` must match (as a prefix) the filename, tags, captions or field values.",
-        "No arguments lists the newest assets. Results carry facet counts: tags and field values you can narrow by.",
+        "No arguments lists the newest assets. Results carry facet counts: tags and field values you can narrow by,",
+        "and `total`, every match. Next: describe_asset before using one, rendition_url for a size to hand out.",
         fields.length
           ? `Custom fields, for \`filters\`: ${fields.map((f) => `${f.key} (${f.type}${f.options.length ? `: ${f.options.join(", ")}` : ""})`).join("; ")}.`
           : "",
         collections.length
-          ? `Collections, for \`collection\`: ${collections.map((c) => `${c.name} = ${c.id}`).join("; ")}.`
+          ? `Collections, for \`collection\` (by name or id): ${collections.map((c) => c.name).join("; ")}.`
           : "",
       ]
         .filter(Boolean)
@@ -120,7 +131,7 @@ const TOOLS: Record<string, Tool> = {
     input: z.object({
       q: z.string().max(512).optional().describe("Free text"),
       tags: z.array(z.string()).max(20).optional().describe("Only assets carrying every one of these tags"),
-      collection: z.uuid().optional().describe("Only this collection's assets"),
+      collection: z.string().max(120).optional().describe("Only this collection's assets: its name or id"),
       filters: z
         .record(z.string(), z.union([z.string(), z.array(z.string())]))
         .optional()
@@ -138,8 +149,8 @@ const TOOLS: Record<string, Tool> = {
         for (const one of [v].flat()) params.append(`f.${k}`, one);
       params.set("limit", String(limit));
       // The REST query parser, so a filter the API rejects is rejected here too.
-      const { data, facets } = await searchAssets(await parseAssetQuery(params));
-      return { results: data.map(summary), facets };
+      const { data, total, facets } = await searchAssets(await parseAssetQuery(params));
+      return { results: data.map(summary), total, facets };
     },
   }),
 
@@ -197,7 +208,8 @@ const TOOLS: Record<string, Tool> = {
   ingest_asset: tool({
     description:
       "Add a file to the library from a public http(s) URL. Identical bytes dedupe to the existing asset. " +
-      "The new asset is proposed: it shows up for review, not in the library, until a person approves it.",
+      "The new asset is proposed: it shows up for review, not in the library, until a person approves it. " +
+      "Required fields may be left out; the person approving fills them in. Check back with my_proposals.",
     scope: "propose",
     readOnly: false,
     input: z.object({
@@ -209,8 +221,27 @@ const TOOLS: Record<string, Tool> = {
     }),
     run: async (input, caller) => {
       const status = allows(caller.scope, "write") ? "active" : "proposed";
-      const { asset, deduped } = await ingestFromUrl({ ...input, status });
+      const { asset, deduped } = await ingestFromUrl({ ...input, status, actor: await actorOf(caller) });
       return { deduped, asset: describeAsset(asset) };
+    },
+  }),
+
+  import_google_font: tool({
+    description:
+      "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
+      "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
+      "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
+    scope: "propose",
+    readOnly: false,
+    input: z.object({
+      family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
+      tags: z.array(text.max(64)).max(50).optional(),
+      collections: z.array(z.uuid()).max(50).optional(),
+    }),
+    run: async (input, caller) => {
+      const status = allows(caller.scope, "write") ? "active" : "proposed";
+      const { family, assets } = await importGoogleFont({ ...input, status, actor: await actorOf(caller) });
+      return { family, assets: assets.map(summary) };
     },
   }),
 
@@ -222,6 +253,7 @@ const TOOLS: Record<string, Tool> = {
       return [
         "A brand's rules as data: colors (hex), logo use, type, tone, each with a sentence on how to use it",
         "and the assets it points at (the logo it governs, examples; describe_asset tells you more about one).",
+        "A font rule's value is the family name, and its assets are the font files to use (url, one per style).",
         "Pass the context you are working in to get one rule per key: that context's own where it has one, the default otherwise.",
         "No context returns every rule and its variants. No brand means the default brand.",
         brands.length > 1
@@ -244,6 +276,27 @@ const TOOLS: Record<string, Tool> = {
     run: async ({ brand, context }) => rulesFor(context, brand),
   }),
 
+  my_proposals: tool({
+    description:
+      "What you (this API key) proposed and what became of it: `proposed` still waits for a person, `active` was " +
+      "approved, `rejected` was turned down, with the person's reason in `reviewNote`. Read the reasons before " +
+      "proposing more of the same.",
+    scope: "propose",
+    readOnly: true,
+    input: z.object({
+      status: z.enum(["proposed", "active", "rejected"]).optional().describe("Only these; all of them when left out"),
+      limit: z.number().int().min(1).max(50).default(20),
+    }),
+    run: async ({ status, limit }, caller) => {
+      // ponytail: filters the newest 200 in memory; a status filter in core when an agent proposes more.
+      const { data } = await searchAssets({ proposedBy: await actorOf(caller), limit: 200 });
+      const mine = data.filter((a) => !status || a.status === status).slice(0, limit);
+      return {
+        proposals: mine.map((a) => ({ ...summary(a), reviewNote: a.reviewNote, proposedTags: a.proposedTags })),
+      };
+    },
+  }),
+
   propose_tags: tool({
     description:
       "Suggest tags for an asset. They are not applied: a person accepts or dismisses each one. " +
@@ -251,8 +304,8 @@ const TOOLS: Record<string, Tool> = {
     scope: "propose",
     readOnly: false,
     input: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
-    run: async ({ id, tags }) => {
-      const a = await proposeTags(id, tags);
+    run: async ({ id, tags }, caller) => {
+      const a = await proposeTags(id, tags, await actorOf(caller));
       if (!a) throw new AssetError("not_found", `No asset ${id}`);
       return { id: a.id, tags: a.tags, proposedTags: a.proposedTags };
     },
@@ -309,7 +362,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
                 name,
                 description: typeof t.description === "string" ? t.description : await t.description(),
                 inputSchema,
-                annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" },
+                annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
               };
             }),
         ),

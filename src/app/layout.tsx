@@ -5,7 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
+// With its optical-size axis: small text gets the sturdier cut, headings the tighter one.
+const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", axes: ["opsz"] });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {

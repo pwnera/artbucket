@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as S from "./schemas.ts";
+import { FONT_CATEGORIES } from "./font.ts";
 import type { Scope } from "./scopes.ts";
 
 /**
@@ -92,7 +93,7 @@ export function openapi(serverUrl: string) {
           query: {
             q: { schema: str, description: "Every word must match, each as a prefix" },
             tag: { schema: { type: "array", items: str }, description: "Repeat; assets carrying every tag" },
-            collection: { schema: { type: "string", format: "uuid" }, description: "Only this collection" },
+            collection: { schema: str, description: "Only this collection: its id, or its name" },
             review: {
               schema: { type: "string", enum: ["true", "false"] },
               description: "true: proposed assets and assets with suggested tags. Otherwise active only",
@@ -107,10 +108,54 @@ export function openapi(serverUrl: string) {
           scope: "propose",
           description:
             "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). " +
-            "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`.",
+            "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
+            "and required fields may be left for the person who approves it.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },
+        }),
+      },
+      "/api/v1/brand/tokens": {
+        get: op({
+          summary: "Export the brand as design tokens",
+          scope: "read",
+          description:
+            "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face " +
+            "for every font file (text/css). `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style " +
+            "Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. A rule set in one of " +
+            "the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out.",
+          query: {
+            format: { schema: { type: "string", enum: ["css", "json"], default: "css" }, description: "The output" },
+            brand: { schema: str, description: "A brand's slug; the default brand without it" },
+            context: { schema: str, description: "Resolve for this context, e.g. dark-background" },
+          },
+          ok: [200, "The tokens, as text/css or application/json"],
+        }),
+      },
+      "/api/v1/fonts/google": {
+        get: op({
+          summary: "Search Google Fonts",
+          scope: "read",
+          description: "The Google Fonts catalog, most popular first; names starting with `q` before names containing it.",
+          query: {
+            q: { schema: str, description: "Part of the family name, any case" },
+            category: { schema: { type: "string", enum: [...FONT_CATEGORIES] }, description: "Only this category" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 30 }, description: "Page size" },
+          },
+          ok: [200, "Matching families", S.GoogleFamilies],
+        }),
+        post: op({
+          summary: "Import a Google Fonts family",
+          scope: "propose",
+          description:
+            "One asset per style the family has (up to 9 weights, roman and italic), as whole TTF files. Fetched once " +
+            "and served from /a/{id} after, so nobody's browser calls Google. Styles already here dedupe.",
+          body: S.GoogleFontImport,
+          ok: [
+            201,
+            "The family's styles, lightest first, roman before italic",
+            z.object({ family: z.string().describe("As Google names it"), data: z.array(S.Asset) }),
+          ],
         }),
       },
       "/api/v1/assets/{id}": {
@@ -174,6 +219,20 @@ export function openapi(serverUrl: string) {
           summary: "Delete a field and every value stored under it",
           scope: "write",
           ok: [200, "Deleted", S.Deleted],
+        }),
+      },
+      "/api/v1/activity": {
+        get: op({
+          summary: "Who did what",
+          scope: "read",
+          description:
+            "Newest first: assets added, suggested, approved, rejected and deleted, tags suggested, and brand rule " +
+            "changes (one per brand version). An actor is an API key's name, or `web` for the app.",
+          query: {
+            before: { schema: { type: "string", format: "date-time" }, description: "Only before this time: the previous page's `next`" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 50 }, description: "Page size" },
+          },
+          ok: [200, "Activity", S.Activity],
         }),
       },
       "/api/v1/searches": {
@@ -315,7 +374,7 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, " +
-            "rendition_url, ingest_asset, propose_tags, brand_rules. Each tool checks its own scope. " +
+            "rendition_url, ingest_asset, import_google_font, propose_tags, brand_rules. Each tool checks its own scope. " +
             "Resources: artbucket://brand/rules and artbucket://brand/rules/{context}.",
           body: z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number()]).optional(), method: z.string(), params: z.unknown().optional() }),
           ok: [200, "A JSON-RPC response", z.object({ jsonrpc: z.literal("2.0"), id: z.unknown(), result: z.unknown().optional(), error: z.unknown().optional() })],

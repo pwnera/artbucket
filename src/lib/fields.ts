@@ -83,6 +83,10 @@ export function describeIssues(error: z.ZodError): string {
 export const relaxInherited = (defs: FieldDef[], inherited: Record<string, unknown>) =>
   defs.map((d) => (d.key in inherited ? { ...d, required: false } : d));
 
+/** Required fields with no value (own or inherited) in `values`. */
+export const missingRequired = (defs: FieldDef[], values: Record<string, unknown>) =>
+  defs.filter((d) => d.required && (values[d.key] === undefined || values[d.key] === null || values[d.key] === ""));
+
 /** What a client sends to define a field. `key` and `type` are fixed at creation. */
 export const FieldDefInput = z
   .strictObject({

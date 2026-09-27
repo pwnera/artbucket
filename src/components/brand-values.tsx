@@ -3,8 +3,11 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { IconCheck, IconCopy, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useAssetFont } from "@/components/font-preview";
 import { contrast, grade, hsl, inkOn, rgb } from "@/lib/color";
-import { listStyle, section, type ListStyle, type Rule, type RuleValue } from "@/lib/rules";
+import { fontStyle, isFont, pickFace, weightName } from "@/lib/font";
+import { fontValue, listStyle, section, type FontValue, type ListStyle, type Rule, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,9 +27,13 @@ export function ValueEditor({
   switch (r.type) {
     case "color":
       return <ColorEditor value={r.value as string} autoFocus={autoFocus} onSave={onSave} />;
+    case "font":
+      return <FontEditor rule={r} autoFocus={autoFocus} onSave={onSave} />;
     case "list": {
       const value = r.value as (string | number)[];
-      return <ListEditor value={value} look={listStyle(r.key, value)} autoFocus={autoFocus} onSave={onSave} />;
+      const look = listStyle(r.key, value);
+      const set = look === "scale" ? pickFace(fontFiles(r))?.id : undefined;
+      return <ListEditor value={value} look={look} fontId={set} autoFocus={autoFocus} onSave={onSave} />;
     }
     case "number":
       return (
@@ -38,28 +45,110 @@ export function ValueEditor({
           onSave={(v) => (Number.isFinite(Number(v)) && v !== "" ? onSave(Number(v)) : toast.error("Not a number"))}
         />
       );
-    default: {
-      const text = r.value as string;
-      // A typeface rule shows the face, where the browser has it.
-      const face = section(r.key) === "type" && /font|family|face/i.test(r.key.split(".").pop()!);
-      return (
-        <div className="space-y-2">
-          <Editable
-            value={text}
-            autoFocus={autoFocus}
-            multiline
-            className={cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg")}
-            onSave={(v) => v && onSave(v)}
-          />
-          {face && (
-            <p className="truncate text-4xl leading-tight" style={{ fontFamily: text }} aria-hidden>
-              Aa Bb Cc 0123
-            </p>
-          )}
-        </div>
-      );
-    }
+    default:
+      return <TextEditor rule={r} autoFocus={autoFocus} onSave={onSave} />;
   }
+}
+
+/** A sentence, set in the font the rule was given (see SetIn), if any. */
+function TextEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boolean; onSave: (v: RuleValue) => void }) {
+  const text = r.value as string;
+  const set = useAssetFont(pickFace(fontFiles(r))?.id);
+  // A text rule naming a typeface shows the face, where the browser has it.
+  const face = section(r.key) === "type" && /font|family|face/i.test(r.key.split(".").pop()!);
+  return (
+    <div className="space-y-2">
+      <Editable
+        value={text}
+        autoFocus={autoFocus}
+        multiline
+        className={cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg")}
+        style={set ? { fontFamily: stack(set) } : undefined}
+        onSave={(v) => v && onSave(v)}
+      />
+      {face && (
+        <p className="truncate text-4xl leading-tight" style={{ fontFamily: text }} aria-hidden>
+          Aa Bb Cc 0123
+        </p>
+      )}
+    </div>
+  );
+}
+
+export const isFontAsset = (a: RuleAsset) => !!a.mime && isFont(a.mime, a.filename ?? "");
+/** The rule's font files, in order. */
+export const fontFiles = (r: Rule) => r.assets.filter(isFontAsset);
+
+const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+/** The CSS family list for a face loaded from a file, falling back to the family by name. */
+const stack = (...names: (string | null | undefined)[]) =>
+  names
+    .filter(Boolean)
+    .map((f) => JSON.stringify(f))
+    .join(", ");
+
+/**
+ * A typeface: its name, the size and weight it is set at, and a specimen in
+ * the face. The face comes from the rule's own files (the one at that weight,
+ * else the Regular), so a reader sees it without having it installed.
+ */
+function FontEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boolean; onSave: (v: RuleValue) => void }) {
+  const v = fontValue(r.value);
+  const files = fontFiles(r);
+  const face = useAssetFont(pickFace(files, v.weight)?.id);
+  const weights = files.length
+    ? [...new Set(files.map((f) => fontStyle(f.filename ?? "")).filter((s) => !s.italic).map((s) => s.weight))].sort((a, b) => a - b)
+    : WEIGHTS;
+  // Unset fields are left out, not stored as null: the value stays { family } until someone sizes it.
+  const save = (patch: Partial<FontValue>) => {
+    const next = { ...v, ...patch };
+    onSave(Object.fromEntries(Object.entries(next).filter(([, x]) => x !== undefined)) as FontValue);
+  };
+  return (
+    <div className="space-y-2">
+      <Editable value={v.family} autoFocus={autoFocus} label="Family" className="text-base font-medium" onSave={(f) => f && save({ family: f })} />
+      <p
+        className="truncate leading-tight"
+        style={{ fontFamily: stack(face, v.family), fontSize: `${Math.min(v.size ?? 48, 96)}px`, fontWeight: v.weight }}
+        aria-hidden
+      >
+        Aa Bb Cc 0123
+      </p>
+      <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
+        <span className="flex items-center gap-1">
+          Size
+          <Editable
+            value={v.size ? String(v.size) : ""}
+            placeholder="Any"
+            label="Size in pixels"
+            inputMode="decimal"
+            className="w-12 font-mono tabular-nums"
+            onSave={(s) => {
+              const n = Number(s);
+              if (s === "") save({ size: undefined });
+              else if (Number.isFinite(n) && n > 0) save({ size: n });
+              else toast.error("Not a size");
+            }}
+          />
+          px
+        </span>
+        <Select value={v.weight ? String(v.weight) : "any"} onValueChange={(w) => save({ weight: w === "any" ? undefined : Number(w) })}>
+          <SelectTrigger size="sm" aria-label="Weight" className="h-7 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any weight</SelectItem>
+            {[...new Set([...weights, ...(v.weight ? [v.weight] : [])])].map((w) => (
+              <SelectItem key={w} value={String(w)}>
+                {w} {weightName(w)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
 }
 
 export const copy = (text: string, what: string) =>
@@ -82,6 +171,7 @@ export function Editable({
   className,
   inputMode,
   label,
+  style,
 }: {
   value: string;
   onSave: (v: string) => void;
@@ -91,6 +181,7 @@ export function Editable({
   className?: string;
   inputMode?: "decimal";
   label?: string;
+  style?: React.CSSProperties;
 }) {
   const [text, setText] = useState(value);
   const [seen, setSeen] = useState(value);
@@ -129,6 +220,7 @@ export function Editable({
         "placeholder:text-muted-foreground/60 hover:bg-muted/60 focus-visible:bg-background focus-visible:ring-ring/40 -mx-1 block w-[calc(100%+0.5rem)] resize-none rounded-md bg-transparent px-1 outline-none field-sizing-content focus-visible:ring-2",
         className,
       )}
+      style={style}
     />
   );
 }
@@ -156,7 +248,7 @@ function Contrast({ hex, on }: { hex: string; on: "#ffffff" | "#000000" }) {
         Aa
       </span>
       <span className="font-mono text-xs tabular-nums">{ratio.toFixed(1)}</span>
-      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>
+      <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>
         {g}
       </span>
     </div>
@@ -246,7 +338,7 @@ export function CopyButton({ onClick, label }: { onClick: () => void; label: str
       title={label}
       className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1 transition-colors"
     >
-      <IconCopy className="size-3.5" />
+      <IconCopy className="size-4" />
     </button>
   );
 }
@@ -275,14 +367,18 @@ const MARKER: Record<Exclude<ListStyle, "scale">, React.ReactNode> = {
 function ListEditor({
   value,
   look,
+  fontId,
   autoFocus,
   onSave,
 }: {
   value: (string | number)[];
   look: ListStyle;
+  /** A scale's specimen is set in this font file, when the scale names one. */
+  fontId?: string;
   autoFocus: boolean;
   onSave: (v: (string | number)[]) => void;
 }) {
+  const face = useAssetFont(fontId);
   const [items, setItems] = useState(value.map(String));
   const [seen, setSeen] = useState(value);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
@@ -352,7 +448,10 @@ function ListEditor({
             {look === "scale" && (
               <span
                 className="min-w-0 flex-1 truncate leading-tight"
-                style={{ fontSize: Number.isFinite(size) && size > 0 ? `${Math.min(size, 96)}px` : undefined }}
+                style={{
+                  fontSize: Number.isFinite(size) && size > 0 ? `${Math.min(size, 96)}px` : undefined,
+                  fontFamily: face ? stack(face) : undefined,
+                }}
                 aria-hidden
               >
                 The quick brown fox
