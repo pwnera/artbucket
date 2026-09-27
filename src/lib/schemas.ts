@@ -174,7 +174,9 @@ export const ShareCreate = z.strictObject({
   name: z.string().trim().max(120).optional().describe("What the holder sees it called, e.g. Press kit"),
   password: z.string().min(4).max(200).optional(),
   expiresAt: z.iso.datetime({ offset: true }).optional().describe("It stops working then"),
+  emails: z.array(z.email().max(320)).max(20).optional().describe("Email the link to these people, through the organization's email"),
 });
+export const ShareSend = z.strictObject({ emails: z.array(z.email().max(320)).min(1).max(20) });
 export const ShareFinalize = z.strictObject({
   token: uuid.describe("From POST /api/v1/shared/{token}/uploads, after the PUT"),
   filename: z.string().min(1).max(512),
@@ -465,6 +467,7 @@ export const Me = z.object({
   scope: scope.describe("On the whole workspace"),
   orgScope: scope.describe("On its organization; admin there manages people and workspaces"),
   narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
+  email: z.boolean().describe("The organization can send email now: invitations and links go out by mail"),
   narrow: z
     .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)) })
     .describe("Grants on single collections and assets here, by id: what reaches past the workspace scope"),
@@ -496,9 +499,10 @@ export const Invitation = z.object({
   invitedBy: z.string(),
   expiresAt: date,
   createdAt: date,
+  url: z.url().nullable().describe("The link, to copy again; null for one whose link can't be opened any more: send it again"),
 });
 export const InvitationCreated = Invitation.extend({
-  url: z.url().describe("Shown once. Emailed to them when the organization can send email; send it yourself otherwise"),
+  url: z.url().describe("Emailed to them when the organization can send email; send it yourself otherwise"),
   emailed: z.boolean(),
 });
 export const Members = z.object({

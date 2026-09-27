@@ -4,6 +4,7 @@ import { assets, collectionAssets, collections, shareLinks, type ShareKind } fro
 import { workspaceById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, finalizeUpload, getAsset } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
+import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { isRenderable } from "@/lib/core/renditions";
@@ -72,7 +73,7 @@ async function mayShare(caller: Caller, t: { kind: ShareKind; collectionId: stri
 
 export async function createShare(
   caller: Caller,
-  input: { kind: ShareKind; collection?: string; asset?: string; name?: string; password?: string; expiresAt?: string },
+  input: { kind: ShareKind; collection?: string; asset?: string; name?: string; password?: string; expiresAt?: string; emails?: string[] },
 ) {
   const t = { kind: input.kind, collectionId: input.collection ?? null, assetId: input.asset ?? null };
   if (input.kind === "view" && !!t.collectionId === !!t.assetId) throw new AssetError("invalid", "A view link shares one collection or one asset");
@@ -98,7 +99,38 @@ export async function createShare(
     password: out.password,
     expiresAt: row.expiresAt,
   });
-  return out;
+  return { ...out, emailed: input.emails?.length ? await mail(caller, row, out, input.emails) : 0 };
+}
+
+/** Email a link to people; how many it reached. */
+async function mail(caller: Caller, row: Link, out: Awaited<ReturnType<typeof present>>, emails: string[]) {
+  let sent = 0;
+  for (const to of new Set(emails.map((e) => e.trim().toLowerCase()))) {
+    const r = await sendAs(
+      caller.workspace.organizationId,
+      shareEmail(to, {
+        by: caller.actor,
+        organization: caller.workspace.organization.name,
+        kind: row.kind,
+        name: out.name ?? out.target.label ?? caller.workspace.name,
+        url: out.url,
+        password: out.password,
+        expiresAt: row.expiresAt,
+      }),
+    );
+    if (!r.sent && r.error && !sent) throw new AssetError("invalid", `Not sent: ${r.error}`);
+    if (r.sent) sent++;
+  }
+  await recordAudit(caller, "share.sent", out.target.label ?? caller.workspace.name, { kind: row.kind, to: [...new Set(emails)].length, sent });
+  return sent;
+}
+
+/** Send an existing link to more people. */
+export async function sendShare(caller: Caller, id: string, emails: string[]) {
+  const [row] = await db.select().from(shareLinks).where(and(eq(shareLinks.id, id), eq(shareLinks.workspaceId, caller.workspace.id)));
+  if (!row) return null;
+  if (!(await mayShare(caller, row))) throw new AssetError("forbidden", "Sending it takes write on what it shares");
+  return { emailed: await mail(caller, row, await present(row), emails) };
 }
 
 /** The workspace's links on what the caller may share. */

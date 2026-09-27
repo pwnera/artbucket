@@ -45,6 +45,8 @@ export type Me = {
   scope: Scope | null;
   orgScope: Scope | null;
   narrowed: boolean;
+  /** The organization can send email now. */
+  email: boolean;
   narrow: { collections: Record<string, Scope>; assets: Record<string, Scope> };
   workspaces: WorkspaceRef[];
   auth: { signUp: boolean; oidc: { name: string } | null; anonymous: Scope | null; passwordReset: boolean };

@@ -10,6 +10,7 @@ import type { Caller } from "@/lib/core/access";
 import { highest, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can, needs, type Action } from "@/lib/permissions";
+import { seal, unseal } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
 
 /**
@@ -243,20 +244,29 @@ async function labels(rows: { resource: Resource; resourceId: string }[]) {
   return (id: string) => map.get(id) ?? null;
 }
 
-/** An organization admin sees all of it; a workspace admin, the organization's grants and their workspace's. */
-const visible = (caller: Caller) =>
-  can(caller, "organization.manage")
+/**
+ * An organization admin sees all of it; a workspace admin, the
+ * organization's grants and their workspace's. `here` narrows anyone to the
+ * workspace: the grants that open it (the organization's, the workspace's
+ * own, and those on its collections and assets).
+ */
+const visible = (caller: Caller, here = false) =>
+  can(caller, "organization.manage") && !here
     ? eq(grants.organizationId, caller.workspace.organizationId)
     : and(eq(grants.organizationId, caller.workspace.organizationId), or(isNull(grants.workspaceId), eq(grants.workspaceId, caller.workspace.id)));
 
-/** People with any grant in the organization, each with the grants the caller may see, and invitations waiting. */
-export async function listMembers(caller: Caller) {
+/**
+ * People with a grant the caller may see, each with those grants, and
+ * invitations waiting. `here`: only who can open this workspace, and
+ * invitations into it.
+ */
+export async function listMembers(caller: Caller, { here = false } = {}) {
   need(caller, "member.manage");
   const rows = await db
     .select({ grant: grants, name: users.name, email: users.email })
     .from(grants)
     .innerJoin(users, eq(users.id, grants.userId))
-    .where(visible(caller))
+    .where(visible(caller, here))
     .orderBy(asc(users.name), asc(grants.createdAt));
   const waiting = await db
     .select()
@@ -264,7 +274,7 @@ export async function listMembers(caller: Caller) {
     .where(
       and(
         eq(invitations.organizationId, caller.workspace.organizationId),
-        can(caller, "organization.manage") ? undefined : or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id)),
+        can(caller, "organization.manage") && !here ? undefined : or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id)),
         isNull(invitations.acceptedAt),
         gt(invitations.expiresAt, sql`now()`),
       ),
@@ -289,6 +299,7 @@ export async function listMembers(caller: Caller) {
       invitedBy: i.invitedBy,
       expiresAt: i.expiresAt,
       createdAt: i.createdAt,
+      url: linkOf(i.tokenSealed),
     })),
   };
 }
@@ -364,6 +375,13 @@ export async function dropGrants(resource: "collection" | "asset", ids: string[]
 
 // ---- invitations ------------------------------------------------------------
 
+const inviteUrl = (token: string) => `${env.APP_URL}/invite/${token}`;
+/** A waiting invitation's link, to copy again: null when its sealed token doesn't open (made under another secret). */
+const linkOf = (sealed: string | null) => {
+  const token = sealed && unseal(sealed, env.BETTER_AUTH_SECRET);
+  return token ? inviteUrl(token) : null;
+};
+
 /**
  * An invitation: the link is in this response only, like an API key's
  * secret, and in an email to them when the organization can send one.
@@ -381,16 +399,56 @@ export async function createInvitation(caller: Caller, input: { email: string; r
       resourceId: t.resourceId,
       scope: input.scope,
       tokenHash: tokenHash(token),
+      tokenSealed: seal(token, env.BETTER_AUTH_SECRET),
       invitedBy: caller.actor,
       expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
     })
     .returning();
   await recordAudit(caller, "invitation.created", row.email, { resource: t.resource, on: t.label, scope: row.scope }, { workspaceId: t.workspaceId });
-  const url = `${env.APP_URL}/invite/${token}`;
+  const url = inviteUrl(token);
   const mail = await sendAs(
     t.organizationId,
     invitationEmail(row.email, { invitedBy: caller.actor, organization: caller.workspace.organization.name, label: t.label, scope: row.scope, url }),
   );
+  return {
+    id: row.id,
+    email: row.email,
+    resource: row.resource,
+    resourceId: row.resourceId,
+    label: t.label,
+    scope: row.scope,
+    invitedBy: row.invitedBy,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    url,
+    emailed: mail.sent,
+  };
+}
+
+/**
+ * Send an invitation again: a new link (the old one stops working, its
+ * token was never kept), a new week, and an email when the organization can
+ * send one. The link is in this response only.
+ */
+export async function resendInvitation(caller: Caller, id: string) {
+  const [inv] = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.id, id), eq(invitations.organizationId, caller.workspace.organizationId), isNull(invitations.acceptedAt)));
+  if (!inv) return null;
+  const t = await target(caller, inv.resource, inv.resourceId);
+  const token = randomBytes(24).toString("base64url");
+  const [row] = await db
+    .update(invitations)
+    .set({ tokenHash: tokenHash(token), tokenSealed: seal(token, env.BETTER_AUTH_SECRET), invitedBy: caller.actor, expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000) })
+    .where(eq(invitations.id, id))
+    .returning();
+  const url = inviteUrl(token);
+  const mail = await sendAs(
+    t.organizationId,
+    invitationEmail(row.email, { invitedBy: caller.actor, organization: caller.workspace.organization.name, label: t.label, scope: row.scope, url }),
+  );
+  await recordAudit(caller, "invitation.resent", row.email, { resource: t.resource, on: t.label, scope: row.scope, emailed: mail.sent }, { workspaceId: t.workspaceId });
   return {
     id: row.id,
     email: row.email,

@@ -75,6 +75,29 @@ export function invitationEmail(to: string, i: { invitedBy: string; organization
   });
 }
 
+/** A share link, sent to someone: to send files in, or to look and download. */
+export function shareEmail(
+  to: string,
+  s: { by: string; organization: string; kind: "view" | "upload"; name: string; url: string; password: boolean; expiresAt: Date | null },
+) {
+  const until = s.expiresAt ? ` It works until ${s.expiresAt.toISOString().slice(0, 10)}.` : "";
+  const pw = s.password ? " It asks for a password; they'll send it to you separately." : "";
+  return layout({
+    to,
+    subject: s.kind === "upload" ? `${s.by} asks you to send files: ${s.name}` : `${s.by} shared ${s.name} with you`,
+    lines:
+      s.kind === "upload"
+        ? [`${s.by} at ${s.organization} asks you to send files for ${s.name}. No account needed: open the link and drop them in.${until}${pw}`]
+        : [`${s.by} at ${s.organization} shared ${s.name} with you, to look at and download. No account needed.${until}${pw}`],
+    action: { label: s.kind === "upload" ? "Send files" : "Open", url: s.url },
+  });
+}
+
+/** Whether this organization's email can go out now. */
+export async function canEmail(organizationId: string) {
+  return !unusable((await effective("email", { organizationId })).value);
+}
+
 export const testEmail = (to: string, organization: string) =>
   layout({
     to,

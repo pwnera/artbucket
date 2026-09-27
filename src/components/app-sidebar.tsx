@@ -9,7 +9,6 @@ import {
   IconBookmark,
   IconDots,
   IconFolder,
-  IconPalette,
   IconPencil,
   IconPhoto,
   IconPlus,
@@ -19,6 +18,7 @@ import {
   IconShare,
   IconTrash,
   IconUpload,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
@@ -127,6 +127,7 @@ export function AppSidebar({
   const at = {
     brand: pathname === "/brand",
     agents: pathname === "/agents",
+    team: pathname === "/team",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
     assets: inLibrary && !view.collection && !onSearch,
@@ -180,6 +181,7 @@ export function AppSidebar({
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
               <Place href="/activity" label="Activity" icon={<IconActivity />} active={at.activity} />
+              {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -220,16 +222,6 @@ export function AppSidebar({
           <SidebarMenuItem>
             <AccountMenu me={me} />
           </SidebarMenuItem>
-          {/* A contributor's page, not a user's: only while developing. */}
-          {process.env.NODE_ENV === "development" && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Design system">
-                <Link href="/design">
-                  <IconPalette /> <span>Design system</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

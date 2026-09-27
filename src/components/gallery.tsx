@@ -16,6 +16,7 @@ import {
   IconPhoto,
   IconRobot,
   IconSearch,
+  IconShare,
   IconSparkles,
   IconUpload,
   IconX,
@@ -34,6 +35,7 @@ import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
 import { useCan } from "@/components/can";
+import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import { remember, usePref } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -159,6 +161,7 @@ export function Gallery({
   const view = useMemo(() => parseView(new URLSearchParams(search)), [search]);
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
   const can = useCan();
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(sidebar.collections);
   const [reviewCount, setReviewCount] = useState(sidebar.reviewCount);
@@ -584,6 +587,16 @@ export function Gallery({
                     : "Everything in the library. Drop files anywhere on the page to add them."
             }
           >
+            {inCollection && !activeSearch && can("collection.collect", inCollection) && (
+              <Button size="sm" onClick={() => setSharing({ kind: "upload", collection: inCollection })}>
+                <IconUpload /> Collect uploads
+              </Button>
+            )}
+            {inCollection && !activeSearch && can("collection.share", inCollection) && (
+              <Button variant="outline" size="sm" onClick={() => setSharing({ kind: "view", collection: inCollection })}>
+                <IconShare /> Share
+              </Button>
+            )}
             {inCollection && !activeSearch && can("collection.edit", inCollection) && (
               <Button variant="outline" size="sm" onClick={() => setEditing(inCollection)}>
                 <IconPencil /> Edit collection
@@ -829,6 +842,7 @@ export function Gallery({
       />
 
 
+      {sharing && <ShareDialog target={sharing} onClose={() => setSharing(null)} />}
       {editing && (
         <CollectionDialog
           collection={editing === "new" ? undefined : editing}

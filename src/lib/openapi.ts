@@ -441,6 +441,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "People and their access",
           scope: "admin",
+          query: { in: { schema: { type: "string", enum: ["workspace"] }, description: "Only who can open this workspace, and invitations into it" } },
           description:
             "Everyone with a grant in the organization, with the grants you may see, and invitations still waiting. " +
             "An organization admin sees every workspace's grants; a workspace admin, the organization's and their workspace's.",
@@ -473,6 +474,15 @@ export function openapi(serverUrl: string) {
           ok: [201, "The invitation, with its link", data(S.InvitationCreated)],
         }),
       },
+      "/api/v1/invitations/{id}/resend": {
+        parameters: [path("id", "Invitation id")],
+        post: op({
+          summary: "Send an invitation again",
+          scope: "any",
+          description: "A new link and a new week; the old link stops working. Emailed when the organization can send email. The `url` is in this response only.",
+          ok: [200, "The invitation, with its new link", data(S.InvitationCreated)],
+        }),
+      },
       "/api/v1/invitations/{id}": {
         parameters: [path("id", "Invitation id")],
         delete: op({ summary: "Withdraw an invitation", scope: "any", ok: [200, "Withdrawn", S.Deleted] }),
@@ -492,7 +502,17 @@ export function openapi(serverUrl: string) {
             "`upload`: files sent in land `proposed`, in the collection (or the workspace), for review. Either can " +
             "expire and ask for a password. Needs write on what it shares.",
           body: S.ShareCreate,
-          ok: [201, "The link", data(S.Share)],
+          ok: [201, "The link, and how many of `emails` it was sent to", data(S.Share.extend({ emailed: z.number().int() }))],
+        }),
+      },
+      "/api/v1/shares/{id}/send": {
+        parameters: [path("id", "Share link id")],
+        post: op({
+          summary: "Email a share link",
+          scope: "write",
+          description: "To up to 20 people, through the organization's email. A 422 says why when none could be sent.",
+          body: S.ShareSend,
+          ok: [200, "How many it reached", data(z.object({ emailed: z.number().int() }))],
         }),
       },
       "/api/v1/shares/{id}": {

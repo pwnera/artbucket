@@ -50,3 +50,6 @@ export function Writable({ do: action, on, children }: { do: Action; on?: Target
     </fieldset>
   );
 }
+
+/** Who is looking, for what a control says rather than whether it shows: their name, whether email is on. */
+export const useMe = () => useContext(Who);

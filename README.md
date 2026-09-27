@@ -143,16 +143,18 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/workspaces` | The organization's workspaces you can open, with your scope in each |
 | `POST` | `/api/v1/workspaces` | Make one |
 | `PATCH` | `/api/v1/workspaces/{id}` | Rename it |
-| `GET` | `/api/v1/members` | People, their grants, and invitations waiting |
+| `GET` | `/api/v1/members` | People, their grants, and invitations waiting; `?in=workspace` for this workspace's |
 | `POST` | `/api/v1/grants` | Give a member a `scope` on the organization, a workspace, a collection or an asset |
 | `DELETE` | `/api/v1/grants/{id}` | Take it away; the last organization admin stays |
 | `POST` | `/api/v1/invitations` | Invite an `email` to a scope on something; the link is in this response only |
 | `DELETE` | `/api/v1/invitations/{id}` | Withdraw one |
+| `POST` | `/api/v1/invitations/{id}/resend` | Send it again: a new link and a new week |
 | `GET` | `/api/v1/invite/{token}` | What an invitation offers |
 | `POST` | `/api/v1/invite/{token}` | Accept it, signed in |
 | `GET` | `/api/v1/shares` | Share links |
 | `POST` | `/api/v1/shares` | A `view` or `upload` link, with an optional `password` and `expiresAt` |
 | `DELETE` | `/api/v1/shares/{id}` | Revoke one |
+| `POST` | `/api/v1/shares/{id}/send` | Email it to `{ emails }` |
 | `GET` | `/api/v1/shared/{token}` | A share link's contents, for its holder; a password goes in `X-Share-Password` |
 | `POST` | `/api/v1/shared/{token}/uploads` | An upload link's presigned PUT |
 | `POST` | `/api/v1/shared/{token}/assets` | Hand the upload in, as a proposal |
@@ -226,10 +228,15 @@ allowed, asking by the same name (`<Can do="asset.edit" on={asset}>`), so
 the API and the UI can't disagree: a viewer sees no Upload, no Edit, and a
 read-only asset dialog.
 
-Settings, People lists people and their access, changes it, and makes
-invitations: a link for an email and a scope on something, shown once,
-working once for a week. With email on, it is sent to them too; without,
-you send the link.
+**Team** (in the sidebar) is who is in and who is invited. **People and
+invitations** lists the organization's people and their access, changes it,
+and makes invitations: **Invite people** takes an email and a scope on
+something, and gives a link that works once, for a week. With email on it
+is sent to them too. Invitations waiting stay listed, to **Copy link** (the
+token is kept sealed, never in the clear), **Send again** (a new link and a
+new week) or withdraw. A workspace's own members, whoever can open it and
+what each may do there, are in its Settings, Members. ⌘K has Invite people
+too.
 
 ```bash
 curl -X POST localhost:3000/api/v1/invitations -H 'content-type: application/json' \
@@ -239,11 +246,14 @@ curl -X POST localhost:3000/api/v1/invitations -H 'content-type: application/jso
 
 ### Share links
 
-For people without an account. From a collection's menu, **Share a link**
-shows its approved assets, with downloads, at `/s/{token}`; so does **Share**
-in an asset's dialog, for one. **Collect uploads** makes a link anyone can
-send files through: they land `proposed`, in that collection, and wait in
-Review like an agent's. Either can end on a date and ask for a password
+For people without an account. **Collect uploads** makes a link anyone can
+send files through, a photographer or an agency: they land `proposed`, in
+that collection, and wait in Review like an agent's. **Share** shows a
+collection's approved assets, with downloads, at `/s/{token}`; so does
+**Share** in an asset's dialog, for one. Both are on a collection's page and
+its menu in the sidebar, and on Team, **Share and upload links**, which
+lists every link to copy, **Send** by email, or revoke. With email on, a
+link can go straight to people as it is made. Either can end on a date and ask for a password
 (kept as a salted scrypt hash), and revoking one stops it at once. Making or
 revoking a link takes write on what it shares.
 
@@ -256,8 +266,8 @@ pnpm artbucket share {collection-id} --upload --name "Photographer drop"
 
 Settings (at the bottom of the sidebar) is one page for everything that
 isn't the library itself, in sections grouped by what they apply to: the
-**workspace** you are in (its name, custom fields, share links), its
-**organization** (name, people, workspaces, email, audit log), and your
+**workspace** you are in (its name, members, custom fields, share links), its
+**organization** (name, workspaces, email, audit log), and your
 **account** (name, password). Each section shows to whoever may use it.
 
 Behind it, settings are definitions (`src/lib/settings.ts`): where each may
@@ -601,8 +611,9 @@ with Google green (#34A853) as the primary, [Tabler icons](https://tabler.io/ico
 and DM Sans. The mark is Tabler's tipped paint bucket. Restyle through the
 tokens in `src/app/globals.css`, not per component.
 
-Every component in use is on the living reference at `/design`, served while
-developing (`pnpm dev`) and not in production.
+Every component in use is on the living reference at `/design`, linked from
+Settings, Development while developing (`pnpm dev`), and not served in
+production.
 
 ## Contributing
 

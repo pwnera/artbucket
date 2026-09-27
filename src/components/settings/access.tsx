@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import {
@@ -10,6 +11,7 @@ import {
   IconLink,
   IconLock,
   IconMail,
+  IconSend,
   IconPhoto,
   IconPlus,
   IconShare,
@@ -23,7 +25,8 @@ import { can } from "@/lib/permissions";
 import { Snippet } from "@/components/agent-access";
 import { copy } from "@/components/brand-values";
 import { send } from "@/components/collections";
-import type { ShareLink } from "@/components/share-dialog";
+import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
+import { useMe } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,7 +40,18 @@ import { ago, exact } from "@/lib/time";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope };
-type Invitation = { id: string; email: string; resource: Resource; resourceId: string; label: string | null; scope: Scope; invitedBy: string; expiresAt: string };
+type Invitation = {
+  id: string;
+  email: string;
+  resource: Resource;
+  resourceId: string;
+  label: string | null;
+  scope: Scope;
+  invitedBy: string;
+  expiresAt: string;
+  /** Its link, to copy again; null when it can't be opened any more. */
+  url: string | null;
+};
 export type Members = { data: { id: string; name: string; email: string; grants: Grant[] }[]; invitations: Invitation[] };
 type AuditEntry = { id: string; at: string; actor: string; action: string; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
 export type AuditPage = { data: AuditEntry[]; next: string | null };
@@ -48,6 +62,7 @@ const SCOPES: { scope: Scope; label: string; hint: string }[] = [
   { scope: "write", label: "Editor", hint: "Also edit, approve, delete, and share links" },
   { scope: "admin", label: "Admin", hint: "Also manage people and keys" },
 ];
+const ORDER: Scope[] = ["read", "propose", "write", "admin"];
 const scopeName = (s: Scope) => SCOPES.find((x) => x.scope === s)?.label ?? s;
 const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto };
 
@@ -55,13 +70,35 @@ const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, 
 
 type Where = { resource: Resource; resourceId: string; label: string };
 
-/** The organization's people and their grants, and invitations waiting. */
-export function People({ me, members, collections }: { me: Me; members: Members; collections: SidebarData["collections"] }) {
+/**
+ * People and their grants, and invitations waiting: the whole organization
+ * (Team), or `view="workspace"`, only who can open this workspace and what
+ * they may do in it (Settings). Each grant is changed only by whoever may
+ * manage what it is on.
+ */
+export function People({
+  me,
+  members,
+  collections,
+  view = "organization",
+  inviting = false,
+}: {
+  me: Me;
+  members: Members;
+  collections: SidebarData["collections"];
+  view?: "organization" | "workspace";
+  /** Open with the invite dialog up: ⌘K's "Invite people". */
+  inviting?: boolean;
+}) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<{ kind: "invite" } | { kind: "grant"; user: { id: string; name: string } } | null>(null);
-  // Where a grant can be: the organization (its admins only), this workspace, or one of its collections.
+  const [dialog, setDialog] = useState<{ kind: "invite" } | { kind: "grant"; user: { id: string; name: string } } | null>(
+    inviting ? { kind: "invite" } : null,
+  );
+  const [resent, setResent] = useState<{ email: string; url: string; emailed: boolean } | null>(null);
+  const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
+  // Where a grant can be: the organization (its admins, and not from a workspace's view), this workspace, or one of its collections.
   const places: Where[] = [
-    ...(can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
+    ...(view === "organization" && can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
     { resource: "workspace", resourceId: me.workspace.id, label: `${me.workspace.name} (this workspace)` },
     ...collections.map((c) => ({ resource: "collection" as const, resourceId: c.id, label: `${c.name} (collection)` })),
   ];
@@ -82,25 +119,27 @@ export function People({ me, members, collections }: { me: Me; members: Members;
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <h2 className="flex-1 text-sm font-semibold">
-            People <span className="text-muted-foreground font-normal">{members.data.length}</span>
+            {view === "workspace" ? `Who can open ${me.workspace.name}` : "People"}{" "}
+            <span className="text-muted-foreground font-normal">{members.data.length}</span>
           </h2>
           <Button size="sm" onClick={() => setDialog({ kind: "invite" })}>
-            <IconMail /> Invite
+            <IconMail /> Invite people
           </Button>
         </div>
         <ul className="divide-y rounded-lg border">
           {members.data.map((m) => (
-            <li key={m.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-start">
+            <li key={m.id} className="flex flex-col gap-2 px-3 py-3 lg:flex-row lg:items-start">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {m.name}
                   {m.id === me.user?.id && <span className="text-muted-foreground font-normal"> (you)</span>}
                 </p>
                 <p className="text-muted-foreground truncate text-xs">{m.email}</p>
+                {view === "workspace" && <p className="mt-1 text-xs">{roleHere(m.grants, me.workspace.id)}</p>}
               </div>
-              <div className="flex flex-col gap-1.5 sm:items-end">
+              <div className="flex flex-col gap-1.5 lg:items-end">
                 {m.grants.map((g) => (
-                  <GrantRow key={g.id} grant={g} onScope={(s) => change(g, m.id, s)} onRemove={() => remove(g)} />
+                  <GrantRow key={g.id} grant={g} editable={manages(g)} onScope={(s) => change(g, m.id, s)} onRemove={() => remove(g)} />
                 ))}
                 <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setDialog({ kind: "grant", user: m })}>
                   <IconPlus /> Access to more
@@ -120,15 +159,34 @@ export function People({ me, members, collections }: { me: Me; members: Members;
             {members.invitations.map((i) => {
               const I = ICON[i.resource];
               return (
-                <li key={i.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
                   <IconMail className="text-muted-foreground size-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-48 flex-1">
                     <p className="truncate font-medium">{i.email}</p>
                     <p className="text-muted-foreground truncate text-xs">
                       <I className="mr-1 inline size-3.5" />
                       {scopeName(i.scope)} on {i.label} · by {i.invitedBy} · expires {ago(i.expiresAt)}
                     </p>
                   </div>
+                  <div className="ml-auto flex items-center gap-2">
+                  {i.url && (
+                    <Button variant="outline" size="sm" onClick={() => copy(i.url!, "the invitation link")}>
+                      <IconLink /> Copy link
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title="A new link and a new week; the old link stops working"
+                    onClick={async () => {
+                      const r = await send("POST", `/api/v1/invitations/${i.id}/resend`);
+                      if (!r) return;
+                      setResent({ email: i.email, url: r.url, emailed: r.emailed });
+                      refresh();
+                    }}
+                  >
+                    <IconSend /> Send again
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -138,6 +196,7 @@ export function People({ me, members, collections }: { me: Me; members: Members;
                   >
                     <IconX />
                   </Button>
+                  </div>
                 </li>
               );
             })}
@@ -145,19 +204,96 @@ export function People({ me, members, collections }: { me: Me; members: Members;
         </section>
       )}
 
-      {dialog && <GrantDialog dialog={dialog} places={places} onClose={() => setDialog(null)} onDone={refresh} />}
+      {members.data.length > 0 && members.invitations.length === 0 && view === "organization" && (
+        <p className="text-muted-foreground text-sm">No invitations waiting.</p>
+      )}
+
+      {dialog && <GrantDialog me={me} dialog={dialog} places={places} onClose={() => setDialog(null)} onDone={refresh} />}
+      {resent && (
+        <Dialog open onOpenChange={(o) => !o && setResent(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Invitation for {resent.email}</DialogTitle>
+              <DialogDescription>A new link, good for a week. The one sent before no longer works.</DialogDescription>
+            </DialogHeader>
+            <InviteLink me={me} url={resent.url} emailed={resent.emailed} />
+            <DialogFooter>
+              <Button onClick={() => setResent(null)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
 
-function GrantRow({ grant: g, onScope, onRemove }: { grant: Grant; onScope: (s: Scope) => void; onRemove: () => void }) {
+/** "Admin here, through the organization": what someone may do in this workspace, and why. */
+function roleHere(grants: Grant[], workspaceId: string) {
+  const org = grants.find((g) => g.resource === "organization");
+  const ws = grants.find((g) => g.resource === "workspace" && g.resourceId === workspaceId);
+  const top = [org, ws].filter(Boolean).sort((a, b) => ORDER.indexOf(b!.scope) - ORDER.indexOf(a!.scope))[0];
+  if (!top) return <span className="text-muted-foreground">Some collections or assets only</span>;
+  return (
+    <>
+      <Badge variant="outline">{scopeName(top.scope)}</Badge>{" "}
+      <span className="text-muted-foreground">{top.resource === "organization" ? "through the organization" : "in this workspace"}</span>
+    </>
+  );
+}
+
+/** A new invitation's link, and whether it went by email; where to turn email on when it didn't. */
+function InviteLink({ me, url, emailed }: { me: Me; url: string; emailed: boolean }) {
+  return (
+    <div className="grid gap-2">
+      <Snippet text={url} what="the invitation link" />
+      <p className="text-muted-foreground text-sm">
+        {emailed ? (
+          "We emailed it to them. The link is here too, this once, in case it lands in spam."
+        ) : (
+          <>
+            Send it to them yourself: it is shown this once.{" "}
+            {can(me, "organization.manage") && (
+              <Link href="/settings/organization/email" className="underline underline-offset-2">
+                Turn on email
+              </Link>
+            )}
+            {can(me, "organization.manage") && " to have invitations sent."}
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function GrantRow({
+  grant: g,
+  editable,
+  onScope,
+  onRemove,
+}: {
+  grant: Grant;
+  editable: boolean;
+  onScope: (s: Scope) => void;
+  onRemove: () => void;
+}) {
   const I = ICON[g.resource];
+  const where = (
+    <span className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" title={g.resource}>
+      <I className="size-3.5 shrink-0" />
+      <span className="truncate">{g.label ?? g.resource}</span>
+    </span>
+  );
+  if (!editable) {
+    return (
+      <div className="flex items-center gap-1.5" title="Changed by the organization's admins">
+        {where}
+        <Badge variant="outline">{scopeName(g.scope)}</Badge>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" title={g.resource}>
-        <I className="size-3.5 shrink-0" />
-        <span className="truncate">{g.label ?? g.resource}</span>
-      </span>
+      {where}
       <Select value={g.scope} onValueChange={(v) => onScope(v as Scope)}>
         <SelectTrigger size="sm" className="h-7 w-32" aria-label={`Scope on ${g.label}`}>
           <SelectValue />
@@ -179,11 +315,13 @@ function GrantRow({ grant: g, onScope, onRemove }: { grant: Grant; onScope: (s: 
 
 /** Invite someone new, or give a member access to one more thing. */
 function GrantDialog({
+  me,
   dialog,
   places,
   onClose,
   onDone,
 }: {
+  me: Me;
   dialog: { kind: "invite" } | { kind: "grant"; user: { id: string; name: string } };
   places: Where[];
   onClose: () => void;
@@ -222,12 +360,7 @@ function GrantDialog({
         </DialogHeader>
         {link ? (
           <div className="grid gap-3">
-            <Snippet text={link.url} what="the invitation link" />
-            <p className="text-muted-foreground text-sm">
-              {link.emailed
-                ? "We emailed it to them. The link is here too, this once, in case it lands in spam."
-                : "Send it to them: it is shown this once. Turn on email in Settings to have invitations sent."}
-            </p>
+            <InviteLink me={me} url={link.url} emailed={link.emailed} />
             <DialogFooter>
               <Button onClick={onClose}>Done</Button>
             </DialogFooter>
@@ -293,59 +426,85 @@ function GrantDialog({
 
 // ---- share links ------------------------------------------------------------
 
-/** Every share link on what you may share, to copy or revoke. */
-export function Sharing({ shares: initial }: { shares: ShareLink[] }) {
-  const [shares, setShares] = useState(initial);
-  if (!shares.length) {
-    return (
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <IconShare />
-          </EmptyMedia>
-          <EmptyTitle>No share links</EmptyTitle>
-          <EmptyDescription>
-            Share a collection, or collect uploads into one, from its menu in the sidebar; an asset, from its dialog.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
+/**
+ * Every share link on what you may share: new ones for collecting uploads
+ * or showing a collection, and each to copy, email or revoke.
+ */
+export function Sharing({ shares, collections }: { shares: ShareLink[]; collections: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const me = useMe();
+  const [making, setMaking] = useState<"view" | "upload" | null>(null);
+  const [sending, setSending] = useState<ShareLink | null>(null);
   return (
-    <ul className="divide-y rounded-lg border">
-      {shares.map((s) => (
-        <li key={s.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-          {s.kind === "upload" ? <IconUpload className="text-muted-foreground size-4 shrink-0" /> : <IconLink className="text-muted-foreground size-4 shrink-0" />}
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 truncate font-medium">
-              {s.name ?? s.target.label ?? "Untitled"}
-              {s.password && <IconLock className="text-muted-foreground size-3.5" aria-label="Password" />}
-              {s.expired && <Badge variant="outline">Expired</Badge>}
-            </p>
-            <p className="text-muted-foreground truncate text-xs">
-              {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the workspace"} · by {s.createdBy} ·{" "}
-              {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => copy(s.url, "the link")}>
-            Copy link
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Revoke ${s.name ?? "this link"}`}
-            title="Revoke"
-            onClick={async () => {
-              if (!(await send("DELETE", `/api/v1/shares/${s.id}`))) return;
-              setShares((xs) => xs.filter((x) => x.id !== s.id));
-              toast.success("Revoked: the link no longer works");
-            }}
-          >
-            <IconTrash />
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="flex-1 text-sm font-semibold">
+          Links <span className="text-muted-foreground font-normal">{shares.length}</span>
+        </h2>
+        <Button size="sm" onClick={() => setMaking("upload")}>
+          <IconUpload /> Collect uploads
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setMaking("view")}>
+          <IconShare /> Share a collection
+        </Button>
+      </div>
+      {shares.length === 0 ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconShare />
+            </EmptyMedia>
+            <EmptyTitle>No links yet</EmptyTitle>
+            <EmptyDescription>
+              Collect uploads gives a photographer or an agency a link to send files in, no account needed; they wait
+              in Review. Share a collection lets someone look and download. An asset is shared from its dialog.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {shares.map((s) => (
+            <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
+              {s.kind === "upload" ? <IconUpload className="text-muted-foreground size-4 shrink-0" /> : <IconLink className="text-muted-foreground size-4 shrink-0" />}
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 truncate font-medium">
+                  {s.name ?? s.target.label ?? "Untitled"}
+                  {s.password && <IconLock className="text-muted-foreground size-3.5" aria-label="Password" />}
+                  {s.expired && <Badge variant="outline">Expired</Badge>}
+                </p>
+                <p className="text-muted-foreground truncate text-xs">
+                  {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the workspace"} · by {s.createdBy} ·{" "}
+                  {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => copy(s.url, "the link")}>
+                Copy link
+              </Button>
+              {me?.email && !s.expired && (
+                <Button variant="outline" size="sm" onClick={() => setSending(s)}>
+                  <IconSend /> Send
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Revoke ${s.name ?? "this link"}`}
+                title="Revoke"
+                onClick={async () => {
+                  if (!(await send("DELETE", `/api/v1/shares/${s.id}`))) return;
+                  toast.success("Revoked: the link no longer works");
+                  router.refresh();
+                }}
+              >
+                <IconTrash />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {making && <ShareDialog target={{ kind: making }} collections={collections} onClose={() => setMaking(null)} onMade={() => router.refresh()} />}
+      {sending && <SendLinkDialog link={sending} onClose={() => setSending(null)} />}
+    </div>
   );
 }
 

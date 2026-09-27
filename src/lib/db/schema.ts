@@ -498,8 +498,9 @@ export const grants = pgTable(
 );
 
 /**
- * A grant waiting for someone to take it. The link carries the token; only
- * its hash is kept, like an API key's. `email` is who it was meant for.
+ * A grant waiting for someone to take it. The link carries the token, found
+ * by its hash; the token itself is kept sealed, so an admin can copy the
+ * link again. `email` is who it was meant for.
  */
 export const invitations = pgTable(
   "invitations",
@@ -514,6 +515,8 @@ export const invitations = pgTable(
     resourceId: uuid("resource_id").notNull(),
     scope: text("scope").$type<Scope>().notNull(),
     tokenHash: text("token_hash").notNull().unique(),
+    /** The token again, sealed (lib/settings.ts seal), so an admin can copy the link later. Lookups use the hash. */
+    tokenSealed: text("token_sealed"),
     invitedBy: text("invited_by").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),

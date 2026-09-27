@@ -4,6 +4,7 @@ import {
   IconHistory,
   IconLayoutGrid,
   IconMail,
+  IconPalette,
   IconShare,
   IconUser,
   IconUsers,
@@ -19,7 +20,7 @@ import { can, type Action } from "@/lib/permissions";
  * this list; adding a section is an entry here and a case in the page.
  */
 
-export const CONTEXTS = ["workspace", "organization", "account"] as const;
+export const CONTEXTS = ["workspace", "organization", "account", "development"] as const;
 export type Context = (typeof CONTEXTS)[number];
 
 export type Section = {
@@ -31,6 +32,10 @@ export type Section = {
   description: string;
   /** What opening it takes; none: anyone signed in (the account's own sections). */
   action: Action | null;
+  /** A page of its own elsewhere, rather than a section at /settings/{context}/{id}. */
+  href?: string;
+  /** Only while developing (`pnpm dev`): a contributor's page, not a user's. */
+  dev?: boolean;
 };
 
 export const SECTIONS: Section[] = [
@@ -41,6 +46,14 @@ export const SECTIONS: Section[] = [
     icon: IconLayoutGrid,
     description: "The workspace's name. A workspace is a library of its own: assets, collections, fields, brands and keys.",
     action: "workspace.manage",
+  },
+  {
+    context: "workspace",
+    id: "members",
+    label: "Members",
+    icon: IconUsers,
+    description: "Who can open this workspace and what each may do here: through the organization, here, or on some collections.",
+    action: "member.manage",
   },
   {
     context: "workspace",
@@ -65,14 +78,6 @@ export const SECTIONS: Section[] = [
     icon: IconBuilding,
     description: "The organization's name, as its people and invitations see it.",
     action: "organization.manage",
-  },
-  {
-    context: "organization",
-    id: "people",
-    label: "People",
-    icon: IconUsers,
-    description: "Who is in, and what each may do: on the organization, a workspace, a collection or one asset.",
-    action: "member.manage",
   },
   {
     context: "organization",
@@ -106,14 +111,31 @@ export const SECTIONS: Section[] = [
     description: "Your name and password.",
     action: null,
   },
+  {
+    context: "development",
+    id: "design",
+    label: "Design system",
+    icon: IconPalette,
+    description: "Every component in use, as a living reference.",
+    action: null,
+    href: "/design",
+    dev: true,
+  },
 ];
 
-export const hrefOf = (s: Pick<Section, "context" | "id">) => `/settings/${s.context}/${s.id}`;
+export const hrefOf = (s: Pick<Section, "context" | "id" | "href">) => s.href ?? `/settings/${s.context}/${s.id}`;
 /** Whether this person may open a section: its action, or for the account's, being signed in. */
-export const opens = (me: Me, s: Section) => (s.action ? can(me, s.action) : !!me.user);
+export const opens = (me: Me, s: Section) =>
+  (!s.dev || process.env.NODE_ENV === "development") && (s.action ? can(me, s.action) : s.dev || !!me.user);
 export const allowedFor = (me: Me) => SECTIONS.filter((s) => opens(me, s));
 export const find = (context: string, id: string) => SECTIONS.find((s) => s.context === context && s.id === id);
 
 /** How a context is headed in the menu: "Workspace · Library". */
 export const contextTitle = (c: Context, me: Me) =>
-  c === "workspace" ? `Workspace · ${me.workspace.name}` : c === "organization" ? `Organization · ${me.workspace.organization.name}` : "Account";
+  c === "workspace"
+    ? `Workspace · ${me.workspace.name}`
+    : c === "organization"
+      ? `Organization · ${me.workspace.organization.name}`
+      : c === "account"
+        ? "Account"
+        : "Development";

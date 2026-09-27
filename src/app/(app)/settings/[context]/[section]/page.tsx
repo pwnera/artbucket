@@ -39,14 +39,14 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       body = <FieldsPanel fields={await get("fields", data<FieldDef[]>, [])} />;
       break;
     case "workspace/sharing":
-      body = <Sharing shares={await get("shares", data<ShareLink[]>, [])} />;
+      body = <Sharing shares={await get("shares", data<ShareLink[]>, [])} collections={sidebar.collections} />;
       break;
     case "organization/general":
       body = <NameForm what="organization" url={`/api/v1/organizations/${ws.organization.id}`} name={ws.organization.name} />;
       break;
-    case "organization/people": {
-      const members = await get("members", (b: Members) => b, null);
-      body = members && <People me={me} members={members} collections={sidebar.collections} />;
+    case "workspace/members": {
+      const members = await get("members?in=workspace", (b: Members) => b, null);
+      body = members && <People me={me} members={members} collections={sidebar.collections} view="workspace" />;
       break;
     }
     case "organization/workspaces":
