@@ -138,9 +138,12 @@ Modeled on [Postiz](https://postiz.com): one MCP server, one skill, one CLI, and
 setup page per agent. Supporting an agent is a snippet, not code.
 
 - **OAuth on `/api/v1/mcp`** (MCP authorization spec, on the v0.7 better-auth):
-  chat apps (Claude.ai / Desktop / Cowork, ChatGPT, Perplexity, Gemini) take a URL
-  and a consent screen, not a pasted header. The consent screen is the scope
-  picker: Suggest, Read, Edit. Keys stay for headless use
+  chat apps (Claude.ai / Desktop / Cowork, ChatGPT, Perplexity, Gemini Spark)
+  take a URL and a consent screen, not a pasted header. The consent screen is the
+  scope picker: Suggest, Read, Edit. Keys stay for headless use
+- **Generate where you chat:** the most-used image models live inside chat apps
+  (GPT Image in ChatGPT, Nano Banana in Gemini). Connected, the same chat reads
+  the brand, generates, and files the result in artbucket with its provenance
 - **`artbucket login`** via device authorization, so the CLI needs no pasted key
 - **Skill:** a `SKILL.md` teaching the workflow (brand rules first, `check_use`
   before publishing), installable with `npx skills add`. Covers agents without
@@ -149,10 +152,21 @@ setup page per agent. Supporting an agent is a snippet, not code.
   plugin bundling the MCP config and the skill
 - **App builders as a first-class group:** Lovable, v0, Bolt, Replit. "Your
   vibe-coded app is on-brand" is the pitch no DAM and no scheduler can make
+- **Design tools as a group:** Figma (the Figma agent and Figma Make take custom
+  MCP connectors) connects straight to artbucket, so designs start from the real
+  logo, palette and type scale instead of a screenshot of the guidelines
+- **Generation tools, through the agent:** Canva, Adobe for Creativity
+  (Firefly, Photoshop, Express), Recraft (native SVG), Ideogram (text in images)
+  and Krea (one connection to Flux, Kling, Ideogram and more) have official MCP
+  *servers*, not clients, so they cannot call artbucket. The agent holds both
+  connections: brand rules and tokens in, generated file out, ingested with
+  `origin: generated`, `generator` and `prompt`, then `check_use` before it
+  ships. The skill carries this as a recipe; the picker shows it as "use with"
+  pairs, not as a connect button
 - **Automations:** n8n, Make, Zapier via their MCP client nodes or the OpenAPI
   spec. Snippets only
 - **Agents page becomes a picker:** a grid grouped by chat apps, coding agents,
-  app builders, automations, anything else. One data array of
+  app builders, design tools, generators, automations, anything else. One data array of
   `{name, icon, group, auth, snippet}`, no per-agent components
 - **"Waiting for first call"** on setup, green when the new client first hits
   the API (keys track last use)
@@ -161,8 +175,11 @@ setup page per agent. Supporting an agent is a snippet, not code.
 
 **Not in this one:** custom n8n / Make / Zapier nodes, marketplace listings,
 per-agent marketing pages (those go on the v0.9 docs site), a sidebar chatbot.
+Midjourney until it ships an official MCP server (only relays exist). Video
+generators (Veo, Kling, Seedance) wait on video renditions.
 **Done when:** a person connects Claude.ai and ChatGPT by pasting one URL, with
-no key, and sees each appear in Connected agents after its first call.
+no key, and sees each appear in Connected agents after its first call; and an
+image generated in Recraft lands in Review with its generator and prompt.
 _~2 weekends._
 
 ---
