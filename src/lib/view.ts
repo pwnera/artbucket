@@ -9,6 +9,8 @@
 export type View = {
   q: string;
   tags: string[];
+  /** Asset types; they OR together. */
+  types: string[];
   collection: string | null;
   review: boolean;
   /** Values per select/boolean field; values of one field OR together. */
@@ -30,6 +32,7 @@ export function parseView(params: URLSearchParams): View {
   return {
     q: params.get("q") ?? "",
     tags: params.getAll("tag"),
+    types: params.getAll("type"),
     collection: params.get("collection"),
     // `/?review` as well as `/?review=true`: the short form is what people type.
     review: params.has("review") && params.get("review") !== "false",
@@ -49,6 +52,7 @@ export function viewQuery(v: View, ui = true): string {
   const p = new URLSearchParams();
   if (v.q.trim()) p.set("q", v.q.trim());
   for (const t of v.tags) p.append("tag", t);
+  for (const t of v.types) p.append("type", t);
   if (v.collection) p.set("collection", v.collection);
   if (v.review) p.set("review", "true");
   for (const [k, vs] of Object.entries(v.filters)) for (const x of vs) p.append(`f.${k}`, x);
@@ -63,4 +67,4 @@ export const canonical = (query: string) => viewQuery(parseView(new URLSearchPar
 
 /** Narrowed by something other than where you are (a collection, the review queue). */
 export const isNarrowed = (v: View) =>
-  v.q.trim() !== "" || v.tags.length > 0 || v.extra.length > 0 || Object.values(v.filters).some((x) => x.length > 0);
+  v.q.trim() !== "" || v.tags.length > 0 || v.types.length > 0 || v.extra.length > 0 || Object.values(v.filters).some((x) => x.length > 0);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as S from "./schemas.ts";
+import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
 import type { Scope } from "./scopes.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
@@ -94,6 +95,10 @@ export function openapi(serverUrl: string) {
           query: {
             q: { schema: str, description: "Every word must match, each as a prefix" },
             tag: { schema: { type: "array", items: str }, description: "Repeat; assets carrying every tag" },
+            type: {
+              schema: { type: "array", items: { type: "string", enum: [...ASSET_TYPES] } },
+              description: "Repeat; assets of any of these types",
+            },
             collection: { schema: str, description: "Only this collection: its id, or its name" },
             review: {
               schema: { type: "string", enum: ["true", "false"] },

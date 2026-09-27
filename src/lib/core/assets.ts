@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, count, desc, eq, getTableColumns, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, or, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
@@ -13,7 +13,7 @@ import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
-import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
+import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { fontMime } from "@/lib/font";
 import { extractMetadata } from "@/lib/metadata";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
@@ -200,6 +200,8 @@ export type AssetQuery = {
   q?: string;
   /** Assets carrying all of these tags. */
   tags?: string[];
+  /** Assets of any of these types (lib/filters.ts ASSET_TYPES). */
+  types?: string[];
   /** Assets in this collection. */
   collection?: string;
   /** Custom field filters, matched against own-else-inherited values. */
@@ -218,6 +220,7 @@ export type AssetQuery = {
 const QueryParams = z.object({
   q: z.string().max(512).optional(),
   tag: z.array(z.string().max(64)).max(20),
+  type: z.array(z.string().max(20)).max(ASSET_TYPES.length),
   collection: z.string().max(120).optional(),
   review: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().optional(),
@@ -229,20 +232,24 @@ const QueryParams = z.object({
  * searches, so a search that saves is a search that runs.
  */
 export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQuery> {
-  const { tag, review, ...rest } = QueryParams.parse({
+  const { tag, type, review, ...rest } = QueryParams.parse({
     q: params.get("q") ?? undefined,
     tag: params.getAll("tag"),
+    type: params.getAll("type"),
     collection: params.get("collection") ?? undefined,
     review: params.get("review") ?? undefined,
     limit: params.get("limit") ?? undefined,
     offset: params.get("offset") ?? undefined,
   });
+  const unknown = type.find((t) => !(ASSET_TYPES as readonly string[]).includes(t));
+  if (unknown) throw new AssetError("invalid", `No asset type "${unknown}". Types: ${ASSET_TYPES.join(", ")}`);
   const collection = rest.collection && (await collectionId(rest.collection));
   try {
     return {
       ...rest,
       collection,
       tags: tag,
+      types: type,
       review: review === "true",
       filters: parseFieldFilters(params, await listFields()),
     };
@@ -262,6 +269,19 @@ async function collectionId(ref: string): Promise<string> {
     `No collection "${ref}". ${all.length ? `Collections: ${all.map((c) => c.name).join(", ")}` : "There are no collections yet"}`,
   );
 }
+
+/**
+ * An asset's type (ASSET_TYPES), from its media type. Fonts go by extension
+ * too, like lib/font.ts isFont: a font can arrive as application/octet-stream.
+ */
+const assetType = sql<string>`case
+  when ${assets.mime} like 'font/%' or ${assets.filename} ~* '\\.(woff2?|[ot]tf)$' then 'font'
+  when ${assets.mime} like 'image/%' then 'image'
+  when ${assets.mime} like 'video/%' then 'video'
+  when ${assets.mime} like 'audio/%' then 'audio'
+  when ${assets.mime} = 'application/pdf' or ${assets.mime} like 'text/%'
+    or ${assets.mime} ~ '^application/(msword|rtf|vnd\\.(openxmlformats-officedocument|oasis\\.opendocument|ms-))' then 'document'
+  else 'other' end`;
 
 /** Own values over inherited ones. Must match assets_effective_fields_idx exactly. */
 const effective = sql`(${assets.inherited} || ${assets.fields})`;
@@ -283,7 +303,7 @@ function filterSql(f: FieldFilter): SQL {
  * Facets are counted over the same filter, so every count is a click that
  * returns exactly that many results. A field's own facet ignores that field's
  * filter: pick "web" and "print" still shows its count, because values of one
- * field OR together.
+ * field OR together. Types OR the same way, so their facet ignores `types`.
  *
  * ponytail: one facet query per select/boolean field, each scanning the
  * matching set. Fine at the v0.2 target (1,000 assets, <100ms); cache or
@@ -292,6 +312,7 @@ function filterSql(f: FieldFilter): SQL {
 export async function searchAssets({
   q,
   tags = [],
+  types = [],
   collection,
   filters = [],
   review = false,
@@ -302,7 +323,7 @@ export async function searchAssets({
   const tsq = q ? prefixQuery(q) : null;
   const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
   const wanted = normalizeTags(tags);
-  const where = (except?: string) =>
+  const where = (except?: string, anyType = false) =>
     and(
       proposedBy !== undefined
         ? eq(assets.proposedBy, proposedBy)
@@ -311,6 +332,7 @@ export async function searchAssets({
           : eq(assets.status, "active"),
       match,
       wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
+      types.length && !anyType ? inArray(assetType, types) : undefined,
       collection
         ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
         : undefined,
@@ -318,7 +340,7 @@ export async function searchAssets({
     );
 
   const facetable = (await listFields()).filter(isFacetable);
-  const [data, [{ total }], tagCounts, ...fieldCounts] = await Promise.all([
+  const [data, [{ total }], tagCounts, typeCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)
       .from(assets)
@@ -331,6 +353,7 @@ export async function searchAssets({
       .offset(Math.max(offset, 0)),
     db.select({ total: count() }).from(assets).where(where()),
     tagFacet(where()),
+    typeFacet(where(undefined, true)),
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
   return {
@@ -339,6 +362,7 @@ export async function searchAssets({
     total,
     facets: {
       tags: tagCounts,
+      types: typeCounts,
       fields: Object.fromEntries(facetable.map((d, i) => [d.key, fieldCounts[i]])),
     },
   };
@@ -354,6 +378,15 @@ async function tagFacet(where: SQL | undefined) {
     .orderBy(sql`count(*) desc`, sql`t.value`)
     .limit(50);
   return rows;
+}
+
+function typeFacet(where: SQL | undefined) {
+  return db
+    .select({ value: assetType, count: sql<number>`count(*)::int` })
+    .from(assets)
+    .where(where)
+    .groupBy(sql`1`)
+    .orderBy(sql`2 desc`, sql`1`);
 }
 
 /** Values as strings ("web", "true"): exactly what goes back in as `f.key=value`. */
