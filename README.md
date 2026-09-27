@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="src/app/icon.svg" width="96" height="96" alt="Artbucket logo">
+
 # artbucket
 
 **Agent-first, headless-by-design asset management.**
