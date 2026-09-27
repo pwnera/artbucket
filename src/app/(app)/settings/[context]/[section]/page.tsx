@@ -15,6 +15,17 @@ export const metadata: Metadata = { title: "Settings" };
 
 type Params = { context: string; section: string };
 
+/** The API path each section reads, by `{context}/{section}`. */
+const LOADS: Record<string, string> = {
+  "workspace/fields": "fields",
+  "workspace/members": "members?in=workspace",
+  "organization/usage": "usage",
+  "organization/workspaces": "workspaces",
+  "organization/email": "settings?context=organization",
+  "organization/branding": "settings?context=organization",
+  "organization/domains": "domains",
+};
+
 /**
  * One settings section (components/settings/sections.ts), with what it shows
  * read from /api/v1 like any client's. A section this person may not open
@@ -24,11 +35,14 @@ export default async function SettingsSection({ params }: { params: Promise<Para
   const { context, section } = await params;
   const s = find(context, section);
   if (!s) notFound();
-  const sidebar = await sidebarData();
+  // What the section reads, fetched alongside the sidebar: the API checks access itself, and a redirect drops it.
+  const loading = LOADS[`${context}/${section}`];
+  const [sidebar, loaded] = await Promise.all([sidebarData(), loading ? get(loading, (b: unknown) => b, null) : null]);
   const me = sidebar.me;
   if (!opens(me, s)) redirect("/settings");
   const data = <T,>(b: { data: T }) => b.data;
   const ws = me.workspace;
+  const fetched = <B, T>(pick: (b: B) => T, fallback: T) => (loaded ? pick(loaded as B) : fallback);
 
   let body: React.ReactNode;
   switch (`${context}/${section}`) {
@@ -36,7 +50,7 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       body = <NameForm what="workspace" url={`/api/v1/workspaces/${ws.id}`} name={ws.name} />;
       break;
     case "workspace/fields":
-      body = <FieldsPanel fields={await get("fields", data<FieldDef[]>, [])} />;
+      body = <FieldsPanel fields={fetched(data<FieldDef[]>, [])} />;
       break;
     case "organization/general":
       body = (
@@ -47,32 +61,32 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       );
       break;
     case "organization/usage": {
-      const usage = await get("usage", data<Usage>, null);
+      const usage = fetched(data<Usage>, null);
       body = usage && <UsagePanel usage={usage} />;
       break;
     }
     case "workspace/members": {
-      const members = await get("members?in=workspace", (b: Members) => b, null);
+      const members = fetched((b: Members) => b, null);
       body = members && <People me={me} members={members} collections={sidebar.collections} view="workspace" />;
       break;
     }
     case "organization/workspaces":
-      body = <WorkspacesPanel me={me} workspaces={await get("workspaces", data<{ id: string; slug: string; name: string; scope: Scope | null }[]>, [])} />;
+      body = <WorkspacesPanel me={me} workspaces={fetched(data<{ id: string; slug: string; name: string; scope: Scope | null }[]>, [])} />;
       break;
     case "organization/email": {
-      const all = await get("settings?context=organization", data<(EmailSetting & { key: string })[]>, []);
+      const all = fetched(data<(EmailSetting & { key: string })[]>, []);
       const email = all.find((x) => x.key === "email");
       body = email && <EmailPanel me={me} setting={email} />;
       break;
     }
     case "organization/branding": {
-      const all = await get("settings?context=organization", data<(BrandingSetting & { key: string })[]>, []);
+      const all = fetched(data<(BrandingSetting & { key: string })[]>, []);
       const branding = all.find((x) => x.key === "branding");
       body = branding && <BrandingPanel setting={branding} />;
       break;
     }
     case "organization/domains":
-      body = <DomainsPanel domains={await get("domains", data<Domain[]>, [])} />;
+      body = <DomainsPanel domains={fetched(data<Domain[]>, [])} />;
       break;
     case "account/profile":
       body = <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;

@@ -44,6 +44,8 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
   },
   telemetry: { enabled: false },
+  // A session and its person in one query (db/schema.ts relations): every request reads one.
+  advanced: { database: { joins: true } },
   plugins: [
     ...(env.OIDC_ISSUER
       ? [

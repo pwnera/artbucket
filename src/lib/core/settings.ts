@@ -5,6 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { env } from "@/lib/env";
+import { memo } from "@/lib/memo";
 import { can, needs } from "@/lib/permissions";
 import {
   SETTING_CONTEXTS,
@@ -47,13 +48,18 @@ const where = (key: SettingKey, organizationId: string, workspaceId: string | nu
 /**
  * What a place overrides for a key, secrets opened; null when nothing. A
  * secret that no longer opens (BETTER_AUTH_SECRET changed) reads as unset.
+ * Every request reads limits, and most pages branding: kept a minute, and
+ * forgotten here when changed through the API (lib/memo.ts).
  */
-async function stored(key: SettingKey, organizationId: string, workspaceId: string | null): Promise<Record<string, unknown> | null> {
-  const [row] = await db.select({ value: settings.value }).from(settings).where(where(key, organizationId, workspaceId));
+const rows = memo(60_000, async (at: string) => {
+  const [key, organizationId, workspaceId] = at.split(":") as [SettingKey, string, string];
+  const [row] = await db.select({ value: settings.value }).from(settings).where(where(key, organizationId, workspaceId || null));
   if (!row) return null;
   const parsed = SETTINGS[key].schema.partial().safeParse(sealed(key, row.value, (s) => unseal(s, secret)));
-  return parsed.success ? parsed.data : null;
-}
+  return parsed.success ? (parsed.data as Record<string, unknown>) : null;
+});
+const at = (key: SettingKey, organizationId: string, workspaceId: string | null) => `${key}:${organizationId}:${workspaceId ?? ""}`;
+const stored = (key: SettingKey, organizationId: string, workspaceId: string | null) => rows(at(key, organizationId, workspaceId));
 
 /** The value that applies at a place, with its secrets: for code that uses it, never for a response. */
 export async function effective<K extends SettingKey>(key: K, place: Place) {
@@ -129,6 +135,7 @@ export async function updateSetting(caller: Caller, context: SettingContext, raw
       target: [settings.organizationId, settings.workspaceId, settings.key],
       set: { value, updatedBy: caller.actor, updatedAt: sql`now()` },
     });
+  rows.forget(at(key, place.organizationId, place.workspaceId));
   // Which properties changed, never their values: some are secrets.
   const changed = Object.keys(patch).filter((k) => patch[k] !== undefined && JSON.stringify(patch[k]) !== JSON.stringify((current as Record<string, unknown>)[k]));
   await recordAudit(caller, "setting.changed", SETTINGS[key].label, { key, context, changed }, { workspaceId: place.workspaceId });
@@ -140,6 +147,7 @@ export async function resetSetting(caller: Caller, context: SettingContext, rawK
   const key = settable(rawKey, context);
   const place = placeOf(caller, context);
   await db.delete(settings).where(where(key, place.organizationId, place.workspaceId));
+  rows.forget(at(key, place.organizationId, place.workspaceId));
   await recordAudit(caller, "setting.reset", SETTINGS[key].label, { key, context }, { workspaceId: place.workspaceId });
   return described(key, context, place);
 }

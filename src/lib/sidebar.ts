@@ -69,9 +69,10 @@ export const whoami = cache(async (): Promise<Me> => {
 
 /** What every page's sidebar shows, so it reads the same wherever you are. */
 export async function sidebarData(): Promise<SidebarData> {
-  const me = await whoami();
   const data = <T,>(b: { data: T }) => b.data;
-  const [collections, brands, searches, reviewCount] = await Promise.all([
+  // Alongside who is looking, not after: none of these needs it, and a redirect from whoami still wins.
+  const [me, collections, brands, searches, reviewCount] = await Promise.all([
+    whoami(),
     get("collections", data<Collection[]>, []),
     get("brands", data<BrandInfo[]>, []),
     get("searches", data<SavedSearch[]>, []),

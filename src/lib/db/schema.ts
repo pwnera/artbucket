@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
@@ -478,6 +478,14 @@ export const accounts = pgTable(
   },
   (t) => [index("accounts_user_idx").on(t.userId)],
 );
+
+/**
+ * So better-auth reads a session with its person, or a person with their
+ * ways to sign in, in one query rather than two (lib/auth.ts `joins`).
+ */
+export const usersRelations = relations(users, ({ many }) => ({ sessions: many(sessions), accounts: many(accounts) }));
+export const sessionsRelations = relations(sessions, ({ one }) => ({ user: one(users, { fields: [sessions.userId], references: [users.id] }) }));
+export const accountsRelations = relations(accounts, ({ one }) => ({ user: one(users, { fields: [accounts.userId], references: [users.id] }) }));
 
 /**
  * OAuth clients that registered themselves (RFC 7591): Claude, ChatGPT, the

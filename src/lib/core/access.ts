@@ -9,6 +9,7 @@ import { hasUsers } from "@/lib/core/people";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
+import { memo } from "@/lib/memo";
 import type { Scope } from "@/lib/scopes";
 
 /**
@@ -74,33 +75,39 @@ function workspacesWhere(where?: SQL): Promise<Workspace[]> {
     .orderBy(asc(organizations.createdAt), asc(workspaces.createdAt));
 }
 
-/** The oldest workspace: where a caller with nowhere else to be lands. There is always one. */
-async function defaultWorkspace() {
+/**
+ * The oldest workspace: where a caller with nowhere else to be lands. There
+ * is always one. Kept a minute (lib/memo.ts); deleting a workspace forgets it.
+ */
+export const defaultWorkspace = memo(60_000, async () => {
   const [first] = await workspacesWhere();
   if (!first) throw new Error("No workspace: run `pnpm db:migrate`");
   return first;
-}
+});
 
-/** The workspace's private collections: what its scope doesn't reach (lib/access.ts). */
-export async function hiddenIn(workspaceId: string): Promise<string[]> {
-  const rows = await db
-    .select({ id: collections.id })
+/** Private collections where `where` says: what a workspace's scope doesn't reach (lib/access.ts). */
+const privateCollections = (where: SQL) =>
+  db
+    .select({ id: collections.id, workspaceId: collections.workspaceId })
     .from(collections)
-    .where(and(eq(collections.workspaceId, workspaceId), eq(collections.private, true)));
-  return rows.map((r) => r.id);
+    .innerJoin(workspaces, eq(workspaces.id, collections.workspaceId))
+    .where(and(eq(collections.private, true), where));
+
+/** The workspace's private collections. */
+export async function hiddenIn(workspaceId: string): Promise<string[]> {
+  return (await privateCollections(eq(collections.workspaceId, workspaceId))).map((r) => r.id);
 }
 
-/** Every workspace a person can open: all of an organization they have a grant on, and any they have a grant in. */
+/** Workspaces a person can open: all of an organization they have a grant on, and any they have a grant in. */
+const reachable = (userId: string) =>
+  or(
+    inArray(workspaces.organizationId, db.select({ id: grants.resourceId }).from(grants).where(and(eq(grants.userId, userId), eq(grants.resource, "organization")))),
+    inArray(workspaces.id, db.select({ id: grants.workspaceId }).from(grants).where(eq(grants.userId, userId))),
+  )!;
+
+/** Every workspace a person can open, and their grants: one round trip. */
 export async function workspacesOf(userId: string) {
-  const mine = await db.select().from(grants).where(eq(grants.userId, userId));
-  const orgs = mine.filter((g) => g.resource === "organization").map((g) => g.resourceId);
-  const inside = [...new Set(mine.flatMap((g) => (g.workspaceId ? [g.workspaceId] : [])))];
-  const open =
-    orgs.length || inside.length
-      ? await workspacesWhere(
-          or(orgs.length ? inArray(workspaces.organizationId, orgs) : undefined, inside.length ? inArray(workspaces.id, inside) : undefined),
-        )
-      : [];
+  const [mine, open] = await Promise.all([db.select().from(grants).where(eq(grants.userId, userId)), workspacesWhere(reachable(userId))]);
   return { grants: mine, workspaces: open };
 }
 
@@ -135,12 +142,13 @@ async function resolve(req: Request): Promise<Caller | undefined> {
       .set({ lastUsedAt: new Date(), calls: sql`${apiKeys.calls} + 1` })
       .where(eq(apiKeys.id, key.id))
       .catch((err) => console.error("key use not recorded", err));
-    const [workspace] = await workspacesWhere(eq(workspaces.id, key.workspaceId));
-    const hidden = await hiddenIn(workspace.id);
+    const [[workspace], hidden, theirs] = await Promise.all([
+      workspacesWhere(eq(workspaces.id, key.workspaceId)),
+      hiddenIn(key.workspaceId),
+      key.userId ? db.select().from(grants).where(eq(grants.userId, key.userId)) : null,
+    ]);
     // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
-    const access = key.userId
-      ? capAt(accessIn(await db.select().from(grants).where(eq(grants.userId, key.userId)), workspace, hidden), key.scope)
-      : { scope: key.scope, narrow: NONE, off: NO_OFF, hidden };
+    const access = theirs ? capAt(accessIn(theirs, workspace, hidden), key.scope) : { scope: key.scope, narrow: NONE, off: NO_OFF, hidden };
     return { workspace, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
@@ -148,16 +156,20 @@ async function resolve(req: Request): Promise<Caller | undefined> {
   const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
   if (session) {
     const { id, name, email } = session.user;
-    const { grants: mine, workspaces: open } = await workspacesOf(id);
+    // Private collections of every workspace they can open, alongside: which one they are in is known after.
+    const [{ grants: mine, workspaces: open }, closed] = await Promise.all([workspacesOf(id), privateCollections(reachable(id))]);
     const workspace = open.find((w) => w.id === wanted) ?? open[0] ?? (await defaultWorkspace());
+    const hidden = open.includes(workspace) ? closed.filter((c) => c.workspaceId === workspace.id).map((c) => c.id) : await hiddenIn(workspace.id);
     const orgScope = highest(
       ...mine.filter((g) => g.resource === "organization" && g.resourceId === workspace.organizationId).map((g) => g.scope),
     );
-    return { workspace, ...accessIn(mine, workspace, await hiddenIn(workspace.id)), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
+    return { workspace, ...accessIn(mine, workspace, hidden), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
   }
 
-  const scope = await anonymousScope();
-  const picked = wanted && z.uuid().safeParse(wanted).success ? (await workspacesWhere(eq(workspaces.id, wanted)))[0] : undefined;
+  const [scope, [picked]] = await Promise.all([
+    anonymousScope(),
+    wanted && z.uuid().safeParse(wanted).success ? workspacesWhere(eq(workspaces.id, wanted)) : [undefined],
+  ]);
   const workspace = picked ?? (await defaultWorkspace());
   return { workspace, scope, narrow: NONE, off: NO_OFF, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
 }
@@ -178,6 +190,13 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
+  const [email, workspaces, signUp, anonymous, passwordReset] = await Promise.all([
+    canEmail(caller.workspace.organizationId),
+    openWorkspaces(caller),
+    hasUsers().then((some) => !some),
+    anonymousScope(),
+    canResetPasswords(),
+  ]);
   return {
     user: caller.user,
     key: !!caller.key,
@@ -187,17 +206,17 @@ export async function describeCaller(caller: Caller) {
     orgScope: caller.orgScope,
     readOnly: !!caller.readOnly,
     narrowed: isNarrowed(caller),
-    email: await canEmail(caller.workspace.organizationId),
+    email,
     narrow: caller.narrow,
     off: caller.off,
     hidden: caller.hidden,
-    workspaces: await openWorkspaces(caller),
+    workspaces,
     auth: {
-      signUp: !(await hasUsers()),
+      signUp,
       open: env.SIGNUP === "open",
       oidc: oidc && { name: oidc.name },
-      anonymous: await anonymousScope(),
-      passwordReset: await canResetPasswords(),
+      anonymous,
+      passwordReset,
     },
   };
 }

@@ -1,5 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { memo } from "@/lib/memo";
 import { assets, organizations, workspaces } from "@/lib/db/schema";
 import { callerFrom } from "@/lib/core/access";
 import { deliverableSql } from "@/lib/core/assets";
@@ -37,10 +38,11 @@ export async function brandOf(organizationId: string | null): Promise<Brand> {
   return { name: value.name, tagline: value.tagline, logo, icon, accent: value.accent, emailFooter: value.emailFooter, custom: differs(value) };
 }
 
-async function onlyOrganization() {
+/** The server's organization while it has just one: its brand is everyone's. Kept a minute; making or deleting one forgets it. */
+export const onlyOrganization = memo(60_000, async () => {
   const rows = await db.select({ id: organizations.id }).from(organizations).orderBy(asc(organizations.createdAt)).limit(2);
   return rows.length === 1 ? rows[0].id : null;
-}
+});
 
 /** The organization a request is branded as, or null for the server's own. */
 export async function organizationFor(req: Request): Promise<string | null> {
