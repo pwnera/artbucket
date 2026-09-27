@@ -18,6 +18,7 @@ import {
   IconPhoto,
   IconRobot,
   IconSearch,
+  IconCopy,
   IconShare,
   IconSparkles,
   IconTypography,
@@ -140,6 +141,16 @@ type Layout = "grid" | "list";
  * Grid or list, remembered per viewer: a convenience, so browser storage. The
  * library opens as a grid (it is art); Review as a list (it is decisions).
  */
+async function copyLink(path: string) {
+  const href = new URL(path, location.origin).href;
+  try {
+    await navigator.clipboard.writeText(href);
+    toast.success("Copied a link to this collection");
+  } catch {
+    toast.error("Couldn't copy the link", { description: href });
+  }
+}
+
 function useLayout(review: boolean): [Layout, (l: Layout) => void] {
   const [stored, set] = usePref<Layout | null>(`artbucket:layout:${review ? "review" : "assets"}`, null);
   return [stored === "grid" || stored === "list" ? stored : review ? "list" : "grid", set];
@@ -625,7 +636,12 @@ export function Gallery({
                     : "Everything in the library. Drop files anywhere on the page to add them."
             }
           >
-            {/* What can be done with the collection itself: share it, edit it. */}
+            {/* What can be done with the collection itself: copy its link, share it, edit it. */}
+            {inCollection && !activeSearch && (
+              <IconButton label="Copy link, for people with access" onClick={() => copyLink(`/?collection=${inCollection.id}`)}>
+                <IconCopy />
+              </IconButton>
+            )}
             {inCollection && !activeSearch && can("collection.share", inCollection) && (
               <IconButton label={`Share ${inCollection.name}`} onClick={() => setSharing({ kind: "view", collection: inCollection })}>
                 <IconShare />
