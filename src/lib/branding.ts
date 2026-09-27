@@ -71,7 +71,7 @@ export const fileSlug = (name: string) =>
 // ---- email ----------------------------------------------------------------------
 
 /** An email before it is branded: `{product}` in it becomes the product's name. */
-export type Draft = { to: string; subject: string; lines: string[]; action?: { label: string; url: string } };
+export type Draft = { to: string; subject: string; lines: string[]; action?: { label: string; url: string }; /** A one-time code, set large under the lines. */ code?: string };
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const ink = (hexColor: string) => {
@@ -93,11 +93,12 @@ export function render(d: Draft, brand: Pick<Brand, "name" | "accent" | "emailFo
   const lines = d.lines.map(fill);
   const action = d.action && { label: fill(d.action.label), url: d.action.url };
   const accent = brand.accent ?? "#6D4AFF";
-  const text = [...lines, ...(action ? ["", `${action.label}: ${action.url}`] : []), ...(brand.emailFooter ? ["", "--", brand.emailFooter] : [])].join("\n");
+  const text = [...lines, ...(d.code ? ["", d.code] : []), ...(action ? ["", `${action.label}: ${action.url}`] : []), ...(brand.emailFooter ? ["", "--", brand.emailFooter] : [])].join("\n");
   const html = `<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111">
 <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e4e4ea;border-radius:12px;padding:32px">
 ${brand.logo ? `<p style="margin:0 0 24px"><img src="${escape(brand.logo)}" alt="${escape(brand.name)}" height="32" style="height:32px;width:auto"></p>` : ""}
 ${lines.map((l) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(l)}</p>`).join("\n")}
+${d.code ? `<p style="margin:8px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px">${escape(d.code)}</p>` : ""}
 ${action ? `<p style="margin:24px 0 0"><a href="${escape(action.url)}" style="display:inline-block;background:${accent};color:${ink(accent)};text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escape(action.label)}</a></p>` : ""}
 </div>
 ${brand.emailFooter ? `<p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6b6b76;text-align:center">${escape(brand.emailFooter)}</p>` : ""}

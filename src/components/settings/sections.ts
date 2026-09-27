@@ -37,6 +37,8 @@ export type Section = {
   href?: string;
   /** Only while developing (`pnpm dev`): a contributor's page, not a user's. */
   dev?: boolean;
+  /** Left out for this person anyway: what it sets is the server's. */
+  hidden?: (me: Me) => boolean;
 };
 
 export const SECTIONS: Section[] = [
@@ -111,6 +113,7 @@ export const SECTIONS: Section[] = [
     icon: IconMail,
     description: "How invitations and password resets are sent. Off until you turn it on.",
     action: "organization.manage",
+    hidden: (me) => me.auth.serverEmail,
   },
   {
     context: "account",
@@ -135,7 +138,7 @@ export const SECTIONS: Section[] = [
 export const hrefOf = (s: Pick<Section, "context" | "id" | "href">) => s.href ?? `/settings/${s.context}/${s.id}`;
 /** Whether this person may open a section: its action, or for the account's, being signed in. */
 export const opens = (me: Me, s: Section) =>
-  (!s.dev || process.env.NODE_ENV === "development") && (s.action ? can(me, s.action) : s.dev || !!me.user);
+  (!s.dev || process.env.NODE_ENV === "development") && !s.hidden?.(me) && (s.action ? can(me, s.action) : s.dev || !!me.user);
 export const allowedFor = (me: Me) => SECTIONS.filter((s) => opens(me, s));
 export const find = (context: string, id: string) => SECTIONS.find((s) => s.context === context && s.id === id);
 

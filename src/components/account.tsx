@@ -51,7 +51,7 @@ export type Me = {
   off: Off;
   hidden: string[];
   workspaces: WorkspaceRef[];
-  auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; anonymous: Scope | null; passwordReset: boolean };
+  auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
 
 /** Go somewhere and redraw it from the server: after signing in or out, or switching workspace, every page's data is someone else's. */

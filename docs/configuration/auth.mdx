@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: Passwords, single sign-on, who may sign up, and email.
+description: Passwords, single sign-on, who may sign up, confirming addresses, and email.
 ---
 
 People sign in with an email and a password, or with any OpenID Connect
@@ -47,7 +47,23 @@ EMAIL_FROM="Acme Assets <assets@acme.example>"
 EMAIL_API_KEY=re_...
 ```
 
-or for one organization in Settings, Email. Providers are HTTP APIs, no SMTP:
-`resend`, `postmark`, `sendgrid`, and `console`, which prints to the log. A
-message that fails never fails what sent it: the link is still shown, and the
-failure is in the audit log.
+Set this way, email is the server's alone: every organization sends through
+it, none can change the sender, the key or the provider, and Settings, Email is
+not offered (`PATCH /api/v1/settings/email` answers `403`). A hosted server
+sends from its own domain with its own account, and no organization borrows it
+to send as someone else.
+
+Without it, each organization can turn on its own in Settings, Email.
+Providers are HTTP APIs, no SMTP: `resend`, `postmark`, `sendgrid`, and
+`console`, which prints to the log. A message that fails never fails what sent
+it: the link is still shown, and the failure is in the audit log.
+
+## Confirming addresses
+
+With the server's email set, a new account proves its address before it signs
+in: signing up mails a six-digit code, good for ten minutes and five tries, and
+the account signs in once it is entered. An account that never confirmed gets
+a fresh code the next time it signs in with its password, so accounts made
+before this confirm once too. Single sign-on needs no code: the provider
+vouched for the address. Without the server's email there is nothing to send
+a code from before an account has an organization, so none is asked.

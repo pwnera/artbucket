@@ -66,6 +66,15 @@ export async function sendPasswordReset(user: { id: string; email: string; name:
   return sendAs(null, message);
 }
 
+/** The code a new account confirms its address with (lib/auth.ts): from the server's own email, as no organization is theirs yet. */
+export const sendSignUpCode = (to: string, code: string) =>
+  sendAs(null, {
+    to,
+    subject: `${code} is your {product} code`,
+    lines: ["Enter this code to confirm your email address and finish making your account. It works for ten minutes.", "If you didn't ask for it, ignore this."],
+    code,
+  });
+
 export function invitationEmail(to: string, i: { invitedBy: string; organization: string; label: string | null; scope: string; url: string }): Draft {
   return {
     to,

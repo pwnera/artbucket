@@ -693,7 +693,7 @@ export function openapi(serverUrl: string) {
           summary: "Open a brand portal",
           scope: "public",
           description:
-            "What a visitor sees: the portal, themed, its collections with how many usable assets each has, and a page " +
+            "What a visitor sees: the portal, themed, its collections with how many usable assets each has, its brands, and a page " +
             "of them with their downloads. URLs are relative to the host asked, so a portal on its own domain loads " +
             "from there. A password goes in `X-Portal-Password`, an approved request's key in `X-Portal-Key`; a " +
             "`members` portal reads the session. 401 `password` names how to get in (see PortalGate), 410 `gone` once closed.",
@@ -704,6 +704,19 @@ export function openapi(serverUrl: string) {
             offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
           },
           ok: [200, "The portal's contents", S.PortalView],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/brands/{brand}": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug")],
+        get: op({
+          summary: "A brand's guidelines, in a portal",
+          scope: "public",
+          description:
+            "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET " +
+            "/api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id}.",
+          query: { context: { schema: str, description: "Resolve for one context, e.g. dark-background" } },
+          ok: [200, "The guidelines", S.PortalBrand],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },

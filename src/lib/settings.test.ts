@@ -1,32 +1,32 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { merge, present, resolve, seal, sealed, unseal } from "./settings.ts";
+import { lockedBy, merge, present, resolve, seal, sealed, unseal } from "./settings.ts";
 
 const saved = { enabled: true, provider: "postmark" as const, from: "Org <a@org.test>", replyTo: null, apiKey: "pm-secret" };
 
 test("the narrowest place that says something wins, then the environment, then the default", () => {
-  const env = { EMAIL_PROVIDER: "resend", EMAIL_FROM: "Server <s@host.test>", EMAIL_API_KEY: "re_x" };
-  const org = resolve("email", { organization: saved }, env);
+  const org = resolve("email", { organization: saved }, {});
   assert.deepEqual(org.value, saved);
   assert.equal(org.source, "organization");
-  const fromEnv = resolve("email", {}, env);
-  assert.equal(fromEnv.source, "environment");
-  assert.equal(fromEnv.value.provider, "resend");
-  assert.equal(fromEnv.value.enabled, true);
+  const env = { BRAND_NAME: "Server" };
+  assert.equal(resolve("branding", {}, env).value.name, "Server");
+  const own = resolve("branding", { organization: { name: "Acme" } }, env);
+  assert.equal(own.value.name, "Acme");
+  assert.equal(own.sources.name, "organization");
   assert.deepEqual(resolve("email", {}, {}).source, "default");
   assert.equal(resolve("email", {}, {}).value.enabled, false, "email is off unless configured");
 });
 
-test("a place overrides property by property, keeping the server's secret without holding it", () => {
+test("the server's email, once set, is the server's alone: what an organization stored is ignored", () => {
   const env = { EMAIL_PROVIDER: "resend", EMAIL_FROM: "Server <s@host.test>", EMAIL_API_KEY: "re_x" };
-  const r = resolve("email", { organization: { from: "Acme <a@acme.test>" } }, env);
-  assert.equal(r.value.from, "Acme <a@acme.test>");
+  assert.equal(lockedBy("email", env), true);
+  assert.equal(lockedBy("email", {}), false);
+  assert.equal(lockedBy("branding", { BRAND_NAME: "Server" }), false, "branding stays each organization's");
+  const r = resolve("email", { organization: { from: "Security <security@host.test>", enabled: false } }, env);
+  assert.equal(r.source, "environment");
+  assert.equal(r.value.from, "Server <s@host.test>");
+  assert.equal(r.value.enabled, true);
   assert.equal(r.value.apiKey, "re_x");
-  assert.equal(r.source, "organization");
-  assert.equal(r.sources.from, "organization");
-  assert.equal(r.sources.apiKey, "environment");
-  const off = resolve("email", { organization: { enabled: false } }, env);
-  assert.equal(off.value.enabled, false, "an organization can turn the server's email off for itself");
 });
 
 test("a typo in EMAIL_PROVIDER fails loudly", () => {

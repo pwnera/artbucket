@@ -17,7 +17,9 @@ import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
  *   workspace  >  organization  >  environment (config files)  >  default
  *
  * so a server configured once serves every organization, and one of them can
- * change its sender and keep the server's API key without ever holding it.
+ * change what the server leaves open. A `serverWins` setting the environment
+ * sets is the server's alone: email, so no organization sends through the
+ * server's account from an address of its choosing.
  *
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
@@ -39,6 +41,8 @@ type Definition<S extends z.ZodObject> = {
   fromEnv: (env: Env) => z.infer<S> | null;
   /** Set by whoever runs the server, in the environment or the database; never through the API. */
   operator?: true;
+  /** Once the environment sets it, the server's alone: no place overrides it, and the API doesn't offer it. */
+  serverWins?: true;
 };
 
 const define = <S extends z.ZodObject>(d: Definition<S>) => d;
@@ -50,6 +54,8 @@ export const SETTINGS = {
     contexts: ["organization"],
     default: { enabled: false, provider: "resend", from: "", replyTo: null, apiKey: null },
     secrets: ["apiKey"],
+    // A hosted server sends from its own domain with its own key: an organization can't borrow either.
+    serverWins: true,
     fromEnv: (env) => {
       const provider = env.EMAIL_PROVIDER?.trim();
       if (!provider) return null;
@@ -85,6 +91,9 @@ export type SettingValue<K extends SettingKey> = z.infer<(typeof SETTINGS)[K]["s
 /** What the API lists and changes: everything but the operator's. */
 export const SETTING_KEYS = (Object.keys(SETTINGS) as SettingKey[]).filter((k) => !("operator" in SETTINGS[k]));
 
+/** Whether the environment has taken this setting over (`serverWins`): then no organization or workspace sets it. */
+export const lockedBy = (key: SettingKey, env: Env) => "serverWins" in SETTINGS[key] && SETTINGS[key].fromEnv(env) !== null;
+
 type Layer = Record<string, unknown> | null | undefined;
 
 /**
@@ -93,11 +102,13 @@ type Layer = Record<string, unknown> | null | undefined;
  * holds what each place stored, secrets opened.
  */
 export function resolve<K extends SettingKey>(key: K, layers: Partial<Record<SettingContext, Layer>>, env: Env) {
+  // What a place stored before the server took the setting over stays stored, and is ignored.
+  const places = lockedBy(key, env) ? {} : layers;
   const order: [Source, Layer][] = [
     ["default", SETTINGS[key].default],
     ["environment", SETTINGS[key].fromEnv(env)],
-    ["organization", layers.organization],
-    ["workspace", layers.workspace],
+    ["organization", places.organization],
+    ["workspace", places.workspace],
   ];
   const value: Record<string, unknown> = {};
   const sources: Record<string, Source> = {};

@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, collectionAssets, collections, domains, grants, organizations, portalCollections, portalRequests, portals, users, workspaces, type PortalRequestStatus } from "@/lib/db/schema";
+import { assets, brands, collectionAssets, collections, domains, grants, organizations, portalBrands, portalCollections, portalRequests, portals, users, workspaces, type PortalRequestStatus } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
+import { listContexts, listRules } from "@/lib/core/brand";
 import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
@@ -23,8 +24,8 @@ import { seal, unseal } from "@/lib/settings";
 import { hashPassword, verifyPassword } from "@/lib/share";
 
 /**
- * Brand portals: a curated, branded front door onto chosen collections, for
- * press, partners and retailers. Only what may be used shows: approved,
+ * Brand portals: a curated, branded front door onto chosen collections, and
+ * the guidelines of chosen brands, for press, partners and retailers. Only what may be used shows: approved,
  * unexpired, out of embargo, a stack's current version, the same rule as
  * /a/{id} (lib/lifecycle.ts). Images download as renditions made for a
  * purpose (lib/portal.ts), not raw originals.
@@ -54,14 +55,24 @@ const urlOf = async (p: Pick<Row, "slug" | "workspaceId">, d: { host: string; ve
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
 };
 
+/** A portal's brands, in tab order. */
+const brandsOf = (portalId: string) =>
+  db
+    .select({ id: brands.id, slug: brands.slug, name: brands.name })
+    .from(portalBrands)
+    .innerJoin(brands, eq(brands.id, portalBrands.brandId))
+    .where(eq(portalBrands.portalId, portalId))
+    .orderBy(asc(portalBrands.position));
+
 async function present(p: Row) {
-  const [cols, d, [{ pending }]] = await Promise.all([
+  const [cols, brandList, d, [{ pending }]] = await Promise.all([
     db
       .select({ id: collections.id, name: collections.name })
       .from(portalCollections)
       .innerJoin(collections, eq(collections.id, portalCollections.collectionId))
       .where(eq(portalCollections.portalId, p.id))
       .orderBy(asc(portalCollections.position)),
+    brandsOf(p.id),
     domainOf(p.id),
     db.select({ pending: count() }).from(portalRequests).where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.status, "pending"))),
   ]);
@@ -77,6 +88,7 @@ async function present(p: Row) {
     presets: p.presets,
     theme: p.theme,
     collections: cols,
+    brands: brandList.map(({ slug, name }) => ({ slug, name })),
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token } },
     url: await urlOf(p, d),
     pending,
@@ -117,6 +129,7 @@ type Input = {
   presets?: PortalPreset[];
   theme?: Partial<PortalTheme>;
   collections?: string[];
+  brands?: string[];
   domain?: string | null;
 };
 
@@ -130,6 +143,21 @@ async function checkCollections(caller: Caller, ids: string[]) {
   }
   return unique;
 }
+
+/** Brands it may publish, by slug: this workspace's. Publishing guidelines is managing portals; reading them is anyone's in the library. */
+async function checkBrands(caller: Caller, slugs: string[]) {
+  const unique = [...new Set(slugs)];
+  if (!unique.length) return [];
+  const found = await db.select({ id: brands.id, slug: brands.slug }).from(brands).where(and(eq(brands.workspaceId, caller.workspace.id), inArray(brands.slug, unique)));
+  const missing = unique.filter((slug) => !found.some((f) => f.slug === slug));
+  if (missing.length) throw new AssetError("invalid", `No brand ${missing.map((m) => `"${m}"`).join(", ")}`);
+  return unique.map((slug) => found.find((f) => f.slug === slug)!.id);
+}
+
+/** Something to show: a portal with neither collections nor brands is an empty page. */
+const showsSomething = (collectionIds: string[], brandIds: string[]) => {
+  if (!collectionIds.length && !brandIds.length) throw new AssetError("invalid", "A portal shows at least one collection or brand");
+};
 
 async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: PortalTheme) {
   const next = { ...was, ...theme };
@@ -160,6 +188,11 @@ async function setCollections(portalId: string, ids: string[]) {
   if (ids.length) await db.insert(portalCollections).values(ids.map((collectionId, position) => ({ portalId, collectionId, position })));
 }
 
+async function setBrands(portalId: string, ids: string[]) {
+  await db.delete(portalBrands).where(eq(portalBrands.portalId, portalId));
+  if (ids.length) await db.insert(portalBrands).values(ids.map((brandId, position) => ({ portalId, brandId, position })));
+}
+
 function expiry(raw: string | null | undefined) {
   if (raw === undefined) return undefined;
   if (raw === null) return null;
@@ -168,13 +201,15 @@ function expiry(raw: string | null | undefined) {
   return d;
 }
 
-export async function createPortal(caller: Caller, input: Input & { name: string; slug: string; collections: string[] }) {
+export async function createPortal(caller: Caller, input: Input & { name: string; slug: string }) {
   mayManage(caller);
   await checkLimit(caller.workspace.organizationId, "shares");
   const access = input.access ?? "public";
   if (access === "password" && !input.password) throw new AssetError("invalid", "A password portal needs a password");
   await slugFree(input.slug);
-  const ids = await checkCollections(caller, input.collections);
+  const ids = await checkCollections(caller, input.collections ?? []);
+  const brandIds = await checkBrands(caller, input.brands ?? []);
+  showsSomething(ids, brandIds);
   const theme = await checkTheme(caller, input.theme ?? {}, { logo: null, accent: null, background: null });
   const [p] = await db
     .insert(portals)
@@ -192,6 +227,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
     })
     .returning();
   await setCollections(p.id, ids);
+  await setBrands(p.id, brandIds);
   if (input.domain) await setDomain(caller, p.id, input.domain);
   await recordAudit(caller, "portal.created", p.name, { access, slug: p.slug });
   return present(p);
@@ -206,7 +242,14 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
   const passwordHash = input.password ? await hashPassword(input.password) : p.passwordHash;
   if (access === "password" && !passwordHash) throw new AssetError("invalid", "A password portal needs a password");
   const ids = input.collections && (await checkCollections(caller, input.collections));
-  if (ids && !ids.length) throw new AssetError("invalid", "A portal shows at least one collection");
+  const brandIds = input.brands && (await checkBrands(caller, input.brands));
+  if (ids || brandIds) {
+    const [cols, bs] = await Promise.all([
+      ids ?? db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id)).then((r) => r.map((x) => x.id)),
+      brandIds ?? brandsOf(p.id).then((r) => r.map((x) => x.id)),
+    ]);
+    showsSomething(cols, bs);
+  }
   const theme = input.theme ? await checkTheme(caller, input.theme, p.theme) : p.theme;
   const [next] = await db
     .update(portals)
@@ -224,6 +267,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     .where(eq(portals.id, p.id))
     .returning();
   if (ids) await setCollections(p.id, ids);
+  if (brandIds) await setBrands(p.id, brandIds);
   if (input.domain !== undefined) await setDomain(caller, p.id, input.domain);
   forgetHosts();
   const changed = Object.keys(input).filter((k) => k !== "password" || input.password);
@@ -419,9 +463,31 @@ export async function viewPortal(
       expiresAt: p.expiresAt,
       theme: await shownTheme(p),
       collections: cols,
+      brands: (await brandsOf(p.id)).map(({ slug, name }) => ({ slug, name })),
     },
     data: rows.map((a) => shown(a, p.presets)),
     total,
+  };
+}
+
+/**
+ * One of a portal's brands, as its guidelines page reads (lib/core/brand.ts
+ * listRules), under the same door as the portal. A rule's assets show only
+ * when they may be used (lib/lifecycle.ts): a draft logo stays in the library.
+ */
+export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: string, { context }: { context?: string | null } = {}) {
+  const p = await open(slug, pass);
+  const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
+  if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
+  const [rules, contexts] = await Promise.all([listRules(p.workspaceId, { brand: brand.slug, context: context ?? undefined }), listContexts(p.workspaceId, brand.slug)]);
+  const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
+  const usable = ids.length
+    ? new Set((await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), deliverableSql))).map((a) => a.id))
+    : new Set<string>();
+  return {
+    brand: { slug: brand.slug, name: brand.name },
+    data: rules.map((r) => ({ ...r, assets: r.assets.filter((a) => usable.has(a.id)) })),
+    contexts,
   };
 }
 
