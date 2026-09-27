@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { IconKey, IconRobot } from "@tabler/icons-react";
+import { IconButton } from "@/components/icon-button";
 import { copy, CopyButton } from "@/components/brand-values";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -129,9 +130,9 @@ export function ForAgents({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className={className} aria-label="For agents" title="For agents">
+        <IconButton variant="ghost" label="For agents" className={className}>
           <IconRobot />
-        </Button>
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(30rem,calc(100vw-2rem))] space-y-4">
         {open && <Panel subject={subject} about={about} reads={reads(window.location.origin)} origin={window.location.origin} />}

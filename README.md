@@ -246,12 +246,13 @@ curl -X POST localhost:3000/api/v1/invitations -H 'content-type: application/jso
 
 ### Share links
 
-For people without an account. **Collect uploads** makes a link anyone can
+For people without an account. **Request uploads** makes a link anyone can
 send files through, a photographer or an agency: they land `proposed`, in
 that collection, and wait in Review like an agent's. **Share** shows a
 collection's approved assets, with downloads, at `/s/{token}`; so does
-**Share** in an asset's dialog, for one. Both are on a collection's page and
-its menu in the sidebar, and on Team, **Share and upload links**, which
+**Share** in an asset's dialog, for one. Request uploads is in the Upload menu, into the collection open or the
+workspace; Share is an icon on a collection's page. Both are in a
+collection's menu in the sidebar, and on Team, **Share and upload links**, which
 lists every link to copy, **Send** by email, or revoke. With email on, a
 link can go straight to people as it is made. Either can end on a date and ask for a password
 (kept as a salted scrypt hash), and revoking one stops it at once. Making or
@@ -264,10 +265,11 @@ pnpm artbucket share {collection-id} --upload --name "Photographer drop"
 
 ### Settings
 
-Settings (at the bottom of the sidebar) is one page for everything that
-isn't the library itself, in sections grouped by what they apply to: the
-**workspace** you are in (its name, members, custom fields, share links), its
-**organization** (name, workspaces, email, audit log), and your
+Settings (at the bottom of the sidebar) is how things are configured; who
+gets in, and the links for people without an account, are on Team. It is in
+sections grouped by what they apply to: the
+**workspace** you are in (its name, members, custom fields), its
+**organization** (name, workspaces, email), and your
 **account** (name, password). Each section shows to whoever may use it.
 
 Behind it, settings are definitions (`src/lib/settings.ts`): where each may
@@ -302,7 +304,7 @@ EMAIL_API_KEY=re_...
 
 Every sign-up and sign-in, grant given or taken, invitation made, withdrawn
 or accepted, key minted or revoked, share link made or revoked, and
-workspace made or renamed, and settings change, is in Settings, **Audit log** and at
+workspace made or renamed, and settings change, is on Team, **Audit log**, and at
 `GET /api/v1/audit`, with who, when and from where. An organization admin
 reads the organization's, with its members' sign-ins; a workspace admin, the
 workspace's. Asset changes stay on Activity.

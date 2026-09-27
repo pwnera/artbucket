@@ -11,6 +11,7 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
+import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { useLibraryTags } from "@/components/asset-editor";
 import { useCan } from "@/components/can";
@@ -309,9 +310,9 @@ export function RejectAction({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {compact ? (
-          <Button variant="ghost" size="icon-sm" disabled={disabled} aria-label="Reject" title="Reject…">
+          <IconButton variant="ghost" label="Reject…" disabled={disabled}>
             <IconX />
-          </Button>
+          </IconButton>
         ) : (
           <Button variant="ghost" size="sm" disabled={disabled}>
             <IconX /> Reject…

@@ -1,11 +1,9 @@
 import {
   IconAdjustments,
   IconBuilding,
-  IconHistory,
   IconLayoutGrid,
   IconMail,
   IconPalette,
-  IconShare,
   IconUser,
   IconUsers,
   type Icon,
@@ -64,14 +62,6 @@ export const SECTIONS: Section[] = [
     action: "field.manage",
   },
   {
-    context: "workspace",
-    id: "sharing",
-    label: "Share links",
-    icon: IconShare,
-    description: "Links for people without an account: to look and download, or to send files in for review.",
-    action: "share.manage",
-  },
-  {
     context: "organization",
     id: "general",
     label: "General",
@@ -94,14 +84,6 @@ export const SECTIONS: Section[] = [
     icon: IconMail,
     description: "How invitations and password resets are sent. Off until you turn it on.",
     action: "organization.manage",
-  },
-  {
-    context: "organization",
-    id: "audit",
-    label: "Audit log",
-    icon: IconHistory,
-    description: "Who changed who may do what: sign-ins, access, invitations, keys, share links and settings.",
-    action: "audit.read",
   },
   {
     context: "account",

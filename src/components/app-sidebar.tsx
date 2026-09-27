@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  IconActivity,
   IconBook,
   IconBookmark,
   IconDots,
   IconFolder,
+  IconFolderUp,
   IconPencil,
   IconPhoto,
   IconPlus,
@@ -17,7 +17,6 @@ import {
   IconSettings,
   IconShare,
   IconTrash,
-  IconUpload,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
@@ -57,6 +56,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { short } from "@/lib/time";
@@ -130,8 +130,7 @@ export function AppSidebar({
     team: pathname === "/team",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
-    assets: inLibrary && !view.collection && !onSearch,
-    activity: pathname === "/activity",
+    assets: (inLibrary && !view.collection && !onSearch) || pathname === "/activity",
   };
 
   return (
@@ -180,7 +179,6 @@ export function AppSidebar({
               />
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
-              <Place href="/activity" label="Activity" icon={<IconActivity />} active={at.activity} />
               {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -219,6 +217,9 @@ export function AppSidebar({
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
+        </SidebarMenu>
+        <SidebarSeparator />
+        <SidebarMenu>
           <SidebarMenuItem>
             <AccountMenu me={me} />
           </SidebarMenuItem>
@@ -317,7 +318,7 @@ function Collections({
                   )}
                   {can("collection.collect", c) && (
                     <DropdownMenuItem onSelect={() => setSharing({ kind: "upload", collection: c })}>
-                      <IconUpload /> Collect uploads
+                      <IconFolderUp /> Request uploads
                     </DropdownMenuItem>
                   )}
                   {(can("collection.edit", c) || can("collection.share", c)) && <DropdownMenuSeparator />}

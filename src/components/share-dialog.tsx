@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { IconLock, IconShare, IconUpload } from "@tabler/icons-react";
+import { IconFolderUp, IconLock, IconShare } from "@tabler/icons-react";
 import { Snippet } from "@/components/agent-access";
 import { useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";
@@ -97,8 +97,8 @@ export function ShareDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {upload ? <IconUpload className="size-5" /> : <IconShare className="size-5" />}
-            {upload ? `Collect uploads${choosing ? "" : ` into ${what}`}` : `Share ${choosing ? "a collection" : what}`}
+            {upload ? <IconFolderUp className="size-5" /> : <IconShare className="size-5" />}
+            {upload ? `Request uploads${choosing ? "" : ` into ${what}`}` : `Share ${choosing ? "a collection" : what}`}
           </DialogTitle>
           <DialogDescription>
             {upload

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import type { ShareLink } from "@/components/share-dialog";
-import { Audit, People, Sharing, type AuditPage, type Members } from "@/components/settings/access";
+import { People, type Members } from "@/components/settings/access";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import { FieldsPanel, NameForm, ProfilePanel, WorkspacesPanel } from "@/components/settings/panels";
 import { find, opens } from "@/components/settings/sections";
@@ -38,9 +37,6 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     case "workspace/fields":
       body = <FieldsPanel fields={await get("fields", data<FieldDef[]>, [])} />;
       break;
-    case "workspace/sharing":
-      body = <Sharing shares={await get("shares", data<ShareLink[]>, [])} collections={sidebar.collections} />;
-      break;
     case "organization/general":
       body = <NameForm what="organization" url={`/api/v1/organizations/${ws.organization.id}`} name={ws.organization.name} />;
       break;
@@ -58,9 +54,6 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       body = email && <EmailPanel me={me} setting={email} />;
       break;
     }
-    case "organization/audit":
-      body = <Audit first={await get("audit", (b: AuditPage) => b, { data: [], next: null })} />;
-      break;
     case "account/profile":
       body = <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;
       break;

@@ -7,17 +7,20 @@ import {
   IconBook,
   IconBookmark,
   IconBookmarkPlus,
+  IconChevronDown,
+  IconCloudUpload,
+  IconFolderUp,
+  IconInbox,
   IconLayoutGrid,
   IconList,
-  IconPencil,
-  IconCloudUpload,
-  IconInbox,
   IconLoader2,
+  IconPencil,
   IconPhoto,
   IconRobot,
   IconSearch,
   IconShare,
   IconSparkles,
+  IconTypography,
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
@@ -35,6 +38,8 @@ import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
 import { useCan } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import { remember, usePref } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
@@ -162,6 +167,7 @@ export function Gallery({
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
   const can = useCan();
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
+  const [fonts, setFonts] = useState(false);
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(sidebar.collections);
   const [reviewCount, setReviewCount] = useState(sidebar.reviewCount);
@@ -398,6 +404,8 @@ export function Gallery({
   const narrowed = isNarrowed(view);
   // Into the collection open, or the workspace itself: whatever the person may add to.
   const canUpload = into ? can("asset.upload", { id: into }) : can("workspace.upload");
+  // Asking someone without an account to send files there, by link.
+  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_workspace");
   const filtered = narrowed || view.collection !== null || view.review;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
@@ -512,12 +520,41 @@ export function Gallery({
             />
           </div>
           {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
-          {canUpload && <GoogleFontImport into={into} onDone={() => void refresh()} />}
+          {/* Pushes what follows to the right edge, whether or not Upload shows. */}
+          <span className="ml-auto" />
+          {/* Every way files come in, in one control: Upload, and the others in its menu. */}
           {canUpload && (
-            <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
-              <IconUpload />
-              <span className="hidden sm:inline">Upload</span>
-            </Button>
+            <div className="flex">
+              <Button size="sm" className="rounded-r-none" onClick={() => input.current?.click()} aria-busy={uploading}>
+                <IconUpload />
+                <span className="hidden sm:inline">Upload</span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="border-primary-foreground/20 rounded-l-none border-l px-1.5" aria-label="More ways to add">
+                    <IconChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => input.current?.click()}>
+                    <IconUpload /> Upload files
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setFonts(true)}>
+                    <IconTypography /> Import a Google font
+                  </DropdownMenuItem>
+                  {canRequest && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setSharing(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" })}>
+                        <IconFolderUp /> Request uploads by link
+                        <span className="text-muted-foreground ml-auto pl-4 text-xs">no account</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={() => void refresh()} />
+            </div>
           )}
           <input
             ref={input}
@@ -573,7 +610,7 @@ export function Gallery({
             }
             description={
               view.review
-                ? "Assets and tags that agents suggested. Nothing reaches the library until you approve it."
+                ? "What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it."
                 : activeSearch
                   ? "A saved search: this link always shows what matches now."
                   : inCollection
@@ -587,20 +624,16 @@ export function Gallery({
                     : "Everything in the library. Drop files anywhere on the page to add them."
             }
           >
-            {inCollection && !activeSearch && can("collection.collect", inCollection) && (
-              <Button size="sm" onClick={() => setSharing({ kind: "upload", collection: inCollection })}>
-                <IconUpload /> Collect uploads
-              </Button>
-            )}
+            {/* What can be done with the collection itself: share it, edit it. */}
             {inCollection && !activeSearch && can("collection.share", inCollection) && (
-              <Button variant="outline" size="sm" onClick={() => setSharing({ kind: "view", collection: inCollection })}>
-                <IconShare /> Share
-              </Button>
+              <IconButton label={`Share ${inCollection.name}`} onClick={() => setSharing({ kind: "view", collection: inCollection })}>
+                <IconShare />
+              </IconButton>
             )}
             {inCollection && !activeSearch && can("collection.edit", inCollection) && (
-              <Button variant="outline" size="sm" onClick={() => setEditing(inCollection)}>
-                <IconPencil /> Edit collection
-              </Button>
+              <IconButton label="Edit collection" onClick={() => setEditing(inCollection)}>
+                <IconPencil />
+              </IconButton>
             )}
           </PageHeader>
           {!empty && (
@@ -687,11 +720,16 @@ export function Gallery({
                 </EmptyMedia>
                 <EmptyTitle>Nothing to review</EmptyTitle>
                 <EmptyDescription>
-                  Assets and tags that agents suggest wait here until you approve them. Nothing an agent adds reaches
-                  the library without you.
+                  What agents, contributors and upload links send in waits here until someone approves it. Nothing
+                  they add reaches the library on its own.
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex-row justify-center">
+              <EmptyContent className="flex-row flex-wrap justify-center">
+                {can("share.collect_workspace") && (
+                  <Button onClick={() => setSharing({ kind: "upload" })}>
+                    <IconFolderUp /> Request uploads by link
+                  </Button>
+                )}
                 <Button variant="outline" asChild>
                   <Link href="/agents">
                     <IconRobot /> Connect an agent
@@ -842,7 +880,7 @@ export function Gallery({
       />
 
 
-      {sharing && <ShareDialog target={sharing} onClose={() => setSharing(null)} />}
+      {sharing && <ShareDialog target={sharing} collections={collections} onClose={() => setSharing(null)} />}
       {editing && (
         <CollectionDialog
           collection={editing === "new" ? undefined : editing}

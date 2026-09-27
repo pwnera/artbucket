@@ -1,8 +1,8 @@
 "use client";
 
 import { IconBucketDroplet, IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { IconButton } from "@/components/icon-button";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,10 +33,10 @@ export function ThemeToggle({ className }: { className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Theme" title="Theme" className={className}>
+        <IconButton variant="ghost" label="Theme" className={className}>
           <IconSun className="dark:hidden" />
           <IconMoon className="hidden dark:block" />
-        </Button>
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>

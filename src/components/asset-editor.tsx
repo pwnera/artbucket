@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconBook, IconCertificate, IconCheck, IconDownload, IconLink, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBook, IconCertificate, IconCheck, IconCopy, IconDownload, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";
@@ -15,6 +15,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -159,7 +160,7 @@ export function AssetEditor({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[1fr_380px] md:grid-rows-1 md:overflow-hidden">
+      <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[minmax(0,1fr)_380px] md:grid-rows-1 md:overflow-hidden">
         <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
           <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
             {asset.mime.startsWith("image/") ? (
@@ -185,13 +186,14 @@ export function AssetEditor({
             <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
             <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
             <span className="ml-auto" />
-            <Button variant="outline" size="sm" type="button" onClick={copyLink} title="A link to this asset, in the library">
-              <IconLink /> <span className="sr-only sm:not-sr-only">Copy link</span>
-            </Button>
+            {/* Copy: a link for people who have access. Share: a public link, for anyone. */}
+            <IconButton label="Copy link, for people with access" type="button" onClick={copyLink}>
+              <IconCopy />
+            </IconButton>
             {asset.status === "active" && can("asset.share", asset) && (
-              <Button variant="outline" size="sm" type="button" onClick={() => setSharing(true)} title="A link for someone without an account">
-                <IconShare /> <span className="sr-only sm:not-sr-only">Share</span>
-              </Button>
+              <IconButton label="Share: a public link, no account needed" type="button" onClick={() => setSharing(true)}>
+                <IconShare />
+              </IconButton>
             )}
             {sharing && <ShareDialog target={{ kind: "view", asset: { id: asset.id, name: m.title || asset.filename } }} onClose={() => setSharing(false)} />}
             {asset.mime.startsWith("image/") && <Renditions asset={asset} />}

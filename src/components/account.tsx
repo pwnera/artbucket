@@ -6,12 +6,11 @@ import { useId, useState } from "react";
 import {
   IconBuilding,
   IconCheck,
-  IconChevronDown,
   IconLogin,
   IconLogout,
   IconPlus,
   IconSelector,
-  IconSettings,
+  IconUser,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand";
@@ -210,27 +209,29 @@ export function AccountMenu({ me }: { me: Me }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent" tooltip={who}>
-          <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+        <SidebarMenuButton className="data-[state=open]:bg-sidebar-accent" tooltip={who}>
+          {/* The width of an icon, so it lines up with the items above it. */}
+          <span className="bg-muted flex size-4 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold">
             {initials(who)}
           </span>
-          <span className="grid min-w-0 flex-1 text-left leading-tight">
-            <span className="truncate text-sm font-medium">{who}</span>
-            <span className="text-muted-foreground truncate text-xs">{me.user.email}</span>
-          </span>
-          <IconChevronDown className="text-muted-foreground ml-auto" />
+          <span className="truncate">{who}</span>
+          <IconSelector className="text-muted-foreground ml-auto" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" side={isMobile ? "top" : "right"} align="end">
-        <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-          {me.scope ? `${me.scope} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
+      <DropdownMenuContent className="w-60" side={isMobile ? "top" : "right"} align="end">
+        <DropdownMenuLabel className="grid font-normal">
+          <span className="truncate font-medium">{who}</span>
+          <span className="text-muted-foreground truncate text-xs">{me.user.email}</span>
+          <span className="text-muted-foreground truncate text-xs">
+            {me.scope ? `${me.scope} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
+          </span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <IconSettings /> Settings
+          <Link href="/settings/account/profile">
+            <IconUser /> Profile
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => signOut(go)}>
           <IconLogout /> Sign out
         </DropdownMenuItem>

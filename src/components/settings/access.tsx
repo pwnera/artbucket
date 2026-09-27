@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import {
   IconBuilding,
+  IconCopy,
   IconFolder,
+  IconFolderUp,
   IconHistory,
   IconLayoutGrid,
   IconLink,
   IconLock,
   IconMail,
-  IconSend,
   IconPhoto,
   IconPlus,
+  IconRefresh,
+  IconSend,
   IconShare,
   IconTrash,
   IconUpload,
@@ -27,6 +30,7 @@ import { copy } from "@/components/brand-values";
 import { send } from "@/components/collections";
 import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { useMe } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -170,14 +174,13 @@ export function People({
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                   {i.url && (
-                    <Button variant="outline" size="sm" onClick={() => copy(i.url!, "the invitation link")}>
-                      <IconLink /> Copy link
-                    </Button>
+                    <IconButton variant="ghost" label="Copy link" onClick={() => copy(i.url!, "the invitation link")}>
+                      <IconCopy />
+                    </IconButton>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    title="A new link and a new week; the old link stops working"
+                  <IconButton
+                    variant="ghost"
+                    label="Send again: a new link and a new week"
                     onClick={async () => {
                       const r = await send("POST", `/api/v1/invitations/${i.id}/resend`);
                       if (!r) return;
@@ -185,17 +188,15 @@ export function People({
                       refresh();
                     }}
                   >
-                    <IconSend /> Send again
-                  </Button>
-                  <Button
+                    <IconRefresh />
+                  </IconButton>
+                  <IconButton
                     variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Withdraw the invitation to ${i.email}`}
-                    title="Withdraw"
+                    label={`Withdraw the invitation to ${i.email}`}
                     onClick={async () => (await send("DELETE", `/api/v1/invitations/${i.id}`)) && refresh()}
                   >
                     <IconX />
-                  </Button>
+                  </IconButton>
                   </div>
                 </li>
               );
@@ -306,9 +307,9 @@ function GrantRow({
           ))}
         </SelectContent>
       </Select>
-      <Button variant="ghost" size="icon-xs" aria-label={`Remove access to ${g.label}`} title="Remove" onClick={onRemove}>
+      <IconButton variant="ghost" size="icon-xs" label={`Remove access to ${g.label}`} onClick={onRemove}>
         <IconTrash />
-      </Button>
+      </IconButton>
     </div>
   );
 }
@@ -442,7 +443,7 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
           Links <span className="text-muted-foreground font-normal">{shares.length}</span>
         </h2>
         <Button size="sm" onClick={() => setMaking("upload")}>
-          <IconUpload /> Collect uploads
+          <IconFolderUp /> Request uploads
         </Button>
         <Button size="sm" variant="outline" onClick={() => setMaking("view")}>
           <IconShare /> Share a collection
@@ -456,7 +457,7 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
             </EmptyMedia>
             <EmptyTitle>No links yet</EmptyTitle>
             <EmptyDescription>
-              Collect uploads gives a photographer or an agency a link to send files in, no account needed; they wait
+              Request uploads gives a photographer or an agency a link to send files in, no account needed; they wait
               in Review. Share a collection lets someone look and download. An asset is shared from its dialog.
             </EmptyDescription>
           </EmptyHeader>
@@ -477,19 +478,17 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
                   {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => copy(s.url, "the link")}>
-                Copy link
-              </Button>
+              <IconButton variant="ghost" label="Copy link" onClick={() => copy(s.url, "the link")}>
+                <IconCopy />
+              </IconButton>
               {me?.email && !s.expired && (
-                <Button variant="outline" size="sm" onClick={() => setSending(s)}>
-                  <IconSend /> Send
-                </Button>
+                <IconButton variant="ghost" label="Email it to people" onClick={() => setSending(s)}>
+                  <IconSend />
+                </IconButton>
               )}
-              <Button
+              <IconButton
                 variant="ghost"
-                size="icon-sm"
-                aria-label={`Revoke ${s.name ?? "this link"}`}
-                title="Revoke"
+                label={`Revoke ${s.name ?? "this link"}`}
                 onClick={async () => {
                   if (!(await send("DELETE", `/api/v1/shares/${s.id}`))) return;
                   toast.success("Revoked: the link no longer works");
@@ -497,7 +496,7 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
                 }}
               >
                 <IconTrash />
-              </Button>
+              </IconButton>
             </li>
           ))}
         </ul>

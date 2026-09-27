@@ -16,7 +16,6 @@ import {
   IconHash,
   IconLetterCase,
   IconHistory,
-  IconLink,
   IconList,
   IconMessage,
   IconPalette,
@@ -31,6 +30,7 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import { Can } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { call, curl, ForAgents } from "@/components/agent-access";
@@ -352,26 +352,22 @@ export function BrandEditor({
           <Breadcrumb brand={brand} section={active ? meta(active).title : undefined} />
           <div className="ml-auto flex items-center gap-2">
             <Edited brand={brand} edits={edits} />
-            <Button
+            {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
+            <IconButton
               variant="ghost"
-              size="icon-sm"
+              label="Copy a link to this page"
               // A phone's header has room for the rest; its share sheet copies the link.
               className="hidden sm:inline-flex"
-              aria-label="Copy a link to this page"
-              title="Copy link"
               onClick={() => copy(window.location.href, "link")}
             >
-              <IconLink />
-            </Button>
-            {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
-            <Button variant="outline" size="sm" title="Colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
+              <IconCopy />
+            </IconButton>
+            <IconButton variant="ghost" label="Tokens: colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
               <IconCode />
-              <span className="sr-only sm:not-sr-only">Tokens</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
+            </IconButton>
+            <IconButton variant="ghost" label="History" onClick={() => setHistory(true)}>
               <IconHistory />
-              <span className="sr-only sm:not-sr-only">History</span>
-            </Button>
+            </IconButton>
             <ForAgents
               about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
               reads={brandReads(brand, context)}
@@ -597,14 +593,15 @@ export function BrandEditor({
 /** Where you are, Notion style: the guidelines, this brand, the section you are reading. */
 function Breadcrumb({ brand, section }: { brand: BrandInfo; section?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0">
-      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm">
-        <li className="hidden md:block">
+    <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
+      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap">
+        {/* The brand's name comes first when room is short; the trail back, when there is room. */}
+        <li className="hidden xl:block">
           <Link href="/brand" className="hover:text-foreground">
             Guidelines
           </Link>
         </li>
-        <li aria-hidden className="hidden md:block">
+        <li aria-hidden className="hidden xl:block">
           /
         </li>
         <li className="text-foreground truncate font-medium">

@@ -220,7 +220,7 @@ export function CommandPalette({
             </>
           )}
           {can("share.manage") && (
-            <CommandItem value="Share and upload links collect uploads guest photographer agency" onSelect={() => go("/team?tab=sharing")}>
+            <CommandItem value="Share and upload links request uploads collect guest photographer agency" onSelect={() => go("/team?tab=sharing")}>
               <IconShare /> Share and upload links
             </CommandItem>
           )}

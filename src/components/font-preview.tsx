@@ -133,8 +133,21 @@ const previewFace = (f: Family) => {
 };
 
 /** Search Google Fonts, see each family set in your words, import the ones the brand uses. */
-export function GoogleFontImport({ into, onDone }: { into?: string | null; onDone: () => void }) {
-  const [open, setOpen] = useState(false);
+export function GoogleFontImport({
+  into,
+  onDone,
+  open: controlled,
+  onOpenChange,
+}: {
+  into?: string | null;
+  onDone: () => void;
+  /** Opened from elsewhere (a menu): no button of its own. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = onOpenChange ?? setOwn;
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [sample, setSample] = useState("The quick brown fox jumps over the lazy dog");
@@ -186,10 +199,12 @@ export function GoogleFontImport({ into, onDone }: { into?: string | null; onDon
 
   return (
     <>
+{controlled === undefined && (
       <Button variant="outline" size="sm" className="ml-auto" title="Import a family from Google Fonts" onClick={() => setOpen(true)}>
         <IconTypography />
         <span className="hidden sm:inline">Google Fonts</span>
       </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-4 sm:max-w-3xl md:h-[min(760px,calc(100dvh-2rem))]">
           <DialogHeader>
