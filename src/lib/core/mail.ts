@@ -93,6 +93,29 @@ export function shareEmail(
   });
 }
 
+/** To an admin: someone asks into a portal. */
+export function portalRequestEmail(to: string, r: { portal: string; who: string; note: string | null; url: string }) {
+  return layout({
+    to,
+    subject: `${r.who} asks for access to ${r.portal}`,
+    lines: [`${r.who} asks for access to the ${r.portal} portal.`, ...(r.note ? [`They say: "${r.note}"`] : [])],
+    action: { label: "Review the request", url: r.url },
+  });
+}
+
+/** To whoever asked: yes, and their own link. */
+export function portalAccessEmail(to: string, a: { portal: string; organization: string; url: string; until: Date }) {
+  return layout({
+    to,
+    subject: `You have access to ${a.portal}`,
+    lines: [
+      `${a.organization} gave you access to ${a.portal}. The link below is yours: keep it to yourself.`,
+      `It works until ${a.until.toISOString().slice(0, 10)}.`,
+    ],
+    action: { label: `Open ${a.portal}`, url: a.url },
+  });
+}
+
 /** Whether this organization's email can go out now. */
 export async function canEmail(organizationId: string) {
   return !unusable((await effective("email", { organizationId })).value);

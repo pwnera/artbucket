@@ -29,6 +29,13 @@ export type AuditAction =
   | "share.created"
   | "share.revoked"
   | "share.sent"
+  | "portal.created"
+  | "portal.updated"
+  | "portal.deleted"
+  | "portal.request_approved"
+  | "portal.request_denied"
+  | "portal.request_removed"
+  | "domain.verified"
   | "setting.changed"
   | "setting.reset"
   | "email.failed";

@@ -11,6 +11,7 @@ import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
+import { PORTAL_ACCESS, PORTAL_SLUG, PortalTheme, PRESET_IDS } from "./portal.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -210,6 +211,27 @@ export const ShareFinalize = z.strictObject({
   filename: z.string().min(1).max(512),
   mime: z.string().min(1).max(255),
 });
+
+const portal = {
+  name: z.string().trim().min(1).max(120).describe("What visitors see it called, e.g. Press kit"),
+  slug: z.string().regex(PORTAL_SLUG).describe("Its address: /p/{slug}. Lowercase letters, digits and dashes"),
+  intro: z.string().trim().max(4000).nullable().optional().describe("A few paragraphs under the name"),
+  access: z.enum(PORTAL_ACCESS).describe("public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"),
+  password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
+  expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
+  presets: z.array(z.enum(PRESET_IDS)).max(PRESET_IDS.length).optional().describe("What images download as; web, print and social when left out"),
+  theme: PortalTheme.partial().optional(),
+  collections: z.array(uuid).min(1).max(50).describe("What it shows, in this order"),
+  domain: z.string().max(253).nullable().optional().describe("A host name of its own, e.g. press.example.com; served there once its TXT record is in place"),
+};
+export const PortalInput = z.strictObject({ ...portal, access: portal.access.default("public") });
+export const PortalPatch = z.strictObject(portal).partial();
+export const PortalRequestInput = z.strictObject({
+  email: z.email().max(320),
+  name: z.string().trim().max(120).optional(),
+  note: z.string().trim().max(2000).optional().describe("Who you are and what you need it for"),
+});
+export const PortalDecision = z.strictObject({ status: z.enum(["approved", "denied"]) });
 
 // ---- responses --------------------------------------------------------------
 
@@ -645,6 +667,82 @@ export const Shared = z.object({
     }),
   ),
   total: z.number().int(),
+});
+
+const domainState = z.object({
+  host: z.string(),
+  verified: z.boolean(),
+  record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves it: add this record at your DNS host"),
+});
+export const Portal = z.object({
+  id: uuid,
+  slug: z.string(),
+  name: z.string(),
+  intro: z.string().nullable(),
+  access: z.enum(PORTAL_ACCESS),
+  password: z.boolean(),
+  expiresAt: date.nullable(),
+  expired: z.boolean(),
+  presets: z.array(z.enum(PRESET_IDS)),
+  theme: PortalTheme,
+  collections: z.array(z.object({ id: uuid, name: z.string() })),
+  domain: domainState.nullable(),
+  url: z.url().describe("Where visitors go: its domain once verified, else /p/{slug}"),
+  pending: z.number().int().describe("Access requests waiting"),
+  createdBy: z.string(),
+  createdAt: date,
+  updatedAt: date,
+});
+export const PortalRequest = z.object({
+  id: uuid,
+  email: z.string(),
+  name: z.string().nullable(),
+  note: z.string().nullable(),
+  status: z.enum(["pending", "approved", "denied"]),
+  expiresAt: date.nullable(),
+  decidedBy: z.string().nullable(),
+  decidedAt: date.nullable(),
+  createdAt: date,
+  url: z.string().nullable().describe("For an approved request: their own link, to copy"),
+});
+export const Decided = z.object({ data: PortalRequest, emailed: z.boolean() });
+const download = z.object({ preset: z.enum(PRESET_IDS), label: z.string(), hint: z.string(), url: z.string(), filename: z.string() });
+export const PortalView = z.object({
+  portal: z.object({
+    slug: z.string(),
+    name: z.string(),
+    intro: z.string().nullable(),
+    organization: z.string(),
+    access: z.enum(PORTAL_ACCESS),
+    expiresAt: date.nullable(),
+    theme: z.object({ logo: z.string().nullable().describe("A URL on this host"), accent: z.string().nullable(), background: z.string().nullable() }),
+    collections: z.array(z.object({ id: uuid, name: z.string(), count: z.number().int() })),
+  }),
+  data: z.array(
+    z.object({
+      id: uuid,
+      filename: z.string(),
+      title: z.string().nullable(),
+      description: z.string().nullable(),
+      creator: z.string().nullable(),
+      copyright: z.string().nullable(),
+      mime: z.string(),
+      size: z.number().int(),
+      width: z.number().int().nullable(),
+      height: z.number().int().nullable(),
+      thumbnail: z.string().nullable().describe("A URL on this host"),
+      preview: z.string().nullable().describe("Larger, for a closer look"),
+      downloads: z.array(download),
+    }),
+  ),
+  total: z.number().int(),
+});
+export const PortalGate = z.object({
+  error: z.object({
+    code: z.literal("password"),
+    message: z.string(),
+    detail: z.object({ name: z.string(), access: z.enum(["password", "members"]), theme: PortalView.shape.portal.shape.theme }),
+  }),
 });
 
 export const AuditEntry = z.object({

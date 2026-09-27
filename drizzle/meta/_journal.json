@@ -162,6 +162,13 @@
       "when": 1790526092858,
       "tag": "0022_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790531036174,
+      "tag": "0023_portals",
+      "breakpoints": true
     }
   ]
 }

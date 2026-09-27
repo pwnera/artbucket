@@ -22,7 +22,8 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 > fields, collections, faceted search, scoped API keys, an MCP server, a CLI,
 > brand rules as queryable data, rights and provenance with C2PA, `/check`: a
 > yes or no on a use, with reasons and what to use instead, teams with single
-> sign-on and access down to one asset, share links, an audit log, versions
+> sign-on and access down to one asset, share links, brand portals with
+> their own look and domain, an audit log, versions
 > and a lifecycle enforced at delivery, limits and usage per organization.
 > Searching 100,000 assets takes 5 to 100 ms
 > ([Benchmarks](docs/developers/benchmarks.mdx)). See [ROADMAP.md](ROADMAP.md)

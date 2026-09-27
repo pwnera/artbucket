@@ -26,6 +26,7 @@ import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import type { Ability, Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
+import type { PortalAccess, PortalPreset, PortalTheme } from "@/lib/portal";
 
 export type AssetStatus = Status;
 
@@ -695,3 +696,105 @@ export const traffic = pgTable(
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.day] })],
 );
+
+// ---- portals ------------------------------------------------------------------
+
+/**
+ * A brand portal (lib/core/portals.ts): chosen collections, themed, at
+ * /p/{slug} or a domain of its own, for people outside the team. It shows
+ * only approved, unexpired, current assets, and offers renditions made for a
+ * purpose rather than raw originals. Who gets in: anyone (`public`), whoever
+ * has the password, or people with access to the workspace (`members`); an
+ * approved access request lets someone in either of the last two.
+ */
+export const portals = pgTable(
+  "portals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Its address: /p/{slug}. Unique on the server. */
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    /** A few paragraphs under the name: what this is, who it is for, who to ask. */
+    intro: text("intro"),
+    access: text("access").$type<PortalAccess>().notNull().default("public"),
+    passwordHash: text("password_hash"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    presets: jsonb("presets").$type<PortalPreset[]>().notNull().default(["web", "print", "social"]),
+    theme: jsonb("theme").$type<PortalTheme>().notNull().default({ logo: null, accent: null, background: null }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("portals_workspace_idx").on(t.workspaceId),
+    check("portals_access_check", sql`${t.access} in ('public', 'password', 'members')`),
+    check("portals_password_check", sql`${t.access} <> 'password' or ${t.passwordHash} is not null`),
+  ],
+);
+
+/** A portal's collections, in the order it shows them. Deleting a collection takes it off every portal. */
+export const portalCollections = pgTable(
+  "portal_collections",
+  {
+    portalId: uuid("portal_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.portalId, t.collectionId] }), index("portal_collections_collection_idx").on(t.collectionId)],
+);
+
+export type PortalRequestStatus = "pending" | "approved" | "denied";
+
+/**
+ * Someone outside asking into a portal that isn't public. Approved, they get
+ * a key of their own, found by its hash and kept sealed so the link can be
+ * copied again; it stops at `expiresAt` or when the request is deleted.
+ */
+export const portalRequests = pgTable(
+  "portal_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    portalId: uuid("portal_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name"),
+    /** Who they are and what they need it for, in their words. */
+    note: text("note"),
+    status: text("status").$type<PortalRequestStatus>().notNull().default("pending"),
+    keyHash: text("key_hash").unique(),
+    keySealed: text("key_sealed"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    decidedBy: text("decided_by"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("portal_requests_portal_idx").on(t.portalId, t.createdAt.desc()),
+    check("portal_requests_status_check", sql`${t.status} in ('pending', 'approved', 'denied')`),
+  ],
+);
+
+/**
+ * A host name this server answers for, other than APP_URL's: a portal's own
+ * domain. Proved by a TXT record holding `token` (lib/portal.ts
+ * challengeName) before anything is served at it, and before a TLS
+ * certificate is asked for it (GET /api/v1/domains/check).
+ */
+export const domains = pgTable("domains", {
+  host: text("host").primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  portalId: uuid("portal_id").references(() => portals.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("domains_portal_unique").on(t.portalId)]);

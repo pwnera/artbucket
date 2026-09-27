@@ -62,6 +62,7 @@ export const ACTIONS = {
   // Sharing, keys, people, settings
   "share.manage": { scope: "write", on: "anywhere", ability: "share" },
   "share.collect_workspace": { scope: "write", on: "workspace", ability: "share" },
+  "portal.manage": { scope: "write", on: "workspace", ability: "share" },
   "key.manage": { scope: "admin", on: "workspace" },
   "member.manage": { scope: "admin", on: "workspace" },
   "audit.read": { scope: "admin", on: "workspace" },

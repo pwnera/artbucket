@@ -40,3 +40,13 @@ insert into audit (organization_id, actor, user_id, action, target) values
 insert into settings (organization_id, key, value, updated_by) values
   ('00000000-0000-4000-8000-000000000001', 'limits', '{"storage": "10GB", "editors": 5}', 'operator');
 insert into traffic (workspace_id, day, requests, bytes) values ('00000000-0000-4000-8000-000000000002', current_date, 12, 34567);
+
+insert into portals (id, workspace_id, slug, name, intro, access, password_hash, presets, theme, created_by) values
+  ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000002', 'fixture-press', 'Press kit', 'For press.', 'password',
+   'scrypt$c2FsdA$aGFzaA', '["web", "print"]', '{"logo": "00000000-0000-4000-8000-000000000011", "accent": "#ff7a00", "background": null}', 'Ada');
+insert into portal_collections (portal_id, collection_id, position) values ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000003', 0);
+insert into portal_requests (portal_id, email, name, note, status, key_hash, expires_at, decided_by, decided_at) values
+  ('00000000-0000-4000-8000-000000000040', 'jo@press.test', 'Jo', 'Writing a piece', 'approved', repeat('e', 64), now() + interval '90 days', 'Ada', now()),
+  ('00000000-0000-4000-8000-000000000040', 'sam@press.test', null, null, 'pending', null, null, null, null);
+insert into domains (host, organization_id, portal_id, token, verified_at) values
+  ('press.fixture.test', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000040', 'artbucket-fixture', now());
