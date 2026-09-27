@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots } from "@tabler/icons-react";
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMe } from "@/components/can";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from "@/components/ui/sidebar";
 import { applyOrder, moveTo } from "@/lib/order";
 import { cn } from "@/lib/utils";
@@ -77,16 +78,23 @@ export function usePref<T>(key: string, fallback: T): [T, (v: T) => void] {
 // ---- recents -----------------------------------------------------------------
 
 export type Recent = { kind: "asset" | "collection" | "search" | "brand"; id: string; label: string; href: string; at: number };
-const RECENTS = "artbucket:recents";
+/** Recents belong to a workspace: what you opened in one is not what you opened in another. */
+const recentsKey = (workspace: string | undefined) => `artbucket:recents:${workspace ?? "none"}`;
 
-/** Note that something was opened: it goes to the top of Recents. */
-export function remember(r: Omit<Recent, "at">) {
-  const list = read<Recent[]>(RECENTS) ?? [];
-  const rest = list.filter((x) => !(x.kind === r.kind && x.id === r.id));
-  writePref(RECENTS, [{ ...r, at: Date.now() }, ...rest].slice(0, 8));
+/** `remember(item)`: note that something was opened in this workspace; it goes to the top of its Recents. */
+export function useRemember() {
+  const workspace = useMe()?.workspace.id;
+  return useCallback(
+    (r: Omit<Recent, "at">) => {
+      const key = recentsKey(workspace);
+      const rest = (read<Recent[]>(key) ?? []).filter((x) => !(x.kind === r.kind && x.id === r.id));
+      writePref(key, [{ ...r, at: Date.now() }, ...rest].slice(0, 8));
+    },
+    [workspace],
+  );
 }
 
-export const useRecents = () => usePref<Recent[]>(RECENTS, []);
+export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.workspace.id), []);
 
 // ---- ordering ----------------------------------------------------------------
 

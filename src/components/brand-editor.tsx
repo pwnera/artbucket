@@ -36,7 +36,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { ThemeToggle } from "@/components/brand";
 import { History } from "@/components/brand-history";
-import { remember } from "@/components/sidebar-prefs";
+import { useRemember } from "@/components/sidebar-prefs";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
 import { copy, Editable, fontFiles, isFontAsset, Markdown, ReadOnly, RichText, ValueEditor } from "@/components/brand-values";
@@ -163,9 +163,10 @@ export function BrandEditor({
   const [resets, setResets] = useState(0);
 
   // Opening a brand's guidelines puts them at the top of Recents.
+  const remember = useRemember();
   useEffect(() => {
     remember({ kind: "brand", id: brand.slug, label: `${brand.name} guidelines`, href: brandHref(brand) });
-  }, [brand]);
+  }, [brand, remember]);
 
   // The rule being edited stays in view beside the panel.
   const openKey = open?.key;

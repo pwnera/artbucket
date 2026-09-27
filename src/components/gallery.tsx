@@ -41,7 +41,7 @@ import { useCan } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
-import { remember, usePref } from "@/components/sidebar-prefs";
+import { usePref, useRemember } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
@@ -457,9 +457,10 @@ export function Gallery({
         ? { kind: "collection" as const, id: inCollection.id, label: inCollection.name, href: `/?collection=${inCollection.id}` }
         : null;
   const recentKey = recent && JSON.stringify(recent);
+  const remember = useRemember();
   useEffect(() => {
     if (recentKey) remember(JSON.parse(recentKey));
-  }, [recentKey]);
+  }, [recentKey, remember]);
   const title = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? "All assets"));
 
   return (
