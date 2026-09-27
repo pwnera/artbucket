@@ -31,11 +31,11 @@ import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   deleteObject,
   ensureBucket,
-  exists,
   getObject,
   originalKey,
   presignPut,
   putObject,
+  sizeOf,
   stagingKey,
 } from "@/lib/storage";
 
@@ -110,7 +110,7 @@ export async function createUploadTicket(input: {
   }
   await ensureBucket();
   const token = randomUUID();
-  const uploadUrl = await presignPut(stagingKey(token), input.mime);
+  const uploadUrl = await presignPut(stagingKey(token), input.mime, input.size);
   return { token, uploadUrl, expiresIn: 900 };
 }
 
@@ -121,8 +121,9 @@ export async function createUploadTicket(input: {
  * client - a client-supplied digest would let anyone claim an existing asset by
  * guessing its hash.
  *
- * ponytail: buffers the whole object to hash and probe it. Fine to ~512MB on a
- * single box; stream through a hash transform when large video lands (v0.2+).
+ * ponytail: buffers the whole object to hash and probe it, bounded by
+ * MAX_UPLOAD_BYTES (checked first). The probes, XMP, C2PA and previews all read
+ * a Buffer; streaming means teaching them to read ranges.
  */
 export async function finalizeUpload(
   caller: Caller,
@@ -141,8 +142,12 @@ export async function finalizeUpload(
   const into = [...new Set(input.collections ?? [])];
   const proposed = !allows(uploadScope(caller, into), "write");
   const staged = stagingKey(input.token);
-  if (!(await exists(staged))) {
-    throw new AssetError("not_found", "No staged upload for that token");
+  const size = await sizeOf(staged);
+  if (size === null) throw new AssetError("not_found", "No staged upload for that token");
+  // The signed PUT pins the size claimed for the ticket, but not every provider checks it.
+  if (size > MAX_UPLOAD_BYTES) {
+    await deleteObject(staged);
+    throw new AssetError("too_large", `Max upload size is ${MAX_UPLOAD_BYTES} bytes`);
   }
   // Checked before any bytes move: a rejected upload stays staged, so the
   // client can fix the fields and retry with the same token.
@@ -689,7 +694,7 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
 
 /**
  * What an asset is, for a machine deciding whether and how to use it:
- * `GET /a/{id}` with `Accept: application/json`, and MCP's describe tool.
+ * `GET /api/v1/assets/{id}/description`, and MCP's describe tool.
  * Whether a particular use is allowed is /api/v1/check's question (lib/core/check.ts).
  */
 export function describeAsset(asset: Asset) {

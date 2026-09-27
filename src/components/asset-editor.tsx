@@ -252,7 +252,7 @@ export function AssetEditor({
                 ...(hasPreview(asset)
                   ? [{ label: "A size to hand out", text: call("rendition_url", { id: asset.id, width: 1200, format: "webp" }) }]
                   : []),
-                { label: "REST", text: curl(`${origin}/a/${asset.id}`, ["Accept: application/json"]) },
+                { label: "REST", text: curl(`${origin}/api/v1/assets/${asset.id}/description`) },
               ]}
             />
           </div>

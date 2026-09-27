@@ -219,7 +219,7 @@ async function main() {
       return out(r, () => r.data.map(line).join("\n") || "Nothing found.");
     }
     case "describe": {
-      const r = await api("GET", `/a/${need(args[0], "asset id")}`);
+      const r = await api("GET", `/api/v1/assets/${need(args[0], "asset id")}/description`);
       return console.log(JSON.stringify(r, null, 2));
     }
     case "check": {

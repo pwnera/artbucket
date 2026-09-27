@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_DIMENSION, parseTransform, serializeTransform } from "./transform.ts";
+import { effective, MAX_DIMENSION, parseTransform, serializeTransform } from "./transform.ts";
 
 test("parses a simple transform", () => {
   assert.deepEqual(parseTransform("w_800,f_webp"), { w: 800, f: "webp" });
@@ -48,4 +48,13 @@ test("rejects malformed input", () => {
 
 test("caps dimensions at the boundary, inclusive", () => {
   assert.deepEqual(parseTransform(`w_${MAX_DIMENSION}`), { w: MAX_DIMENSION });
+});
+
+test("a side that can't bind drops, so equal pixels share a rendition", () => {
+  const photo = { width: 3000, height: 2000 };
+  assert.deepEqual(effective({ w: 8000, f: "webp" }, photo), { f: "webp" });
+  assert.deepEqual(effective({ w: 800, h: 8000, fit: "inside" }, photo), { w: 800, fit: "inside" });
+  assert.deepEqual(effective({ w: 2500 }, photo), { w: 2500 }); // could bind if EXIF turns it
+  assert.deepEqual(effective({ w: 8000, h: 8000, fit: "cover" }, photo), { w: 8000, h: 8000, fit: "cover" });
+  assert.deepEqual(effective({ w: 8000 }, { width: null, height: null }), { w: 8000 });
 });

@@ -199,9 +199,25 @@ _~3 weekends._
 ## v0.9 - Hardening
 **Question:** can a stranger run this in production without paging you?
 
-- Backup and restore that is actually tested
 - Migration path guarantees across versions
-- S3 lifecycle rules, storage accounting
+- S3 lifecycle rules: `staging/` expires after a day, `renditions/` after 30
+- **Limits per organization:** one `limits` setting (storage, editors,
+  workspaces, brands, features, read-only), unlimited by default, checked by one
+  `checkLimit` at upload, grant and invitation, workspace, brand and API key
+  creation. Settable only by the operator (environment or database), never by
+  the organization's own admins
+- **Usage accounting:** storage as the sum of asset sizes per organization,
+  traffic as a daily per-workspace counter written by the delivery route, both
+  shown in Settings
+- Upload tickets know their workspace, so a quota is checked before any bytes
+  move and again, authoritatively, at finalize
+- **Soft delete:** a deleted asset keeps its bytes for 30 days, then a sweeper
+  removes originals nothing references. Undo, and no race with an identical
+  upload in another workspace
+- Deleting a workspace or an organization, through the same path, so no bytes
+  are orphaned
+- Open sign-up as an option (`SIGNUP=open`): a new account gets its own
+  organization. Closed stays the default
 - Rate limits, CSP, security headers
 - Docs site on [Mintlify](https://mintlify.com), modeled on
   [Postiz docs](https://docs.postiz.com/general/introduction), served at a custom
@@ -216,7 +232,7 @@ _~3 weekends._
     if the hosted plan stops fitting
 - Telemetry **off by default**
 
-_~4 weekends. The unglamorous one that decides adoption._
+_~6 weekends. The unglamorous one that decides adoption._
 
 ---
 
@@ -263,6 +279,23 @@ _~3 weekends._
 
 **Not in this one:** branded API docs, branded MCP server names.
 _~3 weekends._
+
+---
+
+## v1.2.5 - Backup and restore
+**Question:** can a lost file or a dropped table come back?
+
+- Postgres first: without it the bucket is a pile of hashes. Point-in-time
+  recovery where the host offers it, plus a nightly `pg_dump` to another provider
+- Originals only: they are content-addressed and never overwritten, so a nightly
+  `rclone copy` of `assets/` to a second provider is incremental. `copy`, not
+  `sync`, with a key that cannot delete, so a deletion never propagates.
+  Renditions regenerate and staging is transient, so neither is backed up
+- Deleted originals pruned from the backup after the soft-delete window, so
+  erasure has a stated deadline
+- A restore that is actually tested, documented step by step
+
+_~2 weekends._
 
 ---
 

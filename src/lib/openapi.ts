@@ -218,6 +218,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The asset, with its suggestions", data(S.Asset)],
         }),
       },
+      "/api/v1/assets/{id}/description": {
+        parameters: [path("id", "Asset id")],
+        get: op({
+          summary: "What an asset is and may be used for",
+          scope: "read",
+          description:
+            "Title, credit, tags, effective field values, rights, provenance, what supersedes it, its URLs, the " +
+            "transforms it allows and ready-made rendition URLs. Whether a particular use is allowed: POST /api/v1/check.",
+          ok: [200, "The description", S.Description],
+        }),
+      },
       "/api/v1/collections": {
         get: op({ summary: "List collections", scope: "read", ok: [200, "Collections", data(z.array(S.Collection))] }),
         post: op({
@@ -705,14 +716,14 @@ export function openapi(serverUrl: string) {
       "/a/{id}": {
         parameters: [path("id", "Asset id")],
         get: op({
-          summary: "The original, or its description",
+          summary: "The original",
           scope: "public",
           description:
             "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except " +
-            "into a file with Content Credentials, which it leaves as signed. With `Accept: application/json` it " +
-            "returns the description instead (rights and provenance included), which needs the read scope.",
+            "into a file with Content Credentials, which it leaves as signed. What the asset is: " +
+            "GET /api/v1/assets/{id}/description.",
           query: { download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" } },
-          ok: [200, "The file", S.Description],
+          ok: [200, "The file"],
         }),
       },
       "/a/{id}/{transform}": {
@@ -721,7 +732,7 @@ export function openapi(serverUrl: string) {
           path("transform", "e.g. w_800,f_webp. Keys: w, h (1-8000), fit, q (1-100), f (jpeg, png, webp, avif)"),
         ],
         get: {
-          summary: "A rendition, generated once and cached forever",
+          summary: "A rendition, generated once and cached",
           security: [],
           responses: { 200: { description: "Image bytes" }, default: { description: "An error", content: json(S.ErrorBody) } },
         },
