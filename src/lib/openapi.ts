@@ -184,6 +184,118 @@ export function openapi(serverUrl: string) {
         parameters: [path("id", "Saved search id")],
         delete: op({ summary: "Forget a saved search", scope: "write", ok: [200, "Deleted", S.Deleted] }),
       },
+      "/api/v1/brand/rules": {
+        get: op({
+          summary: "Brand rules",
+          scope: "read",
+          description:
+            "The canon, as structured records: `color.primary`, `logo.neverDo`, `type.scale`. Without `context`, " +
+            "every rule and its context variants. With one, one rule per key: the context's own where it has one, " +
+            "the default otherwise.",
+          query: {
+            brand: { schema: str, description: "A brand's slug; the default brand when left out" },
+            context: { schema: str, description: "A slug, e.g. instagram-story or dark-background" },
+            asset: { schema: { type: "string", format: "uuid" }, description: "Only the rules that point at this asset" },
+          },
+          ok: [200, "Rules, and the contexts in use", S.BrandRules],
+        }),
+        post: op({
+          summary: "Add a brand rule",
+          scope: "write",
+          description:
+            "One per key and context; 409 when it exists. `value` must match `type`. `?brand=` picks the brand; " +
+            "the default otherwise. Every change to rules lands in the brand's history.",
+          query: { brand: { schema: str, description: "A brand's slug" } },
+          body: S.RuleInput,
+          ok: [201, "Created", data(S.BrandRule)],
+        }),
+      },
+      "/api/v1/brand/rules/order": {
+        put: op({
+          summary: "Reorder brand rules",
+          scope: "write",
+          description: "Rules appear in this order within their section. A key's context versions move with it.",
+          query: { brand: { schema: str, description: "A brand's slug" } },
+          body: S.RuleOrder,
+          ok: [200, "Done", data(z.object({ ok: z.literal(true) }))],
+        }),
+      },
+      "/api/v1/brand/rules/{id}": {
+        parameters: [path("id", "Rule id")],
+        patch: op({
+          summary: "Edit a brand rule",
+          scope: "write",
+          description: "A new `key` renames the rule and its context versions. The type never changes: delete and recreate.",
+          body: S.RulePatch,
+          ok: [200, "The rule", data(S.BrandRule)],
+        }),
+        delete: op({ summary: "Delete a brand rule", scope: "write", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/brands": {
+        get: op({ summary: "Brands, the default first", scope: "read", ok: [200, "Brands", data(z.array(S.Brand))] }),
+        post: op({
+          summary: "Create a brand",
+          scope: "write",
+          description: "Empty, or `from` another brand's current rules. Its history starts at version 1.",
+          body: S.BrandCreate,
+          ok: [201, "Created", data(S.Brand)],
+        }),
+      },
+      "/api/v1/brands/{slug}": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({ summary: "Fetch a brand", scope: "read", ok: [200, "The brand", data(S.Brand)] }),
+        patch: op({
+          summary: "Rename a brand, or make it the default",
+          scope: "write",
+          body: S.BrandPatch,
+          ok: [200, "The brand", data(S.Brand.omit({ rules: true }))],
+        }),
+        delete: op({
+          summary: "Delete a brand with its rules and history",
+          scope: "write",
+          description: "Not the default: make another brand the default first.",
+          ok: [200, "Deleted", S.Deleted],
+        }),
+      },
+      "/api/v1/brands/{slug}/versions": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's history",
+          scope: "read",
+          description:
+            "Newest first. Every change is recorded; changes by the same actor within ten minutes extend one " +
+            "version, as in a shared doc, unless it has been named.",
+          ok: [200, "Versions, without their rules", data(z.array(S.VersionMeta))],
+        }),
+      },
+      "/api/v1/brands/{slug}/versions/{number}": {
+        parameters: [path("slug", "Brand slug"), path("number", "Version number")],
+        get: op({
+          summary: "One version, and what changed",
+          scope: "read",
+          description:
+            "The rules as they were. `diff` goes from the version before (or `against`) to this one; with " +
+            "`against=current`, from this one to now.",
+          query: { against: { schema: str, description: 'A version number, or "current"' } },
+          ok: [200, "The version", data(S.Version)],
+        }),
+        patch: op({
+          summary: "Name a version",
+          scope: "write",
+          description: "A named version is a checkpoint: later edits start a new version instead of extending it.",
+          body: S.VersionPatch,
+          ok: [200, "The version", data(S.VersionMeta)],
+        }),
+      },
+      "/api/v1/brands/{slug}/versions/{number}/restore": {
+        parameters: [path("slug", "Brand slug"), path("number", "Version number")],
+        post: op({
+          summary: "Restore a version",
+          scope: "write",
+          description: "Replaces the brand's rules with the version's. The restore is a new version, so it can be undone.",
+          ok: [200, "Restored", data(S.Restored)],
+        }),
+      },
       "/api/v1/keys": {
         get: op({ summary: "List API keys", scope: "admin", ok: [200, "Keys, without secrets", data(z.array(S.ApiKey))] }),
         post: op({
@@ -203,7 +315,8 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, " +
-            "rendition_url, ingest_asset, propose_tags. Each tool checks its own scope.",
+            "rendition_url, ingest_asset, propose_tags, brand_rules. Each tool checks its own scope. " +
+            "Resources: artbucket://brand/rules and artbucket://brand/rules/{context}.",
           body: z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number()]).optional(), method: z.string(), params: z.unknown().optional() }),
           ok: [200, "A JSON-RPC response", z.object({ jsonrpc: z.literal("2.0"), id: z.unknown(), result: z.unknown().optional(), error: z.unknown().optional() })],
           extra: { 202: { description: "A notification was accepted" } },

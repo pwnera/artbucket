@@ -9,6 +9,8 @@ import {
   searchAssets,
   type Asset,
 } from "@/lib/core/assets";
+import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
+import { listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import type { Caller } from "@/lib/core/keys";
@@ -22,13 +24,14 @@ import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from
  * Streamable HTTP with plain JSON responses, which is all a tool server needs:
  * no sessions, no SSE, nothing to keep in memory between requests.
  *
- * ponytail: hand-rolled JSON-RPC over the four methods tools use. Take the
- * official SDK when resources (v0.5), prompts or server-initiated messages land.
+ * ponytail: hand-rolled JSON-RPC over the methods tools and resources use.
+ * Take the official SDK when prompts, subscriptions or server-initiated
+ * messages land.
  */
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -46,6 +49,28 @@ const summary = (a: Asset) => ({
   url: base(a.id),
   thumbnail: isRenderable(a.mime) ? `${base(a.id)}/w_480,f_webp` : null,
 });
+
+/** Rules as a model reads them: referenced assets come with URLs it can use as is. */
+const forAgent = (rules: BrandRule[]) =>
+  rules.map(({ key, context, type, value, usage, assets }) => ({
+    key,
+    context,
+    type,
+    value,
+    usage,
+    assets: assets.map(({ id, rendition }) => ({ id, rendition, url: rendition ? `${base(id)}/${rendition}` : base(id) })),
+  }));
+
+const rulesFor = async (context?: string, brand?: string) => ({
+  brand: brand ?? (await listBrands()).find((b) => b.default)?.slug ?? null,
+  context: context ?? null,
+  rules: forAgent(await listRules({ brand, context })),
+});
+
+/** The default brand's rules live at artbucket://brand/rules, every brand's at artbucket://brands/{slug}/rules. */
+const RULES_URI = "artbucket://brand/rules";
+const rulesUri = (brand: { slug: string; default: boolean }) =>
+  brand.default ? RULES_URI : `artbucket://brands/${brand.slug}/rules`;
 
 const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
@@ -121,11 +146,22 @@ const TOOLS: Record<string, Tool> = {
   describe_asset: tool({
     description:
       "Everything known about one asset: title, credit, tags, field values, the URLs it is served at, " +
-      "what renditions it allows, and ready-made rendition URLs. Read this before using an asset.",
+      "what renditions it allows, ready-made rendition URLs, and the brand rules that point at it " +
+      "(for a logo: how it may and may not be used). Read this before using an asset.",
     scope: "read",
     readOnly: true,
     input: z.object({ id }),
-    run: async ({ id }) => describeAsset(await found(id)),
+    run: async ({ id }) => ({
+      ...describeAsset(await found(id)),
+      brandRules: (await listRules({ asset: id })).map(({ brand, key, context, type, value, usage }) => ({
+        brand,
+        key,
+        context,
+        type,
+        value,
+        usage,
+      })),
+    }),
   }),
 
   rendition_url: tool({
@@ -178,6 +214,36 @@ const TOOLS: Record<string, Tool> = {
     },
   }),
 
+  brand_rules: tool({
+    // Built per call: the brands and their contexts are the library's own.
+    description: async () => {
+      const brands = await listBrands();
+      const contexts = await Promise.all(brands.map(async (b) => [b, await listContexts(b.slug)] as const));
+      return [
+        "A brand's rules as data: colors (hex), logo use, type, tone, each with a sentence on how to use it",
+        "and the assets it points at (the logo it governs, examples; describe_asset tells you more about one).",
+        "Pass the context you are working in to get one rule per key: that context's own where it has one, the default otherwise.",
+        "No context returns every rule and its variants. No brand means the default brand.",
+        brands.length > 1
+          ? `Brands: ${contexts
+              .map(([b, cs]) => `${b.slug} (${b.name}${b.default ? ", the default" : ""}${cs.length ? `; contexts: ${cs.join(", ")}` : ""})`)
+              .join("; ")}.`
+          : contexts[0]?.[1].length
+            ? `Contexts: ${contexts[0][1].join(", ")}.`
+            : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    },
+    scope: "read",
+    readOnly: true,
+    input: z.object({
+      brand: z.string().max(60).optional().describe("A brand's slug; the default brand when left out"),
+      context: z.string().max(64).optional().describe("e.g. dark-background, instagram-story"),
+    }),
+    run: async ({ brand, context }) => rulesFor(context, brand),
+  }),
+
   propose_tags: tool({
     description:
       "Suggest tags for an asset. They are not applied: a person accepts or dismisses each one. " +
@@ -223,8 +289,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       const asked = String(params.protocolVersion ?? "");
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
-        capabilities: { tools: {} },
-        serverInfo: { name: "artbucket", version: "0.4.0" },
+        capabilities: { tools: {}, resources: {} },
+        serverInfo: { name: "artbucket", version: "0.5.0" },
         instructions: INSTRUCTIONS,
       });
     }
@@ -248,6 +314,50 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
             }),
         ),
       });
+    // Brand rules as resources, for clients that attach context by hand.
+    case "resources/list": {
+      const resources = [];
+      for (const b of await listBrands()) {
+        const uri = rulesUri(b);
+        const all = { uri, name: `brand-rules-${b.slug}`, title: `${b.name}: brand rules`, mimeType: "application/json" };
+        resources.push({ ...all, description: `Every rule of ${b.name}${b.default ? ", the default brand" : ""}` });
+        for (const c of await listContexts(b.slug)) {
+          resources.push({ ...all, uri: `${uri}/${c}`, name: `${all.name}-${c}`, title: `${b.name}: ${c}`, description: `One rule per key, for ${c}` });
+        }
+      }
+      return result(id, { resources });
+    }
+    case "resources/templates/list":
+      return result(id, {
+        resourceTemplates: [
+          {
+            uriTemplate: `${RULES_URI}/{context}`,
+            name: "brand-rules-context",
+            title: "Default brand's rules for a context",
+            description: "One rule per key: the context's own where it has one, the default otherwise",
+            mimeType: "application/json",
+          },
+          {
+            uriTemplate: "artbucket://brands/{brand}/rules/{context}",
+            name: "brand-rules-brand-context",
+            title: "A brand's rules for a context",
+            description: "One rule per key, for one brand and context",
+            mimeType: "application/json",
+          },
+        ],
+      });
+    case "resources/read": {
+      const uri = String(params.uri ?? "");
+      const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
+      if (!m) return error(id, -32002, `Resource not found: ${uri}`);
+      try {
+        const data = await rulesFor(m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
+        return result(id, { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) }] });
+      } catch (err) {
+        if (err instanceof AssetError) return error(id, -32602, err.message);
+        throw err;
+      }
+    }
     case "tools/call": {
       const t = TOOLS[String(params.name)];
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);

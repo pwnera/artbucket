@@ -107,3 +107,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* A transparency checkerboard: logos and cut-outs show their true edges on it. */
+@utility bg-checker {
+  background-color: var(--muted);
+  background-image: conic-gradient(
+    color-mix(in oklab, var(--foreground) 7%, transparent) 25%,
+    transparent 0 50%,
+    color-mix(in oklab, var(--foreground) 7%, transparent) 0 75%,
+    transparent 0
+  );
+  background-size: 14px 14px;
+}

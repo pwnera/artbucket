@@ -171,6 +171,39 @@ _~4 weekends. The unglamorous one that decides adoption._
 
 ---
 
+## v1.1 - Brand portals
+**Question:** can people outside the team self-serve the right assets?
+
+- Public or login-gated portals per workspace: a curated, branded front door
+  onto chosen collections (press kit, partner hub, retailer assets)
+- Theming: logo, colors, custom domain, intro copy
+- Only approved, unexpired assets show; expiry and lifecycle rules from v0.8
+  apply unchanged
+- Preset rendition downloads (web, print, social) instead of raw originals
+- Access via v0.7 share-link rules: expiry, password, guest request-access
+- Built as a plain API client, same as the main UI - no private endpoints
+
+**Not in this one:** portal page builder, per-visitor analytics.
+_~3 weekends._
+
+---
+
+## v1.2 - Full white-labeling
+**Question:** can an agency or reseller run it as their own product?
+
+- Per-org branding across the whole app, not just portals: logo, colors,
+  favicon, product name, login screen
+- Custom domains for the app itself, with automatic TLS
+- Branded transactional email: sender name, domain, templates
+- No artbucket marks anywhere a user or guest can see, including share links,
+  downloads, and error pages
+- One theme source of truth, reused by portals from v1.1
+
+**Not in this one:** branded API docs, branded MCP server names.
+_~3 weekends._
+
+---
+
 ## Non-goals
 
 PIM. Project management. A CMS. Video editing. Custom model training.
@@ -185,4 +218,4 @@ A sidebar chatbot. Integrate or skip.
 | Video renditions, posters, transcripts | Someone actually asks |
 | Elasticsearch / Typesense | Never, probably |
 | SAML, SCIM | First paying customer requires it |
-| Approval routing, annotations, analytics, portals | After v1.0, if the thesis held |
+| Approval routing, annotations, analytics | After v1.0, if the thesis held |

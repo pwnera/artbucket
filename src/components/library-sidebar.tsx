@@ -1,18 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import {
-  IconAdjustments,
-  IconBookmark,
-  IconDots,
-  IconInbox,
-  IconPalette,
-  IconPencil,
-  IconPhoto,
-  IconPlus,
-  IconX,
-} from "@tabler/icons-react";
-import { Logo, ThemeToggle } from "@/components/brand";
+import { IconAdjustments, IconBookmark, IconDots, IconPencil, IconPlus, IconX } from "@tabler/icons-react";
+import { AppSidebar } from "@/components/app-sidebar";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import {
   DropdownMenu,
@@ -21,20 +10,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -76,40 +60,18 @@ export function LibrarySidebar({
   };
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" onClick={go(() => onSelect(null))} className="gap-3">
-              <Logo />
-              <span className="truncate text-base font-semibold tracking-tight">Artbucket</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={current === null && !activeSearch && !reviewing}
-                  onClick={go(() => onSelect(null))}
-                  tooltip="All files"
-                >
-                  <IconPhoto /> <span>All files</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={reviewing} onClick={go(onReview)} tooltip="Review">
-                  <IconInbox /> <span>Review</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
+    <AppSidebar
+      place={reviewing ? "review" : current === null && !activeSearch ? "files" : null}
+      onFiles={() => onSelect(null)}
+      onReview={onReview}
+      footer={
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={go(onManageFields)} tooltip="Custom fields">
+            <IconAdjustments /> <span>Custom fields</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      }
+    >
         <SidebarGroup>
           <SidebarGroupLabel>Collections</SidebarGroupLabel>
           <SidebarGroupAction title="New collection" onClick={onNewCollection}>
@@ -171,28 +133,6 @@ export function LibrarySidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-      </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={go(onManageFields)} tooltip="Custom fields">
-              <IconAdjustments /> <span>Custom fields</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Design system">
-              <Link href="/design">
-                <IconPalette /> <span>Design system</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem className="flex justify-end group-data-[collapsible=icon]:justify-center">
-            <ThemeToggle />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-      <SidebarRail />
-    </Sidebar>
+    </AppSidebar>
   );
 }

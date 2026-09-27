@@ -19,6 +19,15 @@ const HELP = `artbucket <command>
   review                  what waits on a human
   approve <id>            promote a proposed asset and accept its suggested tags
   reject <id>             delete a proposed asset, or dismiss its suggested tags
+  brands                  list brands; the default is starred
+  rules [--brand b] [--context c]
+                          a brand's rules; with a context, what applies there
+  rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
+                          add or replace one; a list is comma-separated
+  rules delete <id>
+  history [--brand b]     the brand's versions, newest first
+  history <n> [--brand b] what changed in version n
+  restore <n> [--brand b] put version n back (itself a new version)
   keys                    list API keys
   keys create <name> --scope read|propose|write|admin
   keys revoke <id>
@@ -41,6 +50,11 @@ const { values: opt, positionals } = parseArgs({
     format: { type: "string" },
     quality: { type: "string" },
     scope: { type: "string" },
+    type: { type: "string" },
+    context: { type: "string" },
+    brand: { type: "string" },
+    usage: { type: "string" },
+    asset: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -160,6 +174,94 @@ async function main() {
       }
       const r = await api("PATCH", `/api/v1/assets/${a.id}`, { proposedTags: [] });
       return out(r, () => `dismissed ${a.proposedTags.join(", ") || "nothing"} on ${a.filename}`);
+    }
+    case "brands": {
+      const r = await api("GET", "/api/v1/brands");
+      return out(r, () =>
+        r.data
+          .map((b: { slug: string; name: string; default: boolean; rules: number }) =>
+            `${b.default ? "*" : " "} ${b.slug.padEnd(20)} ${b.name}  (${b.rules} rules)`,
+          )
+          .join("\n"),
+      );
+    }
+    case "history":
+    case "restore": {
+      const slug = opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
+      const base = `/api/v1/brands/${slug}/versions`;
+      if (cmd === "restore") {
+        const r = await api("POST", `${base}/${need(args[0], "version number")}/restore`);
+        return out(r, () => `restored version ${r.data.restored} as version ${r.data.version}`);
+      }
+      if (args[0]) {
+        const r = await api("GET", `${base}/${args[0]}`);
+        return out(r, () =>
+          [`v${r.data.number}  ${r.data.name ?? r.data.summary}  (${r.data.actor}, ${r.data.updatedAt})`]
+            .concat(
+              r.data.diff.map((c: { change: string; key: string; context: string | null }) =>
+                `  ${c.change.padEnd(8)} ${c.key}${c.context ? ` [${c.context}]` : ""}`,
+              ),
+            )
+            .join("\n"),
+        );
+      }
+      const r = await api("GET", base);
+      return out(r, () =>
+        r.data
+          .map((v: { number: number; name: string | null; summary: string; actor: string; updatedAt: string }) =>
+            `v${String(v.number).padEnd(4)} ${v.updatedAt.slice(0, 16).replace("T", " ")}  ${v.actor.padEnd(10)} ${v.name ? `[${v.name}] ` : ""}${v.summary}`,
+          )
+          .join("\n"),
+      );
+    }
+    case "rules": {
+      type Rule = { id: string; key: string; context: string | null; type: string; value: unknown; usage: string | null; assets: unknown[] };
+      const show = (r: Rule) =>
+        [
+          r.id,
+          r.key + (r.context ? ` [${r.context}]` : ""),
+          [r.value].flat().join(", "),
+          r.usage && `- ${r.usage}`,
+          r.assets.length && `(${r.assets.length} asset${r.assets.length > 1 ? "s" : ""})`,
+        ]
+          .filter(Boolean)
+          .join("  ");
+      const inBrand = opt.brand ? `?brand=${encodeURIComponent(opt.brand)}` : "";
+      // --asset id, or id:w_512,f_png for one rendition of it.
+      const ruleAssets = opt.asset?.map((a) => {
+        const [id, rendition] = a.split(":");
+        return { id, rendition: rendition || null };
+      });
+      if (args[0] === "set") {
+        const key = need(args[1], "rule key");
+        const raw = need(args[2], "value");
+        const type = need(opt.type, "--type");
+        const value =
+          type === "number" ? Number(raw) : type === "list" ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (/^-?\d+(\.\d+)?$/.test(s) ? Number(s) : s)) : raw;
+        const context = opt.context ?? null;
+        const { data } = await api("GET", `/api/v1/brand/rules${inBrand}`);
+        const found = (data as Rule[]).find((r) => r.key === key && r.context === context);
+        // Same key and type: edit in place. A different type means a new rule.
+        if (found && found.type !== type) await api("DELETE", `/api/v1/brand/rules/${found.id}`);
+        const r =
+          found && found.type === type
+            ? await api("PATCH", `/api/v1/brand/rules/${found.id}`, {
+                value,
+                ...(opt.usage !== undefined && { usage: opt.usage }),
+                ...(ruleAssets && { assets: ruleAssets }),
+              })
+            : await api("POST", `/api/v1/brand/rules${inBrand}`, { key, context, type, value, usage: opt.usage, assets: ruleAssets });
+        return out(r, () => show(r.data));
+      }
+      if (args[0] === "delete") {
+        const r = await api("DELETE", `/api/v1/brand/rules/${need(args[1], "rule id")}`);
+        return out(r, () => "deleted");
+      }
+      const q = new URLSearchParams();
+      if (opt.brand) q.set("brand", opt.brand);
+      if (opt.context) q.set("context", opt.context);
+      const r = await api("GET", `/api/v1/brand/rules${q.size ? `?${q}` : ""}`);
+      return out(r, () => r.data.map(show).join("\n") || "No brand rules.");
     }
     case "keys": {
       if (args[0] === "create") {

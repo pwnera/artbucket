@@ -1,0 +1,1 @@
+ALTER TABLE "brand_versions" ADD COLUMN "restored_from" integer;

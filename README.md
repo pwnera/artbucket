@@ -13,10 +13,10 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.4, early.** Upload, content-addressed dedupe, on-the-fly
+> **Status: v0.5, early.** Upload, content-addressed dedupe, on-the-fly
 > renditions, metadata extraction and write-back, custom fields, collections,
 > faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
-> server and a CLI. The API is not stable until v1.0.
+> server, a CLI, and brand rules as queryable data. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -109,6 +109,19 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/searches` | Saved searches |
 | `POST` | `/api/v1/searches` | Save a `{ name, query }` |
 | `DELETE` | `/api/v1/searches/{id}` | Forget one |
+| `GET` | `/api/v1/brand/rules` | Brand rules; `?context=` resolves one per key, `?asset=` only those pointing at it |
+| `POST` | `/api/v1/brand/rules` | Add a `{ key, context, type, value, usage, assets }` rule |
+| `PUT` | `/api/v1/brand/rules/order` | `{ "keys": [...] }` in page order |
+| `PATCH` | `/api/v1/brand/rules/{id}` | Change its `value`, `usage` or `context` |
+| `DELETE` | `/api/v1/brand/rules/{id}` | Delete one |
+| `GET` | `/api/v1/brands` | Brands, the default first |
+| `POST` | `/api/v1/brands` | Make one, empty or `from` another |
+| `PATCH` | `/api/v1/brands/{slug}` | Rename it, or `{ "default": true }` |
+| `DELETE` | `/api/v1/brands/{slug}` | Delete it with its rules and history; not the default |
+| `GET` | `/api/v1/brands/{slug}/versions` | Its history, newest first |
+| `GET` | `/api/v1/brands/{slug}/versions/{n}` | A version's rules and diff; `?against=` a number or `current` |
+| `PATCH` | `/api/v1/brands/{slug}/versions/{n}` | `{ name }` keeps it as a checkpoint |
+| `POST` | `/api/v1/brands/{slug}/versions/{n}/restore` | Put it back, as a new version |
 | `GET` | `/api/v1/keys` | API keys, without their secrets |
 | `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key; the secret is in this response only |
 | `DELETE` | `/api/v1/keys/{id}` | Revoke one |
@@ -225,6 +238,51 @@ allows (`constraints`), and ready-made rendition URLs (`alternatives`).
 `rights` is `null` until v0.6 brings licenses and expiry. Browsers still get
 the bytes: only an explicit `application/json` switches it.
 
+### The brand, as data
+
+Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
+`text`, `number` or `list`), a sentence on how to use it, and the assets it
+points at (the logo it governs, examples). [`/brand`](http://localhost:3000/brand)
+is the guidelines, drawn from those records and edited in place: click any
+value to change it, click a rule's title to rename it, press `/` to add a rule
+from a searchable menu of named building blocks (brand color, clear space,
+logo don'ts, type scale, words to avoid...) without knowing its key, drag a rule's handle to move it,
+or click the handle to attach assets or add a version for a context. An
+attached asset can name a rendition (`w_512,f_png`, or a standard size like
+Open Graph): agents then get that exact URL, not the original. Colors
+show their RGB, HSL and WCAG contrast on white and black; a numeric `type.scale`
+renders as a specimen; lists named like `neverDo` or `avoid` read as don'ts.
+An asset's dialog lists the rules that point at it.
+
+#### Brands and history
+
+A library can hold several brands, each with its own rules; one is the
+default, which is what `/brand` and an unqualified `/api/v1/brand/rules` mean.
+Name another with `?brand={slug}`. Brands are made, renamed, copied and
+promoted from the sidebar or `/api/v1/brands`.
+
+Every change to a brand's rules is kept, as in a shared doc: edits close
+together by the same person or key are one version, a named version is a
+checkpoint, and History shows what changed in each version (or between it and
+now) and restores any of them. A restore is itself a new version, so it can be
+undone the same way.
+
+```bash
+curl localhost:3000/api/v1/brands/default/versions
+curl 'localhost:3000/api/v1/brands/default/versions/3?against=current'
+curl -X POST localhost:3000/api/v1/brands/default/versions/3/restore
+pnpm artbucket history --brand default
+```
+
+```bash
+pnpm artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
+pnpm artbucket rules set color.primary '#5bc27a' --type color --context dark-background
+curl 'localhost:3000/api/v1/brand/rules?context=dark-background'
+```
+
+A rule can be scoped to a context. Asking for one returns one rule per key:
+the context's own where it has one, the default otherwise.
+
 ### Your metadata, in your files
 
 `/a/{id}` is always the exact bytes you uploaded. `/a/{id}?download` is the same
@@ -245,10 +303,15 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
 | Tool | Scope | |
 |---|---|---|
 | `search_assets` | read | Full text, tags, collections, field filters; its description lists your fields and collections |
-| `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json` |
+| `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json`, plus the brand rules that point at it |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
+| `brand_rules` | read | A brand's rules for a context; its description lists the brands and their contexts |
+
+Brand rules are also MCP resources: `artbucket://brand/rules` for the default
+brand, `artbucket://brands/{slug}/rules` for any other, and `/{context}` on
+either for one context.
 
 `tools/list` shows a key only the tools its scope can run. `ingest_asset` and
 `POST /api/v1/assets` with a `url` fetch public addresses only: loopback,
@@ -265,6 +328,7 @@ pnpm artbucket url {id} --width 1200 --format webp
 pnpm artbucket ingest ./hero.png https://example.com/logo.png --tag launch
 pnpm artbucket review
 pnpm artbucket approve {id}
+pnpm artbucket rules --context instagram-story
 pnpm artbucket keys create claude --scope propose
 ```
 
