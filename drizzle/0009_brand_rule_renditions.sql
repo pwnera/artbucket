@@ -1,0 +1,1 @@
+ALTER TABLE "brand_rule_assets" ADD COLUMN "rendition" text;

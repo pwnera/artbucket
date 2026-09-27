@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
+import { RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
@@ -13,7 +14,7 @@ import { FITS, FORMATS } from "./transform.ts";
  * Relative imports: `pnpm test` runs this under plain Node, which has no `@/`.
  */
 
-export { FieldDefInput, FieldDefPatch };
+export { FieldDefInput, FieldDefPatch, RuleInput, RuleOrder, RulePatch };
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 const uuid = z.uuid();
@@ -160,6 +161,23 @@ export const FieldDef = z.object({
 });
 
 export const SavedSearch = z.object({ id: uuid, name: z.string(), query: z.string(), createdAt: date });
+
+export const BrandRule = z.object({
+  id: uuid,
+  key: z.string().describe("Dotted, e.g. color.primary"),
+  context: z.string().nullable().describe("null: the default"),
+  type: z.enum(RULE_TYPES),
+  value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
+  usage: z.string().nullable(),
+  assets: z
+    .array(z.object({ id: uuid, rendition: z.string().nullable() }))
+    .describe("Assets it points at, in order: /a/{id}, or /a/{id}/{rendition} when it names one"),
+  updatedAt: date,
+});
+export const BrandRules = z.object({
+  data: z.array(BrandRule),
+  contexts: z.array(z.string()).describe("Every context some rule is scoped to"),
+});
 
 export const ApiKey = z.object({
   id: uuid,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconCheck, IconDownload, IconPhoto, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBook, IconCheck, IconDownload, IconPhoto, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
+import { ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
@@ -157,6 +158,7 @@ export function AssetEditor({
 
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
             <Review asset={asset} onReviewed={onReviewed} />
+            <BrandRules assetId={asset.id} />
             {TEXT.map(({ key, label }) => (
               <Field key={key} label={label} htmlFor={`${id}-${key}`}>
                 <Input id={`${id}-${key}`} name={key} defaultValue={m[key] ?? ""} maxLength={2000} />
@@ -207,6 +209,43 @@ export function AssetEditor({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The brand rules that point at this asset, linking to each on the guidelines page. */
+function BrandRules({ assetId }: { assetId: string }) {
+  const [rules, setRules] = useState<Rule[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/brand/rules?asset=${assetId}`)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j) => live && setRules(j.data));
+    return () => {
+      live = false;
+    };
+  }, [assetId]);
+  if (!rules.length) return null;
+  return (
+    <div className="bg-muted/40 grid gap-2 rounded-lg border p-3">
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <IconBook className="size-4" /> Brand rules that use this
+      </p>
+      <ul className="grid gap-1.5">
+        {rules.map((r) => (
+          <li key={r.id} className="text-sm">
+            <a href={`/brand#rule-${r.key}`} className="hover:underline">
+              {ruleLabel(r.key)}
+            </a>
+            <code className="text-muted-foreground ml-2 font-mono text-xs">{r.key}</code>
+            {r.context && (
+              <Badge variant="secondary" className="ml-2">
+                {r.context}
+              </Badge>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

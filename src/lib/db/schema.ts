@@ -10,10 +10,12 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
+import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 
 export type AssetStatus = "active" | "proposed";
@@ -171,4 +173,53 @@ export const apiKeys = pgTable(
       .default(sql`now()`),
   },
   (t) => [check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`)],
+);
+
+/**
+ * The canon: one brand rule per (key, context). A null context is the default;
+ * see lib/rules.ts for how a context resolves. `value` is checked against
+ * `type` by lib/rules.ts, and `type` never changes: delete and recreate.
+ */
+export const brandRules = pgTable(
+  "brand_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(),
+    context: text("context"),
+    type: text("type").$type<RuleType>().notNull(),
+    value: jsonb("value").$type<RuleValue>().notNull(),
+    usage: text("usage"),
+    /** Order on the page. Shared by a key's context versions, so they move together. */
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    unique("brand_rules_key_context_unique").on(t.key, t.context).nullsNotDistinct(),
+    check("brand_rules_type_check", sql`${t.type} in ('color', 'text', 'number', 'list')`),
+  ],
+);
+
+/**
+ * Assets a rule points at, in order: the logo it governs, examples of doing it
+ * right. Real foreign keys, so deleting an asset drops it from every rule.
+ */
+export const brandRuleAssets = pgTable(
+  "brand_rule_assets",
+  {
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => brandRules.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    /** A rendition spec (lib/transform.ts), e.g. w_512,f_png: the rule means this size, not the original. */
+    rendition: text("rendition"),
+  },
+  (t) => [primaryKey({ columns: [t.ruleId, t.assetId] }), index("brand_rule_assets_asset_idx").on(t.assetId)],
 );

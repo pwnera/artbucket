@@ -50,6 +50,27 @@
       "when": 1790463271799,
       "tag": "0006_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790464955676,
+      "tag": "0007_brand_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790465616262,
+      "tag": "0008_brand_rule_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790490121093,
+      "tag": "0009_brand_rule_renditions",
+      "breakpoints": true
     }
   ]
 }

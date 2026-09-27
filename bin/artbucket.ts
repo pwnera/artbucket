@@ -19,6 +19,10 @@ const HELP = `artbucket <command>
   review                  what waits on a human
   approve <id>            promote a proposed asset and accept its suggested tags
   reject <id>             delete a proposed asset, or dismiss its suggested tags
+  rules [--context c]     brand rules; with a context, what applies there
+  rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
+                          add or replace one; a list is comma-separated
+  rules delete <id>
   keys                    list API keys
   keys create <name> --scope read|propose|write|admin
   keys revoke <id>
@@ -41,6 +45,10 @@ const { values: opt, positionals } = parseArgs({
     format: { type: "string" },
     quality: { type: "string" },
     scope: { type: "string" },
+    type: { type: "string" },
+    context: { type: "string" },
+    usage: { type: "string" },
+    asset: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -160,6 +168,51 @@ async function main() {
       }
       const r = await api("PATCH", `/api/v1/assets/${a.id}`, { proposedTags: [] });
       return out(r, () => `dismissed ${a.proposedTags.join(", ") || "nothing"} on ${a.filename}`);
+    }
+    case "rules": {
+      type Rule = { id: string; key: string; context: string | null; type: string; value: unknown; usage: string | null; assets: unknown[] };
+      const show = (r: Rule) =>
+        [
+          r.id,
+          r.key + (r.context ? ` [${r.context}]` : ""),
+          [r.value].flat().join(", "),
+          r.usage && `- ${r.usage}`,
+          r.assets.length && `(${r.assets.length} asset${r.assets.length > 1 ? "s" : ""})`,
+        ]
+          .filter(Boolean)
+          .join("  ");
+      // --asset id, or id:w_512,f_png for one rendition of it.
+      const ruleAssets = opt.asset?.map((a) => {
+        const [id, rendition] = a.split(":");
+        return { id, rendition: rendition || null };
+      });
+      if (args[0] === "set") {
+        const key = need(args[1], "rule key");
+        const raw = need(args[2], "value");
+        const type = need(opt.type, "--type");
+        const value =
+          type === "number" ? Number(raw) : type === "list" ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (/^-?\d+(\.\d+)?$/.test(s) ? Number(s) : s)) : raw;
+        const context = opt.context ?? null;
+        const { data } = await api("GET", "/api/v1/brand/rules");
+        const found = (data as Rule[]).find((r) => r.key === key && r.context === context);
+        // Same key and type: edit in place. A different type means a new rule.
+        if (found && found.type !== type) await api("DELETE", `/api/v1/brand/rules/${found.id}`);
+        const r =
+          found && found.type === type
+            ? await api("PATCH", `/api/v1/brand/rules/${found.id}`, {
+                value,
+                ...(opt.usage !== undefined && { usage: opt.usage }),
+                ...(ruleAssets && { assets: ruleAssets }),
+              })
+            : await api("POST", "/api/v1/brand/rules", { key, context, type, value, usage: opt.usage, assets: ruleAssets });
+        return out(r, () => show(r.data));
+      }
+      if (args[0] === "delete") {
+        const r = await api("DELETE", `/api/v1/brand/rules/${need(args[1], "rule id")}`);
+        return out(r, () => "deleted");
+      }
+      const r = await api("GET", `/api/v1/brand/rules${opt.context ? `?context=${encodeURIComponent(opt.context)}` : ""}`);
+      return out(r, () => r.data.map(show).join("\n") || "No brand rules.");
     }
     case "keys": {
       if (args[0] === "create") {

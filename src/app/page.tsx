@@ -10,10 +10,11 @@ export const dynamic = "force-dynamic";
  * other client would fetch it. That keeps the API honest: there is no private
  * server-only path into the data.
  */
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ review?: string }> }) {
+  const review = (await searchParams).review !== undefined;
   const get = (path: string) => fetch(`${env.APP_URL}/api/v1/${path}`, { cache: "no-store" });
   const [res, fieldsRes, collectionsRes, searchesRes] = await Promise.all([
-    get("assets"),
+    get(review ? "assets?review=true" : "assets"),
     get("fields"),
     get("collections"),
     get("searches"),
@@ -24,5 +25,5 @@ export default async function Home() {
 
   const searches = searchesRes.ok ? (await searchesRes.json()).data : [];
 
-  return <Gallery initial={initial} fields={fields} collections={collections} searches={searches} />;
+  return <Gallery initial={initial} fields={fields} collections={collections} searches={searches} review={review} />;
 }

@@ -83,11 +83,14 @@ export function Gallery({
   fields: initialFields,
   collections: initialCollections,
   searches: initialSearches,
+  review: initialReview = false,
 }: {
   initial: Listing;
   fields: FieldDef[];
   collections: Collection[];
   searches: SavedSearch[];
+  /** Open on the review queue: /?review, the sidebar's link from other pages. */
+  review?: boolean;
 }) {
   const [{ data: assets, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(initialCollections);
@@ -98,7 +101,11 @@ export function Gallery({
   // The collection being browsed. Uploads made while it is selected land in it.
   const [current, setCurrent] = useState<string | null>(null);
   // Reviewing what agents proposed, instead of browsing the library.
-  const [review, setReview] = useState(false);
+  const [review, setReview] = useState(initialReview);
+  // The link got us here; from now on the view is state, so a reload shows the library.
+  useEffect(() => {
+    if (initialReview) window.history.replaceState(null, "", "/");
+  }, [initialReview]);
   const [editing, setEditing] = useState<Collection | "new" | null>(null);
   const inCollection = collections.find((c) => c.id === current);
   const [q, setQ] = useState("");
