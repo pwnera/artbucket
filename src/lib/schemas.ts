@@ -688,6 +688,10 @@ const domainState = z.object({
   host: z.string(),
   verified: z.boolean(),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves it: add this record at your DNS host"),
+  cname: z
+    .object({ type: z.literal("CNAME"), name: z.string(), value: z.string() })
+    .nullable()
+    .describe("Where to point it, when the server says (DOMAIN_TARGET); null: at this server"),
 });
 export const Portal = z.object({
   id: uuid,

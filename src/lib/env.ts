@@ -28,6 +28,12 @@ const schema = z.object({
    */
   INTERNAL_URL: z.string().url().optional(),
   /**
+   * The host name an organization's own domain should CNAME to, shown beside
+   * its TXT record: this server's, or a hosting provider's (Cloudflare for
+   * SaaS's fallback origin). Unset: "point it at this server".
+   */
+  DOMAIN_TARGET: z.string().regex(/^[a-z0-9.-]+$/i, "A host name, e.g. domains.example.com").optional(),
+  /**
    * What a request without an API key or a session may do, once the first
    * account exists (before, nothing works). Unset: nothing. See lib/scopes.ts.
    */

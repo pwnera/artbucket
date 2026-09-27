@@ -123,10 +123,14 @@ export async function proveHost(by: Caller, d: typeof domains.$inferSelect, deta
 
 // ---- an organization's own ------------------------------------------------------
 
+/** Where a domain should point, when the server says (DOMAIN_TARGET). */
+export const cnameFor = (host: string) => (env.DOMAIN_TARGET ? { type: "CNAME" as const, name: host, value: env.DOMAIN_TARGET } : null);
+
 export const presentDomain = (d: typeof domains.$inferSelect, portal: string | null = null) => ({
   host: d.host,
   verified: !!d.verifiedAt,
   record: { type: "TXT" as const, name: challengeName(d.host), value: d.token },
+  cname: cnameFor(d.host),
   portal,
   url: `${scheme}//${d.host}`,
 });

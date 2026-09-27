@@ -48,8 +48,9 @@ leaves empty comes from the organization.
 **Settings, Organization, Domains**, or `POST /api/v1/domains`:
 
 1. Add the domain, e.g. `assets.acme.com`.
-2. At your DNS host, point it at the server (a `CNAME` to its host name) and
-   add the TXT record shown, `_artbucket-challenge.assets.acme.com`.
+2. At your DNS host, point it at the server (a `CNAME` to its host name, shown
+   too when `DOMAIN_TARGET` is set) and add the TXT record shown,
+   `_artbucket-challenge.assets.acme.com`.
 3. **Check now**.
 
 Once verified, the whole app answers there in the organization's brand. People
