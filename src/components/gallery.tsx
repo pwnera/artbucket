@@ -31,6 +31,7 @@ import { CollectionDialog, CollectionIcon, send, type Collection } from "@/compo
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
 import { FieldManager } from "@/components/field-manager";
+import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
 import { remember, usePref } from "@/components/sidebar-prefs";
@@ -49,6 +50,7 @@ import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
+import { isFont } from "@/lib/font";
 import type { SidebarData } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
@@ -491,7 +493,8 @@ export function Gallery({
             />
           </div>
           {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
-          <Button size="sm" className="ml-auto" onClick={() => input.current?.click()} aria-busy={uploading}>
+          <GoogleFontImport into={into} onDone={() => void refresh()} />
+          <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
             <IconUpload />
             <span className="hidden sm:inline">Upload</span>
           </Button>
@@ -860,6 +863,10 @@ export function AssetCard({
             // Rendition URLs are pure functions of the asset id: no export step,
             // no signing, no prior round trip.
             <Thumb src={`/a/${a.id}/w_260,f_webp`} alt={a.filename} />
+          ) : isFont(a.mime, a.filename) ? (
+            <span className="flex size-full items-center justify-center">
+              <FontThumb id={a.id} className="text-6xl" />
+            </span>
           ) : (
             <span className="text-muted-foreground flex size-full items-center justify-center">
               <IconPhoto className="size-8" stroke={1.5} />

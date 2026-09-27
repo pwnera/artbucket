@@ -13,9 +13,11 @@ import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
 import { actorOf, listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
+import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/keys";
 import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
+import { GOOGLE_FAMILY } from "@/lib/font";
 import { allows, type Scope } from "@/lib/scopes";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
@@ -224,6 +226,25 @@ const TOOLS: Record<string, Tool> = {
     },
   }),
 
+  import_google_font: tool({
+    description:
+      "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
+      "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
+      "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
+    scope: "propose",
+    readOnly: false,
+    input: z.object({
+      family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
+      tags: z.array(text.max(64)).max(50).optional(),
+      collections: z.array(z.uuid()).max(50).optional(),
+    }),
+    run: async (input, caller) => {
+      const status = allows(caller.scope, "write") ? "active" : "proposed";
+      const { family, assets } = await importGoogleFont({ ...input, status, actor: await actorOf(caller) });
+      return { family, assets: assets.map(summary) };
+    },
+  }),
+
   brand_rules: tool({
     // Built per call: the brands and their contexts are the library's own.
     description: async () => {
@@ -232,6 +253,7 @@ const TOOLS: Record<string, Tool> = {
       return [
         "A brand's rules as data: colors (hex), logo use, type, tone, each with a sentence on how to use it",
         "and the assets it points at (the logo it governs, examples; describe_asset tells you more about one).",
+        "A font rule's value is the family name, and its assets are the font files to use (url, one per style).",
         "Pass the context you are working in to get one rule per key: that context's own where it has one, the default otherwise.",
         "No context returns every rule and its variants. No brand means the default brand.",
         brands.length > 1
@@ -340,7 +362,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
                 name,
                 description: typeof t.description === "string" ? t.description : await t.description(),
                 inputSchema,
-                annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" },
+                annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
               };
             }),
         ),

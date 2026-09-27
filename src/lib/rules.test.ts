@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { contextLabel, listStyle, resolve, RuleInput, ruleContext, ruleKey, ruleLabel } from "./rules.ts";
+import {
+  contextLabel,
+  fontLabel,
+  fontValue,
+  listStyle,
+  resolve,
+  RULE_VALUE,
+  RuleInput,
+  ruleContext,
+  ruleKey,
+  ruleLabel,
+} from "./rules.ts";
 
 const r = (key: string, context: string | null, value: string) => ({ key, context, value });
 
@@ -78,4 +89,13 @@ test("assets take an id or { id, rendition }; renditions are checked and put in 
   assert.equal(parse([{ id, rendition: "" }]).success, false, "an empty spec is not a rendition");
   assert.equal(parse([{ id, rendition: "rotate_90" }]).success, false);
   assert.equal(parse([id, { id, rendition: "f_png" }]).success, false, "each asset once");
+});
+
+test("a font is a family, sized and weighted or not; a bare name is the family", () => {
+  assert.deepEqual(RULE_VALUE.font.parse(" Inter "), { family: "Inter" });
+  assert.deepEqual(RULE_VALUE.font.parse({ family: "Inter", size: 32, weight: 700 }), { family: "Inter", size: 32, weight: 700 });
+  assert.ok(!RULE_VALUE.font.safeParse({ family: "Inter", color: "red" }).success);
+  assert.ok(!RULE_VALUE.font.safeParse({ family: "Inter", size: -1 }).success);
+  assert.equal(fontLabel(fontValue("Inter")), "Inter");
+  assert.equal(fontLabel({ family: "Inter", size: 32, weight: 700 }), "Inter, 32px, 700");
 });

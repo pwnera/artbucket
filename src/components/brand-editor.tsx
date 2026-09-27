@@ -8,10 +8,12 @@ import {
   IconArrowUp,
   IconBook,
   IconChevronDown,
+  IconCode,
   IconCopy,
   IconExternalLink,
   IconGripVertical,
   IconHash,
+  IconLetterCase,
   IconHistory,
   IconLink,
   IconList,
@@ -35,7 +37,8 @@ import { History } from "@/components/brand-history";
 import { remember } from "@/components/sidebar-prefs";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
-import { copy, Editable, ValueEditor } from "@/components/brand-values";
+import { copy, Editable, fontFiles, isFontAsset, ValueEditor } from "@/components/brand-values";
+import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Thumb, type Asset } from "@/components/gallery";
 import { Badge } from "@/components/ui/badge";
@@ -62,8 +65,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { isFont, pickFace } from "@/lib/font";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
-import { contextLabel, ruleContext, ruleLabel, section, type RuleAsset, type Rule, type RuleType } from "@/lib/rules";
+import {
+  contextLabel,
+  fontValue,
+  listStyle,
+  ruleContext,
+  ruleLabel,
+  section,
+  type RuleAsset,
+  type Rule,
+  type RuleType,
+} from "@/lib/rules";
 import type { SidebarData } from "@/lib/sidebar";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -81,7 +95,13 @@ const ORDER = Object.keys(SECTIONS);
 const rank = (s: string) => (ORDER.includes(s) ? ORDER.indexOf(s) : ORDER.length);
 const meta = (name: string) => SECTIONS[name] ?? { title: label(name), icon: IconBook, blurb: "" };
 
-const TYPE_ICON: Record<RuleType, Icon> = { color: IconPalette, text: IconTypography, number: IconHash, list: IconList };
+const TYPE_ICON: Record<RuleType, Icon> = {
+  color: IconPalette,
+  text: IconTypography,
+  number: IconHash,
+  list: IconList,
+  font: IconLetterCase,
+};
 
 /** What the note under a rule is for, by section: an empty note says what to write. */
 const USAGE_HINT: Record<string, string> = {
@@ -195,6 +215,8 @@ export function BrandEditor({
   }
 
   const taken = new Set(rules.map((r) => r.key));
+  // The first of each font key: what a type scale can be set in.
+  const fonts = rules.filter((r, i) => r.type === "font" && rules.findIndex((x) => x.key === r.key) === i);
 
   /** Make a rule from a preset, named `name` in section `at`. */
   async function fromPreset(p: Preset, at: string, name: string) {
@@ -354,6 +376,7 @@ export function BrandEditor({
               <IconLink />
             </Button>
             {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
+            <TokensMenu brand={brand} context={context} />
             <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
               <IconHistory />
               <span className="sr-only sm:not-sr-only">History</span>
@@ -441,6 +464,7 @@ export function BrandEditor({
                     setOver(null);
                   },
                 }}
+                fonts={fonts}
                 onPatch={(body) => patch(r, body)}
                 onDelete={() => remove(r)}
                 onVariant={() => setDraft({ kind: "variant", of: r })}
@@ -726,8 +750,52 @@ function brandReads(brand: BrandInfo, context?: string) {
       { label: "MCP tool", text: call("brand_rules", { brand: brand.default ? undefined : brand.slug, context }) },
       { label: "MCP resource", text: `${uri}${context ? `/${context}` : ""}` },
       { label: "REST", text: curl(`${origin}/api/v1/brand/rules${q.size ? `?${q}` : ""}`) },
+      { label: "Design tokens", text: curl(`${origin}${tokensPath(brand, context, "json")}`) },
     ];
   };
+}
+
+const tokensPath = (brand: BrandInfo, context: string | undefined, format: "css" | "json") => {
+  const q = new URLSearchParams({ format });
+  if (!brand.default) q.set("brand", brand.slug);
+  if (context) q.set("context", context);
+  return `/api/v1/brand/tokens?${q}`;
+};
+
+/**
+ * The brand as code: colors, numbers, fonts and the scale as CSS custom
+ * properties (with @font-face for the font files) or W3C design tokens.
+ */
+function TokensMenu({ brand, context }: { brand: BrandInfo; context?: string }) {
+  const name = `${brand.slug}${context ? `-${context}` : ""}`;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" title="Export colors, fonts and the type scale as code">
+          <IconCode />
+          <span className="sr-only sm:not-sr-only">Tokens</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem asChild>
+          <a href={tokensPath(brand, context, "css")} download={`${name}.tokens.css`}>
+            CSS variables
+            <span className="text-muted-foreground ml-auto text-xs">.css</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href={tokensPath(brand, context, "json")} download={`${name}.tokens.json`}>
+            Design tokens
+            <span className="text-muted-foreground ml-auto text-xs">W3C .json</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => copy(new URL(tokensPath(brand, context, "css"), location.origin).href, "stylesheet link")}>
+          <IconLink /> Copy stylesheet link
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 // ---- blocks -----------------------------------------------------------------
@@ -743,6 +811,7 @@ function Block({
   dnd: { onDragStart, onDragEnd, ...target },
   onMove,
   canMove: [canUp, canDown],
+  fonts,
   onPatch,
   onDelete,
   onVariant,
@@ -759,6 +828,8 @@ function Block({
   dnd: Dnd;
   onMove: (step: -1 | 1) => void;
   canMove: [boolean, boolean];
+  /** The brand's font rules, one per key: what a type scale can be set in. */
+  fonts: Rule[];
   onPatch: (body: Partial<Pick<Rule, "value" | "usage" | "assets">>) => void;
   onDelete: () => void;
   onVariant: () => void;
@@ -886,6 +957,21 @@ function Block({
           </div>
         </div>
         <ValueEditor rule={r} autoFocus={autoFocus} onSave={(value) => onPatch({ value })} />
+        {r.type === "font" && fontFiles(r).length === 0 && (
+          <ImportFamily
+            family={fontValue(r.value).family}
+            onImported={(family, ids) =>
+              onPatch({
+                value: { ...fontValue(r.value), family },
+                assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))],
+              })
+            }
+          />
+        )}
+        {section(r.key) === "type" &&
+          (r.type === "text" || (r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale")) && (
+            <SetIn rule={r} fonts={fonts} onPatch={onPatch} />
+          )}
         <Editable
           value={r.usage ?? ""}
           placeholder={USAGE_HINT[section(r.key)] ?? "Add a note on when and how to use it"}
@@ -893,9 +979,17 @@ function Block({
           className="text-muted-foreground text-sm"
           onSave={(usage) => onPatch({ usage: usage || null })}
         />
-        {r.assets.length > 0 && (
+        {/* A font rule's files read as its styles; on any other rule, a font is what SetIn chose. */}
+        {r.type === "font" && fontFiles(r).length > 0 && (
+          <FontStyles
+            files={fontFiles(r)}
+            onRemove={(id) => onPatch({ assets: r.assets.filter((x) => x.id !== id) })}
+            onAdd={onPickAssets}
+          />
+        )}
+        {r.assets.some((a) => !isFontAsset(a)) && (
           <div className="flex flex-wrap gap-2 pt-1">
-            {r.assets.map((a) => (
+            {r.assets.filter((a) => !isFontAsset(a)).map((a) => (
               <AssetTile
                 key={a.id}
                 asset={a}
@@ -917,6 +1011,45 @@ function Block({
         )}
         {children}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Which of the brand's fonts a typography rule (a scale, a sentence) is set
+ * in. The choice is the font rule's file at its weight, attached to the rule,
+ * so an agent reading it gets the file to set it in.
+ */
+function SetIn({ rule: r, fonts, onPatch }: { rule: Rule; fonts: Rule[]; onPatch: (body: Pick<Rule, "assets">) => void }) {
+  const current = r.assets.find(isFontAsset);
+  const chosen = current && fonts.find((f) => f.assets.some((a) => a.id === current.id));
+  return (
+    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+      Set in
+      <Select
+        value={chosen?.key ?? (current ? "file" : "none")}
+        onValueChange={(k) => {
+          if (k === "file") return;
+          const f = fonts.find((x) => x.key === k);
+          const file = f && pickFace(fontFiles(f), fontValue(f.value).weight);
+          onPatch({ assets: [...r.assets.filter((a) => !isFontAsset(a)), ...(file ? [{ id: file.id, rendition: null }] : [])] });
+        }}
+      >
+        <SelectTrigger size="sm" className="h-7 text-xs" aria-label="The font this rule is set in">
+          <IconLetterCase />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">The page&apos;s font</SelectItem>
+          {current && !chosen && <SelectItem value="file">{current.title || current.filename}</SelectItem>}
+          {fonts.map((f) => (
+            <SelectItem key={f.key} value={f.key} disabled={!fontFiles(f).length}>
+              {label(f.key)} · {fontValue(f.value).family}
+              {!fontFiles(f).length && " (no files yet)"}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -945,7 +1078,13 @@ function AssetTile({
             aria-label={`${name}, ${renditionLabel(a.rendition)}. Change the size`}
             className="bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2"
           >
-            <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
+            {a.mime && isFont(a.mime, a.filename ?? "") ? (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <FontThumb id={a.id} className="text-4xl" />
+              </span>
+            ) : (
+              <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
+            )}
           </button>
         </PopoverTrigger>
         {/* What it is first; the size only when the rule means a particular one. */}
@@ -1127,7 +1266,8 @@ function AssetPicker({
   onClose: () => void;
   onSave: (assets: RuleAsset[]) => Promise<void>;
 }) {
-  const [q, setQ] = useState("");
+  // A font rule's files are named after the family, without its spaces: DMSans-Bold.ttf.
+  const [q, setQ] = useState(rule.type === "font" ? fontValue(rule.value).family.replace(/ +/g, "") : "");
   const [results, setResults] = useState<Asset[] | null>(null);
   const [picked, setPicked] = useState(rule.assets);
   const [busy, setBusy] = useState(false);
@@ -1144,18 +1284,21 @@ function AssetPicker({
     setPicked((p) => (p.some((x) => x.id === id) ? p.filter((x) => x.id !== id) : [...p, { id, rendition: null }]));
   const setRendition = (id: string, rendition: string | null) =>
     setPicked((p) => p.map((x) => (x.id === id ? { ...x, rendition } : x)));
-  // What the search has shown: a file that isn't an image has no renditions to offer.
-  const [mimes, setMimes] = useState<Record<string, string>>({});
+  // What the rule and the search have shown: a file that isn't an image has no renditions to offer.
+  const [mimes, setMimes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, a.mime]] : []))),
+  );
   if (results?.some((a) => !(a.id in mimes))) setMimes((m) => ({ ...m, ...Object.fromEntries(results.map((a) => [a.id, a.mime])) }));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Assets for {label(rule.key)}</DialogTitle>
+          <DialogTitle>{rule.type === "font" ? "Files" : "Assets"} for {label(rule.key)}</DialogTitle>
           <DialogDescription>
-            The logo it governs, examples of it done right. Pick a size under each to say which one the rule
-            means; agents get that exact URL.
+            {rule.type === "font"
+              ? "The family's font files, one per style. Agents get each file's URL."
+              : "The logo it governs, examples of it done right. Pick a size under each to say which one the rule means; agents get that exact URL."}
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -1173,7 +1316,13 @@ function AssetPicker({
             {picked.map(({ id, rendition }, i) => (
               <div key={id} className="grid w-20 shrink-0 gap-1">
                 <div className="bg-checker relative size-20 overflow-hidden rounded-md border">
-                  <Thumb src={`/a/${id}/w_80,f_webp`} alt="" className="p-1" />
+                  {mimes[id] && isFont(mimes[id], "") ? (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <FontThumb id={id} className="text-2xl" />
+                    </span>
+                  ) : (
+                    <Thumb src={`/a/${id}/w_80,f_webp`} alt="" className="p-1" />
+                  )}
                   <span className="bg-primary text-primary-foreground absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded-full text-[11px]">
                     {i + 1}
                   </span>
@@ -1186,7 +1335,7 @@ function AssetPicker({
                     <IconX className="size-3" />
                   </button>
                 </div>
-                {mimes[id] && !mimes[id].startsWith("image/") ? (
+                {mimes[id] && isFont(mimes[id], "") ? null : mimes[id] && !mimes[id].startsWith("image/") ? (
                   <span className="text-muted-foreground truncate text-center text-[11px]">Original</span>
                 ) : (
                   <Popover>
@@ -1227,6 +1376,11 @@ function AssetPicker({
                 >
                   {a.mime.startsWith("image/") ? (
                     <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
+                  ) : isFont(a.mime, a.filename) ? (
+                    <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">
+                      <FontThumb id={a.id} className="text-3xl" />
+                      <span className="text-muted-foreground w-full truncate text-center text-[11px]">{a.filename}</span>
+                    </span>
                   ) : (
                     <span className="text-muted-foreground absolute inset-0 flex items-center justify-center p-2 text-center text-xs break-all">
                       {a.filename}

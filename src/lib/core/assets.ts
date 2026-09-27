@@ -14,6 +14,7 @@ import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
 import { FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
+import { fontMime } from "@/lib/font";
 import { extractMetadata } from "@/lib/metadata";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -121,7 +122,8 @@ export async function finalizeUpload(input: {
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
-  await putObject(originalKey(sha256), bytes, input.mime);
+  const mime = fontMime(bytes) ?? input.mime;
+  await putObject(originalKey(sha256), bytes, mime);
   await deleteObject(staged);
 
   const [row] = await db
@@ -129,7 +131,7 @@ export async function finalizeUpload(input: {
     .values({
       sha256,
       filename: input.filename,
-      mime: input.mime,
+      mime,
       size: bytes.byteLength,
       width: probe?.width ?? null,
       height: probe?.height ?? null,

@@ -97,6 +97,9 @@ key is canonical. Renditions are generated once and cached forever.
 | `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`; review with `status`, `reviewNote`, `proposedTags` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
+| `GET` | `/api/v1/brand/tokens` | The brand as design tokens: `format=css` (custom properties, `@font-face`) or `json` (W3C DTCG) |
+| `GET` | `/api/v1/fonts/google` | Search the Google Fonts catalog: `q`, `category` |
+| `POST` | `/api/v1/fonts/google` | Import a Google Fonts `family`, one asset per style |
 | `GET` | `/api/v1/fields` | The custom field schema |
 | `POST` | `/api/v1/fields` | Define a field |
 | `PATCH` | `/api/v1/fields/{key}` | Change its label, options, required, position |
@@ -259,8 +262,8 @@ the bytes: only an explicit `application/json` switches it.
 ### The brand, as data
 
 Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
-`text`, `number` or `list`), a sentence on how to use it, and the assets it
-points at (the logo it governs, examples). [`/brand`](http://localhost:3000/brand)
+`text`, `number`, `list` or `font`), a sentence on how to use it, and the assets it
+points at (the logo it governs, examples; for a `font`, the family's files). [`/brand`](http://localhost:3000/brand)
 (Guidelines, in the sidebar) is the guidelines, drawn from those records and edited in place: click any
 value to change it, click a rule's title to rename it, press `/` to add a rule
 from a searchable menu of named building blocks (brand color, clear space,
@@ -327,6 +330,7 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
 | `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json`, plus the brand rules that point at it |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
+| `import_google_font` | propose | A Google Fonts family, one file per style, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `my_proposals` | propose | What this key proposed and what became of it: approved, waiting, or rejected with the person's reason |
 | `brand_rules` | read | A brand's rules for a context, each asset with its title, type and size; its description lists the brands and their contexts |

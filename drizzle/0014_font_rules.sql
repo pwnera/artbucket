@@ -1,0 +1,2 @@
+ALTER TABLE "brand_rules" DROP CONSTRAINT "brand_rules_type_check";--> statement-breakpoint
+ALTER TABLE "brand_rules" ADD CONSTRAINT "brand_rules_type_check" CHECK ("brand_rules"."type" in ('color', 'text', 'number', 'list', 'font'));

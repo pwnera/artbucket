@@ -7,6 +7,7 @@ import { send, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
 import { call, curl, ForAgents } from "@/components/agent-access";
+import { FontPlayground } from "@/components/font-preview";
 import { Renditions } from "@/components/renditions";
 import { Thumb, type Asset } from "@/components/gallery";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -19,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
+import { isFont } from "@/lib/font";
 import { ago } from "@/lib/time";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
@@ -140,6 +142,8 @@ export function AssetEditor({
           <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
             {asset.mime.startsWith("image/") ? (
               <Thumb src={`/a/${asset.id}/w_640,f_webp`} alt="" className="absolute inset-0 p-6" />
+            ) : isFont(asset.mime, asset.filename) ? (
+              <FontPlayground id={asset.id} />
             ) : (
               <Empty className="p-6">
                 <EmptyHeader>

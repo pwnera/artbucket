@@ -234,7 +234,7 @@ export const brandRules = pgTable(
   },
   (t) => [
     unique("brand_rules_brand_key_context_unique").on(t.brandId, t.key, t.context).nullsNotDistinct(),
-    check("brand_rules_type_check", sql`${t.type} in ('color', 'text', 'number', 'list')`),
+    check("brand_rules_type_check", sql`${t.type} in ('color', 'text', 'number', 'list', 'font')`),
   ],
 );
 

@@ -2,6 +2,7 @@
 
 import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { FontThumb } from "@/components/font-preview";
 import { Thumb, type Asset } from "@/components/gallery";
 import { stem } from "@/components/renditions";
 import { approve, reject } from "@/components/review-actions";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
+import { isFont } from "@/lib/font";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +93,8 @@ export function AssetTable({
                     <span className="bg-muted relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border">
                       {a.mime.startsWith("image/") ? (
                         <Thumb src={`/a/${a.id}/w_40,f_webp`} alt="" className="p-0.5" />
+                      ) : isFont(a.mime, a.filename) ? (
+                        <FontThumb id={a.id} className="text-base" />
                       ) : (
                         <IconPhoto className="text-muted-foreground size-4" />
                       )}

@@ -77,6 +77,8 @@ function bytes(buf: Buffer, contentType: string, filename?: string) {
       "Cache-Control": "public, max-age=31536000, immutable",
       // The same URL answers JSON to `Accept: application/json`; caches must not mix them.
       Vary: "Accept",
+      // Public bytes: other sites may load them, which fonts (@font-face from brand/tokens) require.
+      "Access-Control-Allow-Origin": "*",
       ...(filename
         ? { "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"` }
         : {}),

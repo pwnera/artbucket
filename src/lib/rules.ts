@@ -15,9 +15,24 @@ import { parseTransform, serializeTransform } from "./transform.ts";
  * Pure, like lib/fields.ts: `pnpm test` runs it under plain Node.
  */
 
-export const RULE_TYPES = ["color", "text", "number", "list"] as const;
+export const RULE_TYPES = ["color", "text", "number", "list", "font"] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
-export type RuleValue = string | number | (string | number)[];
+/** A typeface: the family, and optionally the size and weight it is set at. Its files are the rule's assets. */
+export type FontValue = { family: string; size?: number; weight?: number };
+export type RuleValue = string | number | (string | number)[] | FontValue;
+
+export const FONT_VALUE = z.strictObject({
+  family: z.string().trim().min(1).max(120),
+  size: z.number().positive().max(1000).optional().describe("Pixels"),
+  weight: z.number().int().min(1).max(1000).optional().describe("400 regular, 700 bold"),
+});
+
+/** A font rule's value; one stored as a bare family name reads as that family. */
+export const fontValue = (v: RuleValue): FontValue => (typeof v === "string" ? { family: v } : (v as FontValue));
+
+/** "Inter, 32px, 700": a font value in a line. */
+export const fontLabel = ({ family, size, weight }: FontValue) =>
+  [family, size && `${size}px`, weight && String(weight)].filter(Boolean).join(", ");
 
 /**
  * An asset a rule points at, as the original or at one rendition. Reads carry
@@ -64,6 +79,8 @@ export const RULE_VALUE = {
   text: z.string().trim().min(1).max(2000),
   number: z.number().finite(),
   list: z.array(z.union([z.string().trim().min(1).max(500), z.number().finite()])).min(1).max(100),
+  /** Its files are the rule's assets, so everyone sees the face without installing it. A bare name is `{ family }`. */
+  font: z.union([z.string().trim().min(1).max(120).transform((family) => ({ family })), FONT_VALUE]),
 } satisfies Record<RuleType, z.ZodType>;
 
 const usage = z.string().trim().max(2000).nullable().optional().describe("How and when to use it, in a sentence");
@@ -95,6 +112,7 @@ export const RuleInput = z.discriminatedUnion("type", [
   rule("text"),
   rule("number"),
   rule("list"),
+  rule("font"),
 ]);
 export type RuleInput = z.infer<typeof RuleInput>;
 

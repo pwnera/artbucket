@@ -33,7 +33,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Editable } from "@/components/brand-values";
 import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/history";
 import { day } from "@/lib/time";
-import { contextLabel, ruleLabel, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { contextLabel, fontLabel, ruleLabel, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Meta = {
@@ -358,7 +358,14 @@ function Change({ change: c }: { change: RuleChange }) {
   );
 }
 
-const text = (v: unknown) => (v === null || v === "" ? "nothing" : Array.isArray(v) ? v.join(", ") : String(v));
+const text = (v: unknown) =>
+  v === null || v === ""
+    ? "nothing"
+    : Array.isArray(v)
+      ? v.join(", ")
+      : typeof v === "object"
+        ? fontLabel(v as FontValue)
+        : String(v);
 const FIELD: Record<FieldChange["field"], string> = { value: "Value", usage: "Note", assets: "Assets", type: "Kind" };
 
 /** One field, before and after, drawn the way the page draws it. */

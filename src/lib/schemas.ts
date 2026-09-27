@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
-import { RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
+import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
+import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
@@ -50,6 +51,22 @@ export const Finalize = z.union([
     ...promote,
   }),
 ]);
+
+export const GoogleFontImport = z.strictObject({
+  family: z.string().trim().regex(GOOGLE_FAMILY, "A Google Fonts family, e.g. Playfair Display").describe("As Google Fonts names it"),
+  ...promote,
+});
+
+export const TokenQuery = z.object({
+  format: z.enum(["css", "json"]).default("css").describe("css: custom properties and @font-face; json: W3C design tokens"),
+  context: z.string().regex(RULE_CONTEXT).optional().describe("Resolve for this context; otherwise the defaults"),
+});
+
+export const GoogleFontQuery = z.object({
+  q: z.string().max(80).optional().describe("Part of the family name, any case"),
+  category: z.enum(FONT_CATEGORIES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+});
 
 const text = z.string().max(2000).nullable().optional();
 export const AssetPatch = z.strictObject({
@@ -190,7 +207,7 @@ export const BrandRule = z.object({
   key: z.string().describe("Dotted, e.g. color.primary"),
   context: z.string().nullable().describe("null: the default"),
   type: z.enum(RULE_TYPES),
-  value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
+  value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()])), FONT_VALUE]),
   usage: z.string().nullable(),
   assets: z
     .array(
@@ -326,3 +343,14 @@ export const ErrorBody = z.object({
   error: z.object({ code: z.string(), message: z.string(), detail: z.unknown().optional() }),
 });
 
+
+export const GoogleFamilies = z.object({
+  data: z.array(
+    z.object({
+      family: z.string(),
+      category: z.string(),
+      styles: z.array(z.string()).describe('"400", "700i": weight, and i for italic'),
+    }),
+  ),
+  total: z.number().int().describe("Matches before `limit`"),
+});

@@ -99,6 +99,13 @@
       "when": 1790493904348,
       "tag": "0013_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790498532990,
+      "tag": "0014_font_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,6 @@ import {
   IconBookmark,
   IconDots,
   IconFolder,
-  IconInbox,
   IconPalette,
   IconPencil,
   IconPhoto,
@@ -119,8 +118,8 @@ export function AppSidebar({
     brand: pathname === "/brand",
     agents: pathname === "/agents",
     // A collection or saved search is its own item, so none of these is lit for one.
-    assets: inLibrary && !view.review && !view.collection && !onSearch,
-    review: inLibrary && view.review && !view.collection && !onSearch,
+    // Review is a tab of Assets, so Assets stays lit on it.
+    assets: inLibrary && !view.collection && !onSearch,
     activity: pathname === "/activity",
   };
 
@@ -164,14 +163,14 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Place href="/" label="Assets" icon={<IconPhoto />} active={at.assets} />
+              {/* What waits in Review shows on Assets, whose tab it is. */}
               <Place
-                href="/?review"
-                label="Review"
-                icon={<IconInbox />}
-                active={at.review}
+                href="/"
+                label="Assets"
+                icon={<IconPhoto />}
+                active={at.assets}
                 badge={reviewCount || undefined}
-                hint={reviewCount ? `${reviewCount} waiting for you` : undefined}
+                hint={reviewCount ? `${reviewCount} waiting in Review` : undefined}
               />
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
