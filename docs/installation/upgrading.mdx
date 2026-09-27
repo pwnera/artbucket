@@ -1,0 +1,39 @@
+---
+title: Upgrading
+description: Any release upgrades from any earlier one by starting it.
+---
+
+Start the new version. Before it serves anything, it applies every database
+migration it has that the database doesn't, in order, in one transaction. If
+one fails, the server stops rather than run on the wrong schema, and the
+database is as it was.
+
+```bash
+# Docker Compose
+docker compose --profile app pull && docker compose --profile app up -d
+# Docker
+docker pull ghcr.io/pwnera/artbucket:0.9 && docker rm -f artbucket && docker run ... ghcr.io/pwnera/artbucket:0.9
+```
+
+## What makes that hold
+
+- Migrations are only ever added. A released one is never edited, and CI fails
+  a pull request that changes one.
+- CI fails when the schema has a change no migration makes.
+- CI migrates a database at the previous version, filled with a library in
+  use, to the new one, on every pull request.
+- Several instances starting at once take turns: the first migrates, the
+  others find nothing left to do.
+
+Take a backup before a major upgrade anyway: `pg_dump` for the database, and
+your bucket's `assets/` prefix for the originals.
+
+## Before v1.0
+
+The API can still change between minor versions (0.8 to 0.9); the release
+notes say how. From v1.0, `/api/v1` and the MCP tools are frozen.
+
+## Notes by version
+
+**0.9.** Deleting an asset now keeps it restorable for 30 days. Browser uploads
+started before the upgrade and finished after it need to be started again.

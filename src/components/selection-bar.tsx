@@ -89,22 +89,34 @@ export function SelectionBar({
   const onAll = (action: Action) => picked.every((a) => can(action, a));
   const into = collections.filter((c) => can("collection.edit", c));
 
-  async function each(verb: string, fn: (a: Asset) => Promise<Response>, which = picked) {
+  /** `undo`: offered on the toast, over the assets it worked on. */
+  async function each(verb: string, fn: (a: Asset) => Promise<Response>, which = picked, undo?: (done: Asset[]) => Promise<void>) {
     setBusy(true);
-    let failed = 0;
+    const done: Asset[] = [];
     let why: string | undefined;
     await pool(which, 4, async (a) => {
-      const res = await fn(a).catch(() => null);
-      if (res?.ok) return;
-      failed++;
+      const call = () => fn(a).catch(() => null);
+      let res = await call();
+      // Past the server's rate limit: wait as long as it says, once.
+      if (res?.status === 429) {
+        await new Promise((r) => setTimeout(r, Number(res!.headers.get("retry-after") ?? 1) * 1000));
+        res = await call();
+      }
+      if (res?.ok) return void done.push(a);
       why ??= (await res?.json().catch(() => null))?.error?.message;
     });
     setBusy(false);
     onDone();
-    if (failed) toast.error(`${verb} ${files(which.length - failed)}, ${failed} failed`, { description: why });
-    else toast.success(`${verb} ${files(which.length)}`);
+    const failed = which.length - done.length;
+    const action = undo && done.length ? { action: { label: "Undo", onClick: () => void undo(done) } } : {};
+    if (failed) toast.error(`${verb} ${files(done.length)}, ${failed} failed`, { description: why, ...action });
+    else toast.success(`${verb} ${files(which.length)}`, action);
     return failed === 0;
   }
+
+  const restore = (a: Asset) => fetch(`/api/v1/assets/${a.id}/restore`, { method: "POST" });
+  const undelete = async (done: Asset[]) => void (await each("Restored", restore, done));
+  const live = picked.filter((a) => a.state !== "deleted");
 
 
 
@@ -178,6 +190,7 @@ export function SelectionBar({
           ...move("Unarchive", <IconArrowBackUp />, "Unarchived", inState("archived"), (a) => moveTo(a, "active")),
         ]
       : []),
+    ...(onAll("asset.delete") ? move("Restore", <IconArrowBackUp />, "Restored", inState("deleted"), restore) : []),
   ];
 
   const onPicked = new Set(picked.flatMap((a) => a.tags));
@@ -305,7 +318,7 @@ export function SelectionBar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {onAll("asset.delete") && (
+      {onAll("asset.delete") && live.length > 0 && (
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={busy}>
@@ -314,9 +327,10 @@ export function SelectionBar({
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {files(picked.length)}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {files(live.length)}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They are removed from the library and every collection. This can&apos;t be undone.
+              They leave the library, its collections and its links at once, and their URLs stop working. For 30 days
+              they can be restored, from the Deleted status; then they are gone for good.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -324,7 +338,7 @@ export function SelectionBar({
             <AlertDialogAction
               variant="destructive"
               onClick={async () => {
-                if (await each("Deleted", (a) => fetch(`/api/v1/assets/${a.id}`, { method: "DELETE" }))) onClear();
+                if (await each("Deleted", (a) => fetch(`/api/v1/assets/${a.id}`, { method: "DELETE" }), live, undelete)) onClear();
               }}
             >
               Delete

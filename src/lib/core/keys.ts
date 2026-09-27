@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { apiKeys, assets, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
+import { checkLimit } from "@/lib/core/usage";
 import { can } from "@/lib/permissions";
 import type { Scope } from "@/lib/scopes";
 
@@ -22,11 +23,12 @@ const PUBLIC = {
   lastUsedAt: apiKeys.lastUsedAt,
   calls: apiKeys.calls,
   owner: users.name,
-  waiting: sql<number>`(select count(*)::int from ${assets} where ${assets.workspaceId} = ${apiKeys.workspaceId} and ${assets.status} = 'proposed' and ${assets.proposedBy} = ${apiKeys.name})`,
+  waiting: sql<number>`(select count(*)::int from ${assets} where ${assets.workspaceId} = ${apiKeys.workspaceId} and ${assets.status} = 'proposed' and ${assets.deletedAt} is null and ${assets.proposedBy} = ${apiKeys.name})`,
 };
 
 /** A key for the caller's workspace. The secret is returned once, here, and never stored. */
 export async function createKey(caller: Caller, input: { name: string; scope: Scope }) {
+  await checkLimit(caller.workspace.organizationId, "agents");
   const secret = `ab_${randomBytes(32).toString("base64url")}`;
   const [row] = await db
     .insert(apiKeys)

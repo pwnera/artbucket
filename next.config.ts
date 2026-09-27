@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
+  // The Docker image runs the traced server alone (Dockerfile); `pnpm start` runs the usual build.
+  ...(process.env.STANDALONE === "1" && { output: "standalone" as const }),
   // exifreader loads @xmldom/xmldom (its optional XMP parser) with a runtime
   // require that bundling drops, which silently loses every XMP field.
   // mupdf and libheif (heic-decode) load their WebAssembly from their own package directory.
@@ -14,6 +16,7 @@ const config: NextConfig = {
       { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/v1/oauth/resource" },
     ];
   },
+  // The rest, which depend on the server's configuration (CSP, HSTS), are set per request in src/proxy.ts.
   async headers() {
     return [
       {
@@ -22,6 +25,8 @@ const config: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "DENY" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
         ],
       },
     ];

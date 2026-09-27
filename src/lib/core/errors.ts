@@ -11,7 +11,13 @@ export class AssetError extends Error {
       /** A share link past its date. */
       | "gone"
       /** A share link's password is missing or wrong. */
-      | "password",
+      | "password"
+      /** Past one of the organization's limits (lib/limits.ts). */
+      | "limit_reached"
+      /** The organization is read-only. */
+      | "read_only"
+      /** Too many tries: a share link's password. */
+      | "rate_limited",
     message: string,
     readonly detail?: unknown,
   ) {

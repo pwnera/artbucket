@@ -1,0 +1,74 @@
+import { z } from "zod";
+
+/**
+ * What an organization may use, set by whoever runs the server, never by the
+ * organization's own admins: in the environment for every organization
+ * (LIMIT_*), or in the database for one (docs: configuration/limits).
+ * Everything is unlimited until someone says otherwise.
+ *
+ * lib/core/limits.ts checks them, at the moment something would go over:
+ * an upload, a grant or an invitation, a new workspace, brand, key or link.
+ *
+ * Relative imports only: `pnpm test` runs this under plain Node.
+ */
+
+/** What can be switched off for an organization. Off, nobody there can make new ones. */
+export const FEATURES = ["agents", "shares"] as const;
+export type Feature = (typeof FEATURES)[number];
+
+const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
+
+/** "10GB", "500 mb", "1.5TB" or a plain number of bytes; null when it is none of those. */
+export function parseSize(v: string | number): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+  const m = v.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb|tb)?$/);
+  return m ? Math.floor(Number(m[1]) * UNITS[m[2] ?? "b"]) : null;
+}
+
+/** 1234567 as "1.2 MB": for messages and Settings, in the same units parseSize reads. */
+export function formatSize(bytes: number) {
+  const [unit, n] = Object.entries(UNITS).reverse().find(([, n]) => bytes >= n) ?? ["b", 1];
+  const v = bytes / n;
+  return `${unit === "b" ? v : v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, "")} ${unit.toUpperCase()}`;
+}
+
+const size = z.union([z.number(), z.string()]).transform((v, ctx) => {
+  const n = parseSize(v);
+  if (n === null) ctx.addIssue({ code: "custom", message: `Not a size: "${v}". Say 10GB, 500MB, or a number of bytes` });
+  return n ?? z.NEVER;
+});
+const count = z.number().int().nonnegative();
+
+export const Limits = z.object({
+  /** Bytes of assets, summed over the organization's workspaces. */
+  storage: size.nullable(),
+  /** People with write or admin anywhere in it, invitations to that included. */
+  editors: count.nullable(),
+  workspaces: count.nullable(),
+  /** Brands, over all its workspaces. */
+  brands: count.nullable(),
+  /** What it may use; null is everything. */
+  features: z.array(z.enum(FEATURES)).nullable(),
+  /** Nothing changes: every caller is held to read. */
+  readOnly: z.boolean(),
+});
+export type Limits = z.infer<typeof Limits>;
+
+export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, features: null, readOnly: false };
+
+type Env = Record<string, string | undefined>;
+
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_FEATURES=shares (or none): every organization's. */
+export function limitsFromEnv(env: Env): Limits | null {
+  const out: Record<string, unknown> = {};
+  if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
+  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"]] as const) {
+    if (env[name]?.trim()) out[k] = Number(env[name]);
+  }
+  const f = env.LIMIT_FEATURES?.trim();
+  if (f) out.features = f === "none" ? [] : f.split(",").map((s) => s.trim()).filter(Boolean);
+  return Object.keys(out).length ? Limits.parse({ ...UNLIMITED, ...out }) : null;
+}
+
+/** Whether adding `adding` to `used` goes past `limit`; no limit is never over. */
+export const over = (limit: number | null, used: number, adding = 1) => limit !== null && used + adding > limit;

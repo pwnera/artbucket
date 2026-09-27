@@ -1,0 +1,98 @@
+---
+title: Assets
+description: Uploading, finding, reviewing, versioning, delivering and deleting.
+---
+
+## Upload
+
+In the app, drop files anywhere on the library. Through the API it is three
+steps, and the bytes never pass through the server:
+
+```bash
+# 1. A presigned upload URL for this workspace
+curl -X POST https://assets.example.com/api/v1/uploads -H "Authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"filename":"hero.png","mime":"image/png","size":20135}'
+
+# 2. PUT the file to the uploadUrl it returned
+
+# 3. File it
+curl -X POST https://assets.example.com/api/v1/assets -H "Authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"token":"<token>","filename":"hero.png","mime":"image/png"}'
+```
+
+Step 3 hashes what arrived. The same bytes uploaded twice are one asset
+(`deduped: true`). Or skip the PUT and give a URL: `{"url": "https://..."}` has
+the server fetch it; a Figma or Google Docs link is kept as the link and shows
+as its embed.
+
+On ingest, EXIF, IPTC and XMP are read (title, caption, creator, copyright,
+camera), embedded keywords become tags, and C2PA Content Credentials say how
+the file was made.
+
+## Find
+
+```
+/api/v1/assets?q=fox her                   every word, as a prefix
+/api/v1/assets?tag=mascot&tag=autumn       assets carrying every tag
+/api/v1/assets?collection=Autumn 26        a collection, by id or by name
+/api/v1/assets?f.channel=web&f.budget.gte=10   custom fields
+/api/v1/assets?status=draft&status=archived    other lifecycle states
+```
+
+`q` covers filenames, tags, text field values and embedded metadata. Every
+response carries facet counts over the same filter. A page is 100 assets
+(`limit`, up to 200); `total` counts every match.
+
+Custom fields are defined per workspace (Settings, Custom fields): `text`,
+`number`, `date`, `boolean` and `select`, required or not. A collection can
+carry field values its members inherit.
+
+## Review
+
+What a `propose` key, an agent or an upload link adds lands `proposed`: out of
+the library, in Review, with who suggested it. Approving is
+`PATCH {"status": "active"}`; rejecting, `{"status": "rejected", "reviewNote":
+"..."}`, which keeps it so the agent can read why.
+
+## Lifecycle and versions
+
+An asset goes from `draft` to `proposed` (in review) to `active` (approved),
+and to `archived` when it is retired. Expired is a date, not a status: an
+approved asset past `rights.expires` reads `expired` the next day. The library
+shows approved, unexpired assets unless asked for others.
+
+A new file for the same thing is a new version: `POST /api/v1/assets` with
+`"versionOf": "{id}"`. Once approved it becomes the stack's current version,
+and the old ones are superseded by it. `POST
+/api/v1/assets/{id}/versions/{n}/current` rolls back.
+
+## Delivery
+
+```
+/a/{id}                                    the original, exactly as uploaded
+/a/{id}?download                           with the library's metadata written in
+/a/{id}/w_800,f_webp                       800px wide, WebP
+/a/{id}/w_1200,h_630,fit_cover,q_82,f_jpeg an Open Graph image
+```
+
+Transforms: `w` `h` (1 to 8000), `fit` (cover, contain, inside, outside, fill),
+`q` (1 to 100), `f` (jpeg, png, webp, avif). A rendition is made on the first
+request and kept for 30 days. Only an approved, unexpired asset out of
+embargo is public; archived, expired or deleted ones answer `410`, so embeds
+stop on time. People who can see it in the library still get it.
+
+## Delete and restore
+
+Deleting an asset takes it out of the library, its collections' counts, its
+links and its stack at once, and its URLs answer `410`. For 30 days it is
+still there: pick **Deleted** in the Status filter to see it, and **Restore**
+to bring it back (or **Undo** on the toast, right after).
+
+```bash
+curl -X DELETE https://assets.example.com/api/v1/assets/{id} -H "Authorization: Bearer $KEY"
+curl -X POST https://assets.example.com/api/v1/assets/{id}/restore -H "Authorization: Bearer $KEY"
+```
+
+After 30 days it is purged, and its file with it, unless another asset, in any
+workspace, holds the same bytes. Uploading the same bytes again in the
+meantime makes a new asset, and the deleted one is gone for good.

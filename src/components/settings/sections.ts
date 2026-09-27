@@ -1,5 +1,6 @@
 import {
   IconAdjustments,
+  IconChartBar,
   IconBuilding,
   IconLayoutGrid,
   IconMail,
@@ -66,7 +67,7 @@ export const SECTIONS: Section[] = [
     id: "general",
     label: "General",
     icon: IconBuilding,
-    description: "The organization's name, as its people and invitations see it.",
+    description: "The organization's name, as its people and invitations see it, and deleting it.",
     action: "organization.manage",
   },
   {
@@ -75,6 +76,14 @@ export const SECTIONS: Section[] = [
     label: "Workspaces",
     icon: IconLayoutGrid,
     description: "The organization's libraries. Its admins can open every one.",
+    action: "organization.manage",
+  },
+  {
+    context: "organization",
+    id: "usage",
+    label: "Usage",
+    icon: IconChartBar,
+    description: "What the organization stores and serves, and any limits this server puts on it.",
     action: "organization.manage",
   },
   {

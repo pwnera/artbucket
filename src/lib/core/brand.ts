@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, brandRuleAssets, brandRules, brands, brandVersions } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { present, resolveBrand, slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
+import { checkLimit } from "@/lib/core/usage";
 import { hasPreview } from "@/lib/preview";
 import { diffRules, extendsLatest, summarize, type SnapRule, type VersionKind } from "@/lib/history";
 import { resolve, RULE_VALUE, ruleContext, type RuleAsset, type RuleInput, type RuleType } from "@/lib/rules";
@@ -60,7 +61,7 @@ async function assetsOf(ruleIds: string[], tx: Db = db) {
       probe: assets.probe,
     })
     .from(brandRuleAssets)
-    .innerJoin(assets, eq(assets.id, brandRuleAssets.assetId))
+    .innerJoin(assets, and(eq(assets.id, brandRuleAssets.assetId), isNull(assets.deletedAt)))
     .where(inArray(brandRuleAssets.ruleId, ruleIds))
     .orderBy(asc(brandRuleAssets.position));
   for (const { ruleId, probe, ...a } of rows) out.get(ruleId)!.push({ ...a, preview: hasPreview({ mime: a.mime, probe }) });
@@ -76,7 +77,7 @@ async function setAssets(tx: Tx, ws: string, ruleId: string, list: RuleAsset[]) 
     const found = await tx
       .select({ id: assets.id, mime: assets.mime, filename: assets.filename, probe: assets.probe })
       .from(assets)
-      .where(and(eq(assets.workspaceId, ws), inArray(assets.id, list.map((a) => a.id))));
+      .where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, list.map((a) => a.id))));
     const missing = list.filter((a) => !found.some((f) => f.id === a.id));
     if (missing.length) throw new AssetError("invalid", `No such asset: ${missing.map((a) => a.id).join(", ")}`);
     const flat = found.find((f) => !hasPreview(f) && list.some((a) => a.id === f.id && a.rendition));
@@ -329,7 +330,7 @@ async function writeRules(tx: Tx, ws: string, brandId: string, rules: SnapRule[]
   const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
   const live = new Set(
     ids.length
-      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.workspaceId, ws), inArray(assets.id, ids)))).map((a) => a.id)
+      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))).map((a) => a.id)
       : [],
   );
   let dropped = 0;
@@ -359,6 +360,7 @@ export async function createBrand(caller: Caller, input: { name: string; slug?: 
   const ws = caller.workspace.id;
   const slug = input.slug ?? slugify(input.name);
   if (!slug) throw new AssetError("invalid", "Give the brand a name with a letter or a number in it");
+  await checkLimit(caller.workspace.organizationId, "brands");
   const source = input.from ? await resolveBrand(ws, input.from) : null;
   return db.transaction(async (tx) => {
     const [row] = await tx.insert(brands).values({ workspaceId: ws, slug, name: input.name }).onConflictDoNothing().returning();

@@ -1,0 +1,66 @@
+---
+title: Docker Compose
+description: The app, Postgres and storage on one machine.
+---
+
+The repository's `docker-compose.yml` runs everything: Postgres, SeaweedFS
+(S3-compatible storage) and the app, from the published image.
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket
+cp .env.example .env
+```
+
+In `.env`, set at least:
+
+```bash
+APP_URL=https://assets.example.com
+BETTER_AUTH_SECRET=   # openssl rand -base64 32
+# Where browsers upload to: the storage port, published on a domain of its own.
+S3_PUBLIC_ENDPOINT=https://s3.assets.example.com
+```
+
+Then:
+
+```bash
+docker compose --profile app up -d
+```
+
+The app migrates its database when it starts, and creates the bucket, its CORS
+rule and its lifecycle rules. Make the first account at `APP_URL`: it is the
+admin of everything.
+
+## Two addresses for storage
+
+Browsers upload straight to storage, so storage needs an address a browser can
+reach. Inside Compose the app reaches it at `http://s3:9000`; the file sets
+that as `S3_ENDPOINT` and uses `S3_PUBLIC_ENDPOINT` (default
+`http://localhost:9000`) for the uploads it signs. On a server, put both behind
+your reverse proxy with TLS:
+
+```caddy Caddyfile
+assets.example.com {
+  reverse_proxy localhost:3000
+}
+s3.assets.example.com {
+  reverse_proxy localhost:9000
+}
+```
+
+## Pinning a version
+
+`ARTBUCKET_VERSION=0.9` in the environment pins the image tag (the default is
+`latest`). See [Upgrading](/installation/upgrading).
+
+## Using other storage
+
+Any S3-compatible service works. Set the `S3_*` variables in `.env`, remove the
+`S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT` lines from the `app` service, and drop
+the `s3` service. See [Storage](/configuration/storage).
+
+## Backups
+
+Back up the `.pgdata` directory (or `pg_dump`) and the `.s3-data` directory, or
+your storage provider's bucket. Originals live under `assets/` and are never
+overwritten; `renditions/` and `staging/` are disposable.

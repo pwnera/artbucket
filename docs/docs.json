@@ -1,0 +1,51 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Artbucket",
+  "description": "Agent-first, headless-by-design asset management: a brand knowledge graph with a blob store attached.",
+  "colors": { "primary": "#6D4AFF", "light": "#9C85FF", "dark": "#5A3BE0" },
+  "favicon": "/favicon.svg",
+  "logo": { "light": "/favicon.svg", "dark": "/favicon.svg" },
+  "navbar": {
+    "primary": { "type": "github", "href": "https://github.com/pwnera/artbucket" }
+  },
+  "footer": {
+    "socials": { "github": "https://github.com/pwnera/artbucket" }
+  },
+  "navigation": {
+    "groups": [
+      { "group": "General", "pages": ["introduction", "quickstart", "how-it-works", "support"] },
+      {
+        "group": "Installation",
+        "pages": [
+          "installation/docker-compose",
+          "installation/docker",
+          "installation/fly",
+          "installation/coolify",
+          "installation/vps",
+          "installation/upgrading"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/environment",
+          "configuration/storage",
+          "configuration/auth",
+          "configuration/limits",
+          "configuration/security"
+        ]
+      },
+      { "group": "Guides", "pages": ["guides/assets", "guides/canon", "guides/check", "guides/sharing"] },
+      {
+        "group": "Developers",
+        "pages": [
+          "developers/api",
+          "developers/mcp",
+          "developers/cli",
+          { "group": "API reference", "openapi": "openapi.json" }
+        ]
+      }
+    ]
+  }
+}

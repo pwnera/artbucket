@@ -1,0 +1,44 @@
+---
+title: REST API
+description: /api/v1, the one way in for the app, scripts and agents.
+---
+
+Everything the web app does, it does through `/api/v1`. The full reference is
+generated from the server's OpenAPI spec, under API reference in this sidebar,
+and served live by every install at `/api/v1/openapi.json`.
+
+## Authentication
+
+```bash
+curl https://assets.example.com/api/v1/me -H "Authorization: Bearer ab_..."
+```
+
+Make a key in the app (Agents) or with `POST /api/v1/keys`. A key works in one
+workspace with one scope: `read`, `propose`, `write` or `admin`. An unknown or
+revoked key is a `401`, never a fallback to anonymous. People in the app carry
+a session cookie instead.
+
+## Errors
+
+Every error has the same shape:
+
+```json
+{ "error": { "code": "limit_reached", "message": "That would pass this organization's storage of 10 GB (9.8 GB used)", "detail": { "limit": "storage", "max": 10000000000 } } }
+```
+
+| Status | Codes |
+|---|---|
+| 400 | `invalid_request`, `invalid_transform` |
+| 401 | `unauthorized`, `password` |
+| 403 | `forbidden`, `setup_required`, `limit_reached`, `read_only` |
+| 404 | `not_found` |
+| 409 | `conflict` |
+| 410 | `gone` |
+| 413 | `too_large` |
+| 422 | `invalid` |
+| 429 | `rate_limited`, with `Retry-After` |
+
+## Stability
+
+Until v1.0 the API can change between minor versions, and the release notes
+say how. From v1.0, `/api/v1` is frozen: no breaking change without a `/v2`.

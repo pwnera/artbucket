@@ -277,7 +277,8 @@ export const Asset = z.object({
   fields: fieldValues.describe("The asset's own values"),
   inherited: fieldValues.describe("Values inherited from its collections; own values win"),
   status: z.enum(STATUSES).describe("draft, proposed (in review), active (approved), archived or rejected"),
-  state: z.enum(STATES).describe("The status, and expired for an approved asset past its last day of use"),
+  state: z.enum(STATES).describe("The status; expired for an approved asset past its last day of use; deleted, until restored or purged"),
+  deletedAt: date.nullable().describe("When it was deleted: restorable for 30 days, then purged"),
   stackId: uuid.nullable().describe("Versions of one thing share a stack; null when it has one version"),
   version: z.number().int().nullable().describe("Its number in the stack"),
   current: z.boolean().describe("Its stack's current approved version: the others are superseded by it"),
@@ -496,7 +497,7 @@ export const CheckResult = z.object({
   reasons: z
     .array(
       z.object({
-        code: z.enum(["not_approved", "archived", "superseded", "embargoed", "expired", "territory", "channel", "model_release", "context"]),
+        code: z.enum(["not_approved", "deleted", "archived", "superseded", "embargoed", "expired", "territory", "channel", "model_release", "context"]),
         message: z.string(),
         blocking: z.boolean().describe("false: go ahead, but know this"),
       }),
@@ -508,6 +509,24 @@ export const CheckResult = z.object({
 });
 
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });
+
+const limit = (what: string) => z.number().nullable().describe(`${what}; null: no limit`);
+export const Usage = z.object({
+  limits: z.object({
+    storage: limit("Bytes of assets"),
+    editors: limit("People with write or admin, invitations included"),
+    workspaces: limit("Workspaces"),
+    brands: limit("Brands, over all workspaces"),
+    features: z.array(z.enum(["agents", "shares"])).nullable().describe("What it may use; null: everything"),
+    readOnly: z.boolean(),
+  }).describe("Set by whoever runs the server; never by the organization"),
+  used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int() }),
+  traffic: z.object({
+    days: z.number().int().describe("How far back"),
+    workspaces: z.array(z.object({ id: uuid, name: z.string(), storage: z.number(), requests: z.number().int(), bytes: z.number() })),
+    daily: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })),
+  }).describe("What /a/{id} served: originals, renditions and downloads"),
+});
 
 // ---- people and access ------------------------------------------------------
 
@@ -524,6 +543,7 @@ export const Me = z.object({
   workspace: WorkspaceRef.describe("Where this request acts: a key's workspace, or the one picked in the app"),
   scope: scope.describe("On the whole workspace"),
   orgScope: scope.describe("On its organization; admin there manages people and workspaces"),
+  readOnly: z.boolean().describe("The organization is read-only: whatever the grants say, the scope is read at most"),
   narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
   email: z.boolean().describe("The organization can send email now: invitations and links go out by mail"),
   narrow: z
@@ -535,7 +555,8 @@ export const Me = z.object({
   hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
   auth: z.object({
-    signUp: z.boolean().describe("Anyone may make an account: true only before the first one exists"),
+    signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
+    open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
     anonymous: scope.describe("What a request without a key or a session may do"),
     passwordReset: z.boolean().describe("A forgotten password can be reset by email"),

@@ -32,7 +32,9 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
   const reasons: Reason[] = [];
   const suggest: Suggestion[] = [];
 
-  if (asset.status === "archived") {
+  if (asset.deletedAt) {
+    reasons.push({ code: "deleted", blocking: true, message: "Deleted: it is on its way out of the library" });
+  } else if (asset.status === "archived") {
     reasons.push({ code: "archived", blocking: true, message: "Archived: retired from use" });
   } else if (asset.status !== "active") {
     reasons.push({

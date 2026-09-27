@@ -28,7 +28,9 @@ export type Collection = Omit<typeof collections.$inferSelect, "workspaceId"> & 
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-const count = sql<number>`(select count(*)::int from ${collectionAssets} where ${collectionAssets.collectionId} = ${collections.id})`;
+// Aliased and qualified by hand: drizzle leaves columns unqualified in a one-table select,
+// and a bare "id" in here would be the asset's, not the collection's.
+const count = sql<number>`(select count(*)::int from ${collectionAssets} ca join ${assets} a on a.id = ca.asset_id and a.deleted_at is null where ca.collection_id = "collections"."id")`;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { workspaceId: _ws, ...columns } = getTableColumns(collections);
 

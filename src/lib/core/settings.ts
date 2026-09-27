@@ -96,6 +96,9 @@ export async function listSettings(caller: Caller, context: SettingContext) {
 }
 
 function settable(key: string, context: SettingContext): SettingKey {
+  if (key in SETTINGS && "operator" in SETTINGS[key as SettingKey]) {
+    throw new AssetError("forbidden", `${SETTINGS[key as SettingKey].label} are set by whoever runs this server`);
+  }
   if (!(SETTING_KEYS as string[]).includes(key)) throw new AssetError("not_found", `No setting "${key}". Settings: ${SETTING_KEYS.join(", ")}`);
   if (!SETTINGS[key as SettingKey].contexts.includes(context)) throw new AssetError("invalid", `${key} is set on the ${SETTINGS[key as SettingKey].contexts.join(" or ")}, not the ${context}`);
   return key as SettingKey;

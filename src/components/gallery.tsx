@@ -90,8 +90,10 @@ export type Asset = {
    * `rejected`: turned down, kept for the agent to learn from.
    */
   status: Status;
-  /** The status, or `expired` for an approved asset past its last day of use. */
+  /** The status, `expired` for an approved asset past its last day of use, or `deleted`. */
   state: State;
+  /** Deleted, and restorable for 30 days from then. */
+  deletedAt?: string | null;
   /** Versions of one thing share a stack; null with one version. */
   stackId: string | null;
   version: number | null;

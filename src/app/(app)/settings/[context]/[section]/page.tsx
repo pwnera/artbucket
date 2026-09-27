@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { People, type Members } from "@/components/settings/access";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
-import { FieldsPanel, NameForm, ProfilePanel, WorkspacesPanel } from "@/components/settings/panels";
+import { DeleteOrganization, FieldsPanel, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, opens } from "@/components/settings/sections";
 import { SettingsShell } from "@/components/settings/shell";
 import type { FieldDef } from "@/lib/fields";
@@ -38,8 +38,18 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       body = <FieldsPanel fields={await get("fields", data<FieldDef[]>, [])} />;
       break;
     case "organization/general":
-      body = <NameForm what="organization" url={`/api/v1/organizations/${ws.organization.id}`} name={ws.organization.name} />;
+      body = (
+        <div className="space-y-6">
+          <NameForm what="organization" url={`/api/v1/organizations/${ws.organization.id}`} name={ws.organization.name} />
+          <DeleteOrganization me={me} />
+        </div>
+      );
       break;
+    case "organization/usage": {
+      const usage = await get("usage", data<Usage>, null);
+      body = usage && <UsagePanel usage={usage} />;
+      break;
+    }
     case "workspace/members": {
       const members = await get("members?in=workspace", (b: Members) => b, null);
       body = members && <People me={me} members={members} collections={sidebar.collections} view="workspace" />;

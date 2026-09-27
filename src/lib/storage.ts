@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutBucketCorsCommand,
   PutBucketLifecycleConfigurationCommand,
   PutObjectCommand,
@@ -13,8 +14,8 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 
-export const s3 = new S3Client({
-  endpoint: env.S3_ENDPOINT,
+const client = (endpoint: string) => new S3Client({
+  endpoint,
   region: env.S3_REGION,
   forcePathStyle: env.S3_FORCE_PATH_STYLE,
   credentials: {
@@ -28,6 +29,10 @@ export const s3 = new S3Client({
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
+export const s3 = client(env.S3_ENDPOINT);
+/** Signs what a browser sends straight to storage, for the address a browser can reach. */
+const signer = env.S3_PUBLIC_ENDPOINT ? client(env.S3_PUBLIC_ENDPOINT) : s3;
+
 const BUCKET = env.S3_BUCKET;
 
 /** Content-addressed key for an original. */
@@ -40,13 +45,30 @@ export const renditionKey = (sha256: string, transform: string, ext: string) =>
 /** A still derived from a file sharp can't read (lib/core/previews.ts), by the still's own hash. */
 export const previewKey = (sha256: string) => `previews/${sha256}`;
 
-/** Temp landing spot for a browser upload, before its hash is known. */
-export const stagingKey = (token: string) => `staging/${token}`;
+/** Temp landing spot for a browser upload, before its hash is known: the workspace's, so no other can promote it. */
+export const stagingKey = (workspaceId: string, token: string) => `staging/${workspaceId}/${token}`;
+
+/**
+ * The advisory lock class (with hashtext of the hash) held while an original
+ * is written with the row that holds it, and while one is swept: an upload of
+ * the same bytes in another workspace never loses them to the sweeper.
+ */
+export const BYTES_LOCK = 71;
+
+/** Every object under a prefix, a page at a time, with when it was last written. */
+export async function* listObjects(prefix: string) {
+  let token: string | undefined;
+  do {
+    const page = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token }));
+    for (const o of page.Contents ?? []) if (o.Key) yield { key: o.Key, modified: o.LastModified ?? new Date(0) };
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+}
 
 /** Content-Length is signed in: storage refuses a body of any other size than the one claimed. */
 export async function presignPut(key: string, contentType: string, contentLength: number, expiresIn = 900) {
   return getSignedUrl(
-    s3,
+    signer,
     new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType, ContentLength: contentLength }),
     { expiresIn },
   );

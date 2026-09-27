@@ -19,7 +19,8 @@ import { maySignUp, signedIn, welcome } from "@/lib/core/people";
  * Sign-up is closed but for three doors: the first account on a fresh install
  * (which becomes the admin of everything), someone holding an invitation, and
  * anyone the OIDC provider vouches for, who arrives with no access until an
- * admin grants some.
+ * admin grants some. SIGNUP=open opens it to anyone, each with an
+ * organization of their own.
  */
 
 export const OIDC_PROVIDER = "oidc";

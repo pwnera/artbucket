@@ -1,0 +1,48 @@
+---
+title: MCP
+description: One URL connects every agent.
+---
+
+`/api/v1/mcp` is an MCP server over Streamable HTTP, on the same core as the
+REST API. Chat apps (Claude, ChatGPT, Perplexity, Gemini), coding agents, app
+builders (Lovable, v0, Bolt, Replit) and Figma take the URL and send you to a
+consent screen, where you pick what the agent may do: Suggest, Read or Edit.
+What it gets is a key bound to you: never more than you can do, and gone with
+your access. The Agents page has the setup for each.
+
+```bash
+claude mcp add --transport http artbucket https://assets.example.com/api/v1/mcp
+```
+
+That is OAuth 2.1 with PKCE and dynamic client registration, discovered from
+`/.well-known/oauth-protected-resource`. Keys an admin makes still work for
+anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
+
+## Tools
+
+| Tool | Scope | |
+|---|---|---|
+| `search_assets` | read | Full text, tags, collections, field filters, lifecycle `status` |
+| `describe_asset` | read | What it is, its rights, what replaced it, and the brand rules that point at it |
+| `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
+| `rendition_url` | read | A URL for a width, height, fit, format and quality |
+| `brand_rules` | read | A brand's rules for a context |
+| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with provenance and rights |
+| `import_google_font` | propose | A Google Fonts family, one file per style |
+| `propose_tags` | propose | Suggest tags for a person to accept |
+| `my_proposals` | propose | What this key proposed, and what became of it |
+
+Brand rules are also resources: `artbucket://brand/rules`, and
+`artbucket://brands/{slug}/rules/{context}`.
+
+## The skill
+
+`npx skills add pwnera/artbucket` installs a skill that teaches an agent the
+workflow: brand rules first, `check_use` before publishing, provenance on
+anything generated. In Claude Code, the plugin brings the MCP server and the
+skill together:
+
+```bash
+/plugin marketplace add pwnera/artbucket
+/plugin install artbucket@artbucket
+```

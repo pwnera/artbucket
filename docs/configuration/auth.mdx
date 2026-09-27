@@ -1,0 +1,53 @@
+---
+title: Authentication
+description: Passwords, single sign-on, who may sign up, and email.
+---
+
+People sign in with an email and a password, or with any OpenID Connect
+provider. Single sign-on is free here, and stays free.
+
+## Who may make an account
+
+By default (`SIGNUP=invite`):
+
+- the first account on a fresh server, which is the admin of everything
+- anyone holding an invitation link, which an admin makes on Team
+- anyone the OIDC provider vouches for, who arrives with no access until an
+  admin gives them some
+
+`SIGNUP=open` lets anyone make an account from the sign-in page. Each new
+account gets an organization of its own, with a first workspace, and is its
+admin. Invitations still work: someone signing up from one joins where it
+points instead.
+
+## Single sign-on
+
+Set all three, for Okta, Entra ID, Google Workspace, Keycloak, Authentik or
+any other OpenID Connect provider:
+
+```bash
+OIDC_ISSUER=https://accounts.example.com
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+OIDC_NAME="Acme SSO"
+```
+
+Register `{APP_URL}/api/auth/callback/oidc` as the redirect URI with the
+provider.
+
+## Email
+
+Off by default. Email sends invitations, share links and password resets
+("Forgot your password?" appears once some email can go out). Turn it on for
+the whole server:
+
+```bash
+EMAIL_PROVIDER=resend
+EMAIL_FROM="Acme Assets <assets@acme.example>"
+EMAIL_API_KEY=re_...
+```
+
+or for one organization in Settings, Email. Providers are HTTP APIs, no SMTP:
+`resend`, `postmark`, `sendgrid`, and `console`, which prints to the log. A
+message that fails never fails what sent it: the link is still shown, and the
+failure is in the audit log.

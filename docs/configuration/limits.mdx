@@ -1,0 +1,60 @@
+---
+title: Limits and usage
+description: What an organization may use, set by whoever runs the server.
+---
+
+Every organization is unlimited until the operator says otherwise. Limits are
+set in the environment for all organizations, or in the database for one, and
+never by an organization's own admins: they can read them, in Settings, Usage,
+next to what they use.
+
+| Limit | Counts | Checked when |
+|---|---|---|
+| `storage` | Bytes of assets across the organization's workspaces; deleted ones stop counting at once | An upload is started, and again for its real size when it is filed |
+| `editors` | People with write or admin anywhere in it, and invitations that would make more | Access is given, or an invitation made |
+| `workspaces` | Workspaces | One is made |
+| `brands` | Brands, across its workspaces | One is made |
+| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links). Unset: everything | A key, an agent connection or a link is made |
+| `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
+
+Past a limit, the request is refused with `403` and the code `limit_reached`
+(or `read_only`), naming the limit. Nothing already there is taken away:
+lowering a limit only stops what would go further.
+
+## For every organization
+
+```bash
+LIMIT_STORAGE=10GB        # or 500MB, 1.5TB, or a number of bytes
+LIMIT_EDITORS=5
+LIMIT_WORKSPACES=3
+LIMIT_BRANDS=5
+LIMIT_FEATURES=agents     # comma-separated, or none
+```
+
+## For one organization
+
+A row in `settings`, with the key `limits`. What it names overrides the
+environment for that organization; what it leaves out keeps coming from there.
+
+```sql
+insert into settings (organization_id, key, value, updated_by)
+values (
+  (select id from organizations where slug = 'acme'),
+  'limits',
+  '{"storage": "100GB", "editors": 20, "features": ["agents", "shares"]}',
+  'operator'
+)
+on conflict (organization_id, workspace_id, key)
+do update set value = excluded.value, updated_at = now();
+```
+
+`null` for a limit lifts it, `"readOnly": true` freezes the organization, and
+deleting the row puts it back on the environment's limits. Changes apply on
+the next request.
+
+## Usage
+
+`GET /api/v1/usage` (Settings, Usage, for organization admins) returns the
+limits, what is used against each, and 30 days of delivery traffic: requests
+and bytes that asset URLs served, originals, renditions and downloads, per
+workspace and per day.

@@ -21,6 +21,9 @@ const STATUS: Record<AssetError["code"], number> = {
   forbidden: 403,
   gone: 410,
   password: 401,
+  limit_reached: 403,
+  read_only: 403,
+  rate_limited: 429,
 };
 
 /** One place that turns thrown errors into the API's error shape. */
@@ -69,6 +72,7 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
     return fail(403, "setup_required", `Nobody has an account yet. Make the first one at ${env.APP_URL}/login`);
   }
   if (can(caller, need)) return caller;
+  if (caller.readOnly) return fail(403, "read_only", "This organization is read-only");
   if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
   if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.workspace.name}`);
   return fail(401, "unauthorized", `Sign in, or send an API key with ${needs(need)}`, undefined, challenge);

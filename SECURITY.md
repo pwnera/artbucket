@@ -27,7 +27,13 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
 ## Notes for operators
 
 - The rendition endpoint decodes untrusted images with libvips. Keep `sharp`
-  current, and put a CDN or rate limiter in front of `/a/*` on a public install.
+  current, and put a CDN or rate limiter in front of `/a/*` on a public install:
+  the built-in rate limit (`RATE_LIMIT`) covers `/api` only, and counts per
+  process.
+- Uploaded files are served from the app's origin under a sandboxing
+  Content-Security-Policy, so an SVG or HTML upload opened directly runs no
+  script. PDFs are exempt, since browsers show them in a viewer the sandbox
+  would stop.
 - A fresh install does nothing until its first account is made, and that
   account is the admin: make it before exposing the server, or whoever gets
   there first owns it. Until then the API answers `403 setup_required`, API

@@ -1,0 +1,61 @@
+---
+title: How it works
+description: One core, three ways in, and the brand as data.
+---
+
+## One core, three adapters
+
+All the logic lives in `src/lib/core/`. The REST API, the MCP server and the
+CLI are thin adapters over it, and the web app is a client of the REST API
+like any other. If the app needs something the API can't do, the API isn't
+finished.
+
+```
+web app ─┐
+CLI ─────┼─> /api/v1 ─┐
+scripts ─┘            ├─> lib/core ─> Postgres + S3
+agents ──> /api/v1/mcp┘
+```
+
+## The API
+
+`/api/v1` is versioned and public. Every request carries an API key
+(`Authorization: Bearer ab_...`) or a session from the app. A key works in one
+workspace with one scope, and scopes are a ladder:
+
+| Scope | May |
+|---|---|
+| `read` | search, list, describe |
+| `propose` | upload and suggest tags; what it adds waits for review |
+| `write` | edit, delete, approve, share, and manage collections, fields, searches |
+| `admin` | keys and people |
+
+The spec at `/api/v1/openapi.json` is generated from the same Zod schemas the
+handlers validate with, so it can't drift from the code. It is the
+[API reference](/developers/api) here too.
+
+## Bytes
+
+Uploads go straight from the client to object storage through a presigned PUT;
+the server never proxies them. The server then hashes what arrived (SHA-256)
+and files it under that hash, so identical bytes are stored once.
+
+Delivery is a URL: `/a/{id}` is the original, `/a/{id}/w_800,f_webp` a
+rendition, made on first request and cached in storage for 30 days. Only an
+approved, unexpired asset is public: an archived, expired or deleted one
+answers `410 Gone`, so embeds stop on time.
+
+## The canon
+
+Brand rules are structured records, not a PDF: a dotted key like
+`color.primary`, a typed value, a sentence on how to use it, and the assets it
+points at. A rule can have a variant per context (`dark-background`,
+`instagram-story`). The guidelines page is drawn from these records, and
+agents read the same records over MCP.
+
+## Agents
+
+`/api/v1/mcp` is an MCP server over Streamable HTTP. Chat apps and coding
+agents connect with the URL alone: OAuth sends the person to a consent screen,
+and the agent gets a key bound to them, never able to do more than they can.
+What an agent adds lands `proposed`, for a person to approve.

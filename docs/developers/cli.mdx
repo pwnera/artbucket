@@ -1,0 +1,31 @@
+---
+title: CLI
+description: artbucket, a thin client over the same API.
+---
+
+```bash
+ARTBUCKET_URL=https://assets.example.com pnpm artbucket login
+```
+
+`login` signs in through the browser with the device flow and keeps a key in
+`~/.config/artbucket/credentials.json`. Or set `ARTBUCKET_KEY`. From a clone,
+`pnpm link --global` puts `artbucket` on your path.
+
+```bash
+artbucket search sintel poster
+artbucket search --status deleted
+artbucket url {id} --width 1200 --format webp
+artbucket check {id} --channel paid-social --territory DE
+artbucket ingest ./hero.png https://example.com/logo.png --tag launch
+artbucket ingest ./v2.png --version-of {id}
+artbucket review
+artbucket approve {id}
+artbucket reject {id} --reason "off-brand colors"
+artbucket rules --context instagram-story
+artbucket keys create claude --scope propose
+artbucket invite sam@agency.example --scope write --collection {id}
+artbucket share {collection-id} --upload
+artbucket audit
+```
+
+`--json` prints the raw API response. `artbucket --help` lists every command.

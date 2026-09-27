@@ -6,6 +6,7 @@ import { recordAudit, type AuditBy } from "@/lib/core/audit";
 import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
+import { checkLimit } from "@/lib/core/usage";
 import type { Caller } from "@/lib/core/access";
 import { highest, type Ability, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -20,6 +21,9 @@ import type { Scope } from "@/lib/scopes";
  */
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Scopes that make someone an editor, which an organization's limits count. */
+const EDITS: Scope[] = ["write", "admin"];
 
 // ---- accounts ---------------------------------------------------------------
 
@@ -47,15 +51,16 @@ async function pending(token: string | null) {
   return inv ?? null;
 }
 
-/** better-auth asks before it makes an account: see lib/auth.ts for the three doors. */
+/** better-auth asks before it makes an account: see lib/auth.ts for the doors. */
 export async function maySignUp(cookie: string | null, viaOidc: boolean) {
-  if (viaOidc || !(await hasUsers())) return true;
+  if (env.SIGNUP === "open" || viaOidc || !(await hasUsers())) return true;
   return !!(await pending(cookieValue(cookie, INVITE_COOKIE)));
 }
 
 /**
  * After an account is made: the very first one gets admin on every
- * organization, and one made from an invitation takes it.
+ * organization, one made from an invitation takes it, and with open sign-up
+ * anyone else gets an organization of their own.
  */
 export async function welcome(user: { id: string; name: string; email: string }, cookie: string | null) {
   const by: AuditBy = { actor: user.name || user.email, user };
@@ -73,6 +78,10 @@ export async function welcome(user: { id: string; name: string; email: string },
   }
   const token = cookieValue(cookie, INVITE_COOKIE);
   if (token && (await pending(token))) await acceptInvitation(decodeURIComponent(token), { ...user, ip: null });
+  else if (n > 1 && env.SIGNUP === "open") {
+    const org = await addOrganization(user.id, `${user.name || user.email.split("@")[0]}'s organization`);
+    await recordAudit(by, "organization.created", org.name, { signUp: true }, { organizationId: org.id, workspaceId: null });
+  }
 }
 
 /** A sign-in, for the audit log, by the person's name rather than their id. */
@@ -126,17 +135,22 @@ export async function listOrganizations(caller: Caller) {
   return rows.map(({ id, slug, name }) => ({ id, slug, name }));
 }
 
+/** An organization with one workspace, and its admin. */
+function addOrganization(userId: string, name: string) {
+  return db.transaction(async (tx) => {
+    const slug = await freeSlug(name, async (s) => !!(await tx.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, s)))[0]);
+    const [org] = await tx.insert(organizations).values({ slug, name }).returning();
+    const ws = await addWorkspace(tx, org.id, "Library");
+    await tx.insert(grants).values({ userId, organizationId: org.id, resource: "organization", resourceId: org.id, scope: "admin" });
+    return { ...org, ws };
+  });
+}
+
 /** A new organization with one workspace; whoever makes it is its admin. */
 export async function createOrganization(caller: Caller, input: { name: string }) {
   const user = caller.user;
   if (!user) throw new AssetError("forbidden", "Sign in to make an organization");
-  const { org, ws } = await db.transaction(async (tx) => {
-    const slug = await freeSlug(input.name, async (s) => !!(await tx.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, s)))[0]);
-    const [org] = await tx.insert(organizations).values({ slug, name: input.name }).returning();
-    const ws = await addWorkspace(tx, org.id, "Library");
-    await tx.insert(grants).values({ userId: user.id, organizationId: org.id, resource: "organization", resourceId: org.id, scope: "admin" });
-    return { org, ws };
-  });
+  const { ws, ...org } = await addOrganization(user.id, input.name);
   await recordAudit(caller, "organization.created", org.name, undefined, { organizationId: org.id, workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name, workspace: { id: ws.id, slug: ws.slug, name: ws.name } };
 }
@@ -147,6 +161,22 @@ export async function renameOrganization(caller: Caller, id: string, name: strin
   const [org] = await db.update(organizations).set({ name }).where(eq(organizations.id, id)).returning();
   await recordAudit(caller, "organization.renamed", name, { from: caller.workspace.organization.name }, { workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name };
+}
+
+/**
+ * Delete the caller's organization: its workspaces with everything in them,
+ * its people's grants, its invitations and settings. Its bytes go with the
+ * next sweep (lib/core/sweep.ts), when nothing else holds them. Never the
+ * server's last one: a server always has somewhere to land.
+ */
+export async function deleteOrganization(caller: Caller, id: string) {
+  if (id !== caller.workspace.organizationId) return false;
+  need(caller, "organization.manage");
+  const [{ n }] = await db.select({ n: count() }).from(organizations);
+  if (n < 2) throw new AssetError("conflict", "This is the server's only organization; make another before deleting it");
+  await db.delete(organizations).where(eq(organizations.id, id));
+  await recordAudit(caller, "organization.deleted", caller.workspace.organization.name, undefined, { workspaceId: null });
+  return true;
 }
 
 /** Workspaces in the caller's organization it can open, and what it may do in each. */
@@ -173,9 +203,26 @@ export async function listWorkspaces(caller: Caller) {
 
 export async function createWorkspace(caller: Caller, input: { name: string }) {
   need(caller, "organization.manage");
+  await checkLimit(caller.workspace.organizationId, "workspaces");
   const ws = await db.transaction((tx) => addWorkspace(tx, caller.workspace.organizationId, input.name));
   await recordAudit(caller, "workspace.created", ws.name, undefined, { workspaceId: ws.id });
   return { id: ws.id, slug: ws.slug, name: ws.name, scope: caller.orgScope };
+}
+
+/**
+ * Delete a workspace of the caller's organization, with its assets,
+ * collections, brands, keys and links. Its bytes go with the next sweep,
+ * when nothing else holds them. Organization admin; never the last one.
+ */
+export async function deleteWorkspace(caller: Caller, id: string) {
+  const [ws] = await db.select().from(workspaces).where(and(eq(workspaces.id, id), eq(workspaces.organizationId, caller.workspace.organizationId)));
+  if (!ws) return false;
+  need(caller, "organization.manage");
+  const [{ n }] = await db.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, ws.organizationId));
+  if (n < 2) throw new AssetError("conflict", "An organization keeps at least one workspace: delete the organization instead");
+  await db.delete(workspaces).where(eq(workspaces.id, id));
+  await recordAudit(caller, "workspace.deleted", ws.name, undefined, { workspaceId: id });
+  return true;
 }
 
 export async function renameWorkspace(caller: Caller, id: string, name: string) {
@@ -338,6 +385,7 @@ export async function setGrant(caller: Caller, input: { user: string; resource: 
     .where(and(eq(users.id, input.user), eq(grants.organizationId, t.organizationId)))
     .limit(1);
   if (!member) throw new AssetError("not_found", "No such member; invite them instead");
+  if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { user: member.id });
   // Left out, a change of scope keeps what was off.
   const limits = input.limits ?? (await limitsOf(member.id, t.resource, t.resourceId));
   const row = await db.transaction(async (tx) => {
@@ -421,6 +469,7 @@ const linkOf = (sealed: string | null) => {
  */
 export async function createInvitation(caller: Caller, input: { email: string; resource: Resource; resourceId: string; scope: Scope; limits?: Ability[] }) {
   const t = await target(caller, input.resource, input.resourceId);
+  if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors");
   const token = randomBytes(24).toString("base64url");
   const [row] = await db
     .insert(invitations)

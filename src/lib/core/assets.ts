@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, count, desc, eq, getTableColumns, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
@@ -11,6 +11,7 @@ import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/co
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
+import { checkLimit } from "@/lib/core/usage";
 import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -31,6 +32,7 @@ import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, MAX_DIMENSION, PRESETS } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
+  BYTES_LOCK,
   deleteObject,
   ensureBucket,
   getObject,
@@ -62,11 +64,11 @@ const lowest = (scopes: (Scope | null)[]) =>
 /** Today in UTC, as lib/rights.ts today() has it: ISO dates compare as text. */
 const todaySql = sql`to_char(now() at time zone 'utc', 'YYYY-MM-DD')`;
 /** lib/lifecycle.ts stateOf, as SQL. */
-export const stateSql = sql<State>`(case when ${assets.status} = 'active' and ${assets.rights} ->> 'expires' < ${todaySql} then 'expired' else ${assets.status} end)`;
+export const stateSql = sql<State>`(case when ${assets.deletedAt} is not null then 'deleted' when ${assets.status} = 'active' and ${assets.rights} ->> 'expires' < ${todaySql} then 'expired' else ${assets.status} end)`;
 /** lib/lifecycle.ts deliverable, as SQL. */
 export const deliverableSql = sql`(${stateSql} = 'active' and coalesce(${assets.rights} ->> 'embargo', '') <= ${todaySql})`;
 /** Not an earlier approved version of something: the library shows a stack's current one. */
-export const notSuperseded = sql`(${assets.stackId} is null or ${assets.current} or ${assets.status} <> 'active')`;
+export const notSuperseded = sql`(${assets.stackId} is null or ${assets.current} or ${assets.status} <> 'active' or ${assets.deletedAt} is not null)`;
 
 export const columns = {
   ...own,
@@ -112,18 +114,23 @@ export type UploadTicket = {
   expiresIn: number;
 };
 
-/** Step 1: hand the browser a presigned PUT straight to object storage. */
-export async function createUploadTicket(input: {
-  filename: string;
-  mime: string;
-  size: number;
-}): Promise<UploadTicket> {
+/**
+ * Step 1: hand the browser a presigned PUT straight to object storage. The
+ * ticket is the workspace's: the bytes land under it, so only an upload into
+ * it can promote them, and its organization's storage is checked for the
+ * size claimed before any bytes move (again, for the real size, at step 2).
+ */
+export async function createUploadTicket(
+  caller: Pick<Caller, "workspace">,
+  input: { filename: string; mime: string; size: number },
+): Promise<UploadTicket> {
   if (input.size > MAX_UPLOAD_BYTES) {
     throw new AssetError("too_large", `Max upload size is ${MAX_UPLOAD_BYTES} bytes`);
   }
+  await checkLimit(caller.workspace.organizationId, "storage", { adding: input.size });
   await ensureBucket();
   const token = randomUUID();
-  const uploadUrl = await presignPut(stagingKey(token), input.mime, input.size);
+  const uploadUrl = await presignPut(stagingKey(caller.workspace.id, token), input.mime, input.size);
   return { token, uploadUrl, expiresIn: 900 };
 }
 
@@ -157,7 +164,7 @@ export async function finalizeUpload(
 ): Promise<{ asset: Asset; deduped: boolean }> {
   const ws = caller.workspace.id;
   const prior = input.versionOf ? await getAsset(caller, input.versionOf) : null;
-  if (input.versionOf && !prior) throw new AssetError("invalid", `versionOf: no asset ${input.versionOf}`);
+  if (input.versionOf && (!prior || prior.deletedAt)) throw new AssetError("invalid", `versionOf: no asset ${input.versionOf}`);
   if (prior && !can(caller, "asset.version", prior)) throw new AssetError("forbidden", `You need ${needs("asset.version")}`);
   const into = [...new Set([...(input.collections ?? []), ...(prior?.collections ?? [])])];
   // A new version is a change to the asset: write on it makes it approved, less a proposal.
@@ -165,7 +172,7 @@ export async function finalizeUpload(
     ? !can(caller, "asset.edit", prior) || (!!input.collections?.length && !allows(uploadScope(caller, input.collections), "write"))
     : !allows(uploadScope(caller, into), "write");
   const status: AssetStatus = proposed ? "proposed" : (input.status ?? "active");
-  const staged = stagingKey(input.token);
+  const staged = stagingKey(ws, input.token);
   const size = await sizeOf(staged);
   if (size === null) throw new AssetError("not_found", "No staged upload for that token");
   // The signed PUT pins the size claimed for the ticket, but not every provider checks it.
@@ -196,6 +203,8 @@ export async function finalizeUpload(
     }
     return { asset: await fileInto(ws, into, existing.id), deduped: true };
   }
+  // The authoritative check: the size stored, not the size claimed for the ticket.
+  await checkLimit(caller.workspace.organizationId, "storage", { adding: size });
 
   const mime = fontMime(bytes) ?? input.mime;
   // Anything but a web image gets a look for what it can show as: a still, an
@@ -207,14 +216,22 @@ export async function finalizeUpload(
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
   // Content Credentials say how it was made, unless the uploader says otherwise.
   const c2pa = readC2pa(bytes);
-  await putObject(originalKey(sha256), bytes, mime);
-  await deleteObject(staged);
 
   // A version keeps what a person wrote about the one before, where the file says nothing.
   const described = Object.fromEntries(EDITABLE.flatMap((k) => (prior?.metadata?.[k] ? [[k, prior.metadata[k]]] : [])));
   const kept = { ...described, ...metadata };
   const stack = prior ? (prior.stackId ?? prior.id) : null;
-  const row = await db.transaction(async (tx) => {
+  const { row, purged } = await db.transaction(async (tx) => {
+    // The bytes and the row that holds them land together: lib/core/sweep.ts
+    // takes the same lock before it removes an original nothing holds.
+    await tx.execute(sql`select pg_advisory_xact_lock(${BYTES_LOCK}, hashtext(${sha256}))`);
+    await putObject(originalKey(sha256), bytes, mime);
+    // These bytes, deleted here before: that asset is gone for good, and this is a new one.
+    const purged = await tx
+      .delete(assets)
+      .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256), isNotNull(assets.deletedAt)))
+      .returning({ id: assets.id, stackId: assets.stackId });
+    await dropGrants("asset", purged.map((p) => p.id), tx);
     let version: number | null = null;
     if (stack) {
       // One new version of a stack at a time, so each gets the next number.
@@ -256,8 +273,10 @@ export async function finalizeUpload(
       })
       .onConflictDoNothing({ target: [assets.workspaceId, assets.sha256] })
       .returning({ id: assets.id, version: assets.version });
-    return row;
+    return { row, purged };
   });
+  await deleteObject(staged);
+  for (const p of purged) if (p.stackId && p.stackId !== stack) await repoint(p.stackId);
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
   if (!row) return { asset: await fileInto(ws, into, (await bySha(ws, sha256))!.id), deduped: true };
@@ -332,12 +351,13 @@ async function stageAndFinalize(
 ) {
   await ensureBucket();
   const token = randomUUID();
-  await putObject(stagingKey(token), bytes, mime);
+  await checkLimit(caller.workspace.organizationId, "storage", { adding: bytes.byteLength });
+  await putObject(stagingKey(caller.workspace.id, token), bytes, mime);
   try {
     return await finalizeUpload(caller, { ...rest, token, filename: name.slice(0, 512), mime });
   } catch (err) {
     // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
-    await deleteObject(stagingKey(token)).catch(() => {});
+    await deleteObject(stagingKey(caller.workspace.id, token)).catch(() => {});
     throw err;
   }
 }
@@ -474,7 +494,7 @@ export async function searchAssets(
       proposedBy !== undefined
         ? eq(assets.proposedBy, proposedBy)
         : review
-          ? sql`(${assets.status} = 'proposed' or (${assets.status} = 'active' and ${assets.proposedTags} <> '[]'::jsonb))`
+          ? sql`(${assets.deletedAt} is null and (${assets.status} = 'proposed' or (${assets.status} = 'active' and ${assets.proposedTags} <> '[]'::jsonb)))`
           : anyState
             ? undefined
             : inArray(stateSql, status.length ? status : ["active"]),
@@ -586,11 +606,12 @@ export async function findAsset(id: string): Promise<Asset | null> {
   return asset ?? null;
 }
 
+/** The live asset with these bytes; a deleted one is replaced by a new upload of them. */
 async function bySha(ws: string, sha256: string): Promise<Asset | null> {
   const [asset] = await db
     .select(columns)
     .from(assets)
-    .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256)))
+    .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256), isNull(assets.deletedAt)))
     .limit(1);
   return asset ?? null;
 }
@@ -674,6 +695,7 @@ export async function updateAsset(
 ): Promise<Asset | null> {
   const current = await getAsset(caller, id);
   if (!current) return null;
+  if (current.deletedAt) throw new AssetError("invalid", "Deleted: restore it first");
   // Deciding what the library holds is reviewing; reworking a draft, and anything else, is editing.
   const moves = status !== undefined && status !== current.status;
   const reviewing = (moves && isReview(current.status, status)) || reviewNote !== undefined || proposedTags !== undefined;
@@ -867,20 +889,31 @@ export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embed
   return { body: out ?? bytes, embedded: out !== null };
 }
 
+/**
+ * Delete, softly: the asset leaves the library, its links and its stack at
+ * once, and can be restored for 30 days. Then lib/core/sweep.ts purges it,
+ * and its bytes when nothing else holds them. Deleting it again changes nothing.
+ */
 export async function deleteAsset(caller: Caller, id: string) {
   const asset = await allowed(caller, id, "asset.delete");
   if (!asset) return false;
-  await db.delete(assets).where(eq(assets.id, id));
-  await dropGrants("asset", [id]);
+  if (asset.deletedAt) return true;
+  await db.update(assets).set({ deletedAt: sql`now()`, updatedAt: sql`now()` }).where(eq(assets.id, id));
   // Deleting the current version hands over to the newest approved one left.
   if (asset.stackId) await repoint(asset.stackId);
   await record(caller, "deleted", asset);
-  // Storage is shared by identical bytes in other workspaces: the original
-  // goes when nothing else holds it. Renditions are left to an S3 lifecycle
-  // rule; they are derivable and cheap.
-  const [other] = await db.select({ id: assets.id }).from(assets).where(eq(assets.sha256, asset.sha256)).limit(1);
-  if (!other) await deleteObject(originalKey(asset.sha256));
   return true;
+}
+
+/** Undo a delete, within the 30 days. It comes back as it was, but not as its stack's current version: make it current for that. */
+export async function restoreAsset(caller: Caller, id: string): Promise<Asset | null> {
+  const asset = await allowed(caller, id, "asset.delete");
+  if (!asset?.deletedAt) return asset;
+  await db.update(assets).set({ deletedAt: null, updatedAt: sql`now()` }).where(eq(assets.id, id));
+  if (asset.stackId) await repoint(asset.stackId);
+  const back = (await findAsset(id))!;
+  await record(caller, "restored", back);
+  return back;
 }
 
 const withoutNulls = (v: Record<string, unknown>) =>
