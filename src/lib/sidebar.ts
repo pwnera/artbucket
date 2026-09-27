@@ -28,7 +28,7 @@ export async function get<B, T>(path: string, pick: (body: B) => T, fallback: T)
   const cookie = h.get("cookie");
   // The host asked for, so an organization's own domain gets its brand (lib/core/branding.ts).
   const host = h.get("x-forwarded-host") ?? h.get("host");
-  const res = await fetch(`${env.APP_URL}/api/v1/${path}`, {
+  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, {
     cache: "no-store",
     headers: { ...(cookie && { cookie }), ...(host && { "x-forwarded-host": host }) },
   });
@@ -46,7 +46,7 @@ export async function getBody<B>(path: string): Promise<B | null> {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const cookie = h.get("cookie");
-  const res = await fetch(`${env.APP_URL}/api/v1/${path}`, {
+  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, {
     cache: "no-store",
     headers: { ...(cookie && { cookie }), ...(host && { "x-forwarded-host": host }) },
   }).catch(() => null);

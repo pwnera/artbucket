@@ -22,6 +22,12 @@ const schema = z.object({
     .transform((v) => v === "true"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   /**
+   * Where the server reaches its own API while rendering a page. Unset:
+   * APP_URL. Set it when the server can't reach its public address from
+   * inside (a container behind a proxy): http://localhost:3000.
+   */
+  INTERNAL_URL: z.string().url().optional(),
+  /**
    * What a request without an API key or a session may do, once the first
    * account exists (before, nothing works). Unset: nothing. See lib/scopes.ts.
    */
