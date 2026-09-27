@@ -2,6 +2,7 @@ import { z } from "zod";
 import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
+import { Consent, GRANTABLE } from "./oauth.ts";
 import type { Scope } from "./scopes.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 
@@ -609,7 +610,12 @@ export function openapi(serverUrl: string) {
         }),
       },
       "/api/v1/keys": {
-        get: op({ summary: "List API keys", scope: "admin", ok: [200, "Keys, without secrets", data(z.array(S.ApiKey))] }),
+        get: op({
+          summary: "Connected agents",
+          scope: "read",
+          description: "API keys, without secrets, with when each last called and what it left in Review: every key in the workspace for an admin, the agents you connected for anyone else.",
+          ok: [200, "Keys, without secrets", data(z.array(S.ApiKey))],
+        }),
         post: op({
           summary: "Mint an API key",
           scope: "admin",
@@ -619,7 +625,65 @@ export function openapi(serverUrl: string) {
       },
       "/api/v1/keys/{id}": {
         parameters: [path("id", "Key id")],
-        delete: op({ summary: "Revoke an API key", scope: "admin", ok: [200, "Revoked", S.Deleted] }),
+        delete: op({ summary: "Revoke an API key", scope: "read", description: "Any key, for an admin; the agents you connected, for anyone.", ok: [200, "Revoked", S.Deleted] }),
+      },
+      "/api/v1/oauth/server": {
+        get: op({ summary: "OAuth authorization server metadata", scope: "public", description: "RFC 8414. Also at /.well-known/oauth-authorization-server.", ok: [200, "Metadata"] }),
+      },
+      "/api/v1/oauth/resource": {
+        get: op({
+          summary: "OAuth protected resource metadata",
+          scope: "public",
+          description: "RFC 9728, for /api/v1/mcp. Also at /.well-known/oauth-protected-resource; a 401 names it in `WWW-Authenticate`.",
+          ok: [200, "Metadata"],
+        }),
+      },
+      "/api/v1/oauth/register": {
+        post: op({
+          summary: "Register an OAuth client",
+          scope: "public",
+          description: "RFC 7591 dynamic registration. Public clients: no secret, PKCE (S256) instead. Redirects: https, http to loopback, or an app scheme.",
+          body: z.object({ client_name: z.string().optional(), redirect_uris: z.array(z.string()).optional(), grant_types: z.array(z.string()).optional() }),
+          ok: [201, "The client", z.object({ client_id: z.string(), client_name: z.string(), redirect_uris: z.array(z.string()) })],
+        }),
+      },
+      "/api/v1/oauth/token": {
+        post: op({
+          summary: "Trade a code for a token",
+          scope: "public",
+          description:
+            "Form-encoded (or JSON). `authorization_code` with `code_verifier`, or the device code grant. The token is an API key bound to " +
+            "the person who consented: at most the scope they picked, never more than they can do. It lasts until revoked.",
+          ok: [200, "The token", z.object({ access_token: z.string(), token_type: z.literal("Bearer"), scope: z.enum(GRANTABLE) })],
+        }),
+      },
+      "/api/v1/oauth/device": {
+        post: op({
+          summary: "Start the device flow",
+          scope: "public",
+          description: "RFC 8628, with a registered `client_id`. A person approves `user_code` at `verification_uri`; poll the token endpoint meanwhile.",
+          ok: [200, "Codes", z.object({ device_code: z.string(), user_code: z.string(), verification_uri: z.string(), verification_uri_complete: z.string(), expires_in: z.number(), interval: z.number() })],
+        }),
+      },
+      "/api/v1/oauth/device/{code}": {
+        parameters: [path("code", "The user code, e.g. WDJB-MJHT")],
+        get: op({ summary: "What a device code asks for", scope: "any", description: "Signed in: the client, and the workspaces and scopes you can give it.", ok: [200, "The request"] }),
+        post: op({ summary: "Approve or turn down a device code", scope: "any", description: "Signed in.", body: Consent, ok: [200, "Decided", data(z.object({ allowed: z.boolean() }))] }),
+      },
+      "/api/v1/oauth/authorize": {
+        get: op({
+          summary: "What an authorization request asks for",
+          scope: "any",
+          description: "Signed in, with the client's query (response_type=code, client_id, redirect_uri, code_challenge, S256, state). For the consent screen.",
+          ok: [200, "The request"],
+        }),
+        post: op({
+          summary: "Decide an authorization request",
+          scope: "any",
+          description: "Signed in: the decision and the `request` query it answers. Returns the URL to send the browser to, with a code or `error=access_denied`.",
+          body: z.object({ request: z.record(z.string(), z.string()) }).and(Consent),
+          ok: [200, "Where to go", data(z.object({ redirect: z.string() }))],
+        }),
       },
       "/api/v1/mcp": {
         post: op({

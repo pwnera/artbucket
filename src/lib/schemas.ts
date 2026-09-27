@@ -380,6 +380,10 @@ export const ApiKey = z.object({
   prefix: z.string(),
   scope: z.enum(SCOPES),
   createdAt: date,
+  lastUsedAt: date.nullable().describe("The last request that presented it"),
+  calls: z.number().int().describe("Requests that presented it"),
+  owner: z.string().nullable().describe("Whose agent it is, for one a person connected; null for a key an admin made"),
+  waiting: z.number().int().describe("Assets it proposed that wait in Review"),
 });
 export const ApiKeyCreated = ApiKey.extend({
   secret: z.string().describe("Shown once. Send as `Authorization: Bearer <secret>`"),

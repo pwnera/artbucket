@@ -137,3 +137,13 @@ export function accessIn(grants: GrantRow[], workspace: { id: string; organizati
     Object.fromEntries(Object.entries(m).flatMap(([id, lists]) => (offOf(lists).length ? [[id, offOf(lists)]] : [])));
   return { scope, narrow, off: { workspace: offOf(ws), collections: map(cols), assets: map(as) }, hidden };
 }
+
+/** The lower of two scopes: what an agent may do is what it was granted and its person still can. */
+export const lowest = (a: Scope | null, b: Scope | null): Scope | null =>
+  a === null || b === null ? null : SCOPES[Math.min(SCOPES.indexOf(a), SCOPES.indexOf(b))];
+
+/** Access held to at most `max` everywhere: a person's, as their agent's key sees it. */
+export function capAt(a: Access, max: Scope): Access {
+  const cap = (m: Record<string, Scope>) => Object.fromEntries(Object.entries(m).map(([id, s]) => [id, lowest(s, max)!]));
+  return { ...a, scope: lowest(a.scope, max), narrow: { collections: cap(a.narrow.collections), assets: cap(a.narrow.assets) } };
+}

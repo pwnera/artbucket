@@ -10,9 +10,10 @@ export const metadata: Metadata = { title: "Sign in - Artbucket" };
 /** Sign in, or on a fresh install make the first account. Someone signed in goes home. */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const me = await get("me", (b: { data: Me }) => b.data, null);
-  if (me?.user) redirect("/");
-  const { next } = await searchParams;
-  const auth = me?.auth ?? { signUp: false, oidc: null, anonymous: null, passwordReset: false };
+  const { next: asked } = await searchParams;
   // Only paths here: never send someone on to another site after signing in.
-  return <SignInPage auth={auth} next={next?.startsWith("/") && !next.startsWith("//") ? next : undefined} />;
+  const next = asked?.startsWith("/") && !asked.startsWith("//") && !asked.startsWith("/\\") ? asked : undefined;
+  if (me?.user) redirect(next ?? "/");
+  const auth = me?.auth ?? { signUp: false, oidc: null, anonymous: null, passwordReset: false };
+  return <SignInPage auth={auth} next={next} />;
 }

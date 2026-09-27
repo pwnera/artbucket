@@ -4,20 +4,27 @@
  *
  *   ARTBUCKET_URL   default http://localhost:3000
  *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one; it
- *                   decides the workspace
+ *                   decides the workspace. Without one, the key
+ *                   `artbucket login` saved for this server
  */
-import { readFile, stat } from "node:fs/promises";
-import { basename, extname } from "node:path";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { hostname, homedir } from "node:os";
+import { basename, dirname, extname, join } from "node:path";
 import { parseArgs } from "node:util";
 
 const HELP = `artbucket <command>
 
+  login                   sign in through the browser; saves a key for ARTBUCKET_URL
+  logout                  forget it
   search [words] [--tag t]... [--collection id] [--review] [--limit n]
   describe <id>
   check <id> [--channel c] [--territory CC] [--date YYYY-MM-DD] [--context c] [--brand b]
                           may it be used like this? exits 1 when it may not
   url <id> [--width n] [--height n] [--fit cover|contain|inside] [--format webp|avif|jpeg|png] [--quality n]
   ingest <file-or-url>... [--tag t]... [--collection id]
+         [--origin shot|licensed|generated] [--generator g] [--prompt text]
+                          what a model made: say so, and with what and how
   propose-tags <id> <tag>...
   review                  what waits on a human
   approve <id>            promote a proposed asset and accept its suggested tags
@@ -49,7 +56,15 @@ const HELP = `artbucket <command>
   --json   print the raw API response`;
 
 const BASE = (process.env.ARTBUCKET_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const KEY = process.env.ARTBUCKET_KEY;
+
+/** Keys `artbucket login` saved, one per server. Only this user can read the file. */
+const CREDENTIALS = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "artbucket", "credentials.json");
+const saved: Record<string, string> = JSON.parse(await readFile(CREDENTIALS, "utf8").catch(() => "{}"));
+const save = async () => {
+  await mkdir(dirname(CREDENTIALS), { recursive: true });
+  await writeFile(CREDENTIALS, JSON.stringify(saved, null, 2), { mode: 0o600 });
+};
+const KEY = process.env.ARTBUCKET_KEY ?? saved[BASE];
 
 const { values: opt, positionals } = parseArgs({
   allowPositionals: true,
@@ -77,6 +92,9 @@ const { values: opt, positionals } = parseArgs({
     password: { type: "string" },
     expires: { type: "string" },
     name: { type: "string" },
+    origin: { type: "string" },
+    generator: { type: "string" },
+    prompt: { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -124,7 +142,13 @@ const MIME: Record<string, string> = {
 };
 
 async function ingest(source: string) {
-  const extra = { tags: opt.tag, collections: opt.collection ? [opt.collection] : undefined };
+  const extra = {
+    tags: opt.tag,
+    collections: opt.collection ? [opt.collection] : undefined,
+    origin: opt.origin,
+    generator: opt.generator,
+    prompt: opt.prompt,
+  };
   if (/^https?:\/\//.test(source)) return api("POST", "/api/v1/assets", { url: source, ...extra });
   // A local file goes straight to storage, like the web UI's uploads.
   const filename = basename(source);
@@ -136,8 +160,53 @@ async function ingest(source: string) {
   return api("POST", "/api/v1/assets", { token: ticket.token, filename, mime, ...extra });
 }
 
+/** An OAuth endpoint: its errors are `{error, error_description}`, which polling reads. */
+async function oauth(path: string, body: Record<string, unknown>) {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  return { ok: res.ok, json: await res.json().catch(() => ({})) };
+}
+
+/**
+ * The device flow (RFC 8628): register, get a code, have a person approve it
+ * in the browser, poll until they do. What comes back is a key bound to them.
+ */
+async function login() {
+  const client = await oauth("/api/v1/oauth/register", {
+    client_name: `artbucket CLI on ${hostname()}`,
+    grant_types: ["urn:ietf:params:oauth:grant-type:device_code"],
+  });
+  if (!client.ok) throw new Error(client.json.error_description ?? `Can't reach ${BASE}`);
+  const device = await oauth("/api/v1/oauth/device", { client_id: client.json.client_id });
+  if (!device.ok) throw new Error(device.json.error_description ?? "Couldn't start signing in");
+  const d = device.json;
+  console.log(`Open ${d.verification_uri_complete}\nand check it shows ${d.user_code}. Waiting...`);
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+  execFile(opener, [d.verification_uri_complete], () => {});
+  const until = Date.now() + d.expires_in * 1000;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, d.interval * 1000));
+    const t = await oauth("/api/v1/oauth/token", { grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: d.device_code, client_id: client.json.client_id });
+    if (t.ok) {
+      saved[BASE] = t.json.access_token;
+      await save();
+      return `Signed in to ${BASE}, with ${t.json.scope}. The key is in ${CREDENTIALS}.`;
+    }
+    if (t.json.error !== "authorization_pending") throw new Error(t.json.error_description ?? t.json.error);
+  }
+  throw new Error("The code expired. Run artbucket login again.");
+}
+
 async function main() {
   switch (opt.help ? "help" : cmd) {
+    case "login":
+      return console.log(await login());
+    case "logout": {
+      const had = BASE in saved;
+      delete saved[BASE];
+      await save();
+      // The key still works until it's revoked: Connected agents, or `artbucket keys revoke`.
+      return console.log(had ? `Forgot the key for ${BASE}. Disconnect it on the Agents page to revoke it.` : `Not signed in to ${BASE}.`);
+    }
     case "search":
     case "review": {
       const p = new URLSearchParams();
