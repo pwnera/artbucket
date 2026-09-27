@@ -9,8 +9,8 @@ export const metadata: Metadata = { title: "Portals" };
 
 /** The workspace's brand portals, from /api/v1/portals like any client's. */
 export default async function PortalsPage() {
-  const sidebar = await sidebarData();
+  // Together: the API checks access itself, and a redirect drops what came back.
+  const [sidebar, portals] = await Promise.all([sidebarData(), get("portals", (b: { data: Portal[] }) => b.data, [])]);
   if (!can(sidebar.me, "portal.manage")) redirect("/");
-  const portals = await get("portals", (b: { data: Portal[] }) => b.data, []);
   return <Portals sidebar={sidebar} portals={portals} />;
 }

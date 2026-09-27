@@ -49,8 +49,9 @@ do update set value = excluded.value, updated_at = now();
 ```
 
 `null` for a limit lifts it, `"readOnly": true` freezes the organization, and
-deleting the row puts it back on the environment's limits. Changes apply on
-the next request.
+deleting the row puts it back on the environment's limits. Each server
+process reads settings at most once a minute, so a change made in the
+database applies within a minute.
 
 ## Usage
 

@@ -8,7 +8,8 @@ import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
-import type { Caller } from "@/lib/core/access";
+import { defaultWorkspace, type Caller } from "@/lib/core/access";
+import { onlyOrganization } from "@/lib/core/branding";
 import { highest, type Ability, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -105,6 +106,12 @@ const need = (caller: Caller, action: Action) => {
 /** A workspace of the organization: this one takes admin here, another takes admin on the organization. */
 const manageWorkspace = (caller: Caller, id: string) => need(caller, id === caller.workspace.id ? "workspace.manage" : "organization.manage");
 
+/** Organizations and workspaces changed: what is kept of them (lib/memo.ts) is asked again. */
+const forgetPlaces = () => {
+  defaultWorkspace.forget();
+  onlyOrganization.forget();
+};
+
 /** A slug free in `taken`: "acme", then "acme-2", "acme-3". */
 async function freeSlug(name: string, taken: (slug: string) => Promise<boolean>) {
   const base = slugify(name) || "workspace";
@@ -144,7 +151,7 @@ function addOrganization(userId: string, name: string) {
     const ws = await addWorkspace(tx, org.id, "Library");
     await tx.insert(grants).values({ userId, organizationId: org.id, resource: "organization", resourceId: org.id, scope: "admin" });
     return { ...org, ws };
-  });
+  }).finally(forgetPlaces);
 }
 
 /** A new organization with one workspace; whoever makes it is its admin. */
@@ -160,6 +167,7 @@ export async function renameOrganization(caller: Caller, id: string, name: strin
   if (id !== caller.workspace.organizationId) return null;
   need(caller, "organization.manage");
   const [org] = await db.update(organizations).set({ name }).where(eq(organizations.id, id)).returning();
+  forgetPlaces();
   await recordAudit(caller, "organization.renamed", name, { from: caller.workspace.organization.name }, { workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name };
 }
@@ -176,6 +184,7 @@ export async function deleteOrganization(caller: Caller, id: string) {
   const [{ n }] = await db.select({ n: count() }).from(organizations);
   if (n < 2) throw new AssetError("conflict", "This is the server's only organization; make another before deleting it");
   await db.delete(organizations).where(eq(organizations.id, id));
+  forgetPlaces();
   await recordAudit(caller, "organization.deleted", caller.workspace.organization.name, undefined, { workspaceId: null });
   return true;
 }
@@ -222,6 +231,7 @@ export async function deleteWorkspace(caller: Caller, id: string) {
   const [{ n }] = await db.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, ws.organizationId));
   if (n < 2) throw new AssetError("conflict", "An organization keeps at least one workspace: delete the organization instead");
   await db.delete(workspaces).where(eq(workspaces.id, id));
+  forgetPlaces();
   await recordAudit(caller, "workspace.deleted", ws.name, undefined, { workspaceId: id });
   return true;
 }
@@ -234,6 +244,7 @@ export async function renameWorkspace(caller: Caller, id: string, name: string) 
   if (!ws) return null;
   manageWorkspace(caller, ws.id);
   const [row] = await db.update(workspaces).set({ name }).where(eq(workspaces.id, id)).returning();
+  forgetPlaces();
   await recordAudit(caller, "workspace.renamed", name, { from: ws.name }, { workspaceId: id });
   return { id: row.id, slug: row.slug, name: row.name };
 }

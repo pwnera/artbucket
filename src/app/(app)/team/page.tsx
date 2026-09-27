@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import type { AuditPage, Members } from "@/components/settings/access";
 import type { ShareLink } from "@/components/share-dialog";
 import { Team } from "@/components/team";
-import { can } from "@/lib/permissions";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +14,13 @@ export const metadata: Metadata = { title: "Team" };
  * Invite people; `?tab=` picks the tab.
  */
 export default async function TeamPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
-  const [sidebar, params] = await Promise.all([sidebarData(), searchParams]);
-  const me = sidebar.me;
-  const [members, shares, audit] = await Promise.all([
-    can(me, "member.manage") ? get("members", (b: Members) => b, null) : null,
-    can(me, "share.manage") ? get("shares", (b: { data: ShareLink[] }) => b.data, null) : null,
-    can(me, "audit.read") ? get("audit", (b: AuditPage) => b, null) : null,
+  // All at once: each endpoint checks access itself, and what someone may not see comes back null.
+  const [sidebar, params, members, shares, audit] = await Promise.all([
+    sidebarData(),
+    searchParams,
+    get("members", (b: Members) => b, null),
+    get("shares", (b: { data: ShareLink[] }) => b.data, null),
+    get("audit", (b: AuditPage) => b, null),
   ]);
   if (!members && !shares && !audit) redirect("/");
   return <Team sidebar={sidebar} tab={params.tab ?? "people"} members={members} shares={shares} audit={audit} inviting={"invite" in params} />;
