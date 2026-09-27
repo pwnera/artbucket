@@ -225,6 +225,7 @@ function BrandRules({ assetId }: { assetId: string }) {
     };
   }, [assetId]);
   if (!rules.length) return null;
+  const several = new Set(rules.map((r) => r.brand)).size > 1;
   return (
     <div className="bg-muted/40 grid gap-2 rounded-lg border p-3">
       <p className="flex items-center gap-2 text-sm font-medium">
@@ -233,7 +234,8 @@ function BrandRules({ assetId }: { assetId: string }) {
       <ul className="grid gap-1.5">
         {rules.map((r) => (
           <li key={r.id} className="text-sm">
-            <a href={`/brand#rule-${r.key}`} className="hover:underline">
+            <a href={`/brand?brand=${r.brand}#rule-${r.key}`} className="hover:underline">
+              {several && <span className="text-muted-foreground">{r.brand} / </span>}
               {ruleLabel(r.key)}
             </a>
             <code className="text-muted-foreground ml-2 font-mono text-xs">{r.key}</code>

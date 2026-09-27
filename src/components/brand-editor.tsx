@@ -11,6 +11,7 @@ import {
   IconExternalLink,
   IconGripVertical,
   IconHash,
+  IconHistory,
   IconList,
   IconMessage,
   IconPalette,
@@ -27,6 +28,8 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
+import { History } from "@/components/brand-history";
+import { brandHref, Brands, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
 import { CopyButton, copy, Editable, ValueEditor } from "@/components/brand-values";
 import { send } from "@/components/collections";
@@ -115,10 +118,14 @@ type Draft =
  * /api/v1/brand/rules; the page holds nothing the API doesn't.
  */
 export function BrandEditor({
+  brand,
+  brands,
   initial,
   contexts: initialContexts,
   context,
 }: {
+  brand: BrandInfo;
+  brands: BrandInfo[];
   initial: Rule[];
   contexts: string[];
   context?: string;
@@ -151,24 +158,38 @@ export function BrandEditor({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const [history, setHistory] = useState(false);
+  // Bumped after every change, so an open history shows it.
+  const [edits, setEdits] = useState(0);
+  /** This brand's rules endpoint; the default brand needs no ?brand. */
+  const rulesUrl = (path = "", extra: Record<string, string | undefined> = {}) => {
+    const q = new URLSearchParams();
+    if (!brand.default) q.set("brand", brand.slug);
+    for (const [k, v] of Object.entries(extra)) if (v) q.set(k, v);
+    return `/api/v1/brand/rules${path}${q.size ? `?${q}` : ""}`;
+  };
+
   async function reload() {
-    const res = await fetch(`/api/v1/brand/rules${context ? `?context=${context}` : ""}`, { cache: "no-store" });
+    const res = await fetch(rulesUrl("", { context }), { cache: "no-store" });
     if (!res.ok) return;
     const json = await res.json();
     setRules(json.data);
     setContexts(json.contexts);
+    setEdits((n) => n + 1);
   }
 
   async function patch(r: Rule, body: Partial<Pick<Rule, "value" | "usage" | "assets">>) {
     setRules((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...body } : x)));
     const saved: Rule | null = await send("PATCH", `/api/v1/brand/rules/${r.id}`, body);
     // A refused edit puts back what the server has.
-    if (saved) setRules((rs) => rs.map((x) => (x.id === r.id ? saved : x)));
-    else await reload();
+    if (saved) {
+      setRules((rs) => rs.map((x) => (x.id === r.id ? saved : x)));
+      setEdits((n) => n + 1);
+    } else await reload();
   }
 
   async function create(body: Omit<Rule, "id">) {
-    const made: Rule | null = await send("POST", "/api/v1/brand/rules", body);
+    const made: Rule | null = await send("POST", rulesUrl(), body);
     if (!made) return null;
     await reload();
     setFocus(made.id);
@@ -212,7 +233,7 @@ export function BrandEditor({
       const p = PRESETS.find((x) => x.id === id)!;
       const key = keyFor(p.section, p.name!, made)!;
       made.add(key);
-      await send("POST", "/api/v1/brand/rules", { key, type: p.type, value: p.value, usage: p.usage ?? null });
+      await send("POST", rulesUrl(), { key, type: p.type, value: p.value, usage: p.usage ?? null });
     }
     await reload();
     toast.success("Added the essentials. Click anything to make it yours.");
@@ -244,7 +265,8 @@ export function BrandEditor({
       let i = 0;
       return rs.map((r) => (at.has(r.key) ? moved[i++] : r));
     });
-    if (!(await send("PUT", "/api/v1/brand/rules/order", { keys }))) await reload();
+    if (await send("PUT", rulesUrl("/order"), { keys })) setEdits((n) => n + 1);
+    else await reload();
   }
 
   const sections = new Map<string, Rule[]>();
@@ -308,6 +330,7 @@ export function BrandEditor({
   return (
     <SidebarProvider>
       <AppSidebar place="brand">
+        <Brands brands={brands} current={brand.slug} />
         {names.length > 0 && (
           <Contents names={names} counts={sections} active={active} />
         )}
@@ -318,15 +341,26 @@ export function BrandEditor({
           <SidebarTrigger className="-ml-1" />
           {/* On a phone the cover says it; the header keeps its room for the controls. */}
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 sm:block" />
-          <span className="hidden truncate text-sm font-semibold sm:inline">Brand guidelines</span>
+          <span className="hidden truncate text-sm font-semibold sm:inline">{brand.name}</span>
           <div className="ml-auto flex items-center gap-2">
-            {contexts.length > 0 && <ContextPicker contexts={contexts} context={context} />}
-            <ForAgents context={context} />
+            {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
+            <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
+              <IconHistory />
+              <span className="hidden sm:inline">History</span>
+            </Button>
+            <ForAgents brand={brand} context={context} />
           </div>
         </header>
 
         <main className="mx-auto w-full max-w-4xl space-y-16 px-4 pt-10 pb-32 sm:px-8 sm:pt-14">
-          <Hero rules={rules} context={context} />
+          <History
+            brand={brand}
+            open={history}
+            onOpenChange={setHistory}
+            edits={edits}
+            onRestored={() => void reload()}
+          />
+          <Hero brand={brand} rules={rules} context={context} />
 
           {!rules.length && !draft && (
             <Empty className="border border-dashed">
@@ -496,7 +530,7 @@ function SectionHeader({ name, count }: { name: string; count: number }) {
 }
 
 /** The cover: what this is, how much of it there is, and the palette at a glance. */
-function Hero({ rules, context }: { rules: Rule[]; context?: string }) {
+function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; context?: string }) {
   const keys = new Set(rules.map((r) => r.key)).size;
   const versions = rules.filter((r) => r.context).length;
   const assets = new Set(rules.flatMap((r) => r.assets.map((a) => a.id))).size;
@@ -515,8 +549,11 @@ function Hero({ rules, context }: { rules: Rule[]; context?: string }) {
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <p className="text-primary text-sm font-medium">{context ? `As it applies to ${context}` : "The canon"}</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">Brand guidelines</h1>
+        <p className="text-primary text-sm font-medium">
+          Brand guidelines{brand.default && " · the default brand"}
+          {context && ` · as they apply to ${context}`}
+        </p>
+        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{brand.name}</h1>
         <p className="text-muted-foreground max-w-2xl text-lg text-pretty">
           Every rule on this page is data. Agents read exactly this over the API and MCP, so a change here is a change
           everywhere, at once.
@@ -563,10 +600,10 @@ function Hero({ rules, context }: { rules: Rule[]; context?: string }) {
 }
 
 /** Which context the page shows: every rule and version, or what one context resolves to. */
-function ContextPicker({ contexts, context }: { contexts: string[]; context?: string }) {
+function ContextPicker({ brand, contexts, context }: { brand: BrandInfo; contexts: string[]; context?: string }) {
   const router = useRouter();
   return (
-    <Select value={context ?? "*"} onValueChange={(v) => router.push(v === "*" ? "/brand" : `/brand?context=${v}`)}>
+    <Select value={context ?? "*"} onValueChange={(v) => router.push(brandHref(brand, v === "*" ? undefined : v))}>
       <SelectTrigger size="sm" aria-label="Context">
         <IconVersions />
         <SelectValue />
@@ -584,7 +621,7 @@ function ContextPicker({ contexts, context }: { contexts: string[]; context?: st
 }
 
 /** How an agent gets what this page shows. */
-function ForAgents({ context }: { context?: string }) {
+function ForAgents({ brand, context }: { brand: BrandInfo; context?: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -601,18 +638,22 @@ function ForAgents({ context }: { context?: string }) {
             {context && ` These resolve for ${context}.`}
           </p>
         </div>
-        <Snippets context={context} />
+        <Snippets brand={brand} context={context} />
       </PopoverContent>
     </Popover>
   );
 }
 
 /** Mounted only while the popover is open, so reading the page's origin is safe. */
-function Snippets({ context }: { context?: string }) {
+function Snippets({ brand, context }: { brand: BrandInfo; context?: string }) {
   const origin = window.location.origin;
+  const uri = brand.default ? "artbucket://brand/rules" : `artbucket://brands/${brand.slug}/rules`;
+  const q = new URLSearchParams();
+  if (!brand.default) q.set("brand", brand.slug);
+  if (context) q.set("context", context);
   const rows = [
-    ["MCP resource", `artbucket://brand/rules${context ? `/${context}` : ""}`],
-    ["REST", `curl ${origin}/api/v1/brand/rules${context ? `?context=${context}` : ""}`],
+    ["MCP resource", `${uri}${context ? `/${context}` : ""}`],
+    ["REST", `curl '${origin}/api/v1/brand/rules${q.size ? `?${q}` : ""}'`],
     ["Connect Claude Code", `claude mcp add --transport http artbucket ${origin}/api/v1/mcp`],
   ];
   return (

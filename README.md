@@ -114,6 +114,14 @@ key is canonical. Renditions are generated once and cached forever.
 | `PUT` | `/api/v1/brand/rules/order` | `{ "keys": [...] }` in page order |
 | `PATCH` | `/api/v1/brand/rules/{id}` | Change its `value`, `usage` or `context` |
 | `DELETE` | `/api/v1/brand/rules/{id}` | Delete one |
+| `GET` | `/api/v1/brands` | Brands, the default first |
+| `POST` | `/api/v1/brands` | Make one, empty or `from` another |
+| `PATCH` | `/api/v1/brands/{slug}` | Rename it, or `{ "default": true }` |
+| `DELETE` | `/api/v1/brands/{slug}` | Delete it with its rules and history; not the default |
+| `GET` | `/api/v1/brands/{slug}/versions` | Its history, newest first |
+| `GET` | `/api/v1/brands/{slug}/versions/{n}` | A version's rules and diff; `?against=` a number or `current` |
+| `PATCH` | `/api/v1/brands/{slug}/versions/{n}` | `{ name }` keeps it as a checkpoint |
+| `POST` | `/api/v1/brands/{slug}/versions/{n}/restore` | Put it back, as a new version |
 | `GET` | `/api/v1/keys` | API keys, without their secrets |
 | `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key; the secret is in this response only |
 | `DELETE` | `/api/v1/keys/{id}` | Revoke one |
@@ -246,6 +254,26 @@ show their RGB, HSL and WCAG contrast on white and black; a numeric `type.scale`
 renders as a specimen; lists named like `neverDo` or `avoid` read as don'ts.
 An asset's dialog lists the rules that point at it.
 
+#### Brands and history
+
+A library can hold several brands, each with its own rules; one is the
+default, which is what `/brand` and an unqualified `/api/v1/brand/rules` mean.
+Name another with `?brand={slug}`. Brands are made, renamed, copied and
+promoted from the sidebar or `/api/v1/brands`.
+
+Every change to a brand's rules is kept, as in a shared doc: edits close
+together by the same person or key are one version, a named version is a
+checkpoint, and History shows what changed in each version (or between it and
+now) and restores any of them. A restore is itself a new version, so it can be
+undone the same way.
+
+```bash
+curl localhost:3000/api/v1/brands/default/versions
+curl 'localhost:3000/api/v1/brands/default/versions/3?against=current'
+curl -X POST localhost:3000/api/v1/brands/default/versions/3/restore
+pnpm artbucket history --brand default
+```
+
 ```bash
 pnpm artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
 pnpm artbucket rules set color.primary '#5bc27a' --type color --context dark-background
@@ -279,10 +307,11 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
-| `brand_rules` | read | The brand rules for a context; its description lists the contexts |
+| `brand_rules` | read | A brand's rules for a context; its description lists the brands and their contexts |
 
-Brand rules are also MCP resources: `artbucket://brand/rules`, and
-`artbucket://brand/rules/{context}` for one context.
+Brand rules are also MCP resources: `artbucket://brand/rules` for the default
+brand, `artbucket://brands/{slug}/rules` for any other, and `/{context}` on
+either for one context.
 
 `tools/list` shows a key only the tools its scope can run. `ingest_asset` and
 `POST /api/v1/assets` with a `url` fetch public addresses only: loopback,

@@ -71,6 +71,20 @@
       "when": 1790490121093,
       "tag": "0009_brand_rule_renditions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790490531227,
+      "tag": "0010_brands_and_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790490761920,
+      "tag": "0011_version_restored_from",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,8 @@ export type RuleAsset = { id: string; rendition: string | null };
 
 export type Rule = {
   id: string;
+  /** The brand's slug. */
+  brand?: string;
   key: string;
   context: string | null;
   type: RuleType;

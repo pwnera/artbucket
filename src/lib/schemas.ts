@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
-import { RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
+import { RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
@@ -88,6 +88,21 @@ export const SaveSearch = z.strictObject({
   query: z.string().max(4000).describe('An /api/v1/assets query string, e.g. "q=fox&f.channel=web"'),
 });
 
+const brandSlug = z.string().max(60).regex(RULE_CONTEXT, "Use a slug, e.g. acme-studio");
+export const BrandCreate = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  slug: brandSlug.optional().describe("Defaults to the name, as a slug"),
+  from: brandSlug.optional().describe("Start as a copy of this brand's rules"),
+});
+export const BrandPatch = z.strictObject({
+  name: z.string().trim().min(1).max(80).optional(),
+  slug: brandSlug.optional(),
+  default: z.literal(true).optional().describe("Make this the default brand"),
+});
+export const VersionPatch = z.strictObject({
+  name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
+});
+
 export const CreateKey = z.strictObject({
   name: z.string().trim().min(1).max(120),
   scope: z.enum(SCOPES),
@@ -164,6 +179,7 @@ export const SavedSearch = z.object({ id: uuid, name: z.string(), query: z.strin
 
 export const BrandRule = z.object({
   id: uuid,
+  brand: z.string().describe("The brand's slug"),
   key: z.string().describe("Dotted, e.g. color.primary"),
   context: z.string().nullable().describe("null: the default"),
   type: z.enum(RULE_TYPES),
@@ -177,6 +193,46 @@ export const BrandRule = z.object({
 export const BrandRules = z.object({
   data: z.array(BrandRule),
   contexts: z.array(z.string()).describe("Every context some rule is scoped to"),
+});
+
+export const Brand = z.object({
+  slug: z.string(),
+  name: z.string(),
+  default: z.boolean(),
+  rules: z.number().int(),
+  createdAt: date,
+});
+
+const snapRule = z.object({
+  key: z.string(),
+  context: z.string().nullable(),
+  type: z.enum(RULE_TYPES),
+  value: z.unknown(),
+  usage: z.string().nullable(),
+  position: z.number().int(),
+  assets: z.array(z.object({ id: uuid, rendition: z.string().nullable() })),
+});
+export const VersionMeta = z.object({
+  number: z.number().int(),
+  kind: z.enum(["baseline", "edit", "restore"]),
+  name: z.string().nullable(),
+  actor: z.string().describe('An API key\'s name, or "web"'),
+  changed: z.array(z.string()).describe("Keys touched"),
+  restoredFrom: z.number().int().nullable().describe("For a restore: the version it put back"),
+  summary: z.string(),
+  rules: z.number().int(),
+  createdAt: date,
+  updatedAt: date.describe("Edits close together extend a version; this is its last"),
+});
+export const Version = VersionMeta.extend({
+  rules: z.array(snapRule),
+  against: z.union([z.number().int(), z.literal("current")]).nullable(),
+  diff: z.array(z.record(z.string(), z.unknown())).describe("added, removed, changed (field by field) or moved, per rule"),
+});
+export const Restored = z.object({
+  restored: z.number().int(),
+  version: z.number().int().describe("The new version the restore made"),
+  droppedAssets: z.number().int().describe("Asset references left out because the asset has since been deleted"),
 });
 
 export const ApiKey = z.object({

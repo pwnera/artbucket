@@ -1,16 +1,20 @@
-import { and, asc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { assets, brandRuleAssets, brandRules } from "@/lib/db/schema";
+import { assets, brandRuleAssets, brandRules, brands, brandVersions } from "@/lib/db/schema";
+import { present, resolveBrand, slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { isRenderable } from "@/lib/core/renditions";
+import { diffRules, extendsLatest, summarize, type SnapRule, type VersionKind } from "@/lib/history";
 import { resolve, RULE_VALUE, ruleContext, type RuleAsset, type RuleInput, type RuleType } from "@/lib/rules";
 
 type Row = typeof brandRules.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Db = Tx | typeof db;
 
-const toRule = (r: Row, ruleAssets: RuleAsset[]) => ({
+const toRule = (r: Row, brand: string, ruleAssets: RuleAsset[]) => ({
   id: r.id,
+  brand,
   key: r.key,
   context: r.context,
   type: r.type,
@@ -21,8 +25,12 @@ const toRule = (r: Row, ruleAssets: RuleAsset[]) => ({
 });
 export type BrandRule = ReturnType<typeof toRule>;
 
-const where = (key: string, context: string | null) =>
-  and(eq(brandRules.key, key), context === null ? sql`${brandRules.context} is null` : eq(brandRules.context, context));
+const where = (brandId: string, key: string, context: string | null) =>
+  and(
+    eq(brandRules.brandId, brandId),
+    eq(brandRules.key, key),
+    context === null ? sql`${brandRules.context} is null` : eq(brandRules.context, context),
+  );
 const label = (key: string, context: string | null) => (context ? `${key} (${context})` : key);
 
 function checkValue(type: RuleType, raw: unknown) {
@@ -32,7 +40,7 @@ function checkValue(type: RuleType, raw: unknown) {
 }
 
 /** Each rule's assets, in order. */
-async function assetsOf(ruleIds: string[], tx: Tx | typeof db = db) {
+async function assetsOf(ruleIds: string[], tx: Db = db) {
   const out = new Map<string, RuleAsset[]>(ruleIds.map((id) => [id, []]));
   if (!ruleIds.length) return out;
   const rows = await tx
@@ -67,85 +75,191 @@ async function setAssets(tx: Tx, ruleId: string, list: RuleAsset[]) {
   }
 }
 
+const ORDER = [asc(brandRules.position), asc(brandRules.key), sql`${brandRules.context} asc nulls first`];
+
+// ---- history ----------------------------------------------------------------
+
+/** The brand's rule set as history keeps it. */
+async function snapshot(tx: Db, brandId: string): Promise<SnapRule[]> {
+  const rows = await tx.select().from(brandRules).where(eq(brandRules.brandId, brandId)).orderBy(...ORDER);
+  const refs = await assetsOf(
+    rows.map((r) => r.id),
+    tx,
+  );
+  return rows.map((r) => ({
+    key: r.key,
+    context: r.context,
+    type: r.type,
+    value: r.value,
+    usage: r.usage,
+    position: r.position,
+    assets: refs.get(r.id)!,
+  }));
+}
+
+async function latestVersion(tx: Db, brandId: string) {
+  const [v] = await tx
+    .select()
+    .from(brandVersions)
+    .where(eq(brandVersions.brandId, brandId))
+    .orderBy(desc(brandVersions.number))
+    .limit(1);
+  return v;
+}
+
+async function addVersion(
+  tx: Tx,
+  brandId: string,
+  v: { kind: VersionKind; actor: string; changed: string[]; snapshot: SnapRule[]; restoredFrom?: number },
+) {
+  const latest = await latestVersion(tx, brandId);
+  await tx.insert(brandVersions).values({ brandId, number: (latest?.number ?? 0) + 1, ...v });
+}
+
 /**
- * Every rule in page order, defaults before their context variants. With a
- * context, one per key: see lib/rules.ts. A context nobody defined just gets
- * the defaults. With an asset, only the rules that point at it.
+ * Run a change to a brand's rules and record it in the brand's history, in
+ * one transaction. Changes to one brand take turns (an advisory lock), so
+ * version numbers never collide and a snapshot is never of a half-made change.
+ *
+ * The first change to a brand with no history records the state before it,
+ * so even that change has something to diff against and restore to.
  */
-export async function listRules(opts: { context?: string; asset?: string } = {}) {
+async function tracked<T>(brandId: string, actor: string, changed: string[], fn: (tx: Tx) => Promise<T>) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brandId}))`);
+    if (!(await latestVersion(tx, brandId))) {
+      await addVersion(tx, brandId, { kind: "baseline", actor: "artbucket", changed: [], snapshot: await snapshot(tx, brandId) });
+    }
+    const out = await fn(tx);
+    const after = await snapshot(tx, brandId);
+    const latest = (await latestVersion(tx, brandId))!;
+    // Compared as rules, not as JSON: jsonb gives keys back in its own order.
+    if (!diffRules(latest.snapshot, after).length) return out;
+    if (extendsLatest(latest, actor, new Date())) {
+      await tx
+        .update(brandVersions)
+        .set({ snapshot: after, changed: [...new Set([...latest.changed, ...changed])], updatedAt: sql`now()` })
+        .where(eq(brandVersions.id, latest.id));
+    } else {
+      await addVersion(tx, brandId, { kind: "edit", actor, changed, snapshot: after });
+    }
+    return out;
+  });
+}
+
+// ---- rules ------------------------------------------------------------------
+
+/**
+ * A brand's rules in page order, defaults before their context versions.
+ * With a context, one per key: see lib/rules.ts. A context nobody defined
+ * just gets the defaults. With an asset, only the rules that point at it,
+ * across every brand unless one is named.
+ */
+export async function listRules(opts: { brand?: string; context?: string; asset?: string } = {}) {
   const { context, asset } = opts;
   if (context !== undefined && !ruleContext.safeParse(context).success) {
     throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
   }
   if (asset !== undefined && !z.uuid().safeParse(asset).success) throw new AssetError("invalid", `Not an asset id: "${asset}"`);
+  const brand = asset !== undefined && opts.brand === undefined ? null : await resolveBrand(opts.brand);
   const rows = await db
-    .select()
+    .select({ rule: brandRules, brand: brands.slug })
     .from(brandRules)
+    .innerJoin(brands, eq(brands.id, brandRules.brandId))
     .where(
-      asset === undefined
-        ? undefined
-        : inArray(
-            brandRules.id,
-            db.select({ id: brandRuleAssets.ruleId }).from(brandRuleAssets).where(eq(brandRuleAssets.assetId, asset)),
-          ),
+      and(
+        brand ? eq(brandRules.brandId, brand.id) : undefined,
+        asset === undefined
+          ? undefined
+          : inArray(
+              brandRules.id,
+              db.select({ id: brandRuleAssets.ruleId }).from(brandRuleAssets).where(eq(brandRuleAssets.assetId, asset)),
+            ),
+      ),
     )
-    .orderBy(asc(brandRules.position), asc(brandRules.key), sql`${brandRules.context} asc nulls first`);
-  const picked = context === undefined ? rows : resolve(rows, context);
-  const refs = await assetsOf(picked.map((r) => r.id));
-  return picked.map((r) => toRule(r, refs.get(r.id)!));
+    .orderBy(...ORDER);
+  const picked = context === undefined ? rows : resolve(rows.map((r) => ({ ...r, ...r.rule })), context);
+  const refs = await assetsOf(picked.map((r) => r.rule.id));
+  return picked.map((r) => toRule(r.rule, r.brand, refs.get(r.rule.id)!));
+}
+
+/** Every context some rule of the brand is scoped to. */
+export async function listContexts(slug?: string): Promise<string[]> {
+  const brand = await resolveBrand(slug);
+  const rows = await db
+    .selectDistinct({ context: brandRules.context })
+    .from(brandRules)
+    .where(and(eq(brandRules.brandId, brand.id), isNotNull(brandRules.context)))
+    .orderBy(asc(brandRules.context));
+  return rows.map((r) => r.context!);
 }
 
 /**
  * Put these keys in this order. Positions are only compared within a section,
  * so a section can be ordered on its own; a key's context versions move with it.
  */
-export async function orderRules(keys: string[]) {
-  return db.transaction(async (tx) => {
-    const found = await tx.selectDistinct({ key: brandRules.key }).from(brandRules).where(inArray(brandRules.key, keys));
+export async function orderRules(slug: string | undefined, keys: string[], actor: string) {
+  const brand = await resolveBrand(slug);
+  return tracked(brand.id, actor, keys, async (tx) => {
+    const found = await tx
+      .selectDistinct({ key: brandRules.key })
+      .from(brandRules)
+      .where(and(eq(brandRules.brandId, brand.id), inArray(brandRules.key, keys)));
     const missing = keys.filter((k) => !found.some((f) => f.key === k));
     if (missing.length) throw new AssetError("invalid", `No such rule: ${missing.join(", ")}`);
     for (const [position, key] of keys.entries()) {
-      await tx.update(brandRules).set({ position }).where(eq(brandRules.key, key));
+      await tx
+        .update(brandRules)
+        .set({ position })
+        .where(and(eq(brandRules.brandId, brand.id), eq(brandRules.key, key)));
     }
   });
 }
 
-/** Every context some rule is scoped to. */
-export async function listContexts(): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ context: brandRules.context })
-    .from(brandRules)
-    .where(isNotNull(brandRules.context))
-    .orderBy(asc(brandRules.context));
-  return rows.map((r) => r.context!);
-}
-
-export async function createRule(input: RuleInput) {
+export async function createRule(slug: string | undefined, input: RuleInput, actor: string) {
+  const brand = await resolveBrand(slug);
   const context = input.context ?? null;
   const value = checkValue(input.type, input.value);
-  return db.transaction(async (tx) => {
+  return tracked(brand.id, actor, [input.key], async (tx) => {
     // A new version of a key sits with it; a new key goes to the end.
-    const [same] = await tx.select({ position: brandRules.position }).from(brandRules).where(eq(brandRules.key, input.key)).limit(1);
-    const [last] = await tx.select({ n: max(brandRules.position) }).from(brandRules);
+    const inBrand = eq(brandRules.brandId, brand.id);
+    const [same] = await tx
+      .select({ position: brandRules.position })
+      .from(brandRules)
+      .where(and(inBrand, eq(brandRules.key, input.key)))
+      .limit(1);
+    const [last] = await tx.select({ n: max(brandRules.position) }).from(brandRules).where(inBrand);
     const position = same?.position ?? (last?.n ?? -1) + 1;
     const [row] = await tx
       .insert(brandRules)
-      .values({ key: input.key, context, type: input.type, value, usage: input.usage || null, position })
+      .values({ brandId: brand.id, key: input.key, context, type: input.type, value, usage: input.usage || null, position })
       .onConflictDoNothing()
       .returning();
     if (!row) throw new AssetError("conflict", `${label(input.key, context)} already exists; edit it instead`);
     await setAssets(tx, row.id, input.assets ?? []);
-    return toRule(row, input.assets ?? []);
+    return toRule(row, brand.slug, input.assets ?? []);
   });
+}
+
+async function ruleWithBrand(id: string) {
+  const [r] = await db
+    .select({ rule: brandRules, brand: brands.slug })
+    .from(brandRules)
+    .innerJoin(brands, eq(brands.id, brandRules.brandId))
+    .where(eq(brandRules.id, id));
+  return r;
 }
 
 export async function updateRule(
   id: string,
   patch: { key?: string; value?: unknown; usage?: string | null; context?: string | null; assets?: RuleAsset[] },
+  actor: string,
 ) {
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(brandRules).where(eq(brandRules.id, id));
-    if (!current) return null;
+  const found = await ruleWithBrand(id);
+  if (!found) return null;
+  const { rule: current, brand } = found;
+  const changed = [...new Set([current.key, ...(patch.key ? [patch.key] : [])])];
+  return tracked(current.brandId, actor, changed, async (tx) => {
     const set: Partial<Row> = {};
     if (patch.value !== undefined) set.value = checkValue(current.type, patch.value);
     if (patch.usage !== undefined) set.usage = patch.usage || null;
@@ -153,19 +267,23 @@ export async function updateRule(
       const [taken] = await tx
         .select({ id: brandRules.id })
         .from(brandRules)
-        .where(and(where(current.key, patch.context), ne(brandRules.id, id)));
+        .where(and(where(current.brandId, current.key, patch.context), ne(brandRules.id, id)));
       if (taken) throw new AssetError("conflict", `${label(current.key, patch.context)} already exists`);
       set.context = patch.context;
     }
     if (patch.assets) await setAssets(tx, id, patch.assets);
     // A key is shared by a rule's context versions: renaming one renames them all.
     if (patch.key !== undefined && patch.key !== current.key) {
-      const [taken] = await tx.select({ id: brandRules.id }).from(brandRules).where(eq(brandRules.key, patch.key)).limit(1);
+      const [taken] = await tx
+        .select({ id: brandRules.id })
+        .from(brandRules)
+        .where(and(eq(brandRules.brandId, current.brandId), eq(brandRules.key, patch.key)))
+        .limit(1);
       if (taken) throw new AssetError("conflict", `${patch.key} already exists`);
       await tx
         .update(brandRules)
         .set({ key: patch.key, updatedAt: sql`now()` })
-        .where(and(eq(brandRules.key, current.key), ne(brandRules.id, id)));
+        .where(and(eq(brandRules.brandId, current.brandId), eq(brandRules.key, current.key), ne(brandRules.id, id)));
       set.key = patch.key;
     }
     const [row] =
@@ -176,11 +294,166 @@ export async function updateRule(
             .where(eq(brandRules.id, id))
             .returning()
         : [current];
-    return toRule(row, (await assetsOf([id], tx)).get(id)!);
+    return toRule(row, brand, (await assetsOf([id], tx)).get(id)!);
   });
 }
 
-export async function deleteRule(id: string) {
-  const gone = await db.delete(brandRules).where(eq(brandRules.id, id)).returning();
-  return gone.length > 0;
+export async function deleteRule(id: string, actor: string) {
+  const found = await ruleWithBrand(id);
+  if (!found) return false;
+  return tracked(found.rule.brandId, actor, [found.rule.key], async (tx) => {
+    await tx.delete(brandRules).where(eq(brandRules.id, id));
+    return true;
+  });
+}
+
+/** Write a snapshot's rules into a brand, which has none. Assets deleted since are left out and counted. */
+async function writeRules(tx: Tx, brandId: string, rules: SnapRule[]) {
+  const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
+  const live = new Set(
+    ids.length ? (await tx.select({ id: assets.id }).from(assets).where(inArray(assets.id, ids))).map((a) => a.id) : [],
+  );
+  let dropped = 0;
+  for (const r of rules) {
+    const [row] = await tx
+      .insert(brandRules)
+      .values({ brandId, key: r.key, context: r.context, type: r.type, value: r.value, usage: r.usage, position: r.position })
+      .returning({ id: brandRules.id });
+    const keep = r.assets.filter((a) => live.has(a.id));
+    dropped += r.assets.length - keep.length;
+    if (keep.length) {
+      await tx
+        .insert(brandRuleAssets)
+        .values(keep.map((a, position) => ({ ruleId: row.id, assetId: a.id, rendition: a.rendition, position })));
+    }
+  }
+  return dropped;
+}
+
+// ---- brands and versions ----------------------------------------------------
+
+/**
+ * A new brand, empty or as a copy of another's current rules. Its history
+ * starts with that state as version 1.
+ */
+export async function createBrand(input: { name: string; slug?: string; from?: string }, actor: string) {
+  const slug = input.slug ?? slugify(input.name);
+  if (!slug) throw new AssetError("invalid", "Give the brand a name with a letter or a number in it");
+  const source = input.from ? await resolveBrand(input.from) : null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(brands).values({ slug, name: input.name }).onConflictDoNothing().returning();
+    if (!row) throw new AssetError("conflict", `A brand "${slug}" exists`);
+    const rules = source ? await snapshot(tx, source.id) : [];
+    await writeRules(tx, row.id, rules);
+    await tx.insert(brandVersions).values({
+      brandId: row.id,
+      number: 1,
+      kind: "baseline",
+      actor,
+      changed: [],
+      snapshot: await snapshot(tx, row.id),
+    });
+    return { ...present(row), rules: rules.length };
+  });
+}
+
+const meta = (v: typeof brandVersions.$inferSelect) => ({
+  number: v.number,
+  kind: v.kind,
+  name: v.name,
+  actor: v.actor,
+  changed: v.changed,
+  restoredFrom: v.restoredFrom,
+  summary:
+    v.kind === "baseline"
+      ? "Where the history starts"
+      : v.kind === "restore"
+        ? v.restoredFrom
+          ? `Restored version ${v.restoredFrom}`
+          : "Restored an earlier version"
+        : summarize(v.changed),
+  rules: v.snapshot.length,
+  createdAt: v.createdAt,
+  updatedAt: v.updatedAt,
+});
+
+/** A brand's history, newest first, without the snapshots. */
+export async function listVersions(slug: string) {
+  const brand = await resolveBrand(slug);
+  const rows = await db
+    .select()
+    .from(brandVersions)
+    .where(eq(brandVersions.brandId, brand.id))
+    .orderBy(desc(brandVersions.number));
+  return rows.map(meta);
+}
+
+async function version(brandId: string, number: number) {
+  const [v] = await db
+    .select()
+    .from(brandVersions)
+    .where(and(eq(brandVersions.brandId, brandId), eq(brandVersions.number, number)));
+  return v;
+}
+
+/**
+ * One version: its rules, and what changed to make it. Compared with the
+ * version before it unless `against` names another version, or "current".
+ */
+export async function getVersion(slug: string, number: number, against?: number | "current") {
+  const brand = await resolveBrand(slug);
+  const v = await version(brand.id, number);
+  if (!v) return null;
+  let base: SnapRule[] = [];
+  let baseLabel: number | "current" | null = null;
+  if (against === "current") {
+    base = await snapshot(db, brand.id);
+    baseLabel = "current";
+  } else {
+    const n = against ?? number - 1;
+    const other = n >= 1 ? await version(brand.id, n) : undefined;
+    if (against !== undefined && !other) throw new AssetError("not_found", `No version ${against}`);
+    base = other?.snapshot ?? [];
+    baseLabel = other ? n : null;
+  }
+  // "current" reads as how to get from this version to now; a number, how this version came about.
+  const diff = against === "current" ? diffRules(v.snapshot, base) : diffRules(base, v.snapshot);
+  return { ...meta(v), rules: v.snapshot, against: baseLabel, diff };
+}
+
+/** Name a version, to keep it as a checkpoint; null clears it. */
+export async function nameVersion(slug: string, number: number, name: string | null) {
+  const brand = await resolveBrand(slug);
+  const [row] = await db
+    .update(brandVersions)
+    .set({ name })
+    .where(and(eq(brandVersions.brandId, brand.id), eq(brandVersions.number, number)))
+    .returning();
+  return row ? meta(row) : null;
+}
+
+/**
+ * Put a version's rules back. The brand's rules are replaced, and the restore
+ * is itself a new version, so restoring can be undone the same way.
+ */
+export async function restoreVersion(slug: string, number: number, actor: string) {
+  const brand = await resolveBrand(slug);
+  const v = await version(brand.id, number);
+  if (!v) return null;
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
+    const before = await snapshot(tx, brand.id);
+    await tx.delete(brandRules).where(eq(brandRules.brandId, brand.id));
+    const dropped = await writeRules(tx, brand.id, v.snapshot);
+    const after = await snapshot(tx, brand.id);
+    await addVersion(tx, brand.id, {
+      kind: "restore",
+      restoredFrom: number,
+      actor,
+      changed: [...new Set(diffRules(before, after).map((c) => c.key))],
+      snapshot: after,
+    });
+    const latest = (await latestVersion(tx, brand.id))!;
+    return { restored: number, version: latest.number, droppedAssets: dropped };
+  });
 }

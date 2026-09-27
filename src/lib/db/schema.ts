@@ -11,10 +11,12 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
+import type { SnapRule, VersionKind } from "@/lib/history";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 
@@ -176,7 +178,25 @@ export const apiKeys = pgTable(
 );
 
 /**
- * The canon: one brand rule per (key, context). A null context is the default;
+ * A brand: its own rules and its own history. Exactly one is the default,
+ * which is what /brand and an unqualified /api/v1/brand/rules mean.
+ */
+export const brands = pgTable(
+  "brands",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [uniqueIndex("brands_one_default").on(t.isDefault).where(sql`${t.isDefault}`)],
+);
+
+/**
+ * The canon: one brand rule per (brand, key, context). A null context is the default;
  * see lib/rules.ts for how a context resolves. `value` is checked against
  * `type` by lib/rules.ts, and `type` never changes: delete and recreate.
  */
@@ -184,6 +204,9 @@ export const brandRules = pgTable(
   "brand_rules",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     context: text("context"),
     type: text("type").$type<RuleType>().notNull(),
@@ -199,7 +222,7 @@ export const brandRules = pgTable(
       .default(sql`now()`),
   },
   (t) => [
-    unique("brand_rules_key_context_unique").on(t.key, t.context).nullsNotDistinct(),
+    unique("brand_rules_brand_key_context_unique").on(t.brandId, t.key, t.context).nullsNotDistinct(),
     check("brand_rules_type_check", sql`${t.type} in ('color', 'text', 'number', 'list')`),
   ],
 );
@@ -222,4 +245,41 @@ export const brandRuleAssets = pgTable(
     rendition: text("rendition"),
   },
   (t) => [primaryKey({ columns: [t.ruleId, t.assetId] }), index("brand_rule_assets_asset_idx").on(t.assetId)],
+);
+
+/**
+ * A brand's history: the whole rule set after each change (lib/history.ts).
+ * Edits close together by the same actor extend the latest version instead of
+ * starting one, so the list reads like a doc's, not like a keystroke log.
+ */
+export const brandVersions = pgTable(
+  "brand_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** 1, 2, 3 within the brand. */
+    number: integer("number").notNull(),
+    kind: text("kind").$type<VersionKind>().notNull(),
+    /** Set by a person to keep a version as a checkpoint; named versions are never extended. */
+    name: text("name"),
+    /** Who made it: an API key's name, or "web" for the app without a key. */
+    actor: text("actor").notNull(),
+    /** For a restore: the version it put back. */
+    restoredFrom: integer("restored_from"),
+    /** Keys touched, in order, for the one-line summary. */
+    changed: jsonb("changed").$type<string[]>().notNull().default([]),
+    snapshot: jsonb("snapshot").$type<SnapRule[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    unique("brand_versions_brand_number_unique").on(t.brandId, t.number),
+    check("brand_versions_kind_check", sql`${t.kind} in ('baseline', 'edit', 'restore')`),
+  ],
 );
