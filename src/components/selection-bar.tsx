@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import {
+  IconArchive,
+  IconArrowBackUp,
+  IconCalendarOff,
   IconCheck,
+  IconChevronDown,
   IconDownload,
+  IconSend,
   IconFolderMinus,
   IconFolderPlus,
   IconTag,
@@ -19,7 +24,7 @@ import { CollectionIcon, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import type { Asset } from "@/components/gallery";
 import { extOf, PRESETS, stem } from "@/components/renditions";
-import { approve, reject } from "@/components/review-actions";
+import { approve, expireOn, moveTo, reject } from "@/components/review-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +45,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -83,11 +89,11 @@ export function SelectionBar({
   const onAll = (action: Action) => picked.every((a) => can(action, a));
   const into = collections.filter((c) => can("collection.edit", c));
 
-  async function each(verb: string, fn: (a: Asset) => Promise<Response>) {
+  async function each(verb: string, fn: (a: Asset) => Promise<Response>, which = picked) {
     setBusy(true);
     let failed = 0;
     let why: string | undefined;
-    await pool(picked, 4, async (a) => {
+    await pool(which, 4, async (a) => {
       const res = await fn(a).catch(() => null);
       if (res?.ok) return;
       failed++;
@@ -95,8 +101,8 @@ export function SelectionBar({
     });
     setBusy(false);
     onDone();
-    if (failed) toast.error(`${verb} ${files(picked.length - failed)}, ${failed} failed`, { description: why });
-    else toast.success(`${verb} ${files(picked.length)}`);
+    if (failed) toast.error(`${verb} ${files(which.length - failed)}, ${failed} failed`, { description: why });
+    else toast.success(`${verb} ${files(which.length)}`);
     return failed === 0;
   }
 
@@ -159,6 +165,21 @@ export function SelectionBar({
     else toast.success(`Zipped ${files(got.length)}`, { id });
   }
 
+  // Lifecycle moves, each over the part of the selection it applies to.
+  const inState = (...states: Asset["state"][]) => picked.filter((a) => states.includes(a.state));
+  const move = (label: string, icon: React.ReactNode, verb: string, which: Asset[], fn: (a: Asset) => Promise<Response>) =>
+    which.length ? [{ label, icon, run: () => each(verb, fn, which) }] : [];
+  const moves = [
+    ...(onAll("asset.edit") ? move("Submit for review", <IconSend />, "Submitted", inState("draft"), (a) => moveTo(a, "proposed")) : []),
+    ...(onAll("asset.review")
+      ? [
+          ...(review ? [] : move("Approve", <IconCheck />, "Approved", inState("draft", "proposed"), approve)),
+          ...move("Archive", <IconArchive />, "Archived", inState("active", "expired"), (a) => moveTo(a, "archived")),
+          ...move("Unarchive", <IconArrowBackUp />, "Unarchived", inState("archived"), (a) => moveTo(a, "active")),
+        ]
+      : []),
+  ];
+
   const onPicked = new Set(picked.flatMap((a) => a.tags));
   const pickedTags: Option[] = [...onPicked].sort().map((value) => ({ value }));
 
@@ -214,6 +235,29 @@ export function SelectionBar({
         onApply={(tags) => each("Untagged", (a) => patchTags(a, a.tags.filter((t) => !tags.includes(t))))}
       />
       </>
+      )}
+
+      {moves.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" disabled={busy}>
+              Status <IconChevronDown />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="center">
+            {moves.map((m) => (
+              <DropdownMenuItem key={m.label} onClick={m.run}>
+                {m.icon} {m.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {onAll("asset.edit") && (
+        <ExpiryAction
+          disabled={busy}
+          onApply={(expires) => each(expires ? `Set ${expires} as the last day of use for` : "Cleared the last day of use for", (a) => expireOn(a, expires))}
+        />
       )}
 
       {into.length > 0 && (
@@ -343,6 +387,36 @@ export function RejectAction({
         >
           Reject
         </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Set, or clear, the last day of use across the selection: past it, links answer 410. */
+function ExpiryAction({ disabled, onApply }: { disabled?: boolean; onApply: (expires: string | null) => Promise<boolean> }) {
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState("");
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" disabled={disabled}>
+          <IconCalendarOff /> Expiry
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="grid w-72 gap-3">
+        <label className="grid gap-1.5 text-sm font-medium">
+          Last day of use
+          <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+        </label>
+        <p className="text-muted-foreground text-xs">After it, their links answer 410 and checks refuse them. The rest of their rights stay as they are.</p>
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1" disabled={!day} onClick={async () => (await onApply(day)) && setOpen(false)}>
+            Set
+          </Button>
+          <Button size="sm" variant="outline" onClick={async () => (await onApply(null)) && setOpen(false)}>
+            Clear
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

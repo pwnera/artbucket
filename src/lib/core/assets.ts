@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, count, desc, eq, getTableColumns, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
@@ -11,6 +11,7 @@ import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/co
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
+import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
 import { linkTitle, previewOf } from "@/lib/core/previews";
@@ -23,6 +24,7 @@ import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
+import { isReview, STATES, type State } from "@/lib/lifecycle";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -56,15 +58,26 @@ const { search: _search, ...own } = getTableColumns(assets);
 /** Assets in collections: the lowest scope over them decides what an upload into them becomes. */
 const lowest = (scopes: (Scope | null)[]) =>
   scopes.some((s) => s === null) ? null : (SCOPES[Math.min(...scopes.map((s) => SCOPES.indexOf(s!)))] ?? null);
-const columns = {
+
+/** Today in UTC, as lib/rights.ts today() has it: ISO dates compare as text. */
+const todaySql = sql`to_char(now() at time zone 'utc', 'YYYY-MM-DD')`;
+/** lib/lifecycle.ts stateOf, as SQL. */
+export const stateSql = sql<State>`(case when ${assets.status} = 'active' and ${assets.rights} ->> 'expires' < ${todaySql} then 'expired' else ${assets.status} end)`;
+/** lib/lifecycle.ts deliverable, as SQL. */
+export const deliverableSql = sql`(${stateSql} = 'active' and coalesce(${assets.rights} ->> 'embargo', '') <= ${todaySql})`;
+/** Not an earlier approved version of something: the library shows a stack's current one. */
+export const notSuperseded = sql`(${assets.stackId} is null or ${assets.current} or ${assets.status} <> 'active')`;
+
+export const columns = {
   ...own,
+  state: stateSql,
   /** Ids of the collections this asset is in. */
   collections: sql<string[]>`(
     select coalesce(jsonb_agg(ca.collection_id), '[]'::jsonb)
     from ${collectionAssets} ca where ca.asset_id = ${assets.id}
   )`,
 };
-export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[] };
+export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[]; state: State };
 
 /**
  * Private, as SQL: its own flag, or it is in collections and every one of
@@ -136,11 +149,22 @@ export async function finalizeUpload(
     collections?: string[];
     /** Added to any keywords read from the file. */
     tags?: string[];
+    /** A new version of this asset: it joins its stack, collections, tags and fields (lib/core/versions.ts). */
+    versionOf?: string;
+    /** `draft` keeps it out of the library until it is submitted and approved. */
+    status?: "draft" | "active";
   } & Provenance,
 ): Promise<{ asset: Asset; deduped: boolean }> {
   const ws = caller.workspace.id;
-  const into = [...new Set(input.collections ?? [])];
-  const proposed = !allows(uploadScope(caller, into), "write");
+  const prior = input.versionOf ? await getAsset(caller, input.versionOf) : null;
+  if (input.versionOf && !prior) throw new AssetError("invalid", `versionOf: no asset ${input.versionOf}`);
+  if (prior && !can(caller, "asset.version", prior)) throw new AssetError("forbidden", `You need ${needs("asset.version")}`);
+  const into = [...new Set([...(input.collections ?? []), ...(prior?.collections ?? [])])];
+  // A new version is a change to the asset: write on it makes it approved, less a proposal.
+  const proposed = prior
+    ? !can(caller, "asset.edit", prior) || (!!input.collections?.length && !allows(uploadScope(caller, input.collections), "write"))
+    : !allows(uploadScope(caller, into), "write");
+  const status: AssetStatus = proposed ? "proposed" : (input.status ?? "active");
   const staged = stagingKey(input.token);
   const size = await sizeOf(staged);
   if (size === null) throw new AssetError("not_found", "No staged upload for that token");
@@ -153,7 +177,9 @@ export async function finalizeUpload(
   // client can fix the fields and retry with the same token.
   // A proposal may leave required fields empty: an agent can't always know
   // them. The person approving it fills them in (updateAsset checks).
-  const values = withoutNulls(await validFields(ws, input.fields ?? {}, proposed ? "patch" : "upload", await inheritedFrom(ws, into)));
+  const values = withoutNulls(
+    await validFields(ws, { ...prior?.fields, ...input.fields }, proposed ? "patch" : "upload", await inheritedFrom(ws, into)),
+  );
   if (input.parentAssetId) await mustExist(caller, input.parentAssetId, "parentAssetId");
 
   const bytes = await getObject(staged);
@@ -162,6 +188,12 @@ export async function finalizeUpload(
   const existing = await bySha(ws, sha256);
   if (existing) {
     await deleteObject(staged);
+    // Uploading a version that is already in the stack changes nothing; the same bytes elsewhere are another asset's.
+    if (prior && existing.id !== prior.id && !(prior.stackId && existing.stackId === prior.stackId)) {
+      throw new AssetError("conflict", `Those bytes are already in the library as ${existing.metadata?.title ?? existing.filename}`, {
+        id: existing.id,
+      });
+    }
     return { asset: await fileInto(ws, into, existing.id), deduped: true };
   }
 
@@ -178,38 +210,61 @@ export async function finalizeUpload(
   await putObject(originalKey(sha256), bytes, mime);
   await deleteObject(staged);
 
-  const [row] = await db
-    .insert(assets)
-    .values({
-      workspaceId: ws,
-      sha256,
-      filename: input.filename,
-      mime,
-      size: bytes.byteLength,
-      width: probe?.width ?? null,
-      height: probe?.height ?? null,
-      probe: probe ?? null,
-      metadata: Object.keys(metadata).length ? metadata : null,
-      // Embedded keywords seed the tags, so a library imported from Lightroom
-      // is searchable by what it was already tagged with.
-      tags: normalizeTags([...(keywords ?? []), ...(input.tags ?? [])]),
-      fields: values as FieldValues,
-      status: proposed ? "proposed" : "active",
-      proposedBy: proposed ? caller.actor : null,
-      rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
-      origin: input.origin ?? (c2pa && originOf(c2pa)),
-      parentAssetId: input.parentAssetId ?? null,
-      generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
-      prompt: input.prompt ?? null,
-      c2pa,
-    })
-    .onConflictDoNothing({ target: [assets.workspaceId, assets.sha256] })
-    .returning({ id: assets.id });
+  // A version keeps what a person wrote about the one before, where the file says nothing.
+  const described = Object.fromEntries(EDITABLE.flatMap((k) => (prior?.metadata?.[k] ? [[k, prior.metadata[k]]] : [])));
+  const kept = { ...described, ...metadata };
+  const stack = prior ? (prior.stackId ?? prior.id) : null;
+  const row = await db.transaction(async (tx) => {
+    let version: number | null = null;
+    if (stack) {
+      // One new version of a stack at a time, so each gets the next number.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${stack}))`);
+      await tx.update(assets).set({ stackId: stack, version: 1 }).where(and(eq(assets.id, prior!.id), isNull(assets.stackId)));
+      const [{ next }] = await tx
+        .select({ next: sql<number>`coalesce(max(${assets.version}), 0)::int + 1` })
+        .from(assets)
+        .where(eq(assets.stackId, stack));
+      version = next;
+    }
+    const [row] = await tx
+      .insert(assets)
+      .values({
+        workspaceId: ws,
+        sha256,
+        filename: input.filename,
+        mime,
+        size: bytes.byteLength,
+        width: probe?.width ?? null,
+        height: probe?.height ?? null,
+        probe: probe ?? null,
+        metadata: Object.keys(kept).length ? kept : null,
+        // Embedded keywords seed the tags, so a library imported from Lightroom
+        // is searchable by what it was already tagged with.
+        tags: normalizeTags([...(prior?.tags ?? []), ...(keywords ?? []), ...(input.tags ?? [])]),
+        fields: values as FieldValues,
+        status,
+        proposedBy: proposed ? caller.actor : null,
+        private: prior?.private ?? false,
+        rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
+        origin: input.origin ?? (c2pa && originOf(c2pa)),
+        parentAssetId: input.parentAssetId ?? null,
+        generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
+        prompt: input.prompt ?? null,
+        c2pa,
+        stackId: stack,
+        version,
+      })
+      .onConflictDoNothing({ target: [assets.workspaceId, assets.sha256] })
+      .returning({ id: assets.id, version: assets.version });
+    return row;
+  });
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
   if (!row) return { asset: await fileInto(ws, into, (await bySha(ws, sha256))!.id), deduped: true };
+  // An approved new version becomes current; one in review waits for its approval.
+  if (stack) await repoint(stack, status === "active" ? { id: row.id } : undefined);
   const asset = await fileInto(ws, into, row.id);
-  await record(caller, proposed ? "suggested" : "added", asset);
+  await record(caller, proposed ? "suggested" : "added", asset, row.version ? { version: row.version } : undefined);
   return { asset, deduped: false };
 }
 
@@ -299,9 +354,11 @@ export type AssetQuery = {
   /** Custom field filters, matched against own-else-inherited values. */
   filters?: FieldFilter[];
   /**
-   * What waits on a human: proposed assets, and assets with suggested tags.
-   * Otherwise only active assets are listed.
+   * Assets in any of these states (lib/lifecycle.ts). Approved and unexpired
+   * when left out: the library as it may be used.
    */
+  status?: State[];
+  /** What waits on a human: proposed assets, and assets with suggested tags. */
   review?: boolean;
   /** Everything this actor proposed, whatever became of it: active, proposed or rejected. */
   proposedBy?: string;
@@ -313,6 +370,7 @@ const QueryParams = z.object({
   q: z.string().max(512).optional(),
   tag: z.array(z.string().max(64)).max(20),
   type: z.array(z.string().max(20)).max(ASSET_TYPES.length),
+  status: z.array(z.enum(STATES, { error: `A status is one of ${STATES.join(", ")}` })).max(STATES.length),
   collection: z.string().max(120).optional(),
   review: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().optional(),
@@ -328,6 +386,7 @@ export async function parseAssetQuery(caller: Caller, params: URLSearchParams): 
     q: params.get("q") ?? undefined,
     tag: params.getAll("tag"),
     type: params.getAll("type"),
+    status: params.getAll("status"),
     collection: params.get("collection") ?? undefined,
     review: params.get("review") ?? undefined,
     limit: params.get("limit") ?? undefined,
@@ -403,20 +462,24 @@ function filterSql(f: FieldFilter): SQL {
  */
 export async function searchAssets(
   caller: Caller,
-  { q, tags = [], types = [], collection, filters = [], review = false, proposedBy, limit = 100, offset = 0 }: AssetQuery,
+  { q, tags = [], types = [], status = [], collection, filters = [], review = false, proposedBy, limit = 100, offset = 0 }: AssetQuery,
 ) {
   const tsq = q ? prefixQuery(q) : null;
   const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
   const wanted = normalizeTags(tags);
   const mine = visible(caller);
-  const where = (except?: string, anyType = false) =>
+  const where = (except?: string, anyType = false, anyState = false) =>
     and(
       mine,
       proposedBy !== undefined
         ? eq(assets.proposedBy, proposedBy)
         : review
           ? sql`(${assets.status} = 'proposed' or (${assets.status} = 'active' and ${assets.proposedTags} <> '[]'::jsonb))`
-          : eq(assets.status, "active"),
+          : anyState
+            ? undefined
+            : inArray(stateSql, status.length ? status : ["active"]),
+      // Whoever proposed a version sees it whatever became of it; everyone else, the current one.
+      proposedBy !== undefined ? undefined : notSuperseded,
       match,
       wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
       types.length && !anyType ? inArray(assetType, types) : undefined,
@@ -427,7 +490,7 @@ export async function searchAssets(
     );
 
   const facetable = (await listFields(caller.workspace.id)).filter(isFacetable);
-  const [data, [{ total }], tagCounts, typeCounts, ...fieldCounts] = await Promise.all([
+  const [data, [{ total }], tagCounts, typeCounts, stateCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)
       .from(assets)
@@ -441,6 +504,7 @@ export async function searchAssets(
     db.select({ total: count() }).from(assets).where(where()),
     tagFacet(where()),
     typeFacet(where(undefined, true)),
+    stateFacet(where(undefined, false, true)),
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
   return {
@@ -450,6 +514,7 @@ export async function searchAssets(
     facets: {
       tags: tagCounts,
       types: typeCounts,
+      states: stateCounts,
       fields: Object.fromEntries(facetable.map((d, i) => [d.key, fieldCounts[i]])),
     },
   };
@@ -465,6 +530,15 @@ async function tagFacet(where: SQL | undefined) {
     .orderBy(sql`count(*) desc`, sql`t.value`)
     .limit(50);
   return rows;
+}
+
+function stateFacet(where: SQL | undefined) {
+  return db
+    .select({ value: stateSql, count: sql<number>`count(*)::int` })
+    .from(assets)
+    .where(where)
+    .groupBy(sql`1`)
+    .orderBy(sql`2 desc`, sql`1`);
 }
 
 function typeFacet(where: SQL | undefined) {
@@ -598,10 +672,13 @@ export async function updateAsset(
     ...fields
   }: AssetPatch,
 ): Promise<Asset | null> {
-  // Deciding on a proposal is reviewing it; anything else is editing.
-  const reviewing = status !== undefined || reviewNote !== undefined || proposedTags !== undefined;
-  const current = await allowed(caller, id, reviewing ? "asset.review" : "asset.edit");
+  const current = await getAsset(caller, id);
   if (!current) return null;
+  // Deciding what the library holds is reviewing; reworking a draft, and anything else, is editing.
+  const moves = status !== undefined && status !== current.status;
+  const reviewing = (moves && isReview(current.status, status)) || reviewNote !== undefined || proposedTags !== undefined;
+  const action = reviewing ? "asset.review" : "asset.edit";
+  if (!can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
   const ws = caller.workspace.id;
   const set: PgUpdateSetSource<typeof assets> = {};
   if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
@@ -649,17 +726,34 @@ export async function updateAsset(
     set.metadata = sql`jsonb_strip_nulls(coalesce(${assets.metadata}, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb)`;
   }
   if (!Object.keys(set).length) return current;
-  const [asset] = await db
+  let [asset] = await db
     .update(assets)
     .set({ ...set, updatedAt: sql`now()` })
     .where(and(eq(assets.id, id), eq(assets.workspaceId, ws)))
     .returning(columns);
-  if (asset && hidden) await keepReach(caller, "asset", id);
-  // A review decision is worth a line in the activity; routine edits are not.
-  if (asset && current.status === "proposed" && (status === "active" || status === "rejected")) {
-    await record(caller, status === "active" ? "approved" : "rejected", asset, asset.reviewNote ? { note: asset.reviewNote } : undefined);
+  if (!asset) return null;
+  if (hidden) await keepReach(caller, "asset", id);
+  if (moves) {
+    // Approving a newer version makes it current; archiving the current one hands over to the newest
+    // approved. Unarchiving brings one back without taking over: make it current for that.
+    if (asset.stackId) {
+      await repoint(asset.stackId, status === "active" && current.status !== "archived" ? { id } : undefined);
+      asset = (await findAsset(id))!;
+    }
+    // A decision about what the library holds is worth a line in the activity; routine edits are not.
+    const verb =
+      status === "active" && (current.status === "draft" || current.status === "proposed")
+        ? "approved"
+        : status === "rejected"
+          ? "rejected"
+          : status === "archived"
+            ? "archived"
+            : current.status === "archived" && status === "active"
+              ? "unarchived"
+              : null;
+    if (verb) await record(caller, verb, asset, verb === "rejected" && asset.reviewNote ? { note: asset.reviewNote } : undefined);
   }
-  return asset ?? null;
+  return asset;
 }
 
 /**
@@ -710,6 +804,11 @@ export function describeAsset(asset: Asset) {
     height: asset.height,
     sha256: asset.sha256,
     status: asset.status,
+    state: asset.state,
+    /** Its number in its stack of versions; null when it has only the one. */
+    version: asset.version,
+    /** The version to use: true for its stack's current one, and for an asset with one version. */
+    current: !asset.stackId || asset.current,
     proposedBy: asset.proposedBy,
     reviewNote: asset.reviewNote,
     title: m.title ?? null,
@@ -773,6 +872,8 @@ export async function deleteAsset(caller: Caller, id: string) {
   if (!asset) return false;
   await db.delete(assets).where(eq(assets.id, id));
   await dropGrants("asset", [id]);
+  // Deleting the current version hands over to the newest approved one left.
+  if (asset.stackId) await repoint(asset.stackId);
   await record(caller, "deleted", asset);
   // Storage is shared by identical bytes in other workspaces: the original
   // goes when nothing else holds it. Renditions are left to an S3 lifecycle

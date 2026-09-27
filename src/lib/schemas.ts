@@ -3,6 +3,7 @@ import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
+import { STATES, STATUSES } from "./lifecycle.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
@@ -51,6 +52,17 @@ const provenance = {
   prompt: z.string().trim().max(10000).nullable().optional().describe("For a generated asset: what it was asked for"),
 };
 
+/** Where it goes in its lifecycle. */
+const lifecycle = {
+  versionOf: uuid
+    .optional()
+    .describe("A new version of this asset: it joins its version stack, collections, tags and fields, and with write on it becomes current"),
+  status: z
+    .enum(["draft", "active"])
+    .optional()
+    .describe("draft keeps it out of the library until it is submitted and approved. Without write it is proposed whatever this says"),
+};
+
 export const Finalize = z.union([
   z.strictObject({
     token: uuid.describe("From POST /api/v1/uploads, after the PUT"),
@@ -58,12 +70,14 @@ export const Finalize = z.union([
     mime: z.string().min(1).max(255),
     ...promote,
     ...provenance,
+    ...lifecycle,
   }),
   z.strictObject({
     url: z.url({ protocol: /^https?$/ }).max(2048).describe("Public http(s) URL the server fetches. A Figma or Google Docs, Sheets, Slides or Drive link is kept as the link and shows as its embed"),
     filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment, or a linked file's title"),
     ...promote,
     ...provenance,
+    ...lifecycle,
   }),
 ]);
 
@@ -92,9 +106,11 @@ export const AssetPatch = z.strictObject({
   creator: text,
   copyright: text,
   status: z
-    .enum(["active", "proposed", "rejected"])
+    .enum(STATUSES)
     .optional()
-    .describe('"active" approves a proposed asset; "rejected" turns it down and keeps it, with `reviewNote`'),
+    .describe(
+      '"proposed" submits a draft for review; "active" approves it; "rejected" turns it down and keeps it, with `reviewNote`; "archived" retires it, and /a/{id} answers 410. Anything but submitting or reworking a draft takes approve',
+    ),
   reviewNote: z.string().max(2000).nullable().optional().describe("Why it was rejected, for whoever proposed it"),
   proposedTags: tags.optional().describe("Replaces the pending suggestions; [] dismisses them all"),
   ...provenance,
@@ -260,7 +276,11 @@ export const Asset = z.object({
   tags: z.array(z.string()),
   fields: fieldValues.describe("The asset's own values"),
   inherited: fieldValues.describe("Values inherited from its collections; own values win"),
-  status: z.enum(["active", "proposed", "rejected"]),
+  status: z.enum(STATUSES).describe("draft, proposed (in review), active (approved), archived or rejected"),
+  state: z.enum(STATES).describe("The status, and expired for an approved asset past its last day of use"),
+  stackId: uuid.nullable().describe("Versions of one thing share a stack; null when it has one version"),
+  version: z.number().int().nullable().describe("Its number in the stack"),
+  current: z.boolean().describe("Its stack's current approved version: the others are superseded by it"),
   proposedBy: z.string().nullable().describe("For a proposal: who made it, a person's or an API key's name"),
   reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
@@ -277,7 +297,12 @@ const Count = z.object({ value: z.string(), count: z.number().int() });
 export const Listing = z.object({
   data: z.array(Asset),
   total: z.number().int().describe("Every match; page through with offset and limit"),
-  facets: z.object({ tags: z.array(Count), types: z.array(Count), fields: z.record(z.string(), z.array(Count)) }),
+  facets: z.object({
+    tags: z.array(Count),
+    types: z.array(Count),
+    states: z.array(Count).describe("Counted over every state, so each is a status filter away"),
+    fields: z.record(z.string(), z.array(Count)),
+  }),
 });
 
 export const UploadTicket = z.object({
@@ -398,7 +423,10 @@ export const Description = z.object({
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   sha256: z.string(),
-  status: z.enum(["active", "proposed", "rejected"]),
+  status: z.enum(STATUSES),
+  state: z.enum(STATES).describe("Only active is served at /a/{id} to anyone; expired and archived answer 410"),
+  version: z.number().int().nullable().describe("Its number in its stack of versions; null when it has one"),
+  current: z.boolean().describe("The version to use: its stack's current one, or the only one"),
   proposedBy: z.string().nullable(),
   reviewNote: z.string().nullable(),
   title: z.string().nullable(),
@@ -435,12 +463,24 @@ export const ActivityItem = z.object({
   at: date,
   actor: z.string().describe("Who: a person's name, an API key's name, or \"web\" for the app without an account"),
   agent: z.boolean().describe("Done with an API key"),
-  verb: z.enum(["added", "suggested", "approved", "rejected", "deleted", "suggested_tags", "edited_rules", "restored_rules"]),
+  verb: z.enum([
+    "added",
+    "suggested",
+    "approved",
+    "rejected",
+    "deleted",
+    "suggested_tags",
+    "archived",
+    "unarchived",
+    "made_current",
+    "edited_rules",
+    "restored_rules",
+  ]),
   label: z.string().describe("The asset's title or filename then, or the brand's name"),
   assetId: uuid.nullable(),
   brand: z.object({ slug: z.string(), name: z.string(), version: z.number().int() }).nullable(),
   detail: z
-    .object({ tags: z.array(z.string()), note: z.string(), rules: z.array(z.string()), summary: z.string() })
+    .object({ tags: z.array(z.string()), note: z.string(), version: z.number().int(), rules: z.array(z.string()), summary: z.string() })
     .partial()
     .nullable(),
 });
@@ -456,7 +496,7 @@ export const CheckResult = z.object({
   reasons: z
     .array(
       z.object({
-        code: z.enum(["not_approved", "superseded", "embargoed", "expired", "territory", "channel", "model_release", "context"]),
+        code: z.enum(["not_approved", "archived", "superseded", "embargoed", "expired", "territory", "channel", "model_release", "context"]),
         message: z.string(),
         blocking: z.boolean().describe("false: go ahead, but know this"),
       }),

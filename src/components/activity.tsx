@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   IconActivity,
+  IconArchive,
+  IconArrowBackUp,
   IconBook,
   IconCheck,
   IconPlus,
   IconRobot,
   IconSparkles,
+  IconStack2,
   IconTag,
   IconTrash,
   IconUser,
@@ -35,11 +38,22 @@ type Item = {
   at: string;
   actor: string;
   agent: boolean;
-  verb: "added" | "suggested" | "approved" | "rejected" | "deleted" | "suggested_tags" | "edited_rules" | "restored_rules";
+  verb:
+    | "added"
+    | "suggested"
+    | "approved"
+    | "rejected"
+    | "deleted"
+    | "suggested_tags"
+    | "archived"
+    | "unarchived"
+    | "made_current"
+    | "edited_rules"
+    | "restored_rules";
   label: string;
   assetId: string | null;
   brand: { slug: string; name: string; version: number } | null;
-  detail: { tags?: string[]; note?: string; rules?: string[]; summary?: string } | null;
+  detail: { tags?: string[]; note?: string; version?: number; rules?: string[]; summary?: string } | null;
 };
 export type Page = { data: Item[]; next: string | null };
 
@@ -50,6 +64,9 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   rejected: { icon: IconX, says: "rejected" },
   deleted: { icon: IconTrash, says: "deleted" },
   suggested_tags: { icon: IconTag, says: "suggested tags for" },
+  archived: { icon: IconArchive, says: "archived" },
+  unarchived: { icon: IconArrowBackUp, says: "unarchived" },
+  made_current: { icon: IconStack2, says: "made current" },
   edited_rules: { icon: IconBook, says: "edited the guidelines of" },
   restored_rules: { icon: IconBook, says: "restored an earlier version of" },
 };
@@ -203,6 +220,7 @@ function Row({ item: i }: { item: Item }) {
             {i.actor === "web" ? "Web app" : i.actor}
           </span>{" "}
           <span className="text-muted-foreground">{says}</span> {target}
+          {i.detail?.version && <span className="text-muted-foreground"> (version {i.detail.version})</span>}
         </p>
         {i.detail?.note && <p className="text-muted-foreground text-xs">&ldquo;{i.detail.note}&rdquo;</p>}
         {i.detail?.tags && (

@@ -23,8 +23,9 @@ import type { Origin, Rights } from "@/lib/rights";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import type { Ability, Resource } from "@/lib/access";
+import type { Status } from "@/lib/lifecycle";
 
-export type AssetStatus = "active" | "proposed" | "rejected";
+export type AssetStatus = Status;
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -64,8 +65,10 @@ export const assets = pgTable(
      */
     inherited: jsonb("inherited").$type<FieldValues>().notNull().default({}),
     /**
-     * `proposed` until a human promotes it: what a propose-scoped key (an
-     * agent) uploads. Default searches show `active` only.
+     * Where it is in its lifecycle (lib/lifecycle.ts): `draft`, `proposed` (in
+     * review) until a human promotes it, which is what a propose-scoped key (an
+     * agent) uploads, `active` (approved), `archived`, `rejected`. Expired is
+     * derived from `rights`. Default searches show approved, unexpired assets.
      */
     status: text("status").$type<AssetStatus>().notNull().default("active"),
     /**
@@ -94,6 +97,19 @@ export const assets = pgTable(
     /** The asset that replaces this one. /api/v1/check refuses a replaced asset and names this. */
     supersededBy: uuid("superseded_by").references((): AnyPgColumn => assets.id, { onDelete: "set null" }),
     /**
+     * Versions of one thing share a stack: the id of the asset it started
+     * from, kept as a plain value so the stack outlives that asset. Null for
+     * an asset with one version (lib/core/versions.ts).
+     */
+    stackId: uuid("stack_id"),
+    /** 1, 2, 3 within the stack. */
+    version: integer("version"),
+    /**
+     * The stack's current approved version: the one the library shows, share
+     * links serve, and every other approved version is superseded by.
+     */
+    current: boolean("current").notNull().default(false),
+    /**
      * Maintained by Postgres, so it cannot drift from the columns it indexes.
      * 'simple' rather than 'english': asset search is names and keywords, where
      * stemming "logos" to "logo" matters less than matching "fox_v3" by "fox".
@@ -119,10 +135,13 @@ export const assets = pgTable(
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
     // Field filters match the effective value, own over inherited: `inherited || fields`.
     index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
-    check("assets_status_check", sql`${t.status} in ('active', 'proposed', 'rejected')`),
+    check("assets_status_check", sql`${t.status} in ('draft', 'proposed', 'active', 'archived', 'rejected')`),
     index("assets_proposed_by_idx").on(t.proposedBy),
     check("assets_origin_check", sql`${t.origin} in ('shot', 'licensed', 'generated')`),
     check("assets_not_superseded_by_self", sql`${t.supersededBy} <> ${t.id}`),
+    unique("assets_stack_version_unique").on(t.stackId, t.version),
+    uniqueIndex("assets_one_current").on(t.stackId).where(sql`${t.current}`),
+    check("assets_stacked_check", sql`(${t.stackId} is null) = (${t.version} is null)`),
   ],
 );
 
@@ -352,7 +371,16 @@ export const brandVersions = pgTable(
   ],
 );
 
-export type ActivityVerb = "added" | "suggested" | "approved" | "rejected" | "deleted" | "suggested_tags";
+export type ActivityVerb =
+  | "added"
+  | "suggested"
+  | "approved"
+  | "rejected"
+  | "deleted"
+  | "suggested_tags"
+  | "archived"
+  | "unarchived"
+  | "made_current";
 
 /**
  * What happened to assets, and who did it: a person by name, an API key by
@@ -377,8 +405,8 @@ export const activity = pgTable(
     assetId: uuid("asset_id"),
     /** The asset's title or filename when it happened, so a deleted one still reads. */
     label: text("label").notNull(),
-    /** Suggested tags, a rejection's reason. */
-    detail: jsonb("detail").$type<{ tags?: string[]; note?: string }>(),
+    /** Suggested tags, a rejection's reason, the version it is. */
+    detail: jsonb("detail").$type<{ tags?: string[]; note?: string; version?: number }>(),
   },
   (t) => [index("activity_workspace_at_idx").on(t.workspaceId, t.at.desc())],
 );

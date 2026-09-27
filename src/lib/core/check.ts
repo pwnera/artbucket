@@ -10,7 +10,7 @@ import { rightsReasons, today, type Reason, type Use } from "@/lib/rights";
  * instead where there is something: the question a DAM usually leaves to a
  * person reading a PDF. It weighs, in order:
  *
- * - review: only approved assets are the library's
+ * - lifecycle: only approved assets are the library's; archived ones are retired
  * - replacement: a superseded asset names what replaced it
  * - rights: license window, territory, channel, model release (lib/rights.ts)
  * - the brand: in a context with its own variant of a rule (logo on a dark
@@ -32,14 +32,18 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
   const reasons: Reason[] = [];
   const suggest: Suggestion[] = [];
 
-  if (asset.status !== "active") {
+  if (asset.status === "archived") {
+    reasons.push({ code: "archived", blocking: true, message: "Archived: retired from use" });
+  } else if (asset.status !== "active") {
     reasons.push({
       code: "not_approved",
       blocking: true,
       message:
         asset.status === "proposed"
           ? "Proposed, not approved: it waits for a person's review"
-          : `Rejected in review${asset.reviewNote ? `: ${asset.reviewNote}` : ""}`,
+          : asset.status === "draft"
+            ? "A draft: not yet submitted or approved"
+            : `Rejected in review${asset.reviewNote ? `: ${asset.reviewNote}` : ""}`,
     });
   }
 

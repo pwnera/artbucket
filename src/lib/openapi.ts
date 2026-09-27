@@ -2,6 +2,7 @@ import { z } from "zod";
 import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
+import { STATES } from "./lifecycle.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
 import type { Scope } from "./scopes.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
@@ -102,7 +103,8 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "Newest first without `q`. Custom fields filter as `f.{key}={value}` (repeat to OR) and " +
-            "`f.{key}.gte` / `f.{key}.lte` for numbers and dates. A filter on an unknown field is a 422.",
+            "`f.{key}.gte` / `f.{key}.lte` for numbers and dates. A filter on an unknown field is a 422. " +
+            "Of a stack of versions, only the current approved one is listed; GET /api/v1/assets/{id}/versions has the rest.",
           query: {
             q: { schema: str, description: "Every word must match, each as a prefix" },
             tag: { schema: { type: "array", items: str }, description: "Repeat; assets carrying every tag" },
@@ -111,9 +113,13 @@ export function openapi(serverUrl: string) {
               description: "Repeat; assets of any of these types",
             },
             collection: { schema: str, description: "Only this collection: its id, or its name" },
+            status: {
+              schema: { type: "array", items: { type: "string", enum: [...STATES] } },
+              description: "Repeat; assets in any of these states. Without it, approved (active) and unexpired ones",
+            },
             review: {
               schema: { type: "string", enum: ["true", "false"] },
-              description: "true: proposed assets and assets with suggested tags. Otherwise active only",
+              description: "true: proposed assets and assets with suggested tags, whatever `status` says",
             },
             limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 100 }, description: "Page size" },
             offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
@@ -127,7 +133,8 @@ export function openapi(serverUrl: string) {
             "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). " +
             "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
             "and required fields may be left for the person who approves it. C2PA Content Credentials in the file " +
-            "are read into `c2pa`, and set `origin` and `generator` unless given.",
+            "are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version " +
+            "of that asset: filed where it is, with its tags and fields, and current once approved.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },
@@ -202,11 +209,31 @@ export function openapi(serverUrl: string) {
           scope: "write",
           description:
             "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and " +
-            "`supersededBy`: the asset that replaces it, which /api/v1/check then names.",
+            "`supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through " +
+            "its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking " +
+            "a draft takes write; any other move takes write with the approve ability.",
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
         }),
         delete: op({ summary: "Delete an asset", scope: "write", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/assets/{id}/versions": {
+        parameters: [path("id", "Asset id: any version of it")],
+        get: op({
+          summary: "Its versions",
+          scope: "read",
+          description: "Newest first. `current` marks the one the library shows and share links serve. An asset with one version lists itself.",
+          ok: [200, "The versions", data(z.array(S.Asset))],
+        }),
+      },
+      "/api/v1/assets/{id}/versions/{number}/current": {
+        parameters: [path("id", "Asset id: any version of it"), path("number", "Version number")],
+        post: op({
+          summary: "Make a version current",
+          scope: "write",
+          description: "Roll back, or forward. It must be approved and unexpired; the others are superseded by it.",
+          ok: [200, "The versions", data(z.array(S.Asset))],
+        }),
       },
       "/api/v1/assets/{id}/proposed-tags": {
         parameters: [path("id", "Asset id")],
@@ -721,9 +748,12 @@ export function openapi(serverUrl: string) {
           description:
             "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except " +
             "into a file with Content Credentials, which it leaves as signed. What the asset is: " +
-            "GET /api/v1/assets/{id}/description.",
+            "GET /api/v1/assets/{id}/description. Public while approved, unexpired and out of embargo, and cached for " +
+            "an hour at most, never past the last day of use. Expired or archived: 410. Not approved yet: 404, except " +
+            "to someone who can see it in the library.",
           query: { download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" } },
           ok: [200, "The file"],
+          extra: { 410: { description: "Expired or archived", content: json(S.ErrorBody) } },
         }),
       },
       "/a/{id}/{transform}": {

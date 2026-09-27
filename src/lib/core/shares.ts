@@ -2,7 +2,7 @@ import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, collections, shareLinks, type ShareKind } from "@/lib/db/schema";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
-import { createUploadTicket, finalizeUpload, getAsset } from "@/lib/core/assets";
+import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
@@ -205,10 +205,17 @@ export async function viewShare(token: string, password: string | null, { limit 
     expiresAt: link.expiresAt,
   };
   if (link.kind === "upload") return { share: meta, data: [], total: 0 };
+  // Only what may be used: approved, unexpired, out of embargo, and a stack's current version.
+  // A link to one version serves whichever is current now, so it never hands out the wrong one.
   const where = link.assetId
-    ? and(eq(assets.id, link.assetId), eq(assets.status, "active"))
+    ? and(
+        deliverableSql,
+        notSuperseded,
+        sql`(${assets.id} = ${link.assetId} or ${assets.stackId} = (select a.stack_id from ${assets} a where a.id = ${link.assetId}))`,
+      )
     : and(
-        eq(assets.status, "active"),
+        deliverableSql,
+        notSuperseded,
         sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${link.collectionId})`,
       );
   const [rows, [{ total }]] = await Promise.all([
