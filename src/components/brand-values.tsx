@@ -1,10 +1,12 @@
 "use client";
 
 import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { IconCheck, IconCopy, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { useAssetFont } from "@/components/font-preview";
 import { contrast, grade, hsl, inkOn, rgb } from "@/lib/color";
+import { renderMarkdown } from "@/lib/markdown";
 import { fontStyle, isFont, pickFace, weightName } from "@/lib/font";
 import { fontValue, listStyle, section, type FontValue, type ListStyle, type Rule, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,21 +49,33 @@ export function ValueEditor({ rule: r, onSave }: { rule: Rule; onSave: (v: RuleV
   }
 }
 
-/** A sentence, set in the font the rule was given (see SetIn), if any. */
+/** Markdown as the page shows it: rendered here, so it arrives from the server ready to read. */
+export function Markdown({ text, className, style }: { text: string; className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("rich", className)} style={style} dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />;
+}
+
+/** The rich editor loads with the panel, not with the page: readers never download it. */
+export const RichText = dynamic(() => import("@/components/rich-text"), {
+  ssr: false,
+  loading: () => <div className="rich min-h-7 pl-8" />,
+});
+
+/** Rich text (Markdown), set in the font the rule was given (see SetIn), if any. */
 function TextEditor({ rule: r, onSave }: { rule: Rule; onSave: (v: RuleValue) => void }) {
   const text = r.value as string;
   const set = useAssetFont(pickFace(fontFiles(r))?.id);
+  const readOnly = useContext(ReadOnly);
   // A text rule naming a typeface shows the face, where the browser has it.
   const face = section(r.key) === "type" && /font|family|face/i.test(r.key.split(".").pop()!);
+  const look = cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg");
+  const style = set ? { fontFamily: stack(set) } : undefined;
   return (
     <div className="space-y-2">
-      <Editable
-        value={text}
-        multiline
-        className={cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg")}
-        style={set ? { fontFamily: stack(set) } : undefined}
-        onSave={(v) => v && onSave(v)}
-      />
+      {readOnly ? (
+        <Markdown text={text} className={look} style={style} />
+      ) : (
+        <RichText value={text} label="The rule" placeholder="Write the rule" className={look} style={style} onSave={(v) => v && onSave(v)} />
+      )}
       {face && (
         <p className="truncate text-4xl leading-tight" style={{ fontFamily: text }} aria-hidden>
           Aa Bb Cc 0123

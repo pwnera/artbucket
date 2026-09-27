@@ -76,14 +76,15 @@ export const RULE_VALUE = {
     .string()
     .regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, "Use #rrggbb or #rrggbbaa")
     .transform((s) => s.toLowerCase()),
-  text: z.string().trim().min(1).max(2000),
+  /** Markdown (GFM): headings, lists, quotes, code, tables, images, dividers. */
+  text: z.string().trim().min(1).max(20000).describe("Markdown (GFM)"),
   number: z.number().finite(),
   list: z.array(z.union([z.string().trim().min(1).max(500), z.number().finite()])).min(1).max(100),
   /** Its files are the rule's assets, so everyone sees the face without installing it. A bare name is `{ family }`. */
   font: z.union([z.string().trim().min(1).max(120).transform((family) => ({ family })), FONT_VALUE]),
 } satisfies Record<RuleType, z.ZodType>;
 
-const usage = z.string().trim().max(2000).nullable().optional().describe("How and when to use it, in a sentence");
+const usage = z.string().trim().max(10000).nullable().optional().describe("How and when to use it, in Markdown (GFM)");
 /** A rendition spec, stored in canonical order so the same size reads the same. */
 export const rendition = z
   .string()

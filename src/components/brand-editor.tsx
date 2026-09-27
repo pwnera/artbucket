@@ -38,7 +38,7 @@ import { History } from "@/components/brand-history";
 import { remember } from "@/components/sidebar-prefs";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
-import { copy, Editable, fontFiles, isFontAsset, ReadOnly, ValueEditor } from "@/components/brand-values";
+import { copy, Editable, fontFiles, isFontAsset, Markdown, ReadOnly, RichText, ValueEditor } from "@/components/brand-values";
 import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Thumb, type Asset } from "@/components/gallery";
@@ -505,7 +505,13 @@ export function BrandEditor({
               // A standard side sheet: the page stays live beside it, and shows each change.
               onInteractOutside={(e) => e.preventDefault()}
               // Esc in a field puts the field back; only outside one does it close the panel.
-              onEscapeKeyDown={(e) => document.activeElement?.matches("input, textarea") && e.preventDefault()}
+              onEscapeKeyDown={(e) => {
+                const el = document.activeElement;
+                if (!(el instanceof HTMLElement) || !el.matches("input, textarea, [contenteditable=true]")) return;
+                e.preventDefault();
+                // The panel hears Esc before the rich editor can: leave the editor here, which saves it.
+                if (el.isContentEditable) el.blur();
+              }}
             >
               {current && (
                 <RulePanel
@@ -936,7 +942,7 @@ function RuleView({
         )}
       </div>
       <ValueEditor rule={r} onSave={() => {}} />
-      {r.usage && <p className="text-muted-foreground text-sm whitespace-pre-wrap">{r.usage}</p>}
+      {r.usage && <Markdown text={r.usage} className="text-muted-foreground text-sm" />}
       {r.type === "font" && fontFiles(r).length > 0 && <FontStyles files={fontFiles(r)} />}
       {others.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -1078,12 +1084,11 @@ function RulePanel({
             )}
         </Part>
         <Part title="Note">
-          <Editable
+          <RichText
             key={r.id}
             value={r.usage ?? ""}
             label="Note"
             placeholder={USAGE_HINT[section(r.key)] ?? "When and how to use it"}
-            multiline
             className="text-sm"
             onSave={(usage) => onPatch({ usage: usage || null })}
           />
