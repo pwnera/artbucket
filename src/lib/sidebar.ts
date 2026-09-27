@@ -1,10 +1,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Collection } from "@/components/collections";
 import type { SavedSearch } from "@/components/app-sidebar";
 import type { Me } from "@/components/account";
 import { env } from "@/lib/env";
+import { can } from "@/lib/permissions";
 
 export type SidebarData = {
   collections: Collection[];
@@ -27,15 +29,16 @@ export async function get<B, T>(path: string, pick: (body: B) => T, fallback: T)
 }
 
 /**
- * Who is looking. Nobody who may see nothing goes to sign in; somebody
- * signed in with nowhere to be goes to /welcome.
+ * Who is looking, once per request however many ask. Nobody who may see
+ * nothing goes to sign in; somebody signed in with nowhere to be goes to
+ * /welcome.
  */
-export async function whoami(): Promise<Me> {
+export const whoami = cache(async (): Promise<Me> => {
   const me = await get("me", (b: { data: Me }) => b.data, null);
   if (!me) redirect("/login");
-  if (!me.scope && !me.narrowed) redirect(me.user ? "/welcome" : "/login");
+  if (!can(me, "library.read")) redirect(me.user ? "/welcome" : "/login");
   return me;
-}
+});
 
 /** What every page's sidebar shows, so it reads the same wherever you are. */
 export async function sidebarData(): Promise<SidebarData> {

@@ -549,6 +549,45 @@ export function openapi(serverUrl: string) {
           ok: [200, "Entries", S.Audit],
         }),
       },
+      "/api/v1/settings": {
+        get: op({
+          summary: "Settings",
+          scope: "any",
+          description:
+            "Every setting that can be set in `context` (organization or workspace), as it applies there, and its " +
+            "`source`: set here, inherited from the organization, the server's environment (config files), or the " +
+            "default. Secret properties come back null, with whether each is set in `secrets`. Admin on that place.",
+          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          ok: [200, "Settings", data(z.array(S.SettingItem))],
+        }),
+      },
+      "/api/v1/settings/{key}": {
+        parameters: [path("key", "e.g. email")],
+        patch: op({
+          summary: "Change a setting",
+          scope: "any",
+          description: "Starts from what applies now. A blank secret keeps the stored one; null clears it. Admin on that place.",
+          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          body: S.SettingPatch,
+          ok: [200, "The setting", data(S.SettingItem)],
+        }),
+        delete: op({
+          summary: "Reset a setting",
+          scope: "any",
+          description: "Forget this place's own value, so the one above it (or the server's) applies again.",
+          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          ok: [200, "The setting, as it now applies", data(S.SettingItem)],
+        }),
+      },
+      "/api/v1/email/test": {
+        post: op({
+          summary: "Send a test email",
+          scope: "any",
+          description: "Through the organization's email settings, to you or `to`. A 422 carries the provider's reason. Organization admin.",
+          body: S.EmailTest,
+          ok: [200, "Sent", data(z.object({ sent: z.literal(true), to: z.string() }))],
+        }),
+      },
       "/api/v1/keys": {
         get: op({ summary: "List API keys", scope: "admin", ok: [200, "Keys, without secrets", data(z.array(S.ApiKey))] }),
         post: op({

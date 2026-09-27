@@ -21,8 +21,7 @@ import { env } from "@/lib/env";
 import { ASSET_TYPES } from "@/lib/filters";
 import { GOOGLE_FAMILY } from "@/lib/font";
 import { ORIGINS, RightsInput, Use } from "@/lib/rights";
-import { widest } from "@/lib/access";
-import { allows, type Scope } from "@/lib/scopes";
+import { can, needs, type Action } from "@/lib/permissions";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -92,7 +91,8 @@ const id = z.uuid().describe("Asset id, from search_assets");
 
 type Tool = {
   description: string | ((caller: Caller) => Promise<string>);
-  scope: Scope;
+  /** What running it takes (lib/permissions.ts), somewhere in the workspace; core checks the asset itself. */
+  action: Action;
   input: z.ZodObject;
   readOnly: boolean;
   run: (args: never, caller: Caller) => Promise<Record<string, unknown>>;
@@ -100,7 +100,7 @@ type Tool = {
 
 const tool = <S extends z.ZodObject>(t: {
   description: Tool["description"];
-  scope: Scope;
+  action: Action;
   input: S;
   readOnly: boolean;
   run: (args: z.infer<S>, caller: Caller) => Promise<Record<string, unknown>>;
@@ -131,7 +131,7 @@ const TOOLS: Record<string, Tool> = {
         .filter(Boolean)
         .join(" ");
     },
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({
       q: z.string().max(512).optional().describe("Free text"),
@@ -166,7 +166,7 @@ const TOOLS: Record<string, Tool> = {
       "Everything known about one asset: title, credit, tags, field values, the URLs it is served at, " +
       "what renditions it allows, ready-made rendition URLs, and the brand rules that point at it " +
       "(for a logo: how it may and may not be used). Read this before using an asset.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({ id }),
     run: async ({ id }, caller) => ({
@@ -187,7 +187,7 @@ const TOOLS: Record<string, Tool> = {
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
       "image is made on first request and cached. Renditions never upscale: asking for more pixels than the " +
       "original has returns the original size.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({
       id,
@@ -219,7 +219,7 @@ const TOOLS: Record<string, Tool> = {
       "brand has a different variant for that context (a light logo for dark backgrounds). `allowed: false` comes " +
       "with reasons and, in `suggest`, what to use instead. Non-blocking reasons are worth knowing; say the " +
       "territory and channel to settle them.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: Use.extend({
       id,
@@ -234,7 +234,7 @@ const TOOLS: Record<string, Tool> = {
       "Add a file to the library from a public http(s) URL. Identical bytes dedupe to the existing asset. " +
       "The new asset is proposed: it shows up for review, not in the library, until a person approves it. " +
       "Required fields may be left out; the person approving fills them in. Check back with my_proposals.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: false,
     input: z.object({
       url: z.url({ protocol: /^https?$/ }).max(2048),
@@ -259,7 +259,7 @@ const TOOLS: Record<string, Tool> = {
       "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
       "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
       "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: false,
     input: z.object({
       family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
@@ -294,7 +294,7 @@ const TOOLS: Record<string, Tool> = {
         .filter(Boolean)
         .join(" ");
     },
-    scope: "read",
+    action: "brand.read",
     readOnly: true,
     input: z.object({
       brand: z.string().max(60).optional().describe("A brand's slug; the default brand when left out"),
@@ -308,7 +308,7 @@ const TOOLS: Record<string, Tool> = {
       "What you proposed and what became of it: `proposed` still waits for a person, `active` was " +
       "approved, `rejected` was turned down, with the person's reason in `reviewNote`. Read the reasons before " +
       "proposing more of the same.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: true,
     input: z.object({
       status: z.enum(["proposed", "active", "rejected"]).optional().describe("Only these; all of them when left out"),
@@ -328,7 +328,7 @@ const TOOLS: Record<string, Tool> = {
     description:
       "Suggest tags for an asset. They are not applied: a person accepts or dismisses each one. " +
       "Tags the asset already has are ignored.",
-    scope: "propose",
+    action: "asset.propose_tags",
     readOnly: false,
     input: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
     run: async ({ id, tags }, caller) => {
@@ -381,7 +381,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
         tools: await Promise.all(
           Object.entries(TOOLS)
             // Only what this caller may run: a read-only key sees read-only tools.
-            .filter(([, t]) => allows(widest(caller), t.scope))
+            .filter(([, t]) => can(caller, t.action))
             .map(async ([name, t]) => {
               const inputSchema = z.toJSONSchema(t.input, { io: "input" });
               delete inputSchema.$schema;
@@ -441,8 +441,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
     case "tools/call": {
       const t = TOOLS[String(params.name)];
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
-      if (!allows(widest(caller), t.scope)) {
-        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${t.scope}` }, true));
+      if (!can(caller, t.action)) {
+        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(params.arguments ?? {});
       if (!args.success) return result(id, toolResult({ error: z.prettifyError(args.error) }, true));

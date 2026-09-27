@@ -30,10 +30,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionDialog, CollectionIcon, send, type Collection } from "@/components/collections";
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
-import { FieldManager } from "@/components/field-manager";
 import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
+import { useCan } from "@/components/can";
 import { remember, usePref } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -158,6 +158,7 @@ export function Gallery({
   const search = useSearchParams().toString();
   const view = useMemo(() => parseView(new URLSearchParams(search)), [search]);
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
+  const can = useCan();
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(sidebar.collections);
   const [reviewCount, setReviewCount] = useState(sidebar.reviewCount);
@@ -392,8 +393,8 @@ export function Gallery({
   }, [uploads, uploading]);
 
   const narrowed = isNarrowed(view);
-  // A viewer can't add anything; someone with grants on some collections may, into those.
-  const canUpload = sidebar.me.scope !== "read" && (sidebar.me.scope !== null || sidebar.me.narrowed);
+  // Into the collection open, or the workspace itself: whatever the person may add to.
+  const canUpload = into ? can("asset.upload", { id: into }) : can("workspace.upload");
   const filtered = narrowed || view.collection !== null || view.review;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
@@ -583,7 +584,7 @@ export function Gallery({
                     : "Everything in the library. Drop files anywhere on the page to add them."
             }
           >
-            {inCollection && !activeSearch && (
+            {inCollection && !activeSearch && can("collection.edit", inCollection) && (
               <Button variant="outline" size="sm" onClick={() => setEditing(inCollection)}>
                 <IconPencil /> Edit collection
               </Button>
@@ -641,7 +642,7 @@ export function Gallery({
               )}
               <span className="ml-auto" />
               {/* Only a search or filter is worth naming; a collection or Review is already in the sidebar. */}
-              {narrowed && !activeSearch && <SaveSearch onSave={saveSearch} />}
+              {narrowed && !activeSearch && can("search.save") && <SaveSearch onSave={saveSearch} />}
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -661,7 +662,7 @@ export function Gallery({
           )}
 
           {empty ? (
-            <EmptyState dragging={dragging} onUpload={() => input.current?.click()} />
+            <EmptyState dragging={dragging} onUpload={canUpload ? () => input.current?.click() : undefined} />
           ) : assets.length === 0 && searching ? (
             // Don't flash "no matches" for a search that hasn't answered yet.
             <GridSkeleton count={8} />
@@ -697,9 +698,11 @@ export function Gallery({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className="flex-row justify-center">
-                <Button onClick={() => input.current?.click()}>
-                  <IconUpload /> Upload here
-                </Button>
+                {canUpload && (
+                  <Button onClick={() => input.current?.click()}>
+                    <IconUpload /> Upload here
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => go({ collection: null }, true)}>
                   Browse all assets
                 </Button>
@@ -825,7 +828,6 @@ export function Gallery({
         onDone={refresh}
       />
 
-      {view.fields && <FieldManager fields={fields} onClose={() => go({ fields: false })} onChanged={refresh} />}
 
       {editing && (
         <CollectionDialog
@@ -989,7 +991,7 @@ export function Thumb({ src, alt, className }: { src: string; alt: string; class
 }
 
 /** An empty library: the one place the whole page is the upload target. */
-function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () => void }) {
+function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () => void }) {
   return (
     <Empty className={cn("border-2 transition-colors", dragging && "border-primary bg-primary/5")}>
       <EmptyHeader>
@@ -1004,9 +1006,11 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () =>
       </EmptyHeader>
       <EmptyContent>
         <div className="flex flex-wrap justify-center gap-2">
-          <Button onClick={onUpload}>
-            <IconUpload /> Upload files
-          </Button>
+          {onUpload && (
+            <Button onClick={onUpload}>
+              <IconUpload /> Upload files
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link href="/brand">
               <IconBook /> Write your guidelines

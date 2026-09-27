@@ -84,8 +84,8 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
               )}
               {made.expiresAt ? `It works until ${new Date(made.expiresAt).toLocaleDateString()}.` : "It works until you revoke it."}{" "}
               Every link is in{" "}
-              <Link href="/team?tab=sharing" className="underline underline-offset-2">
-                Team
+              <Link href="/settings/workspace/sharing" className="underline underline-offset-2">
+                Settings
               </Link>
               .
             </p>

@@ -6,7 +6,8 @@ import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants } from "@/lib/core/people";
-import { assetScope, collectionScope, reach } from "@/lib/access";
+import { reach } from "@/lib/access";
+import { can } from "@/lib/permissions";
 import { describeIssues, fieldsValidator, type FieldValues } from "@/lib/fields";
 import { allows } from "@/lib/scopes";
 
@@ -60,7 +61,7 @@ export async function getCollection(caller: Caller, id: string): Promise<Collect
 /** A write on one collection: the workspace's write scope, or a grant on it. */
 async function writable(caller: Caller, id: string) {
   const c = await getCollection(caller, id);
-  if (c && !allows(collectionScope(caller, id), "write")) throw new AssetError("forbidden", `You may only look at ${c.name}`);
+  if (c && !can(caller, "collection.edit", c)) throw new AssetError("forbidden", `You may only look at ${c.name}`);
   return c;
 }
 
@@ -142,7 +143,7 @@ export async function setMembers(caller: Caller, id: string, change: { add?: str
       })
       .from(assets)
       .where(inArray(assets.id, add));
-    if (rows.length !== add.length || rows.some((a) => !allows(assetScope(caller, a), "read"))) throw new AssetError("not_found", "No such asset");
+    if (rows.length !== add.length || rows.some((a) => !can(caller, "asset.read", a))) throw new AssetError("not_found", "No such asset");
   }
   return db.transaction(async (tx) => {
     await addMembers(tx, caller.workspace.id, [id], add);

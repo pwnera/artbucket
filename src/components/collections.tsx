@@ -24,6 +24,7 @@ import {
   IconWorld,
   type Icon,
 } from "@tabler/icons-react";
+import { useCan } from "@/components/can";
 import { toast } from "sonner";
 import { Field, FieldInputs, readFieldValues } from "@/components/fields";
 import {
@@ -127,6 +128,7 @@ export function CollectionDialog({
   const id = useId();
   const [busy, setBusy] = useState(false);
   const [icon, setIcon] = useState<IconName>(collection?.icon ?? "folder");
+  const can = useCan();
   const optional = fields.map((d) => ({ ...d, required: false }));
 
   async function save(form: FormData) {
@@ -203,7 +205,7 @@ export function CollectionDialog({
             )}
           </div>
           <DialogFooter className="sm:justify-between">
-            {collection ? (
+            {collection && can("collection.delete") ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" type="button" className="text-destructive" disabled={busy}>

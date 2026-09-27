@@ -10,23 +10,19 @@ import {
   IconLink,
   IconLock,
   IconMail,
-  IconPencil,
   IconPhoto,
   IconPlus,
   IconShare,
   IconTrash,
   IconUpload,
-  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { Me } from "@/components/account";
+import { can } from "@/lib/permissions";
 import { Snippet } from "@/components/agent-access";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/brand";
 import { copy } from "@/components/brand-values";
 import { send } from "@/components/collections";
-import { PageHeader } from "@/components/page";
 import type { ShareLink } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +31,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SidebarData } from "@/lib/sidebar";
 import type { Scope } from "@/lib/scopes";
 import { ago, exact } from "@/lib/time";
@@ -58,156 +51,17 @@ const SCOPES: { scope: Scope; label: string; hint: string }[] = [
 const scopeName = (s: Scope) => SCOPES.find((x) => x.scope === s)?.label ?? s;
 const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto };
 
-/**
- * Who is in, and on what: the organization's people and their grants,
- * invitations waiting, share links, and the audit log. Every change here is
- * a call to /api/v1 any client could make.
- */
-export function Team({
-  sidebar,
-  tab,
-  members,
-  shares,
-  audit,
-}: {
-  sidebar: SidebarData;
-  tab: string;
-  /** null: not an admin here. */
-  members: Members | null;
-  shares: ShareLink[] | null;
-  audit: AuditPage | null;
-}) {
-  const me = sidebar.me;
-  const tabs = [members && "people", shares && "sharing", audit && "audit"].filter(Boolean) as string[];
-  return (
-    <SidebarProvider>
-      <AppSidebar
-        me={me}
-        collections={sidebar.collections}
-        brands={sidebar.brands}
-        searches={sidebar.searches}
-        reviewCount={sidebar.reviewCount}
-      />
-      <SidebarInset className="min-w-0">
-        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <span className="text-sm font-semibold">Team</span>
-          <ThemeToggle className="ml-auto" />
-        </header>
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-          <PageHeader
-            icon={<IconUsers />}
-            title={<Names me={me} />}
-            description="People and what they may do, links for people without an account, and the record of who changed what."
-          />
-          <Tabs defaultValue={tabs.includes(tab) ? tab : tabs[0]}>
-            <TabsList>
-              {members && <TabsTrigger value="people">People</TabsTrigger>}
-              {shares && <TabsTrigger value="sharing">Share links</TabsTrigger>}
-              {audit && <TabsTrigger value="audit">Audit log</TabsTrigger>}
-            </TabsList>
-            {members && (
-              <TabsContent value="people" className="pt-4">
-                <People me={me} members={members} collections={sidebar.collections} />
-              </TabsContent>
-            )}
-            {shares && (
-              <TabsContent value="sharing" className="pt-4">
-                <Sharing shares={shares} />
-              </TabsContent>
-            )}
-            {audit && (
-              <TabsContent value="audit" className="pt-4">
-                <Audit first={audit} />
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
-}
-
-/** "Library · Default", each renamable by whoever may. */
-function Names({ me }: { me: Me }) {
-  const [renaming, setRenaming] = useState<"workspace" | "organization" | null>(null);
-  const router = useRouter();
-  const can = { workspace: me.scope === "admin", organization: me.orgScope === "admin" };
-  return (
-    <span className="flex flex-wrap items-center gap-x-2">
-      {(["workspace", "organization"] as const).map((k, i) => (
-        <span key={k} className="inline-flex items-center gap-1">
-          {i > 0 && <span className="text-muted-foreground font-normal">·</span>}
-          <span className={i > 0 ? "text-muted-foreground font-normal" : undefined}>
-            {k === "workspace" ? me.workspace.name : me.workspace.organization.name}
-          </span>
-          {can[k] && (
-            <Button variant="ghost" size="icon-xs" aria-label={`Rename the ${k}`} title={`Rename the ${k}`} onClick={() => setRenaming(k)}>
-              <IconPencil />
-            </Button>
-          )}
-        </span>
-      ))}
-      {renaming && (
-        <RenameDialog
-          what={renaming}
-          current={renaming === "workspace" ? me.workspace.name : me.workspace.organization.name}
-          onClose={() => setRenaming(null)}
-          onSave={async (name) => {
-            const url = renaming === "workspace" ? `/api/v1/workspaces/${me.workspace.id}` : `/api/v1/organizations/${me.workspace.organization.id}`;
-            if (!(await send("PATCH", url, { name }))) return;
-            setRenaming(null);
-            router.refresh();
-          }}
-        />
-      )}
-    </span>
-  );
-}
-
-function RenameDialog({ what, current, onClose, onSave }: { what: string; current: string; onClose: () => void; onSave: (name: string) => void }) {
-  const id = useId();
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <form
-          className="grid gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
-            if (name) onSave(name);
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Rename the {what}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor={id}>Name</Label>
-            <Input id={id} name="name" defaultValue={current} required maxLength={80} autoFocus />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ---- people -----------------------------------------------------------------
 
 type Where = { resource: Resource; resourceId: string; label: string };
 
-function People({ me, members, collections }: { me: Me; members: Members; collections: SidebarData["collections"] }) {
+/** The organization's people and their grants, and invitations waiting. */
+export function People({ me, members, collections }: { me: Me; members: Members; collections: SidebarData["collections"] }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<{ kind: "invite" } | { kind: "grant"; user: { id: string; name: string } } | null>(null);
   // Where a grant can be: the organization (its admins only), this workspace, or one of its collections.
   const places: Where[] = [
-    ...(me.orgScope === "admin" ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
+    ...(can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
     { resource: "workspace", resourceId: me.workspace.id, label: `${me.workspace.name} (this workspace)` },
     ...collections.map((c) => ({ resource: "collection" as const, resourceId: c.id, label: `${c.name} (collection)` })),
   ];
@@ -338,7 +192,7 @@ function GrantDialog({
   const id = useId();
   const [where, setWhere] = useState(`${places.find((p) => p.resource === "workspace")!.resource}:${places.find((p) => p.resource === "workspace")!.resourceId}`);
   const [scope, setScope] = useState<Scope>("read");
-  const [link, setLink] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; emailed: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [resource, resourceId] = where.split(":") as [Resource, string];
 
@@ -351,7 +205,7 @@ function GrantDialog({
     setBusy(false);
     if (!made) return;
     onDone();
-    if (dialog.kind === "invite") setLink(made.url);
+    if (dialog.kind === "invite") setLink({ url: made.url, emailed: made.emailed });
     else onClose();
   }
 
@@ -368,8 +222,12 @@ function GrantDialog({
         </DialogHeader>
         {link ? (
           <div className="grid gap-3">
-            <Snippet text={link} what="the invitation link" />
-            <p className="text-muted-foreground text-sm">Send it to them: it is shown this once. There is no email from here yet.</p>
+            <Snippet text={link.url} what="the invitation link" />
+            <p className="text-muted-foreground text-sm">
+              {link.emailed
+                ? "We emailed it to them. The link is here too, this once, in case it lands in spam."
+                : "Send it to them: it is shown this once. Turn on email in Settings to have invitations sent."}
+            </p>
             <DialogFooter>
               <Button onClick={onClose}>Done</Button>
             </DialogFooter>
@@ -435,7 +293,8 @@ function GrantDialog({
 
 // ---- share links ------------------------------------------------------------
 
-function Sharing({ shares: initial }: { shares: ShareLink[] }) {
+/** Every share link on what you may share, to copy or revoke. */
+export function Sharing({ shares: initial }: { shares: ShareLink[] }) {
   const [shares, setShares] = useState(initial);
   if (!shares.length) {
     return (
@@ -508,6 +367,9 @@ const SAYS: Record<string, string> = {
   "key.revoked": "revoked the API key",
   "share.created": "made a share link to",
   "share.revoked": "revoked a share link to",
+  "setting.changed": "changed the setting",
+  "setting.reset": "reset the setting",
+  "email.failed": "couldn't email",
 };
 
 /** Detail as a short phrase: "editor on Autumn 26". */
@@ -518,11 +380,14 @@ function detail(d: Record<string, unknown> | null) {
     typeof d.kind === "string" && `${d.kind} link`,
     d.password === true && "with a password",
     typeof d.from === "string" && `was ${d.from}`,
+    Array.isArray(d.changed) && d.changed.length > 0 && `changed ${d.changed.join(", ")}`,
+    typeof d.error === "string" && d.error,
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : null;
 }
 
-function Audit({ first }: { first: AuditPage }) {
+/** Who changed who may do what, newest first. */
+export function Audit({ first }: { first: AuditPage }) {
   const [items, setItems] = useState(first.data);
   const [next, setNext] = useState(first.next);
   async function more() {

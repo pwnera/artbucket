@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { IconCopy, IconDots, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { Can } from "@/components/can";
 import { send } from "@/components/collections";
 import {
   AlertDialog,
@@ -83,7 +84,11 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
       id="brands"
       label="Brands"
       sortable={section}
-      action={<SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setEditing({ kind: "new" })} />}
+      action={
+        <Can do="brand.edit">
+          <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setEditing({ kind: "new" })} />
+        </Can>
+      }
     >
         <SidebarMenu>
           {sorted.map((b) => {
@@ -107,26 +112,28 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
                   </SidebarMenuAction>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start">
-                  <DropdownMenuItem onSelect={() => setEditing({ kind: "rename", brand: b })}>
-                    <IconPencil /> Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setEditing({ kind: "copy", brand: b })}>
-                    <IconCopy /> Duplicate
-                  </DropdownMenuItem>
-                  {!b.default && (
-                    <DropdownMenuItem onSelect={() => makeDefault(b)}>
-                      <IconStar /> Make default
+                  <Can do="brand.edit">
+                    <DropdownMenuItem onSelect={() => setEditing({ kind: "rename", brand: b })}>
+                      <IconPencil /> Rename
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setEditing({ kind: "copy", brand: b })}>
+                      <IconCopy /> Duplicate
+                    </DropdownMenuItem>
+                    {!b.default && (
+                      <DropdownMenuItem onSelect={() => makeDefault(b)}>
+                        <IconStar /> Make default
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                  </Can>
                   <MoveItems s={s} />
                   {!b.default && (
-                    <>
+                    <Can do="brand.edit">
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(b)}>
                         <IconTrash /> Delete
                       </DropdownMenuItem>
-                    </>
+                    </Can>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

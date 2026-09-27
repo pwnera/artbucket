@@ -27,14 +27,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -60,19 +52,11 @@ export const keyFor = (label: string) =>
     .slice(0, 40);
 
 /**
- * The library's custom field schema: add, adjust, remove. Everything goes
- * through /api/v1/fields. A field's type can't change once made; make a new
- * field instead.
+ * The workspace's custom field schema, in Settings: add, adjust, remove.
+ * Everything goes through /api/v1/fields. A field's type can't change once
+ * made; make a new field instead.
  */
-export function FieldManager({
-  fields,
-  onClose,
-  onChanged,
-}: {
-  fields: FieldDef[];
-  onClose: () => void;
-  onChanged: () => void;
-}) {
+export function FieldsEditor({ fields, onChanged }: { fields: FieldDef[]; onChanged: () => void }) {
   const id = useId();
   const [type, setType] = useState<FieldType>("text");
   const [label, setLabel] = useState("");
@@ -102,16 +86,7 @@ export function FieldManager({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Custom fields</DialogTitle>
-          <DialogDescription>
-            Fields every asset in this library can carry. Required ones must be filled when files are uploaded, or
-            come from a collection.
-          </DialogDescription>
-        </DialogHeader>
-
+    <div className="grid gap-4">
         {fields.length > 0 ? (
           <ul className="divide-y rounded-lg border">
             {fields.map((f) => (
@@ -182,14 +157,7 @@ export function FieldManager({
             </Button>
           </div>
         </form>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Done
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 

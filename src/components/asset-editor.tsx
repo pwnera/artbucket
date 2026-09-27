@@ -14,6 +14,7 @@ import { Thumb, type Asset } from "@/components/gallery";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Can, useCan, Writable } from "@/components/can";
 import { ShareDialog } from "@/components/share-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,8 @@ export function AssetEditor({
   const id = useId();
   const [busy, setBusy] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const can = useCan();
+  const editable = can("asset.edit", asset);
   const tags = useLibraryTags();
   const m = asset.metadata ?? {};
 
@@ -185,7 +188,7 @@ export function AssetEditor({
             <Button variant="outline" size="sm" type="button" onClick={copyLink} title="A link to this asset, in the library">
               <IconLink /> <span className="sr-only sm:not-sr-only">Copy link</span>
             </Button>
-            {asset.status === "active" && (
+            {asset.status === "active" && can("asset.share", asset) && (
               <Button variant="outline" size="sm" type="button" onClick={() => setSharing(true)} title="A link for someone without an account">
                 <IconShare /> <span className="sr-only sm:not-sr-only">Share</span>
               </Button>
@@ -209,7 +212,7 @@ export function AssetEditor({
               <DialogTitle className={m.title ? "break-words" : "break-all"}>{m.title || asset.filename}</DialogTitle>
               <DialogDescription className="mt-1">
                 {m.title && <span className="block break-all">{asset.filename}</span>}
-                Edits are written into the file on download.
+                {editable ? "Edits are written into the file on download." : "You can look at this one, not change it."}
               </DialogDescription>
             </div>
             <ForAgents
@@ -227,7 +230,10 @@ export function AssetEditor({
           </div>
 
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
-            <Review asset={asset} onReviewed={onReviewed} />
+            <Can do="asset.review" on={asset}>
+              <Review asset={asset} onReviewed={onReviewed} />
+            </Can>
+            <Writable do="asset.edit" on={asset}>
             {asset.supersededBy && <Replaced by={asset.supersededBy} />}
             <BrandRules assetId={asset.id} />
             {TEXT.map(({ key, label }) => (
@@ -272,15 +278,18 @@ export function AssetEditor({
             <RightsInputs asset={asset} />
             <Separator className="my-1" />
             <ProvenanceInputs asset={asset} />
+            </Writable>
           </div>
 
           <div className="flex justify-end gap-2 border-t px-6 py-4">
             <Button variant="outline" type="button" onClick={onClose}>
-              Cancel
+              {editable ? "Cancel" : "Close"}
             </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Saving" : "Save"}
-            </Button>
+            {editable && (
+              <Button type="submit" disabled={busy}>
+                {busy ? "Saving" : "Save"}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>

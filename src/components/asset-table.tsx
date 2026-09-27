@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FontThumb } from "@/components/font-preview";
 import { Thumb, type Asset } from "@/components/gallery";
 import { stem } from "@/components/renditions";
+import { Can } from "@/components/can";
 import { approve, reject } from "@/components/review-actions";
 import { RejectAction } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +156,7 @@ export function AssetTable({
                 </td>
                 {review && (
                   <td className="px-3 py-2">
+                    <Can do="asset.review" on={a}>
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -171,6 +173,7 @@ export function AssetTable({
                         onReject={(reason) => decide(reject(a, reason), `Rejected ${title}`)}
                       />
                     </div>
+                    </Can>
                   </td>
                 )}
               </tr>

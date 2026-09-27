@@ -7,9 +7,9 @@ import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { isRenderable } from "@/lib/core/renditions";
-import { assetScope, collectionScope, NONE } from "@/lib/access";
+import { NONE } from "@/lib/access";
 import { env } from "@/lib/env";
-import { allows } from "@/lib/scopes";
+import { can } from "@/lib/permissions";
 import { hashPassword, refusal, shareToken } from "@/lib/share";
 
 /**
@@ -55,26 +55,26 @@ const present = async (link: Link) => ({
   createdAt: link.createdAt,
 });
 
-/** Write on what a link shares, which is what making or revoking it takes. */
-async function mayShare(caller: Caller, t: { collectionId: string | null; assetId: string | null }) {
+/** What making or revoking a link takes: sharing, or collecting into, what it is on. */
+async function mayShare(caller: Caller, t: { kind: ShareKind; collectionId: string | null; assetId: string | null }) {
   if (t.collectionId) {
     const c = await getCollection(caller, t.collectionId);
     if (!c) throw new AssetError("not_found", "No such collection");
-    return allows(collectionScope(caller, c.id), "write");
+    return can(caller, t.kind === "upload" ? "collection.collect" : "collection.share", c);
   }
   if (t.assetId) {
     const a = await getAsset(caller, t.assetId);
     if (!a) throw new AssetError("not_found", "No such asset");
-    return allows(assetScope(caller, a), "write");
+    return can(caller, "asset.share", a);
   }
-  return allows(caller.scope, "write");
+  return can(caller, "share.collect_workspace");
 }
 
 export async function createShare(
   caller: Caller,
   input: { kind: ShareKind; collection?: string; asset?: string; name?: string; password?: string; expiresAt?: string },
 ) {
-  const t = { collectionId: input.collection ?? null, assetId: input.asset ?? null };
+  const t = { kind: input.kind, collectionId: input.collection ?? null, assetId: input.asset ?? null };
   if (input.kind === "view" && !!t.collectionId === !!t.assetId) throw new AssetError("invalid", "A view link shares one collection or one asset");
   if (input.kind === "upload" && t.assetId) throw new AssetError("invalid", "An upload link fills a collection, or the workspace");
   if (!(await mayShare(caller, t))) throw new AssetError("forbidden", "Sharing it takes write on it");
@@ -84,7 +84,6 @@ export async function createShare(
     .insert(shareLinks)
     .values({
       workspaceId: caller.workspace.id,
-      kind: input.kind,
       ...t,
       name: input.name?.trim() || null,
       token: shareToken(),
@@ -106,7 +105,7 @@ export async function createShare(
 export async function listShares(caller: Caller) {
   const rows = await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, caller.workspace.id)).orderBy(desc(shareLinks.createdAt));
   const out = [];
-  for (const r of rows) if (allows(caller.scope, "write") || (await mayShare(caller, r).catch(() => false))) out.push(await present(r));
+  for (const r of rows) if (await mayShare(caller, r).catch(() => false)) out.push(await present(r));
   return out;
 }
 

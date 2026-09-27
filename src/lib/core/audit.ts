@@ -5,8 +5,8 @@ import { AssetError } from "@/lib/core/errors";
 
 /**
  * The audit log: who changed who may do what. Asset events are `activity`;
- * this is sign-ins, members, grants, invitations, keys, share links and
- * workspaces. Free, like OIDC: trust shouldn't be a paid tier.
+ * this is sign-ins, members, grants, invitations, keys, share links,
+ * workspaces and settings. Free, like OIDC: trust shouldn't be a paid tier.
  */
 
 export type AuditAction =
@@ -24,7 +24,10 @@ export type AuditAction =
   | "key.created"
   | "key.revoked"
   | "share.created"
-  | "share.revoked";
+  | "share.revoked"
+  | "setting.changed"
+  | "setting.reset"
+  | "email.failed";
 
 /** Who did it and where: a caller (lib/core/access.ts), or the parts a sign-in hook knows. */
 export type AuditBy = {

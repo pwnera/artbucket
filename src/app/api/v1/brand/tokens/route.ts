@@ -1,4 +1,4 @@
-import { narrow, route } from "@/lib/api";
+import { route } from "@/lib/api";
 import { listRules } from "@/lib/core/brand";
 import { env } from "@/lib/env";
 import { TokenQuery } from "@/lib/schemas";
@@ -9,7 +9,7 @@ import { TOKEN_FORMATS } from "@/lib/tokens";
  * the brand as design tokens in one of lib/tokens.ts's formats. Without a context, the default
  * of each rule; with one, what that context resolves to.
  */
-export const GET = route(narrow("read"), async (req, _p, caller) => {
+export const GET = route("brand.read", async (req, _p, caller) => {
   const q = new URL(req.url).searchParams;
   const { format, context } = TokenQuery.parse(Object.fromEntries(q));
   const all = await listRules(caller.workspace.id, { brand: q.get("brand") ?? undefined, context });

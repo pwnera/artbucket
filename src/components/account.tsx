@@ -11,7 +11,7 @@ import {
   IconLogout,
   IconPlus,
   IconSelector,
-  IconUsers,
+  IconSettings,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand";
@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
+import { can } from "@/lib/permissions";
 import type { Scope } from "@/lib/scopes";
 
 type Ref = { id: string; slug: string; name: string };
@@ -44,8 +45,9 @@ export type Me = {
   scope: Scope | null;
   orgScope: Scope | null;
   narrowed: boolean;
+  narrow: { collections: Record<string, Scope>; assets: Record<string, Scope> };
   workspaces: WorkspaceRef[];
-  auth: { signUp: boolean; oidc: { name: string } | null; anonymous: Scope | null };
+  auth: { signUp: boolean; oidc: { name: string } | null; anonymous: Scope | null; passwordReset: boolean };
 };
 
 /** Go somewhere and redraw it from the server: after signing in or out, or switching workspace, every page's data is someone else's. */
@@ -121,8 +123,8 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
               ))}
             </DropdownMenuGroup>
           ))}
-          {(me.orgScope === "admin" || me.user) && <DropdownMenuSeparator />}
-          {me.orgScope === "admin" && (
+          {(can(me, "organization.manage") || me.user) && <DropdownMenuSeparator />}
+          {can(me, "organization.manage") && (
             <DropdownMenuItem onSelect={() => setMaking("workspace")}>
               <IconPlus /> New workspace in {me.workspace.organization.name}
             </DropdownMenuItem>
@@ -221,13 +223,11 @@ export function AccountMenu({ me }: { me: Me }) {
         <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
           {me.scope ? `${me.scope} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
         </DropdownMenuLabel>
-        {(me.scope === "write" || me.scope === "admin" || me.narrowed) && (
-          <DropdownMenuItem asChild>
-            <Link href="/team">
-              <IconUsers /> Team and sharing
-            </Link>
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <IconSettings /> Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => signOut(go)}>
           <IconLogout /> Sign out

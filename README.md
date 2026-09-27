@@ -158,6 +158,10 @@ key is canonical. Renditions are generated once and cached forever.
 | `POST` | `/api/v1/shared/{token}/uploads` | An upload link's presigned PUT |
 | `POST` | `/api/v1/shared/{token}/assets` | Hand the upload in, as a proposal |
 | `GET` | `/api/v1/audit` | Who changed who may do what; page with `before` |
+| `GET` | `/api/v1/settings` | Settings of the `context` (organization or workspace), and where each value comes from |
+| `PATCH` | `/api/v1/settings/{key}` | Change one; only what is named is kept as this place's own |
+| `DELETE` | `/api/v1/settings/{key}` | Forget this place's own, so what is above applies |
+| `POST` | `/api/v1/email/test` | Send a test through the organization's email |
 | `POST` | `/api/v1/mcp` | The MCP server |
 | `GET` | `/api/v1/openapi.json` | This table, as OpenAPI 3.1 |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
@@ -216,9 +220,18 @@ grants on a few collections only sees those, and their assets; that is how a
 contractor or an agency gets exactly its part of the library. The
 organization always keeps an admin.
 
-Team (in the sidebar) lists people and their access, changes it, and makes
+Every thing someone can do has a name (`asset.edit`, `collection.share`,
+`brand.edit`, `member.manage`...) in `src/lib/permissions.ts`, with the scope
+it takes and what that scope must be on. Routes, MCP tools and core check
+those names, and the web app shows a control only when its request would be
+allowed, asking by the same name (`<Can do="asset.edit" on={asset}>`), so
+the API and the UI can't disagree: a viewer sees no Upload, no Edit, and a
+read-only asset dialog.
+
+Settings, People lists people and their access, changes it, and makes
 invitations: a link for an email and a scope on something, shown once,
-working once for a week. There is no mail server yet, so you send the link.
+working once for a week. With email on, it is sent to them too; without,
+you send the link.
 
 ```bash
 curl -X POST localhost:3000/api/v1/invitations -H 'content-type: application/json' \
@@ -241,11 +254,47 @@ pnpm artbucket share {collection-id} --password dragon --expires 2027-01-31
 pnpm artbucket share {collection-id} --upload --name "Photographer drop"
 ```
 
+### Settings
+
+Settings (at the bottom of the sidebar) is one page for everything that
+isn't the library itself, in sections grouped by what they apply to: the
+**workspace** you are in (its name, custom fields, share links), its
+**organization** (name, people, workspaces, email, audit log), and your
+**account** (name, password). Each section shows to whoever may use it.
+
+Behind it, settings are definitions (`src/lib/settings.ts`): where each may
+be set, its shape, its secrets and its environment variables. Each place
+keeps only what it overrides, and a value resolves property by property
+from the narrowest place that says something: workspace, then
+organization, then the server's environment, then the default. So a server
+configured once serves every organization, and one of them can change its
+sender and keep using the server's API key without ever holding it.
+`GET /api/v1/settings?context=organization` says where each value comes
+from. Secret properties are encrypted at rest with a key derived from
+`BETTER_AUTH_SECRET`, and never returned.
+
+### Email
+
+Off by default. Turn it on for the whole server with `EMAIL_*`, or for one
+organization in Settings, Email. It sends invitations, password resets
+(Forgot your password? appears on the sign-in page once some email can go
+out) and a test message. Providers are HTTP APIs, no SMTP: `resend`,
+`postmark`, `sendgrid`, and `console`, which prints to the server's log for
+trying it out. Adding one is an entry in `src/lib/email.ts`. A message that
+fails never fails what sent it: the invitation link is still shown, and the
+failure is in the audit log.
+
+```bash
+EMAIL_PROVIDER=resend
+EMAIL_FROM="Acme Assets <assets@acme.example>"
+EMAIL_API_KEY=re_...
+```
+
 ### Audit log
 
 Every sign-up and sign-in, grant given or taken, invitation made, withdrawn
 or accepted, key minted or revoked, share link made or revoked, and
-workspace made or renamed is on Team's **Audit log** and at
+workspace made or renamed, and settings change, is in Settings, **Audit log** and at
 `GET /api/v1/audit`, with who, when and from where. An organization admin
 reads the organization's, with its members' sign-ins; a workspace admin, the
 workspace's. Asset changes stay on Activity.
@@ -310,7 +359,8 @@ end, facets included.
 
 ### Custom fields
 
-A library defines its own fields, and required ones must be filled at upload:
+A workspace defines its own fields (Settings, Custom fields), and required
+ones must be filled at upload:
 
 ```bash
 curl -X POST localhost:3000/api/v1/fields -H 'content-type: application/json' \
@@ -532,6 +582,8 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 | `BETTER_AUTH_SECRET` | Signs sessions; required in production (`openssl rand -base64 32`) |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | Single sign-on with an OpenID Connect provider; its redirect URI is `{APP_URL}/api/auth/callback/oidc` |
 | `OIDC_NAME` | The button's label: "Sign in with {OIDC_NAME}" (default `SSO`) |
+| `EMAIL_PROVIDER` | `resend`, `postmark`, `sendgrid` or `console`: email for every organization that doesn't set its own. Unset: off |
+| `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | The sender, where replies go, and the provider's key |
 | `ANONYMOUS_SCOPE` | What a request without a key or a session may do: `none`, `read`, `propose`, `write`, `admin`; unset, `admin` until the first account exists and nothing after |
 
 ## Stack

@@ -31,7 +31,9 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
 - A fresh install is open to anyone who can reach it until the first account
   is made; make it before exposing the server, or set `ANONYMOUS_SCOPE=none`.
 - Set `BETTER_AUTH_SECRET` to a random value (`openssl rand -base64 32`); the
-  app refuses to start in production without one.
+  app refuses to start in production without one. It also encrypts secrets
+  kept in settings (an email provider's API key): change it and those have to
+  be entered again.
 - Cookie-signed writes are only taken from `APP_URL`'s origin; set it to the
   address people actually use.
 - Rendition and original bytes at `/a/{id}` are public to anyone holding the

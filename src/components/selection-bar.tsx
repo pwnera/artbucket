@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { useLibraryTags } from "@/components/asset-editor";
+import { useCan } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
 import type { Asset } from "@/components/gallery";
@@ -42,6 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { pool } from "@/lib/pool";
+import type { Action } from "@/lib/permissions";
 import { uniqueNames, zip } from "@/lib/zip";
 
 const files = (n: number) => `${n} ${n === 1 ? "asset" : "assets"}`;
@@ -73,7 +75,11 @@ export function SelectionBar({
 }) {
   const [busy, setBusy] = useState(false);
   const libraryTags = useLibraryTags();
+  const can = useCan();
   if (!picked.length) return null;
+  // A bulk action shows when it is allowed on every asset picked.
+  const onAll = (action: Action) => picked.every((a) => can(action, a));
+  const into = collections.filter((c) => can("collection.edit", c));
 
   async function each(verb: string, fn: (a: Asset) => Promise<Response>) {
     setBusy(true);
@@ -170,7 +176,7 @@ export function SelectionBar({
       )}
       <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-5" />
 
-      {review && (
+      {review && onAll("asset.review") && (
         <>
           <Button size="sm" disabled={busy} onClick={async () => (await each("Approved", approve)) && onClear()}>
             <IconCheck /> Approve
@@ -187,6 +193,8 @@ export function SelectionBar({
         </>
       )}
 
+      {onAll("asset.edit") && (
+      <>
       <TagAction
         label="Tag"
         icon={<IconTag />}
@@ -202,8 +210,10 @@ export function SelectionBar({
         disabled={busy || !pickedTags.length}
         onApply={(tags) => each("Untagged", (a) => patchTags(a, a.tags.filter((t) => !tags.includes(t))))}
       />
+      </>
+      )}
 
-      {collections.length > 0 && (
+      {into.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" disabled={busy}>
@@ -212,7 +222,7 @@ export function SelectionBar({
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="center" className="max-h-72">
             <DropdownMenuLabel>Add to collection</DropdownMenuLabel>
-            {collections.map((c) => (
+            {into.map((c) => (
               <DropdownMenuItem key={c.id} onClick={() => members(c, "add")}>
                 <CollectionIcon icon={c.icon} /> {c.name}
               </DropdownMenuItem>
@@ -220,7 +230,7 @@ export function SelectionBar({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      {current && (
+      {current && can("collection.edit", current) && (
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => members(current, "remove")}>
           <IconFolderMinus /> Remove from {current.name}
         </Button>
@@ -248,6 +258,7 @@ export function SelectionBar({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {onAll("asset.delete") && (
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={busy}>
@@ -274,6 +285,7 @@ export function SelectionBar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
     </div>
   );
 }

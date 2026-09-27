@@ -1,4 +1,4 @@
-import { body, narrow, ok, route } from "@/lib/api";
+import { body, ok, route } from "@/lib/api";
 import { finalizeUpload, ingestFromUrl, parseAssetQuery, searchAssets } from "@/lib/core/assets";
 import { Finalize } from "@/lib/schemas";
 
@@ -12,7 +12,7 @@ import { Finalize } from "@/lib/schemas";
  * select and boolean fields. Someone with grants on a few collections sees
  * those collections' assets.
  */
-export const GET = route(narrow("read"), async (req, _p, caller) =>
+export const GET = route("asset.read", async (req, _p, caller) =>
   ok(await searchAssets(caller, await parseAssetQuery(caller, new URL(req.url).searchParams))),
 );
 
@@ -21,7 +21,7 @@ export const GET = route(narrow("read"), async (req, _p, caller) =>
  * (`url`). Idempotent by content hash. Without write where it lands, the new
  * asset is `proposed` and waits for a human.
  */
-export const POST = route(narrow("propose"), async (req, _params, caller) => {
+export const POST = route("asset.upload", async (req, _params, caller) => {
   const input = await body(req, Finalize);
   const { asset, deduped } = "url" in input ? await ingestFromUrl(caller, input) : await finalizeUpload(caller, input);
   return ok({ data: asset, deduped }, { status: deduped ? 200 : 201 });

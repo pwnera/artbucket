@@ -585,3 +585,24 @@ export const audit = pgTable(
   },
   (t) => [index("audit_org_at_idx").on(t.organizationId, t.at.desc()), index("audit_user_idx").on(t.userId)],
 );
+
+/**
+ * Settings (lib/settings.ts): one row per key and place, an organization's or
+ * a workspace's. Secret properties are sealed before they get here.
+ */
+export const settings = pgTable(
+  "settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Null for the organization's own. */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("settings_place_key_unique").on(t.organizationId, t.workspaceId, t.key).nullsNotDistinct()],
+);

@@ -30,6 +30,7 @@ import {
   IconX,
   type Icon,
 } from "@tabler/icons-react";
+import { Can } from "@/components/can";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { call, curl, ForAgents } from "@/components/agent-access";
@@ -375,19 +376,22 @@ export function BrandEditor({
               about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
               reads={brandReads(brand, context)}
             />
-            <Button
-              variant={editing ? "default" : "outline"}
-              size="sm"
-              aria-pressed={editing}
-              onClick={() => {
-                setEditing((e) => !e);
-                setOpen(null);
-                setDraft(null);
-              }}
-            >
-              {editing ? <IconCheck /> : <IconPencil />}
-              <span className="sr-only sm:not-sr-only">{editing ? "Done" : "Edit"}</span>
-            </Button>
+            {/* Every change here goes through Edit: gating it gates them all. */}
+            <Can do="brand.edit">
+              <Button
+                variant={editing ? "default" : "outline"}
+                size="sm"
+                aria-pressed={editing}
+                onClick={() => {
+                  setEditing((e) => !e);
+                  setOpen(null);
+                  setDraft(null);
+                }}
+              >
+                {editing ? <IconCheck /> : <IconPencil />}
+                <span className="sr-only sm:not-sr-only">{editing ? "Done" : "Edit"}</span>
+              </Button>
+            </Can>
             <ThemeToggle />
           </div>
         </header>
@@ -422,14 +426,16 @@ export function BrandEditor({
                     voice, words to avoid) and edit them into yours.
                   </EmptyDescription>
                 </EmptyHeader>
-                <div className="flex gap-2">
-                  <Button onClick={essentials}>
-                    <IconPlus /> Add the essentials
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditing(true)}>
-                    Start blank
-                  </Button>
-                </div>
+                <Can do="brand.edit">
+                  <div className="flex gap-2">
+                    <Button onClick={essentials}>
+                      <IconPlus /> Add the essentials
+                    </Button>
+                    <Button variant="outline" onClick={() => setEditing(true)}>
+                      Start blank
+                    </Button>
+                  </div>
+                </Can>
               </Empty>
             )}
 

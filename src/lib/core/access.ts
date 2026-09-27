@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { apiKeys, grants, organizations, workspaces } from "@/lib/db/schema";
 import { auth, oidc } from "@/lib/auth";
 import { hashKey } from "@/lib/core/keys";
+import { canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
 import { accessIn, highest, isNarrowed, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -152,7 +153,13 @@ export async function describeCaller(caller: Caller) {
     scope: caller.scope,
     orgScope: caller.orgScope,
     narrowed: isNarrowed(caller),
+    narrow: caller.narrow,
     workspaces: await openWorkspaces(caller),
-    auth: { signUp: !(await hasUsers()), oidc: oidc && { name: oidc.name }, anonymous: await anonymousScope() },
+    auth: {
+      signUp: !(await hasUsers()),
+      oidc: oidc && { name: oidc.name },
+      anonymous: await anonymousScope(),
+      passwordReset: await canResetPasswords(),
+    },
   };
 }

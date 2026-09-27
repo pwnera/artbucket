@@ -5,6 +5,7 @@ import { nextCookies } from "better-auth/next-js";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
+import { sendPasswordReset } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
 
 /**
@@ -30,7 +31,13 @@ export const auth = betterAuth({
   baseURL: env.APP_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema, usePlural: true }),
-  emailAndPassword: { enabled: true, minPasswordLength: 10 },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 10,
+    // Only when some email can go out (lib/core/mail.ts); otherwise an admin resets it.
+    sendResetPassword: async ({ user, url }) => void (await sendPasswordReset(user, url)),
+    revokeSessionsOnPasswordReset: true,
+  },
   telemetry: { enabled: false },
   plugins: [
     ...(env.OIDC_ISSUER

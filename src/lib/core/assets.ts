@@ -11,7 +11,8 @@ import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/co
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants } from "@/lib/core/people";
-import { assetScope, collectionScope, reach } from "@/lib/access";
+import { collectionScope, reach } from "@/lib/access";
+import { can, needs, type Action } from "@/lib/permissions";
 import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
@@ -202,11 +203,9 @@ export async function finalizeUpload(
  * propose is a 403, before any bytes move.
  */
 function uploadScope(caller: Caller, into: string[]) {
-  const level = into.length ? lowest(into.map((c) => collectionScope(caller, c))) : caller.scope;
-  if (!allows(level, "propose")) {
-    throw new AssetError("forbidden", into.length ? "You can't add to that collection" : "Upload into a collection you have access to");
-  }
-  return level;
+  const may = into.length ? into.every((id) => can(caller, "asset.upload", { id })) : can(caller, "workspace.upload");
+  if (!may) throw new AssetError("forbidden", into.length ? "You can't add to that collection" : "Upload into a collection you have access to");
+  return into.length ? lowest(into.map((c) => collectionScope(caller, c))) : caller.scope;
 }
 
 /**
@@ -486,12 +485,10 @@ async function bySha(ws: string, sha256: string): Promise<Asset | null> {
   return asset ?? null;
 }
 
-/** The asset, if the caller may do `need` to it; a 403 when it may only look. */
-async function allowed(caller: Caller, id: string, need: Scope): Promise<Asset | null> {
+/** The asset, if the caller may do `action` to it; a 403 when it may only look. */
+async function allowed(caller: Caller, id: string, action: Action): Promise<Asset | null> {
   const asset = await getAsset(caller, id);
-  if (asset && !allows(assetScope(caller, asset), need)) {
-    throw new AssetError("forbidden", `You need ${need} on this asset; you have ${assetScope(caller, asset)}`);
-  }
+  if (asset && !can(caller, action, asset)) throw new AssetError("forbidden", `You need ${needs(action)}`);
   return asset;
 }
 
@@ -562,7 +559,9 @@ export async function updateAsset(
     ...fields
   }: AssetPatch,
 ): Promise<Asset | null> {
-  const current = await allowed(caller, id, "write");
+  // Deciding on a proposal is reviewing it; anything else is editing.
+  const reviewing = status !== undefined || reviewNote !== undefined || proposedTags !== undefined;
+  const current = await allowed(caller, id, reviewing ? "asset.review" : "asset.edit");
   if (!current) return null;
   const ws = caller.workspace.id;
   const set: PgUpdateSetSource<typeof assets> = {};
@@ -629,7 +628,7 @@ export async function updateAsset(
  */
 export async function proposeTags(caller: Caller, id: string, suggested: string[]): Promise<Asset | null> {
   const fresh = normalizeTags(suggested);
-  const before = await allowed(caller, id, "propose");
+  const before = await allowed(caller, id, "asset.propose_tags");
   if (!before) return null;
   const actor = caller.actor;
   const [asset] = await db
@@ -729,7 +728,7 @@ export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embed
 }
 
 export async function deleteAsset(caller: Caller, id: string) {
-  const asset = await allowed(caller, id, "write");
+  const asset = await allowed(caller, id, "asset.delete");
   if (!asset) return false;
   await db.delete(assets).where(eq(assets.id, id));
   await dropGrants("asset", [id]);

@@ -1,11 +1,11 @@
-import { body, narrow, ok, route } from "@/lib/api";
+import { body, ok, route } from "@/lib/api";
 import { deleteAsset, getAsset, updateAsset } from "@/lib/core/assets";
 import { AssetPatch } from "@/lib/schemas";
 
 type P = { id: string };
 const missing = "No such asset";
 
-export const GET = route<P>(narrow("read"), async (_req, { id }, caller) => {
+export const GET = route<P>("asset.read", async (_req, { id }, caller) => {
   const asset = await getAsset(caller, id);
   return asset && ok({ data: asset });
 }, missing);
@@ -20,11 +20,11 @@ export const GET = route<P>(narrow("read"), async (_req, { id }, caller) => {
  * keeps it, so whoever proposed it can read why. `proposedTags` replaces the
  * pending suggestions, so accepting one is moving it into `tags`.
  */
-export const PATCH = route<P>(narrow("write"), async (req, { id }, caller) => {
+export const PATCH = route<P>("asset.edit", async (req, { id }, caller) => {
   const asset = await updateAsset(caller, id, await body(req, AssetPatch));
   return asset && ok({ data: asset });
 }, missing);
 
-export const DELETE = route<P>(narrow("write"), async (_req, { id }, caller) =>
+export const DELETE = route<P>("asset.delete", async (_req, { id }, caller) =>
   (await deleteAsset(caller, id)) ? ok({ data: { deleted: true } }) : null,
 missing);

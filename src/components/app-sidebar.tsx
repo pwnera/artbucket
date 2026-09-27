@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   IconActivity,
-  IconAdjustments,
   IconBook,
   IconBookmark,
   IconDots,
@@ -16,15 +15,16 @@ import {
   IconPlus,
   IconRobot,
   IconSearch,
+  IconSettings,
   IconShare,
   IconTrash,
   IconUpload,
-  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
+import { useCan } from "@/components/can";
 import { CommandPalette } from "@/components/command-palette";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
@@ -102,6 +102,10 @@ export function AppSidebar({
   children?: React.ReactNode;
 }) {
   const sections = useSections();
+  const can = useCan();
+  // Offered only to whoever may: the page passes what it can do, this keeps what they may.
+  const newCollection = can("collection.create") ? onNewCollection : undefined;
+  const deleteSearch = can("search.delete") ? onDeleteSearch : undefined;
   // ⌘K (or Ctrl+K) opens search from anywhere, even inside a text field.
   const [searching, setSearching] = useState(false);
   useEffect(() => {
@@ -123,7 +127,6 @@ export function AppSidebar({
   const at = {
     brand: pathname === "/brand",
     agents: pathname === "/agents",
-    team: pathname === "/team",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
     assets: inLibrary && !view.collection && !onSearch,
@@ -156,7 +159,7 @@ export function AppSidebar({
           brands={brands}
           searches={searches}
           onUpload={onUpload}
-          onNewCollection={onNewCollection}
+          onNewCollection={newCollection}
         />
       </SidebarHeader>
 
@@ -177,9 +180,6 @@ export function AppSidebar({
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
               <Place href="/activity" label="Activity" icon={<IconActivity />} active={at.activity} />
-              {(me.scope === "write" || me.scope === "admin" || me.narrowed) && (
-                <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />
-              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -198,12 +198,12 @@ export function AppSidebar({
                 section={section}
                 collections={collections}
                 current={inLibrary && !onSearch ? view.collection : null}
-                onNew={me.scope === "write" || me.scope === "admin" ? onNewCollection : undefined}
+                onNew={newCollection}
                 onEdit={onEditCollection}
               />
             );
           return searches.length > 0 ? (
-            <Searches key={id} section={section} searches={searches} current={inLibrary ? query : null} onDelete={onDeleteSearch} />
+            <Searches key={id} section={section} searches={searches} current={inLibrary ? query : null} onDelete={deleteSearch} />
           ) : null;
         })}
       </SidebarContent>
@@ -211,9 +211,9 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={inLibrary && view.fields} tooltip="Custom fields">
-              <NavLink href="/?fields">
-                <IconAdjustments /> <span>Custom fields</span>
+            <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
+              <NavLink href="/settings">
+                <IconSettings /> <span>Settings</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -286,6 +286,7 @@ function Collections({
 }) {
   const { sorted, item } = useSortable("collections", collections, (c) => c.id);
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
+  const can = useCan();
   return (
     <SidebarSection
       id="collections"
@@ -312,18 +313,22 @@ function Collections({
                   </SidebarMenuAction>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start">
-                  {onEdit && (
+                  {onEdit && can("collection.edit", c) && (
                     <DropdownMenuItem onSelect={() => onEdit(c)}>
                       <IconPencil /> Edit collection
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onSelect={() => setSharing({ kind: "view", collection: c })}>
-                    <IconShare /> Share a link
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setSharing({ kind: "upload", collection: c })}>
-                    <IconUpload /> Collect uploads
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {can("collection.share", c) && (
+                    <DropdownMenuItem onSelect={() => setSharing({ kind: "view", collection: c })}>
+                      <IconShare /> Share a link
+                    </DropdownMenuItem>
+                  )}
+                  {can("collection.collect", c) && (
+                    <DropdownMenuItem onSelect={() => setSharing({ kind: "upload", collection: c })}>
+                      <IconUpload /> Collect uploads
+                    </DropdownMenuItem>
+                  )}
+                  {(can("collection.edit", c) || can("collection.share", c)) && <DropdownMenuSeparator />}
                   <MoveItems s={s} />
                 </DropdownMenuContent>
               </DropdownMenu>

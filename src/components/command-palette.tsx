@@ -13,7 +13,7 @@ import {
   IconRobot,
   IconSunMoon,
   IconUpload,
-  IconUsers,
+  IconSettings,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import type { SavedSearch } from "@/components/app-sidebar";
@@ -204,10 +204,10 @@ export function CommandPalette({
           <CommandItem value="Activity history" onSelect={() => go("/activity")}>
             <IconActivity /> Activity
           </CommandItem>
-          <CommandItem value="Team people members invite share links audit log" onSelect={() => go("/team")}>
-            <IconUsers /> Team
+          <CommandItem value="Settings team people members invite share links audit log email workspace organization" onSelect={() => go("/settings")}>
+            <IconSettings /> Settings
           </CommandItem>
-          <CommandItem value="Custom fields schema" onSelect={() => go("/?fields")}>
+          <CommandItem value="Custom fields schema" onSelect={() => go("/settings/workspace/fields")}>
             <IconAdjustments /> Custom fields
           </CommandItem>
         </CommandGroup>

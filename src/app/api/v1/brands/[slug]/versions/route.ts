@@ -1,7 +1,7 @@
-import { narrow, ok, route } from "@/lib/api";
+import { ok, route } from "@/lib/api";
 import { listVersions } from "@/lib/core/brand";
 
 /** GET /api/v1/brands/{slug}/versions - the brand's history, newest first. */
-export const GET = route<{ slug: string }>(narrow("read"), async (_req, { slug }, caller) =>
+export const GET = route<{ slug: string }>("brand.read", async (_req, { slug }, caller) =>
   ok({ data: await listVersions(caller.workspace.id, slug) }),
 );

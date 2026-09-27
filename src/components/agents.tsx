@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconAlertTriangle, IconKey, IconPlus, IconRobot, IconTrash } from "@tabler/icons-react";
+import { useCan } from "@/components/can";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
@@ -55,6 +56,7 @@ export function Agents({
   anonymous: Scope | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
+  const can = useCan();
   // The secret of the key just made: shown once, and filled into the commands.
   const [secret, setSecret] = useState<string | null>(null);
 
@@ -102,7 +104,7 @@ export function Agents({
           )}
 
           <Step n={1} title="Make a key" blurb="One per agent, so you can tell them apart in Review and revoke one without the others.">
-            {keys === null ? (
+            {!can("key.manage") ? (
               <p className="text-muted-foreground text-sm">
                 Making keys needs the admin scope. Use an admin key with the CLI:{" "}
                 <code className="font-mono text-xs">pnpm artbucket keys create claude --scope propose</code>

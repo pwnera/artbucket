@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EMAIL_PROVIDERS } from "@/lib/email";
 import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
@@ -39,6 +40,15 @@ const schema = z.object({
   OIDC_CLIENT_SECRET: z.string().min(1).optional(),
   /** The sign-in button's label: "Sign in with {OIDC_NAME}". */
   OIDC_NAME: z.string().default("SSO"),
+  /**
+   * The server's email, for every organization that doesn't set its own in
+   * Settings (lib/settings.ts). Unset: no email until an organization turns
+   * it on.
+   */
+  EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).optional(),
+  EMAIL_FROM: z.string().optional(),
+  EMAIL_REPLY_TO: z.email().optional(),
+  EMAIL_API_KEY: z.string().optional(),
 }).refine(
   (e) => [e.OIDC_ISSUER, e.OIDC_CLIENT_ID, e.OIDC_CLIENT_SECRET].filter(Boolean).length % 3 === 0,
   "Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together, or none of them",

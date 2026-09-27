@@ -6,4 +6,4 @@ import { listMembers } from "@/lib/core/people";
  * invitations still waiting. An organization admin sees every workspace's;
  * a workspace admin, the organization's and this workspace's.
  */
-export const GET = route("admin", async (_req, _p, caller) => ok(await listMembers(caller)));
+export const GET = route("member.manage", async (_req, _p, caller) => ok(await listMembers(caller)));

@@ -1,6 +1,6 @@
 import { ok, route } from "@/lib/api";
 import { listAudit } from "@/lib/core/audit";
-import { allows } from "@/lib/scopes";
+import { can } from "@/lib/permissions";
 
 /**
  * GET /api/v1/audit?before={time} - who changed who may do what: sign-ins,
@@ -8,9 +8,9 @@ import { allows } from "@/lib/scopes";
  * organization admin reads the organization's; a workspace admin, the
  * workspace's.
  */
-export const GET = route("admin", async (req, _p, caller) => {
+export const GET = route("audit.read", async (req, _p, caller) => {
   const p = new URL(req.url).searchParams;
-  const orgAdmin = allows(caller.orgScope, "admin");
+  const orgAdmin = can(caller, "organization.manage");
   return ok(
     await listAudit(
       { organizationId: caller.workspace.organizationId, workspaceId: orgAdmin ? undefined : caller.workspace.id },

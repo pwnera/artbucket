@@ -48,6 +48,7 @@ export function AuthForm({
   callbackURL = "/",
   beforeSubmit,
   then,
+  forgot = false,
 }: {
   mode: "in" | "up";
   /** Whether signing up is on offer at all. */
@@ -59,6 +60,8 @@ export function AuthForm({
   /** Runs before either form or SSO goes: an invitation leaves its cookie. */
   beforeSubmit?: () => void;
   then?: () => void;
+  /** Offer "Forgot your password?": some email can go out. */
+  forgot?: boolean;
 }) {
   const id = useId();
   const go = useGo();
@@ -138,6 +141,11 @@ export function AuthForm({
             autoFocus={mode === "in" && !!fixed}
           />
           {mode === "up" && <p className="text-muted-foreground text-xs">At least 10 characters.</p>}
+          {mode === "in" && forgot && (
+            <Link href="/forgot-password" className="text-muted-foreground w-fit text-xs underline underline-offset-2">
+              Forgot your password?
+            </Link>
+          )}
         </div>
         {error && (
           <p role="alert" className="text-destructive text-sm">
@@ -172,7 +180,7 @@ export function SignInPage({ auth, next }: { auth: Me["auth"]; next?: string }) 
           : "Accounts are by invitation: ask an admin for a link if you don't have one."
       }
     >
-      <AuthForm mode={first ? "up" : "in"} signUp={first} oidc={auth.oidc} callbackURL={next || "/"} />
+      <AuthForm mode={first ? "up" : "in"} signUp={first} oidc={auth.oidc} callbackURL={next || "/"} forgot={auth.passwordReset} />
     </Card>
   );
 }
@@ -275,6 +283,84 @@ export function InvitePage({ token, info, me }: { token: string; info: Invitatio
           then={() => void accept(true)}
         />
       )}
+    </Card>
+  );
+}
+
+/** /forgot-password: ask for a link. The answer is the same whether or not the email has an account. */
+export function ForgotPassword() {
+  const id = useId();
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (sent) {
+    return (
+      <Card title="Check your email" lead="If that address has an account here, a link to choose a new password is on its way. It works for an hour.">
+        <Button variant="outline" asChild>
+          <Link href="/login">Back to sign in</Link>
+        </Button>
+      </Card>
+    );
+  }
+  return (
+    <Card title="Reset your password" lead="We'll email you a link to choose a new one.">
+      <form
+        className="grid gap-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
+          const r = await authPost("request-password-reset", { email, redirectTo: "/reset-password" });
+          if (r.ok) setSent(true);
+          else setError(r.message);
+        }}
+      >
+        <div className="grid gap-2">
+          <Label htmlFor={id}>Email</Label>
+          <Input id={id} name="email" type="email" autoComplete="email" required autoFocus />
+        </div>
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        <Button type="submit">Send the link</Button>
+        <Link href="/login" className="text-muted-foreground text-center text-sm underline underline-offset-2">
+          Back to sign in
+        </Link>
+      </form>
+    </Card>
+  );
+}
+
+/** /reset-password?token=: where the emailed link lands, through better-auth. */
+export function ResetPassword({ token, invalid }: { token: string | null; invalid: boolean }) {
+  const id = useId();
+  const go = useGo();
+  const [error, setError] = useState<string | null>(null);
+  if (!token || invalid) {
+    return (
+      <Card title="This link doesn't work" lead="It was used already, or it expired. Ask for another one.">
+        <Button variant="outline" asChild>
+          <Link href="/forgot-password">Send a new link</Link>
+        </Button>
+      </Card>
+    );
+  }
+  return (
+    <Card title="Choose a new password" lead="You'll be signed out everywhere else.">
+      <form
+        className="grid gap-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const newPassword = String(new FormData(e.currentTarget).get("password") ?? "");
+          const r = await authPost("reset-password", { newPassword, token });
+          if (!r.ok) return setError(r.message);
+          go("/login");
+        }}
+      >
+        <div className="grid gap-2">
+          <Label htmlFor={id}>New password</Label>
+          <Input id={id} name="password" type="password" autoComplete="new-password" minLength={10} required autoFocus />
+          <p className="text-muted-foreground text-xs">At least 10 characters.</p>
+        </div>
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        <Button type="submit">Save it and sign in</Button>
+      </form>
     </Card>
   );
 }

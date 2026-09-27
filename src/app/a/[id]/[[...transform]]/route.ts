@@ -1,4 +1,4 @@
-import { authorize, fail, handle, narrow } from "@/lib/api";
+import { authorize, fail, handle } from "@/lib/api";
 import { describeAsset, downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { isRenderable, renderAsset } from "@/lib/core/renditions";
 import { getObject, originalKey } from "@/lib/storage";
@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: Ctx) {
     if (!asset) return fail(404, "not_found", "No such asset");
 
     if (!transform?.length && wantsJson(req)) {
-      const caller = await authorize(req, narrow("read"));
+      const caller = await authorize(req, "asset.read");
       if (caller instanceof Response) return caller;
       const seen = await getAsset(caller, id);
       if (!seen) return fail(404, "not_found", "No such asset");

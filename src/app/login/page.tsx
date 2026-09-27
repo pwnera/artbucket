@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const me = await get("me", (b: { data: Me }) => b.data, null);
   if (me?.user) redirect("/");
   const { next } = await searchParams;
-  const auth = me?.auth ?? { signUp: false, oidc: null, anonymous: null };
+  const auth = me?.auth ?? { signUp: false, oidc: null, anonymous: null, passwordReset: false };
   // Only paths here: never send someone on to another site after signing in.
   return <SignInPage auth={auth} next={next?.startsWith("/") && !next.startsWith("//") ? next : undefined} />;
 }

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
 import { callerFrom, type Caller } from "@/lib/core/access";
-import { widest } from "@/lib/access";
 import { env } from "@/lib/env";
-import { allows, type Scope } from "@/lib/scopes";
+import { can, needs, type Action } from "@/lib/permissions";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
 
@@ -36,13 +35,12 @@ export async function body<T extends z.ZodType>(req: Request, schema: T): Promis
 }
 
 /**
- * What a route needs. A scope means that scope on the whole workspace.
- * `narrow(scope)` lets in a caller who has it on part of the workspace only,
- * a collection or an asset: core then checks the thing itself. `null` lets
- * in anyone who is somebody, or nobody: core decides (people, invitations).
+ * What a route needs: an action (lib/permissions.ts), asked without a
+ * target, so a caller with it on part of the workspace gets in and core
+ * checks the thing itself. `null` lets in anyone who is somebody, or nobody:
+ * core decides (people, invitations, settings).
  */
-export type Need = Scope | { scope: Scope; narrow: true } | null;
-export const narrow = (scope: Scope): Need => ({ scope, narrow: true });
+export type Need = Action | null;
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -62,12 +60,10 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   const caller = await callerFrom(req);
   const challenge = { "WWW-Authenticate": 'Bearer realm="artbucket"' };
   if (!caller) return fail(401, "unauthorized", "Unknown API key", undefined, challenge);
-  if (need === null) return caller;
-  const scope = typeof need === "string" ? need : need.scope;
-  if (allows(typeof need === "string" ? caller.scope : widest(caller), scope)) return caller;
-  if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${scope}`);
-  if (caller.user) return fail(403, "forbidden", `You need ${scope} in ${caller.workspace.name} for this`);
-  return fail(401, "unauthorized", `Sign in, or send an API key with the ${scope} scope`, undefined, challenge);
+  if (need === null || can(caller, need)) return caller;
+  if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
+  if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.workspace.name}`);
+  return fail(401, "unauthorized", `Sign in, or send an API key with ${needs(need)}`, undefined, challenge);
 }
 
 /**

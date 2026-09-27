@@ -6,6 +6,7 @@ import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
+import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
@@ -464,11 +465,15 @@ export const Me = z.object({
   scope: scope.describe("On the whole workspace"),
   orgScope: scope.describe("On its organization; admin there manages people and workspaces"),
   narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
+  narrow: z
+    .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)) })
+    .describe("Grants on single collections and assets here, by id: what reaches past the workspace scope"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
   auth: z.object({
     signUp: z.boolean().describe("Anyone may make an account: true only before the first one exists"),
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
     anonymous: scope.describe("What a request without a key or a session may do"),
+    passwordReset: z.boolean().describe("A forgotten password can be reset by email"),
   }),
 });
 
@@ -492,7 +497,10 @@ export const Invitation = z.object({
   expiresAt: date,
   createdAt: date,
 });
-export const InvitationCreated = Invitation.extend({ url: z.url().describe("Send this to them. Shown once") });
+export const InvitationCreated = Invitation.extend({
+  url: z.url().describe("Shown once. Emailed to them when the organization can send email; send it yourself otherwise"),
+  emailed: z.boolean(),
+});
 export const Members = z.object({
   data: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), grants: z.array(Grant) })),
   invitations: z.array(Invitation).describe("Waiting to be taken"),
@@ -563,6 +571,19 @@ export const AuditEntry = z.object({
   detail: z.record(z.string(), z.unknown()).nullable(),
   ip: z.string().nullable(),
 });
+export const SettingItem = z.object({
+  key: z.enum(SETTING_KEYS as [SettingKey, ...SettingKey[]]),
+  label: z.string(),
+  context: z.enum(SETTING_CONTEXTS),
+  value: z.record(z.string(), z.unknown()).describe("As it applies here; secret properties are null"),
+  secrets: z.record(z.string(), z.boolean()).describe("Whether each secret property is set"),
+  source: z.enum(["workspace", "organization", "environment", "default"]).describe("The narrowest place any of it comes from"),
+  sources: z.record(z.string(), z.enum(["workspace", "organization", "environment", "default"])).describe("Where each property comes from"),
+  own: z.boolean().describe("Set here: resetting it lets what is above apply"),
+});
+export const SettingPatch = z.record(z.string(), z.unknown()).describe("Properties to change; a blank secret keeps it, null clears it");
+export const EmailTest = z.strictObject({ to: z.email().optional().describe("Defaults to you") });
+
 export const Audit = z.object({ data: z.array(AuditEntry), next: date.nullable().describe("Pass as `before` for the next page") });
 
 export const ErrorBody = z.object({

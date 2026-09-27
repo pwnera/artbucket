@@ -3,12 +3,14 @@ import { and, asc, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-o
 import { db } from "@/lib/db";
 import { assets, brands, collections, grants, invitations, organizations, users, workspaces } from "@/lib/db/schema";
 import { recordAudit, type AuditBy } from "@/lib/core/audit";
+import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import type { Caller } from "@/lib/core/access";
 import { highest, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
-import { allows, type Scope } from "@/lib/scopes";
+import { can, needs, type Action } from "@/lib/permissions";
+import type { Scope } from "@/lib/scopes";
 
 /**
  * People and where they belong: organizations, their workspaces, and grants,
@@ -86,9 +88,11 @@ export async function signedIn(session: { userId: string; ipAddress?: string | n
 
 // ---- organizations and workspaces -------------------------------------------
 
-const need = (have: Scope | null, scope: Scope, what: string) => {
-  if (!allows(have, scope)) throw new AssetError("forbidden", `You need ${scope} on ${what} for this`);
+const need = (caller: Caller, action: Action) => {
+  if (!can(caller, action)) throw new AssetError("forbidden", `You need ${needs(action)}`);
 };
+/** A workspace of the organization: this one takes admin here, another takes admin on the organization. */
+const manageWorkspace = (caller: Caller, id: string) => need(caller, id === caller.workspace.id ? "workspace.manage" : "organization.manage");
 
 /** A slug free in `taken`: "acme", then "acme-2", "acme-3". */
 async function freeSlug(name: string, taken: (slug: string) => Promise<boolean>) {
@@ -138,7 +142,7 @@ export async function createOrganization(caller: Caller, input: { name: string }
 
 export async function renameOrganization(caller: Caller, id: string, name: string) {
   if (id !== caller.workspace.organizationId) return null;
-  need(caller.orgScope, "admin", "the organization");
+  need(caller, "organization.manage");
   const [org] = await db.update(organizations).set({ name }).where(eq(organizations.id, id)).returning();
   await recordAudit(caller, "organization.renamed", name, { from: caller.workspace.organization.name }, { workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name };
@@ -167,7 +171,7 @@ export async function listWorkspaces(caller: Caller) {
 }
 
 export async function createWorkspace(caller: Caller, input: { name: string }) {
-  need(caller.orgScope, "admin", "the organization");
+  need(caller, "organization.manage");
   const ws = await db.transaction((tx) => addWorkspace(tx, caller.workspace.organizationId, input.name));
   await recordAudit(caller, "workspace.created", ws.name, undefined, { workspaceId: ws.id });
   return { id: ws.id, slug: ws.slug, name: ws.name, scope: caller.orgScope };
@@ -179,7 +183,7 @@ export async function renameWorkspace(caller: Caller, id: string, name: string) 
     .from(workspaces)
     .where(and(eq(workspaces.id, id), eq(workspaces.organizationId, caller.workspace.organizationId)));
   if (!ws) return null;
-  need(ws.id === caller.workspace.id ? caller.scope : caller.orgScope, "admin", "the workspace");
+  manageWorkspace(caller, ws.id);
   const [row] = await db.update(workspaces).set({ name }).where(eq(workspaces.id, id)).returning();
   await recordAudit(caller, "workspace.renamed", name, { from: ws.name }, { workspaceId: id });
   return { id: row.id, slug: row.slug, name: row.name };
@@ -199,16 +203,16 @@ async function target(caller: Caller, resource: Resource, resourceId: string): P
   const nope = () => new AssetError("not_found", `No ${resource} ${resourceId} here`);
   if (resource === "organization") {
     if (resourceId !== org) throw nope();
-    need(caller.orgScope, "admin", "the organization");
+    need(caller, "organization.manage");
     return { resource, resourceId, organizationId: org, workspaceId: null, label: caller.workspace.organization.name };
   }
   if (resource === "workspace") {
     const [ws] = await db.select().from(workspaces).where(and(eq(workspaces.id, resourceId), eq(workspaces.organizationId, org)));
     if (!ws) throw nope();
-    need(ws.id === caller.workspace.id ? caller.scope : caller.orgScope, "admin", "the workspace");
+    manageWorkspace(caller, ws.id);
     return { resource, resourceId, organizationId: org, workspaceId: ws.id, label: ws.name };
   }
-  need(caller.scope, "admin", "the workspace");
+  need(caller, "member.manage");
   const ws = caller.workspace.id;
   const [row] =
     resource === "collection"
@@ -241,13 +245,13 @@ async function labels(rows: { resource: Resource; resourceId: string }[]) {
 
 /** An organization admin sees all of it; a workspace admin, the organization's grants and their workspace's. */
 const visible = (caller: Caller) =>
-  allows(caller.orgScope, "admin")
+  can(caller, "organization.manage")
     ? eq(grants.organizationId, caller.workspace.organizationId)
     : and(eq(grants.organizationId, caller.workspace.organizationId), or(isNull(grants.workspaceId), eq(grants.workspaceId, caller.workspace.id)));
 
 /** People with any grant in the organization, each with the grants the caller may see, and invitations waiting. */
 export async function listMembers(caller: Caller) {
-  need(caller.scope, "admin", "the workspace");
+  need(caller, "member.manage");
   const rows = await db
     .select({ grant: grants, name: users.name, email: users.email })
     .from(grants)
@@ -260,7 +264,7 @@ export async function listMembers(caller: Caller) {
     .where(
       and(
         eq(invitations.organizationId, caller.workspace.organizationId),
-        allows(caller.orgScope, "admin") ? undefined : or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id)),
+        can(caller, "organization.manage") ? undefined : or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id)),
         isNull(invitations.acceptedAt),
         gt(invitations.expiresAt, sql`now()`),
       ),
@@ -360,7 +364,10 @@ export async function dropGrants(resource: "collection" | "asset", ids: string[]
 
 // ---- invitations ------------------------------------------------------------
 
-/** An invitation: the link is in this response only, like an API key's secret. */
+/**
+ * An invitation: the link is in this response only, like an API key's
+ * secret, and in an email to them when the organization can send one.
+ */
 export async function createInvitation(caller: Caller, input: { email: string; resource: Resource; resourceId: string; scope: Scope }) {
   const t = await target(caller, input.resource, input.resourceId);
   const token = randomBytes(24).toString("base64url");
@@ -379,6 +386,11 @@ export async function createInvitation(caller: Caller, input: { email: string; r
     })
     .returning();
   await recordAudit(caller, "invitation.created", row.email, { resource: t.resource, on: t.label, scope: row.scope }, { workspaceId: t.workspaceId });
+  const url = `${env.APP_URL}/invite/${token}`;
+  const mail = await sendAs(
+    t.organizationId,
+    invitationEmail(row.email, { invitedBy: caller.actor, organization: caller.workspace.organization.name, label: t.label, scope: row.scope, url }),
+  );
   return {
     id: row.id,
     email: row.email,
@@ -389,7 +401,8 @@ export async function createInvitation(caller: Caller, input: { email: string; r
     invitedBy: row.invitedBy,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
-    url: `${env.APP_URL}/invite/${token}`,
+    url,
+    emailed: mail.sent,
   };
 }
 
