@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { IconAlertTriangle, IconKey, IconPlus, IconRobot, IconTrash } from "@tabler/icons-react";
+import Link from "next/link";
+import { useEffect, useId, useState } from "react";
+import { IconAlertTriangle, IconCircleCheck, IconExternalLink, IconKey, IconLoader2, IconPlus, IconRobot, IconTrash } from "@tabler/icons-react";
 import { useCan } from "@/components/can";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
-import { ConnectTabs, Snippet } from "@/components/agent-access";
+import { Snippet } from "@/components/agent-access";
+import { AGENTS, GROUPS, type Agent, type Part } from "@/components/agent-catalog";
 import { send } from "@/components/collections";
+import { scopeLabel, SCOPE_LABELS } from "@/components/consent";
 import { Field } from "@/components/fields";
 import {
   AlertDialog,
@@ -22,26 +25,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SidebarData } from "@/lib/sidebar";
 import type { Scope } from "@/lib/scopes";
+import { ago, exact } from "@/lib/time";
 
-export type Key = { id: string; name: string; prefix: string; scope: Scope; createdAt: string };
-
-const SCOPES: { scope: Scope; label: string; hint: string }[] = [
-  { scope: "propose", label: "Suggest", hint: "Search, read the brand, and suggest assets and tags for you to review" },
-  { scope: "read", label: "Read only", hint: "Search and read the brand; changes nothing" },
-  { scope: "write", label: "Edit", hint: "Change and delete assets, collections and fields directly, no review" },
-  { scope: "admin", label: "Admin", hint: "Everything, including making and revoking keys" },
-];
-const scopeLabel = (s: Scope) => SCOPES.find((x) => x.scope === s)?.label ?? s;
+export type Key = {
+  id: string;
+  name: string;
+  prefix: string;
+  scope: Scope;
+  createdAt: string;
+  lastUsedAt: string | null;
+  calls: number;
+  owner: string | null;
+  waiting: number;
+};
 
 /**
- * Connect an agent, in three steps: make a key, run the command with the key
- * already in it, try a first prompt. Then the keys that exist, to revoke.
+ * Connect an agent: pick it from its group's tab, follow its two lines, and watch
+ * for its first call. Below, every agent connected, when it last called, and
+ * what it left waiting in Review.
  */
 export function Agents({
   keys: initialKeys,
@@ -49,16 +58,15 @@ export function Agents({
   origin,
   anonymous,
 }: {
-  /** null: this page may not list keys (no admin scope). */
-  keys: Key[] | null;
+  keys: Key[];
   sidebar: SidebarData;
   origin: string;
   anonymous: Scope | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
+  const [open, setOpen] = useState<Agent | null>(null);
   const can = useCan();
-  // The secret of the key just made: shown once, and filled into the commands.
-  const [secret, setSecret] = useState<string | null>(null);
+  const mcp = `${origin}/api/v1/mcp`;
 
   return (
     <SidebarProvider>
@@ -77,16 +85,20 @@ export function Agents({
           <ThemeToggle className="ml-auto" />
         </header>
 
-        <main className="mx-auto w-full max-w-3xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
+        <main className="mx-auto w-full max-w-4xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
           <div className="space-y-3">
             <p className="text-primary flex items-center gap-2 text-sm font-medium">
-              <IconRobot className="size-4" /> Claude, Cursor, or anything that speaks MCP
+              <IconRobot className="size-4" /> Any agent you already use
             </p>
             <h2 className="text-3xl font-semibold tracking-tight">Give an agent the brand</h2>
             <p className="text-muted-foreground text-lg text-pretty">
               A connected agent searches the library, reads the brand rules before it makes anything, and hands out
               assets at the right size. What it adds is only a suggestion: it waits in Review until you approve it.
             </p>
+            <div className="max-w-xl space-y-1 pt-2">
+              <p className="text-muted-foreground text-xs">One URL for all of them. Most sign you in on their own; no key to paste.</p>
+              <Snippet text={mcp} what="the URL" />
+            </div>
           </div>
 
           {(anonymous === "write" || anonymous === "admin") && (
@@ -101,96 +113,258 @@ export function Agents({
             </div>
           )}
 
-          <Step n={1} title="Make a key" blurb="One per agent, so you can tell them apart in Review and revoke one without the others.">
-            {!can("key.manage") ? (
-              <p className="text-muted-foreground text-sm">
-                Making keys needs the admin scope. Use an admin key with the CLI:{" "}
-                <code className="font-mono text-xs">pnpm artbucket keys create claude --scope propose</code>
-              </p>
-            ) : (
-              <NewKey
-                onMade={(k) => {
-                  setSecret(k.secret);
-                  setKeys((ks) => [...(ks ?? []), k]);
-                }}
-              />
-            )}
-            {secret && (
-              <div className="border-primary/40 bg-primary/5 space-y-2 rounded-lg border p-3">
-                <p className="text-sm font-medium">Copy it now: it is shown this once</p>
-                <Snippet text={secret} what="the key" />
-                <p className="text-muted-foreground text-xs">It is already filled into the commands below.</p>
-              </div>
-            )}
-          </Step>
+          <Tabs defaultValue={GROUPS[0]}>
+            {/* Seven groups don't fit a phone: the tabs scroll sideways instead of wrapping. */}
+            <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
+              <TabsList variant="line">
+                {GROUPS.map((group) => (
+                  <TabsTrigger key={group} value={group}>
+                    {group}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {GROUPS.map((group) => (
+              <TabsContent key={group} value={group} className="pt-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {AGENTS.filter((a) => a.group === group).map((a) => (
+                    <button
+                      key={a.name}
+                      type="button"
+                      onClick={() => setOpen(a)}
+                      className="hover:bg-muted/60 hover:border-primary/40 flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+                    >
+                      <a.icon className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+                      <span className="grid min-w-0 gap-0.5">
+                        <span className="truncate text-sm font-medium">{a.name}</span>
+                        <span className="text-muted-foreground line-clamp-2 text-xs">{a.blurb}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
 
-          <Step n={2} title="Connect" blurb="Run this where the agent lives.">
-            <ConnectTabs origin={origin} secret={secret} />
-          </Step>
+          <Connected keys={keys.filter((k) => k.owner)} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
 
-          <Step
-            n={3}
-            title="Try it"
-            blurb="Ask the agent something only the brand can answer. Every page here has a For agents button with the exact call for what it shows."
-          >
+          {can("key.manage") && (
+            <ApiKeys
+              keys={keys.filter((k) => !k.owner)}
+              onMade={(k) => setKeys((ks) => [...ks, k])}
+              onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
+            />
+          )}
+
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">Try it</h3>
+            <p className="text-muted-foreground text-sm">
+              Ask something only the brand can answer. Every page here has a For agents button with the exact call for what it shows.
+            </p>
             <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
               <li>&ldquo;What&apos;s our primary color on dark backgrounds, and how should it be used?&rdquo;</li>
               <li>&ldquo;Find our logo and give me a 512px PNG link.&rdquo;</li>
               <li>&ldquo;Add this photo to the library and suggest tags for it.&rdquo; (then look in Review)</li>
             </ul>
-          </Step>
-
-          {keys && keys.length > 0 && (
-            <section className="space-y-3">
-              <h3 className="text-lg font-semibold">Keys</h3>
-              <ul className="divide-y rounded-lg border">
-                {keys.map((k) => (
-                  <li key={k.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                    <IconKey className="text-muted-foreground size-4 shrink-0" />
-                    <span className="min-w-0 truncate font-medium">{k.name}</span>
-                    <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
-                    <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>
-                    <span className="text-muted-foreground ml-auto hidden text-xs sm:inline" suppressHydrationWarning>
-                      {new Date(k.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                    </span>
-                    <Revoke
-                      name={k.name}
-                      onRevoke={async () => {
-                        if (!(await send("DELETE", `/api/v1/keys/${k.id}`))) return;
-                        setKeys((ks) => ks?.filter((x) => x.id !== k.id) ?? null);
-                        toast.success(`Revoked ${k.name}`);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          </section>
         </main>
       </SidebarInset>
+
+      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
+        <DialogContent className="sm:max-w-xl">
+          {open && <Setup agent={open} origin={origin} mcp={mcp} onKeys={setKeys} onMade={(k) => setKeys((ks) => [...ks, k])} />}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
 
-function Step({ n, title, blurb, children }: { n: number; title: string; blurb: string; children: React.ReactNode }) {
+/**
+ * One agent's setup, and whether it has called yet: the keys list is polled
+ * while this is open, and the first key used since it opened is the one.
+ */
+function Setup({
+  agent,
+  origin,
+  mcp,
+  onKeys,
+  onMade,
+}: {
+  agent: Agent;
+  origin: string;
+  mcp: string;
+  onKeys: (k: Key[]) => void;
+  onMade: (k: Key) => void;
+}) {
+  const can = useCan();
+  const [secret, setSecret] = useState<string | null>(null);
+  const [first, setFirst] = useState<Key | null>(null);
+  const watch = agent.auth === "oauth" || agent.auth === "key" || agent.auth === "skill";
+
+  useEffect(() => {
+    if (!watch) return;
+    const since = Date.now();
+    const poll = setInterval(async () => {
+      const res = await fetch("/api/v1/keys").catch(() => null);
+      if (!res?.ok) return;
+      const { data } = (await res.json()) as { data: Key[] };
+      onKeys(data);
+      const called = data.find((k) => k.lastUsedAt && new Date(k.lastUsedAt).getTime() >= since);
+      if (called) {
+        setFirst(called);
+        clearInterval(poll);
+      }
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [watch, onKeys]);
+
+  const parts = agent.snippet({ origin, mcp, key: secret ?? "<key>" });
   return (
-    <section className="grid gap-4 sm:grid-cols-[2rem_1fr]">
-      <span className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-full text-sm font-semibold">
-        {n}
-      </span>
-      <div className="min-w-0 space-y-4">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="text-muted-foreground text-sm">{blurb}</p>
-        </div>
-        {children}
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <agent.icon className="text-muted-foreground size-5" /> {agent.name}
+        </DialogTitle>
+        <DialogDescription>{agent.blurb}</DialogDescription>
+      </DialogHeader>
+
+      {agent.auth === "key" &&
+        (can("key.manage") ? (
+          secret ? (
+            <p className="border-primary/40 bg-primary/5 rounded-lg border p-3 text-sm">
+              Key made. Copy it now: it is shown this once, and it&apos;s filled in below.
+            </p>
+          ) : (
+            <NewKey
+              name={agent.name}
+              onMade={({ secret, ...k }) => {
+                setSecret(secret);
+                onMade(k);
+              }}
+            />
+          )
+        ) : (
+          <p className="text-muted-foreground text-sm">This one needs a key, and making keys needs an admin. Ask one for a key with Suggest.</p>
+        ))}
+
+      <div className="min-w-0 space-y-3">
+        {parts.map((p, i) => (
+          <SetupPart key={i} part={p} />
+        ))}
       </div>
+
+      {watch && (
+        <div className="flex items-center gap-2 border-t pt-4 text-sm">
+          {first ? (
+            <>
+              <IconCircleCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                <span className="font-medium">{first.name}</span> made its first call.
+              </span>
+            </>
+          ) : (
+            <>
+              <IconLoader2 className="text-muted-foreground size-4 animate-spin" />
+              <span className="text-muted-foreground">Waiting for its first call…</span>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function SetupPart({ part }: { part: Part }) {
+  if (typeof part === "string") return <p className="text-muted-foreground text-sm">{part}</p>;
+  if ("href" in part) {
+    return (
+      <Button asChild>
+        <a href={part.href}>
+          <IconExternalLink /> {part.label}
+        </a>
+      </Button>
+    );
+  }
+  return <Snippet text={part.copy} what={part.what} multiline={part.multiline} prose={part.prose} />;
+}
+
+/** Agents people connected (OAuth, `artbucket login`): the workspace's for an admin, yours for anyone else. */
+function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) => void }) {
+  return (
+    <section className="space-y-3">
+      <h3 className="text-lg font-semibold">Connected agents</h3>
+      {!keys.length ? <p className="text-muted-foreground text-sm">None yet. Pick one above.</p> : <KeyList keys={keys} onRevoked={onRevoked} />}
     </section>
   );
 }
 
-function NewKey({ onMade }: { onMade: (k: Key & { secret: string }) => void }) {
-  const [name, setName] = useState("claude");
+/**
+ * Keys an admin makes, for what can't sign in on its own: automations,
+ * scripts, CI. They answer to nobody, so they're the workspace's to manage.
+ */
+function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) => void; onRevoked: (id: string) => void }) {
+  // The secret of the key just made: shown once.
+  const [secret, setSecret] = useState<string | null>(null);
+  return (
+    <section className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold">API keys</h3>
+        <p className="text-muted-foreground text-sm">
+          For what can&apos;t sign in on its own: n8n, scripts, CI. One per use, so you can revoke one without the others.
+        </p>
+      </div>
+      <NewKey
+        name=""
+        onMade={({ secret, ...k }) => {
+          setSecret(secret);
+          onMade(k);
+        }}
+      />
+      {secret && (
+        <div className="border-primary/40 bg-primary/5 space-y-2 rounded-lg border p-3">
+          <p className="text-sm font-medium">Copy it now: it is shown this once</p>
+          <Snippet text={secret} what="the key" />
+        </div>
+      )}
+      {keys.length > 0 && <KeyList keys={keys} onRevoked={onRevoked} showPrefix />}
+    </section>
+  );
+}
+
+function KeyList({ keys, onRevoked, showPrefix }: { keys: Key[]; onRevoked: (id: string) => void; showPrefix?: boolean }) {
+  return (
+    <ul className="divide-y rounded-lg border">
+      {keys.map((k) => (
+        <li key={k.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
+          <IconKey className="text-muted-foreground size-4 shrink-0" />
+          <span className="min-w-0 truncate font-medium">{k.name}</span>
+          <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
+          {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
+          {k.waiting > 0 && (
+            <Link href="/?review" className="text-primary text-xs hover:underline">
+              {k.waiting} waiting in Review
+            </Link>
+          )}
+          <span className="text-muted-foreground ml-auto text-xs" title={k.lastUsedAt ? exact(k.lastUsedAt) : undefined} suppressHydrationWarning>
+            {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
+          </span>
+          <Revoke
+            name={k.name}
+            onRevoke={async () => {
+              if (!(await send("DELETE", `/api/v1/keys/${k.id}`))) return;
+              onRevoked(k.id);
+              toast.success(`Revoked ${k.name}`);
+            }}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function NewKey({ name: initial, onMade }: { name: string; onMade: (k: Key & { secret: string }) => void }) {
+  const id = useId();
+  const [name, setName] = useState(initial);
   const [scope, setScope] = useState<Scope>("propose");
   const [busy, setBusy] = useState(false);
   return (
@@ -201,22 +375,24 @@ function NewKey({ onMade }: { onMade: (k: Key & { secret: string }) => void }) {
         setBusy(true);
         const k = await send("POST", "/api/v1/keys", { name, scope });
         setBusy(false);
-        if (k) onMade(k);
+        if (!k) return;
+        onMade(k);
+        setName(initial);
       }}
     >
-      <Field label="Name" htmlFor="key-name">
-        <Input id="key-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required />
+      <Field label="Name" htmlFor={`${id}-name`}>
+        <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} placeholder="n8n, nightly export…" maxLength={120} required />
       </Field>
-      <Field label="It may" htmlFor="key-scope">
+      <Field label="It may" htmlFor={`${id}-scope`}>
         <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
-          <SelectTrigger id="key-scope" className="w-full">
+          <SelectTrigger id={`${id}-scope`} className="w-full">
             <SelectValue>
               {scopeLabel(scope)}
               {scope === "propose" && <span className="text-muted-foreground"> (recommended)</span>}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {SCOPES.map((s) => (
+            {SCOPE_LABELS.map((s) => (
               <SelectItem key={s.scope} value={s.scope}>
                 <div className="grid">
                   <span>
@@ -233,7 +409,6 @@ function NewKey({ onMade }: { onMade: (k: Key & { secret: string }) => void }) {
       <Button type="submit" disabled={busy || !name.trim()}>
         <IconPlus /> Make key
       </Button>
-      <p className="text-muted-foreground text-xs sm:col-span-3">{SCOPES.find((s) => s.scope === scope)?.hint}.</p>
     </form>
   );
 }

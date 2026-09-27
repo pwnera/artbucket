@@ -223,6 +223,15 @@ export const apiKeys = pgTable(
     prefix: text("prefix").notNull(),
     hash: text("hash").notNull().unique(),
     scope: text("scope").$type<Scope>().notNull(),
+    /**
+     * Whose agent this is, for a key minted by OAuth or `artbucket login`
+     * (lib/core/oauth.ts): it can never do more than they can, and goes
+     * with them. Null for a key an admin made, which answers to nobody.
+     */
+    userId: text("user_id").references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    /** Bumped on every request that presents it: "Connected agents" and "waiting for first call". */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    calls: integer("calls").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -430,6 +439,20 @@ export const accounts = pgTable(
   (t) => [index("accounts_user_idx").on(t.userId)],
 );
 
+/**
+ * OAuth clients that registered themselves (RFC 7591): Claude, ChatGPT, the
+ * CLI. Public clients, no secret: PKCE stands in for one. What a client is
+ * granted is an API key (lib/core/oauth.ts), so this is only its name and
+ * where it may be sent back to.
+ */
+export const oauthClients = pgTable("oauth_clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** better-auth's, and ours for OAuth codes waiting to be exchanged (lib/core/oauth.ts). */
 export const verifications = pgTable("verifications", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),

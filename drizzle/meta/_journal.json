@@ -141,6 +141,13 @@
       "when": 1790517122162,
       "tag": "0019_private_and_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790520532560,
+      "tag": "0020_agents_connect",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
 import { callerFrom, type Caller } from "@/lib/core/access";
+import { OAuthError } from "@/lib/core/oauth";
 import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -59,7 +60,8 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
     if (origin && origin !== new URL(env.APP_URL).origin) return fail(403, "forbidden", "Cross-origin requests are refused");
   }
   const caller = await callerFrom(req);
-  const challenge = { "WWW-Authenticate": 'Bearer realm="artbucket"' };
+  // resource_metadata: how an MCP client finds where to send its person to sign in (RFC 9728).
+  const challenge = { "WWW-Authenticate": `Bearer realm="artbucket", resource_metadata="${env.APP_URL}/.well-known/oauth-protected-resource/api/v1/mcp"` };
   if (!caller) return fail(401, "unauthorized", "Unknown API key", undefined, challenge);
   if (need === null) return caller;
   // A fresh install does one thing: make its first account, which is its admin. Keys from before wait too.
@@ -87,6 +89,28 @@ export function route<P = object>(
       if (caller instanceof Response) return caller;
       return (await fn(req, await ctx.params, caller)) ?? fail(404, "not_found", missing);
     } catch (err) {
+      return handle(err);
+    }
+  };
+}
+
+const NO_STORE = { "Cache-Control": "no-store" };
+
+/** A form post the OAuth way, or JSON, as a flat record of strings. */
+export async function form(req: Request): Promise<Record<string, string>> {
+  if (req.headers.get("content-type")?.includes("application/json")) return (await req.json()) as Record<string, string>;
+  return Object.fromEntries(new URLSearchParams(await req.text()));
+}
+
+/** The OAuth endpoints clients call (lib/core/oauth.ts): errors are `{error, error_description}`, nothing is cached. */
+export function oauth(fn: (req: Request) => Promise<unknown>, status = 200) {
+  return async (req: Request) => {
+    try {
+      return NextResponse.json(await fn(req), { status, headers: NO_STORE });
+    } catch (err) {
+      if (err instanceof OAuthError) {
+        return NextResponse.json({ error: err.error, error_description: err.message }, { status: err.status, headers: NO_STORE });
+      }
       return handle(err);
     }
   };

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
@@ -6,7 +6,7 @@ import { auth, oidc } from "@/lib/auth";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
-import { accessIn, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
+import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import type { Scope } from "@/lib/scopes";
 
@@ -14,7 +14,8 @@ import type { Scope } from "@/lib/scopes";
  * Who is calling, where, and what they may do there. Every request resolves
  * to one of three callers:
  *
- * - an API key: one workspace, one scope, named for history
+ * - an API key: one workspace, one scope, named for history. One a person
+ *   connected (OAuth, `artbucket login`) is also held to what they can do
  * - a signed-in person: the workspace in the `ab_workspace` cookie if they
  *   can open it, else their first; their scope is what their grants add up
  *   to there (lib/access.ts)
@@ -118,9 +119,19 @@ export async function callerFrom(req: Request): Promise<Caller | undefined> {
     if (!secret) return undefined;
     const [key] = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret)));
     if (!key) return undefined;
+    // Connected agents' "last seen": never worth failing or slowing the request for.
+    void db
+      .update(apiKeys)
+      .set({ lastUsedAt: new Date(), calls: sql`${apiKeys.calls} + 1` })
+      .where(eq(apiKeys.id, key.id))
+      .catch((err) => console.error("key use not recorded", err));
     const [workspace] = await workspacesWhere(eq(workspaces.id, key.workspaceId));
     const hidden = await hiddenIn(workspace.id);
-    return { workspace, scope: key.scope, narrow: NONE, off: NO_OFF, hidden, orgScope: null, actor: key.name, user: null, key: key.id, ip };
+    // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
+    const access = key.userId
+      ? capAt(accessIn(await db.select().from(grants).where(eq(grants.userId, key.userId)), workspace, hidden), key.scope)
+      : { scope: key.scope, narrow: NONE, off: NO_OFF, hidden };
+    return { workspace, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
   const wanted = cookie(req, WORKSPACE_COOKIE);

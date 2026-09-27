@@ -7,6 +7,13 @@ const config: NextConfig = {
   serverExternalPackages: ["sharp", "exifreader", "mupdf", "heic-decode"],
   // The dev badge sits bottom-left by default, on top of the sidebar's footer.
   devIndicators: { position: "bottom-right" },
+  // OAuth discovery (lib/core/oauth.ts). The path after either one names the resource or issuer; there is one of each.
+  async rewrites() {
+    return [
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/v1/oauth/server" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/v1/oauth/resource" },
+    ];
+  },
   async headers() {
     return [
       {

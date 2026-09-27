@@ -529,13 +529,41 @@ formats, and files with Content Credentials, download as stored, and
 ## Agents
 
 `/api/v1/mcp` is an MCP server over Streamable HTTP, built on the same
-`lib/core` as the REST API. [`/agents`](http://localhost:3000/agents) makes a
-key and prints the command with it filled in, for Claude Code, Cursor or any
-MCP client. By hand, give an agent a `propose` key:
+`lib/core` as the REST API. One URL connects every agent: chat apps (Claude,
+ChatGPT, Perplexity, Gemini), coding agents, app builders (Lovable, v0, Bolt,
+Replit) and Figma take the URL and send you to a consent screen, where you
+pick what the agent may do: Suggest, Read or Edit. What it gets is a key bound
+to you: never more than you can do, and gone with your access.
+[`/agents`](http://localhost:3000/agents) has the setup for each, waits for
+the first call, and lists Connected agents: last seen, calls, what each left
+in Review, and a button to disconnect it.
 
 ```bash
-claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
-  --header "Authorization: Bearer ab_..."
+claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
+```
+
+That is OAuth 2.1 with PKCE and dynamic client registration, discovered from
+`/.well-known/oauth-protected-resource` and
+`/.well-known/oauth-authorization-server` (`lib/core/oauth.ts`). Keys an
+admin makes still work for anything headless (n8n, Make, scripts):
+`Authorization: Bearer ab_...`.
+
+The CLI signs in through the browser with the device flow, and keeps its key
+in `~/.config/artbucket/credentials.json`:
+
+```bash
+ARTBUCKET_URL=https://assets.example.com pnpm artbucket login
+```
+
+The skill in [`plugin/skills/artbucket`](plugin/skills/artbucket/SKILL.md)
+teaches an agent the workflow (brand rules first, `check_use` before
+publishing, provenance on anything generated), over MCP or the CLI:
+`npx skills add pwnera/artbucket`. In Claude Code, the plugin brings the MCP
+server and the skill together:
+
+```bash
+/plugin marketplace add pwnera/artbucket
+/plugin install artbucket@artbucket
 ```
 
 | Tool | Scope | |

@@ -1,0 +1,11 @@
+{
+  "name": "artbucket",
+  "owner": { "name": "artbucket" },
+  "plugins": [
+    {
+      "name": "artbucket",
+      "source": "./plugin",
+      "description": "Your brand's asset library in Claude Code: the MCP server and the skill that teaches the workflow."
+    }
+  ]
+}

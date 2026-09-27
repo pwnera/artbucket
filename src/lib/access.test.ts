@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { accessIn, assetScope, collectionScope, highest, isNarrowed, reach, widest } from "./access.ts";
+import { accessIn, assetScope, capAt, collectionScope, highest, isNarrowed, reach, widest } from "./access.ts";
 
 const ws = { id: "w1", organizationId: "o1" };
 const g = (resource: "organization" | "workspace" | "collection" | "asset", resourceId: string, scope: "read" | "propose" | "write" | "admin", workspaceId: string | null = "w1") => ({
@@ -69,4 +69,12 @@ test("reach lists what a scope reaches", () => {
   const a = accessIn([g("collection", "c1", "read"), g("collection", "c2", "write"), g("asset", "x", "propose")], ws);
   assert.deepEqual(reach(a, "read"), { collections: ["c1", "c2"], assets: ["x"] });
   assert.deepEqual(reach(a, "write"), { collections: ["c2"], assets: [] });
+});
+
+test("an agent's key is held to its grant and its person's access, whichever is lower", () => {
+  const a = capAt(accessIn([g("workspace", "w1", "admin"), g("collection", "c1", "admin"), g("asset", "a1", "read")], ws), "propose");
+  assert.equal(a.scope, "propose");
+  assert.equal(collectionScope(a, "c1"), "propose");
+  assert.equal(a.narrow.assets.a1, "read");
+  assert.equal(capAt(accessIn([], ws), "write").scope, null);
 });
