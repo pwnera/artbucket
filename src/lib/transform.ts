@@ -112,3 +112,19 @@ export function serializeTransform(t: Transform): string {
   if (t.f) parts.push(`f_${t.f}`);
   return parts.join(",");
 }
+
+/**
+ * The transform that renders the same pixels, so one stored rendition serves
+ * every URL that asks for them. Only for fit inside, which never enlarges: a
+ * side at least the image's longest never binds, whichever way EXIF turns it,
+ * so it drops. `w_8000` on a 2000px image is the image at its own size.
+ */
+export function effective(t: Transform, size: { width?: number | null; height?: number | null }): Transform {
+  if ((t.fit && t.fit !== "inside") || !size.width || !size.height) return t;
+  const longest = Math.max(size.width, size.height);
+  const out = { ...t };
+  if (out.w && out.w >= longest) delete out.w;
+  if (out.h && out.h >= longest) delete out.h;
+  if (!out.w && !out.h) delete out.fit;
+  return out;
+}

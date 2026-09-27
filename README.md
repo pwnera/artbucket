@@ -96,7 +96,9 @@ Then build any rendition URL you like, no API call needed:
 
 Transforms: `w` `h` (1–8000), `fit` (cover, contain, inside, outside, fill),
 `q` (1–100), `f` (jpeg, png, webp, avif). Key order doesn't matter - the cache
-key is canonical. Renditions are generated once and cached forever.
+key is canonical, and a size bigger than the image is its own size. Renditions
+are generated once and kept for 30 days; the URL is immutable, so a CDN in
+front serves them from there.
 
 ## API
 
@@ -172,7 +174,7 @@ key is canonical. Renditions are generated once and cached forever.
 | `POST` | `/api/v1/mcp` | The MCP server |
 | `GET` | `/api/v1/openapi.json` | This table, as OpenAPI 3.1 |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
-| `GET` | `/a/{id}` with `Accept: application/json` | The asset's description |
+| `GET` | `/api/v1/assets/{id}/description` | The asset's description |
 | `GET` | `/a/{id}?download` | The original with current metadata written in |
 
 The spec at `/api/v1/openapi.json` is generated from the Zod schemas the
@@ -401,17 +403,14 @@ doesn't already say. Filter with `/api/v1/assets?collection={id}`.
 
 ### Describe an asset
 
-The asset URL answers JSON when asked for it:
-
 ```bash
-curl -H 'Accept: application/json' localhost:3000/a/{id}
+curl localhost:3000/api/v1/assets/{id}/description
 ```
 
 It returns what a client needs to decide whether and how to use the asset:
 title, credit, tags, effective field values, its `rights`, its `provenance`,
 what replaced it (`supersededBy`), its URLs, the transforms it allows
-(`constraints`), and ready-made rendition URLs (`alternatives`). Browsers still
-get the bytes: only an explicit `application/json` switches it.
+(`constraints`), and ready-made rendition URLs (`alternatives`).
 
 ### May I use this?
 
@@ -569,7 +568,7 @@ server and the skill together:
 | Tool | Scope | |
 |---|---|---|
 | `search_assets` | read | Full text, tags, collections (by name), field filters, and the `total`; its description lists your fields and collections |
-| `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json`, plus the brand rules that point at it |
+| `describe_asset` | read | The same description as `/api/v1/assets/{id}/description`, plus the brand rules that point at it |
 | `check_use` | read | `/api/v1/check`: may it run here, now, in this context; if not, why, and what to use instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with its provenance and rights |
@@ -615,6 +614,12 @@ your path.
 
 Copy `.env.example` to `.env`. Any S3-compatible storage works - AWS S3,
 Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
+
+On start the app creates the bucket, allows browser PUTs from `APP_URL`
+(CORS), and, when the bucket has no lifecycle rules, expires `staging/` after
+1 day and `renditions/` after 30. A key that can't change bucket settings
+(R2's object tokens can't) logs a warning: set those three in the provider's
+console.
 
 | Variable | |
 |---|---|

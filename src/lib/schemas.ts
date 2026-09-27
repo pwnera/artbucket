@@ -389,7 +389,7 @@ export const ApiKeyCreated = ApiKey.extend({
   secret: z.string().describe("Shown once. Send as `Authorization: Bearer <secret>`"),
 });
 
-/** What `GET /a/{id}` with `Accept: application/json` returns. */
+/** What `GET /api/v1/assets/{id}/description` returns. */
 export const Description = z.object({
   id: uuid,
   filename: z.string(),
