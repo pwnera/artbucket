@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { IconDownload, IconLock, IconPhoto, IconUpload } from "@tabler/icons-react";
-import { Logo, ThemeToggle } from "@/components/brand";
+import { AppIcon, ThemeToggle } from "@/components/brand";
 import { Card } from "@/components/sign-in";
 import { putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export function SharedView({ token }: { token: string }) {
   return (
     <div className="min-h-svh">
       <header className="bg-background/95 sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 backdrop-blur sm:px-8">
-        <Logo className="size-7" />
+        <AppIcon className="size-7" />
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold">{title}</p>
           {from && <p className="text-muted-foreground truncate text-xs">Shared from {from}</p>}

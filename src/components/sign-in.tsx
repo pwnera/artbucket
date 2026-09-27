@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { IconBuilding, IconKey, IconLogout, IconMailOpened } from "@tabler/icons-react";
 import { MakeDialog, pickWorkspace, signOut, useGo, type Me } from "@/components/account";
-import { Logo } from "@/components/brand";
+import { AppIcon } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ export function Card({ title, lead, children }: { title: string; lead?: React.Re
     <main className="bg-muted/40 flex min-h-svh items-center justify-center p-4">
       <div className="bg-background w-full max-w-sm space-y-6 rounded-xl border p-6 shadow-sm sm:p-8">
         <div className="space-y-3">
-          <Logo />
+          <AppIcon />
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {lead && <div className="text-muted-foreground text-sm text-pretty">{lead}</div>}
         </div>

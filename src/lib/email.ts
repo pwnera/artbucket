@@ -116,10 +116,10 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0
 /** One plain layout for every message: a sentence or two, and a button. */
 export function layout({ to, subject, lines, action }: { to: string; subject: string; lines: string[]; action?: { label: string; url: string } }): Message {
   const text = [...lines, ...(action ? ["", `${action.label}: ${action.url}`] : [])].join("\n");
-  const html = `<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#171717">
-<div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:32px">
+  const html = `<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111">
+<div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e4e4ea;border-radius:12px;padding:32px">
 ${lines.map((l) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(l)}</p>`).join("\n")}
-${action ? `<p style="margin:24px 0 0"><a href="${escape(action.url)}" style="display:inline-block;background:#34a853;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escape(action.label)}</a></p>` : ""}
+${action ? `<p style="margin:24px 0 0"><a href="${escape(action.url)}" style="display:inline-block;background:#6D4AFF;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escape(action.label)}</a></p>` : ""}
 </div></body></html>`;
   return { to, subject, text, html };
 }
