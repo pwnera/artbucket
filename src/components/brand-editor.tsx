@@ -42,6 +42,7 @@ import { copy, Editable, fontFiles, isFontAsset, ReadOnly, ValueEditor } from "@
 import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Thumb, type Asset } from "@/components/gallery";
+import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,13 +64,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -179,6 +173,7 @@ export function BrandEditor({
   }, [openKey]);
 
   const [history, setHistory] = useState(false);
+  const [tokens, setTokens] = useState(false);
   // Bumped after every change, so an open history shows it.
   const [edits, setEdits] = useState(0);
   /** This brand's rules endpoint; the default brand needs no ?brand. */
@@ -367,7 +362,10 @@ export function BrandEditor({
               <IconLink />
             </Button>
             {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
-            <TokensMenu brand={brand} context={context} />
+            <Button variant="outline" size="sm" title="Colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
+              <IconCode />
+              <span className="sr-only sm:not-sr-only">Tokens</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
               <IconHistory />
               <span className="sr-only sm:not-sr-only">History</span>
@@ -400,6 +398,7 @@ export function BrandEditor({
             current && "lg:max-w-[90rem] lg:pr-[34rem]",
           )}
         >
+          <TokensDialog brand={brand} context={context} open={tokens} onOpenChange={setTokens} />
           <History
             brand={brand}
             open={history}
@@ -812,49 +811,6 @@ function brandReads(brand: BrandInfo, context?: string) {
       { label: "Design tokens", text: curl(`${origin}${tokensPath(brand, context, "json")}`) },
     ];
   };
-}
-
-const tokensPath = (brand: BrandInfo, context: string | undefined, format: "css" | "json") => {
-  const q = new URLSearchParams({ format });
-  if (!brand.default) q.set("brand", brand.slug);
-  if (context) q.set("context", context);
-  return `/api/v1/brand/tokens?${q}`;
-};
-
-/**
- * The brand as code: colors, numbers, fonts and the scale as CSS custom
- * properties (with @font-face for the font files) or W3C design tokens.
- */
-function TokensMenu({ brand, context }: { brand: BrandInfo; context?: string }) {
-  const name = `${brand.slug}${context ? `-${context}` : ""}`;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" title="Export colors, fonts and the type scale as code">
-          <IconCode />
-          <span className="sr-only sm:not-sr-only">Tokens</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem asChild>
-          <a href={tokensPath(brand, context, "css")} download={`${name}.tokens.css`}>
-            CSS variables
-            <span className="text-muted-foreground ml-auto text-xs">.css</span>
-          </a>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href={tokensPath(brand, context, "json")} download={`${name}.tokens.json`}>
-            Design tokens
-            <span className="text-muted-foreground ml-auto text-xs">W3C .json</span>
-          </a>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => copy(new URL(tokensPath(brand, context, "css"), location.origin).href, "stylesheet link")}>
-          <IconLink /> Copy stylesheet link
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 // ---- rules ------------------------------------------------------------------

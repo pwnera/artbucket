@@ -2,6 +2,7 @@ import { z } from "zod";
 import * as S from "./schemas.ts";
 import { FONT_CATEGORIES } from "./font.ts";
 import type { Scope } from "./scopes.ts";
+import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 
 /**
  * The OpenAPI 3.1 document for /api/v1, built from the same Zod schemas the
@@ -121,15 +122,18 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face " +
-            "for every font file (text/css). `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style " +
-            "Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. A rule set in one of " +
-            "the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out.",
+            "for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; " +
+            "`tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's " +
+            "variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens " +
+            "(DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are " +
+            "under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are " +
+            "guidance, not tokens, and are left out.",
           query: {
-            format: { schema: { type: "string", enum: ["css", "json"], default: "css" }, description: "The output" },
+            format: { schema: { type: "string", enum: TOKEN_FORMAT_IDS, default: "css" }, description: "The output" },
             brand: { schema: str, description: "A brand's slug; the default brand without it" },
             context: { schema: str, description: "Resolve for this context, e.g. dark-background" },
           },
-          ok: [200, "The tokens, as text/css or application/json"],
+          ok: [200, "The tokens, as text: CSS, Sass, Less, JS, TypeScript or JSON"],
         }),
       },
       "/api/v1/fonts/google": {
