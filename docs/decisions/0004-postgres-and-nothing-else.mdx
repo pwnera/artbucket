@@ -1,0 +1,25 @@
+---
+title: "0004: Postgres and a bucket, and nothing else"
+description: Accepted, v0.1.
+---
+
+## Context
+
+Self-hosters judge a project by its `docker-compose.yml`. Every extra service
+(Redis, a queue, a search engine, a worker) is another thing to run, upgrade
+and page on.
+
+## Decision
+
+The app is one Next.js process, with Postgres and an S3-compatible bucket.
+Search is Postgres full-text search with a generated `tsvector` and GIN
+indexes. Background work (the sweeper, preview backfill) runs in the same
+process on a timer, safe to run on several instances at once.
+
+## Consequences
+
+- A fresh clone runs with `docker compose up` and `pnpm dev`.
+- No semantic search. pgvector is the upgrade, when full-text search visibly
+  fails on real queries; the benchmarks say where it stands today.
+- Rate limits count per process. A shared limiter needs shared state, which
+  is the first thing that would bring in Redis.

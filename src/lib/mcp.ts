@@ -18,12 +18,9 @@ import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
-import { ASSET_TYPES } from "@/lib/filters";
-import { STATES, STATUSES } from "@/lib/lifecycle";
-import { GOOGLE_FAMILY } from "@/lib/font";
-import { ORIGINS, RightsInput, Use } from "@/lib/rights";
+import { TOOL_INPUTS, type ToolName } from "@/lib/mcp-tools";
 import { can, needs, type Action } from "@/lib/permissions";
-import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
+import { parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
  * The MCP adapter: a second front door onto lib/core, beside REST. Stateless
@@ -89,9 +86,6 @@ const RULES_URI = "artbucket://brand/rules";
 const rulesUri = (brand: { slug: string; default: boolean }) =>
   brand.default ? RULES_URI : `artbucket://brands/${brand.slug}/rules`;
 
-const text = z.string().min(1);
-const id = z.uuid().describe("Asset id, from search_assets");
-
 type Tool = {
   description: string | ((caller: Caller) => Promise<string>);
   /** What running it takes (lib/permissions.ts), somewhere in the workspace; core checks the asset itself. */
@@ -115,7 +109,8 @@ const found = async (caller: Caller, assetId: string) => {
   return a;
 };
 
-const TOOLS: Record<string, Tool> = {
+/** Every tool in lib/mcp-tools.ts, and nothing else: their signatures are frozen there. */
+const TOOLS: Record<ToolName, Tool> = {
   search_assets: tool({
     // Built per call: the field schema and collections are the library's own.
     description: async (caller) => {
@@ -136,22 +131,7 @@ const TOOLS: Record<string, Tool> = {
     },
     action: "asset.read",
     readOnly: true,
-    input: z.object({
-      q: z.string().max(512).optional().describe("Free text"),
-      tags: z.array(z.string()).max(20).optional().describe("Only assets carrying every one of these tags"),
-      types: z.array(z.enum(ASSET_TYPES)).optional().describe("Only assets of any of these types"),
-      collection: z.string().max(120).optional().describe("Only this collection's assets: its name or id"),
-      filters: z
-        .record(z.string(), z.union([z.string(), z.array(z.string())]))
-        .optional()
-        .describe('Field filters: {"channel": ["web", "print"], "budget.gte": "10", "expires.lte": "2027-01-31"}'),
-      status: z
-        .array(z.enum(STATES))
-        .optional()
-        .describe("Only assets in these states; approved (active) and unexpired ones when left out, which is what may be used"),
-      review: z.boolean().optional().describe("Only what waits on a human: proposed assets and suggested tags"),
-      limit: z.number().int().min(1).max(50).default(20),
-    }),
+    input: TOOL_INPUTS.search_assets,
     run: async ({ q, tags, types, collection, filters, status, review, limit }, caller) => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
@@ -176,7 +156,7 @@ const TOOLS: Record<string, Tool> = {
       "(for a logo: how it may and may not be used). Read this before using an asset.",
     action: "asset.read",
     readOnly: true,
-    input: z.object({ id }),
+    input: TOOL_INPUTS.describe_asset,
     run: async ({ id }, caller) => ({
       ...describeAsset(await found(caller, id)),
       brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, context, type, value, usage }) => ({
@@ -197,14 +177,7 @@ const TOOLS: Record<string, Tool> = {
       "original has returns the original size.",
     action: "asset.read",
     readOnly: true,
-    input: z.object({
-      id,
-      width: z.number().int().min(1).max(MAX_DIMENSION).optional(),
-      height: z.number().int().min(1).max(MAX_DIMENSION).optional(),
-      fit: z.enum(FITS).optional().describe("With both width and height: cover crops, contain pads, inside fits (default)"),
-      format: z.enum(FORMATS).optional().describe("Defaults to the original's format; webp suits the web"),
-      quality: z.number().int().min(1).max(100).optional(),
-    }),
+    input: TOOL_INPUTS.rendition_url,
     run: async ({ id, width, height, fit, format, quality }, caller) => {
       const a = await found(caller, id);
       if (!hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
@@ -229,11 +202,7 @@ const TOOLS: Record<string, Tool> = {
       "territory and channel to settle them.",
     action: "asset.read",
     readOnly: true,
-    input: Use.extend({
-      id,
-      context: z.string().max(64).optional().describe("The brand context, e.g. dark-background, instagram-story"),
-      brand: z.string().max(60).optional().describe("A brand's slug; every brand's rules when left out"),
-    }),
+    input: TOOL_INPUTS.check_use,
     run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }),
   }),
 
@@ -244,22 +213,7 @@ const TOOLS: Record<string, Tool> = {
       "Required fields may be left out; the person approving fills them in. Check back with my_proposals.",
     action: "asset.upload",
     readOnly: false,
-    input: z.object({
-      url: z.url({ protocol: /^https?$/ }).max(2048),
-      filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment"),
-      tags: z.array(text.max(64)).max(50).optional(),
-      fields: z.record(z.string(), z.unknown()).optional().describe("Custom field values; required fields must be set"),
-      collections: z.array(z.uuid()).max(50).optional(),
-      origin: z.enum(ORIGINS).optional().describe("generated for anything a model made; read from Content Credentials when left out"),
-      generator: z.string().max(200).optional().describe('The model or tool that made it, e.g. "gpt-image 2.0"'),
-      prompt: z.string().max(10000).optional().describe("For a generated image: what it was asked for"),
-      parentAssetId: z.uuid().optional().describe("The library asset it was made from, e.g. the photo you edited"),
-      rights: RightsInput.optional().describe("License, territories, channels, embargo, expires, modelRelease, if known"),
-      versionOf: z
-        .uuid()
-        .optional()
-        .describe("It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved"),
-    }),
+    input: TOOL_INPUTS.ingest_asset,
     run: async (input, caller) => {
       const { asset, deduped } = await ingestFromUrl(caller, input);
       return { deduped, asset: describeAsset(asset) };
@@ -273,11 +227,7 @@ const TOOLS: Record<string, Tool> = {
       "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
     action: "asset.upload",
     readOnly: false,
-    input: z.object({
-      family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
-      tags: z.array(text.max(64)).max(50).optional(),
-      collections: z.array(z.uuid()).max(50).optional(),
-    }),
+    input: TOOL_INPUTS.import_google_font,
     run: async (input, caller) => {
       const { family, assets } = await importGoogleFont(caller, input);
       return { family, assets: assets.map(summary) };
@@ -308,10 +258,7 @@ const TOOLS: Record<string, Tool> = {
     },
     action: "brand.read",
     readOnly: true,
-    input: z.object({
-      brand: z.string().max(60).optional().describe("A brand's slug; the default brand when left out"),
-      context: z.string().max(64).optional().describe("e.g. dark-background, instagram-story"),
-    }),
+    input: TOOL_INPUTS.brand_rules,
     run: async ({ brand, context }, caller) => rulesFor(caller.workspace.id, context, brand),
   }),
 
@@ -322,10 +269,7 @@ const TOOLS: Record<string, Tool> = {
       "proposing more of the same.",
     action: "asset.upload",
     readOnly: true,
-    input: z.object({
-      status: z.enum(STATUSES).optional().describe("Only these; all of them when left out"),
-      limit: z.number().int().min(1).max(50).default(20),
-    }),
+    input: TOOL_INPUTS.my_proposals,
     run: async ({ status, limit }, caller) => {
       // ponytail: filters the newest 200 in memory; a status filter in core when an agent proposes more.
       const { data } = await searchAssets(caller, { proposedBy: caller.actor, limit: 200 });
@@ -342,7 +286,7 @@ const TOOLS: Record<string, Tool> = {
       "Tags the asset already has are ignored.",
     action: "asset.propose_tags",
     readOnly: false,
-    input: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
+    input: TOOL_INPUTS.propose_tags,
     run: async ({ id, tags }, caller) => {
       const a = await proposeTags(caller, id, tags);
       if (!a) throw new AssetError("not_found", `No asset ${id}`);
@@ -382,7 +326,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "artbucket", version: "0.7.5" },
+        serverInfo: { name: "artbucket", version: "1.0.0" },
         instructions: INSTRUCTIONS,
       });
     }
@@ -451,7 +395,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       }
     }
     case "tools/call": {
-      const t = TOOLS[String(params.name)];
+      const name = String(params.name);
+      const t = Object.hasOwn(TOOLS, name) ? TOOLS[name as ToolName] : undefined;
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
       if (!can(caller, t.action)) {
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));

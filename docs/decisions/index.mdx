@@ -1,0 +1,21 @@
+---
+title: Decisions
+description: The load-bearing choices, why they were made, and what they cost.
+---
+
+Each record is one decision that the rest of the code leans on. They are
+written once and not edited after: a decision that changes gets a new record
+that says which one it replaces.
+
+| # | Decision |
+|---|---|
+| [0001](/decisions/0001-ui-is-an-api-client) | The web app is a client of the public API |
+| [0002](/decisions/0002-renditions-are-urls) | Content-addressed storage; renditions are a function of the URL |
+| [0003](/decisions/0003-one-core-two-doors) | One core, with REST and MCP as adapters |
+| [0004](/decisions/0004-postgres-and-nothing-else) | Postgres and a bucket, and nothing else |
+| [0005](/decisions/0005-agents-propose) | What an agent writes is a proposal |
+| [0006](/decisions/0006-grants-and-free-sso) | Grants that add up and reach down; single sign-on is free |
+| [0007](/decisions/0007-lifecycle-at-delivery) | Expiry is a date, enforced where bytes leave |
+| [0008](/decisions/0008-migrations-on-start) | Migrations are only added, and run on start |
+| [0009](/decisions/0009-agpl-and-ee) | AGPLv3 core, `ee/` reserved |
+| [0010](/decisions/0010-frozen-v1) | v1 is frozen by a test, not a promise in prose |

@@ -95,6 +95,19 @@ jobs:
           # And this version's fixture fits this version's schema, for the next pull request.
           psql -v ON_ERROR_STOP=1 "postgres://artbucket:artbucket@localhost:5432/artbucket" -f scripts/upgrade-fixture.sql
 
+      # v1 is a promise (docs: developers/stability): nothing a client of the
+      # base branch relies on may change. pnpm test checks against this
+      # branch's contract/; this checks against the base's, which a
+      # re-freeze can't move.
+      - name: The v1 contract holds against the base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          mkdir -p ../base-contract
+          if git show "origin/${{ github.base_ref }}:contract/api-v1.json" > ../base-contract/api-v1.json 2>/dev/null; then
+            git show "origin/${{ github.base_ref }}:contract/mcp-v1.json" > ../base-contract/mcp-v1.json
+            pnpm contract:check ../base-contract
+          fi
+
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm check:dashes

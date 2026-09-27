@@ -15,7 +15,7 @@ sudo corepack enable
 sudo useradd --system --create-home --home-dir /opt/artbucket artbucket
 sudo -u artbucket git clone https://github.com/pwnera/artbucket.git /opt/artbucket/app
 cd /opt/artbucket/app
-sudo -u artbucket git checkout v0.9.0
+sudo -u artbucket git checkout v1.0.0
 sudo -u artbucket pnpm install --frozen-lockfile
 sudo -u artbucket cp .env.example .env    # fill it in
 sudo -u artbucket pnpm build

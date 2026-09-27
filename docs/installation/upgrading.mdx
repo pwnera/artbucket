@@ -12,7 +12,7 @@ database is as it was.
 # Docker Compose
 docker compose --profile app pull && docker compose --profile app up -d
 # Docker
-docker pull ghcr.io/pwnera/artbucket:0.9 && docker rm -f artbucket && docker run ... ghcr.io/pwnera/artbucket:0.9
+docker pull ghcr.io/pwnera/artbucket:1 && docker rm -f artbucket && docker run ... ghcr.io/pwnera/artbucket:1
 ```
 
 ## What makes that hold
@@ -28,12 +28,18 @@ docker pull ghcr.io/pwnera/artbucket:0.9 && docker rm -f artbucket && docker run
 Take a backup before a major upgrade anyway: `pg_dump` for the database, and
 your bucket's `assets/` prefix for the originals.
 
-## Before v1.0
+## Which tag to run
 
-The API can still change between minor versions (0.8 to 0.9); the release
-notes say how. From v1.0, `/api/v1` and the MCP tools are frozen.
+`ghcr.io/pwnera/artbucket:1` follows every 1.x release: fixes and additions,
+never a change that breaks an integration ([Stability](/developers/stability)).
+Pin `1.0` to take fixes only, or `1.0.0` to move only when you say.
+
+Before 1.0 the API changed between minor versions (0.8 to 0.9); the release
+notes said how. From 0.9, upgrading to 1.0 changes nothing you call.
 
 ## Notes by version
+
+**1.0.** Nothing to do. `/api/v1` and the MCP tools are frozen from here.
 
 **0.9.** Deleting an asset now keeps it restorable for 30 days. Browser uploads
 started before the upgrade and finished after it need to be started again.

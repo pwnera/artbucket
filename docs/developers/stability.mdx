@@ -1,0 +1,63 @@
+---
+title: Stability
+description: What 1.0 promises, what may still change, and how anything is retired.
+---
+
+Since 1.0 there is one promise: an integration written against `/api/v1` or
+the MCP tools keeps working, on every 1.x release. Versions follow
+[semver](https://semver.org): a patch fixes, a minor adds, and a break would be
+a major, served beside the old one rather than instead of it.
+
+## Frozen
+
+- **Every route and method** under `/api/v1`, at the path it has now.
+- **Inputs:** every parameter and body property still accepted, with at least
+  the values and sizes it accepted. Nothing optional becomes required.
+- **Outputs:** every property still there, with the type it had. Nothing that
+  was always present becomes optional or null.
+- **Scopes:** no route needs more than it did. What works with a `read` key
+  keeps working with one.
+- **Error shape:** `{ "error": { "code", "message", "detail"? } }`, and the codes
+  in the [REST API](/developers/api) table keep their meaning and status.
+- **MCP tools:** every tool, by name, with every argument it takes.
+- **Rendition URLs:** `/a/{id}` and `/a/{id}/{transform}`, with the transform
+  keys in use today.
+
+## Free to change
+
+- New routes, new MCP tools, new optional inputs.
+- New properties in responses. **Ignore properties you don't know.**
+- New values in an enum a response carries, such as a new asset state or type.
+  Handle the ones you know and pass the rest through.
+- Error messages: they are for people. Match on `code`.
+- Tool and route descriptions, and the MCP server's instructions.
+- Anything under `/api/auth`, which is better-auth's own surface for signing
+  in; the web app is its only client.
+
+## How it's held
+
+`contract/api-v1.json` and `contract/mcp-v1.json` are the frozen surface. A
+test compares the running spec with them, and CI compares every pull request
+with the base branch's copy, so re-freezing can't hide a break. Anything added
+is frozen with it by `pnpm contract:freeze`, which refuses when something
+breaks.
+
+## Deprecation
+
+Something that has to go is deprecated first, never removed in 1.x:
+
+1. The OpenAPI operation is marked `deprecated: true`, its description says
+   what to use instead, and the release notes say so.
+2. Responses from it carry `Deprecation: true` and a `Link` to the
+   replacement.
+3. It keeps working for at least twelve months and until the next major, and
+   is removed there only.
+
+Security fixes are the one exception: if keeping something working keeps a
+hole open, it closes, and the advisory says what changed.
+
+## Supported versions
+
+The latest minor of the current major gets fixes; security fixes also go to
+the previous minor for three months after a new one ships. See
+[SECURITY.md](https://github.com/pwnera/artbucket/blob/main/SECURITY.md).

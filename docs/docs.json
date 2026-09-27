@@ -3,18 +3,38 @@
   "theme": "mint",
   "name": "Artbucket",
   "description": "Agent-first, headless-by-design asset management: a brand knowledge graph with a blob store attached.",
-  "colors": { "primary": "#6D4AFF", "light": "#9C85FF", "dark": "#5A3BE0" },
+  "colors": {
+    "primary": "#6D4AFF",
+    "light": "#9C85FF",
+    "dark": "#5A3BE0"
+  },
   "favicon": "/favicon.svg",
-  "logo": { "light": "/favicon.svg", "dark": "/favicon.svg" },
+  "logo": {
+    "light": "/favicon.svg",
+    "dark": "/favicon.svg"
+  },
   "navbar": {
-    "primary": { "type": "github", "href": "https://github.com/pwnera/artbucket" }
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/pwnera/artbucket"
+    }
   },
   "footer": {
-    "socials": { "github": "https://github.com/pwnera/artbucket" }
+    "socials": {
+      "github": "https://github.com/pwnera/artbucket"
+    }
   },
   "navigation": {
     "groups": [
-      { "group": "General", "pages": ["introduction", "quickstart", "how-it-works", "support"] },
+      {
+        "group": "General",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "how-it-works",
+          "support"
+        ]
+      },
       {
         "group": "Installation",
         "pages": [
@@ -36,14 +56,43 @@
           "configuration/security"
         ]
       },
-      { "group": "Guides", "pages": ["guides/assets", "guides/canon", "guides/check", "guides/sharing"] },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/assets",
+          "guides/canon",
+          "guides/check",
+          "guides/sharing"
+        ]
+      },
       {
         "group": "Developers",
         "pages": [
           "developers/api",
           "developers/mcp",
           "developers/cli",
-          { "group": "API reference", "openapi": "openapi.json" }
+          "developers/stability",
+          "developers/benchmarks",
+          {
+            "group": "API reference",
+            "openapi": "openapi.json"
+          }
+        ]
+      },
+      {
+        "group": "Decisions",
+        "pages": [
+          "decisions/index",
+          "decisions/0001-ui-is-an-api-client",
+          "decisions/0002-renditions-are-urls",
+          "decisions/0003-one-core-two-doors",
+          "decisions/0004-postgres-and-nothing-else",
+          "decisions/0005-agents-propose",
+          "decisions/0006-grants-and-free-sso",
+          "decisions/0007-lifecycle-at-delivery",
+          "decisions/0008-migrations-on-start",
+          "decisions/0009-agpl-and-ee",
+          "decisions/0010-frozen-v1"
         ]
       }
     ]

@@ -1,0 +1,23 @@
+---
+title: "0005: What an agent writes is a proposal"
+description: Accepted, v0.4.
+---
+
+## Context
+
+Agents make things fast and make mistakes confidently. A library that takes
+an agent's upload as final fills with plausible, wrong assets.
+
+## Decision
+
+The `propose` scope sits between `read` and `write`. What a propose-scoped
+caller uploads lands `proposed`, and tags it suggests wait beside the asset's
+own; a person approves or rejects each, and a rejection keeps its reason. The
+agent reads back what became of its proposals (`my_proposals`).
+
+## Consequences
+
+- Agents get `propose` by default when connected, and are useful without
+  being trusted.
+- Review is a queue people have to work. The app puts it in front of them.
+- Guests on upload links are proposers too, by the same rule.

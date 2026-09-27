@@ -1,0 +1,23 @@
+---
+title: "0008: Migrations are only added, and run on start"
+description: Accepted, v0.9.
+---
+
+## Context
+
+Self-hosters skip versions. An upgrade that needs a manual step per version
+is an upgrade that doesn't happen.
+
+## Decision
+
+The server applies every migration it has that the database doesn't, in
+order, in one transaction, under an advisory lock, before serving. Released
+migrations are never edited. CI fails a pull request that edits one, that
+changes the schema without one, or whose migrations don't take the base
+branch's database, filled with rows, to the new schema.
+
+## Consequences
+
+- Any release upgrades from any earlier one by starting it.
+- Destructive schema changes take two releases: stop using, then drop.
+- `scripts/upgrade-fixture.sql` has to be kept in step with the schema.

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking. This is a young project with one maintainer, so a short
+Thanks for looking. This project has one maintainer, so a short
 conversation before a large PR saves us both time.
 
 ## Before you write code
@@ -46,6 +46,26 @@ These are the conventions the codebase already follows.
    resource caps get the careful version, always.
 6. **Deliberate shortcuts get a `ponytail:` comment** naming the ceiling and the
    upgrade path, e.g. `// ponytail: buffers the whole file; stream when video lands`.
+
+## The v1 contract
+
+`/api/v1` and the MCP tools are frozen ([Stability](docs/developers/stability.mdx)).
+Add, never change: a new optional input, a new response field, a new route.
+When you add to the API or a tool:
+
+```bash
+pnpm docs:openapi      # the docs' API reference
+pnpm contract:freeze   # takes the addition into contract/; refuses a break
+```
+
+`pnpm test` fails on a break, and CI checks your branch against the base
+branch's contract too. If something truly has to go, deprecate it and open an
+issue: it waits for v2.
+
+## Decisions
+
+The load-bearing ones are in [docs/decisions](docs/decisions/). A change that
+goes against one needs a new record that replaces it, in the same PR.
 
 ## Database changes
 

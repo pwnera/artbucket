@@ -1,0 +1,26 @@
+---
+title: "0010: v1 is frozen by a test, not a promise in prose"
+description: Accepted, v1.0.
+---
+
+## Context
+
+"We won't break the API" is a sentence. Breaks happen through small edits
+nobody flags: a field made optional, a max length lowered, an enum value
+dropped.
+
+## Decision
+
+The surface is kept as data in `contract/`: the OpenAPI paths and every MCP
+tool's input schema at the moment they were frozen. lib/contract.ts compares
+the current surface with it by the rules in
+[Stability](/developers/stability): inputs may only accept more, outputs may
+only promise more. The test suite checks the branch's own copy; CI checks the
+base branch's, so re-freezing in the same change can't hide a break.
+
+## Consequences
+
+- Additions have to be frozen too (`pnpm contract:freeze`), so what ships in
+  1.1 is as fixed as what shipped in 1.0.
+- The comparison is structural. A change of meaning with the same shape is
+  still caught only in review.
