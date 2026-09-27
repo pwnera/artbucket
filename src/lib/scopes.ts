@@ -16,8 +16,8 @@ export const allows = (have: Scope | null, need: Scope) =>
 
 /**
  * `ANONYMOUS_SCOPE`: what a request without a key or a session may do. "none"
- * means nothing; unset is undefined, which lib/core/access.ts reads as admin
- * until the first account exists and none after.
+ * means nothing; unset is undefined, which lib/core/access.ts reads as
+ * nothing too.
  */
 export function parseAnonymous(raw: string | undefined): Scope | null | undefined {
   if (raw === undefined || raw.trim() === "") return undefined;

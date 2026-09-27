@@ -15,9 +15,8 @@ const schema = z.object({
     .transform((v) => v === "true"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   /**
-   * What a request without an API key or a session may do. Unset: everything
-   * until someone makes an account, which is what a fresh install on
-   * localhost wants, then nothing. See lib/scopes.ts.
+   * What a request without an API key or a session may do, once the first
+   * account exists (before, nothing works). Unset: nothing. See lib/scopes.ts.
    */
   ANONYMOUS_SCOPE: z.string().optional().transform((v, ctx) => {
     try {

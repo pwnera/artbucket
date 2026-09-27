@@ -29,13 +29,15 @@ export async function get<B, T>(path: string, pick: (body: B) => T, fallback: T)
 }
 
 /**
- * Who is looking, once per request however many ask. Nobody who may see
- * nothing goes to sign in; somebody signed in with nowhere to be goes to
- * /welcome.
+ * Who is looking, once per request however many ask. Before the first
+ * account exists, everyone goes to make it; after, nobody who may see
+ * nothing goes to sign in, and somebody signed in with nowhere to be goes
+ * to /welcome.
  */
 export const whoami = cache(async (): Promise<Me> => {
   const me = await get("me", (b: { data: Me }) => b.data, null);
-  if (!me) redirect("/login");
+  // No account yet: making the first one is the only thing to do.
+  if (!me || me.auth.signUp) redirect("/login");
   if (!can(me, "library.read")) redirect(me.user ? "/welcome" : "/login");
   return me;
 });

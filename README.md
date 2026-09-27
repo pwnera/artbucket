@@ -60,10 +60,9 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://localhost:3000 and drop in a file. Until someone makes an
-account the library is open to anyone who can reach it; make the first one
-(Sign in, at the bottom of the sidebar) and it is yours, and closed to
-everyone else.
+Open http://localhost:3000 and make the first account: it is the admin of
+everything, and until it exists nothing else works, in the app or the API.
+Then drop in a file.
 
 ## Using it
 
@@ -193,10 +192,9 @@ curl -X POST localhost:3000/api/v1/keys -H 'content-type: application/json' \
   -d '{"name":"claude","scope":"propose"}'
 ```
 
-A request with neither a key nor a session gets `ANONYMOUS_SCOPE`. Unset,
-that is `admin` until the first account exists, so a fresh install on
-localhost needs nothing, and nothing after. Set it to decide yourself: `read`
-for a public library, `none` to be explicit.
+A request with neither a key nor a session gets `ANONYMOUS_SCOPE`, which
+unset is nothing: `read` makes a public library. Before the first account
+exists every request is a `403 setup_required`, whatever it carries.
 
 ### People and access
 
@@ -584,7 +582,7 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 | `OIDC_NAME` | The button's label: "Sign in with {OIDC_NAME}" (default `SSO`) |
 | `EMAIL_PROVIDER` | `resend`, `postmark`, `sendgrid` or `console`: email for every organization that doesn't set its own. Unset: off |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | The sender, where replies go, and the provider's key |
-| `ANONYMOUS_SCOPE` | What a request without a key or a session may do: `none`, `read`, `propose`, `write`, `admin`; unset, `admin` until the first account exists and nothing after |
+| `ANONYMOUS_SCOPE` | What a request without a key or a session may do, once the first account exists: `none` (the default), `read`, `propose`, `write`, `admin` |
 
 ## Stack
 

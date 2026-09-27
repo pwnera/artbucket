@@ -176,11 +176,12 @@ export function SignInPage({ auth, next }: { auth: Me["auth"]; next?: string }) 
       title={first ? "Make the first account" : "Sign in to Artbucket"}
       lead={
         first
-          ? "Nobody has an account here yet. The first one is the admin of everything, and from then on the library is closed to anyone who isn't signed in or holding a key."
+          ? "Welcome to Artbucket. Nothing works until this server has an account: the first one is the admin of everything, and from then on only people signed in, and API keys, get in."
           : "Accounts are by invitation: ask an admin for a link if you don't have one."
       }
     >
-      <AuthForm mode={first ? "up" : "in"} signUp={first} oidc={auth.oidc} callbackURL={next || "/"} forgot={auth.passwordReset} />
+      {/* First run: making the account is all there is; nobody has one to sign in with. */}
+      <AuthForm mode={first ? "up" : "in"} signUp={false} oidc={auth.oidc} callbackURL={next || "/"} forgot={auth.passwordReset} />
     </Card>
   );
 }

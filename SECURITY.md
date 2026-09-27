@@ -28,8 +28,11 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
 
 - The rendition endpoint decodes untrusted images with libvips. Keep `sharp`
   current, and put a CDN or rate limiter in front of `/a/*` on a public install.
-- A fresh install is open to anyone who can reach it until the first account
-  is made; make it before exposing the server, or set `ANONYMOUS_SCOPE=none`.
+- A fresh install does nothing until its first account is made, and that
+  account is the admin: make it before exposing the server, or whoever gets
+  there first owns it. Until then the API answers `403 setup_required`, API
+  keys from an earlier version included; only asset bytes at `/a/{id}` stay
+  served, so links already out in the world keep working.
 - Set `BETTER_AUTH_SECRET` to a random value (`openssl rand -base64 32`); the
   app refuses to start in production without one. It also encrypts secrets
   kept in settings (an email provider's API key): change it and those have to

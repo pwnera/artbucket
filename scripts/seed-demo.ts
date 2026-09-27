@@ -6,14 +6,18 @@
  *
  *   pnpm seed:demo                      # against http://localhost:3000
  *   APP_URL=https://demo.example pnpm seed:demo
- *   ARTBUCKET_KEY=ab_... pnpm seed:demo # once someone has an account: a write key
+ *   ARTBUCKET_KEY=ab_... pnpm seed:demo # a write key, from Agents
  *
  * Safe to re-run: fields and collections are reused by key and name,
  * identical bytes dedupe on upload, and existing brand rules are left as they are.
  */
 
 const APP = process.env.APP_URL ?? "http://localhost:3000";
-/** Once anyone has an account, the library is closed without one: pass a write key. */
+if (!process.env.ARTBUCKET_KEY) {
+  console.error("Set ARTBUCKET_KEY to a write key: make one on the Agents page after making the first account.");
+  process.exit(1);
+}
+/** A write key: the library is closed to requests without one. */
 const KEY = process.env.ARTBUCKET_KEY;
 const UA = "artbucket-seed-demo/0.1 (https://github.com/pwnera/artbucket)";
 

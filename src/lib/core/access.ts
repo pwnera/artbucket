@@ -18,8 +18,10 @@ import type { Scope } from "@/lib/scopes";
  * - a signed-in person: the workspace in the `ab_workspace` cookie if they
  *   can open it, else their first; their scope is what their grants add up
  *   to there (lib/access.ts)
- * - nobody: ANONYMOUS_SCOPE, which unset is admin until the first account
- *   exists and nothing after
+ * - nobody: ANONYMOUS_SCOPE, which unset is nothing
+ *
+ * Until the first account exists nothing works at all (lib/api.ts): the
+ * app asks for that account first, and it becomes the admin.
  */
 
 export type Workspace = {
@@ -46,9 +48,9 @@ export type Caller = Access & {
 /** The web app's workspace switcher sets this; it holds a workspace id. */
 export const WORKSPACE_COOKIE = "ab_workspace";
 
+/** Nothing before the first account exists, whatever ANONYMOUS_SCOPE says: setup comes first. */
 export async function anonymousScope(): Promise<Scope | null> {
-  if (env.ANONYMOUS_SCOPE !== undefined) return env.ANONYMOUS_SCOPE;
-  return (await hasUsers()) ? null : "admin";
+  return (await hasUsers()) ? (env.ANONYMOUS_SCOPE ?? null) : null;
 }
 
 const ws = {

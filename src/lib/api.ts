@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
 import { callerFrom, type Caller } from "@/lib/core/access";
+import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
 import { can, needs, type Action } from "@/lib/permissions";
 
@@ -60,7 +61,12 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   const caller = await callerFrom(req);
   const challenge = { "WWW-Authenticate": 'Bearer realm="artbucket"' };
   if (!caller) return fail(401, "unauthorized", "Unknown API key", undefined, challenge);
-  if (need === null || can(caller, need)) return caller;
+  if (need === null) return caller;
+  // A fresh install does one thing: make its first account, which is its admin. Keys from before wait too.
+  if (!(await hasUsers())) {
+    return fail(403, "setup_required", `Nobody has an account yet. Make the first one at ${env.APP_URL}/login`);
+  }
+  if (can(caller, need)) return caller;
   if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
   if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.workspace.name}`);
   return fail(401, "unauthorized", `Sign in, or send an API key with ${needs(need)}`, undefined, challenge);

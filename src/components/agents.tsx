@@ -95,9 +95,7 @@ export function Agents({
               <div className="space-y-1">
                 <p className="font-medium">Without a key, anyone can {anonymous === "admin" ? "do anything" : "change everything"}</p>
                 <p className="text-muted-foreground">
-                  {sidebar.me.auth.signUp &&
-                    "Nobody has an account yet, so the library is open. Make the first account (Sign in, at the bottom of the sidebar): from then on, only people signed in and keys get in. "}
-                  Or set <code className="font-mono text-xs">ANONYMOUS_SCOPE=read</code> (or <code className="font-mono text-xs">none</code>) to decide it yourself.
+                  <code className="font-mono text-xs">ANONYMOUS_SCOPE</code> is set to {anonymous}. Unless the library is meant to be public, remove it or set it to <code className="font-mono text-xs">read</code>.
                 </p>
               </div>
             </div>
