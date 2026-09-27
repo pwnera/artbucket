@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import type { FieldDef } from "@/lib/fields";
 import { Gallery, type Listing } from "@/components/gallery";
 import { get, sidebarData } from "@/lib/sidebar";
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[]>> }) {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(await searchParams)) for (const x of [v].flat()) params.append(k, x);
+  // Custom fields moved into Settings; old links still land there.
+  if (params.has("fields")) redirect("/settings/workspace/fields");
   const query = viewQuery(parseView(params), false);
   const empty: Listing = { data: [], total: 0, facets: { tags: [] } };
   const [initial, fields, sidebar] = await Promise.all([

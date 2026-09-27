@@ -22,6 +22,7 @@ import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
+import type { Ability, Resource } from "@/lib/access";
 
 export type AssetStatus = "active" | "proposed" | "rejected";
 
@@ -36,10 +37,16 @@ export const assets = pgTable(
   "assets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    sha256: text("sha256").notNull().unique(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    /** Unique within a workspace. Storage is keyed by it alone, so workspaces share identical bytes. */
+    sha256: text("sha256").notNull(),
     filename: text("filename").notNull(),
     mime: text("mime").notNull(),
     size: integer("size").notNull(),
+    /** Only people with a grant on it (or a collection it is in) and admins see it (lib/access.ts). */
+    private: boolean("private").notNull().default(false),
     width: integer("width"),
     height: integer("height"),
     /** Freeform probe output (format, pages, colour space). */
@@ -106,7 +113,8 @@ export const assets = pgTable(
       .default(sql`now()`),
   },
   (t) => [
-    index("assets_created_at_idx").on(t.createdAt.desc()),
+    unique("assets_workspace_sha256_unique").on(t.workspaceId, t.sha256),
+    index("assets_workspace_created_at_idx").on(t.workspaceId, t.createdAt.desc()),
     index("assets_search_idx").using("gin", t.search),
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
     // Field filters match the effective value, own over inherited: `inherited || fields`.
@@ -124,10 +132,15 @@ export type NewAsset = typeof assets.$inferInsert;
 /** A named set of assets that can carry field values its members inherit. */
 export const collections = pgTable("collections", {
   id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
   icon: text("icon"),
   fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+  /** Only people with a grant on it and admins see it; assets in private collections only are private too. */
+  private: boolean("private").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(sql`now()`),
@@ -151,14 +164,17 @@ export const collectionAssets = pgTable(
 );
 
 /**
- * The library's custom field schema. `key` is the identity: it is what asset
+ * A workspace's custom field schema. `key` is the identity: it is what asset
  * values are stored under, so it and `type` never change once created. Make a
  * new field instead.
  */
 export const fields = pgTable(
   "fields",
   {
-  key: text("key").primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
   label: text("label").notNull(),
   type: text("type").$type<FieldType>().notNull(),
   options: jsonb("options").$type<string[]>().notNull().default([]),
@@ -169,6 +185,7 @@ export const fields = pgTable(
     .default(sql`now()`),
   },
   (t) => [
+    primaryKey({ columns: [t.workspaceId, t.key] }),
     check("fields_type_check", sql`${t.type} in ('text', 'number', 'date', 'boolean', 'select')`),
   ],
 );
@@ -179,6 +196,9 @@ export const fields = pgTable(
  */
 export const savedSearches = pgTable("saved_searches", {
   id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   query: text("query").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -187,14 +207,18 @@ export const savedSearches = pgTable("saved_searches", {
 });
 
 /**
- * API keys. Only a SHA-256 of the secret is stored: keys are 256 random bits,
- * so a fast hash is enough and a leaked table leaks no usable key. `prefix`
+ * API keys, one workspace each. Only a SHA-256 of the secret is stored: keys
+ * are 256 random bits, so a fast hash is enough and a leaked table leaks no usable key. `prefix`
  * is the first characters of the secret, to tell keys apart in a list.
  */
 export const apiKeys = pgTable(
   "api_keys",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** A key works in one workspace, with one scope there. */
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     prefix: text("prefix").notNull(),
     hash: text("hash").notNull().unique(),
@@ -207,21 +231,27 @@ export const apiKeys = pgTable(
 );
 
 /**
- * A brand: its own rules and its own history. Exactly one is the default,
+ * A brand: its own rules and its own history. Exactly one per workspace is the default,
  * which is what /brand and an unqualified /api/v1/brand/rules mean.
  */
 export const brands = pgTable(
   "brands",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    slug: text("slug").notNull().unique(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
   },
-  (t) => [uniqueIndex("brands_one_default").on(t.isDefault).where(sql`${t.isDefault}`)],
+  (t) => [
+    unique("brands_workspace_slug_unique").on(t.workspaceId, t.slug),
+    uniqueIndex("brands_one_default").on(t.workspaceId).where(sql`${t.isDefault}`),
+  ],
 );
 
 /**
@@ -316,8 +346,8 @@ export const brandVersions = pgTable(
 export type ActivityVerb = "added" | "suggested" | "approved" | "rejected" | "deleted" | "suggested_tags";
 
 /**
- * What happened to assets, and who did it: a person in the app ("web") or an
- * API key by name. Brand rule changes are not here: brand_versions already
+ * What happened to assets, and who did it: a person by name, an API key by
+ * name, a share link's guest, or "web" for the app without an account. Brand rule changes are not here: brand_versions already
  * keeps them, and /api/v1/activity reads both. `assetId` is not a foreign
  * key: an asset's history outlives the asset.
  */
@@ -325,10 +355,15 @@ export const activity = pgTable(
   "activity",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
     at: timestamp("at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
     actor: text("actor").notNull(),
+    /** Done with an API key: an agent or a script, not a person in the app. */
+    agent: boolean("agent").notNull().default(false),
     verb: text("verb").$type<ActivityVerb>().notNull(),
     assetId: uuid("asset_id"),
     /** The asset's title or filename when it happened, so a deleted one still reads. */
@@ -336,5 +371,248 @@ export const activity = pgTable(
     /** Suggested tags, a rejection's reason. */
     detail: jsonb("detail").$type<{ tags?: string[]; note?: string }>(),
   },
-  (t) => [index("activity_at_idx").on(t.at.desc())],
+  (t) => [index("activity_workspace_at_idx").on(t.workspaceId, t.at.desc())],
+);
+
+// ---- people -----------------------------------------------------------------
+
+/**
+ * Accounts, as better-auth keeps them (lib/auth.ts): who someone is. What they
+ * may do is `grants`, which is ours.
+ */
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** A way to sign in: a password (`providerId` "credential") or an OIDC identity. */
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_user_idx").on(t.userId)],
+);
+
+export const verifications = pgTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---- tenancy and access -----------------------------------------------------
+
+/** A team, or a client of an agency: people, and the workspaces they share. */
+export const organizations = pgTable("organizations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * A library: its own assets, collections, fields, brands, searches and keys.
+ * Nothing crosses from one workspace to another but the stored bytes.
+ */
+export const workspaces = pgTable(
+  "workspaces",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("workspaces_org_slug_unique").on(t.organizationId, t.slug)],
+);
+
+/**
+ * What a person may do, and where: a scope (lib/scopes.ts) on an
+ * organization, a workspace, a collection or one asset. Grants add up and
+ * reach down: admin on the organization is admin in every workspace, write on
+ * a collection is write on its assets (lib/access.ts). Having one is being a
+ * member. `resourceId` names the thing; it is not a foreign key, so core
+ * deletes a collection's or an asset's grants with it.
+ */
+export const grants = pgTable(
+  "grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Null for a grant on the organization itself. */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    resource: text("resource").$type<Resource>().notNull(),
+    resourceId: uuid("resource_id").notNull(),
+    scope: text("scope").$type<Scope>().notNull(),
+    /** Abilities the scope would give that this grant doesn't: an editor who can't delete (lib/access.ts). */
+    limits: jsonb("limits").$type<Ability[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("grants_user_resource_unique").on(t.userId, t.resource, t.resourceId),
+    index("grants_org_idx").on(t.organizationId),
+    check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset')`),
+    check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
+    check("grants_workspace_check", sql`(${t.resource} = 'organization') = (${t.workspaceId} is null)`),
+  ],
+);
+
+/**
+ * A grant waiting for someone to take it. The link carries the token, found
+ * by its hash; the token itself is kept sealed, so an admin can copy the
+ * link again. `email` is who it was meant for.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    resource: text("resource").$type<Resource>().notNull(),
+    resourceId: uuid("resource_id").notNull(),
+    scope: text("scope").$type<Scope>().notNull(),
+    limits: jsonb("limits").$type<Ability[]>().notNull().default([]),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** The token again, sealed (lib/settings.ts seal), so an admin can copy the link later. Lookups use the hash. */
+    tokenSealed: text("token_sealed"),
+    invitedBy: text("invited_by").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedBy: text("accepted_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("invitations_org_idx").on(t.organizationId),
+    check("invitations_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
+  ],
+);
+
+export type ShareKind = "view" | "upload";
+
+/**
+ * A link for people without an account. `view` shows a collection or one
+ * asset; `upload` takes files into a collection (or the workspace) as
+ * proposals. The token is kept as is, so its maker can copy the link again:
+ * a password (scrypt, lib/share.ts) is what protects one that matters.
+ */
+export const shareLinks = pgTable(
+  "share_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<ShareKind>().notNull(),
+    collectionId: uuid("collection_id").references(() => collections.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
+    name: text("name"),
+    token: text("token").notNull().unique(),
+    passwordHash: text("password_hash"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("share_links_workspace_idx").on(t.workspaceId),
+    check("share_links_kind_check", sql`${t.kind} in ('view', 'upload')`),
+    check(
+      "share_links_target_check",
+      sql`(${t.kind} = 'view' and num_nonnulls(${t.collectionId}, ${t.assetId}) = 1) or (${t.kind} = 'upload' and ${t.assetId} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Who changed who may do what: sign-ins, members, grants, invitations, keys,
+ * share links, workspaces. What happened to assets is `activity`; this is the
+ * trail a security review reads. Rows outlive what they name.
+ */
+export const audit = pgTable(
+  "audit",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    /** Null for what belongs to a person, not an organization: signing in. */
+    organizationId: uuid("organization_id"),
+    workspaceId: uuid("workspace_id"),
+    actor: text("actor").notNull(),
+    userId: text("user_id"),
+    keyId: uuid("key_id"),
+    action: text("action").notNull(),
+    /** What it was done to, as it read then: an email, a key's name, a collection. */
+    target: text("target"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+    ip: text("ip"),
+  },
+  (t) => [index("audit_org_at_idx").on(t.organizationId, t.at.desc()), index("audit_user_idx").on(t.userId)],
+);
+
+/**
+ * Settings (lib/settings.ts): one row per key and place, an organization's or
+ * a workspace's. Secret properties are sealed before they get here.
+ */
+export const settings = pgTable(
+  "settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Null for the organization's own. */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("settings_place_key_unique").on(t.organizationId, t.workspaceId, t.key).nullsNotDistinct()],
 );

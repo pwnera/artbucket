@@ -20,7 +20,9 @@ export function truncateFilename(name: string, max = 24): string {
 }
 
 /** The uppercase file-type badge: PSD, PNG, JPG. */
-export function fileTypeBadge(filename: string, mime: string): string {
+export function fileTypeBadge(filename: string, mime: string, probe?: Record<string, unknown> | null): string {
+  // A link is named by its title, whose dots say nothing about it: its service says what it is.
+  if (mime === "text/uri-list") return typeof probe?.service === "string" ? probe.service.toUpperCase() : "LINK";
   const dot = filename.lastIndexOf(".");
   if (dot > 0 && filename.length - dot <= 6) return filename.slice(dot + 1).toUpperCase();
   return (mime.split("/")[1] ?? "file").toUpperCase();

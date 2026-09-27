@@ -3,11 +3,10 @@ import { test } from "node:test";
 import { canonical, parseView, viewQuery } from "./view.ts";
 
 test("a view round-trips through its URL, in canonical order", () => {
-  const v = parseView(new URLSearchParams("f.budget.gte=10&asset=a1&type=font&tag=x&q=fox&f.channel=web&collection=c1&type=image&fields"));
+  const v = parseView(new URLSearchParams("f.budget.gte=10&asset=a1&type=font&tag=x&q=fox&f.channel=web&collection=c1&type=image"));
   assert.deepEqual(v.filters, { channel: ["web"] });
   assert.deepEqual(v.extra, [["f.budget.gte", "10"]]);
-  assert.equal(v.fields, true);
-  assert.equal(viewQuery(v), "q=fox&tag=x&type=font&type=image&collection=c1&f.channel=web&f.budget.gte=10&asset=a1&fields");
+  assert.equal(viewQuery(v), "q=fox&tag=x&type=font&type=image&collection=c1&f.channel=web&f.budget.gte=10&asset=a1");
   assert.equal(viewQuery(v, false), "q=fox&tag=x&type=font&type=image&collection=c1&f.channel=web&f.budget.gte=10");
 });
 

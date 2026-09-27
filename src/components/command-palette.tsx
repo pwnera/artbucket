@@ -13,10 +13,15 @@ import {
   IconRobot,
   IconSunMoon,
   IconUpload,
+  IconMailPlus,
+  IconSettings,
+  IconShare,
+  IconUsers,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import type { SavedSearch } from "@/components/app-sidebar";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
+import { useCan } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import type { Asset } from "@/components/gallery";
 import {
@@ -30,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { hasPreview } from "@/lib/preview";
 
 /**
  * ⌘K: find anything (assets, brand rules, collections, saved searches,
@@ -55,6 +61,7 @@ export function CommandPalette({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const can = useCan();
   const { resolvedTheme, setTheme } = useTheme();
   const [q, setQ] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -130,7 +137,7 @@ export function CommandPalette({
                 onSelect={() => go(`/?asset=${a.id}`)}
               >
                 <span className="bg-muted relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border">
-                  {a.mime.startsWith("image/") ? (
+                  {hasPreview(a) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={`/a/${a.id}/w_64,f_webp`} alt="" className="size-full object-contain" />
                   ) : (
@@ -200,10 +207,28 @@ export function CommandPalette({
           <CommandItem value="Review suggested approve" onSelect={() => go("/?review")}>
             <IconInbox /> Review
           </CommandItem>
-          <CommandItem value="Activity history audit log" onSelect={() => go("/activity")}>
+          <CommandItem value="Activity history" onSelect={() => go("/activity")}>
             <IconActivity /> Activity
           </CommandItem>
-          <CommandItem value="Custom fields schema" onSelect={() => go("/?fields")}>
+          {can("member.manage") && (
+            <>
+              <CommandItem value="Team people members organization" onSelect={() => go("/team")}>
+                <IconUsers /> Team
+              </CommandItem>
+              <CommandItem value="Invite people someone add member email" onSelect={() => go("/team?invite")}>
+                <IconMailPlus /> Invite people
+              </CommandItem>
+            </>
+          )}
+          {can("share.manage") && (
+            <CommandItem value="Share and upload links request uploads collect guest photographer agency" onSelect={() => go("/team?tab=sharing")}>
+              <IconShare /> Share and upload links
+            </CommandItem>
+          )}
+          <CommandItem value="Settings share links audit log email workspace organization fields" onSelect={() => go("/settings")}>
+            <IconSettings /> Settings
+          </CommandItem>
+          <CommandItem value="Custom fields schema" onSelect={() => go("/settings/workspace/fields")}>
             <IconAdjustments /> Custom fields
           </CommandItem>
         </CommandGroup>

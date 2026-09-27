@@ -5,11 +5,15 @@ import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
+import type { Caller } from "@/lib/core/access";
 import { record } from "@/lib/core/activity";
-import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
+import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { isRenderable } from "@/lib/core/renditions";
+import { dropGrants, keepReach } from "@/lib/core/people";
+import { collectionScope, reach } from "@/lib/access";
+import { can, needs, type Action } from "@/lib/permissions";
+import { linkTitle, previewOf } from "@/lib/core/previews";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
@@ -18,7 +22,9 @@ import { fontMime } from "@/lib/font";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
+import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
+import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, MAX_DIMENSION, PRESETS } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
@@ -37,11 +43,19 @@ import {
  * The service layer. Every adapter - REST, MCP, CLI, the web UI - goes through
  * here and nowhere else. That constraint is what keeps the public API honest:
  * if the UI can't be built on it, it isn't finished.
+ *
+ * Everything is inside the caller's workspace (lib/core/access.ts). A caller
+ * with read on the workspace sees all of it; one with grants on some
+ * collections or assets only (lib/access.ts) sees those, and writes where its
+ * grant says it may.
  */
 
 // The search vector is an index, not data: it never leaves the database.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { search: _search, ...own } = getTableColumns(assets);
+/** Assets in collections: the lowest scope over them decides what an upload into them becomes. */
+const lowest = (scopes: (Scope | null)[]) =>
+  scopes.some((s) => s === null) ? null : (SCOPES[Math.min(...scopes.map((s) => SCOPES.indexOf(s!)))] ?? null);
 const columns = {
   ...own,
   /** Ids of the collections this asset is in. */
@@ -51,6 +65,31 @@ const columns = {
   )`,
 };
 export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[] };
+
+/**
+ * Private, as SQL: its own flag, or it is in collections and every one of
+ * them is private. lib/access.ts isPrivate, for a query.
+ */
+export const privateAsset = (hidden: string[]) => sql`(${assets.private} or (
+  exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id})
+  and not exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and not ${inArray(sql`ca.collection_id`, [...hidden, NO_ID])})
+))`;
+
+/**
+ * What this caller may see: all of the workspace with read on it, private
+ * assets aside unless it is admin; and what its grants reach, an asset on its
+ * own or through a collection it is in.
+ */
+export function visible(caller: Caller): SQL {
+  const inWorkspace = eq(assets.workspaceId, caller.workspace.id);
+  if (allows(caller.scope, "admin")) return inWorkspace;
+  const r = reach(caller, "read");
+  const granted = or(
+    inArray(assets.id, [...r.assets, NO_ID]),
+    sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, [...r.collections, NO_ID])})`,
+  );
+  return and(inWorkspace, allows(caller.scope, "read") ? or(sql`not ${privateAsset(caller.hidden)}`, granted) : granted)!;
+}
 
 export { MAX_UPLOAD_BYTES };
 
@@ -85,47 +124,50 @@ export async function createUploadTicket(input: {
  * ponytail: buffers the whole object to hash and probe it. Fine to ~512MB on a
  * single box; stream through a hash transform when large video lands (v0.2+).
  */
-export async function finalizeUpload(input: {
-  token: string;
-  filename: string;
-  mime: string;
-  fields?: Record<string, unknown>;
-  /** Collections to file it into. Their values count toward required fields. */
-  collections?: string[];
-  /** Added to any keywords read from the file. */
-  tags?: string[];
-  /** `proposed` when an agent (a propose-scoped key) is the uploader. */
-  status?: AssetStatus;
-  /** Who is uploading: a key's name, or "web". Recorded on proposed assets. */
-  actor?: string;
-} & Provenance): Promise<{ asset: Asset; deduped: boolean }> {
+export async function finalizeUpload(
+  caller: Caller,
+  input: {
+    token: string;
+    filename: string;
+    mime: string;
+    fields?: Record<string, unknown>;
+    /** Collections to file it into. Their values count toward required fields. */
+    collections?: string[];
+    /** Added to any keywords read from the file. */
+    tags?: string[];
+  } & Provenance,
+): Promise<{ asset: Asset; deduped: boolean }> {
+  const ws = caller.workspace.id;
+  const into = [...new Set(input.collections ?? [])];
+  const proposed = !allows(uploadScope(caller, into), "write");
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
     throw new AssetError("not_found", "No staged upload for that token");
   }
   // Checked before any bytes move: a rejected upload stays staged, so the
   // client can fix the fields and retry with the same token.
-  const into = input.collections ?? [];
   // A proposal may leave required fields empty: an agent can't always know
   // them. The person approving it fills them in (updateAsset checks).
-  const proposed = input.status === "proposed";
-  const values = withoutNulls(await validFields(input.fields ?? {}, proposed ? "patch" : "upload", await inheritedFrom(into)));
-  if (input.parentAssetId) await mustExist(input.parentAssetId, "parentAssetId");
+  const values = withoutNulls(await validFields(ws, input.fields ?? {}, proposed ? "patch" : "upload", await inheritedFrom(ws, into)));
+  if (input.parentAssetId) await mustExist(caller, input.parentAssetId, "parentAssetId");
 
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
-  const existing = await bySha(sha256);
+  const existing = await bySha(ws, sha256);
   if (existing) {
     await deleteObject(staged);
-    return { asset: await fileInto(into, existing.id), deduped: true };
+    return { asset: await fileInto(ws, into, existing.id), deduped: true };
   }
 
-  const probe = await probeImage(bytes);
+  const mime = fontMime(bytes) ?? input.mime;
+  // Anything but a web image gets a look for what it can show as: a still, an
+  // animation, an embed. Even one sharp probes: it reads HEIC's header, not its pixels.
+  const image = await probeImage(bytes);
+  const probe = isRenderable(mime) ? image : { ...image, ...(await previewOf(bytes, mime)) };
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
-  const mime = fontMime(bytes) ?? input.mime;
   // Content Credentials say how it was made, unless the uploader says otherwise.
   const c2pa = readC2pa(bytes);
   await putObject(originalKey(sha256), bytes, mime);
@@ -134,6 +176,7 @@ export async function finalizeUpload(input: {
   const [row] = await db
     .insert(assets)
     .values({
+      workspaceId: ws,
       sha256,
       filename: input.filename,
       mime,
@@ -146,8 +189,8 @@ export async function finalizeUpload(input: {
       // is searchable by what it was already tagged with.
       tags: normalizeTags([...(keywords ?? []), ...(input.tags ?? [])]),
       fields: values as FieldValues,
-      status: input.status ?? "active",
-      proposedBy: proposed ? (input.actor ?? null) : null,
+      status: proposed ? "proposed" : "active",
+      proposedBy: proposed ? caller.actor : null,
       rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
       origin: input.origin ?? (c2pa && originOf(c2pa)),
       parentAssetId: input.parentAssetId ?? null,
@@ -155,34 +198,57 @@ export async function finalizeUpload(input: {
       prompt: input.prompt ?? null,
       c2pa,
     })
-    .onConflictDoNothing({ target: assets.sha256 })
+    .onConflictDoNothing({ target: [assets.workspaceId, assets.sha256] })
     .returning({ id: assets.id });
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
-  if (!row) return { asset: await fileInto(into, (await bySha(sha256))!.id), deduped: true };
-  const asset = await fileInto(into, row.id);
-  await record(input.actor ?? "web", proposed ? "suggested" : "added", asset);
+  if (!row) return { asset: await fileInto(ws, into, (await bySha(ws, sha256))!.id), deduped: true };
+  const asset = await fileInto(ws, into, row.id);
+  await record(caller, proposed ? "suggested" : "added", asset);
   return { asset, deduped: false };
+}
+
+/**
+ * What an upload into these collections (or the workspace) becomes: write
+ * where it lands makes it active, propose makes it a proposal. Into
+ * collections, the least the caller may do in any of them decides. Less than
+ * propose is a 403, before any bytes move.
+ */
+function uploadScope(caller: Caller, into: string[]) {
+  const may = into.length ? into.every((id) => can(caller, "asset.upload", { id })) : can(caller, "workspace.upload");
+  if (!may) throw new AssetError("forbidden", into.length ? "You can't add to that collection" : "Upload into a collection you have access to");
+  return into.length ? lowest(into.map((c) => collectionScope(caller, c))) : caller.scope;
 }
 
 /**
  * File an asset into the upload's collections and return it fresh. A deduped
  * upload is filed too: same bytes, but the uploader aimed them somewhere.
  */
-async function fileInto(collectionIds: string[], id: string): Promise<Asset> {
-  if (collectionIds.length) await db.transaction((tx) => joinCollections(tx, collectionIds, id));
-  return (await getAsset(id))!;
+async function fileInto(ws: string, collectionIds: string[], id: string): Promise<Asset> {
+  if (collectionIds.length) await db.transaction((tx) => joinCollections(tx, ws, collectionIds, id));
+  return (await findAsset(id))!;
 }
 
 /**
  * Ingest from a URL: the server fetches it, stages it, and promotes it like
  * any upload. For agents, which can name a URL but can't PUT bytes. The fetch
  * refuses private and loopback addresses (lib/fetch-public.ts).
+ *
+ * A Figma or Google Docs, Sheets, Slides or Drive link isn't fetched: its
+ * bytes would be the service's web app. It is kept as the link itself
+ * (text/uri-list) and shows as the service's embed (lib/preview.ts parseLink).
  */
 export async function ingestFromUrl(
-  input: Omit<Parameters<typeof finalizeUpload>[0], "token" | "filename" | "mime"> & { url: string; filename?: string },
+  caller: Caller,
+  input: Omit<Parameters<typeof finalizeUpload>[1], "token" | "filename" | "mime"> & { url: string; filename?: string },
 ) {
   const { url, filename, ...rest } = input;
+  uploadScope(caller, rest.collections ?? []);
+  const kept = parseLink(url);
+  if (kept) {
+    const name = filename ?? (await linkTitle(url)) ?? `${kept.service === "Figma" ? "Figma" : `Google ${kept.service}`} link`;
+    return stageAndFinalize(caller, rest, Buffer.from(`${url}\r\n`), "text/uri-list", name);
+  }
   let fetched;
   try {
     fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
@@ -194,11 +260,21 @@ export async function ingestFromUrl(
   }
   const name =
     filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
+  return stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name);
+}
+
+async function stageAndFinalize(
+  caller: Caller,
+  rest: Omit<Parameters<typeof finalizeUpload>[1], "token" | "filename" | "mime">,
+  bytes: Buffer,
+  mime: string,
+  name: string,
+) {
   await ensureBucket();
   const token = randomUUID();
-  await putObject(stagingKey(token), fetched.bytes, fetched.mime);
+  await putObject(stagingKey(token), bytes, mime);
   try {
-    return await finalizeUpload({ ...rest, token, filename: name.slice(0, 512), mime: fetched.mime });
+    return await finalizeUpload(caller, { ...rest, token, filename: name.slice(0, 512), mime });
   } catch (err) {
     // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
     await deleteObject(stagingKey(token)).catch(() => {});
@@ -242,7 +318,7 @@ const QueryParams = z.object({
  * Parse an /api/v1/assets query string. Shared by the list endpoint and saved
  * searches, so a search that saves is a search that runs.
  */
-export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQuery> {
+export async function parseAssetQuery(caller: Caller, params: URLSearchParams): Promise<AssetQuery> {
   const { tag, type, review, ...rest } = QueryParams.parse({
     q: params.get("q") ?? undefined,
     tag: params.getAll("tag"),
@@ -254,7 +330,7 @@ export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQue
   });
   const unknown = type.find((t) => !(ASSET_TYPES as readonly string[]).includes(t));
   if (unknown) throw new AssetError("invalid", `No asset type "${unknown}". Types: ${ASSET_TYPES.join(", ")}`);
-  const collection = rest.collection && (await collectionId(rest.collection));
+  const collection = rest.collection && (await collectionId(caller, rest.collection));
   try {
     return {
       ...rest,
@@ -262,7 +338,7 @@ export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQue
       tags: tag,
       types: type,
       review: review === "true",
-      filters: parseFieldFilters(params, await listFields()),
+      filters: parseFieldFilters(params, await listFields(caller.workspace.id)),
     };
   } catch (err) {
     if (err instanceof FilterError) throw new AssetError("invalid", err.message);
@@ -271,8 +347,8 @@ export async function parseAssetQuery(params: URLSearchParams): Promise<AssetQue
 }
 
 /** A collection by id, or by name (any case): agents and people remember names. */
-async function collectionId(ref: string): Promise<string> {
-  const all = await listCollections();
+async function collectionId(caller: Caller, ref: string): Promise<string> {
+  const all = await listCollections(caller);
   const hit = all.find((c) => c.id === ref) ?? all.find((c) => c.name.toLowerCase() === ref.trim().toLowerCase());
   if (hit) return hit.id;
   throw new AssetError(
@@ -320,22 +396,17 @@ function filterSql(f: FieldFilter): SQL {
  * matching set. Fine at the v0.2 target (1,000 assets, <100ms); cache or
  * approximate past ~100k.
  */
-export async function searchAssets({
-  q,
-  tags = [],
-  types = [],
-  collection,
-  filters = [],
-  review = false,
-  proposedBy,
-  limit = 100,
-  offset = 0,
-}: AssetQuery) {
+export async function searchAssets(
+  caller: Caller,
+  { q, tags = [], types = [], collection, filters = [], review = false, proposedBy, limit = 100, offset = 0 }: AssetQuery,
+) {
   const tsq = q ? prefixQuery(q) : null;
   const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
   const wanted = normalizeTags(tags);
+  const mine = visible(caller);
   const where = (except?: string, anyType = false) =>
     and(
+      mine,
       proposedBy !== undefined
         ? eq(assets.proposedBy, proposedBy)
         : review
@@ -350,7 +421,7 @@ export async function searchAssets({
       ...filters.filter((f) => f.key !== except).map(filterSql),
     );
 
-  const facetable = (await listFields()).filter(isFacetable);
+  const facetable = (await listFields(caller.workspace.id)).filter(isFacetable);
   const [data, [{ total }], tagCounts, typeCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)
@@ -414,16 +485,42 @@ async function fieldFacet(key: string, where: SQL | undefined) {
     .limit(50);
 }
 
-export async function getAsset(id: string): Promise<Asset | null> {
+/** An asset this caller may see, or null: one it can't see is one that isn't there. */
+export async function getAsset(caller: Caller, id: string): Promise<Asset | null> {
   // A malformed id is an asset that doesn't exist, not a database error.
+  if (!z.uuid().safeParse(id).success) return null;
+  const [asset] = await db
+    .select(columns)
+    .from(assets)
+    .where(and(eq(assets.id, id), visible(caller)))
+    .limit(1);
+  return asset ?? null;
+}
+
+/**
+ * Any asset, by id, whoever asks: for serving bytes at /a/{id}, which are
+ * public to whoever holds the URL, and for code that already checked.
+ */
+export async function findAsset(id: string): Promise<Asset | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const [asset] = await db.select(columns).from(assets).where(eq(assets.id, id)).limit(1);
   return asset ?? null;
 }
 
-async function bySha(sha256: string): Promise<Asset | null> {
-  const [asset] = await db.select(columns).from(assets).where(eq(assets.sha256, sha256)).limit(1);
+async function bySha(ws: string, sha256: string): Promise<Asset | null> {
+  const [asset] = await db
+    .select(columns)
+    .from(assets)
+    .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256)))
+    .limit(1);
   return asset ?? null;
+}
+
+/** The asset, if the caller may do `action` to it; a 403 when it may only look. */
+async function allowed(caller: Caller, id: string, action: Action): Promise<Asset | null> {
+  const asset = await getAsset(caller, id);
+  if (asset && !can(caller, action, asset)) throw new AssetError("forbidden", `You need ${needs(action)}`);
+  return asset;
 }
 
 /**
@@ -439,8 +536,8 @@ export type Provenance = {
   prompt?: string | null;
 };
 
-async function mustExist(id: string, what: string) {
-  if (!(await getAsset(id))) throw new AssetError("invalid", `${what}: no asset ${id}`);
+async function mustExist(caller: Caller, id: string, what: string) {
+  if (!(await getAsset(caller, id))) throw new AssetError("invalid", `${what}: no asset ${id}`);
 }
 
 /** The asset that replaces this one at last: replacements can be replaced too. */
@@ -448,7 +545,7 @@ export async function currentVersion(asset: Asset): Promise<Asset> {
   let at = asset;
   const seen = new Set([at.id]);
   while (at.supersededBy && !seen.has(at.supersededBy)) {
-    const next = await getAsset(at.supersededBy);
+    const next = await findAsset(at.supersededBy);
     if (!next) break;
     seen.add(next.id);
     at = next;
@@ -469,6 +566,8 @@ export type AssetPatch = {
   fields?: Record<string, unknown>;
   /** The asset that replaces this one; null un-replaces it. */
   supersededBy?: string | null;
+  /** Only grants on it (or a collection it is in) and admins reach it. */
+  private?: boolean;
 } & Provenance & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
@@ -476,6 +575,7 @@ export type AssetPatch = {
  * One statement, so concurrent edits to different fields don't clobber.
  */
 export async function updateAsset(
+  caller: Caller,
   id: string,
   {
     tags,
@@ -489,10 +589,15 @@ export async function updateAsset(
     generator,
     prompt,
     supersededBy,
+    private: hidden,
     ...fields
   }: AssetPatch,
-  actor = "web",
 ): Promise<Asset | null> {
+  // Deciding on a proposal is reviewing it; anything else is editing.
+  const reviewing = status !== undefined || reviewNote !== undefined || proposedTags !== undefined;
+  const current = await allowed(caller, id, reviewing ? "asset.review" : "asset.edit");
+  if (!current) return null;
+  const ws = caller.workspace.id;
   const set: PgUpdateSetSource<typeof assets> = {};
   if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
   if (origin !== undefined) set.origin = origin;
@@ -500,33 +605,32 @@ export async function updateAsset(
   if (prompt !== undefined) set.prompt = prompt?.trim() || null;
   if (parentAssetId) {
     if (parentAssetId === id) throw new AssetError("invalid", "An asset can't be made from itself");
-    await mustExist(parentAssetId, "parentAssetId");
+    await mustExist(caller, parentAssetId, "parentAssetId");
   }
   if (parentAssetId !== undefined) set.parentAssetId = parentAssetId;
   if (supersededBy) {
-    let at = await getAsset(supersededBy);
+    let at = await getAsset(caller, supersededBy);
     if (!at) throw new AssetError("invalid", `supersededBy: no asset ${supersededBy}`);
     // Following replacements must end somewhere: A replaced by B replaced by A never does.
-    for (const seen = new Set<string>(); at && !seen.has(at.id); at = at.supersededBy ? await getAsset(at.supersededBy) : null) {
+    for (const seen = new Set<string>(); at && !seen.has(at.id); at = at.supersededBy ? await findAsset(at.supersededBy) : null) {
       if (at.id === id) throw new AssetError("invalid", "That would make a loop: the replacement is, or leads back to, this asset");
       seen.add(at.id);
     }
   }
   if (supersededBy !== undefined) set.supersededBy = supersededBy;
+  if (hidden !== undefined) set.private = hidden;
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
   if (proposedTags) set.proposedTags = normalizeTags(proposedTags);
-  const current = (custom && Object.keys(custom).length) || status ? await getAsset(id) : null;
   if (custom && Object.keys(custom).length) {
-    if (!current) return null;
-    const values = await validFields(custom, "patch", current.inherited);
+    const values = await validFields(ws, custom, "patch", current.inherited);
     set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
   }
   // A proposal could skip required fields; it can't go live without them.
-  if (status === "active" && current && current.status !== "active") {
+  if (status === "active" && current.status !== "active") {
     const merged = { ...current.inherited, ...current.fields, ...(custom ?? {}) };
-    const missing = missingRequired(await listFields(), merged);
+    const missing = missingRequired(await listFields(ws), merged);
     if (missing.length) {
       throw new AssetError("invalid", `Fill in ${missing.map((d) => d.label).join(", ")} before approving`, {
         missing: missing.map((d) => d.key),
@@ -539,15 +643,16 @@ export async function updateAsset(
     );
     set.metadata = sql`jsonb_strip_nulls(coalesce(${assets.metadata}, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb)`;
   }
-  if (!Object.keys(set).length) return getAsset(id);
+  if (!Object.keys(set).length) return current;
   const [asset] = await db
     .update(assets)
     .set({ ...set, updatedAt: sql`now()` })
-    .where(eq(assets.id, id))
+    .where(and(eq(assets.id, id), eq(assets.workspaceId, ws)))
     .returning(columns);
+  if (asset && hidden) await keepReach(caller, "asset", id);
   // A review decision is worth a line in the activity; routine edits are not.
-  if (asset && current?.status === "proposed" && (status === "active" || status === "rejected")) {
-    await record(actor, status === "active" ? "approved" : "rejected", asset, asset.reviewNote ? { note: asset.reviewNote } : undefined);
+  if (asset && current.status === "proposed" && (status === "active" || status === "rejected")) {
+    await record(caller, status === "active" ? "approved" : "rejected", asset, asset.reviewNote ? { note: asset.reviewNote } : undefined);
   }
   return asset ?? null;
 }
@@ -557,10 +662,11 @@ export async function updateAsset(
  * to accept (move into `tags`) or dismiss. Tags the asset already has are
  * dropped, so a suggestion is always something new.
  */
-export async function proposeTags(id: string, suggested: string[], actor = "web"): Promise<Asset | null> {
+export async function proposeTags(caller: Caller, id: string, suggested: string[]): Promise<Asset | null> {
   const fresh = normalizeTags(suggested);
-  const before = await getAsset(id);
+  const before = await allowed(caller, id, "asset.propose_tags");
   if (!before) return null;
+  const actor = caller.actor;
   const [asset] = await db
     .update(assets)
     .set({
@@ -577,7 +683,7 @@ export async function proposeTags(id: string, suggested: string[], actor = "web"
     .returning(columns);
   // Only what is new, so suggesting the same tag twice is one line of activity.
   const added = fresh.filter((t) => !before.tags.includes(t) && !before.proposedTags.includes(t));
-  if (asset && added.length) await record(actor, "suggested_tags", asset, { tags: added });
+  if (asset && added.length) await record(caller, "suggested_tags", asset, { tags: added });
   return asset ?? null;
 }
 
@@ -589,7 +695,7 @@ export async function proposeTags(id: string, suggested: string[], actor = "web"
 export function describeAsset(asset: Asset) {
   const base = `${env.APP_URL}/a/${asset.id}`;
   const m = asset.metadata ?? {};
-  const renderable = isRenderable(asset.mime);
+  const renderable = hasPreview(asset);
   return {
     id: asset.id,
     filename: asset.filename,
@@ -657,13 +763,17 @@ export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embed
   return { body: out ?? bytes, embedded: out !== null };
 }
 
-export async function deleteAsset(id: string, actor = "web") {
-  const asset = await getAsset(id);
+export async function deleteAsset(caller: Caller, id: string) {
+  const asset = await allowed(caller, id, "asset.delete");
   if (!asset) return false;
   await db.delete(assets).where(eq(assets.id, id));
-  await record(actor, "deleted", asset);
-  // Renditions are left to an S3 lifecycle rule; they are derivable and cheap.
-  await deleteObject(originalKey(asset.sha256));
+  await dropGrants("asset", [id]);
+  await record(caller, "deleted", asset);
+  // Storage is shared by identical bytes in other workspaces: the original
+  // goes when nothing else holds it. Renditions are left to an S3 lifecycle
+  // rule; they are derivable and cheap.
+  const [other] = await db.select({ id: assets.id }).from(assets).where(eq(assets.sha256, asset.sha256)).limit(1);
+  if (!other) await deleteObject(originalKey(asset.sha256));
   return true;
 }
 
@@ -671,11 +781,12 @@ const withoutNulls = (v: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null));
 
 async function validFields(
+  ws: string,
   values: Record<string, unknown>,
   mode: "upload" | "patch",
   inherited: FieldValues = {},
 ) {
-  const parsed = fieldsValidator(relaxInherited(await listFields(), inherited), mode).safeParse(values);
+  const parsed = fieldsValidator(relaxInherited(await listFields(ws), inherited), mode).safeParse(values);
   if (!parsed.success) {
     throw new AssetError(
       "invalid",

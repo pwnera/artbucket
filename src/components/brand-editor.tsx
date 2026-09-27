@@ -16,7 +16,6 @@ import {
   IconHash,
   IconLetterCase,
   IconHistory,
-  IconLink,
   IconList,
   IconMessage,
   IconPalette,
@@ -30,12 +29,14 @@ import {
   IconX,
   type Icon,
 } from "@tabler/icons-react";
+import { Can } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { ThemeToggle } from "@/components/brand";
 import { History } from "@/components/brand-history";
-import { remember } from "@/components/sidebar-prefs";
+import { useRemember } from "@/components/sidebar-prefs";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
 import { copy, Editable, fontFiles, isFontAsset, Markdown, ReadOnly, RichText, ValueEditor } from "@/components/brand-values";
@@ -72,6 +73,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { isFont, pickFace } from "@/lib/font";
+import { hasPreview } from "@/lib/preview";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
 import {
   contextLabel,
@@ -162,9 +164,10 @@ export function BrandEditor({
   const [resets, setResets] = useState(0);
 
   // Opening a brand's guidelines puts them at the top of Recents.
+  const remember = useRemember();
   useEffect(() => {
     remember({ kind: "brand", id: brand.slug, label: `${brand.name} guidelines`, href: brandHref(brand) });
-  }, [brand]);
+  }, [brand, remember]);
 
   // The rule being edited stays in view beside the panel.
   const openKey = open?.key;
@@ -334,6 +337,7 @@ export function BrandEditor({
   return (
     <SidebarProvider>
       <AppSidebar
+        me={sidebar.me}
         collections={sidebar.collections}
         brands={sidebar.brands}
         searches={sidebar.searches}
@@ -350,43 +354,42 @@ export function BrandEditor({
           <Breadcrumb brand={brand} section={active ? meta(active).title : undefined} />
           <div className="ml-auto flex items-center gap-2">
             <Edited brand={brand} edits={edits} />
-            <Button
+            {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
+            <IconButton
               variant="ghost"
-              size="icon-sm"
+              label="Copy a link to this page"
               // A phone's header has room for the rest; its share sheet copies the link.
               className="hidden sm:inline-flex"
-              aria-label="Copy a link to this page"
-              title="Copy link"
               onClick={() => copy(window.location.href, "link")}
             >
-              <IconLink />
-            </Button>
-            {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
-            <Button variant="outline" size="sm" title="Colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
+              <IconCopy />
+            </IconButton>
+            <IconButton variant="ghost" label="Tokens: colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
               <IconCode />
-              <span className="sr-only sm:not-sr-only">Tokens</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
+            </IconButton>
+            <IconButton variant="ghost" label="History" onClick={() => setHistory(true)}>
               <IconHistory />
-              <span className="sr-only sm:not-sr-only">History</span>
-            </Button>
+            </IconButton>
             <ForAgents
               about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
               reads={brandReads(brand, context)}
             />
-            <Button
-              variant={editing ? "default" : "outline"}
-              size="sm"
-              aria-pressed={editing}
-              onClick={() => {
-                setEditing((e) => !e);
-                setOpen(null);
-                setDraft(null);
-              }}
-            >
-              {editing ? <IconCheck /> : <IconPencil />}
-              <span className="sr-only sm:not-sr-only">{editing ? "Done" : "Edit"}</span>
-            </Button>
+            {/* Every change here goes through Edit: gating it gates them all. */}
+            <Can do="brand.edit">
+              <Button
+                variant={editing ? "default" : "outline"}
+                size="sm"
+                aria-pressed={editing}
+                onClick={() => {
+                  setEditing((e) => !e);
+                  setOpen(null);
+                  setDraft(null);
+                }}
+              >
+                {editing ? <IconCheck /> : <IconPencil />}
+                <span className="sr-only sm:not-sr-only">{editing ? "Done" : "Edit"}</span>
+              </Button>
+            </Can>
             <ThemeToggle />
           </div>
         </header>
@@ -421,14 +424,16 @@ export function BrandEditor({
                     voice, words to avoid) and edit them into yours.
                   </EmptyDescription>
                 </EmptyHeader>
-                <div className="flex gap-2">
-                  <Button onClick={essentials}>
-                    <IconPlus /> Add the essentials
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditing(true)}>
-                    Start blank
-                  </Button>
-                </div>
+                <Can do="brand.edit">
+                  <div className="flex gap-2">
+                    <Button onClick={essentials}>
+                      <IconPlus /> Add the essentials
+                    </Button>
+                    <Button variant="outline" onClick={() => setEditing(true)}>
+                      Start blank
+                    </Button>
+                  </div>
+                </Can>
               </Empty>
             )}
 
@@ -590,14 +595,15 @@ export function BrandEditor({
 /** Where you are, Notion style: the guidelines, this brand, the section you are reading. */
 function Breadcrumb({ brand, section }: { brand: BrandInfo; section?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0">
-      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm">
-        <li className="hidden md:block">
+    <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
+      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap">
+        {/* The brand's name comes first when room is short; the trail back, when there is room. */}
+        <li className="hidden xl:block">
           <Link href="/brand" className="hover:text-foreground">
             Guidelines
           </Link>
         </li>
-        <li aria-hidden className="hidden md:block">
+        <li aria-hidden className="hidden xl:block">
           /
         </li>
         <li className="text-foreground truncate font-medium">
@@ -684,7 +690,7 @@ function Toc({ names, active }: { names: string[]; active: string | null }) {
 function BrandIcon({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
   const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.length);
   const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)$/.test(r.key)) ?? logos[0];
-  const a = named?.assets.find((x) => !x.mime || x.mime.startsWith("image/"));
+  const a = named?.assets.find((x) => x.preview ?? !x.mime);
   // The logo stands on its own, like a page icon; only the initial gets a tile.
   return a ? (
     <span className="relative flex size-16 shrink-0">
@@ -1412,11 +1418,12 @@ function AssetPicker({
     setPicked((p) => (p.some((x) => x.id === id) ? p.filter((x) => x.id !== id) : [...p, { id, rendition: null }]));
   const setRendition = (id: string, rendition: string | null) =>
     setPicked((p) => p.map((x) => (x.id === id ? { ...x, rendition } : x)));
-  // What the rule and the search have shown: a file that isn't an image has no renditions to offer.
-  const [mimes, setMimes] = useState<Record<string, string>>(() =>
-    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, a.mime]] : []))),
+  // What the rule and the search have shown: a file with no preview has no renditions to offer.
+  const [kinds, setKinds] = useState<Record<string, { mime: string; preview: boolean }>>(() =>
+    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, { mime: a.mime, preview: !!a.preview }]] : []))),
   );
-  if (results?.some((a) => !(a.id in mimes))) setMimes((m) => ({ ...m, ...Object.fromEntries(results.map((a) => [a.id, a.mime])) }));
+  if (results?.some((a) => !(a.id in kinds)))
+    setKinds((k) => ({ ...k, ...Object.fromEntries(results.map((a) => [a.id, { mime: a.mime, preview: hasPreview(a) }])) }));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -1444,7 +1451,7 @@ function AssetPicker({
             {picked.map(({ id, rendition }, i) => (
               <div key={id} className="grid w-20 shrink-0 gap-1">
                 <div className="bg-checker relative size-20 overflow-hidden rounded-md border">
-                  {mimes[id] && isFont(mimes[id], "") ? (
+                  {kinds[id] && isFont(kinds[id].mime, "") ? (
                     <span className="absolute inset-0 flex items-center justify-center">
                       <FontThumb id={id} className="text-2xl" />
                     </span>
@@ -1463,7 +1470,7 @@ function AssetPicker({
                     <IconX className="size-3" />
                   </button>
                 </div>
-                {mimes[id] && isFont(mimes[id], "") ? null : mimes[id] && !mimes[id].startsWith("image/") ? (
+                {kinds[id] && isFont(kinds[id].mime, "") ? null : kinds[id] && !kinds[id].preview ? (
                   <span className="text-muted-foreground truncate text-center text-[11px]">Original</span>
                 ) : (
                   <Popover>
@@ -1502,7 +1509,7 @@ function AssetPicker({
                     n >= 0 && "ring-primary ring-2",
                   )}
                 >
-                  {a.mime.startsWith("image/") ? (
+                  {hasPreview(a) ? (
                     <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
                   ) : isFont(a.mime, a.filename) ? (
                     <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">

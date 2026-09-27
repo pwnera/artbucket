@@ -11,17 +11,17 @@ import {
 } from "@/lib/core/assets";
 import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
 import { checkUse } from "@/lib/core/check";
-import { actorOf, listBrands } from "@/lib/core/brands";
+import { listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
-import type { Caller } from "@/lib/core/keys";
-import { isRenderable } from "@/lib/core/renditions";
+import type { Caller } from "@/lib/core/access";
+import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { ASSET_TYPES } from "@/lib/filters";
 import { GOOGLE_FAMILY } from "@/lib/font";
 import { ORIGINS, RightsInput, Use } from "@/lib/rights";
-import { allows, type Scope } from "@/lib/scopes";
+import { can, needs, type Action } from "@/lib/permissions";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -53,7 +53,7 @@ const summary = (a: Asset) => ({
   status: a.status,
   supersededBy: a.supersededBy,
   url: base(a.id),
-  thumbnail: isRenderable(a.mime) ? `${base(a.id)}/w_480,f_webp` : null,
+  thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
 });
 
 /** Rules as a model reads them: referenced assets come with URLs it can use as is. */
@@ -75,10 +75,10 @@ const forAgent = (rules: BrandRule[]) =>
     })),
   }));
 
-const rulesFor = async (context?: string, brand?: string) => ({
-  brand: brand ?? (await listBrands()).find((b) => b.default)?.slug ?? null,
+const rulesFor = async (ws: string, context?: string, brand?: string) => ({
+  brand: brand ?? (await listBrands(ws)).find((b) => b.default)?.slug ?? null,
   context: context ?? null,
-  rules: forAgent(await listRules({ brand, context })),
+  rules: forAgent(await listRules(ws, { brand, context })),
 });
 
 /** The default brand's rules live at artbucket://brand/rules, every brand's at artbucket://brands/{slug}/rules. */
@@ -90,8 +90,9 @@ const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
 
 type Tool = {
-  description: string | (() => Promise<string>);
-  scope: Scope;
+  description: string | ((caller: Caller) => Promise<string>);
+  /** What running it takes (lib/permissions.ts), somewhere in the workspace; core checks the asset itself. */
+  action: Action;
   input: z.ZodObject;
   readOnly: boolean;
   run: (args: never, caller: Caller) => Promise<Record<string, unknown>>;
@@ -99,14 +100,14 @@ type Tool = {
 
 const tool = <S extends z.ZodObject>(t: {
   description: Tool["description"];
-  scope: Scope;
+  action: Action;
   input: S;
   readOnly: boolean;
   run: (args: z.infer<S>, caller: Caller) => Promise<Record<string, unknown>>;
 }) => t as unknown as Tool;
 
-const found = async (assetId: string) => {
-  const a = await getAsset(assetId);
+const found = async (caller: Caller, assetId: string) => {
+  const a = await getAsset(caller, assetId);
   if (!a) throw new AssetError("not_found", `No asset ${assetId}`);
   return a;
 };
@@ -114,8 +115,8 @@ const found = async (assetId: string) => {
 const TOOLS: Record<string, Tool> = {
   search_assets: tool({
     // Built per call: the field schema and collections are the library's own.
-    description: async () => {
-      const [fields, collections] = await Promise.all([listFields(), listCollections()]);
+    description: async (caller) => {
+      const [fields, collections] = await Promise.all([listFields(caller.workspace.id), listCollections(caller)]);
       return [
         "Search the library. Every word of `q` must match (as a prefix) the filename, tags, captions or field values.",
         "No arguments lists the newest assets. Results carry facet counts: tags, types and field values you can narrow by,",
@@ -130,7 +131,7 @@ const TOOLS: Record<string, Tool> = {
         .filter(Boolean)
         .join(" ");
     },
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({
       q: z.string().max(512).optional().describe("Free text"),
@@ -144,7 +145,7 @@ const TOOLS: Record<string, Tool> = {
       review: z.boolean().optional().describe("Only what waits on a human: proposed assets and suggested tags"),
       limit: z.number().int().min(1).max(50).default(20),
     }),
-    run: async ({ q, tags, types, collection, filters, review, limit }) => {
+    run: async ({ q, tags, types, collection, filters, review, limit }, caller) => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       for (const t of tags ?? []) params.append("tag", t);
@@ -155,7 +156,7 @@ const TOOLS: Record<string, Tool> = {
         for (const one of [v].flat()) params.append(`f.${k}`, one);
       params.set("limit", String(limit));
       // The REST query parser, so a filter the API rejects is rejected here too.
-      const { data, total, facets } = await searchAssets(await parseAssetQuery(params));
+      const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params));
       return { results: data.map(summary), total, facets };
     },
   }),
@@ -165,12 +166,12 @@ const TOOLS: Record<string, Tool> = {
       "Everything known about one asset: title, credit, tags, field values, the URLs it is served at, " +
       "what renditions it allows, ready-made rendition URLs, and the brand rules that point at it " +
       "(for a logo: how it may and may not be used). Read this before using an asset.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({ id }),
-    run: async ({ id }) => ({
-      ...describeAsset(await found(id)),
-      brandRules: (await listRules({ asset: id })).map(({ brand, key, context, type, value, usage }) => ({
+    run: async ({ id }, caller) => ({
+      ...describeAsset(await found(caller, id)),
+      brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, context, type, value, usage }) => ({
         brand,
         key,
         context,
@@ -186,7 +187,7 @@ const TOOLS: Record<string, Tool> = {
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
       "image is made on first request and cached. Renditions never upscale: asking for more pixels than the " +
       "original has returns the original size.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: z.object({
       id,
@@ -196,9 +197,9 @@ const TOOLS: Record<string, Tool> = {
       format: z.enum(FORMATS).optional().describe("Defaults to the original's format; webp suits the web"),
       quality: z.number().int().min(1).max(100).optional(),
     }),
-    run: async ({ id, width, height, fit, format, quality }) => {
-      const a = await found(id);
-      if (!isRenderable(a.mime)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
+    run: async ({ id, width, height, fit, format, quality }, caller) => {
+      const a = await found(caller, id);
+      if (!hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
       const spec = serializeTransform({ w: width, h: height, fit, f: format, q: quality });
       if (!spec) return { url: base(a.id), transform: null, note: "No transform asked for: this is the original." };
       if (!parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
@@ -218,14 +219,14 @@ const TOOLS: Record<string, Tool> = {
       "brand has a different variant for that context (a light logo for dark backgrounds). `allowed: false` comes " +
       "with reasons and, in `suggest`, what to use instead. Non-blocking reasons are worth knowing; say the " +
       "territory and channel to settle them.",
-    scope: "read",
+    action: "asset.read",
     readOnly: true,
     input: Use.extend({
       id,
       context: z.string().max(64).optional().describe("The brand context, e.g. dark-background, instagram-story"),
       brand: z.string().max(60).optional().describe("A brand's slug; every brand's rules when left out"),
     }),
-    run: async ({ id, ...use }) => checkUse({ asset: id, ...use }),
+    run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }),
   }),
 
   ingest_asset: tool({
@@ -233,7 +234,7 @@ const TOOLS: Record<string, Tool> = {
       "Add a file to the library from a public http(s) URL. Identical bytes dedupe to the existing asset. " +
       "The new asset is proposed: it shows up for review, not in the library, until a person approves it. " +
       "Required fields may be left out; the person approving fills them in. Check back with my_proposals.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: false,
     input: z.object({
       url: z.url({ protocol: /^https?$/ }).max(2048),
@@ -248,8 +249,7 @@ const TOOLS: Record<string, Tool> = {
       rights: RightsInput.optional().describe("License, territories, channels, embargo, expires, modelRelease, if known"),
     }),
     run: async (input, caller) => {
-      const status = allows(caller.scope, "write") ? "active" : "proposed";
-      const { asset, deduped } = await ingestFromUrl({ ...input, status, actor: await actorOf(caller) });
+      const { asset, deduped } = await ingestFromUrl(caller, input);
       return { deduped, asset: describeAsset(asset) };
     },
   }),
@@ -259,7 +259,7 @@ const TOOLS: Record<string, Tool> = {
       "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
       "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
       "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: false,
     input: z.object({
       family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
@@ -267,17 +267,16 @@ const TOOLS: Record<string, Tool> = {
       collections: z.array(z.uuid()).max(50).optional(),
     }),
     run: async (input, caller) => {
-      const status = allows(caller.scope, "write") ? "active" : "proposed";
-      const { family, assets } = await importGoogleFont({ ...input, status, actor: await actorOf(caller) });
+      const { family, assets } = await importGoogleFont(caller, input);
       return { family, assets: assets.map(summary) };
     },
   }),
 
   brand_rules: tool({
     // Built per call: the brands and their contexts are the library's own.
-    description: async () => {
-      const brands = await listBrands();
-      const contexts = await Promise.all(brands.map(async (b) => [b, await listContexts(b.slug)] as const));
+    description: async (caller) => {
+      const brands = await listBrands(caller.workspace.id);
+      const contexts = await Promise.all(brands.map(async (b) => [b, await listContexts(caller.workspace.id, b.slug)] as const));
       return [
         "A brand's rules as data: colors (hex), logo use, type, tone, each with a sentence on how to use it",
         "and the assets it points at (the logo it governs, examples; describe_asset tells you more about one).",
@@ -295,21 +294,21 @@ const TOOLS: Record<string, Tool> = {
         .filter(Boolean)
         .join(" ");
     },
-    scope: "read",
+    action: "brand.read",
     readOnly: true,
     input: z.object({
       brand: z.string().max(60).optional().describe("A brand's slug; the default brand when left out"),
       context: z.string().max(64).optional().describe("e.g. dark-background, instagram-story"),
     }),
-    run: async ({ brand, context }) => rulesFor(context, brand),
+    run: async ({ brand, context }, caller) => rulesFor(caller.workspace.id, context, brand),
   }),
 
   my_proposals: tool({
     description:
-      "What you (this API key) proposed and what became of it: `proposed` still waits for a person, `active` was " +
+      "What you proposed and what became of it: `proposed` still waits for a person, `active` was " +
       "approved, `rejected` was turned down, with the person's reason in `reviewNote`. Read the reasons before " +
       "proposing more of the same.",
-    scope: "propose",
+    action: "asset.upload",
     readOnly: true,
     input: z.object({
       status: z.enum(["proposed", "active", "rejected"]).optional().describe("Only these; all of them when left out"),
@@ -317,7 +316,7 @@ const TOOLS: Record<string, Tool> = {
     }),
     run: async ({ status, limit }, caller) => {
       // ponytail: filters the newest 200 in memory; a status filter in core when an agent proposes more.
-      const { data } = await searchAssets({ proposedBy: await actorOf(caller), limit: 200 });
+      const { data } = await searchAssets(caller, { proposedBy: caller.actor, limit: 200 });
       const mine = data.filter((a) => !status || a.status === status).slice(0, limit);
       return {
         proposals: mine.map((a) => ({ ...summary(a), reviewNote: a.reviewNote, proposedTags: a.proposedTags })),
@@ -329,11 +328,11 @@ const TOOLS: Record<string, Tool> = {
     description:
       "Suggest tags for an asset. They are not applied: a person accepts or dismisses each one. " +
       "Tags the asset already has are ignored.",
-    scope: "propose",
+    action: "asset.propose_tags",
     readOnly: false,
     input: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
     run: async ({ id, tags }, caller) => {
-      const a = await proposeTags(id, tags, await actorOf(caller));
+      const a = await proposeTags(caller, id, tags);
       if (!a) throw new AssetError("not_found", `No asset ${id}`);
       return { id: a.id, tags: a.tags, proposedTags: a.proposedTags };
     },
@@ -371,7 +370,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "artbucket", version: "0.6.0" },
+        serverInfo: { name: "artbucket", version: "0.7.0" },
         instructions: INSTRUCTIONS,
       });
     }
@@ -382,13 +381,13 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
         tools: await Promise.all(
           Object.entries(TOOLS)
             // Only what this caller may run: a read-only key sees read-only tools.
-            .filter(([, t]) => allows(caller.scope, t.scope))
+            .filter(([, t]) => can(caller, t.action))
             .map(async ([name, t]) => {
               const inputSchema = z.toJSONSchema(t.input, { io: "input" });
               delete inputSchema.$schema;
               return {
                 name,
-                description: typeof t.description === "string" ? t.description : await t.description(),
+                description: typeof t.description === "string" ? t.description : await t.description(caller),
                 inputSchema,
                 annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
               };
@@ -398,11 +397,11 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
     // Brand rules as resources, for clients that attach context by hand.
     case "resources/list": {
       const resources = [];
-      for (const b of await listBrands()) {
+      for (const b of await listBrands(caller.workspace.id)) {
         const uri = rulesUri(b);
         const all = { uri, name: `brand-rules-${b.slug}`, title: `${b.name}: brand rules`, mimeType: "application/json" };
         resources.push({ ...all, description: `Every rule of ${b.name}${b.default ? ", the default brand" : ""}` });
-        for (const c of await listContexts(b.slug)) {
+        for (const c of await listContexts(caller.workspace.id, b.slug)) {
           resources.push({ ...all, uri: `${uri}/${c}`, name: `${all.name}-${c}`, title: `${b.name}: ${c}`, description: `One rule per key, for ${c}` });
         }
       }
@@ -432,7 +431,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
       if (!m) return error(id, -32002, `Resource not found: ${uri}`);
       try {
-        const data = await rulesFor(m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
+        const data = await rulesFor(caller.workspace.id, m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
         return result(id, { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) }] });
       } catch (err) {
         if (err instanceof AssetError) return error(id, -32602, err.message);
@@ -442,8 +441,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
     case "tools/call": {
       const t = TOOLS[String(params.name)];
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
-      if (!allows(caller.scope, t.scope)) {
-        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${t.scope}` }, true));
+      if (!can(caller, t.action)) {
+        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(params.arguments ?? {});
       if (!args.success) return result(id, toolResult({ error: z.prettifyError(args.error) }, true));

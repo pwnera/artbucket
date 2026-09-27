@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FontThumb } from "@/components/font-preview";
 import { Thumb, type Asset } from "@/components/gallery";
 import { stem } from "@/components/renditions";
+import { Can } from "@/components/can";
 import { approve, reject } from "@/components/review-actions";
 import { RejectAction } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { hasPreview } from "@/lib/preview";
 
 /**
  * The library as rows, PostHog style: denser than the grid, and the right
@@ -91,7 +93,7 @@ export function AssetTable({
                 <td className="px-3 py-2">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="bg-muted relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-                      {a.mime.startsWith("image/") ? (
+                      {hasPreview(a) ? (
                         <Thumb src={`/a/${a.id}/w_40,f_webp`} alt="" className="p-0.5" />
                       ) : isFont(a.mime, a.filename) ? (
                         <FontThumb id={a.id} className="text-base" />
@@ -109,7 +111,7 @@ export function AssetTable({
                         {title}
                       </button>
                       <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                        <span className="font-mono">{fileTypeBadge(a.filename, a.mime)}</span>
+                        <span className="font-mono">{fileTypeBadge(a.filename, a.mime, a.probe)}</span>
                         {/* The filename only when it says something the title doesn't. */}
                         {title !== stem(a.filename) && title !== a.filename && <span className="max-w-56 truncate">{a.filename}</span>}
                       </p>
@@ -155,6 +157,7 @@ export function AssetTable({
                 </td>
                 {review && (
                   <td className="px-3 py-2">
+                    <Can do="asset.review" on={a}>
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -171,6 +174,7 @@ export function AssetTable({
                         onReject={(reason) => decide(reject(a, reason), `Rejected ${title}`)}
                       />
                     </div>
+                    </Can>
                   </td>
                 )}
               </tr>

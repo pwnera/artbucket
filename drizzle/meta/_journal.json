@@ -113,6 +113,34 @@
       "when": 1790506029734,
       "tag": "0015_rights_and_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790510898446,
+      "tag": "0016_multi_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790511989295,
+      "tag": "0017_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790513885578,
+      "tag": "0018_invitation_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790517122162,
+      "tag": "0019_private_and_limits",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import type { Asset } from "@/lib/core/assets";
-import { exists, getObject, originalKey, putObject, renditionKey } from "@/lib/storage";
+import { exists, getObject, originalKey, previewKey, putObject, renditionKey } from "@/lib/storage";
 import {
   CONTENT_TYPE,
   serializeTransform,
@@ -17,15 +17,17 @@ export async function renderAsset(
   asset: Asset,
   transform: Transform,
 ): Promise<{ body: Buffer; contentType: string; cached: boolean }> {
-  const format: Format = transform.f ?? defaultFormat(asset.mime);
+  // A file sharp can't read renders from the still derived at upload (lib/core/previews.ts).
+  const still = typeof asset.probe?.preview === "string" ? asset.probe.preview : null;
+  const format: Format = transform.f ?? (still ? "png" : defaultFormat(asset.mime));
   const canonical = serializeTransform({ ...transform, f: format });
-  const key = renditionKey(asset.sha256, canonical, format);
+  const key = renditionKey(still ?? asset.sha256, canonical, format);
 
   if (await exists(key)) {
     return { body: await getObject(key), contentType: CONTENT_TYPE[format], cached: true };
   }
 
-  const original = await getObject(originalKey(asset.sha256));
+  const original = await getObject(still ? previewKey(still) : originalKey(asset.sha256));
 
   let pipeline = sharp(original, { failOn: "none" }).rotate();
   if (transform.w || transform.h) {
@@ -51,5 +53,3 @@ function defaultFormat(mime: string): Format {
   return "jpeg";
 }
 
-export const isRenderable = (mime: string) =>
-  /^image\/(jpeg|png|webp|avif|gif|tiff|svg\+xml)$/.test(mime);

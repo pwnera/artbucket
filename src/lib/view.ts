@@ -1,8 +1,8 @@
 /**
  * The library's view as a URL: what the page shows is `/?{query}`, so any
  * view can be linked, bookmarked, reloaded and gone back to. The query is the
- * /api/v1/assets query string, plus two keys only the page reads: `asset`
- * (the one open) and `fields` (the field manager).
+ * /api/v1/assets query string, plus one key only the page reads: `asset`
+ * (the one open).
  *
  * Pure, so `pnpm test` runs it under plain Node.
  */
@@ -18,7 +18,6 @@ export type View = {
   /** Params the UI has no control for (ranges from a saved search): kept, shown, removable. */
   extra: [string, string][];
   asset: string | null;
-  fields: boolean;
 };
 
 export function parseView(params: URLSearchParams): View {
@@ -39,7 +38,6 @@ export function parseView(params: URLSearchParams): View {
     filters,
     extra,
     asset: params.get("asset"),
-    fields: params.has("fields"),
   };
 }
 
@@ -58,8 +56,7 @@ export function viewQuery(v: View, ui = true): string {
   for (const [k, vs] of Object.entries(v.filters)) for (const x of vs) p.append(`f.${k}`, x);
   for (const [k, x] of v.extra) p.append(k, x);
   if (ui && v.asset) p.set("asset", v.asset);
-  if (ui && v.fields) p.set("fields", "");
-  return p.toString().replace(/fields=(&|$)/, "fields$1");
+  return p.toString();
 }
 
 /** A saved search's query, in the same canonical form as `viewQuery`. */

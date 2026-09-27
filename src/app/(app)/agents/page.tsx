@@ -13,5 +13,5 @@ export const metadata: Metadata = { title: "Agents - Artbucket" };
  */
 export default async function AgentsPage() {
   const [keys, sidebar] = await Promise.all([get("keys", (b: { data: Key[] }) => b.data, null), sidebarData()]);
-  return <Agents keys={keys} sidebar={sidebar} origin={env.APP_URL} anonymous={env.ANONYMOUS_SCOPE} />;
+  return <Agents keys={keys} sidebar={sidebar} origin={env.APP_URL} anonymous={sidebar.me.auth.anonymous} />;
 }

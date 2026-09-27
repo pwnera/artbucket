@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     // user's browser (DNS rebinding): browsers always send Origin, CLIs don't.
     const origin = req.headers.get("origin");
     if (origin && origin !== new URL(env.APP_URL).origin) return fail(403, "forbidden", "Cross-origin MCP requests are refused");
-    const caller = await authorize(req, "read");
+    const caller = await authorize(req, "library.read");
     if (caller instanceof Response) return caller;
     let message: unknown;
     try {

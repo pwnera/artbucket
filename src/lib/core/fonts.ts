@@ -1,3 +1,4 @@
+import type { Caller } from "@/lib/core/access";
 import { ingestFromUrl, type Asset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
@@ -42,7 +43,8 @@ export async function searchGoogleFonts({ q, category, limit = 30 }: { q?: strin
  * into "IBM Plex Sans", and without it the name goes as typed.
  */
 export async function importGoogleFont(
-  input: Omit<Parameters<typeof ingestFromUrl>[0], "url" | "filename"> & { family: string },
+  caller: Caller,
+  input: Omit<Parameters<typeof ingestFromUrl>[1], "url" | "filename"> & { family: string },
 ): Promise<{ family: string; assets: Asset[] }> {
   const { family, ...rest } = input;
   const known = await googleCatalog().catch(() => []);
@@ -61,7 +63,7 @@ export async function importGoogleFont(
   const faces = parseFontFaces(css);
   const out: Asset[] = new Array(faces.length);
   await pool([...faces.entries()], 4, async ([i, face]) => {
-    out[i] = (await ingestFromUrl({ ...rest, url: face.url, filename: fontFileName(name, face) })).asset;
+    out[i] = (await ingestFromUrl(caller, { ...rest, url: face.url, filename: fontFileName(name, face) })).asset;
   });
   return { family: name, assets: out };
 }

@@ -40,6 +40,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { safeUrl } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
+import { hasPreview } from "@/lib/preview";
 
 /**
  * Markdown, edited like Medium: select text for a toolbar (bold, italic,
@@ -297,7 +298,7 @@ export function ImagePicker({
     const t = setTimeout(async () => {
       const res = await fetch(`/api/v1/assets?limit=48${q ? `&q=${encodeURIComponent(q)}` : ""}`);
       const all: Asset[] = res.ok ? (await res.json()).data : [];
-      setResults(all.filter((a) => (any || a.mime.startsWith("image/")) && a.id !== exclude));
+      setResults(all.filter((a) => (any || hasPreview(a)) && a.id !== exclude));
     }, 200);
     return () => clearTimeout(t);
   }, [q, any, exclude]);
@@ -318,7 +319,7 @@ export function ImagePicker({
                 onClick={() => onPick(a)}
                 className="bg-muted hover:ring-primary relative aspect-square overflow-hidden rounded-md border hover:ring-2"
               >
-                {a.mime.startsWith("image/") ? (
+                {hasPreview(a) ? (
                   <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
                 ) : (
                   <span className="text-muted-foreground absolute inset-0 flex items-center justify-center p-2 text-center text-xs break-all">

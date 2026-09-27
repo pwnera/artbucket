@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconCopy, IconDownload, IconPhotoScan } from "@tabler/icons-react";
+import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import type { Asset } from "@/components/gallery";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,9 @@ export function Renditions({ asset }: { asset: Asset }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <IconPhotoScan /> <span className="sr-only sm:not-sr-only">Sizes &amp; formats</span>
-        </Button>
+        <IconButton label="Sizes and formats">
+          <IconPhotoScan />
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-96 p-0">
         <ul className="max-h-72 overflow-y-auto p-1">

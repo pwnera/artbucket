@@ -21,7 +21,7 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { Logo, ThemeToggle } from "@/components/brand";
+import { AppIcon, Logo, ThemeToggle } from "@/components/brand";
 import { Combobox, MultiCombobox } from "@/components/combobox";
 import { FacetFilter } from "@/components/facet-filter";
 import { Field } from "@/components/fields";
@@ -113,6 +113,7 @@ const SAMPLE: Asset = {
   size: 18_400_000,
   width: 4000,
   height: 3000,
+  probe: null,
   tags: ["brand", "spring", "hero", "print"],
   fields: {},
   inherited: {},
@@ -178,7 +179,7 @@ export default function DesignSystem() {
             <IconArrowLeft />
           </Link>
         </Button>
-        <Logo className="size-7" />
+        <AppIcon className="size-7" />
         <h1 className="text-sm font-semibold">Design system</h1>
         <span className="text-muted-foreground hidden text-sm sm:inline">shadcn/ui · Tabler icons · DM Sans</span>
         <div className="ml-auto">
@@ -200,18 +201,22 @@ export default function DesignSystem() {
         </nav>
 
         <main className="grid min-w-0 gap-6">
-          <Section id="brand" title="Brand" description="Tabler's tipped paint bucket on a primary tile, set beside the wordmark.">
+          <Section id="brand" title="Brand" description="The paint-bucket mark, always one colour: white on violet, all black or all white. The app icon puts it on a violet tile.">
             <div className="flex flex-wrap items-center gap-8">
-              <div className="flex items-center gap-3">
-                <Logo />
-                <span className="text-base font-semibold tracking-tight">Artbucket</span>
-              </div>
-              <Logo className="size-12 rounded-xl [&_svg]:size-8" />
-              <IconBucketDroplet className="size-8" stroke={1.5} />
+              <Logo className="text-3xl" />
+              <span className="rounded-lg border bg-white p-3">
+                <Logo variant="black" className="text-3xl" />
+              </span>
+              <span className="rounded-lg bg-[#111111] p-3">
+                <Logo variant="white" className="text-3xl" />
+              </span>
+              <AppIcon className="size-12" />
+              <AppIcon />
+              <AppIcon className="size-4" />
             </div>
           </Section>
 
-          <Section id="color" title="Color" description="shadcn neutral tokens with Google green (#34A853) as the primary, in globals.css. Switch theme to see dark.">
+          <Section id="color" title="Color" description="Brand black and cool neutrals, violet (#6D4AFF) as the primary, in globals.css. Switch theme to see dark.">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {COLORS.map((c) => (
                 <div key={c} className="grid gap-1.5">

@@ -131,6 +131,59 @@ _~4 weekends. Deliberately deferred: single-user validates the thesis fine._
 
 ---
 
+## v0.7.5 - Every agent
+**Question:** can any agent a person already uses get the brand in under a minute?
+
+Modeled on [Postiz](https://postiz.com): one MCP server, one skill, one CLI, and a
+setup page per agent. Supporting an agent is a snippet, not code.
+
+- **OAuth on `/api/v1/mcp`** (MCP authorization spec, on the v0.7 better-auth):
+  chat apps (Claude.ai / Desktop / Cowork, ChatGPT, Perplexity, Gemini Spark)
+  take a URL and a consent screen, not a pasted header. The consent screen is the
+  scope picker: Suggest, Read, Edit. Keys stay for headless use
+- **Generate where you chat:** the most-used image models live inside chat apps
+  (GPT Image in ChatGPT, Nano Banana in Gemini). Connected, the same chat reads
+  the brand, generates, and files the result in artbucket with its provenance
+- **`artbucket login`** via device authorization, so the CLI needs no pasted key
+- **Skill:** a `SKILL.md` teaching the workflow (brand rules first, `check_use`
+  before publishing), installable with `npx skills add`. Covers agents without
+  MCP (Codex, OpenClaw, Hermes) through the CLI
+- **One-click installs:** Cursor deeplink, VS Code `mcp/install` link, Claude Code
+  plugin bundling the MCP config and the skill
+- **App builders as a first-class group:** Lovable, v0, Bolt, Replit. "Your
+  vibe-coded app is on-brand" is the pitch no DAM and no scheduler can make
+- **Design tools as a group:** Figma (the Figma agent and Figma Make take custom
+  MCP connectors) connects straight to artbucket, so designs start from the real
+  logo, palette and type scale instead of a screenshot of the guidelines
+- **Generation tools, through the agent:** Canva, Adobe for Creativity
+  (Firefly, Photoshop, Express), Recraft (native SVG), Ideogram (text in images)
+  and Krea (one connection to Flux, Kling, Ideogram and more) have official MCP
+  *servers*, not clients, so they cannot call artbucket. The agent holds both
+  connections: brand rules and tokens in, generated file out, ingested with
+  `origin: generated`, `generator` and `prompt`, then `check_use` before it
+  ships. The skill carries this as a recipe; the picker shows it as "use with"
+  pairs, not as a connect button
+- **Automations:** n8n, Make, Zapier via their MCP client nodes or the OpenAPI
+  spec. Snippets only
+- **Agents page becomes a picker:** a grid grouped by chat apps, coding agents,
+  app builders, design tools, generators, automations, anything else. One data array of
+  `{name, icon, group, auth, snippet}`, no per-agent components
+- **"Waiting for first call"** on setup, green when the new client first hits
+  the API (keys track last use)
+- **Keys become "Connected agents":** last seen, call count, proposals waiting
+  in Review, revoke. Fed by the v0.7 audit log
+
+**Not in this one:** custom n8n / Make / Zapier nodes, marketplace listings,
+per-agent marketing pages (those go on the v0.9 docs site), a sidebar chatbot.
+Midjourney until it ships an official MCP server (only relays exist). Video
+generators (Veo, Kling, Seedance) wait on video renditions.
+**Done when:** a person connects Claude.ai and ChatGPT by pasting one URL, with
+no key, and sees each appear in Connected agents after its first call; and an
+image generated in Recraft lands in Review with its generator and prompt.
+_~2 weekends._
+
+---
+
 ## v0.8 - Lifecycle
 **Question:** can the wrong version stop leaking out?
 
@@ -192,7 +245,7 @@ _~4 weekends. The unglamorous one that decides adoption._
 - Access via v0.7 share-link rules: expiry, password, guest request-access
 - Built as a plain API client, same as the main UI - no private endpoints
 
-**Not in this one:** portal page builder, per-visitor analytics.
+**Not in this one:** portal page builder. Portal usage lands in v1.3 analytics.
 _~3 weekends._
 
 ---
@@ -213,7 +266,43 @@ _~3 weekends._
 
 ---
 
-## v1.3 - Migration
+## v1.3 - Analytics
+**Question:** which assets actually get used, where, and by whom?
+
+Modeled on [DataFast](https://datafa.st): one screen, real-time, cookieless,
+and every number tied to the thing you care about. There it is revenue; here it
+is the asset.
+
+- **Asset-first, not pageview-first:** every chart drills down to an asset, and
+  every asset page shows its own usage. The question is "is this logo pulling its
+  weight", not "how many sessions"
+- **Delivery is the tracker:** rendition requests (v0.1) and downloads are logged
+  server side, with referrer, format, and size. No script, no cookies, nothing an
+  ad blocker can drop, and embeds on third-party sites show up for free
+- **Attribution by channel:** UI, API key, MCP agent, CLI, share link, portal
+  (v1.1). Agent vs human usage side by side, the number no other DAM shows
+- **Where it lives:** top referring domains per asset, so you find the partner
+  site still hot-linking last year's logo
+- **Real-time view:** live feed of fetches and downloads as they happen
+- **Goals and funnels:** portal visit, search, preview, download; and `/check`
+  (v0.6) refusals by reason, so the canon's gaps show up as data
+- **Dead weight report:** assets never fetched in N days, a direct input to
+  archive decisions (v0.8)
+- **Weekly digest:** top assets, new referrers, blocked uses, by email
+- Stored in Postgres, rolled up daily, raw events pruned on a schedule; IPs
+  hashed with a rotating salt, never stored. Same `/api/v1` and MCP surface as
+  everything else, so an agent can ask "what did partners download last month"
+
+**Not in this one:** third-party web analytics, cross-site visitor tracking,
+revenue attribution. This is first-party usage data, separate from the v0.9
+telemetry, which stays off.
+**Done when:** you can name the ten most-used assets this month, the channel
+each came through, and every external domain embedding a superseded logo.
+_~3 weekends._
+
+---
+
+## v1.4 - Migration
 **Question:** can a team leave their current DAM in an afternoon?
 
 A complete switching strategy, not a pile of one-off scripts.
@@ -259,4 +348,4 @@ A sidebar chatbot. Integrate or skip.
 | Video renditions, posters, transcripts | Someone actually asks |
 | Elasticsearch / Typesense | Never, probably |
 | SAML, SCIM | First paying customer requires it |
-| Approval routing, annotations, analytics | After v1.0, if the thesis held |
+| Approval routing, annotations | After v1.0, if the thesis held |

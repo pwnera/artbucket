@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* shadcn/ui, new-york, neutral base. Stock tokens: restyle through these, not per component. */
+/* shadcn/ui, new-york, neutral base, brand violet #6D4AFF as primary. Stock tokens: restyle through these, not per component. */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -41,62 +41,64 @@
 }
 
 :root {
+  /* Brand canvas 02 · Colour and type: black #111111 and the cool neutral scale. Violet is primary only: accent also paints skeletons, toggles and menus. */
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #34a853;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #6d4aff;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f7;
+  --secondary-foreground: #111111;
+  --muted: #f5f5f7;
+  --muted-foreground: #6e6e7a;
+  --accent: #f5f5f7;
+  --accent-foreground: #111111;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: #34a853;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #34a853;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #34a853;
+  --border: #e4e4ea;
+  --input: #e4e4ea;
+  --ring: #6d4aff;
+  --sidebar: #fafafb;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #6d4aff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0f3;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e4e4ea;
+  --sidebar-ring: #6d4aff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #34a853;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Brand black, then plain greys: the cool light-mode neutrals turn muddy on black. */
+  --background: #111111;
+  --foreground: #fafafa;
+  --card: #1c1c1c;
+  --card-foreground: #fafafa;
+  --popover: #1c1c1c;
+  --popover-foreground: #fafafa;
+  --primary: #6d4aff;
+  --primary-foreground: #ffffff;
+  --secondary: #2b2b2b;
+  --secondary-foreground: #fafafa;
+  --muted: #2b2b2b;
+  --muted-foreground: #a3a3a3;
+  --accent: #2b2b2b;
+  --accent-foreground: #fafafa;
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: #34a853;
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #34a853;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: #6d4aff;
+  --sidebar: #1c1c1c;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #6d4aff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2b2b2b;
+  --sidebar-accent-foreground: #fafafa;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #34a853;
+  --sidebar-ring: #6d4aff;
 }
 
 @layer base {
@@ -125,7 +127,7 @@
 /*
  * Icons one step quieter than their words, as in PostHog and Notion: the
  * label leads, the icon is a cue. Pointing at an item brings its icon up to
- * the text; the item you are on marks its icon in the brand green. An icon
+ * the text; the item you are on marks its icon in the brand violet. An icon
  * with its own color class keeps it.
  */
 [data-sidebar="menu-button"] > svg:not([class*="text-"]),

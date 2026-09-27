@@ -7,17 +7,24 @@ import {
   IconBook,
   IconBookmark,
   IconBookmarkPlus,
+  IconChevronDown,
+  IconCloudUpload,
+  IconFolderUp,
+  IconInbox,
   IconLayoutGrid,
   IconList,
-  IconPencil,
-  IconCloudUpload,
-  IconInbox,
   IconLoader2,
+  IconPencil,
   IconPhoto,
   IconRobot,
   IconSearch,
+  IconCopy,
+  IconLock,
+  IconShare,
   IconSparkles,
+  IconTypography,
   IconUpload,
+  IconLink,
   IconX,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -30,11 +37,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionDialog, CollectionIcon, send, type Collection } from "@/components/collections";
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
-import { FieldManager } from "@/components/field-manager";
 import { FontThumb, GoogleFontImport } from "@/components/font-preview";
+import { LinkImport, Lottie } from "@/components/media";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
-import { remember, usePref } from "@/components/sidebar-prefs";
+import { useCan } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
+import { usePref, useRemember } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
@@ -53,17 +64,22 @@ import { today, type Origin, type Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
+import { hasPreview, isLottie } from "@/lib/preview";
 import type { SidebarData } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
 export type Asset = {
   id: string;
+  /** Its own flag: it is private too when every collection it is in is. */
+  private?: boolean;
   filename: string;
   mime: string;
   size: number;
   width: number | null;
   height: number | null;
+  /** What the file shows as when it isn't an image (lib/preview.ts). */
+  probe: Record<string, unknown> | null;
   tags: string[];
   fields: Record<string, FieldValue>;
   inherited: Record<string, FieldValue>;
@@ -133,6 +149,16 @@ type Layout = "grid" | "list";
  * Grid or list, remembered per viewer: a convenience, so browser storage. The
  * library opens as a grid (it is art); Review as a list (it is decisions).
  */
+async function copyLink(path: string) {
+  const href = new URL(path, location.origin).href;
+  try {
+    await navigator.clipboard.writeText(href);
+    toast.success("Copied a link to this collection");
+  } catch {
+    toast.error("Couldn't copy the link", { description: href });
+  }
+}
+
 function useLayout(review: boolean): [Layout, (l: Layout) => void] {
   const [stored, set] = usePref<Layout | null>(`artbucket:layout:${review ? "review" : "assets"}`, null);
   return [stored === "grid" || stored === "list" ? stored : review ? "list" : "grid", set];
@@ -158,6 +184,10 @@ export function Gallery({
   const search = useSearchParams().toString();
   const view = useMemo(() => parseView(new URLSearchParams(search)), [search]);
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
+  const can = useCan();
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
+  const [fonts, setFonts] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(sidebar.collections);
   const [reviewCount, setReviewCount] = useState(sidebar.reviewCount);
@@ -392,6 +422,10 @@ export function Gallery({
   }, [uploads, uploading]);
 
   const narrowed = isNarrowed(view);
+  // Into the collection open, or the workspace itself: whatever the person may add to.
+  const canUpload = into ? can("asset.upload", { id: into }) : can("workspace.upload");
+  // Asking someone without an account to send files there, by link.
+  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_workspace");
   const filtered = narrowed || view.collection !== null || view.review;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
@@ -443,9 +477,10 @@ export function Gallery({
         ? { kind: "collection" as const, id: inCollection.id, label: inCollection.name, href: `/?collection=${inCollection.id}` }
         : null;
   const recentKey = recent && JSON.stringify(recent);
+  const remember = useRemember();
   useEffect(() => {
     if (recentKey) remember(JSON.parse(recentKey));
-  }, [recentKey]);
+  }, [recentKey, remember]);
   const title = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? "All assets"));
 
   return (
@@ -471,10 +506,11 @@ export function Gallery({
         e.preventDefault();
         dragDepth.current = 0;
         setDragging(false);
-        start(e.dataTransfer.files);
+        if (canUpload) start(e.dataTransfer.files);
       }}
     >
       <AppSidebar
+        me={sidebar.me}
         collections={collections}
         brands={sidebar.brands}
         searches={searches}
@@ -482,7 +518,7 @@ export function Gallery({
         onNewCollection={() => setEditing("new")}
         onEditCollection={setEditing}
         onDeleteSearch={forget}
-        onUpload={() => input.current?.click()}
+        onUpload={canUpload ? () => input.current?.click() : undefined}
       />
 
       <SidebarInset className="min-w-0">
@@ -505,11 +541,47 @@ export function Gallery({
             />
           </div>
           {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
-          <GoogleFontImport into={into} onDone={() => void refresh()} />
-          <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
-            <IconUpload />
-            <span className="hidden sm:inline">Upload</span>
-          </Button>
+          {/* Pushes what follows to the right edge, whether or not Upload shows. */}
+          <span className="ml-auto" />
+          {/* Every way files come in, in one control: Upload, and the others in its menu. */}
+          {canUpload && (
+            <div className="flex">
+              <Button size="sm" className="rounded-r-none" onClick={() => input.current?.click()} aria-busy={uploading}>
+                <IconUpload />
+                <span className="hidden sm:inline">Upload</span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="border-primary-foreground/20 rounded-l-none border-l px-1.5" aria-label="More ways to add">
+                    <IconChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => input.current?.click()}>
+                    <IconUpload /> Upload files
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setFonts(true)}>
+                    <IconTypography /> Import a Google font
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setLinking(true)}>
+                    <IconLink /> Add a link
+                    <span className="text-muted-foreground ml-auto pl-4 text-xs">Figma, Google</span>
+                  </DropdownMenuItem>
+                  {canRequest && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setSharing(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" })}>
+                        <IconFolderUp /> Request uploads by link
+                        <span className="text-muted-foreground ml-auto pl-4 text-xs">no account</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={() => void refresh()} />
+              <LinkImport open={linking} onOpenChange={setLinking} into={into} onDone={() => void refresh()} />
+            </div>
+          )}
           <input
             ref={input}
             type="file"
@@ -558,13 +630,20 @@ export function Gallery({
             }
             title={title}
             aside={
-              <Badge variant="secondary" className="font-mono tabular-nums" title={`${total} ${total === 1 ? "asset" : "assets"}`}>
-                {total}
-              </Badge>
+              <>
+                <Badge variant="secondary" className="font-mono tabular-nums" title={`${total} ${total === 1 ? "asset" : "assets"}`}>
+                  {total}
+                </Badge>
+                {inCollection?.private && !activeSearch && (
+                  <Badge variant="outline" title="Only people added to it, and admins, see it">
+                    <IconLock /> Private
+                  </Badge>
+                )}
+              </>
             }
             description={
               view.review
-                ? "Assets and tags that agents suggested. Nothing reaches the library until you approve it."
+                ? "What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it."
                 : activeSearch
                   ? "A saved search: this link always shows what matches now."
                   : inCollection
@@ -578,10 +657,21 @@ export function Gallery({
                     : "Everything in the library. Drop files anywhere on the page to add them."
             }
           >
+            {/* What can be done with the collection itself: copy its link, share it, edit it. */}
             {inCollection && !activeSearch && (
-              <Button variant="outline" size="sm" onClick={() => setEditing(inCollection)}>
-                <IconPencil /> Edit collection
-              </Button>
+              <IconButton label="Copy link, for people with access" onClick={() => copyLink(`/?collection=${inCollection.id}`)}>
+                <IconCopy />
+              </IconButton>
+            )}
+            {inCollection && !activeSearch && can("collection.share", inCollection) && (
+              <IconButton label={`Share ${inCollection.name}`} onClick={() => setSharing({ kind: "view", collection: inCollection })}>
+                <IconShare />
+              </IconButton>
+            )}
+            {inCollection && !activeSearch && can("collection.edit", inCollection) && (
+              <IconButton label="Edit collection" onClick={() => setEditing(inCollection)}>
+                <IconPencil />
+              </IconButton>
             )}
           </PageHeader>
           {!empty && (
@@ -636,7 +726,7 @@ export function Gallery({
               )}
               <span className="ml-auto" />
               {/* Only a search or filter is worth naming; a collection or Review is already in the sidebar. */}
-              {narrowed && !activeSearch && <SaveSearch onSave={saveSearch} />}
+              {narrowed && !activeSearch && can("search.save") && <SaveSearch onSave={saveSearch} />}
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -656,7 +746,7 @@ export function Gallery({
           )}
 
           {empty ? (
-            <EmptyState dragging={dragging} onUpload={() => input.current?.click()} />
+            <EmptyState dragging={dragging} onUpload={canUpload ? () => input.current?.click() : undefined} />
           ) : assets.length === 0 && searching ? (
             // Don't flash "no matches" for a search that hasn't answered yet.
             <GridSkeleton count={8} />
@@ -668,11 +758,16 @@ export function Gallery({
                 </EmptyMedia>
                 <EmptyTitle>Nothing to review</EmptyTitle>
                 <EmptyDescription>
-                  Assets and tags that agents suggest wait here until you approve them. Nothing an agent adds reaches
-                  the library without you.
+                  What agents, contributors and upload links send in waits here until someone approves it. Nothing
+                  they add reaches the library on its own.
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex-row justify-center">
+              <EmptyContent className="flex-row flex-wrap justify-center">
+                {can("share.collect_workspace") && (
+                  <Button onClick={() => setSharing({ kind: "upload" })}>
+                    <IconFolderUp /> Request uploads by link
+                  </Button>
+                )}
                 <Button variant="outline" asChild>
                   <Link href="/agents">
                     <IconRobot /> Connect an agent
@@ -692,9 +787,11 @@ export function Gallery({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className="flex-row justify-center">
-                <Button onClick={() => input.current?.click()}>
-                  <IconUpload /> Upload here
-                </Button>
+                {canUpload && (
+                  <Button onClick={() => input.current?.click()}>
+                    <IconUpload /> Upload here
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => go({ collection: null }, true)}>
                   Browse all assets
                 </Button>
@@ -820,8 +917,8 @@ export function Gallery({
         onDone={refresh}
       />
 
-      {view.fields && <FieldManager fields={fields} onClose={() => go({ fields: false })} onChanged={refresh} />}
 
+      {sharing && <ShareDialog target={sharing} collections={collections} onClose={() => setSharing(null)} />}
       {editing && (
         <CollectionDialog
           collection={editing === "new" ? undefined : editing}
@@ -864,8 +961,9 @@ export function AssetCard({
   /** `range` is true for a shift-click. */
   onPick?: (range: boolean) => void;
 }) {
+  const [hover, setHover] = useState(false);
   return (
-    <div className="group relative">
+    <div className="group relative" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <button
         type="button"
         onClick={(e) => {
@@ -879,10 +977,13 @@ export function AssetCard({
         )}
       >
         <div className="bg-muted relative aspect-square overflow-hidden">
-          {a.mime.startsWith("image/") ? (
+          {hasPreview(a) ? (
             // Rendition URLs are pure functions of the asset id: no export step,
             // no signing, no prior round trip.
             <Thumb src={`/a/${a.id}/w_260,f_webp`} alt={a.filename} />
+          ) : isLottie(a) ? (
+            // Still until pointed at: a grid of loops is noise.
+            <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
           ) : isFont(a.mime, a.filename) ? (
             <span className="flex size-full items-center justify-center">
               <FontThumb id={a.id} className="text-6xl" />
@@ -893,7 +994,7 @@ export function AssetCard({
             </span>
           )}
           <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[11px] backdrop-blur">
-            {fileTypeBadge(a.filename, a.mime)}
+            {fileTypeBadge(a.filename, a.mime, a.probe)}
           </Badge>
           {(a.status === "proposed" || a.proposedTags.length > 0) && (
             <Badge className="absolute bottom-2 left-2 text-[11px]">
@@ -984,7 +1085,7 @@ export function Thumb({ src, alt, className }: { src: string; alt: string; class
 }
 
 /** An empty library: the one place the whole page is the upload target. */
-function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () => void }) {
+function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () => void }) {
   return (
     <Empty className={cn("border-2 transition-colors", dragging && "border-primary bg-primary/5")}>
       <EmptyHeader>
@@ -999,9 +1100,11 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload: () =>
       </EmptyHeader>
       <EmptyContent>
         <div className="flex flex-wrap justify-center gap-2">
-          <Button onClick={onUpload}>
-            <IconUpload /> Upload files
-          </Button>
+          {onUpload && (
+            <Button onClick={onUpload}>
+              <IconUpload /> Upload files
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link href="/brand">
               <IconBook /> Write your guidelines

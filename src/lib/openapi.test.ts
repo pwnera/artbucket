@@ -7,10 +7,14 @@ import { openapi } from "./openapi.ts";
 const APP = join(import.meta.dirname, "..", "app");
 const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"];
 
-/** Every route.ts under app/, as [openapi path, exported methods]. */
+/**
+ * Every route.ts under app/, as [openapi path, exported methods]. /api/auth
+ * is better-auth's own surface (signing in), documented by better-auth.
+ */
 function routes(): [string, string[]][] {
   return readdirSync(APP, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(`${sep}route.ts`) || f === "route.ts")
+    .filter((f) => !f.startsWith(join("api", "auth")))
     .map((f) => {
       const dir = relative(APP, join(APP, f, "..")).split(sep);
       const path =

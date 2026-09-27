@@ -3,7 +3,8 @@
  * artbucket - a thin client over /api/v1. Everything it does, curl can do.
  *
  *   ARTBUCKET_URL   default http://localhost:3000
- *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one
+ *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one; it
+ *                   decides the workspace
  */
 import { readFile, stat } from "node:fs/promises";
 import { basename, extname } from "node:path";
@@ -32,9 +33,18 @@ const HELP = `artbucket <command>
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
-  keys                    list API keys
+  keys                    list the workspace's API keys
   keys create <name> --scope read|propose|write|admin
   keys revoke <id>
+  whoami                  the key, its workspace and its scope
+  members                 people, their access, and invitations waiting (admin)
+  invite <email> --scope s [--collection id]
+                          an invitation link to the workspace, or one collection (admin)
+  share <collection-or-asset-id> [--upload] [--password p] [--expires YYYY-MM-DD] [--name n]
+                          a link for someone without an account: to look and
+                          download, or with --upload to send files in for review
+  shares                  share links; shares revoke <id>
+  audit                   who changed who may do what (admin)
 
   --json   print the raw API response`;
 
@@ -63,6 +73,10 @@ const { values: opt, positionals } = parseArgs({
     channel: { type: "string" },
     territory: { type: "string" },
     date: { type: "string" },
+    upload: { type: "boolean" },
+    password: { type: "string" },
+    expires: { type: "string" },
+    name: { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -301,6 +315,76 @@ async function main() {
       const r = await api("GET", "/api/v1/keys");
       return out(r, () =>
         r.data.map((k: { id: string; prefix: string; scope: string; name: string }) => `${k.id}  ${k.prefix}...  ${k.scope.padEnd(7)}  ${k.name}`).join("\n") || "No keys.",
+      );
+    }
+    case "whoami": {
+      const r = await api("GET", "/api/v1/me");
+      const d = r.data;
+      return out(r, () =>
+        `${d.actor}${d.user ? ` <${d.user.email}>` : d.key ? " (API key)" : ""}  ${d.scope ?? (d.narrowed ? "some collections" : "no access")} in ${d.workspace.name} (${d.workspace.organization.name})`,
+      );
+    }
+    case "members": {
+      type Grant = { scope: string; resource: string; label: string | null };
+      const r = await api("GET", "/api/v1/members");
+      return out(r, () =>
+        [
+          ...r.data.map(
+            (m: { name: string; email: string; grants: Grant[] }) =>
+              `${m.name} <${m.email}>  ${m.grants.map((g) => `${g.scope} on ${g.resource} ${g.label ?? ""}`.trim()).join(", ")}`,
+          ),
+          ...r.invitations.map((i: Grant & { email: string }) => `(invited) ${i.email}  ${i.scope} on ${i.resource} ${i.label ?? ""}`.trim()),
+        ].join("\n"),
+      );
+    }
+    case "invite": {
+      const email = need(args[0], "email");
+      const me = (await api("GET", "/api/v1/me")).data;
+      const r = await api("POST", "/api/v1/invitations", {
+        email,
+        scope: need(opt.scope, "--scope"),
+        resource: opt.collection ? "collection" : "workspace",
+        resourceId: opt.collection ?? me.workspace.id,
+      });
+      return out(r, () => `${r.data.url}\n\nShown once. Send it to ${email}; it works for a week.`);
+    }
+    case "share": {
+      const id = need(args[0], "collection or asset id");
+      // An id is a collection's if the workspace has one by it; an asset's otherwise.
+      const collections = (await api("GET", "/api/v1/collections")).data as { id: string }[];
+      const isCollection = collections.some((c) => c.id === id);
+      const r = await api("POST", "/api/v1/shares", {
+        kind: opt.upload ? "upload" : "view",
+        ...(isCollection ? { collection: id } : { asset: id }),
+        name: opt.name,
+        password: opt.password,
+        expiresAt: opt.expires ? new Date(`${opt.expires}T23:59:59`).toISOString() : undefined,
+      });
+      return out(r, () => `${r.data.url}\n\n${opt.upload ? "Uploads land in Review." : "Shows approved assets."}${r.data.password ? " Asks for the password." : ""}`);
+    }
+    case "shares": {
+      if (args[0] === "revoke") {
+        const r = await api("DELETE", `/api/v1/shares/${need(args[1], "share id")}`);
+        return out(r, () => "revoked");
+      }
+      const r = await api("GET", "/api/v1/shares");
+      return out(r, () =>
+        r.data
+          .map(
+            (x: { id: string; kind: string; name: string | null; url: string; expired: boolean; target: { label: string | null } }) =>
+              `${x.id}  ${x.kind.padEnd(6)} ${x.expired ? "[expired] " : ""}${x.name ?? x.target.label ?? ""}  ${x.url}`,
+          )
+          .join("\n") || "No share links.",
+      );
+    }
+    case "audit": {
+      const r = await api("GET", "/api/v1/audit");
+      return out(r, () =>
+        r.data
+          .map((e: { at: string; actor: string; action: string; target: string | null }) =>
+            `${e.at.slice(0, 16).replace("T", " ")}  ${e.actor.padEnd(16)} ${e.action.padEnd(20)} ${e.target ?? ""}`,
+          )
+          .join("\n") || "Nothing yet.",
       );
     }
     default:

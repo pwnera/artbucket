@@ -10,4 +10,4 @@ import { CheckInput } from "@/lib/schemas";
  * license window, territory, channel, model release, and the brand's variant
  * for the context. A question, not a change, so the read scope asks it.
  */
-export const POST = route("read", async (req) => ok(await checkUse(await body(req, CheckInput))));
+export const POST = route("asset.read", async (req, _p, caller) => ok(await checkUse(caller, await body(req, CheckInput))));

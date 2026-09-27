@@ -10,6 +10,7 @@ import {
   IconRestore,
   IconSparkles,
 } from "@tabler/icons-react";
+import { Can, useCan } from "@/components/can";
 import { toast } from "sonner";
 import { send } from "@/components/collections";
 import { Thumb } from "@/components/gallery";
@@ -204,6 +205,7 @@ function VersionDetail({
 }) {
   const [mode, setMode] = useState<"made" | "now">("made");
   const [v, setV] = useState<Detail | null>(null);
+  const can = useCan();
 
   useEffect(() => {
     let live = true;
@@ -234,15 +236,17 @@ function VersionDetail({
         {v ? (
           <>
             <div className="space-y-1">
-              <Editable
-                value={v.name ?? ""}
-                placeholder={`Name version ${number}`}
-                label={`Name version ${number}`}
-                className="text-lg font-semibold"
-                onSave={async (name) => {
-                  if (await send("PATCH", `/api/v1/brands/${brand}/versions/${number}`, { name: name || null })) onChanged();
-                }}
-              />
+              <Can do="brand.edit" otherwise={<p className="text-lg font-semibold">{v.name || `Version ${number}`}</p>}>
+                <Editable
+                  value={v.name ?? ""}
+                  placeholder={`Name version ${number}`}
+                  label={`Name version ${number}`}
+                  className="text-lg font-semibold"
+                  onSave={async (name) => {
+                    if (await send("PATCH", `/api/v1/brands/${brand}/versions/${number}`, { name: name || null })) onChanged();
+                  }}
+                />
+              </Can>
               <p className="text-muted-foreground text-sm">
                 v{number} · {stamp(v.updatedAt)} · {v.actor} · {v.rules.length} rules
                 {v.kind === "restore" && v.restoredFrom && ` · restored version ${v.restoredFrom}`}
@@ -261,7 +265,7 @@ function VersionDetail({
                   Compared with now
                 </ToggleGroupItem>
               </ToggleGroup>
-              {!current && (
+              {!current && can("brand.edit") && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button size="sm" className="ml-auto">

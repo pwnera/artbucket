@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="src/app/icon.svg" width="96" height="96" alt="Artbucket logo">
+
 # artbucket
 
 **Agent-first, headless-by-design asset management.**
@@ -13,12 +15,14 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.6, early.** Upload, content-addressed dedupe, on-the-fly
+> **Status: v0.7, early.** Upload, content-addressed dedupe, on-the-fly
 > renditions, metadata extraction and write-back, custom fields, collections,
 > faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
 > server, a CLI, brand rules as queryable data, rights, provenance with C2PA
-> Content Credentials, and `/check`: a yes or no on a use, with reasons and
-> what to use instead. The API is not stable until v1.0.
+> Content Credentials, `/check`: a yes or no on a use, with reasons and what
+> to use instead, and teams: accounts with email or single sign-on,
+> organizations and workspaces, access down to one collection or asset, share
+> links and an audit log. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -46,7 +50,11 @@ So artbucket is built API-first for agents as much as people:
 
 ## Quick start
 
-Requires Node 22+, pnpm, and Docker.
+Requires Node 22+, pnpm, and Docker. Optional: `ffmpeg` on the PATH, for video
+thumbnails, and LibreOffice (`soffice`), for Word, Excel and PowerPoint previews
+beyond the thumbnail a file was saved with. PDF, Illustrator, Photoshop, HEIC,
+Sketch, XD, Keynote, InDesign and EPS previews need nothing extra. Figma and
+Google Docs, Sheets, Slides and Drive files are added as links.
 
 ```bash
 git clone https://github.com/pwnera/artbucket.git
@@ -58,7 +66,9 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://localhost:3000 and drop in a file.
+Open http://localhost:3000 and make the first account: it is the admin of
+everything, and until it exists nothing else works, in the app or the API.
+Then drop in a file.
 
 ## Using it
 
@@ -129,9 +139,36 @@ key is canonical. Renditions are generated once and cached forever.
 | `PATCH` | `/api/v1/brands/{slug}/versions/{n}` | `{ name }` keeps it as a checkpoint |
 | `POST` | `/api/v1/brands/{slug}/versions/{n}/restore` | Put it back, as a new version |
 | `GET` | `/api/v1/activity` | Who did what, newest first: asset events and brand rule changes; page with `before` |
-| `GET` | `/api/v1/keys` | API keys, without their secrets |
-| `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key; the secret is in this response only |
+| `GET` | `/api/v1/keys` | The workspace's API keys, without their secrets |
+| `POST` | `/api/v1/keys` | Mint a `{ name, scope }` key for this workspace; the secret is in this response only |
 | `DELETE` | `/api/v1/keys/{id}` | Revoke one |
+| `GET` | `/api/v1/me` | Who is calling, in which workspace, with what scope, and where else they can go |
+| `GET` | `/api/v1/organizations` | Your organizations |
+| `POST` | `/api/v1/organizations` | Make one, with a first workspace; you are its admin |
+| `PATCH` | `/api/v1/organizations/{id}` | Rename it |
+| `GET` | `/api/v1/workspaces` | The organization's workspaces you can open, with your scope in each |
+| `POST` | `/api/v1/workspaces` | Make one |
+| `PATCH` | `/api/v1/workspaces/{id}` | Rename it |
+| `GET` | `/api/v1/members` | People, their grants, and invitations waiting; `?in=workspace` for this workspace's |
+| `POST` | `/api/v1/grants` | Give a member a `scope` on the organization, a workspace, a collection or an asset |
+| `DELETE` | `/api/v1/grants/{id}` | Take it away; the last organization admin stays |
+| `POST` | `/api/v1/invitations` | Invite an `email` to a scope on something; the link is in this response only |
+| `DELETE` | `/api/v1/invitations/{id}` | Withdraw one |
+| `POST` | `/api/v1/invitations/{id}/resend` | Send it again: a new link and a new week |
+| `GET` | `/api/v1/invite/{token}` | What an invitation offers |
+| `POST` | `/api/v1/invite/{token}` | Accept it, signed in |
+| `GET` | `/api/v1/shares` | Share links |
+| `POST` | `/api/v1/shares` | A `view` or `upload` link, with an optional `password` and `expiresAt` |
+| `DELETE` | `/api/v1/shares/{id}` | Revoke one |
+| `POST` | `/api/v1/shares/{id}/send` | Email it to `{ emails }` |
+| `GET` | `/api/v1/shared/{token}` | A share link's contents, for its holder; a password goes in `X-Share-Password` |
+| `POST` | `/api/v1/shared/{token}/uploads` | An upload link's presigned PUT |
+| `POST` | `/api/v1/shared/{token}/assets` | Hand the upload in, as a proposal |
+| `GET` | `/api/v1/audit` | Who changed who may do what; page with `before` |
+| `GET` | `/api/v1/settings` | Settings of the `context` (organization or workspace), and where each value comes from |
+| `PATCH` | `/api/v1/settings/{key}` | Change one; only what is named is kept as this place's own |
+| `DELETE` | `/api/v1/settings/{key}` | Forget this place's own, so what is above applies |
+| `POST` | `/api/v1/email/test` | Send a test through the organization's email |
 | `POST` | `/api/v1/mcp` | The MCP server |
 | `GET` | `/api/v1/openapi.json` | This table, as OpenAPI 3.1 |
 | `GET` | `/a/{id}[/{transform}]` | Original or rendition bytes |
@@ -140,38 +177,150 @@ key is canonical. Renditions are generated once and cached forever.
 
 The spec at `/api/v1/openapi.json` is generated from the Zod schemas the
 handlers validate with, and a test fails if a route exists that it doesn't
-describe. The web UI calls nothing outside this table.
+describe. The web UI calls nothing outside this table, but for signing in and
+out at `/api/auth` ([better-auth](https://better-auth.com)'s own endpoints).
 
 ### Keys and scopes
 
-Send `Authorization: Bearer ab_...`. A key has one scope, and each includes
-the ones before it:
+Send `Authorization: Bearer ab_...`. A key works in one workspace, with one
+scope, and each scope includes the ones before it:
 
 | Scope | May |
 |---|---|
 | `read` | search, list, describe |
 | `propose` | upload and suggest tags; what it adds lands `proposed` |
-| `write` | edit, delete, approve, and manage collections, fields, searches |
-| `admin` | mint and revoke keys |
+| `write` | edit, delete, approve, share links, and manage collections, fields, searches |
+| `admin` | mint and revoke keys, and manage people |
 
-A request without a key gets `ANONYMOUS_SCOPE`, which defaults to `admin`: a
-single user on localhost needs no key at all. Before exposing the app, mint
-the keys you need, then set `ANONYMOUS_SCOPE=read` (or `none`). An unknown or
-revoked key is a `401`, never a fallback to anonymous. Rendition bytes stay
-public, so they can be embedded anywhere; the web UI has no login until v0.7
-and runs as anonymous.
+An unknown or revoked key is a `401`, never a fallback to anonymous.
+Rendition bytes stay public, so they can be embedded anywhere.
 
 ```bash
 curl -X POST localhost:3000/api/v1/keys -H 'content-type: application/json' \
   -d '{"name":"claude","scope":"propose"}'
 ```
 
+A request with neither a key nor a session gets `ANONYMOUS_SCOPE`, which
+unset is nothing: `read` makes a public library. Before the first account
+exists every request is a `403 setup_required`, whatever it carries.
+
+### People and access
+
+People sign in with an email and a password, or with any OpenID Connect
+provider (`OIDC_*`: Okta, Entra ID, Google Workspace, Keycloak, Authentik...).
+Single sign-on is free here, and stays free. Accounts are by invitation: the
+first account made on a fresh install is the admin of everything, anyone
+else needs an invitation link, and people from the OIDC provider arrive with
+no access until an admin gives them some.
+
+An **organization** is a team; a **workspace** is a library of its own inside
+one: assets, collections, fields, brands, saved searches and keys. Nothing
+crosses between workspaces but identical bytes in storage. Switch between
+them at the top of the sidebar.
+
+What a person may do is their **grants**: a scope from the ladder above, on
+the organization, a workspace, a collection or one asset. Grants add up and
+reach down: admin on the organization is admin in every workspace, editor on
+the "Autumn 26" collection is editor on every asset in it. Someone with
+grants on a few collections only sees those, and their assets; that is how a
+contractor or an agency gets exactly its part of the library. The
+organization always keeps an admin.
+
+Every thing someone can do has a name (`asset.edit`, `collection.share`,
+`brand.edit`, `member.manage`...) in `src/lib/permissions.ts`, with the scope
+it takes and what that scope must be on. Routes, MCP tools and core check
+those names, and the web app shows a control only when its request would be
+allowed, asking by the same name (`<Can do="asset.edit" on={asset}>`), so
+the API and the UI can't disagree: a viewer sees no Upload, no Edit, and a
+read-only asset dialog.
+
+**Team** (in the sidebar) is who is in and who is invited. **People and
+invitations** lists the organization's people and their access, changes it,
+and makes invitations: **Invite people** takes an email and a scope on
+something, and gives a link that works once, for a week. With email on it
+is sent to them too. Invitations waiting stay listed, to **Copy link** (the
+token is kept sealed, never in the clear), **Send again** (a new link and a
+new week) or withdraw. A workspace's own members, whoever can open it and
+what each may do there, are in its Settings, Members. ⌘K has Invite people
+too.
+
+```bash
+curl -X POST localhost:3000/api/v1/invitations -H 'content-type: application/json' \
+  -H 'Authorization: Bearer ab_...' \
+  -d '{"email":"sam@agency.example","resource":"collection","resourceId":"{id}","scope":"write"}'
+```
+
+### Share links
+
+For people without an account. **Request uploads** makes a link anyone can
+send files through, a photographer or an agency: they land `proposed`, in
+that collection, and wait in Review like an agent's. **Share** shows a
+collection's approved assets, with downloads, at `/s/{token}`; so does
+**Share** in an asset's dialog, for one. Request uploads is in the Upload menu, into the collection open or the
+workspace; Share is an icon on a collection's page. Both are in a
+collection's menu in the sidebar, and on Team, **Share and upload links**, which
+lists every link to copy, **Send** by email, or revoke. With email on, a
+link can go straight to people as it is made. Either can end on a date and ask for a password
+(kept as a salted scrypt hash), and revoking one stops it at once. Making or
+revoking a link takes write on what it shares.
+
+```bash
+pnpm artbucket share {collection-id} --password dragon --expires 2027-01-31
+pnpm artbucket share {collection-id} --upload --name "Photographer drop"
+```
+
+### Settings
+
+Settings (at the bottom of the sidebar) is how things are configured; who
+gets in, and the links for people without an account, are on Team. It is in
+sections grouped by what they apply to: the
+**workspace** you are in (its name, members, custom fields), its
+**organization** (name, workspaces, email), and your
+**account** (name, password). Each section shows to whoever may use it.
+
+Behind it, settings are definitions (`src/lib/settings.ts`): where each may
+be set, its shape, its secrets and its environment variables. Each place
+keeps only what it overrides, and a value resolves property by property
+from the narrowest place that says something: workspace, then
+organization, then the server's environment, then the default. So a server
+configured once serves every organization, and one of them can change its
+sender and keep using the server's API key without ever holding it.
+`GET /api/v1/settings?context=organization` says where each value comes
+from. Secret properties are encrypted at rest with a key derived from
+`BETTER_AUTH_SECRET`, and never returned.
+
+### Email
+
+Off by default. Turn it on for the whole server with `EMAIL_*`, or for one
+organization in Settings, Email. It sends invitations, password resets
+(Forgot your password? appears on the sign-in page once some email can go
+out) and a test message. Providers are HTTP APIs, no SMTP: `resend`,
+`postmark`, `sendgrid`, and `console`, which prints to the server's log for
+trying it out. Adding one is an entry in `src/lib/email.ts`. A message that
+fails never fails what sent it: the invitation link is still shown, and the
+failure is in the audit log.
+
+```bash
+EMAIL_PROVIDER=resend
+EMAIL_FROM="Acme Assets <assets@acme.example>"
+EMAIL_API_KEY=re_...
+```
+
+### Audit log
+
+Every sign-up and sign-in, grant given or taken, invitation made, withdrawn
+or accepted, key minted or revoked, share link made or revoked, and
+workspace made or renamed, and settings change, is on Team, **Audit log**, and at
+`GET /api/v1/audit`, with who, when and from where. An organization admin
+reads the organization's, with its members' sign-ins; a workspace admin, the
+workspace's. Asset changes stay on Activity.
+
 ### Review
 
-What a `propose` key adds is not final. An upload lands with
-`status: "proposed"` and stays out of the library and search; suggested tags
-wait in `proposedTags`. Each proposal records who made it (`proposedBy`, the
-key's name). `GET /api/v1/assets?review=true` lists everything waiting, and so
+What a `propose` key (or person, or upload link) adds is not final. An upload
+lands with `status: "proposed"` and stays out of the library and search;
+suggested tags wait in `proposedTags`. Each proposal records who made it
+(`proposedBy`: the key's name, the person's, or the upload link's). `GET /api/v1/assets?review=true` lists everything waiting, and so
 does the Review tab, whose count also shows on Assets in the sidebar. A proposal may leave required fields
 empty; the person approving fills them in.
 
@@ -184,8 +333,9 @@ what waits as a table, with who suggested it and when; approve or reject a
 row in place, or a whole selection at once.
 
 Every addition, suggestion, decision and deletion, and every brand rule
-change, is on the Activity tab and at `GET /api/v1/activity`, by actor: an
-API key's name, or `web` for the app. Press ⌘K anywhere to find an asset, a
+change, is on the Activity tab and at `GET /api/v1/activity`, by actor: a
+person's name, an API key's (`agent: true`), or `web` for the app without an
+account. Press ⌘K anywhere to find an asset, a
 brand rule, a collection or a saved search, or to jump to any page.
 
 ### Search
@@ -225,7 +375,8 @@ end, facets included.
 
 ### Custom fields
 
-A library defines its own fields, and required ones must be filled at upload:
+A workspace defines its own fields (Settings, Custom fields), and required
+ones must be filled at upload:
 
 ```bash
 curl -X POST localhost:3000/api/v1/fields -H 'content-type: application/json' \
@@ -422,10 +573,14 @@ pnpm artbucket approve {id}
 pnpm artbucket reject {id} --reason "off-brand colors"
 pnpm artbucket rules --context instagram-story
 pnpm artbucket keys create claude --scope propose
+pnpm artbucket whoami
+pnpm artbucket invite sam@agency.example --scope write --collection {id}
+pnpm artbucket share {collection-id} --upload
+pnpm artbucket audit
 ```
 
 It reads `ARTBUCKET_URL` (default `http://localhost:3000`) and `ARTBUCKET_KEY`,
-and `--json` prints raw responses. `pnpm link --global` puts `artbucket` on
+whose workspace it works in, and `--json` prints raw responses. `pnpm link --global` puts `artbucket` on
 your path.
 
 ## Configuration
@@ -439,13 +594,18 @@ Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 | `S3_ENDPOINT` `S3_REGION` `S3_BUCKET` | Storage location |
 | `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | Storage credentials |
 | `S3_FORCE_PATH_STYLE` | `true` for most non-AWS providers |
-| `APP_URL` | Public origin; also the CORS origin for browser uploads |
-| `ANONYMOUS_SCOPE` | What a request without a key may do: `none`, `read`, `propose`, `write`, `admin` (default) |
+| `APP_URL` | Public origin; also the CORS origin for browser uploads, and the only origin cookie-signed writes are taken from |
+| `BETTER_AUTH_SECRET` | Signs sessions; required in production (`openssl rand -base64 32`) |
+| `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | Single sign-on with an OpenID Connect provider; its redirect URI is `{APP_URL}/api/auth/callback/oidc` |
+| `OIDC_NAME` | The button's label: "Sign in with {OIDC_NAME}" (default `SSO`) |
+| `EMAIL_PROVIDER` | `resend`, `postmark`, `sendgrid` or `console`: email for every organization that doesn't set its own. Unset: off |
+| `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | The sender, where replies go, and the provider's key |
+| `ANONYMOUS_SCOPE` | What a request without a key or a session may do, once the first account exists: `none` (the default), `read`, `propose`, `write`, `admin` |
 
 ## Stack
 
 Next.js 16 · React 19 · Postgres + Drizzle · S3-compatible storage · sharp ·
-Tailwind 4 · DM Sans.
+better-auth · Tailwind 4 · DM Sans.
 
 No monorepo, no job queue, no Redis, no search cluster. Renditions are pure
 functions, so generate-on-first-request plus a cache removes the entire job
@@ -459,8 +619,9 @@ with Google green (#34A853) as the primary, [Tabler icons](https://tabler.io/ico
 and DM Sans. The mark is Tabler's tipped paint bucket. Restyle through the
 tokens in `src/app/globals.css`, not per component.
 
-Every component in use is on the living reference at `/design`, served while
-developing (`pnpm dev`) and not in production.
+Every component in use is on the living reference at `/design`, linked from
+Settings, Development while developing (`pnpm dev`), and not served in
+production.
 
 ## Contributing
 

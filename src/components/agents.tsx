@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconAlertTriangle, IconKey, IconPlus, IconRobot, IconTrash } from "@tabler/icons-react";
+import { useCan } from "@/components/can";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
@@ -55,12 +56,14 @@ export function Agents({
   anonymous: Scope | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
+  const can = useCan();
   // The secret of the key just made: shown once, and filled into the commands.
   const [secret, setSecret] = useState<string | null>(null);
 
   return (
     <SidebarProvider>
       <AppSidebar
+        me={sidebar.me}
         collections={sidebar.collections}
         brands={sidebar.brands}
         searches={sidebar.searches}
@@ -92,15 +95,14 @@ export function Agents({
               <div className="space-y-1">
                 <p className="font-medium">Without a key, anyone can {anonymous === "admin" ? "do anything" : "change everything"}</p>
                 <p className="text-muted-foreground">
-                  That&apos;s fine on your own machine. Before this server is reachable by others, make the keys you need,
-                  then set <code className="font-mono text-xs">ANONYMOUS_SCOPE=read</code> (or <code className="font-mono text-xs">none</code>).
+                  <code className="font-mono text-xs">ANONYMOUS_SCOPE</code> is set to {anonymous}. Unless the library is meant to be public, remove it or set it to <code className="font-mono text-xs">read</code>.
                 </p>
               </div>
             </div>
           )}
 
           <Step n={1} title="Make a key" blurb="One per agent, so you can tell them apart in Review and revoke one without the others.">
-            {keys === null ? (
+            {!can("key.manage") ? (
               <p className="text-muted-foreground text-sm">
                 Making keys needs the admin scope. Use an admin key with the CLI:{" "}
                 <code className="font-mono text-xs">pnpm artbucket keys create claude --scope propose</code>

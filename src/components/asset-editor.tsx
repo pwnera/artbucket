@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconBook, IconCertificate, IconCheck, IconDownload, IconLink, IconPhoto, IconReplace, IconSparkles, IconX } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import { IconBook, IconCertificate, IconCheck, IconCopy, IconDownload, IconLock, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";
@@ -11,17 +12,24 @@ import { FontPlayground } from "@/components/font-preview";
 import { ImagePicker } from "@/components/rich-text";
 import { Renditions } from "@/components/renditions";
 import { Thumb, type Asset } from "@/components/gallery";
+import { Lottie } from "@/components/media";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Can, useCan, Writable } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
+import { ShareDialog } from "@/components/share-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
+import { embedUrl, hasPreview, isLottie } from "@/lib/preview";
 import { CHANNELS } from "@/lib/rights";
 import { ago } from "@/lib/time";
 
@@ -64,6 +72,10 @@ export function AssetEditor({
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const can = useCan();
+  const editable = can("asset.edit", asset);
+  const router = useRouter();
   const tags = useLibraryTags();
   const m = asset.metadata ?? {};
 
@@ -95,6 +107,7 @@ export function AssetEditor({
         prompt: orNull("prompt"),
         parentAssetId: orNull("parentAssetId"),
         supersededBy: orNull("supersededBy"),
+        private: form.get("private") === "on",
       }),
     });
     if (!res.ok) {
@@ -119,6 +132,8 @@ export function AssetEditor({
     const failed = (await Promise.all(changes)).some((r) => !r.ok);
     setBusy(false);
     onSaved();
+    // What the person may do comes from the server, and private moves it.
+    if ((form.get("private") === "on") !== !!asset.private) router.refresh();
     if (failed) {
       toast.warning("Saved, but a collection change didn't go through");
       return;
@@ -145,6 +160,7 @@ export function AssetEditor({
     }
   };
 
+  const embed = embedUrl(asset);
   const facts = [
     asset.width && asset.height ? `${asset.width} × ${asset.height}` : null,
     formatBytes(asset.size),
@@ -154,10 +170,26 @@ export function AssetEditor({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[1fr_380px] md:grid-rows-1 md:overflow-hidden">
+      <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[minmax(0,1fr)_380px] md:grid-rows-1 md:overflow-hidden">
         <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
           <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
-            {asset.mime.startsWith("image/") ? (
+            {embed ? (
+              <iframe src={embed} title={m.title || asset.filename} allowFullScreen className="absolute inset-0 size-full" />
+            ) : asset.mime.startsWith("video/") ? (
+              // The original, streamed in ranges; the derived frame shows until it plays.
+              <video
+                src={`/a/${asset.id}`}
+                poster={hasPreview(asset) ? `/a/${asset.id}/w_1280,f_webp` : undefined}
+                controls
+                playsInline
+                preload="metadata"
+                className="absolute inset-0 size-full object-contain p-6"
+              />
+            ) : asset.mime.startsWith("audio/") ? (
+              <audio src={`/a/${asset.id}`} controls preload="metadata" className="w-full px-6" />
+            ) : isLottie(asset) ? (
+              <Lottie src={`/a/${asset.id}`} className="absolute inset-0 p-6" />
+            ) : hasPreview(asset) ? (
               <Thumb src={`/a/${asset.id}/w_640,f_webp`} alt="" className="absolute inset-0 p-6" />
             ) : isFont(asset.mime, asset.filename) ? (
               <FontPlayground id={asset.id} />
@@ -169,21 +201,28 @@ export function AssetEditor({
                   </EmptyMedia>
                   <EmptyTitle>No preview</EmptyTitle>
                   <EmptyDescription>
-                    Sizes and formats are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
-                    stored, with these edits written in where the format allows.
+                    Nothing in this {fileTypeBadge(asset.filename, asset.mime, asset.probe)} file to show. Download keeps it as stored, with these
+                    edits written in where the format allows.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}
           </div>
           <div className="flex items-center gap-2 border-t px-4 py-3">
-            <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
+            <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime, asset.probe)}</Badge>
             <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
             <span className="ml-auto" />
-            <Button variant="outline" size="sm" type="button" onClick={copyLink} title="A link to this asset, in the library">
-              <IconLink /> <span className="sr-only sm:not-sr-only">Copy link</span>
-            </Button>
-            {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
+            {/* Copy: a link for people who have access. Share: a public link, for anyone. */}
+            <IconButton label="Copy link, for people with access" type="button" onClick={copyLink}>
+              <IconCopy />
+            </IconButton>
+            {asset.status === "active" && can("asset.share", asset) && (
+              <IconButton label="Share: a public link, no account needed" type="button" onClick={() => setSharing(true)}>
+                <IconShare />
+              </IconButton>
+            )}
+            {sharing && <ShareDialog target={{ kind: "view", asset: { id: asset.id, name: m.title || asset.filename } }} onClose={() => setSharing(false)} />}
+            {hasPreview(asset) && <Renditions asset={asset} />}
             <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}
               <a href={`/a/${asset.id}?download`} download>
@@ -201,7 +240,7 @@ export function AssetEditor({
               <DialogTitle className={m.title ? "break-words" : "break-all"}>{m.title || asset.filename}</DialogTitle>
               <DialogDescription className="mt-1">
                 {m.title && <span className="block break-all">{asset.filename}</span>}
-                Edits are written into the file on download.
+                {editable ? "Edits are written into the file on download." : "You can look at this one, not change it."}
               </DialogDescription>
             </div>
             <ForAgents
@@ -210,7 +249,7 @@ export function AssetEditor({
               about="What an agent reads before using this asset: its title, credit and fields, the brand rules that point at it, and ready-made sizes."
               reads={(origin) => [
                 { label: "MCP tool", text: call("describe_asset", { id: asset.id }) },
-                ...(asset.mime.startsWith("image/")
+                ...(hasPreview(asset)
                   ? [{ label: "A size to hand out", text: call("rendition_url", { id: asset.id, width: 1200, format: "webp" }) }]
                   : []),
                 { label: "REST", text: curl(`${origin}/a/${asset.id}`, ["Accept: application/json"]) },
@@ -219,7 +258,10 @@ export function AssetEditor({
           </div>
 
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4">
-            <Review asset={asset} onReviewed={onReviewed} />
+            <Can do="asset.review" on={asset}>
+              <Review asset={asset} onReviewed={onReviewed} />
+            </Can>
+            <Writable do="asset.edit" on={asset}>
             {asset.supersededBy && <Replaced by={asset.supersededBy} />}
             <BrandRules assetId={asset.id} />
             {TEXT.map(({ key, label }) => (
@@ -252,6 +294,17 @@ export function AssetEditor({
                 />
               </Field>
             )}
+            <div className="flex items-start justify-between gap-4 rounded-md border px-3 py-2">
+              <Label htmlFor={`${id}-private`} className="grid flex-1 gap-1 font-normal">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <IconLock className="size-4" /> Private
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Only people added to it or to one of its collections, and admins, see it. Only in private collections, it is private anyway.
+                </span>
+              </Label>
+              <Switch id={`${id}-private`} name="private" defaultChecked={!!asset.private} />
+            </div>
 
             {fields.length > 0 && (
               <>
@@ -264,15 +317,18 @@ export function AssetEditor({
             <RightsInputs asset={asset} />
             <Separator className="my-1" />
             <ProvenanceInputs asset={asset} />
+            </Writable>
           </div>
 
           <div className="flex justify-end gap-2 border-t px-6 py-4">
             <Button variant="outline" type="button" onClick={onClose}>
-              Cancel
+              {editable ? "Cancel" : "Close"}
             </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Saving" : "Save"}
-            </Button>
+            {editable && (
+              <Button type="submit" disabled={busy}>
+                {busy ? "Saving" : "Save"}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>
@@ -420,7 +476,7 @@ function AssetRef({
         {id ? (
           <a href={`/?asset=${id}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-md border p-1.5 text-sm hover:underline">
             <span className="bg-muted relative size-8 shrink-0 overflow-hidden rounded">
-              {shown?.mime.startsWith("image/") && <Thumb src={`/a/${id}/w_64,f_webp`} alt="" />}
+              {shown && hasPreview(shown) && <Thumb src={`/a/${id}/w_64,f_webp`} alt="" />}
             </span>
             <span className="truncate">{shown ? (shown.metadata?.title ?? shown.filename) : "…"}</span>
           </a>

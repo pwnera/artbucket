@@ -4,25 +4,29 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  IconActivity,
-  IconAdjustments,
   IconBook,
   IconBookmark,
   IconDots,
   IconFolder,
-  IconPalette,
+  IconFolderUp,
+  IconLock,
   IconPencil,
   IconPhoto,
   IconPlus,
   IconRobot,
   IconSearch,
+  IconSettings,
+  IconShare,
   IconTrash,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Logo } from "@/components/brand";
+import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
+import { useCan } from "@/components/can";
 import { CommandPalette } from "@/components/command-palette";
+import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
   DropLine,
   MoveItems,
@@ -53,6 +57,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { short } from "@/lib/time";
@@ -70,6 +75,7 @@ export type SavedSearch = { id: string; name: string; query: string };
  * server round trip to wait for.
  */
 export function AppSidebar({
+  me,
   collections,
   brands,
   searches,
@@ -81,6 +87,7 @@ export function AppSidebar({
   onUpload,
   children,
 }: {
+  me: Me;
   collections: Collection[];
   brands: BrandInfo[];
   searches: SavedSearch[];
@@ -96,6 +103,10 @@ export function AppSidebar({
   children?: React.ReactNode;
 }) {
   const sections = useSections();
+  const can = useCan();
+  // Offered only to whoever may: the page passes what it can do, this keeps what they may.
+  const newCollection = can("collection.create") ? onNewCollection : undefined;
+  const deleteSearch = can("search.delete") ? onDeleteSearch : undefined;
   // ⌘K (or Ctrl+K) opens search from anywhere, even inside a text field.
   const [searching, setSearching] = useState(false);
   useEffect(() => {
@@ -117,10 +128,10 @@ export function AppSidebar({
   const at = {
     brand: pathname === "/brand",
     agents: pathname === "/agents",
+    team: pathname === "/team",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
-    assets: inLibrary && !view.collection && !onSearch,
-    activity: pathname === "/activity",
+    assets: (inLibrary && !view.collection && !onSearch) || pathname === "/activity",
   };
 
   return (
@@ -128,12 +139,7 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="gap-3">
-              <NavLink href="/">
-                <Logo />
-                <span className="truncate text-base font-semibold tracking-tight">Artbucket</span>
-              </NavLink>
-            </SidebarMenuButton>
+            <WorkspaceSwitcher me={me} />
           </SidebarMenuItem>
           <SidebarMenuItem>
             {/* Search, Notion style: it looks like a field, and ⌘K opens it from anywhere. */}
@@ -154,7 +160,7 @@ export function AppSidebar({
           brands={brands}
           searches={searches}
           onUpload={onUpload}
-          onNewCollection={onNewCollection}
+          onNewCollection={newCollection}
         />
       </SidebarHeader>
 
@@ -174,7 +180,7 @@ export function AppSidebar({
               />
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
-              <Place href="/activity" label="Activity" icon={<IconActivity />} active={at.activity} />
+              {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -193,12 +199,12 @@ export function AppSidebar({
                 section={section}
                 collections={collections}
                 current={inLibrary && !onSearch ? view.collection : null}
-                onNew={onNewCollection}
+                onNew={newCollection}
                 onEdit={onEditCollection}
               />
             );
           return searches.length > 0 ? (
-            <Searches key={id} section={section} searches={searches} current={inLibrary ? query : null} onDelete={onDeleteSearch} />
+            <Searches key={id} section={section} searches={searches} current={inLibrary ? query : null} onDelete={deleteSearch} />
           ) : null;
         })}
       </SidebarContent>
@@ -206,22 +212,18 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={inLibrary && view.fields} tooltip="Custom fields">
-              <NavLink href="/?fields">
-                <IconAdjustments /> <span>Custom fields</span>
+            <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
+              <NavLink href="/settings">
+                <IconSettings /> <span>Settings</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {/* A contributor's page, not a user's: only while developing. */}
-          {process.env.NODE_ENV === "development" && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Design system">
-                <Link href="/design">
-                  <IconPalette /> <span>Design system</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+        </SidebarMenu>
+        <SidebarSeparator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <AccountMenu me={me} />
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
@@ -277,6 +279,8 @@ function Collections({
   onEdit?: (c: Collection) => void;
 }) {
   const { sorted, item } = useSortable("collections", collections, (c) => c.id);
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
+  const can = useCan();
   return (
     <SidebarSection
       id="collections"
@@ -292,7 +296,11 @@ function Collections({
               <DropLine line={s.line} />
               <SidebarMenuButton asChild isActive={current === c.id} tooltip={c.name}>
                 <NavLink href={`/?collection=${c.id}`} draggable={false}>
-                  <CollectionIcon icon={c.icon} /> <span>{c.name}</span>
+                  <CollectionIcon icon={c.icon} />{" "}
+                  <span>
+                    {c.name}
+                    {c.private && <IconLock className="text-muted-foreground ml-1 inline size-3 align-[-1px]" aria-label="Private" />}
+                  </span>
                 </NavLink>
               </SidebarMenuButton>
               <SidebarMenuBadge className="group-hover/menu-item:opacity-0">{c.count}</SidebarMenuBadge>
@@ -303,14 +311,22 @@ function Collections({
                   </SidebarMenuAction>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start">
-                  {onEdit && (
-                    <>
-                      <DropdownMenuItem onSelect={() => onEdit(c)}>
-                        <IconPencil /> Edit collection
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
+                  {onEdit && can("collection.edit", c) && (
+                    <DropdownMenuItem onSelect={() => onEdit(c)}>
+                      <IconPencil /> Edit collection
+                    </DropdownMenuItem>
                   )}
+                  {can("collection.share", c) && (
+                    <DropdownMenuItem onSelect={() => setSharing({ kind: "view", collection: c })}>
+                      <IconShare /> Share a link
+                    </DropdownMenuItem>
+                  )}
+                  {can("collection.collect", c) && (
+                    <DropdownMenuItem onSelect={() => setSharing({ kind: "upload", collection: c })}>
+                      <IconFolderUp /> Request uploads
+                    </DropdownMenuItem>
+                  )}
+                  {(can("collection.edit", c) || can("collection.share", c)) && <DropdownMenuSeparator />}
                   <MoveItems s={s} />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -325,6 +341,7 @@ function Collections({
           </SidebarMenuItem>
         )}
       </SidebarMenu>
+      {sharing && <ShareDialog target={sharing} onClose={() => setSharing(null)} />}
     </SidebarSection>
   );
 }
