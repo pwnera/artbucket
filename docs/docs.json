@@ -52,6 +52,7 @@
           "configuration/environment",
           "configuration/storage",
           "configuration/auth",
+          "configuration/white-labeling",
           "configuration/limits",
           "configuration/security"
         ]

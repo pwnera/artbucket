@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { People, type Members } from "@/components/settings/access";
+import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import { DeleteOrganization, FieldsPanel, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, opens } from "@/components/settings/sections";
@@ -10,7 +11,7 @@ import type { Scope } from "@/lib/scopes";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Settings - Artbucket" };
+export const metadata: Metadata = { title: "Settings" };
 
 type Params = { context: string; section: string };
 
@@ -64,6 +65,15 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       body = email && <EmailPanel me={me} setting={email} />;
       break;
     }
+    case "organization/branding": {
+      const all = await get("settings?context=organization", data<(BrandingSetting & { key: string })[]>, []);
+      const branding = all.find((x) => x.key === "branding");
+      body = branding && <BrandingPanel setting={branding} />;
+      break;
+    }
+    case "organization/domains":
+      body = <DomainsPanel domains={await get("domains", data<Domain[]>, [])} />;
+      break;
     case "account/profile":
       body = <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;
       break;

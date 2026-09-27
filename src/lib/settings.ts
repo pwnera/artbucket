@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { EmailSettings } from "./email.ts";
+import { BrandingSettings, brandingFromEnv, DEFAULT_BRANDING } from "./branding.ts";
 import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
 
 /**
@@ -60,6 +61,14 @@ export const SETTINGS = {
         apiKey: env.EMAIL_API_KEY || null,
       });
     },
+  }),
+  branding: define({
+    label: "Branding",
+    schema: BrandingSettings,
+    contexts: ["organization"],
+    default: DEFAULT_BRANDING,
+    secrets: [],
+    fromEnv: brandingFromEnv,
   }),
   limits: define({
     label: "Limits",

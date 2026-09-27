@@ -3,6 +3,7 @@ import { and, asc, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-o
 import { db } from "@/lib/db";
 import { assets, brands, collections, grants, invitations, organizations, users, workspaces } from "@/lib/db/schema";
 import { recordAudit, type AuditBy } from "@/lib/core/audit";
+import { appUrlFor } from "@/lib/core/domains";
 import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
@@ -334,6 +335,7 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
     p.grants.push(presentGrant(grant, label(grant.resourceId)));
     people.set(grant.userId, p);
   }
+  const base = await appUrlFor(caller.workspace.organizationId);
   return {
     data: [...people.values()],
     invitations: waiting.map((i) => ({
@@ -347,7 +349,7 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
       invitedBy: i.invitedBy,
       expiresAt: i.expiresAt,
       createdAt: i.createdAt,
-      url: linkOf(i.tokenSealed),
+      url: linkOf(base, i.tokenSealed),
     })),
   };
 }
@@ -456,11 +458,12 @@ export async function dropGrants(resource: "collection" | "asset", ids: string[]
 
 // ---- invitations ------------------------------------------------------------
 
-const inviteUrl = (token: string) => `${env.APP_URL}/invite/${token}`;
+/** On the organization's own domain when it has one: where its people use the app. */
+const inviteUrl = async (organizationId: string, token: string) => `${await appUrlFor(organizationId)}/invite/${token}`;
 /** A waiting invitation's link, to copy again: null when its sealed token doesn't open (made under another secret). */
-const linkOf = (sealed: string | null) => {
+const linkOf = (base: string, sealed: string | null) => {
   const token = sealed && unseal(sealed, env.BETTER_AUTH_SECRET);
-  return token ? inviteUrl(token) : null;
+  return token ? `${base}/invite/${token}` : null;
 };
 
 /**
@@ -488,7 +491,7 @@ export async function createInvitation(caller: Caller, input: { email: string; r
     })
     .returning();
   await recordAudit(caller, "invitation.created", row.email, { resource: t.resource, on: t.label, scope: row.scope }, { workspaceId: t.workspaceId });
-  const url = inviteUrl(token);
+  const url = await inviteUrl(t.organizationId, token);
   const mail = await sendAs(
     t.organizationId,
     invitationEmail(row.email, { invitedBy: caller.actor, organization: caller.workspace.organization.name, label: t.label, scope: row.scope, url }),
@@ -527,7 +530,7 @@ export async function resendInvitation(caller: Caller, id: string) {
     .set({ tokenHash: tokenHash(token), tokenSealed: seal(token, env.BETTER_AUTH_SECRET), invitedBy: caller.actor, expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000) })
     .where(eq(invitations.id, id))
     .returning();
-  const url = inviteUrl(token);
+  const url = await inviteUrl(t.organizationId, token);
   const mail = await sendAs(
     t.organizationId,
     invitationEmail(row.email, { invitedBy: caller.actor, organization: caller.workspace.organization.name, label: t.label, scope: row.scope, url }),

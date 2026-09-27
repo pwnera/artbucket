@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IconCircleCheck } from "@tabler/icons-react";
+import { useBrand } from "@/components/brand";
 import { Card } from "@/components/sign-in";
 import { Field } from "@/components/fields";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ async function call<T>(method: string, url: string, payload?: unknown): Promise<
 const RANK: Scope[] = ["read", "propose", "write", "admin"];
 
 function Choose({ options, onDecide }: { options: Options; onDecide: (d: Decision) => Promise<void> }) {
+  const brand = useBrand();
   const [workspace, setWorkspace] = useState(options.workspace ?? "");
   const [scope, setScope] = useState<Grantable>(options.scope);
   const [busy, setBusy] = useState(false);
@@ -67,7 +69,7 @@ function Choose({ options, onDecide }: { options: Options; onDecide: (d: Decisio
   return (
     <Card
       title={`Connect ${options.client.name}`}
-      lead={`It will work in artbucket as you, doing at most what you pick here. You can disconnect it any time from Agents.`}
+      lead={`It will work in ${brand.name} as you, doing at most what you pick here. You can disconnect it any time from Agents.`}
     >
       <form
         className="space-y-5"

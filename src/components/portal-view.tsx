@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { IconDownload, IconLock, IconPhoto, IconSearch, IconSend } from "@tabler/icons-react";
-import { ThemeToggle } from "@/components/brand";
+import { ThemeToggle, useAccent } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -20,7 +20,7 @@ import { inkOn } from "@/lib/color";
 import { formatBytes } from "@/lib/filename";
 import { cn } from "@/lib/utils";
 
-type Theme = { logo: string | null; accent: string | null; background: string | null };
+type Theme = { logo: string | null; accent: string | null; background: string | null; icon?: string | null; product?: string };
 type Download = { preset: string; label: string; hint: string; url: string; filename: string };
 type Item = {
   id: string;
@@ -59,10 +59,6 @@ type State =
   | { at: "open"; view: View };
 
 const PAGE = 60;
-
-/** The accent as the app's primary color, and ink that reads on it. */
-const themed = (t: Theme) =>
-  (t.accent ? { "--primary": t.accent, "--primary-foreground": inkOn(t.accent), "--ring": t.accent } : {}) as React.CSSProperties;
 
 /**
  * /p/{slug}, or a portal's own domain: a brand portal, for visitors outside
@@ -132,6 +128,11 @@ export function PortalView({ slug }: { slug: string }) {
     const t = setTimeout(() => void load(), q ? 250 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+
+  const shown = state.at === "open" ? state.view.portal : null;
+  useEffect(() => {
+    if (shown) document.title = `${shown.name} - ${shown.theme.product ?? shown.organization}`;
+  }, [shown]);
 
   if (state.at === "loading") return <Shell theme={null}><p className="text-muted-foreground py-24 text-center text-sm">Opening…</p></Shell>;
   if (state.at === "error") {
@@ -209,23 +210,8 @@ export function PortalView({ slug }: { slug: string }) {
   );
 }
 
-/**
- * The accent on the whole document, not a wrapper: menus and dialogs render
- * outside the page's tree and would miss it.
- */
-function useAccent(theme: Theme | null) {
-  const accent = theme?.accent;
-  useEffect(() => {
-    if (!accent) return;
-    const root = document.documentElement.style;
-    const vars = themed({ accent, logo: null, background: null }) as Record<string, string>;
-    for (const [k, v] of Object.entries(vars)) root.setProperty(k, v);
-    return () => Object.keys(vars).forEach((k) => root.removeProperty(k));
-  }, [accent]);
-}
-
 function Shell({ theme, children }: { theme: Theme | null; children: React.ReactNode }) {
-  useAccent(theme);
+  useAccent(theme?.accent);
   return <div className="min-h-svh">{children}</div>;
 }
 
@@ -364,7 +350,7 @@ function Grid({ items, total }: { items: Item[]; total: number }) {
 
 /** Not in yet: a password, a sign-in, and for either, a way to ask. */
 function Gate({ slug, state, onPassword }: { slug: string; state: Extract<State, { at: "gate" }>; onPassword: (p: string) => void }) {
-  useAccent(state.theme);
+  useAccent(state.theme.accent);
   const id = useId();
   const [asking, setAsking] = useState(false);
   const [asked, setAsked] = useState(false);

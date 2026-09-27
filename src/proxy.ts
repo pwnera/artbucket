@@ -24,6 +24,7 @@ const origin = (url: string | undefined) => {
   }
 };
 const https = process.env.APP_URL?.startsWith("https:");
+const app = origin(process.env.APP_URL);
 const appHost = (() => {
   try {
     return new URL(process.env.APP_URL ?? "http://localhost:3000").host;
@@ -46,8 +47,9 @@ const CSP = [
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  "media-src 'self' blob:",
+  // The app's own address too: on an organization's domain, asset URLs from the API still point at APP_URL.
+  `img-src 'self' data: blob: ${app}`.trim(),
+  `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
   "frame-src https://www.figma.com https://docs.google.com https://drive.google.com",
   "worker-src 'self' blob:",

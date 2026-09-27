@@ -717,11 +717,42 @@ export function openapi(serverUrl: string) {
           ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
         }),
       },
+      "/api/v1/branding": {
+        get: op({
+          summary: "The brand this request sees",
+          scope: "public",
+          description:
+            "What the product is called and how it looks: the organization whose domain this is, else whoever is signed " +
+            "in or holds the key, else the only organization, else the server's (BRAND_*). An organization sets its own " +
+            "with PATCH /api/v1/settings/branding.",
+          ok: [200, "The brand", data(S.Branding)],
+        }),
+      },
+      "/api/v1/domains": {
+        get: op({ summary: "The organization's domains", scope: "admin", description: "Its app's and its portals'. Organization admin.", ok: [200, "Domains", data(z.array(S.Domain))] }),
+        post: op({
+          summary: "Add an app domain",
+          scope: "admin",
+          description:
+            "An address of the organization's own for the whole app. Add the TXT record in `record`, point the domain at " +
+            "this server, then POST /api/v1/domains/{host}/verify. Its people sign in there; links in email point there.",
+          body: S.DomainInput,
+          ok: [201, "The domain, not verified yet", data(S.Domain)],
+        }),
+      },
+      "/api/v1/domains/{host}": {
+        parameters: [path("host", "e.g. assets.example.com")],
+        delete: op({ summary: "Remove an app domain", scope: "admin", description: "It stops answering at once. A portal's domain is changed on the portal.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/domains/{host}/verify": {
+        parameters: [path("host", "e.g. assets.example.com")],
+        post: op({ summary: "Verify an app domain", scope: "admin", description: "Looks up its TXT record now; a 422 names what was found instead.", ok: [200, "The domain", data(S.Domain)] }),
+      },
       "/api/v1/domains/check": {
         get: op({
           summary: "Does this server serve a domain?",
           scope: "public",
-          description: "200 for a verified portal domain, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.",
+          description: "200 for a verified domain, an organization's or a portal's, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.",
           query: { domain: { schema: str, description: "A host name, e.g. press.example.com" } },
           ok: [200, "Served", data(z.object({ domain: z.string(), served: z.literal(true) }))],
         }),

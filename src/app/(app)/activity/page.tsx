@@ -3,7 +3,7 @@ import { ActivityFeed, type Page } from "@/components/activity";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Activity - Artbucket" };
+export const metadata: Metadata = { title: "Activity" };
 
 /** Who did what, from /api/v1/activity like any other client. */
 export default async function ActivityPage() {

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/app/icon.svg" width="96" height="96" alt="Artbucket logo">
+<img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
 # artbucket
 
@@ -23,7 +23,8 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 > brand rules as queryable data, rights and provenance with C2PA, `/check`: a
 > yes or no on a use, with reasons and what to use instead, teams with single
 > sign-on and access down to one asset, share links, brand portals with
-> their own look and domain, an audit log, versions
+> their own look and domain, white-labeling down to email and the app's own
+> domain, an audit log, versions
 > and a lifecycle enforced at delivery, limits and usage per organization.
 > Searching 100,000 assets takes 5 to 100 ms
 > ([Benchmarks](docs/developers/benchmarks.mdx)). See [ROADMAP.md](ROADMAP.md)

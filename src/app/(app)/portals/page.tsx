@@ -5,7 +5,7 @@ import { can } from "@/lib/permissions";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Portals - Artbucket" };
+export const metadata: Metadata = { title: "Portals" };
 
 /** The workspace's brand portals, from /api/v1/portals like any client's. */
 export default async function PortalsPage() {

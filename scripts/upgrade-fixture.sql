@@ -50,3 +50,8 @@ insert into portal_requests (portal_id, email, name, note, status, key_hash, exp
   ('00000000-0000-4000-8000-000000000040', 'sam@press.test', null, null, 'pending', null, null, null, null);
 insert into domains (host, organization_id, portal_id, token, verified_at) values
   ('press.fixture.test', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000040', 'artbucket-fixture', now());
+
+insert into settings (organization_id, key, value, updated_by) values
+  ('00000000-0000-4000-8000-000000000001', 'branding', '{"name": "Fixture Assets", "accent": "#0a9396", "logo": "00000000-0000-4000-8000-000000000011"}', 'Ada');
+insert into domains (host, organization_id, portal_id, token, verified_at) values
+  ('assets.fixture.test', '00000000-0000-4000-8000-000000000001', null, 'artbucket-fixture-app', now());

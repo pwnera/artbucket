@@ -232,10 +232,20 @@ export const PortalRequestInput = z.strictObject({
   note: z.string().trim().max(2000).optional().describe("Who you are and what you need it for"),
 });
 export const PortalDecision = z.strictObject({ status: z.enum(["approved", "denied"]) });
+export const DomainInput = z.strictObject({ host: z.string().min(1).max(253).describe("A host name of the organization's, e.g. assets.example.com") });
 
 // ---- responses --------------------------------------------------------------
 
 const date = z.iso.datetime({ offset: true });
+export const Branding = z.object({
+  name: z.string().describe("What the product is called here"),
+  tagline: z.string().nullable(),
+  logo: z.string().nullable().describe("A URL on this host"),
+  icon: z.string().nullable().describe("A URL on this host, square"),
+  accent: z.string().nullable(),
+  emailFooter: z.string().nullable(),
+  custom: z.boolean().describe("Anything differs from the product's own look"),
+});
 
 export const Rights = z
   .object({
@@ -648,6 +658,7 @@ export const Shared = z.object({
     organization: z.string().nullable(),
     target: Share.shape.target,
     expiresAt: date.nullable(),
+    brand: Branding.describe("Whose link this is, and how it looks"),
   }),
   data: z.array(
     z.object({
@@ -706,6 +717,10 @@ export const PortalRequest = z.object({
   url: z.string().nullable().describe("For an approved request: their own link, to copy"),
 });
 export const Decided = z.object({ data: PortalRequest, emailed: z.boolean() });
+export const Domain = domainState.extend({
+  portal: z.string().nullable().describe("The portal it serves, by slug; null for the whole app"),
+  url: z.url(),
+});
 const download = z.object({ preset: z.enum(PRESET_IDS), label: z.string(), hint: z.string(), url: z.string(), filename: z.string() });
 export const PortalView = z.object({
   portal: z.object({
@@ -715,7 +730,13 @@ export const PortalView = z.object({
     organization: z.string(),
     access: z.enum(PORTAL_ACCESS),
     expiresAt: date.nullable(),
-    theme: z.object({ logo: z.string().nullable().describe("A URL on this host"), accent: z.string().nullable(), background: z.string().nullable() }),
+    theme: z.object({
+      logo: z.string().nullable().describe("A URL on this host: the portal's, else its organization's"),
+      accent: z.string().nullable().describe("The portal's, else its organization's"),
+      background: z.string().nullable(),
+      icon: z.string().nullable().describe("The organization's, for the browser tab"),
+      product: z.string().describe("What the organization calls the product"),
+    }),
     collections: z.array(z.object({ id: uuid, name: z.string(), count: z.number().int() })),
   }),
   data: z.array(

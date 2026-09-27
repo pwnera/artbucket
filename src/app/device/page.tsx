@@ -5,7 +5,7 @@ import { Device } from "@/components/consent";
 import { get } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Connect the CLI - Artbucket" };
+export const metadata: Metadata = { title: "Connect the CLI" };
 
 /** Where `artbucket login` sends a person to approve its code (lib/core/oauth.ts). */
 export default async function DevicePage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {

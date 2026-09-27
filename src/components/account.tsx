@@ -13,7 +13,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { AppIcon } from "@/components/brand";
+import { BrandMark } from "@/components/brand";
 import { send } from "@/components/collections";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -101,7 +101,7 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent gap-3">
-            <AppIcon />
+            <BrandMark className="max-w-8" />
             <span className="grid min-w-0 flex-1 text-left leading-tight">
               <span className="truncate font-semibold tracking-tight">{me.workspace.name}</span>
               <span className="text-muted-foreground truncate text-xs">{me.workspace.organization.name}</span>

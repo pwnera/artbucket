@@ -5,6 +5,8 @@ import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit } from "@/lib/core/usage";
+import { brandOfWorkspace } from "@/lib/core/branding";
+import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
@@ -28,7 +30,11 @@ import { hashPassword, refusal, shareToken } from "@/lib/share";
 
 type Link = typeof shareLinks.$inferSelect;
 
-const urlOf = (token: string) => `${env.APP_URL}/s/${token}`;
+/** On the organization's own domain when it has one. */
+const urlOf = async (workspaceId: string, token: string) => {
+  const ws = await workspaceById(workspaceId);
+  return `${await appUrlFor(ws?.organizationId ?? null)}/s/${token}`;
+};
 
 async function targetLabel(link: Pick<Link, "collectionId" | "assetId">) {
   if (link.collectionId) {
@@ -50,7 +56,7 @@ const present = async (link: Link) => ({
   kind: link.kind,
   name: link.name,
   target: await targetLabel(link),
-  url: urlOf(link.token),
+  url: await urlOf(link.workspaceId, link.token),
   password: !!link.passwordHash,
   expiresAt: link.expiresAt,
   expired: !!link.expiresAt && link.expiresAt <= new Date(),
@@ -175,6 +181,7 @@ async function open(token: string, password: string | null) {
     throw new AssetError("password", password ? "That password isn't right" : "This link needs a password", {
       name: link.name,
       kind: link.kind,
+      brand: await brandOfWorkspace(link.workspaceId),
     });
   }
   return link;
@@ -212,6 +219,8 @@ export async function viewShare(token: string, password: string | null, { limit 
     organization: ws?.organization.name ?? null,
     target,
     expiresAt: link.expiresAt,
+    // The organization's look, not the product's: a guest sees whose link this is.
+    brand: await brandOfWorkspace(link.workspaceId),
   };
   if (link.kind === "upload") return { share: meta, data: [], total: 0 };
   // Only what may be used: approved, unexpired, out of embargo, and a stack's current version.

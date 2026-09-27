@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext, useEffect } from "react";
 import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { IconButton } from "@/components/icon-button";
 import { useTheme } from "next-themes";
@@ -10,6 +11,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DEFAULT_BRAND, type Brand } from "@/lib/branding";
+import { inkOn } from "@/lib/color";
 import { cn } from "@/lib/utils";
 
 /* The mark from the brand canvas (01 · Logo): a tipped paint bucket, a paint line, one drop. */
@@ -52,7 +55,7 @@ export function Logo({ variant = "primary", className }: { variant?: "primary" |
 }
 
 /**
- * The app icon: the white mark on a violet rounded square. Also src/app/icon.svg.
+ * The app icon: the white mark on a violet rounded square. Also public/icon.svg.
  * In a span, so a parent's `[&>svg]:size-4` (sidebar and menu items) can't shrink it.
  */
 export function AppIcon({ className }: { className?: string }) {
@@ -93,5 +96,59 @@ export function ThemeToggle({ className }: { className?: string }) {
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// ---- white-labeling -------------------------------------------------------------
+
+/** What the product is called here and how it looks (lib/branding.ts), from GET /api/v1/branding. */
+const BrandContext = createContext<Brand>(DEFAULT_BRAND);
+export const useBrand = () => useContext(BrandContext);
+export function BrandProvider({ value, children }: { value: Brand; children: React.ReactNode }) {
+  return <BrandContext value={value}>{children}</BrandContext>;
+}
+
+/**
+ * An accent for this page, on the whole document: menus and dialogs render
+ * outside the page's tree and would miss it on a wrapper. Share links and
+ * portals, whose brand is their organization's, not the visitor's.
+ */
+export function useAccent(accent: string | null | undefined) {
+  useEffect(() => {
+    if (!accent) return;
+    const root = document.documentElement.style;
+    const vars = { "--primary": accent, "--primary-foreground": inkOn(accent), "--ring": accent };
+    const before = Object.fromEntries(Object.keys(vars).map((k) => [k, root.getPropertyValue(k)]));
+    for (const [k, v] of Object.entries(vars)) root.setProperty(k, v);
+    return () => Object.entries(before).forEach(([k, v]) => (v ? root.setProperty(k, v) : root.removeProperty(k)));
+  }, [accent]);
+}
+
+/**
+ * The mark in the sidebar and on sign-in: the organization's logo when it has
+ * one, its initial on its accent when it only renamed the product, and the
+ * product's own icon when nothing is customized.
+ */
+export function BrandMark({ brand: given, className }: { brand?: Brand; className?: string }) {
+  const context = useBrand();
+  const brand = given ?? context;
+  if (brand.logo) {
+    return (
+      // A rendition already sized for this: next/image would only resize it again.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={brand.logo} alt={brand.name} className={cn("h-8 w-auto max-w-[160px] shrink-0 object-contain object-left", className)} />
+    );
+  }
+  if (!brand.custom) return <AppIcon className={className} />;
+  const fill = brand.accent ?? "var(--primary)";
+  return (
+    <span
+      className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold", className)}
+      style={{ background: fill, color: brand.accent ? inkOn(brand.accent) : "var(--primary-foreground)" }}
+      role="img"
+      aria-label={brand.name}
+    >
+      {brand.name.trim().charAt(0).toUpperCase()}
+    </span>
   );
 }

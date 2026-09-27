@@ -5,6 +5,7 @@ import { nextCookies } from "better-auth/next-js";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
+import { appOrigins } from "@/lib/core/domains";
 import { sendPasswordReset } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
 
@@ -30,6 +31,9 @@ const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? nul
 
 export const auth = betterAuth({
   baseURL: env.APP_URL,
+  // Organizations' own verified domains sign in too, each with its own cookie.
+  // ponytail: single sign-on and reset links still return to APP_URL; a per-host baseURL would fix that.
+  trustedOrigins: () => appOrigins().catch(() => []),
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema, usePlural: true }),
   emailAndPassword: {

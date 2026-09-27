@@ -5,7 +5,7 @@ import type { Rule } from "@/lib/rules";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Guidelines - Artbucket" };
+export const metadata: Metadata = { title: "Guidelines" };
 
 /**
  * A brand's guidelines, drawn from /api/v1/brand/rules and /api/v1/brands,

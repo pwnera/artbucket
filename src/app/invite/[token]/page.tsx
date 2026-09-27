@@ -4,7 +4,7 @@ import { InvitePage, type InvitationInfo } from "@/components/sign-in";
 import { get } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Invitation - Artbucket" };
+export const metadata: Metadata = { title: "Invitation" };
 
 /** Where an invitation link lands: what it offers, from /api/v1/invite/{token}. */
 export default async function Invite({ params }: { params: Promise<{ token: string }> }) {

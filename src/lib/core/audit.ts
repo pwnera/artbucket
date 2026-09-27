@@ -35,7 +35,9 @@ export type AuditAction =
   | "portal.request_approved"
   | "portal.request_denied"
   | "portal.request_removed"
+  | "domain.added"
   | "domain.verified"
+  | "domain.removed"
   | "setting.changed"
   | "setting.reset"
   | "email.failed";

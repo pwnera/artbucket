@@ -1,5 +1,6 @@
 import { body, ok, route } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
+import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, testEmail } from "@/lib/core/mail";
 import { EmailTest } from "@/lib/schemas";
 import { can, needs } from "@/lib/permissions";
@@ -9,7 +10,7 @@ export const POST = route(null, async (req, _p, caller) => {
   if (!can(caller, "organization.manage")) throw new AssetError("forbidden", `Testing email takes ${needs("organization.manage")}`);
   const to = (await body(req, EmailTest)).to ?? caller.user?.email;
   if (!to) throw new AssetError("invalid", "Say who to send it to");
-  const r = await sendAs(caller.workspace.organizationId, testEmail(to, caller.workspace.organization.name));
+  const r = await sendAs(caller.workspace.organizationId, testEmail(to, caller.workspace.organization.name, await appUrlFor(caller.workspace.organizationId)));
   if (!r.sent) throw new AssetError("invalid", `Not sent: ${r.error}`);
   return ok({ data: { sent: true, to } });
 });

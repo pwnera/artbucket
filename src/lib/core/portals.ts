@@ -1,15 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
-import { resolveTxt } from "node:dns/promises";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, collections, domains, grants, organizations, portalCollections, portalRequests, portals, users, workspaces, type PortalRequestStatus } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
+import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { forgetHosts } from "@/lib/core/domains";
+import { appUrlFor, claimable, claimHost, forgetHosts, proveHost, releaseHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
@@ -41,15 +41,18 @@ type Row = typeof portals.$inferSelect;
 
 const REQUEST_DAYS = 90;
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
-const appHost = new URL(env.APP_URL).host;
 
 async function domainOf(portalId: string) {
   const [d] = await db.select().from(domains).where(eq(domains.portalId, portalId));
   return d ?? null;
 }
 
-const urlOf = (p: Pick<Row, "slug">, d: { host: string; verifiedAt: Date | null } | null) =>
-  d?.verifiedAt ? `https://${d.host}` : `${env.APP_URL}/p/${p.slug}`;
+/** Its own domain once verified; else /p/{slug}, on the organization's domain when it has one. */
+const urlOf = async (p: Pick<Row, "slug" | "workspaceId">, d: { host: string; verifiedAt: Date | null } | null) => {
+  if (d?.verifiedAt) return `${new URL(env.APP_URL).protocol}//${d.host}`;
+  const ws = await workspaceById(p.workspaceId);
+  return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
+};
 
 async function present(p: Row) {
   const [cols, d, [{ pending }]] = await Promise.all([
@@ -75,7 +78,7 @@ async function present(p: Row) {
     theme: p.theme,
     collections: cols,
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token } },
-    url: urlOf(p, d),
+    url: await urlOf(p, d),
     pending,
     createdBy: p.createdBy,
     createdAt: p.createdAt,
@@ -145,22 +148,11 @@ async function slugFree(slug: string, except?: string) {
 /** Point a host name at the portal, or none. A new name needs proving again. */
 async function setDomain(caller: Caller, portalId: string, raw: string | null) {
   const current = await domainOf(portalId);
-  if (raw === null) {
-    if (current) await db.delete(domains).where(eq(domains.host, current.host));
-    forgetHosts();
-    return;
-  }
-  const host = hostname(raw);
-  if (!host) throw new AssetError("invalid", `Not a host name: "${raw}". Say press.example.com`);
-  if (host === appHost.replace(/:\d+$/, "")) throw new AssetError("invalid", "That is this server's own address");
-  if (current?.host === host) return;
-  const [other] = await db.select().from(domains).where(eq(domains.host, host));
-  if (other) throw new AssetError("conflict", `${host} is already in use here`);
-  await db.transaction(async (tx) => {
-    if (current) await tx.delete(domains).where(eq(domains.host, current.host));
-    await tx.insert(domains).values({ host, organizationId: caller.workspace.organizationId, portalId, token: `artbucket-${randomBytes(16).toString("hex")}` });
-  });
-  forgetHosts();
+  if (raw !== null && current?.host === hostname(raw)) return;
+  // Checked before the old one goes, so a refused name leaves the portal where it was.
+  if (raw !== null) await claimable(raw);
+  if (current) await releaseHost(current.host);
+  if (raw !== null) await claimHost(caller.workspace.organizationId, portalId, raw);
 }
 
 async function setCollections(portalId: string, ids: string[]) {
@@ -253,7 +245,7 @@ export async function deletePortal(caller: Caller, id: string) {
 
 /**
  * Look for the portal's TXT record now. Verified, the domain serves the
- * portal, and a TLS certificate may be issued for it (domainAllowed).
+ * portal, and a TLS certificate may be issued for it.
  */
 export async function verifyDomain(caller: Caller, portalId: string) {
   mayManage(caller);
@@ -261,17 +253,7 @@ export async function verifyDomain(caller: Caller, portalId: string) {
   if (!p) return null;
   const d = await domainOf(p.id);
   if (!d) throw new AssetError("invalid", "This portal has no domain");
-  if (!d.verifiedAt) {
-    const found = await resolveTxt(challengeName(d.host)).then((rs) => rs.map((r) => r.join("")), () => [] as string[]);
-    if (!found.includes(d.token)) {
-      throw new AssetError("invalid", `No TXT record ${challengeName(d.host)} holding ${d.token} yet. DNS can take a while to reach everyone`, {
-        found,
-      });
-    }
-    await db.update(domains).set({ verifiedAt: new Date() }).where(eq(domains.host, d.host));
-    forgetHosts();
-    await recordAudit(caller, "domain.verified", d.host, { portal: p.slug });
-  }
+  await proveHost(caller, d, { portal: p.slug });
   return present(p);
 }
 
@@ -290,7 +272,17 @@ const logoUrl = async (theme: PortalTheme) => {
   return a ? `/a/${a.id}/h_128,f_webp` : null;
 };
 
-const shownTheme = async (p: Row) => ({ logo: await logoUrl(p.theme), accent: p.theme.accent, background: p.theme.background });
+/** The portal's own look over its organization's brand (lib/core/branding.ts): one source of truth, overridden here. */
+const shownTheme = async (p: Row) => {
+  const brand = await brandOfWorkspace(p.workspaceId);
+  return {
+    logo: (await logoUrl(p.theme)) ?? brand.logo,
+    accent: p.theme.accent ?? brand.accent,
+    background: p.theme.background,
+    icon: brand.icon,
+    product: brand.name,
+  };
+};
 
 /** Someone signed in who may read the portal's workspace. */
 async function isMember(p: Row, headers: Headers | undefined) {
@@ -471,7 +463,7 @@ export async function requestAccess(slug: string, input: { email: string; name?:
   if (!waiting) {
     await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note: input.note || null });
     const ws = await workspaceById(p.workspaceId);
-    const manage = `${env.APP_URL}/portals?open=${p.id}`;
+    const manage = `${await appUrlFor(ws?.organizationId ?? null)}/portals?open=${p.id}`;
     for (const to of await adminsOf(p)) {
       await sendAs(ws?.organizationId ?? null, portalRequestEmail(to, { portal: p.name, who: input.name ? `${input.name} (${email})` : email, note: input.note ?? null, url: manage }));
     }
@@ -479,7 +471,7 @@ export async function requestAccess(slug: string, input: { email: string; name?:
   return { received: true };
 }
 
-const presentRequest = (p: Row, d: { host: string; verifiedAt: Date | null } | null, r: typeof portalRequests.$inferSelect) => {
+const presentRequest = async (p: Row, d: { host: string; verifiedAt: Date | null } | null, r: typeof portalRequests.$inferSelect) => {
   const key = r.status === "approved" && r.keySealed ? unseal(r.keySealed, env.BETTER_AUTH_SECRET) : null;
   return {
     id: r.id,
@@ -491,7 +483,7 @@ const presentRequest = (p: Row, d: { host: string; verifiedAt: Date | null } | n
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
     createdAt: r.createdAt,
-    url: key ? `${urlOf(p, d)}?key=${key}` : null,
+    url: key ? `${await urlOf(p, d)}?key=${key}` : null,
   };
 };
 
@@ -503,7 +495,7 @@ export async function listRequests(caller: Caller, portalId: string) {
     db.select().from(portalRequests).where(eq(portalRequests.portalId, p.id)).orderBy(desc(portalRequests.createdAt)).limit(200),
     domainOf(p.id),
   ]);
-  return rows.map((r) => presentRequest(p, d, r));
+  return Promise.all(rows.map((r) => presentRequest(p, d, r)));
 }
 
 /** Say yes or no. Yes makes them a link of their own, emailed when email works, and shown to copy either way. */
@@ -527,7 +519,7 @@ export async function decideRequest(caller: Caller, portalId: string, requestId:
     })
     .where(eq(portalRequests.id, r.id))
     .returning();
-  const out = presentRequest(p, await domainOf(p.id), next);
+  const out = await presentRequest(p, await domainOf(p.id), next);
   let emailed = false;
   if (out.url) {
     const sent = await sendAs(caller.workspace.organizationId, portalAccessEmail(r.email, { portal: p.name, organization: caller.workspace.organization.name, url: out.url, until }));

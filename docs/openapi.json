@@ -15757,6 +15757,62 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "brand": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "description": "What the product is called here"
+                            },
+                            "tagline": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "logo": {
+                              "description": "A URL on this host",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "icon": {
+                              "description": "A URL on this host, square",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "accent": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "emailFooter": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "custom": {
+                              "type": "boolean",
+                              "description": "Anything differs from the product's own look"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "tagline",
+                            "logo",
+                            "icon",
+                            "accent",
+                            "emailFooter",
+                            "custom"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Whose link this is, and how it looks"
                         }
                       },
                       "required": [
@@ -15765,7 +15821,8 @@
                         "workspace",
                         "organization",
                         "target",
-                        "expiresAt"
+                        "expiresAt",
+                        "brand"
                       ],
                       "additionalProperties": false
                     },
@@ -18495,13 +18552,14 @@
                           "type": "object",
                           "properties": {
                             "logo": {
-                              "description": "A URL on this host",
+                              "description": "A URL on this host: the portal's, else its organization's",
                               "type": [
                                 "string",
                                 "null"
                               ]
                             },
                             "accent": {
+                              "description": "The portal's, else its organization's",
                               "type": [
                                 "string",
                                 "null"
@@ -18512,12 +18570,25 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "icon": {
+                              "description": "The organization's, for the browser tab",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "product": {
+                              "type": "string",
+                              "description": "What the organization calls the product"
                             }
                           },
                           "required": [
                             "logo",
                             "accent",
-                            "background"
+                            "background",
+                            "icon",
+                            "product"
                           ],
                           "additionalProperties": false
                         },
@@ -18752,13 +18823,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host",
+                                  "description": "A URL on this host: the portal's, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
+                                  "description": "The portal's, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -18769,12 +18841,25 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "icon": {
+                                  "description": "The organization's, for the browser tab",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "product": {
+                                  "type": "string",
+                                  "description": "What the organization calls the product"
                                 }
                               },
                               "required": [
                                 "logo",
                                 "accent",
-                                "background"
+                                "background",
+                                "icon",
+                                "product"
                               ],
                               "additionalProperties": false
                             }
@@ -18952,10 +19037,569 @@
         }
       }
     },
+    "/api/v1/branding": {
+      "get": {
+        "summary": "The brand this request sees",
+        "description": "What the product is called and how it looks: the organization whose domain this is, else whoever is signed in or holds the key, else the only organization, else the server's (BRAND_*). An organization sets its own with PATCH /api/v1/settings/branding.\n\nNo key needed.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The brand",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "What the product is called here"
+                        },
+                        "tagline": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo": {
+                          "description": "A URL on this host",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "icon": {
+                          "description": "A URL on this host, square",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "emailFooter": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "custom": {
+                          "type": "boolean",
+                          "description": "Anything differs from the product's own look"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "tagline",
+                        "logo",
+                        "icon",
+                        "accent",
+                        "emailFooter",
+                        "custom"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/domains": {
+      "get": {
+        "summary": "The organization's domains",
+        "description": "Its app's and its portals'. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Domains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "host": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean"
+                          },
+                          "record": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "const": "TXT"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "name",
+                              "value"
+                            ],
+                            "additionalProperties": false,
+                            "description": "What proves it: add this record at your DNS host"
+                          },
+                          "portal": {
+                            "description": "The portal it serves, by slug; null for the whole app",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        },
+                        "required": [
+                          "host",
+                          "verified",
+                          "record",
+                          "portal",
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add an app domain",
+        "description": "An address of the organization's own for the whole app. Add the TXT record in `record`, point the domain at this server, then POST /api/v1/domains/{host}/verify. Its people sign in there; links in email point there.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253,
+                    "description": "A host name of the organization's, e.g. assets.example.com"
+                  }
+                },
+                "required": [
+                  "host"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The domain, not verified yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: add this record at your DNS host"
+                        },
+                        "portal": {
+                          "description": "The portal it serves, by slug; null for the whole app",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "host",
+                        "verified",
+                        "record",
+                        "portal",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/domains/{host}": {
+      "parameters": [
+        {
+          "name": "host",
+          "in": "path",
+          "required": true,
+          "description": "e.g. assets.example.com",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove an app domain",
+        "description": "It stops answering at once. A portal's domain is changed on the portal.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/domains/{host}/verify": {
+      "parameters": [
+        {
+          "name": "host",
+          "in": "path",
+          "required": true,
+          "description": "e.g. assets.example.com",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Verify an app domain",
+        "description": "Looks up its TXT record now; a 422 names what was found instead.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "The domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: add this record at your DNS host"
+                        },
+                        "portal": {
+                          "description": "The portal it serves, by slug; null for the whole app",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "host",
+                        "verified",
+                        "record",
+                        "portal",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/domains/check": {
       "get": {
         "summary": "Does this server serve a domain?",
-        "description": "200 for a verified portal domain, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.\n\nNo key needed.",
+        "description": "200 for a verified domain, an organization's or a portal's, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.\n\nNo key needed.",
         "security": [],
         "parameters": [
           {
@@ -19273,7 +19917,8 @@
                           "key": {
                             "type": "string",
                             "enum": [
-                              "email"
+                              "email",
+                              "branding"
                             ]
                           },
                           "label": {
@@ -19452,7 +20097,8 @@
                         "key": {
                           "type": "string",
                           "enum": [
-                            "email"
+                            "email",
+                            "branding"
                           ]
                         },
                         "label": {
@@ -19602,7 +20248,8 @@
                         "key": {
                           "type": "string",
                           "enum": [
-                            "email"
+                            "email",
+                            "branding"
                           ]
                         },
                         "label": {

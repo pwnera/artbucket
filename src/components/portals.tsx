@@ -74,6 +74,7 @@ const ACCESS: Record<PortalAccess, { label: string; hint: string }> = {
 const slugOf = (name: string) =>
   name
     .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")

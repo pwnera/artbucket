@@ -5,7 +5,7 @@ import { Authorize } from "@/components/consent";
 import { get } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Connect an agent - Artbucket" };
+export const metadata: Metadata = { title: "Connect an agent" };
 
 /** Where a chat app (Claude, ChatGPT) sends a person to say what their agent may do (lib/core/oauth.ts). */
 export default async function AuthorizePage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {

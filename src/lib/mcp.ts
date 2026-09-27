@@ -326,7 +326,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "artbucket", version: "1.1.0" },
+        serverInfo: { name: "artbucket", version: "1.2.0" },
         instructions: INSTRUCTIONS,
       });
     }
