@@ -17,6 +17,7 @@ import {
   IconSettings,
   IconShare,
   IconUsers,
+  IconWorld,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import type { SavedSearch } from "@/components/app-sidebar";
@@ -219,6 +220,11 @@ export function CommandPalette({
                 <IconMailPlus /> Invite people
               </CommandItem>
             </>
+          )}
+          {can("portal.manage") && (
+            <CommandItem value="Portals brand portal press kit partner hub retailer" onSelect={() => go("/portals")}>
+              <IconWorld /> Portals
+            </CommandItem>
           )}
           {can("share.manage") && (
             <CommandItem value="Share and upload links request uploads collect guest photographer agency" onSelect={() => go("/team?tab=sharing")}>

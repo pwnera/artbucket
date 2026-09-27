@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Agents - Artbucket" };
+export const metadata: Metadata = { title: "Agents" };
 
 /**
  * Where a person connects an agent, and sees the ones connected. Keys come

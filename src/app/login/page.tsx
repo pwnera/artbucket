@@ -5,7 +5,7 @@ import { SignInPage } from "@/components/sign-in";
 import { get } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Sign in - Artbucket" };
+export const metadata: Metadata = { title: "Sign in" };
 
 /** Sign in, or on a fresh install make the first account. Someone signed in goes home. */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {

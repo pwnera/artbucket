@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/app/icon.svg" width="96" height="96" alt="Artbucket logo">
+<img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
 # artbucket
 
@@ -15,17 +15,20 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.9, early.** Upload, content-addressed dedupe, on-the-fly
-> renditions, metadata extraction and write-back, custom fields, collections,
-> faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
-> server, a CLI, brand rules as queryable data, rights, provenance with C2PA
-> Content Credentials, `/check`: a yes or no on a use, with reasons and what
-> to use instead, teams: accounts with email or single sign-on,
-> organizations and workspaces, access down to one collection or asset, share
-> links and an audit log, a lifecycle with versions, and what running it for
-> others takes: a Docker image, migrations on start, limits and usage per
-> organization, soft delete, rate limits and a strict CSP. The API is not
-> stable until v1.0. See [ROADMAP.md](ROADMAP.md) and the [docs](docs/).
+> **Status: v1.0, stable.** `/api/v1` and the MCP tools are frozen: what
+> works against them keeps working on every 1.x release
+> ([Stability](docs/developers/stability.mdx)). Upload, content-addressed
+> dedupe, on-the-fly renditions, metadata extraction and write-back, custom
+> fields, collections, faceted search, scoped API keys, an MCP server, a CLI,
+> brand rules as queryable data, rights and provenance with C2PA, `/check`: a
+> yes or no on a use, with reasons and what to use instead, teams with single
+> sign-on and access down to one asset, share links, brand portals with
+> their own look and domain, white-labeling down to email and the app's own
+> domain, an audit log, versions
+> and a lifecycle enforced at delivery, limits and usage per organization.
+> Searching 100,000 assets takes 5 to 100 ms
+> ([Benchmarks](docs/developers/benchmarks.mdx)). See [ROADMAP.md](ROADMAP.md)
+> and the [docs](docs/).
 
 ## Why
 

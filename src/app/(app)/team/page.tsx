@@ -7,7 +7,7 @@ import { can } from "@/lib/permissions";
 import { get, sidebarData } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Team - Artbucket" };
+export const metadata: Metadata = { title: "Team" };
 
 /**
  * People and invitations, share and upload links, and the audit log, each

@@ -16,13 +16,14 @@ naming the variable.
 | `S3_BUCKET` | required | Bucket; created on start when missing |
 | `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | required | Storage credentials |
 | `S3_FORCE_PATH_STYLE` | `true` | `false` for AWS S3 and Tigris; `true` for most others |
-| `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and the only origin cookie-signed writes are taken from |
+| `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and where cookie-signed writes are taken from, beside organizations' verified domains |
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
 | `OIDC_NAME` | `SSO` | The button: "Sign in with {OIDC_NAME}" |
 | `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Unset: no email, unless an organization sets its own |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key |
+| `BRAND_NAME` `BRAND_TAGLINE` `BRAND_ACCENT` | the product's | The server's brand, under every organization's own. See [White-labeling](/configuration/white-labeling) |
 | `ANONYMOUS_SCOPE` | nothing | What a request with no key and no session may do: `read` makes a public library |
 | `RATE_LIMIT` | `1200` | `/api` requests per minute per client; `0` turns it off. See [Security](/configuration/security) |
 | `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_WORKSPACES` `LIMIT_BRANDS` `LIMIT_FEATURES` | unlimited | Every organization's limits. See [Limits](/configuration/limits) |

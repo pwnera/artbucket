@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deliver, layout, parseAddress, PROVIDERS, unusable, type EmailSettings } from "./email.ts";
+import { render } from "./branding.ts";
+import { deliver, parseAddress, PROVIDERS, unusable, type EmailSettings } from "./email.ts";
 
 const base: EmailSettings = { enabled: true, provider: "resend", from: "Artbucket <hi@brand.test>", replyTo: null, apiKey: "key" };
-const msg = layout({ to: "sam@x.test", subject: "Hi", lines: ["Line <one>"], action: { label: "Open", url: "https://a.test/x?y=1&z=2" } });
+const msg = render(
+  { to: "sam@x.test", subject: "Hi", lines: ["Line <one>"], action: { label: "Open", url: "https://a.test/x?y=1&z=2" } },
+  { name: "Artbucket", accent: null, logo: null, emailFooter: null },
+);
 
 test("addresses with and without a name", () => {
   assert.deepEqual(parseAddress("Artbucket <hi@brand.test>"), { name: "Artbucket", email: "hi@brand.test" });

@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { record } from "@/lib/core/activity";
-import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/core/collections";
+import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
@@ -85,10 +85,14 @@ export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: 
  * Private, as SQL: its own flag, or it is in collections and every one of
  * them is private. lib/access.ts isPrivate, for a query.
  */
-export const privateAsset = (hidden: string[]) => sql`(${assets.private} or (
+export const privateAsset = (hidden: string[]) =>
+  // No private collections: nothing is hidden by being in them, and no row needs asking (docs: benchmarks).
+  hidden.length
+    ? sql`(${assets.private} or (
   exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id})
-  and not exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and not ${inArray(sql`ca.collection_id`, [...hidden, NO_ID])})
-))`;
+  and not exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and not ${inArray(sql`ca.collection_id`, hidden)})
+))`
+    : sql`${assets.private}`;
 
 /**
  * What this caller may see: all of the workspace with read on it, private
@@ -99,11 +103,15 @@ export function visible(caller: Caller): SQL {
   const inWorkspace = eq(assets.workspaceId, caller.workspace.id);
   if (allows(caller.scope, "admin")) return inWorkspace;
   const r = reach(caller, "read");
+  // Asked per row, so only when there is a grant to ask about.
   const granted = or(
-    inArray(assets.id, [...r.assets, NO_ID]),
-    sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, [...r.collections, NO_ID])})`,
+    r.assets.length ? inArray(assets.id, r.assets) : undefined,
+    r.collections.length
+      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, r.collections)})`
+      : undefined,
   );
-  return and(inWorkspace, allows(caller.scope, "read") ? or(sql`not ${privateAsset(caller.hidden)}`, granted) : granted)!;
+  const open = sql`not ${privateAsset(caller.hidden)}`;
+  return and(inWorkspace, allows(caller.scope, "read") ? (granted ? or(open, granted) : open) : (granted ?? sql`false`))!;
 }
 
 export { MAX_UPLOAD_BYTES };
@@ -510,6 +518,8 @@ export async function searchAssets(
     );
 
   const facetable = (await listFields(caller.workspace.id)).filter(isFacetable);
+  // ponytail: facets count over every match, about 100 ms at 93,000 (docs: developers/benchmarks).
+  // Cache them per query, or count a sample past some size, when libraries outgrow that.
   const [data, [{ total }], tagCounts, typeCounts, stateCounts, ...fieldCounts] = await Promise.all([
     db
       .select(columns)

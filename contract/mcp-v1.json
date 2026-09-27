@@ -1,0 +1,438 @@
+{
+  "search_assets": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "description": "Free text",
+        "type": "string",
+        "maxLength": 512
+      },
+      "tags": {
+        "description": "Only assets carrying every one of these tags",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "types": {
+        "description": "Only assets of any of these types",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio",
+            "font",
+            "document",
+            "other"
+          ]
+        }
+      },
+      "collection": {
+        "description": "Only this collection's assets: its name or id",
+        "type": "string",
+        "maxLength": 120
+      },
+      "filters": {
+        "description": "Field filters: {\"channel\": [\"web\", \"print\"], \"budget.gte\": \"10\", \"expires.lte\": \"2027-01-31\"}",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "status": {
+        "description": "Only assets in these states; approved (active) and unexpired ones when left out, which is what may be used",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "proposed",
+            "active",
+            "expired",
+            "archived",
+            "rejected",
+            "deleted"
+          ]
+        }
+      },
+      "review": {
+        "description": "Only what waits on a human: proposed assets and suggested tags",
+        "type": "boolean"
+      },
+      "limit": {
+        "default": 20,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    }
+  },
+  "describe_asset": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+        "description": "Asset id, from search_assets"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "rendition_url": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+        "description": "Asset id, from search_assets"
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8000
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8000
+      },
+      "fit": {
+        "description": "With both width and height: cover crops, contain pads, inside fits (default)",
+        "type": "string",
+        "enum": [
+          "cover",
+          "contain",
+          "inside",
+          "outside",
+          "fill"
+        ]
+      },
+      "format": {
+        "description": "Defaults to the original's format; webp suits the web",
+        "type": "string",
+        "enum": [
+          "jpeg",
+          "png",
+          "webp",
+          "avif"
+        ]
+      },
+      "quality": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "check_use": {
+    "type": "object",
+    "properties": {
+      "channel": {
+        "description": "Where it will run, e.g. paid-social",
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "territory": {
+        "description": "The country it will run in, e.g. DE",
+        "type": "string",
+        "pattern": "^[A-Z]{2}$"
+      },
+      "date": {
+        "description": "The day it will run; today when left out",
+        "type": "string",
+        "format": "date",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+        "description": "Asset id, from search_assets"
+      },
+      "context": {
+        "description": "The brand context, e.g. dark-background, instagram-story",
+        "type": "string",
+        "maxLength": 64
+      },
+      "brand": {
+        "description": "A brand's slug; every brand's rules when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  },
+  "ingest_asset": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "maxLength": 2048,
+        "format": "uri"
+      },
+      "filename": {
+        "description": "Defaults to the URL's last path segment",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "tags": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "fields": {
+        "description": "Custom field values; required fields must be set",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "collections": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        }
+      },
+      "origin": {
+        "description": "generated for anything a model made; read from Content Credentials when left out",
+        "type": "string",
+        "enum": [
+          "shot",
+          "licensed",
+          "generated"
+        ]
+      },
+      "generator": {
+        "description": "The model or tool that made it, e.g. \"gpt-image 2.0\"",
+        "type": "string",
+        "maxLength": 200
+      },
+      "prompt": {
+        "description": "For a generated image: what it was asked for",
+        "type": "string",
+        "maxLength": 10000
+      },
+      "parentAssetId": {
+        "description": "The library asset it was made from, e.g. the photo you edited",
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "rights": {
+        "description": "License, territories, channels, embargo, expires, modelRelease, if known",
+        "type": "object",
+        "properties": {
+          "license": {
+            "description": "e.g. \"Royalty-free\", \"CC BY 4.0\", \"Getty, rights-managed\"",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "territories": {
+            "description": "Countries it may run in (ISO 3166-1 alpha-2); empty: anywhere",
+            "maxItems": 250,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "channels": {
+            "description": "What it may be used for, e.g. web, print, paid-social; empty: anything",
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            }
+          },
+          "embargo": {
+            "description": "Not to be used before this day",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires": {
+            "description": "The last day it may be used",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelRelease": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "missing",
+                  "not-needed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "versionOf": {
+        "description": "It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved",
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      }
+    },
+    "required": [
+      "url"
+    ]
+  },
+  "import_google_font": {
+    "type": "object",
+    "properties": {
+      "family": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$",
+        "description": "As Google Fonts names it, e.g. Playfair Display"
+      },
+      "tags": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "collections": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        }
+      }
+    },
+    "required": [
+      "family"
+    ]
+  },
+  "brand_rules": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "context": {
+        "description": "e.g. dark-background, instagram-story",
+        "type": "string",
+        "maxLength": 64
+      }
+    }
+  },
+  "my_proposals": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "description": "Only these; all of them when left out",
+        "type": "string",
+        "enum": [
+          "draft",
+          "proposed",
+          "active",
+          "archived",
+          "rejected"
+        ]
+      },
+      "limit": {
+        "default": 20,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    }
+  },
+  "propose_tags": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+        "description": "Asset id, from search_assets"
+      },
+      "tags": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "required": [
+      "id",
+      "tags"
+    ]
+  }
+}

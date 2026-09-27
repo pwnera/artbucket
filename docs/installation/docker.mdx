@@ -4,7 +4,7 @@ description: The image on its own, with your Postgres and your storage.
 ---
 
 Each release publishes `ghcr.io/pwnera/artbucket`, for amd64 and arm64, tagged
-with its version (`0.9.0`), its minor line (`0.9`) and `latest`.
+with its version (`1.0.0`), its minor line (`1.0`), its major (`1`) and `latest`.
 
 ```bash
 docker run -d --name artbucket -p 3000:3000 \
@@ -17,7 +17,7 @@ docker run -d --name artbucket -p 3000:3000 \
   -e S3_FORCE_PATH_STYLE=false \
   -e APP_URL=https://assets.example.com \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
-  ghcr.io/pwnera/artbucket:0.9
+  ghcr.io/pwnera/artbucket:1
 ```
 
 Keep `BETTER_AUTH_SECRET` somewhere safe: it signs sessions and encrypts
@@ -32,7 +32,7 @@ The container:
 - runs the sweeper every six hours (deleted assets past 30 days, and files
   nothing holds)
 - includes `ffmpeg` for video thumbnails. For Word, Excel and PowerPoint
-  previews, build on it: `FROM ghcr.io/pwnera/artbucket:0.9`, then
+  previews, build on it: `FROM ghcr.io/pwnera/artbucket:1`, then
   `USER root`, `RUN apk add --no-cache libreoffice`, `USER node`.
 
 Every variable is in [Environment](/configuration/environment).

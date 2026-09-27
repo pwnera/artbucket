@@ -2,7 +2,13 @@
 
 ## Supported versions
 
-artbucket is pre-1.0. Only the latest release receives security fixes.
+| Version | Security fixes |
+|---|---|
+| Latest 1.x minor | Yes |
+| Previous 1.x minor | For three months after the next one ships |
+| 0.x | No: upgrade to 1.x, which any 0.x reaches by starting it |
+
+A fix never waits for a minor: it ships as a patch on each supported line.
 
 ## Reporting a vulnerability
 

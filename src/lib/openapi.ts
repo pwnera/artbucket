@@ -636,6 +636,127 @@ export function openapi(serverUrl: string) {
           ok: [201, "Received", data(z.object({ received: z.literal(true), deduped: z.boolean() }))],
         }),
       },
+      "/api/v1/portals": {
+        get: op({ summary: "Brand portals", scope: "write", description: "The workspace's portals.", ok: [200, "Portals", data(z.array(S.Portal))] }),
+        post: op({
+          summary: "Make a brand portal",
+          scope: "write",
+          description:
+            "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or " +
+            "a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions " +
+            "made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` " +
+            "(people with access to the workspace); the last two take access requests. Needs sharing rights on each " +
+            "collection. A `domain` is served once its TXT record is in place: POST /api/v1/portals/{id}/domain.",
+          body: S.PortalInput,
+          ok: [201, "The portal", data(S.Portal)],
+        }),
+      },
+      "/api/v1/portals/{id}": {
+        parameters: [path("id", "Portal id")],
+        get: op({ summary: "A brand portal", scope: "write", ok: [200, "The portal", data(S.Portal)] }),
+        patch: op({
+          summary: "Change a brand portal",
+          scope: "write",
+          description: "Only what is given changes. A new `domain` needs proving again; null removes it. A left-out `password` stays.",
+          body: S.PortalPatch,
+          ok: [200, "The portal", data(S.Portal)],
+        }),
+        delete: op({ summary: "Delete a brand portal", scope: "write", description: "Its address and domain stop answering at once.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/portals/{id}/domain": {
+        parameters: [path("id", "Portal id")],
+        post: op({
+          summary: "Verify a portal's domain",
+          scope: "write",
+          description: "Looks up the TXT record named in `domain.record` now. Found, the portal is served at its domain; a 422 says what was found instead.",
+          ok: [200, "The portal", data(S.Portal)],
+        }),
+      },
+      "/api/v1/portals/{id}/requests": {
+        parameters: [path("id", "Portal id")],
+        get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),
+      },
+      "/api/v1/portals/{id}/requests/{request}": {
+        parameters: [path("id", "Portal id"), path("request", "Request id")],
+        patch: op({
+          summary: "Approve or deny an access request",
+          scope: "write",
+          description: `Approved, they get a link of their own for ${90} days (or until the portal closes), emailed when the organization's email works, and in \`url\` to copy.`,
+          body: S.PortalDecision,
+          ok: [200, "The request, and whether it was emailed", S.Decided],
+        }),
+        delete: op({ summary: "Remove an access request", scope: "write", description: "An approved link stops working.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/portal/{slug}": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "Open a brand portal",
+          scope: "public",
+          description:
+            "What a visitor sees: the portal, themed, its collections with how many usable assets each has, and a page " +
+            "of them with their downloads. URLs are relative to the host asked, so a portal on its own domain loads " +
+            "from there. A password goes in `X-Portal-Password`, an approved request's key in `X-Portal-Key`; a " +
+            "`members` portal reads the session. 401 `password` names how to get in (see PortalGate), 410 `gone` once closed.",
+          query: {
+            q: { schema: str, description: "Every word must match, each as a prefix" },
+            collection: { schema: str, description: "Only this one of its collections" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 60 }, description: "Page size" },
+            offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
+          },
+          ok: [200, "The portal's contents", S.PortalView],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/requests": {
+        parameters: [path("slug", "The portal's address")],
+        post: op({
+          summary: "Ask for access to a portal",
+          scope: "public",
+          description: "For a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request.",
+          body: S.PortalRequestInput,
+          ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
+        }),
+      },
+      "/api/v1/branding": {
+        get: op({
+          summary: "The brand this request sees",
+          scope: "public",
+          description:
+            "What the product is called and how it looks: the organization whose domain this is, else whoever is signed " +
+            "in or holds the key, else the only organization, else the server's (BRAND_*). An organization sets its own " +
+            "with PATCH /api/v1/settings/branding.",
+          ok: [200, "The brand", data(S.Branding)],
+        }),
+      },
+      "/api/v1/domains": {
+        get: op({ summary: "The organization's domains", scope: "admin", description: "Its app's and its portals'. Organization admin.", ok: [200, "Domains", data(z.array(S.Domain))] }),
+        post: op({
+          summary: "Add an app domain",
+          scope: "admin",
+          description:
+            "An address of the organization's own for the whole app. Add the TXT record in `record`, point the domain at " +
+            "this server, then POST /api/v1/domains/{host}/verify. Its people sign in there; links in email point there.",
+          body: S.DomainInput,
+          ok: [201, "The domain, not verified yet", data(S.Domain)],
+        }),
+      },
+      "/api/v1/domains/{host}": {
+        parameters: [path("host", "e.g. assets.example.com")],
+        delete: op({ summary: "Remove an app domain", scope: "admin", description: "It stops answering at once. A portal's domain is changed on the portal.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/domains/{host}/verify": {
+        parameters: [path("host", "e.g. assets.example.com")],
+        post: op({ summary: "Verify an app domain", scope: "admin", description: "Looks up its TXT record now; a 422 names what was found instead.", ok: [200, "The domain", data(S.Domain)] }),
+      },
+      "/api/v1/domains/check": {
+        get: op({
+          summary: "Does this server serve a domain?",
+          scope: "public",
+          description: "200 for a verified domain, an organization's or a portal's, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.",
+          query: { domain: { schema: str, description: "A host name, e.g. press.example.com" } },
+          ok: [200, "Served", data(z.object({ domain: z.string(), served: z.literal(true) }))],
+        }),
+      },
       "/api/v1/audit": {
         get: op({
           summary: "The audit log",

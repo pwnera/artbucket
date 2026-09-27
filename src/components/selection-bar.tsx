@@ -19,6 +19,7 @@ import {
 import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { useLibraryTags } from "@/components/asset-editor";
+import { useBrand } from "@/components/brand";
 import { useCan } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { MultiCombobox, type Option } from "@/components/combobox";
@@ -49,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { fileSlug } from "@/lib/branding";
 import { pool } from "@/lib/pool";
 import type { Action } from "@/lib/permissions";
 import { uniqueNames, zip } from "@/lib/zip";
@@ -84,6 +86,7 @@ export function SelectionBar({
   const [busy, setBusy] = useState(false);
   const libraryTags = useLibraryTags();
   const can = useCan();
+  const brand = useBrand();
   if (!picked.length) return null;
   // A bulk action shows when it is allowed on every asset picked.
   const onAll = (action: Action) => picked.every((a) => can(action, a));
@@ -170,7 +173,7 @@ export function SelectionBar({
     const blob = new Blob([zip(got.map((g, i) => ({ ...g, name: names[i] })))], { type: "application/zip" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `artbucket-${preset ? preset.name.toLowerCase().replace(/\s+/g, "-") : "originals"}-${got.length}.zip`;
+    link.download = `${fileSlug(brand.name)}-${preset ? preset.name.toLowerCase().replace(/\s+/g, "-") : "originals"}-${got.length}.zip`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
     if (failed) toast.warning(`Zipped ${files(got.length)}, ${failed} failed`, { id });

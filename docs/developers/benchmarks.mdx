@@ -1,0 +1,78 @@
+---
+title: Benchmarks
+description: A 100,000-asset library, searched through the real API.
+---
+
+Measured through `/api/v1` over HTTP, with a read key, on a production build
+(`pnpm build && pnpm start`), so every number includes authentication,
+permission checks, validation and JSON. One library of 100,000 assets, with
+four tags each from a long-tailed vocabulary, four custom fields (two of them
+facets), 100 collections of 1,000 assets, and a mix of states: 93% approved,
+5% archived, the rest in review or draft.
+
+## Results
+
+100,000 assets. 200 sequential requests each, after 10 to warm up.
+Apple M4 Pro, 12 cores, 26 GB, darwin; Postgres 18.6; 2026-09-27
+
+| Query | Matches | p50 ms | p95 ms | p99 ms |
+|---|---:|---:|---:|---:|
+| Newest 100, with facets | 93,031 | 97 | 116 | 124 |
+| One common word | 2,364 | 10 | 10 | 11 |
+| Two words | 124 | 7 | 8 | 9 |
+| Prefix of a rare word | 565 | 8 | 9 | 11 |
+| Tag | 247 | 5 | 6 | 7 |
+| Field value | 19,794 | 37 | 40 | 41 |
+| Field range and type | 22,553 | 95 | 112 | 119 |
+| Collection | 990 | 14 | 16 | 17 |
+| Words, tag and field together | 42 | 8 | 9 | 9 |
+| Archived only | 5,000 | 48 | 57 | 59 |
+| Deep page (offset 10,000) | 93,031 | 242 | 255 | 261 |
+| One asset | - | 3 | 4 | 11 |
+| Verdict (POST /check) | - | 3 | 4 | 5 |
+
+Throughput, `q=logo` from 8 clients at once: 211 requests a second.
+
+"Matches" is `total`, every asset the query matches, not the page. Every
+search answers with facet counts (tags, types, states and each select field)
+over all of its matches, which is most of the cost of the broad ones.
+
+## What it says
+
+- **Words, tags and narrow filters stay under 15 ms** at p99: full-text search
+  is a GIN index lookup, and so is a tag.
+- **The broad ones cost what their facets cost.** Counting tags and field
+  values over 93,000 matches is a scan of them: about 100 ms for the default
+  listing. It grows with the matches, not the library.
+- **Deep pages are slow.** `offset=10000` sorts past ten thousand rows, then
+  counts facets over all of them. Narrow the query instead of paging that far.
+- **Descriptions and verdicts are constant time**: `GET /api/v1/assets/{id}`
+  and `POST /api/v1/check` are a few indexed reads.
+
+## Found on the way
+
+The first run of this benchmark, before 1.0, had the default listing at a p50
+of 393 ms and a collection filter at 168 ms. Two things were asked of every
+row that rarely needed asking: whether it sat only in private collections,
+when the workspace had none, and a count of each collection's members joined
+to every asset. Both are now skipped or answered from an index, which also
+took throughput from 87 to 211 requests a second.
+
+## Not measured
+
+Renditions and uploads: they are bound by sharp and the bucket, not the
+database, and the first request for a size makes it. The server's own rate
+limit was off (`RATE_LIMIT=0`).
+
+## Run it
+
+```bash
+createdb artbucket_bench
+BENCH_DATABASE_URL=postgres://.../artbucket_bench pnpm bench seed
+DATABASE_URL=postgres://.../artbucket_bench RATE_LIMIT=0 PORT=3100 pnpm start
+BENCH_DATABASE_URL=postgres://.../artbucket_bench BENCH_URL=http://localhost:3100 pnpm bench run
+```
+
+`seed` migrates an empty database and fills it with synthetic rows; it
+refuses one with accounts in it. `BENCH_ASSETS` and `BENCH_RUNS` change the
+size and the number of requests per query.

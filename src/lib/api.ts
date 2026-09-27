@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
 import { callerFrom, type Caller } from "@/lib/core/access";
+import { isAppOrigin } from "@/lib/core/domains";
 import { OAuthError } from "@/lib/core/oauth";
 import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
@@ -57,10 +58,11 @@ const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 export async function authorize(req: Request, need: Need): Promise<Caller | Response> {
   // Cookies ride along on any request a browser makes, so a page elsewhere
   // could write here as whoever is signed in. Browsers always send Origin on
-  // these requests; nothing without cookies (a key, a CLI) needs it.
+  // these requests; nothing without cookies (a key, a CLI) needs it. The
+  // app's own origins: APP_URL, and organizations' verified domains.
   if (!SAFE.has(req.method) && !req.headers.has("authorization")) {
     const origin = req.headers.get("origin");
-    if (origin && origin !== new URL(env.APP_URL).origin) return fail(403, "forbidden", "Cross-origin requests are refused");
+    if (origin && !(await isAppOrigin(origin))) return fail(403, "forbidden", "Cross-origin requests are refused");
   }
   const caller = await callerFrom(req);
   // resource_metadata: how an MCP client finds where to send its person to sign in (RFC 9728).

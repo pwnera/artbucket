@@ -1,0 +1,28 @@
+---
+title: "0006: Grants that add up and reach down; single sign-on is free"
+description: Accepted, v0.7.
+---
+
+## Context
+
+Teams need access below the workspace: a freelancer on one collection, a
+partner on one asset. And the "SSO tax" (single sign-on only on the top plan)
+is the most resented line on DAM price lists.
+
+## Decision
+
+Access is grants: a scope (`read`, `propose`, `write`, `admin`) on an
+organization, a workspace, a collection or an asset. Grants add up, and a
+grant reaches everything below what it is on. A grant can carry limits: an
+editor who can't delete. OpenID Connect sign-in, the audit log and this
+access model are free, always. SAML and SCIM are where a commercial line
+could start.
+
+## Consequences
+
+- One function (lib/access.ts) answers "may this caller do this here",
+  and it is tested on its own.
+- Private collections and assets are hidden from a workspace's scope, and
+  reached only by a grant on them.
+- A key a person connects is capped at what that person can do, and loses
+  it when they do.

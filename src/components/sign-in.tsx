@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { IconBuilding, IconKey, IconLogout, IconMailOpened } from "@tabler/icons-react";
 import { MakeDialog, pickWorkspace, signOut, useGo, type Me } from "@/components/account";
-import { AppIcon } from "@/components/brand";
+import { BrandMark, useBrand } from "@/components/brand";
+import type { Brand } from "@/lib/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,12 +22,12 @@ async function authPost(path: string, body: unknown): Promise<{ ok: true; data: 
 }
 
 /** A centered card with the mark, for pages outside the app. */
-export function Card({ title, lead, children }: { title: string; lead?: React.ReactNode; children: React.ReactNode }) {
+export function Card({ title, lead, brand, children }: { title: string; lead?: React.ReactNode; brand?: Brand; children: React.ReactNode }) {
   return (
     <main className="bg-muted/40 flex min-h-svh items-center justify-center p-4">
       <div className="bg-background w-full max-w-sm space-y-6 rounded-xl border p-6 shadow-sm sm:p-8">
         <div className="space-y-3">
-          <AppIcon />
+          <BrandMark brand={brand} />
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {lead && <div className="text-muted-foreground text-sm text-pretty">{lead}</div>}
         </div>
@@ -171,13 +172,16 @@ export function AuthForm({
 /** /login */
 export function SignInPage({ auth, next }: { auth: Me["auth"]; next?: string }) {
   const first = auth.signUp;
+  const brand = useBrand();
   return (
     <Card
-      title={first ? "Make the first account" : "Sign in to Artbucket"}
+      title={first ? "Make the first account" : `Sign in to ${brand.name}`}
       lead={
         first
-          ? "Welcome to Artbucket. Nothing works until this server has an account: the first one is the admin of everything, and from then on only people signed in, and API keys, get in."
-          : auth.open
+          ? `Welcome to ${brand.name}. Nothing works until this server has an account: the first one is the admin of everything, and from then on only people signed in, and API keys, get in.`
+          : brand.tagline && !auth.open
+            ? brand.tagline
+            : auth.open
             ? "Sign in, or make an account: it comes with an organization of your own."
             : "Accounts are by invitation: ask an admin for a link if you don't have one."
       }
@@ -231,12 +235,13 @@ const SCOPE_WORDS: Record<string, string> = {
 /** /invite/{token}: what it offers, then sign up, sign in, or just accept. */
 export function InvitePage({ token, info, me }: { token: string; info: InvitationInfo | null; me: Me | null }) {
   const go = useGo();
+  const brand = useBrand();
   const [error, setError] = useState<string | null>(null);
   if (!info) {
     return (
       <Card title="This invitation doesn't work" lead="It was used already, withdrawn, or it expired. Ask whoever sent it for a new one.">
         <Button variant="outline" asChild>
-          <Link href="/">Go to Artbucket</Link>
+          <Link href="/">Go to {brand.name}</Link>
         </Button>
       </Card>
     );

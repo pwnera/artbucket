@@ -1,0 +1,101 @@
+---
+title: Portals
+description: A branded front door onto chosen collections, for people outside the team.
+---
+
+A portal is a press kit, a partner hub or a retailer page: the collections you
+pick, under your logo and colors, at `/p/{address}` or a domain of its own.
+Make one from **Portals** in the sidebar, or with `POST /api/v1/portals`.
+It takes write on the workspace, and sharing rights on each collection.
+
+## What shows
+
+Only what may be used: approved, unexpired, out of embargo, and a stack's
+current version. The same rule as `/a/{id}`, so an asset that expires, gets
+archived or is replaced by a new version leaves every portal the moment that
+happens. Nobody has to remember to take it down.
+
+Visitors search, filter by collection, look closer, and download.
+
+## Downloads
+
+Images download as renditions made for a purpose, not the raw original:
+
+| Preset | What they get |
+|---|---|
+| Web | JPEG, 1920 px wide |
+| Social | JPEG, 1080 px square |
+| Story | JPEG, 1080 × 1920 |
+| Print | JPEG, full size |
+| PNG | Full size, keeps transparency |
+| Original | The file as uploaded, with its metadata written in |
+
+Web, Print and Social unless you pick others. Anything that isn't an image (a
+PDF, a video, a font) downloads as itself.
+
+## Who gets in
+
+| Access | Who |
+|---|---|
+| Anyone with the address | Everyone. Search engines are asked to stay out. |
+| Whoever has the password | Ten wrong guesses in ten minutes, then it waits. |
+| People in this workspace | Signed in, with access to the workspace. |
+
+A portal can close on a date: after it, the address answers `410`.
+
+On the last two, anyone else can **ask for access**: their email, a name, and
+a note. The workspace's admins get an email. Approve, and they get a link of
+their own by email (and one to copy, if email is off), good for 90 days or
+until the portal closes. Remove the request to take it back.
+
+## Look
+
+A logo (an approved image from the library), an accent color for buttons and
+links, and a header background. Leave them empty for the app's own.
+
+## A domain of its own
+
+Give the portal a host name, like `press.example.com`. It shows a TXT record
+to add at your DNS host, which proves the domain is yours:
+
+```
+_artbucket-challenge.press.example.com  TXT  artbucket-3f2a...
+```
+
+Point the domain itself at your server (a `CNAME` to its host name, or an `A`
+record), then **Check now**. Once verified, the domain serves the portal and
+nothing else of the app.
+
+### TLS
+
+The server speaks plain HTTP behind a reverse proxy. For certificates on
+domains you don't know in advance, let the proxy ask the app first. With
+[Caddy](https://caddyserver.com/docs/automatic-https#on-demand-tls):
+
+```
+{
+  on_demand_tls {
+    ask http://artbucket:3000/api/v1/domains/check
+  }
+}
+
+assets.example.com {
+  reverse_proxy artbucket:3000
+}
+
+https:// {
+  tls {
+    on_demand
+  }
+  reverse_proxy artbucket:3000
+}
+```
+
+`GET /api/v1/domains/check?domain=...` answers `200` only for a verified
+domain, so nobody can make your server request certificates for names it
+doesn't serve.
+
+<Note>
+A **members** portal on its own domain can't see who is signed in: sessions
+belong to the app's own address. Give it a password, or keep it at `/p/`.
+</Note>

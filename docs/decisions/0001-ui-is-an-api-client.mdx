@@ -1,0 +1,27 @@
+---
+title: "0001: The web app is a client of the public API"
+description: Accepted, v0.3.
+---
+
+## Context
+
+Every DAM ships an API, and in every one the API trails the app: the app
+reaches the database through routes nobody else may call, and the public API
+gets what someone remembered to expose. Agents and scripts are second-class
+by construction.
+
+## Decision
+
+The web UI calls `/api/v1` and nothing else, beside signing in at `/api/auth`.
+There are no private endpoints. If the app needs something the API can't do,
+the API isn't finished, and it is extended in the same change.
+
+## Consequences
+
+- Anything a person can do, a key can do, at the scope it holds.
+- Every feature costs an API design first, which is slower for the first
+  version of it and cheaper for every version after.
+- The OpenAPI spec is complete by construction: a test fails when a route
+  exists that the spec doesn't describe.
+- Server-rendered pages that only read (the app's first paint) still go
+  through lib/core, never a query of their own.

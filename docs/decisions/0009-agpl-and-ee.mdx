@@ -1,0 +1,23 @@
+---
+title: "0009: AGPLv3 core, ee/ reserved"
+description: Accepted, v1.0.
+---
+
+## Context
+
+The project should be free to self-host with everything a team needs, and
+nobody should be able to resell the hosting of it without giving back.
+
+## Decision
+
+Everything in this repository is AGPLv3, except `ee/`, which is reserved for
+code under a separate commercial license and is empty. What is free is decided
+by [0006](/decisions/0006-grants-and-free-sso): security and access are never
+behind the line. Candidates for `ee/` are organization-scale governance (SAML,
+SCIM, custom roles, legal hold) and hosting scale, never basic security.
+
+## Consequences
+
+- A network service built on a modified artbucket has to offer its source.
+- Contributions to the core stay AGPLv3.
+- `ee/` stays empty until something belongs there; its README says what may.

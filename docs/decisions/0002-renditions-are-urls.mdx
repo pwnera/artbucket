@@ -1,0 +1,27 @@
+---
+title: "0002: Content-addressed storage; renditions are a function of the URL"
+description: Accepted, v0.1.
+---
+
+## Context
+
+Exports, download dialogs and rendition jobs are where most DAMs make people
+and scripts wait. Duplicate uploads are where they waste the most storage.
+
+## Decision
+
+- An original is stored once, under its SHA-256 (`assets/{sha256}`), however
+  many workspaces hold it. Uploading the same bytes twice is a no-op.
+- A rendition is named by its URL: `/a/{id}/w_800,f_webp`. It is made on the
+  first request, with sharp, cached to the bucket, and served from there after.
+  The transform grammar is a strict whitelist with hard caps.
+
+## Consequences
+
+- An agent builds the URL it needs without asking anything first.
+- No job queue: the first request for a size pays for it once.
+- Deleting bytes needs care, since several rows may hold them: the sweeper
+  removes an original only when no row anywhere does, under the lock an
+  upload of the same bytes takes.
+- A rendition's p99 is a request's latency. When that hurts, a queue is the
+  trigger (see Deferred in the roadmap).

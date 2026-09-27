@@ -1,0 +1,25 @@
+---
+title: "0007: Expiry is a date, enforced where bytes leave"
+description: Accepted, v0.8.
+---
+
+## Context
+
+A license that expires is only as good as the moment the asset stops being
+served. A nightly job that flips a status is a day late at best, and does
+nothing about copies already embedded around the web.
+
+## Decision
+
+Expiry is `rights.expires`, a date. An asset's state is derived from it on
+every read, never written by a job. `/a/{id}` serves only approved, unexpired
+assets out of embargo; an expired or archived one answers `410`. Public
+caching is capped at an hour, and never past the end of the last day of use.
+
+## Consequences
+
+- An expiry takes effect at the origin on the day, and in caches within the
+  hour, without anything running.
+- Embeds break on time, which is the point.
+- A CDN in front that ignores `Cache-Control` defeats it; purging through the
+  CDN's API is the upgrade.

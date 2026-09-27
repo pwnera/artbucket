@@ -6,7 +6,7 @@ import { can } from "@/lib/permissions";
 import { get } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Welcome - Artbucket" };
+export const metadata: Metadata = { title: "Welcome" };
 
 /** Signed in, with access to nothing yet. */
 export default async function WelcomePage() {

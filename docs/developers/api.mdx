@@ -40,5 +40,8 @@ Every error has the same shape:
 
 ## Stability
 
-Until v1.0 the API can change between minor versions, and the release notes
-say how. From v1.0, `/api/v1` is frozen: no breaking change without a `/v2`.
+`/api/v1` is frozen since 1.0: what worked against it keeps working until a
+`/v2`, which would run beside it. New routes, new optional inputs and new
+fields in responses arrive in minor versions, so ignore fields you don't know.
+See [Stability](/developers/stability) for exactly what is promised and how
+something is retired.

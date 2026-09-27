@@ -1,6 +1,6 @@
 {
   "name": "artbucket",
-  "version": "0.9.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -19,12 +19,15 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "docs:openapi": "node --experimental-strip-types --no-warnings -e \"import('./src/lib/openapi.ts').then((m) => process.stdout.write(JSON.stringify(m.openapi(m.DOCS_SERVER), null, 2) + '\\\\n'))\" > docs/openapi.json",
+    "contract:freeze": "node --experimental-strip-types --no-warnings scripts/contract.ts freeze",
+    "contract:check": "node --experimental-strip-types --no-warnings scripts/contract.ts check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "services": "docker compose up -d",
     "artbucket": "node --experimental-strip-types --no-warnings bin/artbucket.ts",
-    "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts"
+    "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts",
+    "bench": "node --experimental-strip-types --no-warnings scripts/bench.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",

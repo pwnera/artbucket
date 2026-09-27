@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { IconDownload, IconLock, IconPhoto, IconUpload } from "@tabler/icons-react";
-import { AppIcon, ThemeToggle } from "@/components/brand";
+import { BrandMark, ThemeToggle, useAccent } from "@/components/brand";
+import type { Brand } from "@/lib/branding";
 import { Card } from "@/components/sign-in";
 import { putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type Shared = {
     organization: string | null;
     target: { type: string; label: string | null };
     expiresAt: string | null;
+    brand: Brand;
   };
   data: {
     id: string;
@@ -41,7 +43,7 @@ type Shared = {
 type State =
   | { at: "loading" }
   | { at: "error"; title: string; message: string }
-  | { at: "password"; name: string | null; wrong: boolean }
+  | { at: "password"; name: string | null; wrong: boolean; brand?: Brand }
   | { at: "open"; shared: Shared };
 
 /**
@@ -62,13 +64,19 @@ export function SharedView({ token }: { token: string }) {
     const body = await res.json().catch(() => ({}));
     if (res.ok) return setState({ at: "open", shared: body });
     const e = body.error ?? {};
-    if (e.code === "password") return setState({ at: "password", name: e.detail?.name ?? null, wrong: !!password.current });
+    if (e.code === "password") return setState({ at: "password", name: e.detail?.name ?? null, wrong: !!password.current, brand: e.detail?.brand });
     setState({
       at: "error",
       title: e.code === "gone" ? "This link has expired" : "This link doesn't work",
       message: e.code === "gone" ? "Ask whoever sent it for a new one." : "It was revoked, or it was never a link here.",
     });
   }, [token, headers]);
+
+  const brand = state.at === "open" ? state.shared.share.brand : state.at === "password" ? state.brand : undefined;
+  useAccent(brand?.accent);
+  useEffect(() => {
+    if (brand) document.title = brand.name;
+  }, [brand]);
 
   useEffect(() => {
     // The first fetch, and each one after a password: state follows the response.
@@ -78,7 +86,7 @@ export function SharedView({ token }: { token: string }) {
 
   if (state.at === "loading") return <Card title="Opening the link…">{null}</Card>;
   if (state.at === "error") return <Card title={state.title} lead={state.message}>{null}</Card>;
-  if (state.at === "password") return <PasswordForm name={state.name} wrong={state.wrong} onSubmit={(p) => ((password.current = p), void load())} />;
+  if (state.at === "password") return <PasswordForm name={state.name} wrong={state.wrong} brand={state.brand} onSubmit={(p) => ((password.current = p), void load())} />;
 
   const { share } = state.shared;
   const title = share.name ?? share.target.label ?? "Shared";
@@ -86,7 +94,7 @@ export function SharedView({ token }: { token: string }) {
   return (
     <div className="min-h-svh">
       <header className="bg-background/95 sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 backdrop-blur sm:px-8">
-        <AppIcon className="size-7" />
+        <BrandMark brand={share.brand} className="size-7 max-w-24" />
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold">{title}</p>
           {from && <p className="text-muted-foreground truncate text-xs">Shared from {from}</p>}
@@ -104,10 +112,10 @@ export function SharedView({ token }: { token: string }) {
   );
 }
 
-function PasswordForm({ name, wrong, onSubmit }: { name: string | null; wrong: boolean; onSubmit: (p: string) => void }) {
+function PasswordForm({ name, wrong, brand, onSubmit }: { name: string | null; wrong: boolean; brand?: Brand; onSubmit: (p: string) => void }) {
   const id = useId();
   return (
-    <Card title={name ?? "This link is protected"} lead="Whoever shared it gave it a password.">
+    <Card title={name ?? "This link is protected"} lead="Whoever shared it gave it a password." brand={brand}>
       <form
         className="grid gap-4"
         onSubmit={(e) => {
