@@ -49,6 +49,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
+import { today, type Origin, type Rights } from "@/lib/rights";
+import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import type { SidebarData } from "@/lib/sidebar";
@@ -74,6 +76,16 @@ export type Asset = {
   reviewNote: string | null;
   /** Tags an agent suggested, waiting to be accepted or dismissed. */
   proposedTags: string[];
+  rights: Rights | null;
+  origin: Origin | null;
+  /** The asset it was made from. */
+  parentAssetId: string | null;
+  generator: string | null;
+  prompt: string | null;
+  /** Content Credentials read from the file. */
+  c2pa: C2pa | null;
+  /** The asset that replaces this one. */
+  supersededBy: string | null;
   metadata: {
     title?: string;
     description?: string;
@@ -889,6 +901,12 @@ export function AssetCard({
               {a.status === "proposed"
                 ? "Suggested"
                 : `${a.proposedTags.length} suggested ${a.proposedTags.length === 1 ? "tag" : "tags"}`}
+            </Badge>
+          )}
+          {/* What /api/v1/check would refuse whatever the use: say so before anyone picks it. */}
+          {(a.supersededBy || (a.rights?.expires && a.rights.expires < today())) && (
+            <Badge variant="secondary" className="bg-background/80 absolute right-2 bottom-2 text-[11px] backdrop-blur">
+              {a.supersededBy ? "Replaced" : "Expired"}
             </Badge>
           )}
         </div>

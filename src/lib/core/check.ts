@@ -1,0 +1,81 @@
+import { currentVersion, getAsset, type Asset } from "@/lib/core/assets";
+import { listRules } from "@/lib/core/brand";
+import { AssetError } from "@/lib/core/errors";
+import { env } from "@/lib/env";
+import { rightsReasons, today, type Reason, type Use } from "@/lib/rights";
+
+/**
+ * May this asset be used like this? One answer, with reasons, and what to use
+ * instead where there is something: the question a DAM usually leaves to a
+ * person reading a PDF. It weighs, in order:
+ *
+ * - review: only approved assets are the library's
+ * - replacement: a superseded asset names what replaced it
+ * - rights: license window, territory, channel, model release (lib/rights.ts)
+ * - the brand: in a context with its own variant of a rule (logo on a dark
+ *   background), the default's assets are the wrong ones
+ */
+
+export type Check = Use & { asset: string; context?: string; brand?: string };
+
+type Suggestion = { id: string; title: string; url: string; why: string };
+
+const title = (a: Pick<Asset, "filename" | "metadata">) => a.metadata?.title ?? a.filename;
+const url = (id: string, rendition?: string | null) => `${env.APP_URL}/a/${id}${rendition ? `/${rendition}` : ""}`;
+
+export async function checkUse({ asset: id, context, brand, ...use }: Check) {
+  const asset = await getAsset(id);
+  if (!asset) throw new AssetError("not_found", `No asset ${id}`);
+  const date = use.date ?? today();
+  const reasons: Reason[] = [];
+  const suggest: Suggestion[] = [];
+
+  if (asset.status !== "active") {
+    reasons.push({
+      code: "not_approved",
+      blocking: true,
+      message:
+        asset.status === "proposed"
+          ? "Proposed, not approved: it waits for a person's review"
+          : `Rejected in review${asset.reviewNote ? `: ${asset.reviewNote}` : ""}`,
+    });
+  }
+
+  if (asset.supersededBy) {
+    const current = await currentVersion(asset);
+    reasons.push({ code: "superseded", blocking: true, message: `Replaced by ${title(current)}` });
+    if (current.id !== asset.id) suggest.push({ id: current.id, title: title(current), url: url(current.id), why: "Its replacement" });
+  }
+
+  reasons.push(...rightsReasons(asset.rights, { ...use, date }));
+
+  if (context) {
+    // Rules whose default points at this asset, and the variant they have for this context.
+    const pointing = (await listRules({ asset: id, brand })).filter((r) => r.context === null);
+    const variants = new Map<string, Awaited<ReturnType<typeof listRules>>>();
+    for (const r of pointing) {
+      const b = r.brand!;
+      if (!variants.has(b)) variants.set(b, await listRules({ brand: b, context }));
+      const variant = variants.get(b)!.find((v) => v.key === r.key);
+      if (!variant || variant.context !== context || variant.assets.some((a) => a.id === id)) continue;
+      const names = variant.assets.map((a) => a.title ?? a.filename).join(", ");
+      reasons.push({
+        code: "context",
+        blocking: true,
+        message: `${r.key} has its own ${context} version${names ? `: ${names}` : ""}${r.brand && brand === undefined ? ` (${r.brand})` : ""}`,
+      });
+      for (const a of variant.assets) {
+        if (suggest.some((s) => s.id === a.id)) continue;
+        suggest.push({ id: a.id, title: a.title ?? a.filename!, url: url(a.id, a.rendition), why: `${r.key} for ${context}` });
+      }
+    }
+  }
+
+  return {
+    allowed: !reasons.some((r) => r.blocking),
+    asset: { id: asset.id, title: title(asset), url: url(asset.id) },
+    use: { ...use, date, ...(context ? { context } : {}) },
+    reasons,
+    suggest,
+  };
+}

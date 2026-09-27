@@ -115,10 +115,26 @@ export function openapi(serverUrl: string) {
           description:
             "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). " +
             "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
-            "and required fields may be left for the person who approves it.",
+            "and required fields may be left for the person who approves it. C2PA Content Credentials in the file " +
+            "are read into `c2pa`, and set `origin` and `generator` unless given.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },
+        }),
+      },
+      "/api/v1/check": {
+        post: op({
+          summary: "May this asset be used like this?",
+          scope: "read",
+          description:
+            "A verdict, not a lookup: `allowed`, the `reasons` (blocking, or worth knowing), and `suggest`, what to " +
+            "use instead. Refuses an asset that isn't approved, one that was replaced (and names the replacement), " +
+            "one outside its license window, territory or channel, one whose people have no model release outside " +
+            "editorial use, and, with a `context`, a rule's default asset where the brand has a variant for that " +
+            "context. A restriction the use says nothing about is a non-blocking reason: pass `territory` and " +
+            "`channel` to settle it.",
+          body: S.CheckInput,
+          ok: [200, "The verdict", S.CheckResult],
         }),
       },
       "/api/v1/brand/tokens": {
@@ -173,6 +189,9 @@ export function openapi(serverUrl: string) {
         patch: op({
           summary: "Edit an asset, or review what was proposed",
           scope: "write",
+          description:
+            "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and " +
+            "`supersededBy`: the asset that replaces it, which /api/v1/check then names.",
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
         }),
@@ -383,7 +402,7 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, " +
-            "rendition_url, ingest_asset, import_google_font, propose_tags, brand_rules. Each tool checks its own scope. " +
+            "rendition_url, check_use, ingest_asset, import_google_font, propose_tags, my_proposals, brand_rules. Each tool checks its own scope. " +
             "Resources: artbucket://brand/rules and artbucket://brand/rules/{context}.",
           body: z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number()]).optional(), method: z.string(), params: z.unknown().optional() }),
           ok: [200, "A JSON-RPC response", z.object({ jsonrpc: z.literal("2.0"), id: z.unknown(), result: z.unknown().optional(), error: z.unknown().optional() })],
@@ -400,8 +419,9 @@ export function openapi(serverUrl: string) {
           summary: "The original, or its description",
           scope: "public",
           description:
-            "Bytes, exactly as uploaded; `?download` writes current metadata in. With `Accept: application/json` " +
-            "it returns the description instead, which needs the read scope.",
+            "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except " +
+            "into a file with Content Credentials, which it leaves as signed. With `Accept: application/json` it " +
+            "returns the description instead (rights and provenance included), which needs the read scope.",
           query: { download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" } },
           ok: [200, "The file", S.Description],
         }),

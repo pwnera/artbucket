@@ -10,6 +10,7 @@ import {
   type Asset,
 } from "@/lib/core/assets";
 import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
+import { checkUse } from "@/lib/core/check";
 import { actorOf, listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
@@ -19,6 +20,7 @@ import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
 import { ASSET_TYPES } from "@/lib/filters";
 import { GOOGLE_FAMILY } from "@/lib/font";
+import { ORIGINS, RightsInput, Use } from "@/lib/rights";
 import { allows, type Scope } from "@/lib/scopes";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
@@ -34,7 +36,7 @@ import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt).`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -49,6 +51,7 @@ const summary = (a: Asset) => ({
   tags: a.tags,
   fields: { ...a.inherited, ...a.fields },
   status: a.status,
+  supersededBy: a.supersededBy,
   url: base(a.id),
   thumbnail: isRenderable(a.mime) ? `${base(a.id)}/w_480,f_webp` : null,
 });
@@ -208,6 +211,23 @@ const TOOLS: Record<string, Tool> = {
     },
   }),
 
+  check_use: tool({
+    description:
+      "Ask before you use an asset: may it run here, now, like this? Checks that it was approved, that nothing " +
+      "replaced it, its license window, territory and channel, its model release, and, with a context, whether the " +
+      "brand has a different variant for that context (a light logo for dark backgrounds). `allowed: false` comes " +
+      "with reasons and, in `suggest`, what to use instead. Non-blocking reasons are worth knowing; say the " +
+      "territory and channel to settle them.",
+    scope: "read",
+    readOnly: true,
+    input: Use.extend({
+      id,
+      context: z.string().max(64).optional().describe("The brand context, e.g. dark-background, instagram-story"),
+      brand: z.string().max(60).optional().describe("A brand's slug; every brand's rules when left out"),
+    }),
+    run: async ({ id, ...use }) => checkUse({ asset: id, ...use }),
+  }),
+
   ingest_asset: tool({
     description:
       "Add a file to the library from a public http(s) URL. Identical bytes dedupe to the existing asset. " +
@@ -221,6 +241,11 @@ const TOOLS: Record<string, Tool> = {
       tags: z.array(text.max(64)).max(50).optional(),
       fields: z.record(z.string(), z.unknown()).optional().describe("Custom field values; required fields must be set"),
       collections: z.array(z.uuid()).max(50).optional(),
+      origin: z.enum(ORIGINS).optional().describe("generated for anything a model made; read from Content Credentials when left out"),
+      generator: z.string().max(200).optional().describe('The model or tool that made it, e.g. "gpt-image 2.0"'),
+      prompt: z.string().max(10000).optional().describe("For a generated image: what it was asked for"),
+      parentAssetId: z.uuid().optional().describe("The library asset it was made from, e.g. the photo you edited"),
+      rights: RightsInput.optional().describe("License, territories, channels, embargo, expires, modelRelease, if known"),
     }),
     run: async (input, caller) => {
       const status = allows(caller.scope, "write") ? "active" : "proposed";
@@ -346,7 +371,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "artbucket", version: "0.5.0" },
+        serverInfo: { name: "artbucket", version: "0.6.0" },
         instructions: INSTRUCTIONS,
       });
     }
