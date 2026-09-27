@@ -16,7 +16,7 @@ import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
 export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets">;
 
 /** `logo.minClearSpace` is `--logo-min-clear-space`. */
-const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
+export const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
 const fontFiles = (r: TokenRule) => r.assets.filter((a) => a.mime && isFont(a.mime, a.filename ?? ""));
 const isScale = (r: TokenRule) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
 const FORMAT: Record<string, string> = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "truetype", "font/otf": "opentype" };

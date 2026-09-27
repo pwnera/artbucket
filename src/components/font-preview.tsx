@@ -316,7 +316,7 @@ export function ImportFamily({ family, onImported }: { family: string; onImporte
 }
 
 /** One of a font rule's files: its style's name, set in that style. */
-export function FontStyleChip({ id, filename, onRemove }: { id: string; filename: string; onRemove: () => void }) {
+export function FontStyleChip({ id, filename, onRemove }: { id: string; filename: string; onRemove?: () => void }) {
   const family = useAssetFont(id);
   const { label } = fontStyle(filename);
   return (
@@ -324,14 +324,16 @@ export function FontStyleChip({ id, filename, onRemove }: { id: string; filename
       <span className="text-sm whitespace-nowrap" style={family ? { fontFamily: JSON.stringify(family) } : undefined}>
         {label}
       </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Take ${label} off the rule`}
-        className="text-muted-foreground hover:text-foreground rounded p-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/chip:opacity-100 sm:focus-visible:opacity-100"
-      >
-        <IconX className="size-3.5" />
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Take ${label} off the rule`}
+          className="text-muted-foreground hover:text-foreground rounded p-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/chip:opacity-100 sm:focus-visible:opacity-100"
+        >
+          <IconX className="size-3.5" />
+        </button>
+      )}
     </span>
   );
 }
@@ -346,8 +348,9 @@ export function FontStyles({
   onAdd,
 }: {
   files: { id: string; filename?: string }[];
-  onRemove: (id: string) => void;
-  onAdd: () => void;
+  /** Both left out: read only. */
+  onRemove?: (id: string) => void;
+  onAdd?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const styles = files.map((f) => fontStyle(f.filename ?? ""));
@@ -370,11 +373,13 @@ export function FontStyles({
       {open && (
         <div className="flex flex-wrap items-center gap-1.5">
           {files.map((f) => (
-            <FontStyleChip key={f.id} id={f.id} filename={f.filename ?? ""} onRemove={() => onRemove(f.id)} />
+            <FontStyleChip key={f.id} id={f.id} filename={f.filename ?? ""} onRemove={onRemove && (() => onRemove(f.id))} />
           ))}
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onAdd} aria-label="Add font files">
-            <IconPlus />
-          </Button>
+          {onAdd && (
+            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onAdd} aria-label="Add font files">
+              <IconPlus />
+            </Button>
+          )}
         </div>
       )}
     </div>
