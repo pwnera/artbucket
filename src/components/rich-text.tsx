@@ -271,24 +271,42 @@ function TableBar({ editor }: { editor: Editor }) {
   );
 }
 
-/** An image from the library, into the text at its full size as WebP; the URL is absolute, so agents can fetch it. */
-function ImagePicker({ onClose, onPick }: { onClose: () => void; onPick: (a: Asset) => void }) {
+/**
+ * Pick one asset from the library: an image, unless `any`. Here, an image
+ * into the text at its full size as WebP; the URL is absolute, so agents can fetch it.
+ */
+export function ImagePicker({
+  onClose,
+  onPick,
+  title = "Add an image",
+  description = "From the library. It goes in the text where the cursor was.",
+  any = false,
+  exclude,
+}: {
+  onClose: () => void;
+  onPick: (a: Asset) => void;
+  title?: string;
+  description?: string;
+  any?: boolean;
+  /** Not offered: the asset being edited, say. */
+  exclude?: string;
+}) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Asset[] | null>(null);
   useEffect(() => {
     const t = setTimeout(async () => {
       const res = await fetch(`/api/v1/assets?limit=48${q ? `&q=${encodeURIComponent(q)}` : ""}`);
       const all: Asset[] = res.ok ? (await res.json()).data : [];
-      setResults(all.filter((a) => a.mime.startsWith("image/")));
+      setResults(all.filter((a) => (any || a.mime.startsWith("image/")) && a.id !== exclude));
     }, 200);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, any, exclude]);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add an image</DialogTitle>
-          <DialogDescription>From the library. It goes in the text where the cursor was.</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the library" />
         <div className="-mx-1 max-h-[50vh] overflow-y-auto p-1">
@@ -300,10 +318,18 @@ function ImagePicker({ onClose, onPick }: { onClose: () => void; onPick: (a: Ass
                 onClick={() => onPick(a)}
                 className="bg-muted hover:ring-primary relative aspect-square overflow-hidden rounded-md border hover:ring-2"
               >
-                <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
+                {a.mime.startsWith("image/") ? (
+                  <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
+                ) : (
+                  <span className="text-muted-foreground absolute inset-0 flex items-center justify-center p-2 text-center text-xs break-all">
+                    {a.filename}
+                  </span>
+                )}
               </button>
             ))}
-            {results?.length === 0 && <p className="text-muted-foreground col-span-full py-8 text-center text-sm">No images found.</p>}
+            {results?.length === 0 && (
+              <p className="text-muted-foreground col-span-full py-8 text-center text-sm">{any ? "Nothing found." : "No images found."}</p>
+            )}
           </div>
         </div>
       </DialogContent>

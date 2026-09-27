@@ -13,6 +13,8 @@ const HELP = `artbucket <command>
 
   search [words] [--tag t]... [--collection id] [--review] [--limit n]
   describe <id>
+  check <id> [--channel c] [--territory CC] [--date YYYY-MM-DD] [--context c] [--brand b]
+                          may it be used like this? exits 1 when it may not
   url <id> [--width n] [--height n] [--fit cover|contain|inside] [--format webp|avif|jpeg|png] [--quality n]
   ingest <file-or-url>... [--tag t]... [--collection id]
   propose-tags <id> <tag>...
@@ -58,6 +60,9 @@ const { values: opt, positionals } = parseArgs({
     usage: { type: "string" },
     asset: { type: "string", multiple: true },
     reason: { type: "string" },
+    channel: { type: "string" },
+    territory: { type: "string" },
+    date: { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -133,6 +138,24 @@ async function main() {
     case "describe": {
       const r = await api("GET", `/a/${need(args[0], "asset id")}`);
       return console.log(JSON.stringify(r, null, 2));
+    }
+    case "check": {
+      const r = await api("POST", "/api/v1/check", {
+        asset: need(args[0], "asset id"),
+        channel: opt.channel,
+        territory: opt.territory,
+        date: opt.date,
+        context: opt.context,
+        brand: opt.brand,
+      });
+      if (!r.allowed) process.exitCode = 1;
+      return out(r, () =>
+        [
+          `${r.allowed ? "allowed" : "refused"}  ${r.asset.title}`,
+          ...r.reasons.map((x: { blocking: boolean; message: string }) => `  ${x.blocking ? "x" : "!"} ${x.message}`),
+          ...r.suggest.map((x: { title: string; url: string; why: string }) => `  → ${x.title}  ${x.url}  (${x.why})`),
+        ].join("\n"),
+      );
     }
     case "url": {
       const id = need(args[0], "asset id");

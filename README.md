@@ -13,10 +13,12 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.5, early.** Upload, content-addressed dedupe, on-the-fly
+> **Status: v0.6, early.** Upload, content-addressed dedupe, on-the-fly
 > renditions, metadata extraction and write-back, custom fields, collections,
 > faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
-> server, a CLI, and brand rules as queryable data. The API is not stable until v1.0.
+> server, a CLI, brand rules as queryable data, rights, provenance with C2PA
+> Content Credentials, and `/check`: a yes or no on a use, with reasons and
+> what to use instead. The API is not stable until v1.0.
 > See [ROADMAP.md](ROADMAP.md).
 
 ## Why
@@ -94,9 +96,10 @@ key is canonical. Renditions are generated once and cached forever.
 | `GET` | `/api/v1/assets` | List or search assets, with tag facet counts and the `total` |
 | `POST` | `/api/v1/assets` | Promote a staged upload (`token`), or ingest one from a `url` |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
-| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`; review with `status`, `reviewNote`, `proposedTags` |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`, `rights`, provenance, `supersededBy`; review with `status`, `reviewNote`, `proposedTags` |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
+| `POST` | `/api/v1/check` | May this asset be used like this? `{ allowed, reasons, suggest }` |
 | `GET` | `/api/v1/brand/tokens` | The brand as design tokens: `format=css` (custom properties, `@font-face`) or `json` (W3C DTCG) |
 | `GET` | `/api/v1/fonts/google` | Search the Google Fonts catalog: `q`, `category` |
 | `POST` | `/api/v1/fonts/google` | Import a Google Fonts `family`, one asset per style |
@@ -254,10 +257,69 @@ curl -H 'Accept: application/json' localhost:3000/a/{id}
 ```
 
 It returns what a client needs to decide whether and how to use the asset:
-title, credit, tags, effective field values, its URLs, the transforms it
-allows (`constraints`), and ready-made rendition URLs (`alternatives`).
-`rights` is `null` until v0.6 brings licenses and expiry. Browsers still get
-the bytes: only an explicit `application/json` switches it.
+title, credit, tags, effective field values, its `rights`, its `provenance`,
+what replaced it (`supersededBy`), its URLs, the transforms it allows
+(`constraints`), and ready-made rendition URLs (`alternatives`). Browsers still
+get the bytes: only an explicit `application/json` switches it.
+
+### May I use this?
+
+Knowing an asset's rights is half the job; applying them is the other half.
+`/api/v1/check` takes an asset and a use, and answers:
+
+```bash
+curl -X POST localhost:3000/api/v1/check -H 'content-type: application/json' \
+  -d '{"asset":"{id}","channel":"paid-social","territory":"DE","context":"dark-background"}'
+```
+
+```json
+{
+  "allowed": false,
+  "reasons": [{ "code": "superseded", "message": "Replaced by Blender logo mark", "blocking": true }],
+  "suggest": [{ "id": "...", "title": "Blender logo mark", "url": "http://localhost:3000/a/...", "why": "Its replacement" }]
+}
+```
+
+It refuses an asset that isn't approved; one that was replaced, naming the
+replacement; one used before its embargo or after its last day, outside its
+territories or channels; one with people and no model release, outside
+`editorial`; and, with a `context`, a rule's default asset where the brand has
+a variant for that context (the light logo on dark backgrounds), suggesting
+the variant. A restriction the use says nothing about is a reason that doesn't
+block: give the `territory` and `channel` to settle it. `date` defaults to
+today. It is MCP's `check_use`, and `pnpm artbucket check {id} --channel web`,
+which exits 1 on a refusal.
+
+Rights live on the asset and are edited in its dialog or by `PATCH`:
+
+```json
+"rights": {
+  "license": "Getty, rights-managed",
+  "territories": ["DE", "AT"],
+  "channels": ["web", "print"],
+  "embargo": "2026-10-01",
+  "expires": "2027-03-31",
+  "modelRelease": "released"
+}
+```
+
+Territories are two-letter country codes, channels are slugs; empty means
+unrestricted. `expires` is the last day of use. `supersededBy` marks what
+replaced an asset; the gallery badges replaced and expired assets.
+
+### Provenance
+
+Every asset can say where it came from: `origin` (`shot`, `licensed` or
+`generated`), `parentAssetId` (what it was made from), `generator` (the tool or
+model) and `prompt`. Set them at upload, on `ingest_asset`, or by `PATCH`.
+
+C2PA Content Credentials are read on ingest (JPEG, PNG, WebP) into `c2pa`: the
+signer, the app that signed, the actions, the model, and IPTC's digital source
+type. A file made by a model sets `origin: generated` and `generator` unless the
+uploader said otherwise. Credentials are read, not verified. They are
+preserved: `/a/{id}` serves the signed bytes as uploaded, and `?download`
+leaves such a file as it is rather than write metadata that would break its
+signature. Renditions are new pixels and carry none.
 
 ### The brand, as data
 
@@ -310,7 +372,8 @@ the context's own where it has one, the default otherwise.
 `/a/{id}` is always the exact bytes you uploaded. `/a/{id}?download` is the same
 file with the library's title, description, creator, copyright and tags written
 in as XMP, spliced in without re-encoding a pixel. JPEG and PNG today; other
-formats download as stored, and `X-Metadata-Embedded: false` says so.
+formats, and files with Content Credentials, download as stored, and
+`X-Metadata-Embedded: false` says so.
 
 ## Agents
 
@@ -328,8 +391,9 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp \
 |---|---|---|
 | `search_assets` | read | Full text, tags, collections (by name), field filters, and the `total`; its description lists your fields and collections |
 | `describe_asset` | read | The same description as `/a/{id}` with `Accept: application/json`, plus the brand rules that point at it |
+| `check_use` | read | `/api/v1/check`: may it run here, now, in this context; if not, why, and what to use instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
-| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed` |
+| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with its provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `my_proposals` | propose | What this key proposed and what became of it: approved, waiting, or rejected with the person's reason |
@@ -351,6 +415,7 @@ redirect.
 ```bash
 pnpm artbucket search sintel poster
 pnpm artbucket url {id} --width 1200 --format webp
+pnpm artbucket check {id} --channel paid-social --territory DE
 pnpm artbucket ingest ./hero.png https://example.com/logo.png --tag launch
 pnpm artbucket review
 pnpm artbucket approve {id}

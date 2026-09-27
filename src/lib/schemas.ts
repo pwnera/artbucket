@@ -2,6 +2,7 @@ import { z } from "zod";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
+import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
@@ -39,17 +40,28 @@ const promote = {
   tags: tags.optional(),
 };
 
+/** Rights and where it came from: at upload, or later by PATCH. */
+const provenance = {
+  rights: RightsInput.nullable().optional().describe("What it may be used for; null or {} says nothing"),
+  origin: z.enum(ORIGINS).nullable().optional().describe("Defaults to what its Content Credentials say, if any"),
+  parentAssetId: uuid.nullable().optional().describe("The asset it was made from: the photo an edit started from, a model's input"),
+  generator: z.string().trim().max(200).nullable().optional().describe('The tool or model that made it, e.g. "gpt-image 2.0"'),
+  prompt: z.string().trim().max(10000).nullable().optional().describe("For a generated asset: what it was asked for"),
+};
+
 export const Finalize = z.union([
   z.strictObject({
     token: uuid.describe("From POST /api/v1/uploads, after the PUT"),
     filename: z.string().min(1).max(512),
     mime: z.string().min(1).max(255),
     ...promote,
+    ...provenance,
   }),
   z.strictObject({
     url: z.url({ protocol: /^https?$/ }).max(2048).describe("Public http(s) URL the server fetches"),
     filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment"),
     ...promote,
+    ...provenance,
   }),
 ]);
 
@@ -83,7 +95,16 @@ export const AssetPatch = z.strictObject({
     .describe('"active" approves a proposed asset; "rejected" turns it down and keeps it, with `reviewNote`'),
   reviewNote: z.string().max(2000).nullable().optional().describe("Why it was rejected, for whoever proposed it"),
   proposedTags: tags.optional().describe("Replaces the pending suggestions; [] dismisses them all"),
+  ...provenance,
+  rights: provenance.rights.describe("Replaces them whole; null clears"),
+  supersededBy: uuid.nullable().optional().describe("The asset that replaces this one; /api/v1/check then refuses it and names that"),
 });
+
+export const CheckInput = Use.extend({
+  asset: uuid,
+  context: z.string().regex(RULE_CONTEXT).max(64).optional().describe("The brand context it is for, e.g. dark-background"),
+  brand: z.string().max(60).optional().describe("Only this brand's rules; every brand's when left out"),
+}).strict();
 
 export const ProposeTags = z.strictObject({
   tags: z.array(z.string().min(1).max(MAX_TAG_LENGTH)).min(1).max(50),
@@ -133,6 +154,39 @@ export const CreateKey = z.strictObject({
 // ---- responses --------------------------------------------------------------
 
 const date = z.iso.datetime({ offset: true });
+
+export const Rights = z
+  .object({
+    license: z.string().nullable(),
+    territories: z.array(z.string()).describe("ISO 3166-1 alpha-2; empty: anywhere"),
+    channels: z.array(z.string()).describe("empty: any use"),
+    embargo: z.iso.date().nullable().describe("Not before this day"),
+    expires: z.iso.date().nullable().describe("The last day it may be used"),
+    modelRelease: z.enum(MODEL_RELEASES).nullable(),
+  })
+  .nullable();
+
+export const C2pa = z
+  .object({
+    manifests: z.number().int(),
+    generator: z.string().nullable().describe("The app that signed it"),
+    title: z.string().nullable(),
+    signedBy: z.string().nullable().describe("The signing certificate's organization, as the file claims it; not verified"),
+    actions: z.array(z.string()),
+    digitalSourceType: z.string().nullable().describe("IPTC: digitalCapture, trainedAlgorithmicMedia..."),
+    softwareAgent: z.string().nullable().describe("The tool the actions name, often the model"),
+    ingredients: z.number().int(),
+  })
+  .nullable()
+  .describe("Content Credentials read from the file; the original keeps the signed manifest");
+
+const provenanceOut = {
+  origin: z.enum(ORIGINS).nullable(),
+  parentAssetId: uuid.nullable(),
+  generator: z.string().nullable(),
+  prompt: z.string().nullable(),
+  c2pa: C2pa,
+};
 const fieldValues = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 
 export const Asset = z.object({
@@ -165,6 +219,9 @@ export const Asset = z.object({
   proposedBy: z.string().nullable().describe('For a proposal: the API key\'s name, or "web"'),
   reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
+  rights: Rights,
+  ...provenanceOut,
+  supersededBy: uuid.nullable().describe("The asset that replaces this one"),
   collections: z.array(uuid),
   createdAt: date,
   updatedAt: date,
@@ -300,7 +357,9 @@ export const Description = z.object({
   tags: z.array(z.string()),
   fields: fieldValues.describe("Effective values: own over inherited"),
   collections: z.array(uuid),
-  rights: z.null().describe("License, territory, channel, expiry. Arrives in v0.6; null until then"),
+  rights: Rights,
+  provenance: z.object(provenanceOut),
+  supersededBy: uuid.nullable().describe("Replaced: use this one instead"),
   urls: z.object({
     original: z.url(),
     download: z.url().describe("The original with current metadata written in"),
@@ -336,6 +395,24 @@ export const ActivityItem = z.object({
 export const Activity = z.object({
   data: z.array(ActivityItem),
   next: date.nullable().describe("Pass as `before` for the next page; null at the end"),
+});
+
+export const CheckResult = z.object({
+  allowed: z.boolean().describe("false when any reason is blocking"),
+  asset: z.object({ id: uuid, title: z.string(), url: z.url() }),
+  use: z.object({ channel: z.string(), territory: z.string(), date: z.iso.date(), context: z.string() }).partial(),
+  reasons: z
+    .array(
+      z.object({
+        code: z.enum(["not_approved", "superseded", "embargoed", "expired", "territory", "channel", "model_release", "context"]),
+        message: z.string(),
+        blocking: z.boolean().describe("false: go ahead, but know this"),
+      }),
+    )
+    .describe("Why not, and what to know"),
+  suggest: z
+    .array(z.object({ id: uuid, title: z.string(), url: z.url(), why: z.string() }))
+    .describe("What to use instead: the replacement, the brand's variant for the context"),
 });
 
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });

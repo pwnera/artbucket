@@ -238,6 +238,8 @@ for (const film of FILMS) {
       description: info.description || null,
       creator: info.artist || "Blender Foundation",
       copyright: `${info.artist || "Blender Foundation"}, ${info.license}. Source: https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, "_"))}`,
+      rights: { license: info.license },
+      origin: "licensed",
     });
     if (!deduped) added++;
     console.log(`${deduped ? "=" : "+"} ${film.name} / ${file}`);
@@ -258,6 +260,8 @@ for (const [name, file] of Object.entries(LOGOS)) {
     title: name === "mark" ? "Blender logo mark" : "Blender logo with wordmark",
     creator: "Blender Foundation",
     copyright: `Trademark of the Blender Foundation, ${info.license}. Source: https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, "_"))}`,
+    rights: { license: `${info.license}; the Blender logo is a trademark of the Blender Foundation` },
+    origin: "licensed",
   });
   logos[name] = data.id;
   if (!deduped) added++;

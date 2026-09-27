@@ -15,7 +15,9 @@ import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
 import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { fontMime } from "@/lib/font";
+import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
+import { isEmpty, type Origin, type Rights } from "@/lib/rights";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, MAX_DIMENSION, PRESETS } from "@/lib/transform";
@@ -96,7 +98,7 @@ export async function finalizeUpload(input: {
   status?: AssetStatus;
   /** Who is uploading: a key's name, or "web". Recorded on proposed assets. */
   actor?: string;
-}): Promise<{ asset: Asset; deduped: boolean }> {
+} & Provenance): Promise<{ asset: Asset; deduped: boolean }> {
   const staged = stagingKey(input.token);
   if (!(await exists(staged))) {
     throw new AssetError("not_found", "No staged upload for that token");
@@ -108,6 +110,7 @@ export async function finalizeUpload(input: {
   // them. The person approving it fills them in (updateAsset checks).
   const proposed = input.status === "proposed";
   const values = withoutNulls(await validFields(input.fields ?? {}, proposed ? "patch" : "upload", await inheritedFrom(into)));
+  if (input.parentAssetId) await mustExist(input.parentAssetId, "parentAssetId");
 
   const bytes = await getObject(staged);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -123,6 +126,8 @@ export async function finalizeUpload(input: {
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
   const mime = fontMime(bytes) ?? input.mime;
+  // Content Credentials say how it was made, unless the uploader says otherwise.
+  const c2pa = readC2pa(bytes);
   await putObject(originalKey(sha256), bytes, mime);
   await deleteObject(staged);
 
@@ -143,6 +148,12 @@ export async function finalizeUpload(input: {
       fields: values as FieldValues,
       status: input.status ?? "active",
       proposedBy: proposed ? (input.actor ?? null) : null,
+      rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
+      origin: input.origin ?? (c2pa && originOf(c2pa)),
+      parentAssetId: input.parentAssetId ?? null,
+      generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
+      prompt: input.prompt ?? null,
+      c2pa,
     })
     .onConflictDoNothing({ target: assets.sha256 })
     .returning({ id: assets.id });
@@ -415,6 +426,36 @@ async function bySha(sha256: string): Promise<Asset | null> {
   return asset ?? null;
 }
 
+/**
+ * Where an asset came from. Set at upload or by PATCH; `origin` and
+ * `generator` default to what the file's Content Credentials say.
+ */
+export type Provenance = {
+  rights?: Rights | null;
+  origin?: Origin | null;
+  /** The asset it was made from. */
+  parentAssetId?: string | null;
+  generator?: string | null;
+  prompt?: string | null;
+};
+
+async function mustExist(id: string, what: string) {
+  if (!(await getAsset(id))) throw new AssetError("invalid", `${what}: no asset ${id}`);
+}
+
+/** The asset that replaces this one at last: replacements can be replaced too. */
+export async function currentVersion(asset: Asset): Promise<Asset> {
+  let at = asset;
+  const seen = new Set([at.id]);
+  while (at.supersededBy && !seen.has(at.supersededBy)) {
+    const next = await getAsset(at.supersededBy);
+    if (!next) break;
+    seen.add(next.id);
+    at = next;
+  }
+  return at;
+}
+
 /** The descriptive fields a person edits. Everything else is read from the file. */
 export const EDITABLE = ["title", "description", "creator", "copyright"] as const;
 export type AssetPatch = {
@@ -426,7 +467,9 @@ export type AssetPatch = {
   proposedTags?: string[];
   /** Custom field values to merge; null clears one. */
   fields?: Record<string, unknown>;
-} & { [K in (typeof EDITABLE)[number]]?: string | null };
+  /** The asset that replaces this one; null un-replaces it. */
+  supersededBy?: string | null;
+} & Provenance & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
  * Edits merge into `metadata` over what was extracted; null clears a field.
@@ -434,10 +477,42 @@ export type AssetPatch = {
  */
 export async function updateAsset(
   id: string,
-  { tags, status, reviewNote, proposedTags, fields: custom, ...fields }: AssetPatch,
+  {
+    tags,
+    status,
+    reviewNote,
+    proposedTags,
+    fields: custom,
+    rights,
+    origin,
+    parentAssetId,
+    generator,
+    prompt,
+    supersededBy,
+    ...fields
+  }: AssetPatch,
   actor = "web",
 ): Promise<Asset | null> {
   const set: PgUpdateSetSource<typeof assets> = {};
+  if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
+  if (origin !== undefined) set.origin = origin;
+  if (generator !== undefined) set.generator = generator?.trim() || null;
+  if (prompt !== undefined) set.prompt = prompt?.trim() || null;
+  if (parentAssetId) {
+    if (parentAssetId === id) throw new AssetError("invalid", "An asset can't be made from itself");
+    await mustExist(parentAssetId, "parentAssetId");
+  }
+  if (parentAssetId !== undefined) set.parentAssetId = parentAssetId;
+  if (supersededBy) {
+    let at = await getAsset(supersededBy);
+    if (!at) throw new AssetError("invalid", `supersededBy: no asset ${supersededBy}`);
+    // Following replacements must end somewhere: A replaced by B replaced by A never does.
+    for (const seen = new Set<string>(); at && !seen.has(at.id); at = at.supersededBy ? await getAsset(at.supersededBy) : null) {
+      if (at.id === id) throw new AssetError("invalid", "That would make a loop: the replacement is, or leads back to, this asset");
+      seen.add(at.id);
+    }
+  }
+  if (supersededBy !== undefined) set.supersededBy = supersededBy;
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
@@ -509,7 +584,7 @@ export async function proposeTags(id: string, suggested: string[], actor = "web"
 /**
  * What an asset is, for a machine deciding whether and how to use it:
  * `GET /a/{id}` with `Accept: application/json`, and MCP's describe tool.
- * Rights arrive in v0.6; the key is here now so clients can code against it.
+ * Whether a particular use is allowed is /api/v1/check's question (lib/core/check.ts).
  */
 export function describeAsset(asset: Asset) {
   const base = `${env.APP_URL}/a/${asset.id}`;
@@ -533,7 +608,15 @@ export function describeAsset(asset: Asset) {
     tags: asset.tags,
     fields: { ...asset.inherited, ...asset.fields },
     collections: asset.collections,
-    rights: null,
+    rights: asset.rights,
+    provenance: {
+      origin: asset.origin,
+      parentAssetId: asset.parentAssetId,
+      generator: asset.generator,
+      prompt: asset.prompt,
+      c2pa: asset.c2pa,
+    },
+    supersededBy: asset.supersededBy,
     urls: {
       original: base,
       download: `${base}?download`,
@@ -556,9 +639,12 @@ export function describeAsset(asset: Asset) {
 /**
  * The original with the library's current metadata written into it. Formats
  * that can't carry XMP yet come back as stored, flagged so the caller can say so.
+ * So does a file with Content Credentials: its manifest signs these exact
+ * bytes, and a byte more would make it read as tampered with.
  */
 export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embedded: boolean }> {
   const bytes = await getObject(originalKey(asset.sha256));
+  if (asset.c2pa) return { body: bytes, embedded: false };
   const m = asset.metadata ?? {};
   const xmp = buildXmp({
     title: m.title,
