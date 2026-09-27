@@ -53,11 +53,11 @@ export async function makeCurrent(caller: Caller, id: string, number: number): P
 export async function repoint(stack: string, prefer?: { id: string; force?: boolean }) {
   await db.transaction(async (tx) => {
     const rows = await tx
-      .select({ id: assets.id, version: assets.version, status: assets.status, current: assets.current })
+      .select({ id: assets.id, version: assets.version, status: assets.status, current: assets.current, deletedAt: assets.deletedAt })
       .from(assets)
       .where(eq(assets.stackId, stack))
       .for("update");
-    const live = rows.filter((r) => r.status === "active").sort((a, b) => b.version! - a.version!);
+    const live = rows.filter((r) => r.status === "active" && !r.deletedAt).sort((a, b) => b.version! - a.version!);
     const now = live.find((r) => r.current);
     const want = prefer && live.find((r) => r.id === prefer.id);
     const to = (want && (prefer!.force || !now || want.version! > now.version!) ? want : now) ?? live[0];
@@ -73,7 +73,7 @@ export async function repoint(stack: string, prefer?: { id: string; force?: bool
         current: sql`coalesce(${assets.id} = ${id}::uuid, false)`,
         // Replacements inside the stack are the stack's to set; one pointing elsewhere is a person's, and stays.
         supersededBy: sql`case
-          when ${assets.id} <> ${id}::uuid and ${assets.status} = 'active' then ${id}::uuid
+          when ${assets.id} <> ${id}::uuid and ${assets.status} = 'active' and ${assets.deletedAt} is null then ${id}::uuid
           when ${assets.supersededBy} in (select s.id from ${assets} s where s.stack_id = ${stack}) then null
           else ${assets.supersededBy} end`,
         updatedAt: sql`now()`,

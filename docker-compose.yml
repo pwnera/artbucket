@@ -1,6 +1,28 @@
-# Local development services. Production self-hosters point S3_* at real S3,
-# Cloudflare R2, Backblaze B2, Garage, or MinIO - anything S3-compatible.
+# Postgres and S3-compatible storage, for development: `docker compose up -d`.
+#
+# The whole thing, app included, with no Node on the machine:
+#   cp .env.example .env    # set BETTER_AUTH_SECRET
+#   docker compose --profile app up -d
+#
+# Production self-hosters can point S3_* at real S3, Cloudflare R2, Backblaze
+# B2, Garage, or MinIO - anything S3-compatible - and drop the s3 service.
 services:
+  app:
+    profiles: ["app"]
+    image: ghcr.io/pwnera/artbucket:${ARTBUCKET_VERSION:-latest}
+    build: .
+    ports: ["${APP_PORT:-3000}:3000"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://artbucket:artbucket@postgres:5432/artbucket
+      # The app reaches storage inside this network; browsers upload to the published port.
+      S3_ENDPOINT: http://s3:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+    depends_on:
+      postgres: { condition: service_healthy }
+      s3: { condition: service_healthy }
+    restart: unless-stopped
+
   postgres:
     image: postgres:18-alpine
     environment:

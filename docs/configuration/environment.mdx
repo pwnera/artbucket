@@ -1,0 +1,40 @@
+---
+title: Environment
+description: Every variable the server reads, in one table.
+---
+
+The server reads its configuration from the environment (or `.env` next to it)
+when it starts. A missing or malformed required value stops it with a message
+naming the variable.
+
+| Variable | Default | |
+|---|---|---|
+| `DATABASE_URL` | required | Postgres connection string |
+| `S3_ENDPOINT` | required | Where the server reaches storage |
+| `S3_PUBLIC_ENDPOINT` | `S3_ENDPOINT` | Where browsers reach storage, when that differs (Docker Compose) |
+| `S3_REGION` | `us-east-1` | Storage region |
+| `S3_BUCKET` | required | Bucket; created on start when missing |
+| `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | required | Storage credentials |
+| `S3_FORCE_PATH_STYLE` | `true` | `false` for AWS S3 and Tigris; `true` for most others |
+| `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and the only origin cookie-signed writes are taken from |
+| `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
+| `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
+| `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
+| `OIDC_NAME` | `SSO` | The button: "Sign in with {OIDC_NAME}" |
+| `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Unset: no email, unless an organization sets its own |
+| `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key |
+| `ANONYMOUS_SCOPE` | nothing | What a request with no key and no session may do: `read` makes a public library |
+| `RATE_LIMIT` | `1200` | `/api` requests per minute per client; `0` turns it off. See [Security](/configuration/security) |
+| `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_WORKSPACES` `LIMIT_BRANDS` `LIMIT_FEATURES` | unlimited | Every organization's limits. See [Limits](/configuration/limits) |
+
+## Settings
+
+Some configuration is also a setting an organization can change for itself in
+the app (Settings), such as its email. A value resolves property by property
+from the narrowest place that says something: the workspace, then the
+organization, then the environment, then the default. So a server configured
+once serves every organization, and one of them can change its sender while
+still using the server's API key, without ever holding it.
+`GET /api/v1/settings?context=organization` says where each value comes from.
+
+Limits are the exception: an organization can read them, never change them.

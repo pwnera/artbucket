@@ -15,15 +15,17 @@ A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 ---
 
-> **Status: v0.7, early.** Upload, content-addressed dedupe, on-the-fly
+> **Status: v0.9, early.** Upload, content-addressed dedupe, on-the-fly
 > renditions, metadata extraction and write-back, custom fields, collections,
 > faceted search, saved searches, scoped API keys, an OpenAPI spec, an MCP
 > server, a CLI, brand rules as queryable data, rights, provenance with C2PA
 > Content Credentials, `/check`: a yes or no on a use, with reasons and what
-> to use instead, and teams: accounts with email or single sign-on,
+> to use instead, teams: accounts with email or single sign-on,
 > organizations and workspaces, access down to one collection or asset, share
-> links and an audit log. The API is not stable until v1.0.
-> See [ROADMAP.md](ROADMAP.md).
+> links and an audit log, a lifecycle with versions, and what running it for
+> others takes: a Docker image, migrations on start, limits and usage per
+> organization, soft delete, rate limits and a strict CSP. The API is not
+> stable until v1.0. See [ROADMAP.md](ROADMAP.md) and the [docs](docs/).
 
 ## Why
 
@@ -62,9 +64,13 @@ cd artbucket
 pnpm install
 cp .env.example .env
 docker compose up -d      # postgres + S3-compatible storage
-pnpm db:migrate
-pnpm dev
+pnpm dev                  # migrates the database, then serves
 ```
+
+No Node on the machine? `docker compose --profile app up -d` runs the app too,
+from the published image (set `BETTER_AUTH_SECRET` in `.env` first). For a
+server, see the [installation guides](docs/installation/): Docker Compose,
+Docker, Fly, Coolify, or a plain VPS.
 
 Open http://localhost:3000 and make the first account: it is the admin of
 everything, and until it exists nothing else works, in the app or the API.
@@ -111,7 +117,8 @@ front serves them from there.
 | `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`, `rights`, provenance, `supersededBy`; review and archive with `status`, `reviewNote`, `proposedTags` |
 | `GET` | `/api/v1/assets/{id}/versions` | Its stack of versions, newest first, `current` marked |
 | `POST` | `/api/v1/assets/{id}/versions/{n}/current` | Roll back (or forward): make version `n` current |
-| `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
+| `DELETE` | `/api/v1/assets/{id}` | Delete an asset; restorable for 30 days |
+| `POST` | `/api/v1/assets/{id}/restore` | Bring a deleted asset back |
 | `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
 | `POST` | `/api/v1/check` | May this asset be used like this? `{ allowed, reasons, suggest }` |
 | `GET` | `/api/v1/brand/tokens` | The brand as design tokens: `format=css` (custom properties, `@font-face`) or `json` (W3C DTCG) |
@@ -150,9 +157,12 @@ front serves them from there.
 | `GET` | `/api/v1/organizations` | Your organizations |
 | `POST` | `/api/v1/organizations` | Make one, with a first workspace; you are its admin |
 | `PATCH` | `/api/v1/organizations/{id}` | Rename it |
+| `DELETE` | `/api/v1/organizations/{id}` | Delete it, with everything in it |
+| `GET` | `/api/v1/usage` | What the organization uses, against its limits, and 30 days of delivery traffic |
 | `GET` | `/api/v1/workspaces` | The organization's workspaces you can open, with your scope in each |
 | `POST` | `/api/v1/workspaces` | Make one |
 | `PATCH` | `/api/v1/workspaces/{id}` | Rename it |
+| `DELETE` | `/api/v1/workspaces/{id}` | Delete it, with everything in it; not the last one |
 | `GET` | `/api/v1/members` | People, their grants, and invitations waiting; `?in=workspace` for this workspace's |
 | `POST` | `/api/v1/grants` | Give a member a `scope` on the organization, a workspace, a collection or an asset |
 | `DELETE` | `/api/v1/grants/{id}` | Take it away; the last organization admin stays |
@@ -360,13 +370,21 @@ left; `POST /api/v1/assets/{id}/versions/{n}/current` rolls back. The dialog
 compares any two versions side by side.
 
 What happens at `/a/{id}` follows: only an approved, unexpired asset out of
-embargo is public. Expired or archived, its URLs, renditions included,
-answer `410 Gone`; a draft, a proposal or an embargoed asset is a `404`.
+embargo is public. Expired, archived or deleted, its URLs, renditions
+included, answer `410 Gone`; a draft, a proposal or an embargoed asset is a `404`.
 People who can see it in the library still get it, uncached. Public bytes
 are cached for an hour at most and never past the last day of use, with an
 `ETag` for cheap revalidation, so a takedown reaches caches on time. Select
 assets to submit, approve, archive or unarchive them, or set their last day
 of use, in one go.
+
+Deleting is soft: a deleted asset leaves the library, its collections, its
+links and its stack at once, and stays restorable for 30 days (the Status
+filter's Deleted, Restore in the dialog or the selection bar, Undo on the
+toast, `POST /api/v1/assets/{id}/restore`). Then the sweeper, which runs in
+the app every six hours, purges it, and its file once no asset in any
+workspace holds the same bytes. Deleting a workspace or an organization goes
+the same way, at once.
 
 Every addition, suggestion, decision and deletion, and every brand rule
 change, is on the Activity tab and at `GET /api/v1/activity`, by actor: a
@@ -650,7 +668,8 @@ your path.
 Copy `.env.example` to `.env`. Any S3-compatible storage works - AWS S3,
 Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 
-On start the app creates the bucket, allows browser PUTs from `APP_URL`
+On start the app applies any database migration it has that the database
+doesn't (so upgrading is starting the new version), creates the bucket, allows browser PUTs from `APP_URL`
 (CORS), and, when the bucket has no lifecycle rules, expires `staging/` after
 1 day and `renditions/` after 30. A key that can't change bucket settings
 (R2's object tokens can't) logs a warning: set those three in the provider's
@@ -669,6 +688,35 @@ console.
 | `EMAIL_PROVIDER` | `resend`, `postmark`, `sendgrid` or `console`: email for every organization that doesn't set its own. Unset: off |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | The sender, where replies go, and the provider's key |
 | `ANONYMOUS_SCOPE` | What a request without a key or a session may do, once the first account exists: `none` (the default), `read`, `propose`, `write`, `admin` |
+| `S3_PUBLIC_ENDPOINT` | Where browsers reach storage, when the server reaches it elsewhere (Docker Compose); default `S3_ENDPOINT` |
+| `SIGNUP` | `invite` (the default), or `open`: anyone may make an account, with an organization of their own |
+| `RATE_LIMIT` | `/api` requests per minute per client (default 1200); `0` turns it off |
+| `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_WORKSPACES` `LIMIT_BRANDS` `LIMIT_FEATURES` | Every organization's limits; unset is unlimited |
+
+### Limits and usage
+
+Whoever runs the server can limit what an organization uses: storage, editors,
+workspaces, brands, features (agents, share links), or make it read-only. For
+every organization with `LIMIT_*`, for one with a `limits` row in the
+database ([docs](docs/configuration/limits.mdx)); never by the organization's
+own admins, who see their limits next to their usage in Settings, Usage:
+storage, and what asset URLs served, per workspace, over 30 days. Everything
+is unlimited until someone says otherwise.
+
+### Hardening
+
+`/api` is rate limited per client, share link passwords allow ten wrong
+guesses in ten minutes, pages carry a strict Content-Security-Policy (HSTS
+too on `https`), and uploaded files are served under a sandbox, so an SVG
+opened directly runs nothing. Artbucket has no telemetry.
+
+## Docs
+
+`docs/` is the documentation site ([Mintlify](https://mintlify.com), MDX and
+`docs.json`), changed in the same pull request as the code it describes. Its
+API reference is `docs/openapi.json`, generated from the Zod schemas by
+`pnpm docs:openapi`; a test fails when it is out of date. Preview it with
+`npx mint dev` in `docs/`.
 
 ## Stack
 

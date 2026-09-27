@@ -1,0 +1,54 @@
+---
+title: May I use this?
+description: POST /api/v1/check, a yes or no on a use, with reasons and what to use instead.
+---
+
+Knowing an asset's rights is half the job; applying them is the other half.
+
+```bash
+curl -X POST https://assets.example.com/api/v1/check -H "Authorization: Bearer $KEY" \
+  -H 'content-type: application/json' \
+  -d '{"asset":"{id}","channel":"paid-social","territory":"DE","context":"dark-background"}'
+```
+
+```json
+{
+  "allowed": false,
+  "reasons": [{ "code": "superseded", "message": "Replaced by Blender logo mark", "blocking": true }],
+  "suggest": [{ "id": "...", "title": "Blender logo mark", "url": "https://.../a/...", "why": "Its replacement" }]
+}
+```
+
+It refuses an asset that isn't approved, or was deleted or archived; one that
+was replaced, naming the replacement; one used before its embargo or after its
+last day, outside its territories or channels; one with people and no model
+release, outside `editorial`; and, with a `context`, a default asset where the
+brand has a variant for that context, suggesting the variant.
+
+A restriction the use says nothing about is a reason that doesn't block: give
+the `territory` and `channel` to settle it. `date` defaults to today.
+
+It is MCP's `check_use`, and `artbucket check {id} --channel web`, which exits
+1 on a refusal.
+
+## Rights
+
+```json
+"rights": {
+  "license": "Getty, rights-managed",
+  "territories": ["DE", "AT"],
+  "channels": ["web", "print"],
+  "embargo": "2026-10-01",
+  "expires": "2027-03-31",
+  "modelRelease": "released"
+}
+```
+
+Territories are two-letter country codes, channels are slugs, empty means
+unrestricted. Edit them in the asset's dialog or by `PATCH`.
+
+## Provenance
+
+`origin` (`shot`, `licensed` or `generated`), `parentAssetId`, `generator` and
+`prompt` say where an asset came from. C2PA Content Credentials are read on
+ingest and preserved: `/a/{id}` serves the signed bytes as uploaded.

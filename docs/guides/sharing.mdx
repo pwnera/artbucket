@@ -1,0 +1,45 @@
+---
+title: Sharing
+description: Links for people without an account, and access for people with one.
+---
+
+## Share links
+
+**Share** on a collection or an asset makes a link to look and download, at
+`/s/{token}`: approved assets only, and the current version of each.
+**Request uploads** makes a link anyone can send files through, a photographer
+or an agency: what they send lands `proposed`, for review.
+
+Either can end on a date and ask for a password, and revoking one stops it at
+once. Making one takes write on what it shares.
+
+```bash
+pnpm artbucket share {collection-id} --password dragon --expires 2027-01-31
+pnpm artbucket share {collection-id} --upload --name "Photographer drop"
+```
+
+<Note>
+Brand portals, a curated and branded front door onto chosen collections, come
+in v1.1, built on these same rules.
+</Note>
+
+## People and access
+
+An **organization** is a team; a **workspace** is a library of its own inside
+one. What a person may do is their **grants**: a scope (`read`, `propose`,
+`write`, `admin`) on the organization, a workspace, a collection or one asset.
+Grants add up and reach down: admin on the organization is admin everywhere in
+it, write on a collection is write on its assets. A grant can switch off
+abilities: an editor who can't delete, or can't share.
+
+Invite people on Team: an email and a scope on something, and a link that
+works once, for a week.
+
+## Workspaces and organizations
+
+Settings, Organization, Workspaces makes, renames and deletes workspaces;
+Settings, Organization, General deletes the organization. Both are for its
+admins, both ask for the name to be typed, and neither can be undone: the
+workspace's assets, collections, brands, keys and links go at once, and its
+files at the next sweep. An organization keeps at least one workspace, and a
+server at least one organization.

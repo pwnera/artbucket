@@ -7,6 +7,7 @@ import { workspacesOf, type Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { hashKey } from "@/lib/core/keys";
 import { recordAudit } from "@/lib/core/audit";
+import { checkLimit } from "@/lib/core/usage";
 import { accessIn, lowest, widest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { Consent, GRANTABLE, normalizeCode, pkceMatches, redirectAllowed, userCode, type Grantable } from "@/lib/oauth";
@@ -113,7 +114,7 @@ export async function consentOptions(caller: Caller) {
   const { grants, workspaces } = await workspacesOf(caller.user.id);
   const options = workspaces.flatMap((w) => {
     const max = lowest(widest(accessIn(grants, w)), "write") as Grantable | null;
-    return max ? [{ id: w.id, name: w.name, organization: w.organization.name, max }] : [];
+    return max ? [{ id: w.id, name: w.name, organization: w.organization.name, organizationId: w.organizationId, max }] : [];
   });
   return { workspaces: options, workspace: options.some((o) => o.id === caller.workspace.id) ? caller.workspace.id : (options[0]?.id ?? null) };
 }
@@ -127,6 +128,7 @@ async function granted(caller: Caller, input: Extract<ConsentInput, { allow: tru
   if (SCOPES.indexOf(input.scope) > SCOPES.indexOf(option.max)) {
     throw new AssetError("forbidden", `You can give at most ${option.max} in ${option.name}`);
   }
+  await checkLimit(option.organizationId, "agents");
   return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, workspaceId: option.id, scope: input.scope };
 }
 type Granted = Awaited<ReturnType<typeof granted>>;

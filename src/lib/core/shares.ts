@@ -4,6 +4,7 @@ import { assets, collectionAssets, collections, shareLinks, type ShareKind } fro
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
+import { checkLimit } from "@/lib/core/usage";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
@@ -11,6 +12,7 @@ import { hasPreview } from "@/lib/preview";
 import { NO_OFF, NONE } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
+import { limiter } from "@/lib/rate";
 import { hashPassword, refusal, shareToken } from "@/lib/share";
 
 /**
@@ -79,6 +81,7 @@ export async function createShare(
   if (input.kind === "view" && !!t.collectionId === !!t.assetId) throw new AssetError("invalid", "A view link shares one collection or one asset");
   if (input.kind === "upload" && t.assetId) throw new AssetError("invalid", "An upload link fills a collection, or the workspace");
   if (!(await mayShare(caller, t))) throw new AssetError("forbidden", "Sharing it takes write on it");
+  await checkLimit(caller.workspace.organizationId, "shares");
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) throw new AssetError("invalid", "expiresAt is in the past");
   const [row] = await db
@@ -157,12 +160,18 @@ export async function revokeShare(caller: Caller, id: string) {
  * past its date, a 401 for a missing or wrong password. The 401 says what
  * the link is, so the page can ask for the password by name.
  */
+/** Wrong passwords, per link: ten in ten minutes, then it waits, however many addresses guess. */
+const guesses = limiter(10, 10 * 60_000);
+
 async function open(token: string, password: string | null) {
   const [link] = await db.select().from(shareLinks).where(eq(shareLinks.token, token));
   if (!link) throw new AssetError("not_found", "This link doesn't exist, or was revoked");
+  const wait = password ? guesses.wait(link.id) : 0;
+  if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
   const no = await refusal(link, password);
   if (no === "gone") throw new AssetError("gone", "This link has expired");
   if (no === "password") {
+    if (password) guesses.hit(link.id);
     throw new AssetError("password", password ? "That password isn't right" : "This link needs a password", {
       name: link.name,
       kind: link.kind,
@@ -258,8 +267,8 @@ async function uploadLink(token: string, password: string | null) {
 }
 
 export async function shareUploadTicket(token: string, password: string | null, input: { filename: string; mime: string; size: number }) {
-  await uploadLink(token, password);
-  return createUploadTicket(input);
+  const link = await uploadLink(token, password);
+  return createUploadTicket({ workspace: (await workspaceById(link.workspaceId))! }, input);
 }
 
 /**

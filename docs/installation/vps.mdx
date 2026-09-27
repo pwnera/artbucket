@@ -1,0 +1,56 @@
+---
+title: Bare VPS
+description: Node, a process manager and a reverse proxy, no containers.
+---
+
+On Debian or Ubuntu, with Postgres and S3-compatible storage somewhere you can
+reach:
+
+```bash
+# Node 24 and pnpm
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash -
+sudo apt-get install -y nodejs ffmpeg
+sudo corepack enable
+
+sudo useradd --system --create-home --home-dir /opt/artbucket artbucket
+sudo -u artbucket git clone https://github.com/pwnera/artbucket.git /opt/artbucket/app
+cd /opt/artbucket/app
+sudo -u artbucket git checkout v0.9.0
+sudo -u artbucket pnpm install --frozen-lockfile
+sudo -u artbucket cp .env.example .env    # fill it in
+sudo -u artbucket pnpm build
+```
+
+A systemd unit:
+
+```ini /etc/systemd/system/artbucket.service
+[Unit]
+Description=Artbucket
+After=network.target
+
+[Service]
+User=artbucket
+WorkingDirectory=/opt/artbucket/app
+EnvironmentFile=/opt/artbucket/app/.env
+Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+ExecStart=/usr/bin/pnpm start
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now artbucket
+```
+
+And Caddy in front, for TLS:
+
+```caddy /etc/caddy/Caddyfile
+assets.example.com {
+  reverse_proxy localhost:3000
+}
+```
+
+The app migrates its database when it starts. To upgrade, check out the new
+tag, `pnpm install --frozen-lockfile`, `pnpm build`, and restart the service.

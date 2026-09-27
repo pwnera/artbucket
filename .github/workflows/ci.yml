@@ -44,6 +44,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The base branch too: the migration checks below compare with it.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -57,8 +60,57 @@ jobs:
       - name: Migrations apply cleanly
         run: pnpm db:migrate
 
+      # The migration path: any release upgrades to any later one by applying
+      # drizzle/ in order (lib/db/migrate.ts). These keep that true.
+      - name: Migrations match the schema
+        run: |
+          pnpm db:generate --name=unmigrated
+          if [ -n "$(git status --porcelain drizzle/)" ]; then
+            echo "::error::src/lib/db/schema.ts has changes no migration makes. Run pnpm db:generate and commit it."
+            git status --porcelain drizzle/
+            exit 1
+          fi
+
+      - name: Released migrations are never edited
+        if: github.event_name == 'pull_request'
+        run: |
+          edited=$(git diff --name-only --diff-filter=MDR "origin/${{ github.base_ref }}" -- 'drizzle/*.sql')
+          if [ -n "$edited" ]; then
+            echo "::error::A released migration changed: $edited. Add a new migration instead."
+            exit 1
+          fi
+
+      - name: Upgrades from the base branch, with rows in it
+        if: github.event_name == 'pull_request'
+        env:
+          UPGRADE_URL: postgres://artbucket:artbucket@localhost:5432/upgrade
+        run: |
+          psql "$DATABASE_URL" -c "create database upgrade"
+          git worktree add ../base "origin/${{ github.base_ref }}"
+          ln -s "$PWD/node_modules" ../base/node_modules
+          (cd ../base && DATABASE_URL="$UPGRADE_URL" pnpm db:migrate)
+          # The base's own fixture fits the base's schema; one without a fixture is tried empty.
+          if [ -f ../base/scripts/upgrade-fixture.sql ]; then psql -v ON_ERROR_STOP=1 "$UPGRADE_URL" -f ../base/scripts/upgrade-fixture.sql; fi
+          DATABASE_URL="$UPGRADE_URL" pnpm db:migrate
+          # And this version's fixture fits this version's schema, for the next pull request.
+          psql -v ON_ERROR_STOP=1 "postgres://artbucket:artbucket@localhost:5432/artbucket" -f scripts/upgrade-fixture.sql
+
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm check:dashes
       - run: pnpm test
       - run: pnpm build
+
+  # The image a release publishes still builds (release.yml pushes it on a tag).
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -59,11 +59,21 @@ export function Lifecycle({ asset, onChanged }: { asset: Asset; onChanged: (asse
     );
   }
 
+  const restore = async () => {
+    setBusy(true);
+    const back = await send("POST", `/api/v1/assets/${asset.id}/restore`);
+    setBusy(false);
+    if (!back) return;
+    toast.success("Restored");
+    onChanged(back);
+  };
+  const purged = asset.deletedAt ? new Date(new Date(asset.deletedAt).getTime() + 30 * 86_400_000).toISOString().slice(0, 10) : null;
   const says = {
+    deleted: `Deleted: out of the library, and its links answer 410. Restore it before ${purged}; after, it is gone for good.`,
     draft: "Out of the library, and its links, until it is approved.",
     expired: `Its last day of use was ${r?.expires}: its links answer 410 and checks refuse it. A later date under Rights brings it back.`,
     archived: "Retired: out of the library, its links answer 410, and checks refuse it.",
-  }[asset.state as "draft" | "expired" | "archived"];
+  }[asset.state as "deleted" | "draft" | "expired" | "archived"];
   if (!says) return null;
   return (
     <div className="bg-muted/40 grid gap-2 rounded-lg border p-3 text-sm">
@@ -83,6 +93,11 @@ export function Lifecycle({ asset, onChanged }: { asset: Asset; onChanged: (asse
         {asset.state === "expired" && review && (
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => move("archived", "Archived")}>
             <IconArchive /> Archive
+          </Button>
+        )}
+        {asset.state === "deleted" && can("asset.delete", asset) && (
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={restore}>
+            <IconArrowBackUp /> Restore
           </Button>
         )}
         {asset.state === "archived" && review && (

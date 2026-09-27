@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { EmailSettings } from "./email.ts";
+import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
 
 /**
  * Settings, as definitions. Each says where it may be set (an organization,
@@ -35,6 +36,8 @@ type Definition<S extends z.ZodObject> = {
   secrets: readonly (keyof z.infer<S> & string)[];
   /** The server's configuration, or null when the environment says nothing. */
   fromEnv: (env: Env) => z.infer<S> | null;
+  /** Set by whoever runs the server, in the environment or the database; never through the API. */
+  operator?: true;
 };
 
 const define = <S extends z.ZodObject>(d: Definition<S>) => d;
@@ -58,10 +61,20 @@ export const SETTINGS = {
       });
     },
   }),
+  limits: define({
+    label: "Limits",
+    schema: Limits,
+    contexts: ["organization"],
+    default: UNLIMITED,
+    secrets: [],
+    fromEnv: limitsFromEnv,
+    operator: true,
+  }),
 };
 export type SettingKey = keyof typeof SETTINGS;
 export type SettingValue<K extends SettingKey> = z.infer<(typeof SETTINGS)[K]["schema"]>;
-export const SETTING_KEYS = Object.keys(SETTINGS) as SettingKey[];
+/** What the API lists and changes: everything but the operator's. */
+export const SETTING_KEYS = (Object.keys(SETTINGS) as SettingKey[]).filter((k) => !("operator" in SETTINGS[k]));
 
 type Layer = Record<string, unknown> | null | undefined;
 

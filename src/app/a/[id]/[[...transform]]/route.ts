@@ -2,7 +2,8 @@ import { fail, handle } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { renderAsset } from "@/lib/core/renditions";
-import { deliverable, maxAge, retired } from "@/lib/lifecycle";
+import { countTraffic } from "@/lib/core/usage";
+import { deliverable, maxAge, retired, STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { getStream, originalKey } from "@/lib/storage";
 import { parseTransform } from "@/lib/transform";
@@ -39,7 +40,7 @@ export async function GET(req: Request, { params }: Ctx) {
         // Unarchived, renewed or approved later, it is back: no cache may remember the refusal.
         const again = { "Cache-Control": "no-cache" };
         return retired(asset)
-          ? fail(410, "gone", `${asset.state === "archived" ? "Archived" : "Expired"}: this asset is no longer in use`, undefined, again)
+          ? fail(410, "gone", `${STATE_LABEL[asset.state]}: this asset is no longer in use`, undefined, again)
           : fail(404, "not_found", "No such asset", undefined, again);
       }
     }
@@ -47,8 +48,11 @@ export async function GET(req: Request, { params }: Ctx) {
     const etag = `"${asset.sha256}"`;
     const cache = open ? `public, max-age=${maxAge(asset)}` : "private, no-cache";
 
+    const served = (bytes: number) => countTraffic(asset.workspaceId, bytes);
+
     if (!transform?.length && new URL(req.url).searchParams.has("download")) {
       const { body, embedded } = await downloadAsset(asset);
+      served(body.byteLength);
       return new Response(new Uint8Array(body), {
         headers: {
           "Content-Type": asset.mime,
@@ -61,7 +65,10 @@ export async function GET(req: Request, { params }: Ctx) {
       });
     }
 
-    if (req.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": cache } });
+    if (req.headers.get("if-none-match") === etag) {
+      served(0);
+      return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": cache } });
+    }
 
     if (!transform?.length) {
       // Streamed from storage: a video is served without ever sitting in memory.
@@ -69,9 +76,11 @@ export async function GET(req: Request, { params }: Ctx) {
       if (range && /^bytes=\d*-\d*$/.test(range)) {
         const part = await getStream(originalKey(asset.sha256), range).catch(() => null);
         if (!part) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${asset.size}` } });
+        served(part.length);
         return bytes(etag, cache, part.body, part.length, asset.mime, asset.filename, { status: 206, range: part.contentRange! });
       }
       const { body, length } = await getStream(originalKey(asset.sha256));
+      served(length);
       return bytes(etag, cache, body, length, asset.mime, asset.filename);
     }
 
@@ -84,11 +93,14 @@ export async function GET(req: Request, { params }: Ctx) {
     }
 
     const { body, length, contentType } = await renderAsset(asset, parsed);
+    served(length);
     return bytes(etag, cache, body, length, contentType);
   } catch (err) {
     return handle(err);
   }
 }
+
+const SANDBOX = "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; font-src 'self' data:";
 
 function bytes(
   etag: string,
@@ -109,6 +121,9 @@ function bytes(
       ETag: etag,
       // Public bytes: other sites may load them, which fonts (@font-face from brand/tokens) require.
       "Access-Control-Allow-Origin": "*",
+      // Anyone's upload, on this origin: an SVG or an HTML file opened here runs no script and reaches
+      // nothing. Not on PDFs, which browsers show with a viewer that the sandbox would stop.
+      ...(contentType === "application/pdf" ? {} : { "Content-Security-Policy": SANDBOX }),
       ...(filename ? { "Accept-Ranges": "bytes" } : {}),
       ...(part ? { "Content-Range": part.range } : {}),
       ...(filename

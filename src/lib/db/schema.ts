@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
+  date,
   check,
   customType,
   index,
@@ -110,6 +112,11 @@ export const assets = pgTable(
      */
     current: boolean("current").notNull().default(false),
     /**
+     * Deleted, and restorable until lib/core/sweep.ts purges it 30 days on.
+     * Its bytes stay until then; it reads `state: "deleted"` and is served to nobody.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /**
      * Maintained by Postgres, so it cannot drift from the columns it indexes.
      * 'simple' rather than 'english': asset search is names and keywords, where
      * stemming "logos" to "logo" matters less than matching "fox_v3" by "fox".
@@ -131,6 +138,9 @@ export const assets = pgTable(
   (t) => [
     unique("assets_workspace_sha256_unique").on(t.workspaceId, t.sha256),
     index("assets_workspace_created_at_idx").on(t.workspaceId, t.createdAt.desc()),
+    // Whether anything still holds some bytes, across workspaces: the sweeper asks.
+    index("assets_sha256_idx").on(t.sha256),
+    index("assets_deleted_at_idx").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
     index("assets_search_idx").using("gin", t.search),
     index("assets_tags_idx").using("gin", sql`${t.tags} jsonb_path_ops`),
     // Field filters match the effective value, own over inherited: `inherited || fields`.
@@ -380,7 +390,8 @@ export type ActivityVerb =
   | "suggested_tags"
   | "archived"
   | "unarchived"
-  | "made_current";
+  | "made_current"
+  | "restored";
 
 /**
  * What happened to assets, and who did it: a person by name, an API key by
@@ -666,4 +677,21 @@ export const settings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique("settings_place_key_unique").on(t.organizationId, t.workspaceId, t.key).nullsNotDistinct()],
+);
+
+/**
+ * Delivery traffic: what /a/{id} served, per workspace and day (lib/core/usage.ts).
+ * Counted by the delivery route, read in Settings, Usage.
+ */
+export const traffic = pgTable(
+  "traffic",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    requests: integer("requests").notNull().default(0),
+    bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.day] })],
 );

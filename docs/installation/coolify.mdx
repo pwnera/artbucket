@@ -1,0 +1,29 @@
+---
+title: Coolify
+description: The image as a Coolify application, with Coolify's Postgres and MinIO.
+---
+
+1. **Postgres.** New resource, Database, PostgreSQL. Copy its internal URL.
+2. **Storage.** New resource, Service, MinIO. Make a bucket and an access key
+   in its console, and give its API a public domain (for example
+   `s3.assets.example.com`): browsers upload to it.
+3. **Artbucket.** New resource, Docker Image, `ghcr.io/pwnera/artbucket:0.9`,
+   port `3000`, with your domain (`assets.example.com`). Environment:
+
+```bash
+DATABASE_URL=<Postgres internal URL>
+S3_ENDPOINT=<MinIO internal URL, e.g. http://minio:9000>
+S3_PUBLIC_ENDPOINT=https://s3.assets.example.com
+S3_BUCKET=artbucket
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_FORCE_PATH_STYLE=true
+APP_URL=https://assets.example.com
+BETTER_AUTH_SECRET=<openssl rand -base64 32>
+```
+
+Deploy. The app migrates its database and sets up the bucket on start; make
+the first account at your domain.
+
+Coolify can also deploy the repository's `docker-compose.yml`, but its `app`
+service sits behind a Compose profile; the image resource above is simpler.

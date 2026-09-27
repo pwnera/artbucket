@@ -1,0 +1,46 @@
+---
+title: Security
+description: Rate limits, headers, uploaded files, and telemetry.
+---
+
+## Rate limits
+
+`/api` allows `RATE_LIMIT` requests a minute (1200 by default) per client: per
+API key, or per address for everything else. Past it, a `429` with
+`Retry-After`. Signing in has its own, stricter limits. A share link's password
+allows ten wrong guesses in ten minutes, then waits, whoever is guessing.
+
+The counts live in each process's memory. Behind several instances each counts
+on its own; for a hard limit, put one in your reverse proxy too. Asset URLs
+(`/a/`) are not limited: put a CDN in front of them on a public install, which
+also caches renditions.
+
+The server takes the client's address from `X-Forwarded-For`. Run it behind a
+reverse proxy that sets that header, and don't expose its port directly.
+
+## Headers
+
+Every page carries a Content-Security-Policy (scripts from the app only, frames
+from Figma and Google's embeds only, uploads to your storage only),
+`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, a strict referrer
+policy, a Permissions-Policy that turns off camera, microphone and location,
+and `Cross-Origin-Opener-Policy: same-origin`. With an `https` `APP_URL`, HSTS
+too.
+
+## Uploaded files
+
+Anyone with upload rights can upload an SVG or an HTML file, and `/a/{id}`
+serves it from the app's own origin. It is served with a sandboxing policy, so
+opened directly it runs no script and reaches nothing. PDFs are the exception,
+since browsers show them in a viewer the sandbox would stop.
+
+Writes signed by a session cookie are taken only from `APP_URL`'s origin.
+Fetches from a URL (`ingest_asset`, `POST /api/v1/assets` with `url`) refuse
+loopback, private and link-local addresses, checked on every redirect.
+
+## Telemetry
+
+None. Artbucket sends nothing anywhere. The Docker image sets
+`NEXT_TELEMETRY_DISABLED=1`, and better-auth's telemetry is off. For a build
+from source, set `NEXT_TELEMETRY_DISABLED=1` too (the systemd unit in
+[Bare VPS](/installation/vps) does).

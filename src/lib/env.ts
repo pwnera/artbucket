@@ -1,10 +1,17 @@
 import { z } from "zod";
 import { EMAIL_PROVIDERS } from "@/lib/email";
+import { limitsFromEnv } from "@/lib/limits";
 import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   S3_ENDPOINT: z.string().url(),
+  /**
+   * Where browsers reach storage, when that isn't where the server does:
+   * in Docker Compose the app talks to http://s3:9000, a browser to a public
+   * URL. Browser uploads are signed for this one. Unset: S3_ENDPOINT.
+   */
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default("us-east-1"),
   S3_BUCKET: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),
@@ -33,6 +40,13 @@ const schema = z.object({
     .optional()
     .refine((v) => !!v || process.env.NODE_ENV !== "production", "Set BETTER_AUTH_SECRET in production")
     .transform((v) => v ?? "artbucket-development-secret-not-for-production"),
+  /**
+   * Who may make an account: `invite` (the default) takes an invitation,
+   * `open` lets anyone in, each with an organization of their own.
+   */
+  SIGNUP: z.enum(["invite", "open"]).default("invite"),
+  /** /api requests per minute per client (lib/rate.ts); 0 turns the limit off. */
+  RATE_LIMIT: z.coerce.number().int().nonnegative().default(1200),
   /** Single sign-on with any OpenID Connect provider: all three, or none. */
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
@@ -59,6 +73,13 @@ if (!parsed.success) {
   throw new Error(
     `Invalid environment. Copy .env.example to .env and fill it in.\n${z.prettifyError(parsed.error)}`,
   );
+}
+
+// LIMIT_* is read per organization (lib/settings.ts); a typo there should stop the server now, not every upload later.
+try {
+  limitsFromEnv(process.env);
+} catch (e) {
+  throw new Error(`Invalid LIMIT_* in the environment.\n${e instanceof z.ZodError ? z.prettifyError(e) : e}`);
 }
 
 export const env = parsed.data;

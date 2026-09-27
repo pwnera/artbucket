@@ -22,6 +22,14 @@ test("only approved, unexpired, unembargoed assets are served to anyone", () => 
   assert.equal(retired({ status: "proposed", rights: null }), false);
 });
 
+test("deleted wins over any status, and is gone for the public until restored", () => {
+  const deleted = { status: "active" as const, rights: null, deletedAt: new Date() };
+  assert.equal(stateOf(deleted), "deleted");
+  assert.equal(deliverable(deleted), false);
+  assert.equal(retired(deleted), true);
+  assert.equal(deliverable({ ...deleted, deletedAt: null }), true);
+});
+
 test("caches never keep bytes past the end of the last day of use", () => {
   assert.equal(maxAge({ rights: null }), 3600);
   assert.equal(maxAge({ rights: rights({ expires: "2026-05-01" }) }, new Date("2026-04-20T00:00:00Z")), 3600);

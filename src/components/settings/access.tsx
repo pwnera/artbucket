@@ -590,6 +590,8 @@ const SAYS: Record<string, string> = {
   "organization.renamed": "renamed the organization to",
   "workspace.created": "made the workspace",
   "workspace.renamed": "renamed a workspace to",
+  "workspace.deleted": "deleted the workspace",
+  "organization.deleted": "deleted the organization",
   "grant.set": "gave access to",
   "grant.removed": "took access from",
   "invitation.created": "invited",

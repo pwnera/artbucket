@@ -1,0 +1,44 @@
+---
+title: Docker
+description: The image on its own, with your Postgres and your storage.
+---
+
+Each release publishes `ghcr.io/pwnera/artbucket`, for amd64 and arm64, tagged
+with its version (`0.9.0`), its minor line (`0.9`) and `latest`.
+
+```bash
+docker run -d --name artbucket -p 3000:3000 \
+  -e DATABASE_URL=postgres://user:pass@db.example.com:5432/artbucket \
+  -e S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com \
+  -e S3_REGION=eu-central-1 \
+  -e S3_BUCKET=acme-assets \
+  -e S3_ACCESS_KEY_ID=... \
+  -e S3_SECRET_ACCESS_KEY=... \
+  -e S3_FORCE_PATH_STYLE=false \
+  -e APP_URL=https://assets.example.com \
+  -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
+  ghcr.io/pwnera/artbucket:0.9
+```
+
+Keep `BETTER_AUTH_SECRET` somewhere safe: it signs sessions and encrypts
+secrets stored in settings. A new one signs everyone out and makes stored
+secrets unreadable.
+
+The container:
+
+- listens on port 3000 as the unprivileged `node` user
+- migrates the database before it serves, under a lock, so several replicas can
+  start at once
+- runs the sweeper every six hours (deleted assets past 30 days, and files
+  nothing holds)
+- includes `ffmpeg` for video thumbnails. For Word, Excel and PowerPoint
+  previews, build on it: `FROM ghcr.io/pwnera/artbucket:0.9`, then
+  `USER root`, `RUN apk add --no-cache libreoffice`, `USER node`.
+
+Every variable is in [Environment](/configuration/environment).
+
+## Building it yourself
+
+```bash
+docker build -t artbucket .
+```

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { test } from "node:test";
-import { openapi } from "./openapi.ts";
+import { DOCS_SERVER, openapi } from "./openapi.ts";
 
 const APP = join(import.meta.dirname, "..", "app");
 const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"];
@@ -47,4 +47,9 @@ test("the spec documents no route that doesn't exist", () => {
 
 test("it serializes to JSON", () => {
   assert.doesNotThrow(() => JSON.stringify(openapi("http://localhost:3000")));
+});
+
+test("the docs' API reference is this spec: run pnpm docs:openapi after changing the API", () => {
+  const docs = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "openapi.json"), "utf8"));
+  assert.deepEqual(docs, JSON.parse(JSON.stringify(openapi(DOCS_SERVER))));
 });

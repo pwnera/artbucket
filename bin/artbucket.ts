@@ -18,7 +18,7 @@ const HELP = `artbucket <command>
   login                   sign in through the browser; saves a key for ARTBUCKET_URL
   logout                  forget it
   search [words] [--tag t]... [--collection id] [--status s]... [--review] [--limit n]
-                          --status draft|proposed|active|expired|archived|rejected
+                          --status draft|proposed|active|expired|archived|rejected|deleted
   describe <id>
   check <id> [--channel c] [--territory CC] [--date YYYY-MM-DD] [--context c] [--brand b]
                           may it be used like this? exits 1 when it may not

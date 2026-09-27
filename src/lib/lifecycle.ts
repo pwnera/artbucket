@@ -5,6 +5,7 @@ import { today, type Rights } from "./rights.ts";
  * person decides `status`; expiry is a date (`rights.expires`), so `state`
  * derives it instead of a sweeper writing it, and it is never a day late.
  * Rejected is the review's other outcome, kept so an agent can read why.
+ * Deleted is a time too (`deletedAt`): restorable until the sweeper purges it.
  *
  * `proposed` is "in review" and `active` is "approved": the API's names
  * since v0.4, kept so no client breaks.
@@ -15,7 +16,7 @@ import { today, type Rights } from "./rights.ts";
 export const STATUSES = ["draft", "proposed", "active", "archived", "rejected"] as const;
 export type Status = (typeof STATUSES)[number];
 
-export const STATES = ["draft", "proposed", "active", "expired", "archived", "rejected"] as const;
+export const STATES = ["draft", "proposed", "active", "expired", "archived", "rejected", "deleted"] as const;
 export type State = (typeof STATES)[number];
 
 export const STATE_LABEL: Record<State, string> = {
@@ -25,20 +26,21 @@ export const STATE_LABEL: Record<State, string> = {
   expired: "Expired",
   archived: "Archived",
   rejected: "Rejected",
+  deleted: "Deleted",
 };
 
-type Lived = { status: Status; rights: Pick<Rights, "expires" | "embargo"> | null };
+type Lived = { status: Status; rights: Pick<Rights, "expires" | "embargo"> | null; deletedAt?: Date | null };
 
-/** Approved, until its last day of use has passed. */
+/** Deleted over anything else; approved, until its last day of use has passed. */
 export const stateOf = (a: Lived, day = today()): State =>
-  a.status === "active" && a.rights?.expires && day > a.rights.expires ? "expired" : a.status;
+  a.deletedAt ? "deleted" : a.status === "active" && a.rights?.expires && day > a.rights.expires ? "expired" : a.status;
 
 /** Whether /a/{id} serves it to anyone holding the URL: approved, unexpired, and out of embargo. */
 export const deliverable = (a: Lived, day = today()) =>
   stateOf(a, day) === "active" && !(a.rights?.embargo && day < a.rights.embargo);
 
 /** Gone for good, as far as the public is concerned: /a/{id} answers 410. */
-export const retired = (a: Lived, day = today()) => ["expired", "archived"].includes(stateOf(a, day));
+export const retired = (a: Lived, day = today()) => ["expired", "archived", "deleted"].includes(stateOf(a, day));
 
 const HOUR = 3600;
 

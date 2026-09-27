@@ -65,6 +65,9 @@ const path = (name: string, description: string) => ({
 
 const str = { type: "string" };
 
+/** The server docs/openapi.json names: a self-hosted install, where the docs' playground can reach one. */
+export const DOCS_SERVER = "http://localhost:3000";
+
 export function openapi(serverUrl: string) {
   return {
     openapi: "3.1.0",
@@ -215,7 +218,23 @@ export function openapi(serverUrl: string) {
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
         }),
-        delete: op({ summary: "Delete an asset", scope: "write", ok: [200, "Deleted", S.Deleted] }),
+        delete: op({
+          summary: "Delete an asset",
+          scope: "write",
+          description:
+            "It leaves the library, its links and its stack at once, reads `state: \"deleted\"` and answers 410 at /a/{id}. " +
+            "Restorable for 30 days, then purged, with its bytes when nothing else holds them.",
+          ok: [200, "Deleted", S.Deleted],
+        }),
+      },
+      "/api/v1/assets/{id}/restore": {
+        parameters: [path("id", "Asset id")],
+        post: op({
+          summary: "Restore a deleted asset",
+          scope: "write",
+          description: "Within 30 days of its deletion. It comes back as it was, but not as its stack's current version.",
+          ok: [200, "The asset", data(S.Asset)],
+        }),
       },
       "/api/v1/assets/{id}/versions": {
         parameters: [path("id", "Asset id: any version of it")],
@@ -456,6 +475,22 @@ export function openapi(serverUrl: string) {
       "/api/v1/organizations/{id}": {
         parameters: [path("id", "Organization id")],
         patch: op({ summary: "Rename the organization", scope: "any", description: "Admin on the organization.", body: S.OrganizationPatch, ok: [200, "Renamed", data(S.Organization)] }),
+        delete: op({
+          summary: "Delete the organization",
+          scope: "any",
+          description:
+            "With its workspaces and everything in them, its grants, invitations and settings; its files go with the next " +
+            "sweep. Admin on the organization. Not the server's only one.",
+          ok: [200, "Deleted", S.Deleted],
+        }),
+      },
+      "/api/v1/usage": {
+        get: op({
+          summary: "Usage and limits",
+          scope: "any",
+          description: "What the organization uses, the limits its server's operator set, and 30 days of delivery traffic. Admin on the organization.",
+          ok: [200, "Usage", data(S.Usage)],
+        }),
       },
       "/api/v1/workspaces": {
         get: op({
@@ -475,6 +510,14 @@ export function openapi(serverUrl: string) {
       "/api/v1/workspaces/{id}": {
         parameters: [path("id", "Workspace id")],
         patch: op({ summary: "Rename a workspace", scope: "any", description: "Admin there.", body: S.WorkspacePatch, ok: [200, "Renamed", data(S.WorkspaceItem.omit({ scope: true }))] }),
+        delete: op({
+          summary: "Delete a workspace",
+          scope: "any",
+          description:
+            "With its assets, collections, fields, brands, keys and links, at once; its files go with the next sweep, when " +
+            "no other workspace holds the same bytes. Admin on the organization. Not its last workspace.",
+          ok: [200, "Deleted", S.Deleted],
+        }),
       },
       "/api/v1/members": {
         get: op({

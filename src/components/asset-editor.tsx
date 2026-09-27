@@ -78,7 +78,7 @@ export function AssetEditor({
   const [busy, setBusy] = useState(false);
   const [sharing, setSharing] = useState(false);
   const can = useCan();
-  const editable = can("asset.edit", asset);
+  const editable = can("asset.edit", asset) && asset.state !== "deleted";
   const router = useRouter();
   const tags = useLibraryTags();
   const m = asset.metadata ?? {};

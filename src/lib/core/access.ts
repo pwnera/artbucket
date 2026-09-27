@@ -6,6 +6,7 @@ import { auth, oidc } from "@/lib/auth";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
+import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import type { Scope } from "@/lib/scopes";
@@ -44,6 +45,8 @@ export type Caller = Access & {
   /** The API key's id. */
   key: string | null;
   ip: string | null;
+  /** The organization is read-only (lib/limits.ts): whatever the grants say, the scope here is read at most. */
+  readOnly?: boolean;
 };
 
 /** The web app's workspace switcher sets this; it holds a workspace id. */
@@ -109,9 +112,16 @@ const ipOf = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]
 /**
  * Resolve the caller. A key that is presented but unknown is `undefined`, not
  * anonymous: a revoked key should fail loudly, never quietly fall back to
- * whatever anonymous may do.
+ * whatever anonymous may do. In a read-only organization everyone reads, and
+ * its admins still manage its people and settings, and can leave.
  */
 export async function callerFrom(req: Request): Promise<Caller | undefined> {
+  const caller = await resolve(req);
+  if (!caller || !(await limitsOf(caller.workspace.organizationId)).readOnly) return caller;
+  return { ...caller, ...capAt(caller, "read"), readOnly: true };
+}
+
+async function resolve(req: Request): Promise<Caller | undefined> {
   const ip = ipOf(req);
   const authorization = req.headers.get("authorization");
   if (authorization) {
@@ -175,6 +185,7 @@ export async function describeCaller(caller: Caller) {
     workspace: caller.workspace,
     scope: caller.scope,
     orgScope: caller.orgScope,
+    readOnly: !!caller.readOnly,
     narrowed: isNarrowed(caller),
     email: await canEmail(caller.workspace.organizationId),
     narrow: caller.narrow,
@@ -183,6 +194,7 @@ export async function describeCaller(caller: Caller) {
     workspaces: await openWorkspaces(caller),
     auth: {
       signUp: !(await hasUsers()),
+      open: env.SIGNUP === "open",
       oidc: oidc && { name: oidc.name },
       anonymous: await anonymousScope(),
       passwordReset: await canResetPasswords(),

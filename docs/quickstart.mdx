@@ -1,0 +1,52 @@
+---
+title: Quickstart
+description: From a fresh clone to a visible thumbnail.
+---
+
+You need Docker. That is all for the first path; the second runs the app from
+source, for working on it.
+
+## With Docker only
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket
+cp .env.example .env
+# Set BETTER_AUTH_SECRET in .env: openssl rand -base64 32
+docker compose --profile app up -d
+```
+
+This starts Postgres, S3-compatible storage (SeaweedFS) and the app, which
+migrates its database as it starts. Open http://localhost:3000.
+
+## From source
+
+You need Node 22 or later and pnpm.
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket
+pnpm install
+cp .env.example .env
+docker compose up -d      # Postgres and storage only
+pnpm dev
+```
+
+## Make the first account
+
+Open http://localhost:3000 and make an account. The first one is the admin of
+everything, and until it exists nothing else works, in the app or the API.
+Then drop in a file.
+
+Optional extras for previews: `ffmpeg` on the path for video thumbnails (the
+Docker image has it), and LibreOffice (`soffice`) for Word, Excel and
+PowerPoint previews beyond the thumbnail a file was saved with.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Upload and find assets" icon="images" href="/guides/assets" />
+  <Card title="Write down the brand" icon="palette" href="/guides/canon" />
+  <Card title="Connect an agent" icon="robot" href="/developers/mcp" />
+  <Card title="Go to production" icon="server" href="/installation/docker-compose" />
+</CardGroup>

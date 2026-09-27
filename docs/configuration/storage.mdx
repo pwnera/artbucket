@@ -1,0 +1,47 @@
+---
+title: Storage
+description: Any S3-compatible service, and what Artbucket keeps in it.
+---
+
+AWS S3, Cloudflare R2, Backblaze B2, Tigris, MinIO, Garage and SeaweedFS all
+work. Point the `S3_*` variables at one:
+
+```bash AWS S3
+S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+S3_REGION=eu-central-1
+S3_FORCE_PATH_STYLE=false
+```
+
+```bash Cloudflare R2
+S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_FORCE_PATH_STYLE=true
+```
+
+## What the server sets up
+
+On start, the server creates the bucket when it is missing, allows browser
+uploads from `APP_URL` (a CORS rule), and, when the bucket has no lifecycle
+rules yet, adds two: `staging/` expires after a day, `renditions/` after 30. A
+key that can't change bucket settings (R2's object tokens can't) logs a
+warning instead: set those three in the provider's console.
+
+## What is in the bucket
+
+| Prefix | |
+|---|---|
+| `assets/{sha256}` | Originals, by the hash of their bytes. Never overwritten; shared by every workspace holding the same bytes |
+| `previews/{sha256}` | Stills for files that aren't images (PDF, PSD, video) |
+| `renditions/` | Sizes and formats made on request. Expire after 30 days and come back on the next request |
+| `staging/{workspace}/` | Browser uploads before they are filed. Expire after a day |
+
+Back up `assets/` and `previews/`. Renditions and staged uploads are
+disposable.
+
+## When bytes leave
+
+Deleting an asset keeps it, restorable, for 30 days. Then the sweeper, which
+runs in the app every six hours, removes the row, and the original once no
+asset in any workspace holds those bytes. Deleting a workspace or an
+organization removes its rows at once, and its files at the next sweep. A file
+written in the last day is never swept, so an upload in flight is safe.

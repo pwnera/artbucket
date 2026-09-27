@@ -54,7 +54,12 @@ pnpm db:generate   # writes a migration into drizzle/
 pnpm db:migrate
 ```
 
-Commit the generated SQL. Never edit an already-released migration.
+Commit the generated SQL. Never edit an already-released migration: add a new
+one. The app applies migrations in order when it starts, so any release
+upgrades from any earlier one, and CI holds that promise three ways: the
+schema must match the migrations, a migration on `main` can't change, and the
+base branch's database, filled from `scripts/upgrade-fixture.sql`, must migrate
+to yours. A migration that changes a table changes that fixture too.
 
 ## Commits
 
