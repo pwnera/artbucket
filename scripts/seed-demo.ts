@@ -2,12 +2,13 @@
  * Fill a running Artbucket with Blender Foundation open movie artwork from
  * Wikimedia Commons: posters, stills, concept art and behind-the-scenes shots,
  * all CC BY or CC0. Credit and license are read from Commons at run time.
+ * Then a Blender brand, from the colors and logo rules on blender.org/about/logo.
  *
  *   pnpm seed:demo                      # against http://localhost:3000
  *   APP_URL=https://demo.example pnpm seed:demo
  *
- * Safe to re-run: fields and collections are reused by key and name, and
- * identical bytes dedupe on upload.
+ * Safe to re-run: fields and collections are reused by key and name,
+ * identical bytes dedupe on upload, and existing brand rules are left as they are.
  */
 
 const APP = process.env.APP_URL ?? "http://localhost:3000";
@@ -206,7 +207,10 @@ async function upload(file: string, info: Info) {
   return token;
 }
 
-const all = FILMS.flatMap((f) => f.items.map((i) => i[0]));
+/** Blender's logos on Commons: public domain, trademarks of the Blender Foundation. */
+const LOGOS = { mark: "Blender logo no text.svg", wordmark: "Logo Blender.svg" };
+
+const all = [...FILMS.flatMap((f) => f.items.map((i) => i[0])), ...Object.values(LOGOS)];
 const infos = await commons(all);
 const missing = all.filter((f) => !infos.has(f));
 if (missing.length) throw new Error(`Not on Commons: ${missing.join(", ")}`);
@@ -239,6 +243,58 @@ for (const film of FILMS) {
     console.log(`${deduped ? "=" : "+"} ${film.name} / ${file}`);
   }
 }
+const logos: Record<string, string> = {};
+for (const [name, file] of Object.entries(LOGOS)) {
+  const info = infos.get(file)!;
+  const token = await upload(file, info);
+  const { data, deduped } = await api<{ data: { id: string }; deduped: boolean }>("POST", "/api/v1/assets", {
+    token,
+    filename: file,
+    mime: info.mime,
+    fields: { license: info.license },
+  });
+  await api("PATCH", `/api/v1/assets/${data.id}`, {
+    tags: ["blender", "logo"],
+    title: name === "mark" ? "Blender logo mark" : "Blender logo with wordmark",
+    creator: "Blender Foundation",
+    copyright: `Trademark of the Blender Foundation, ${info.license}. Source: https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, "_"))}`,
+  });
+  logos[name] = data.id;
+  if (!deduped) added++;
+  console.log(`${deduped ? "=" : "+"} Blender brand / ${file}`);
+}
 console.log(`Done: ${added} new, ${all.length - added} already there.`);
+
+/** A 409 means it is already there: keep it, so re-runs never undo edits. */
+const created = (p: Promise<unknown>) =>
+  p.then(
+    () => true,
+    (e: Error) => {
+      if (/: 409 /.test(e.message)) return false;
+      throw e;
+    },
+  );
+
+const RULES = [
+  { key: "brand.mission", type: "text", value: "Blender is the free and open source 3D creation suite. **The freedom to create.**", usage: "The one line that says what Blender is. Lead with it in intros and about pages." },
+  { key: "color.primary", type: "color", value: "#e87d0d", usage: "Blender orange (PMS 716). The logo's circle and the brand's accent: links, highlights, calls to action." },
+  { key: "color.secondary", type: "color", value: "#265787", usage: "Blender blue (PMS 647). The logo's inner dot and headings on light backgrounds." },
+  { key: "color.background", type: "color", value: "#ffffff", usage: "White. The logo's third color and the default page background." },
+  { key: "color.background", context: "dark-background", type: "color", value: "#1d1d1d", usage: "Near black, as in the Blender interface. Keep the logo in its original colors on it." },
+  { key: "type.primary", type: "font", value: { family: "Inter", weight: 400 }, usage: "The Blender interface face since 4.0. Available on Google Fonts." },
+  { key: "type.heading", type: "font", value: { family: "Inter", size: 32, weight: 700 }, usage: "Headings. One weight step up is enough; no italics." },
+  { key: "type.scale", type: "list", value: [12, 14, 16, 20, 24, 32, 48], usage: "Pixels. Pick from the scale, nothing between steps." },
+  { key: "logo.mark", type: "text", value: "The Blender mark: the orange circle and blue dot, no text.", usage: "App icons, avatars, favicons and anywhere the name is already on screen.", assets: [logos.mark] },
+  { key: "logo.wordmark", type: "text", value: "The mark with the Blender wordmark.", usage: "The default logo. Use it when pointing to Blender or giving credit, linked to blender.org.", assets: [logos.wordmark] },
+  { key: "logo.always", type: "list", value: ["Use it only to point to Blender or to give credit", "Link it to blender.org on the web", "Keep its original colors and typography", "Pair it with text or other logos in credits"] },
+  { key: "logo.neverDo", type: "list", value: ["Use it as your own logo", "Modify or enhance it", "Show it alone in credits", "Put it on commercial products without permission"] },
+  { key: "tone.always", type: "list", value: ["Plain words", "Credit the community", "Say free and open source"] },
+  { key: "tone.avoid", type: "list", value: ["Hype", "Exclamation marks", "Em dashes"] },
+];
+
+const made = await created(api("POST", "/api/v1/brands", { name: "Blender" }));
+let rules = 0;
+for (const r of RULES) if (await created(api("POST", "/api/v1/brand/rules?brand=blender", r))) rules++;
+console.log(`Blender brand: ${made ? "created" : "already there"}, ${rules} new rules, ${RULES.length - rules} already there.`);
 
 export {};
