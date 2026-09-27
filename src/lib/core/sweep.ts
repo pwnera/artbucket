@@ -1,7 +1,9 @@
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
 import { db } from "@/lib/db";
-import { assets, grants, invitations } from "@/lib/db/schema";
-import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey } from "@/lib/storage";
+import { assets, grants, instance, invitations } from "@/lib/db/schema";
+import { env } from "@/lib/env";
+import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject } from "@/lib/storage";
 
 /**
  * The one path bytes leave by. A deleted asset stays restorable for
@@ -13,12 +15,35 @@ import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey } from
  *
  * Runs at boot and every few hours (instrumentation.ts). Safe to run twice
  * at once, from two instances: each removal is checked again under the lock
- * an upload of the same bytes holds (lib/core/assets.ts finalizeUpload).
+ * an upload of the same bytes holds (lib/core/assets.ts finalizeUpload). Not
+ * from two databases on one bucket: each would remove the other's files, so
+ * neither sweeps while the bucket is marked by another (lib/bucket-owners.ts).
  */
 
 export const PURGE_DAYS = 30;
 /** Nothing written in the last day is touched: an upload may be between storage and its row. */
 const GRACE_MS = 24 * 60 * 60 * 1000;
+
+/** This database's id, made the first time it is asked for. */
+async function instanceId() {
+  await db.insert(instance).values({}).onConflictDoNothing();
+  const [row] = await db.select({ id: instance.id }).from(instance);
+  return row.id;
+}
+
+/**
+ * Marks the bucket as swept by this database, then names every other that has.
+ * ponytail: two databases marking one bucket in the same moment may each list
+ * before the other's mark lands, and both sweep once. Only files older than
+ * the grace day go, which a database just pointed at the bucket has none of.
+ */
+async function otherOwners() {
+  const self = await instanceId();
+  await putObject(ownerKey(self), Buffer.from(env.APP_URL), "text/plain");
+  const keys: string[] = [];
+  for await (const o of listObjects(OWNERS_PREFIX)) keys.push(o.key);
+  return strangers(keys, self);
+}
 
 /** Rows deleted more than PURGE_DAYS ago, gone for good with their grants. */
 async function purge() {
@@ -63,6 +88,14 @@ async function dropOriginal(sha256: string) {
  */
 export async function sweep() {
   await ensureBucket();
+  const others = await otherOwners();
+  if (others.length) {
+    console.warn(
+      `[artbucket] Sweep skipped: bucket ${env.S3_BUCKET} is also swept by another database (${others.map(ownerKey).join(", ")}). ` +
+        "Give each database its own bucket, or delete the marker of one that is gone.",
+    );
+    return { purged: 0, removed: 0 };
+  }
   const purged = await purge();
   const { originals, previews } = await held();
   const old = Date.now() - GRACE_MS;
