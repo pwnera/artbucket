@@ -70,3 +70,9 @@ export function parseFieldFilters(params: URLSearchParams, defs: FieldDef[]): Fi
 
 /** Fields worth counting values of: a short, known set of values. */
 export const isFacetable = (d: FieldDef) => d.type === "select" || d.type === "boolean";
+
+/**
+ * What an asset is, as `type=image&type=font` filters it (repeat to OR).
+ * Derived from its media type, so nobody has to set it.
+ */
+export const ASSET_TYPES = ["image", "video", "audio", "font", "document", "other"] as const;

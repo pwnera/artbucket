@@ -174,7 +174,7 @@ const Count = z.object({ value: z.string(), count: z.number().int() });
 export const Listing = z.object({
   data: z.array(Asset),
   total: z.number().int().describe("Every match; page through with offset and limit"),
-  facets: z.object({ tags: z.array(Count), fields: z.record(z.string(), z.array(Count)) }),
+  facets: z.object({ tags: z.array(Count), types: z.array(Count), fields: z.record(z.string(), z.array(Count)) }),
 });
 
 export const UploadTicket = z.object({

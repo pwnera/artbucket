@@ -90,7 +90,7 @@ export type Listing = {
   data: Asset[];
   /** Every match; `data` is the first page of them. */
   total: number;
-  facets: { tags: Count[]; fields?: Record<string, Count[]> };
+  facets: { tags: Count[]; types?: Count[]; fields?: Record<string, Count[]> };
 };
 
 /** "f.budget.gte=10" as a person would say it. */
@@ -299,7 +299,7 @@ export function Gallery({
 
   const clear = () => {
     setText("");
-    go({ q: "", tags: [], filters: {}, extra: [] });
+    go({ q: "", tags: [], types: [], filters: {}, extra: [] });
   };
 
   // With required fields still unmet, files wait for them; otherwise straight up.
@@ -521,6 +521,7 @@ export function Gallery({
               const args = {
                 q: view.q || undefined,
                 tags: view.tags,
+                types: view.types.length ? view.types : undefined,
                 collection: inCollection?.name,
                 filters: Object.keys(view.filters).length || view.extra.length
                   ? { ...view.filters, ...Object.fromEntries(view.extra.map(([k, v]) => [k.slice(2), v])) }
@@ -585,6 +586,13 @@ export function Gallery({
                   </span>
                 </label>
               )}
+              <FacetFilter
+                label="Type"
+                counts={facets.types ?? []}
+                selected={view.types}
+                format={(v) => v[0].toUpperCase() + v.slice(1)}
+                onChange={(types) => go({ types })}
+              />
               <FacetFilter label="Tags" counts={facets.tags} selected={view.tags} onChange={(tags) => go({ tags })} />
               {fields.filter(isFacetable).map((d) => (
                 <FacetFilter

@@ -17,6 +17,7 @@ import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/keys";
 import { isRenderable } from "@/lib/core/renditions";
 import { env } from "@/lib/env";
+import { ASSET_TYPES } from "@/lib/filters";
 import { GOOGLE_FAMILY } from "@/lib/font";
 import { allows, type Scope } from "@/lib/scopes";
 import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
@@ -114,7 +115,7 @@ const TOOLS: Record<string, Tool> = {
       const [fields, collections] = await Promise.all([listFields(), listCollections()]);
       return [
         "Search the library. Every word of `q` must match (as a prefix) the filename, tags, captions or field values.",
-        "No arguments lists the newest assets. Results carry facet counts: tags and field values you can narrow by,",
+        "No arguments lists the newest assets. Results carry facet counts: tags, types and field values you can narrow by,",
         "and `total`, every match. Next: describe_asset before using one, rendition_url for a size to hand out.",
         fields.length
           ? `Custom fields, for \`filters\`: ${fields.map((f) => `${f.key} (${f.type}${f.options.length ? `: ${f.options.join(", ")}` : ""})`).join("; ")}.`
@@ -131,6 +132,7 @@ const TOOLS: Record<string, Tool> = {
     input: z.object({
       q: z.string().max(512).optional().describe("Free text"),
       tags: z.array(z.string()).max(20).optional().describe("Only assets carrying every one of these tags"),
+      types: z.array(z.enum(ASSET_TYPES)).optional().describe("Only assets of any of these types"),
       collection: z.string().max(120).optional().describe("Only this collection's assets: its name or id"),
       filters: z
         .record(z.string(), z.union([z.string(), z.array(z.string())]))
@@ -139,10 +141,11 @@ const TOOLS: Record<string, Tool> = {
       review: z.boolean().optional().describe("Only what waits on a human: proposed assets and suggested tags"),
       limit: z.number().int().min(1).max(50).default(20),
     }),
-    run: async ({ q, tags, collection, filters, review, limit }) => {
+    run: async ({ q, tags, types, collection, filters, review, limit }) => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       for (const t of tags ?? []) params.append("tag", t);
+      for (const t of types ?? []) params.append("type", t);
       if (collection) params.set("collection", collection);
       if (review) params.set("review", "true");
       for (const [k, v] of Object.entries(filters ?? {}))
