@@ -4,12 +4,12 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { eq, isNull } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import sharp, { type Sharp } from "sharp";
 import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import { fetchPublic } from "@/lib/fetch-public";
-import { parseLink } from "@/lib/preview";
+import { parseLink, RENDERABLE } from "@/lib/preview";
 import { getObject, originalKey, previewKey, putObject } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
 
@@ -35,8 +35,16 @@ import { unzip } from "@/lib/zip";
  * type, next to the MP4 or Lottie rendered from them (parentAssetId).
  */
 
-/** What goes in `probe` for a file sharp couldn't read. */
+/**
+ * What these extractors can do. Bump it when they learn a format, and the
+ * backfill gives files looked at by an older version another look.
+ */
+const VERSION = 1;
+
+/** What goes in `probe` for a file that isn't a web image. */
 export type Probe = {
+  /** The extractors' VERSION that looked at it. */
+  previews: number;
   /** sha256 of the still, at previewKey(). */
   preview?: string;
   /** Plays as a Lottie animation. */
@@ -54,9 +62,13 @@ const EDGE = 2048;
 
 /**
  * Derive what the file can show as, storing the still. Never throws: a file
- * with no preview is still a perfectly good asset. `{}` means "looked, nothing".
+ * with no preview is still a perfectly good asset.
  */
 export async function previewOf(bytes: Buffer, mime: string): Promise<Probe> {
+  return { previews: VERSION, ...(await derive(bytes, mime)) };
+}
+
+async function derive(bytes: Buffer, mime: string): Promise<Omit<Probe, "previews">> {
   try {
     if (mime === "text/uri-list") return await link(bytes.toString("utf8").trim());
     if (isLottie(bytes, mime)) return { lottie: true };
@@ -70,18 +82,21 @@ export async function previewOf(bytes: Buffer, mime: string): Promise<Probe> {
 }
 
 /**
- * Previews for files uploaded before they existed: once, in the background at
- * boot (instrumentation.ts). Those files have a null probe, and after a look
- * never again (`{}` means looked, nothing), so a restart repeats no work.
+ * Previews for files that aren't web images and that no extractor of this
+ * VERSION has looked at: uploaded before previews existed, or before the
+ * extractors learned their format. In the background at boot (instrumentation.ts);
+ * each file is looked at once per VERSION, so a restart repeats no work.
  */
 export async function backfillPreviews() {
   const rows = await db
-    .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime })
+    .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime, probe: assets.probe })
     .from(assets)
-    .where(isNull(assets.probe));
+    .where(
+      sql`${assets.mime} !~ ${RENDERABLE.source} and coalesce((${assets.probe} ->> 'previews')::int, 0) < ${VERSION}`,
+    );
   for (const r of rows) {
     try {
-      const probe = await previewOf(await getObject(originalKey(r.sha256)), r.mime);
+      const probe = { ...r.probe, ...(await previewOf(await getObject(originalKey(r.sha256)), r.mime)) };
       const size = probe.width && probe.height ? { width: probe.width, height: probe.height } : {};
       await db.update(assets).set({ probe, ...size }).where(eq(assets.id, r.id));
     } catch (err) {
@@ -296,7 +311,7 @@ function isLottie(bytes: Buffer, mime: string) {
  * gives one out (Figma's oEmbed, Google Drive's thumbnails), which both do only
  * for files shared by link. Private ones still embed for people signed in with access.
  */
-async function link(url: string): Promise<Probe> {
+async function link(url: string): Promise<Omit<Probe, "previews">> {
   const found = parseLink(url);
   if (!found) return {};
   const shown = { service: found.service, embed: found.embed };

@@ -22,7 +22,7 @@ import { fontMime } from "@/lib/font";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
-import { hasPreview, parseLink } from "@/lib/preview";
+import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -153,8 +153,10 @@ export async function finalizeUpload(
   }
 
   const mime = fontMime(bytes) ?? input.mime;
-  // What sharp can't read may still show as something: a still, an animation, an embed.
-  const probe = (await probeImage(bytes)) ?? (await previewOf(bytes, mime));
+  // Anything but a web image gets a look for what it can show as: a still, an
+  // animation, an embed. Even one sharp probes: it reads HEIC's header, not its pixels.
+  const image = await probeImage(bytes);
+  const probe = isRenderable(mime) ? image : { ...image, ...(await previewOf(bytes, mime)) };
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};

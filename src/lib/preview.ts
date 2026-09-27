@@ -6,7 +6,8 @@
 type Previewable = { mime: string; probe?: Record<string, unknown> | null };
 
 /** Originals sharp reads directly. */
-export const isRenderable = (mime: string) => /^image\/(jpeg|png|webp|avif|gif|tiff|svg\+xml)$/.test(mime);
+export const RENDERABLE = /^image\/(jpeg|png|webp|avif|gif|tiff|svg\+xml)$/;
+export const isRenderable = (mime: string) => RENDERABLE.test(mime);
 
 /**
  * Has renditions: an image sharp reads, or a file a still was derived from at
