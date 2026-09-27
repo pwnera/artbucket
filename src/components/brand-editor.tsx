@@ -62,7 +62,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { inkOn } from "@/lib/color";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
 import { contextLabel, ruleContext, ruleLabel, section, type RuleAsset, type Rule, type RuleType } from "@/lib/rules";
 import type { SidebarData } from "@/lib/sidebar";
@@ -597,9 +596,14 @@ function BrandIcon({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
   const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.length);
   const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)$/.test(r.key)) ?? logos[0];
   const a = named?.assets.find((x) => !x.mime || x.mime.startsWith("image/"));
-  return (
-    <span className="bg-muted relative flex size-16 items-center justify-center overflow-hidden rounded-2xl border text-2xl font-semibold shadow-xs">
-      {a ? <Thumb src={`/a/${a.id}/w_64,f_webp`} alt={`${brand.name} logo`} className="p-1.5" /> : brand.name[0]?.toUpperCase()}
+  // The logo stands on its own, like a page icon; only the initial gets a tile.
+  return a ? (
+    <span className="relative flex size-16 shrink-0">
+      <Thumb src={`/a/${a.id}/w_64,f_webp`} alt={`${brand.name} logo`} className="rounded-2xl p-0" />
+    </span>
+  ) : (
+    <span className="bg-muted flex size-16 shrink-0 items-center justify-center rounded-2xl border text-2xl font-semibold">
+      {brand.name[0]?.toUpperCase()}
     </span>
   );
 }
@@ -633,58 +637,55 @@ function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; cont
     .sort()
     .at(-1);
   const colors = rules.filter((r) => r.type === "color");
-  const stats: [number | string, string][] = [
-    [keys, keys === 1 ? "rule" : "rules"],
-    ...(variants && !context ? [[variants, variants === 1 ? "variant" : "variants"] as [number, string]] : []),
-    [assets, assets === 1 ? "asset" : "assets"],
-  ];
+  const facts = [
+    `${keys} ${keys === 1 ? "rule" : "rules"}`,
+    variants && !context && `${variants} ${variants === 1 ? "variant" : "variants"}`,
+    `${assets} ${assets === 1 ? "asset" : "assets"}`,
+  ].filter(Boolean);
 
   return (
     <div id="top" className="scroll-mt-20 space-y-8">
-      <div className="space-y-3">
+      <div className="flex items-center gap-4">
         <BrandIcon brand={brand} rules={rules} />
-        <p className="text-primary text-sm font-medium">
-          Guidelines{brand.default && " · the default brand"}
-          {context && ` · as they apply to ${contextLabel(context)}`}
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{brand.name}</h1>
-        <p className="text-muted-foreground max-w-2xl text-lg text-pretty">
-          Every rule on this page is data. Agents read exactly this over the API and MCP, so a change here is a change
-          everywhere, at once.
-        </p>
+        <div className="min-w-0 space-y-1">
+          <h1 className="truncate text-3xl font-semibold tracking-tight sm:text-4xl">{brand.name}</h1>
+          <p className="text-muted-foreground text-sm">
+            {brand.default ? "Default brand" : "Brand guidelines"}
+            {context && ` · as they apply to ${contextLabel(context)}`}
+            {facts.map((f) => ` · ${f}`)}
+            {updated && (
+              <span suppressHydrationWarning title={exact(updated)}>
+                {` · updated ${ago(updated)}`}
+              </span>
+            )}
+          </p>
+        </div>
       </div>
 
-      <dl className="flex flex-wrap gap-x-10 gap-y-4">
-        {stats.map(([n, what]) => (
-          <div key={what} className="flex flex-col-reverse">
-            <dt className="text-muted-foreground text-sm">{what}</dt>
-            <dd className="text-3xl font-semibold tracking-tight tabular-nums">{n}</dd>
-          </div>
-        ))}
-        {updated && (
-          <div className="flex flex-col-reverse">
-            <dt className="text-muted-foreground text-sm">last change</dt>
-            <dd className="text-3xl font-semibold tracking-tight" suppressHydrationWarning>
-              {new Date(updated).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            </dd>
-          </div>
-        )}
-      </dl>
+      <p className="text-muted-foreground max-w-xl text-pretty">
+        Every rule here is data. Agents read exactly this over the API and MCP, so a change here is a change everywhere,
+        at once.
+      </p>
 
       {colors.length > 0 && (
-        <div className="flex h-28 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/10 dark:ring-white/10">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {colors.map((c) => (
             <a
               key={c.id}
               href={`#rule-${c.key}`}
-              style={{ backgroundColor: c.value as string, color: inkOn((c.value as string).slice(0, 7)) }}
-              className="flex min-w-0 flex-1 flex-col justify-end p-3 text-xs transition-[flex-grow] duration-300 hover:flex-[1.8]"
+              className="group/swatch bg-card hover:border-foreground/20 overflow-hidden rounded-xl border transition-colors"
             >
-              <span className="truncate font-medium">
-                {label(c.key)}
-                {c.context && <span className="opacity-70"> · {contextLabel(c.context)}</span>}
-              </span>
-              <span className="truncate font-mono opacity-80">{c.value as string}</span>
+              <div
+                className="h-16 border-b transition-[height] duration-200 group-hover/swatch:h-20"
+                style={{ backgroundColor: c.value as string }}
+              />
+              <div className="space-y-0.5 px-3 py-2">
+                <p className="text-sm font-medium">
+                  {label(c.key)}
+                  {c.context && <span className="text-muted-foreground font-normal"> · {contextLabel(c.context)}</span>}
+                </p>
+                <p className="text-muted-foreground font-mono text-xs uppercase">{c.value as string}</p>
+              </div>
             </a>
           ))}
         </div>

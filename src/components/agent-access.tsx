@@ -129,9 +129,8 @@ export function ForAgents({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={className}>
+        <Button variant="ghost" size="icon-sm" className={className} aria-label="For agents" title="For agents">
           <IconRobot />
-          <span className="sr-only sm:not-sr-only">For agents</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(30rem,calc(100vw-2rem))] space-y-4">
