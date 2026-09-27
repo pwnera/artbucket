@@ -2,10 +2,9 @@
 
 Reserved, and empty.
 
-Everything else in this repository is AGPLv3 ([LICENSE](../LICENSE)). Code
-here, when there is any, will be under a separate commercial license, the way
-Cal.com and Plausible do it, so the hosting can't be resold without giving
-back ([decision 0009](../docs/decisions/0009-agpl-and-ee.mdx)).
+Everything else in this repository is under the Elastic License 2.0
+([LICENSE](../LICENSE), [decision 0011](../docs/decisions/0011-elastic-license.mdx)).
+Code here, when there is any, will be under a separate commercial license.
 
 What may land here: organization-scale governance (SAML, SCIM, custom roles,
 retention and legal hold) and hosting scale. What never will: single sign-on

@@ -1,0 +1,31 @@
+---
+title: "0011: Elastic License 2.0"
+description: Accepted, v1.2. Replaces 0009.
+---
+
+## Context
+
+[0009](/decisions/0009-agpl-and-ee) chose the AGPLv3 so nobody could resell
+the hosting without giving back. The AGPL doesn't stop that: anyone may run
+artbucket as a paid service, as long as they publish their changes. The
+intent was stronger: free for everyone to use, but not the base of someone
+else's SaaS.
+
+## Decision
+
+Everything in this repository is under the
+[Elastic License 2.0](https://www.elastic.co/licensing/elastic-license),
+except `ee/`, which stays reserved for a separate commercial license and
+empty. Anyone may use, copy, change and self-host artbucket, for free, for
+any purpose, including inside a company and in commercial work. What the
+license forbids is providing it to third parties as a hosted or managed
+service. The line between free and `ee/` is unchanged from 0009 and
+[0006](/decisions/0006-grants-and-free-sso).
+
+## Consequences
+
+- Artbucket is source-available, not open source by the OSI definition.
+- A company running it for its own people, its brands, or the partners and
+  contractors it works with is fine; selling access to it as a service is not.
+- Changes no longer have to be published.
+- Contributions are accepted under the same license.
