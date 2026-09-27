@@ -1,6 +1,8 @@
-import { and, desc, eq, lt, ne } from "drizzle-orm";
+import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { activity, brands, brandVersions, type ActivityVerb } from "@/lib/db/schema";
+import { activity, assets, brands, brandVersions, type ActivityVerb } from "@/lib/db/schema";
+import type { Caller } from "@/lib/core/access";
+import { visible } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { summarize } from "@/lib/history";
 
@@ -45,9 +47,11 @@ export type ActivityItem = {
 /**
  * Everything that happened, newest first: asset events, and brand versions
  * (which already group rule edits the way a person would describe them).
- * Page with `before`, the `at` of the last item seen.
+ * Page with `before`, the `at` of the last item seen. An asset the caller
+ * can't see (a private one) leaves its events out.
  */
-export async function listActivity(ws: string, { before, limit = 50 }: { before?: string; limit?: number } = {}) {
+export async function listActivity(caller: Caller, { before, limit = 50 }: { before?: string; limit?: number } = {}) {
+  const ws = caller.workspace.id;
   const until = before ? new Date(before) : undefined;
   if (until && Number.isNaN(until.getTime())) throw new AssetError("invalid", `Not a time: "${before}"`);
   const n = Math.min(Math.max(limit, 1), 100);
@@ -64,7 +68,13 @@ export async function listActivity(ws: string, { before, limit = 50 }: { before?
         detail: activity.detail,
       })
       .from(activity)
-      .where(and(eq(activity.workspaceId, ws), until ? lt(activity.at, until) : undefined))
+      .where(
+        and(
+          eq(activity.workspaceId, ws),
+          until ? lt(activity.at, until) : undefined,
+          sql`not exists (select 1 from ${assets} where ${assets.id} = ${activity.assetId} and not (${visible(caller)}))`,
+        ),
+      )
       .orderBy(desc(activity.at))
       .limit(n),
     db

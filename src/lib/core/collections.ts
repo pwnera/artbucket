@@ -1,11 +1,11 @@
-import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, collections } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { dropGrants } from "@/lib/core/people";
+import { dropGrants, keepReach } from "@/lib/core/people";
 import { reach } from "@/lib/access";
 import { can } from "@/lib/permissions";
 import { describeIssues, fieldsValidator, type FieldValues } from "@/lib/fields";
@@ -21,7 +21,7 @@ import { allows } from "@/lib/scopes";
  * of insertion into the join table.
  *
  * A caller sees the workspace's collections if it may read the workspace,
- * and otherwise only those it has a grant on.
+ * private ones aside unless it is admin, and those it has a grant on.
  */
 
 export type Collection = Omit<typeof collections.$inferSelect, "workspaceId"> & { count: number };
@@ -36,11 +36,13 @@ const { workspaceId: _ws, ...columns } = getTableColumns(collections);
 export const NO_ID = "00000000-0000-0000-0000-000000000000";
 
 /** The workspace's collections this caller may see. */
-const seen = (caller: Caller) =>
-  and(
+const seen = (caller: Caller) => {
+  const granted = inArray(collections.id, [...reach(caller, "read").collections, NO_ID]);
+  return and(
     eq(collections.workspaceId, caller.workspace.id),
-    allows(caller.scope, "read") ? undefined : inArray(collections.id, [...reach(caller, "read").collections, NO_ID]),
+    allows(caller.scope, "admin") ? undefined : allows(caller.scope, "read") ? or(eq(collections.private, false), granted) : granted,
   );
+};
 
 export async function listCollections(caller: Caller): Promise<Collection[]> {
   return db
@@ -65,12 +67,20 @@ async function writable(caller: Caller, id: string) {
   return c;
 }
 
-export async function createCollection(ws: string, input: { name: string; icon?: string | null; fields?: Record<string, unknown> }) {
+export async function createCollection(
+  caller: Caller,
+  input: { name: string; icon?: string | null; fields?: Record<string, unknown>; private?: boolean },
+) {
+  const ws = caller.workspace.id;
   const values = stripNulls(await validValues(ws, input.fields ?? {}));
-  const [row] = await db
-    .insert(collections)
-    .values({ workspaceId: ws, name: input.name, icon: input.icon ?? null, fields: values })
-    .returning(columns);
+  const row = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(collections)
+      .values({ workspaceId: ws, name: input.name, icon: input.icon ?? null, fields: values, private: !!input.private })
+      .returning(columns);
+    if (row.private) await keepReach(caller, "collection", row.id, tx);
+    return row;
+  });
   return { ...row, count: 0 };
 }
 
@@ -78,7 +88,7 @@ export async function createCollection(ws: string, input: { name: string; icon?:
 export async function updateCollection(
   caller: Caller,
   id: string,
-  patch: { name?: string; icon?: string | null; fields?: Record<string, unknown> },
+  patch: { name?: string; icon?: string | null; fields?: Record<string, unknown>; private?: boolean },
 ): Promise<Collection | null> {
   if (!(await writable(caller, id))) return null;
   const values = patch.fields ? await validValues(caller.workspace.id, patch.fields) : null;
@@ -88,6 +98,7 @@ export async function updateCollection(
       .set({
         ...(patch.name ? { name: patch.name } : {}),
         ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
+        ...(patch.private !== undefined ? { private: patch.private } : {}),
         ...(values
           ? {
               fields: sql`jsonb_strip_nulls(${collections.fields} || ${JSON.stringify(values)}::jsonb)`,
@@ -97,6 +108,7 @@ export async function updateCollection(
       .where(eq(collections.id, id))
       .returning({ id: collections.id });
     if (c && values) await refresh(tx, membersOf(id));
+    if (c && patch.private) await keepReach(caller, "collection", id, tx);
     return !!c;
   });
   return found ? getCollection(caller, id) : null;
@@ -135,10 +147,11 @@ export async function setMembers(caller: Caller, id: string, change: { add?: str
   const add = [...new Set(change.add ?? [])];
   const remove = [...new Set(change.remove ?? [])];
   if (!(await writable(caller, id))) throw new AssetError("not_found", "No such collection");
-  if (!allows(caller.scope, "read") && add.length) {
+  if (!allows(caller.scope, "admin") && add.length) {
     const rows = await db
       .select({
         id: assets.id,
+        private: assets.private,
         collections: sql<string[]>`coalesce((select jsonb_agg(ca.collection_id) from ${collectionAssets} ca where ca.asset_id = ${assets.id}), '[]'::jsonb)`,
       })
       .from(assets)

@@ -10,7 +10,7 @@ import { record } from "@/lib/core/activity";
 import { inheritedFrom, joinCollections, listCollections, NO_ID } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
-import { dropGrants } from "@/lib/core/people";
+import { dropGrants, keepReach } from "@/lib/core/people";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
 import { linkTitle, previewOf } from "@/lib/core/previews";
@@ -67,20 +67,28 @@ const columns = {
 export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[] };
 
 /**
- * What this caller may see: all of the workspace with read on it, else what
- * its grants reach, an asset on its own or through a collection it is in.
+ * Private, as SQL: its own flag, or it is in collections and every one of
+ * them is private. lib/access.ts isPrivate, for a query.
  */
-function visible(caller: Caller): SQL {
+export const privateAsset = (hidden: string[]) => sql`(${assets.private} or (
+  exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id})
+  and not exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and not ${inArray(sql`ca.collection_id`, [...hidden, NO_ID])})
+))`;
+
+/**
+ * What this caller may see: all of the workspace with read on it, private
+ * assets aside unless it is admin; and what its grants reach, an asset on its
+ * own or through a collection it is in.
+ */
+export function visible(caller: Caller): SQL {
   const inWorkspace = eq(assets.workspaceId, caller.workspace.id);
-  if (allows(caller.scope, "read")) return inWorkspace;
+  if (allows(caller.scope, "admin")) return inWorkspace;
   const r = reach(caller, "read");
-  return and(
-    inWorkspace,
-    or(
-      inArray(assets.id, [...r.assets, NO_ID]),
-      sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, [...r.collections, NO_ID])})`,
-    ),
-  )!;
+  const granted = or(
+    inArray(assets.id, [...r.assets, NO_ID]),
+    sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, [...r.collections, NO_ID])})`,
+  );
+  return and(inWorkspace, allows(caller.scope, "read") ? or(sql`not ${privateAsset(caller.hidden)}`, granted) : granted)!;
 }
 
 export { MAX_UPLOAD_BYTES };
@@ -558,6 +566,8 @@ export type AssetPatch = {
   fields?: Record<string, unknown>;
   /** The asset that replaces this one; null un-replaces it. */
   supersededBy?: string | null;
+  /** Only grants on it (or a collection it is in) and admins reach it. */
+  private?: boolean;
 } & Provenance & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
@@ -579,6 +589,7 @@ export async function updateAsset(
     generator,
     prompt,
     supersededBy,
+    private: hidden,
     ...fields
   }: AssetPatch,
 ): Promise<Asset | null> {
@@ -607,6 +618,7 @@ export async function updateAsset(
     }
   }
   if (supersededBy !== undefined) set.supersededBy = supersededBy;
+  if (hidden !== undefined) set.private = hidden;
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
@@ -637,6 +649,7 @@ export async function updateAsset(
     .set({ ...set, updatedAt: sql`now()` })
     .where(and(eq(assets.id, id), eq(assets.workspaceId, ws)))
     .returning(columns);
+  if (asset && hidden) await keepReach(caller, "asset", id);
   // A review decision is worth a line in the activity; routine edits are not.
   if (asset && current.status === "proposed" && (status === "active" || status === "rejected")) {
     await record(caller, status === "active" ? "approved" : "rejected", asset, asset.reviewNote ? { note: asset.reviewNote } : undefined);

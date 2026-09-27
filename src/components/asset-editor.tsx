@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconBook, IconCertificate, IconCheck, IconCopy, IconDownload, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import { IconBook, IconCertificate, IconCheck, IconCopy, IconDownload, IconLock, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";
@@ -20,6 +21,8 @@ import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldDef } from "@/lib/fields";
@@ -72,6 +75,7 @@ export function AssetEditor({
   const [sharing, setSharing] = useState(false);
   const can = useCan();
   const editable = can("asset.edit", asset);
+  const router = useRouter();
   const tags = useLibraryTags();
   const m = asset.metadata ?? {};
 
@@ -103,6 +107,7 @@ export function AssetEditor({
         prompt: orNull("prompt"),
         parentAssetId: orNull("parentAssetId"),
         supersededBy: orNull("supersededBy"),
+        private: form.get("private") === "on",
       }),
     });
     if (!res.ok) {
@@ -127,6 +132,8 @@ export function AssetEditor({
     const failed = (await Promise.all(changes)).some((r) => !r.ok);
     setBusy(false);
     onSaved();
+    // What the person may do comes from the server, and private moves it.
+    if ((form.get("private") === "on") !== !!asset.private) router.refresh();
     if (failed) {
       toast.warning("Saved, but a collection change didn't go through");
       return;
@@ -287,6 +294,17 @@ export function AssetEditor({
                 />
               </Field>
             )}
+            <div className="flex items-start justify-between gap-4 rounded-md border px-3 py-2">
+              <Label htmlFor={`${id}-private`} className="grid flex-1 gap-1 font-normal">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <IconLock className="size-4" /> Private
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Only people added to it or to one of its collections, and admins, see it. Only in private collections, it is private anyway.
+                </span>
+              </Label>
+              <Switch id={`${id}-private`} name="private" defaultChecked={!!asset.private} />
+            </div>
 
             {fields.length > 0 && (
               <>

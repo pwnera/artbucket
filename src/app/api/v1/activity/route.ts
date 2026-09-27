@@ -8,5 +8,5 @@ import { listActivity } from "@/lib/core/activity";
  */
 export const GET = route("activity.read", async (req, _p, caller) => {
   const p = new URL(req.url).searchParams;
-  return ok(await listActivity(caller.workspace.id, { before: p.get("before") ?? undefined, limit: Number(p.get("limit")) || undefined }));
+  return ok(await listActivity(caller, { before: p.get("before") ?? undefined, limit: Number(p.get("limit")) || undefined }));
 });

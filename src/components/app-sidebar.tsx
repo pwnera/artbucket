@@ -9,6 +9,7 @@ import {
   IconDots,
   IconFolder,
   IconFolderUp,
+  IconLock,
   IconPencil,
   IconPhoto,
   IconPlus,
@@ -295,7 +296,11 @@ function Collections({
               <DropLine line={s.line} />
               <SidebarMenuButton asChild isActive={current === c.id} tooltip={c.name}>
                 <NavLink href={`/?collection=${c.id}`} draggable={false}>
-                  <CollectionIcon icon={c.icon} /> <span>{c.name}</span>
+                  <CollectionIcon icon={c.icon} />{" "}
+                  <span>
+                    {c.name}
+                    {c.private && <IconLock className="text-muted-foreground ml-1 inline size-3 align-[-1px]" aria-label="Private" />}
+                  </span>
                 </NavLink>
               </SidebarMenuButton>
               <SidebarMenuBadge className="group-hover/menu-item:opacity-0">{c.count}</SidebarMenuBadge>

@@ -1,14 +1,14 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, collections, shareLinks, type ShareKind } from "@/lib/db/schema";
-import { workspaceById, type Caller } from "@/lib/core/access";
+import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, finalizeUpload, getAsset } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
-import { NONE } from "@/lib/access";
+import { NO_OFF, NONE } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import { hashPassword, refusal, shareToken } from "@/lib/share";
@@ -224,13 +224,18 @@ export async function viewShare(token: string, password: string | null, { limit 
   return { share: meta, data: rows.map(shared), total };
 }
 
-/** Whoever holds an upload link: they may propose, into its collection, and nothing else. */
+/**
+ * Whoever holds an upload link: they may propose, into its collection, and
+ * nothing else. The grant on the collection is what lets them into a private one.
+ */
 async function guest(link: Link, ip: string | null): Promise<Caller> {
   const workspace = (await workspaceById(link.workspaceId))!;
   return {
     workspace,
     scope: "propose",
-    narrow: NONE,
+    narrow: link.collectionId ? { ...NONE, collections: { [link.collectionId]: "propose" } } : NONE,
+    off: NO_OFF,
+    hidden: await hiddenIn(link.workspaceId),
     orgScope: null,
     actor: `${link.name ?? "Upload link"} (guest)`,
     user: null,

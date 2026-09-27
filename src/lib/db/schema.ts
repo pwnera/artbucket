@@ -22,7 +22,7 @@ import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
-import type { Resource } from "@/lib/access";
+import type { Ability, Resource } from "@/lib/access";
 
 export type AssetStatus = "active" | "proposed" | "rejected";
 
@@ -45,6 +45,8 @@ export const assets = pgTable(
     filename: text("filename").notNull(),
     mime: text("mime").notNull(),
     size: integer("size").notNull(),
+    /** Only people with a grant on it (or a collection it is in) and admins see it (lib/access.ts). */
+    private: boolean("private").notNull().default(false),
     width: integer("width"),
     height: integer("height"),
     /** Freeform probe output (format, pages, colour space). */
@@ -137,6 +139,8 @@ export const collections = pgTable("collections", {
   /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
   icon: text("icon"),
   fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+  /** Only people with a grant on it and admins see it; assets in private collections only are private too. */
+  private: boolean("private").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(sql`now()`),
@@ -486,6 +490,8 @@ export const grants = pgTable(
     resource: text("resource").$type<Resource>().notNull(),
     resourceId: uuid("resource_id").notNull(),
     scope: text("scope").$type<Scope>().notNull(),
+    /** Abilities the scope would give that this grant doesn't: an editor who can't delete (lib/access.ts). */
+    limits: jsonb("limits").$type<Ability[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -514,6 +520,7 @@ export const invitations = pgTable(
     resource: text("resource").$type<Resource>().notNull(),
     resourceId: uuid("resource_id").notNull(),
     scope: text("scope").$type<Scope>().notNull(),
+    limits: jsonb("limits").$type<Ability[]>().notNull().default([]),
     tokenHash: text("token_hash").notNull().unique(),
     /** The token again, sealed (lib/settings.ts seal), so an admin can copy the link later. Lookups use the hash. */
     tokenSealed: text("token_sealed"),

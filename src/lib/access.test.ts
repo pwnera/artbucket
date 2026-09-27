@@ -41,6 +41,30 @@ test("an asset grant raises that asset over the workspace scope", () => {
   assert.equal(isNarrowed(a), false);
 });
 
+test("an ability is off only where every grant that could use it has it off", () => {
+  const lim = (x: ReturnType<typeof g>, limits: ("delete" | "share" | "approve" | "setup")[]) => ({ ...x, limits });
+  const one = accessIn([lim(g("workspace", "w1", "write"), ["delete", "share"])], ws);
+  assert.deepEqual(one.off.workspace, ["delete", "share"]);
+  // The organization's grant has delete on: it adds up with the workspace's.
+  const both = accessIn([lim(g("organization", "o1", "write"), ["share"]), lim(g("workspace", "w1", "write"), ["delete", "share"])], ws);
+  assert.deepEqual(both.off.workspace, ["share"]);
+  // A read grant can't use any ability, so its (empty) limits don't turn one back on.
+  const low = accessIn([g("organization", "o1", "read"), lim(g("workspace", "w1", "write"), ["delete"])], ws);
+  assert.deepEqual(low.off.workspace, ["delete"]);
+  assert.deepEqual(accessIn([lim(g("collection", "c1", "write"), ["approve"])], ws).off.collections, { c1: ["approve"] });
+});
+
+test("private collections and assets are out of the workspace scope's reach", () => {
+  const a = accessIn([g("workspace", "w1", "write"), g("collection", "secret2", "read")], ws, ["secret", "secret2"]);
+  assert.equal(collectionScope(a, "secret"), null);
+  assert.equal(collectionScope(a, "secret2"), "read", "a grant on it still reaches it");
+  assert.equal(collectionScope(a, "open"), "write");
+  assert.equal(assetScope(a, { id: "x", collections: ["secret"] }), null);
+  assert.equal(assetScope(a, { id: "x", collections: ["secret", "open"] }), "write");
+  assert.equal(assetScope(a, { id: "x", collections: [], private: true }), null);
+  assert.equal(assetScope(accessIn([g("workspace", "w1", "admin")], ws, ["secret"]), { id: "x", collections: ["secret"] }), "admin");
+});
+
 test("reach lists what a scope reaches", () => {
   const a = accessIn([g("collection", "c1", "read"), g("collection", "c2", "write"), g("asset", "x", "propose")], ws);
   assert.deepEqual(reach(a, "read"), { collections: ["c1", "c2"], assets: ["x"] });

@@ -19,6 +19,7 @@ import {
   IconRobot,
   IconSearch,
   IconCopy,
+  IconLock,
   IconShare,
   IconSparkles,
   IconTypography,
@@ -70,6 +71,8 @@ import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/vi
 
 export type Asset = {
   id: string;
+  /** Its own flag: it is private too when every collection it is in is. */
+  private?: boolean;
   filename: string;
   mime: string;
   size: number;
@@ -627,9 +630,16 @@ export function Gallery({
             }
             title={title}
             aside={
-              <Badge variant="secondary" className="font-mono tabular-nums" title={`${total} ${total === 1 ? "asset" : "assets"}`}>
-                {total}
-              </Badge>
+              <>
+                <Badge variant="secondary" className="font-mono tabular-nums" title={`${total} ${total === 1 ? "asset" : "assets"}`}>
+                  {total}
+                </Badge>
+                {inCollection?.private && !activeSearch && (
+                  <Badge variant="outline" title="Only people added to it, and admins, see it">
+                    <IconLock /> Private
+                  </Badge>
+                )}
+              </>
             }
             description={
               view.review

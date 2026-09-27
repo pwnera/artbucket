@@ -7,5 +7,5 @@ export const GET = route("collection.read", async (_req, _p, caller) => ok({ dat
 
 /** POST /api/v1/collections */
 export const POST = route("collection.create", async (req, _p, caller) =>
-  ok({ data: await createCollection(caller.workspace.id, await body(req, CollectionCreate)) }, { status: 201 }),
+  ok({ data: await createCollection(caller, await body(req, CollectionCreate)) }, { status: 201 }),
 );

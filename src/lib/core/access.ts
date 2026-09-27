@@ -1,12 +1,12 @@
-import { asc, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { apiKeys, grants, organizations, workspaces } from "@/lib/db/schema";
+import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
 import { auth, oidc } from "@/lib/auth";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
-import { accessIn, highest, isNarrowed, NONE, type Access } from "@/lib/access";
+import { accessIn, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import type { Scope } from "@/lib/scopes";
 
@@ -77,6 +77,15 @@ async function defaultWorkspace() {
   return first;
 }
 
+/** The workspace's private collections: what its scope doesn't reach (lib/access.ts). */
+export async function hiddenIn(workspaceId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(and(eq(collections.workspaceId, workspaceId), eq(collections.private, true)));
+  return rows.map((r) => r.id);
+}
+
 /** Every workspace a person can open: all of an organization they have a grant on, and any they have a grant in. */
 export async function workspacesOf(userId: string) {
   const mine = await db.select().from(grants).where(eq(grants.userId, userId));
@@ -110,7 +119,8 @@ export async function callerFrom(req: Request): Promise<Caller | undefined> {
     const [key] = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret)));
     if (!key) return undefined;
     const [workspace] = await workspacesWhere(eq(workspaces.id, key.workspaceId));
-    return { workspace, scope: key.scope, narrow: NONE, orgScope: null, actor: key.name, user: null, key: key.id, ip };
+    const hidden = await hiddenIn(workspace.id);
+    return { workspace, scope: key.scope, narrow: NONE, off: NO_OFF, hidden, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
   const wanted = cookie(req, WORKSPACE_COOKIE);
@@ -122,13 +132,13 @@ export async function callerFrom(req: Request): Promise<Caller | undefined> {
     const orgScope = highest(
       ...mine.filter((g) => g.resource === "organization" && g.resourceId === workspace.organizationId).map((g) => g.scope),
     );
-    return { workspace, ...accessIn(mine, workspace), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
+    return { workspace, ...accessIn(mine, workspace, await hiddenIn(workspace.id)), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
   }
 
   const scope = await anonymousScope();
   const picked = wanted && z.uuid().safeParse(wanted).success ? (await workspacesWhere(eq(workspaces.id, wanted)))[0] : undefined;
   const workspace = picked ?? (await defaultWorkspace());
-  return { workspace, scope, narrow: NONE, orgScope: scope, actor: "web", user: null, key: null, ip };
+  return { workspace, scope, narrow: NONE, off: NO_OFF, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
 }
 
 export async function workspaceById(id: string): Promise<Workspace | null> {
@@ -157,6 +167,8 @@ export async function describeCaller(caller: Caller) {
     narrowed: isNarrowed(caller),
     email: await canEmail(caller.workspace.organizationId),
     narrow: caller.narrow,
+    off: caller.off,
+    hidden: caller.hidden,
     workspaces: await openWorkspaces(caller),
     auth: {
       signUp: !(await hasUsers()),

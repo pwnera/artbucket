@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   IconArchive,
   IconBookmark,
@@ -11,6 +12,7 @@ import {
   IconFlag,
   IconFolder,
   IconHeart,
+  IconLock,
   IconLeaf,
   IconMovie,
   IconMusic,
@@ -50,6 +52,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { COLLECTION_ICONS, type CollectionIcon as IconName } from "@/lib/collection-icons";
 import type { FieldDef, FieldValue } from "@/lib/fields";
@@ -59,6 +62,8 @@ export type Collection = {
   name: string;
   icon: IconName | null;
   fields: Record<string, FieldValue>;
+  /** Only people with a grant on it, and admins, see it. */
+  private?: boolean;
   count: number;
   createdAt?: string;
 };
@@ -129,23 +134,28 @@ export function CollectionDialog({
   const [busy, setBusy] = useState(false);
   const [icon, setIcon] = useState<IconName>(collection?.icon ?? "folder");
   const can = useCan();
+  const router = useRouter();
   const optional = fields.map((d) => ({ ...d, required: false }));
 
   async function save(form: FormData) {
     const values = readFieldValues(form, optional);
     const name = String(form.get("name") ?? "");
+    const hidden = form.get("private") === "on";
     setBusy(true);
     const data = collection
-      ? await send("PATCH", `/api/v1/collections/${collection.id}`, { name, icon, fields: values })
+      ? await send("PATCH", `/api/v1/collections/${collection.id}`, { name, icon, fields: values, private: hidden })
       : await send("POST", "/api/v1/collections", {
           name,
           icon,
+          private: hidden,
           fields: Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null)),
         });
     setBusy(false);
     if (data) {
       onSaved(data);
       onClose();
+      // What the person may do comes from the server, and private moves it.
+      if (hidden !== !!collection?.private) router.refresh();
     }
   }
 
@@ -196,6 +206,17 @@ export function CollectionDialog({
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-md border px-3 py-2">
+              <Label htmlFor={`${id}-private`} className="grid flex-1 gap-1 font-normal">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <IconLock className="size-4" /> Private
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Only people you add, and admins, see it. Assets that are only in private collections are private too.
+                </span>
+              </Label>
+              <Switch id={`${id}-private`} name="private" defaultChecked={!!collection?.private} />
             </div>
             {fields.length > 0 && (
               <>
