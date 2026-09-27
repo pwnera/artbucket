@@ -1,71 +1,81 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { IconCheck, IconCopy, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { useAssetFont } from "@/components/font-preview";
 import { contrast, grade, hsl, inkOn, rgb } from "@/lib/color";
+import { renderMarkdown } from "@/lib/markdown";
 import { fontStyle, isFont, pickFace, weightName } from "@/lib/font";
 import { fontValue, listStyle, section, type FontValue, type ListStyle, type Rule, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 /**
- * How each kind of rule looks, and how it is edited in place: the two are the
- * same element. A color is a swatch with its readouts and contrast; a type
- * scale is a specimen; a don't list is crossed out in red.
+ * Inside, values render as the page, not as fields: the guidelines are read
+ * there, and edited in the rule's panel.
  */
-export function ValueEditor({
-  rule: r,
-  autoFocus,
-  onSave,
-}: {
-  rule: Rule;
-  autoFocus: boolean;
-  onSave: (v: RuleValue) => void;
-}) {
+export const ReadOnly = createContext(false);
+
+/**
+ * How each kind of rule looks, and how it is edited: the two are the same
+ * element, read-only on the page. A color is a swatch with its readouts and
+ * contrast; a type scale is a specimen; a don't list is crossed out in red.
+ */
+export function ValueEditor({ rule: r, onSave }: { rule: Rule; onSave: (v: RuleValue) => void }) {
   switch (r.type) {
     case "color":
-      return <ColorEditor value={r.value as string} autoFocus={autoFocus} onSave={onSave} />;
+      return <ColorEditor value={r.value as string} onSave={onSave} />;
     case "font":
-      return <FontEditor rule={r} autoFocus={autoFocus} onSave={onSave} />;
+      return <FontEditor rule={r} onSave={onSave} />;
     case "list": {
       const value = r.value as (string | number)[];
       const look = listStyle(r.key, value);
       const set = look === "scale" ? pickFace(fontFiles(r))?.id : undefined;
-      return <ListEditor value={value} look={look} fontId={set} autoFocus={autoFocus} onSave={onSave} />;
+      return <ListEditor value={value} look={look} fontId={set} onSave={onSave} />;
     }
     case "number":
       return (
         <Editable
           value={String(r.value)}
-          autoFocus={autoFocus}
           inputMode="decimal"
           className="font-mono text-3xl font-medium tracking-tight tabular-nums"
           onSave={(v) => (Number.isFinite(Number(v)) && v !== "" ? onSave(Number(v)) : toast.error("Not a number"))}
         />
       );
     default:
-      return <TextEditor rule={r} autoFocus={autoFocus} onSave={onSave} />;
+      return <TextEditor rule={r} onSave={onSave} />;
   }
 }
 
-/** A sentence, set in the font the rule was given (see SetIn), if any. */
-function TextEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boolean; onSave: (v: RuleValue) => void }) {
+/** Markdown as the page shows it: rendered here, so it arrives from the server ready to read. */
+export function Markdown({ text, className, style }: { text: string; className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("rich", className)} style={style} dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />;
+}
+
+/** The rich editor loads with the panel, not with the page: readers never download it. */
+export const RichText = dynamic(() => import("@/components/rich-text"), {
+  ssr: false,
+  loading: () => <div className="rich min-h-7 pl-8" />,
+});
+
+/** Rich text (Markdown), set in the font the rule was given (see SetIn), if any. */
+function TextEditor({ rule: r, onSave }: { rule: Rule; onSave: (v: RuleValue) => void }) {
   const text = r.value as string;
   const set = useAssetFont(pickFace(fontFiles(r))?.id);
+  const readOnly = useContext(ReadOnly);
   // A text rule naming a typeface shows the face, where the browser has it.
   const face = section(r.key) === "type" && /font|family|face/i.test(r.key.split(".").pop()!);
+  const look = cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg");
+  const style = set ? { fontFamily: stack(set) } : undefined;
   return (
     <div className="space-y-2">
-      <Editable
-        value={text}
-        autoFocus={autoFocus}
-        multiline
-        className={cn("text-base leading-relaxed", section(r.key) === "tone" && "text-lg")}
-        style={set ? { fontFamily: stack(set) } : undefined}
-        onSave={(v) => v && onSave(v)}
-      />
+      {readOnly ? (
+        <Markdown text={text} className={look} style={style} />
+      ) : (
+        <RichText value={text} label="The rule" placeholder="Write the rule" className={look} style={style} onSave={(v) => v && onSave(v)} />
+      )}
       {face && (
         <p className="truncate text-4xl leading-tight" style={{ fontFamily: text }} aria-hidden>
           Aa Bb Cc 0123
@@ -93,10 +103,11 @@ const stack = (...names: (string | null | undefined)[]) =>
  * the face. The face comes from the rule's own files (the one at that weight,
  * else the Regular), so a reader sees it without having it installed.
  */
-function FontEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boolean; onSave: (v: RuleValue) => void }) {
+function FontEditor({ rule: r, onSave }: { rule: Rule; onSave: (v: RuleValue) => void }) {
   const v = fontValue(r.value);
   const files = fontFiles(r);
   const face = useAssetFont(pickFace(files, v.weight)?.id);
+  const readOnly = useContext(ReadOnly);
   const weights = files.length
     ? [...new Set(files.map((f) => fontStyle(f.filename ?? "")).filter((s) => !s.italic).map((s) => s.weight))].sort((a, b) => a - b)
     : WEIGHTS;
@@ -107,7 +118,7 @@ function FontEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boo
   };
   return (
     <div className="space-y-2">
-      <Editable value={v.family} autoFocus={autoFocus} label="Family" className="text-base font-medium" onSave={(f) => f && save({ family: f })} />
+      <Editable value={v.family} label="Family" className="text-base font-medium" onSave={(f) => f && save({ family: f })} />
       <p
         className="truncate leading-tight"
         style={{ fontFamily: stack(face, v.family), fontSize: `${Math.min(v.size ?? 48, 96)}px`, fontWeight: v.weight }}
@@ -115,6 +126,13 @@ function FontEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boo
       >
         Aa Bb Cc 0123
       </p>
+      {readOnly ? (
+        (v.size || v.weight) && (
+          <p className="text-muted-foreground text-xs">
+            {[v.size && `${v.size}px`, v.weight && `${v.weight} ${weightName(v.weight)}`].filter(Boolean).join(" · ")}
+          </p>
+        )
+      ) : (
       <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
         <span className="flex items-center gap-1">
           Size
@@ -147,6 +165,7 @@ function FontEditor({ rule: r, autoFocus, onSave }: { rule: Rule; autoFocus: boo
           </SelectContent>
         </Select>
       </div>
+      )}
     </div>
   );
 }
@@ -183,12 +202,19 @@ export function Editable({
   label?: string;
   style?: React.CSSProperties;
 }) {
+  const readOnly = useContext(ReadOnly);
   const [text, setText] = useState(value);
   const [seen, setSeen] = useState(value);
   if (value !== seen) {
     setSeen(value);
     setText(value);
   }
+  if (readOnly)
+    return value ? (
+      <p className={cn("break-words whitespace-pre-wrap", className)} style={style}>
+        {value}
+      </p>
+    ) : null;
   return (
     <textarea
       rows={1}
@@ -259,10 +285,11 @@ function Contrast({ hex, on }: { hex: string; on: "#ffffff" | "#000000" }) {
  * The swatch is the native color picker; the hex beside it is editable text;
  * the readouts copy on click; contrast is graded against WCAG 2.
  */
-function ColorEditor({ value, autoFocus, onSave }: { value: string; autoFocus: boolean; onSave: (v: string) => void }) {
+function ColorEditor({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [live, setLive] = useState(value);
   const [seen, setSeen] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const readOnly = useContext(ReadOnly);
   if (value !== seen) {
     setSeen(value);
     setLive(value);
@@ -279,13 +306,16 @@ function ColorEditor({ value, autoFocus, onSave }: { value: string; autoFocus: b
   return (
     <div className="flex flex-col gap-4 sm:flex-row">
       <label
-        className="focus-within:ring-ring/50 relative flex h-32 shrink-0 cursor-pointer flex-col justify-between rounded-xl p-3 shadow-sm ring-1 ring-black/10 transition-shadow focus-within:ring-2 hover:shadow-md sm:w-48 dark:ring-white/10"
+        className={cn(
+          "relative flex h-32 shrink-0 flex-col justify-between rounded-xl p-3 shadow-sm ring-1 ring-black/10 sm:w-48 dark:ring-white/10",
+          !readOnly && "focus-within:ring-ring/50 cursor-pointer transition-shadow focus-within:ring-2 hover:shadow-md",
+        )}
         style={{ backgroundColor: live, color: inkOn(hex) }}
       >
         <span className="text-3xl font-semibold tracking-tight">Aa</span>
         <span className="font-mono text-xs opacity-80">{live}</span>
-        <span className="sr-only">Pick a color</span>
-        <input
+        {!readOnly && <span className="sr-only">Pick a color</span>}
+        {!readOnly && <input
           type="color"
           value={hex}
           className="absolute inset-0 size-full cursor-pointer opacity-0"
@@ -296,7 +326,7 @@ function ColorEditor({ value, autoFocus, onSave }: { value: string; autoFocus: b
             clearTimeout(timer.current);
             timer.current = setTimeout(() => onSave(v), 400);
           }}
-        />
+        />}
       </label>
 
       <div className="grid min-w-0 flex-1 content-start gap-2 text-sm">
@@ -305,7 +335,6 @@ function ColorEditor({ value, autoFocus, onSave }: { value: string; autoFocus: b
           <Editable
             value={live}
             label="Hex value"
-            autoFocus={autoFocus}
             className="w-40 font-mono text-sm"
             onSave={(v) => onSave(v.toLowerCase())}
           />
@@ -368,17 +397,16 @@ function ListEditor({
   value,
   look,
   fontId,
-  autoFocus,
   onSave,
 }: {
   value: (string | number)[];
   look: ListStyle;
   /** A scale's specimen is set in this font file, when the scale names one. */
   fontId?: string;
-  autoFocus: boolean;
   onSave: (v: (string | number)[]) => void;
 }) {
   const face = useAssetFont(fontId);
+  const readOnly = useContext(ReadOnly);
   const [items, setItems] = useState(value.map(String));
   const [seen, setSeen] = useState(value);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
@@ -411,13 +439,16 @@ function ListEditor({
         return (
           <li key={i} className={cn("flex items-center gap-2", look === "scale" ? "gap-4 px-3 py-2" : "text-sm")}>
             {look !== "scale" && MARKER[look]}
+            {readOnly ? (
+              <span className={cn(look === "scale" ? "text-muted-foreground w-14 shrink-0 px-1 font-mono text-xs tabular-nums" : "min-w-0 flex-1 px-1")}>
+                {it}
+              </span>
+            ) : (
             <input
               ref={(el) => {
                 refs.current[i] = el;
               }}
               value={it}
-              autoFocus={autoFocus && i === 0}
-              onFocus={(e) => autoFocus && i === 0 && e.currentTarget.select()}
               placeholder={look === "scale" ? "px" : "List item"}
               aria-label={`Item ${i + 1}`}
               inputMode={look === "scale" ? "decimal" : undefined}
@@ -445,6 +476,7 @@ function ListEditor({
                 look === "scale" ? "text-muted-foreground w-14 shrink-0 font-mono text-xs tabular-nums" : "min-w-0 flex-1",
               )}
             />
+            )}
             {look === "scale" && (
               <span
                 className="min-w-0 flex-1 truncate leading-tight"

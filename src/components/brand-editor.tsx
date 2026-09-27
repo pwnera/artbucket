@@ -7,6 +7,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconBook,
+  IconCheck,
   IconChevronDown,
   IconCode,
   IconCopy,
@@ -19,7 +20,7 @@ import {
   IconList,
   IconMessage,
   IconPalette,
-  IconPhotoPlus,
+  IconPencil,
   IconPlus,
   IconSearch,
   IconShape,
@@ -37,10 +38,21 @@ import { History } from "@/components/brand-history";
 import { remember } from "@/components/sidebar-prefs";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
-import { copy, Editable, fontFiles, isFontAsset, ValueEditor } from "@/components/brand-values";
+import { copy, Editable, fontFiles, isFontAsset, Markdown, ReadOnly, RichText, ValueEditor } from "@/components/brand-values";
 import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Thumb, type Asset } from "@/components/gallery";
+import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -52,18 +64,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { isFont, pickFace } from "@/lib/font";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
@@ -80,6 +86,7 @@ import {
 } from "@/lib/rules";
 import type { SidebarData } from "@/lib/sidebar";
 import { ago, exact } from "@/lib/time";
+import { kebab } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 
 const label = ruleLabel;
@@ -115,20 +122,15 @@ const copyOf = ({ key, context, type, value, usage, assets }: Rule) => ({ key, c
 
 type Line = "before" | "after";
 
-/**
- * A rule on its way in. Presets with a fixed name are made at once; the rest
- * ask for a name, and a basic block added outside any section asks for the
- * section first.
- */
-type Draft =
-  | { kind: "section"; preset: Preset }
-  | { kind: "name"; preset: Preset; at: string }
-  | { kind: "variant"; of: Rule };
+/** The rule in the panel: its key, and which of its variants. `named`: just made, so its name is up first. */
+type Open = { key: string; id: string; named?: boolean };
 
 /**
- * The guidelines as an editable document, Notion style: every value is edited
- * where it is shown and saved when you leave it. Each change is one call to
- * /api/v1/brand/rules; the page holds nothing the API doesn't.
+ * The guidelines, read like a document and edited a rule at a time: Edit
+ * shows the handles and the add buttons, and a rule opens in a side panel
+ * while the page previews it (Carbon's side-panel edit, Material's standard
+ * side sheet). Each change is one call to /api/v1/brand/rules; the page holds
+ * nothing the API doesn't.
  */
 export function BrandEditor({
   brand,
@@ -145,38 +147,33 @@ export function BrandEditor({
 }) {
   const [rules, setRules] = useState(initial);
   const [contexts, setContexts] = useState(initialContexts);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [focus, setFocus] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState<Open | null>(null);
+  // A plain rule picked at the end of the page, waiting for a section to go in.
+  const [draft, setDraft] = useState<Preset | null>(null);
   const [picking, setPicking] = useState<Rule | null>(null);
-  const [slash, setSlash] = useState(false);
   const [drag, setDrag] = useState<string | null>(null);
-  const [over, setOver] = useState<{ id: string; line: Line } | null>(null);
-  const end = useRef<HTMLElement>(null);
+  const [over, setOver] = useState<{ key: string; line: Line } | null>(null);
   const [active, setActive] = useState<string | null>(null);
-
-  // "/" anywhere outside a text box opens the menu at the end of the page.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target;
-      if (
-        e.key !== "/" ||
-        (t instanceof Element && t.closest("input, textarea, [contenteditable], [role=dialog], [role=menu]"))
-      )
-        return;
-      e.preventDefault();
-      end.current?.scrollIntoView({ block: "center" });
-      setSlash(true);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  // Made on this visit: nothing reads their keys yet, so renaming them needs no warning.
+  const [fresh, setFresh] = useState<Set<string>>(() => new Set());
+  const [renaming, setRenaming] = useState<{ rule: Rule; key: string } | null>(null);
+  // Bumped when a rename is called off, so the name field shows the old name again.
+  const [resets, setResets] = useState(0);
 
   // Opening a brand's guidelines puts them at the top of Recents.
   useEffect(() => {
     remember({ kind: "brand", id: brand.slug, label: `${brand.name} guidelines`, href: brandHref(brand) });
   }, [brand]);
 
+  // The rule being edited stays in view beside the panel.
+  const openKey = open?.key;
+  useEffect(() => {
+    if (openKey) document.getElementById(`rule-${openKey}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [openKey]);
+
   const [history, setHistory] = useState(false);
+  const [tokens, setTokens] = useState(false);
   // Bumped after every change, so an open history shows it.
   const [edits, setEdits] = useState(0);
   /** This brand's rules endpoint; the default brand needs no ?brand. */
@@ -209,8 +206,8 @@ export function BrandEditor({
   async function create(body: Omit<Rule, "id">) {
     const made: Rule | null = await send("POST", rulesUrl(), body);
     if (!made) return null;
+    setFresh((f) => new Set(f).add(made.id));
     await reload();
-    setFocus(made.id);
     return made;
   }
 
@@ -218,32 +215,24 @@ export function BrandEditor({
   // The first of each font key: what a type scale can be set in.
   const fonts = rules.filter((r, i) => r.type === "font" && rules.findIndex((x) => x.key === r.key) === i);
 
-  /** Make a rule from a preset, named `name` in section `at`. */
+  /** Make a rule from a preset, named `name` in section `at`, and open it to make it yours. */
   async function fromPreset(p: Preset, at: string, name: string) {
     const key = keyFor(at, name, taken);
-    if (!key) {
-      toast.error("Give it a name with a letter in it");
-      return false;
-    }
+    if (!key) return void toast.error("Give it a name with a letter in it");
     const made = await create({ key, context: context ?? null, type: p.type, value: p.value, usage: p.usage ?? null, assets: [] });
-    if (made && p.assets) setPicking(made);
-    return !!made;
+    if (!made) return;
+    setOpen({ key: made.key, id: made.id, named: !p.name });
+    if (p.assets) setPicking(made);
   }
 
   /** Picked from a menu opened in section `at` (null: the end of the page). */
   function pick(p: Preset, at: string | null) {
     const home = p.section || at;
-    if (!home) return setDraft({ kind: "section", preset: p });
-    if (p.name) {
-      // A fixed rule exists once: picking it again goes to it.
-      const key = keyFor(home, p.name, new Set());
-      if (key && taken.has(key)) {
-        document.getElementById(`rule-${key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-        return void toast(`${p.label} is already here`);
-      }
-      return void fromPreset(p, home, p.name);
-    }
-    setDraft({ kind: "name", preset: p, at: home });
+    if (!home) return setDraft(p);
+    // A fixed rule exists once: picking it again opens it.
+    const existing = p.name && rules.find((r) => r.key === keyFor(home, p.name!, new Set()));
+    if (existing) return setOpen({ key: existing.key, id: existing.id });
+    void fromPreset(p, home, p.name ?? p.suggest ?? p.label);
   }
 
   /** The empty page's one click: the rules most guidelines start with. */
@@ -253,27 +242,44 @@ export function BrandEditor({
       const p = PRESETS.find((x) => x.id === id)!;
       const key = keyFor(p.section, p.name!, made)!;
       made.add(key);
-      await send("POST", rulesUrl(), { key, type: p.type, value: p.value, usage: p.usage ?? null });
+      const r: Rule | null = await send("POST", rulesUrl(), { key, type: p.type, value: p.value, usage: p.usage ?? null });
+      if (r) setFresh((f) => new Set(f).add(r.id));
     }
     await reload();
-    toast.success("Added the essentials. Click anything to make it yours.");
+    setEditing(true);
+    toast.success("Added the essentials. Open any of them to make it yours.");
   }
 
-  /** A new title renames the rule's key, and its context versions with it. */
-  async function rename(r: Rule, name: string) {
+  /** A new name renames the rule's key, and its context versions with it; one agents may read asks first. */
+  function proposeRename(r: Rule, name: string) {
     const others = new Set([...taken].filter((k) => k !== r.key));
     const key = keyFor(section(r.key), name, others);
-    if (!key || key === r.key) return;
-    if (await send("PATCH", `/api/v1/brand/rules/${r.id}`, { key })) await reload();
+    if (!key || key === r.key) return setResets((n) => n + 1);
+    if (rules.filter((x) => x.key === r.key).every((x) => fresh.has(x.id))) return void rename(r, key);
+    setRenaming({ rule: r, key });
+  }
+
+  async function rename(r: Rule, key: string) {
+    if (!(await send("PATCH", `/api/v1/brand/rules/${r.id}`, { key }))) return;
+    setOpen((o) => o && { ...o, key });
+    await reload();
   }
 
   async function remove(r: Rule) {
     if (!(await send("DELETE", `/api/v1/brand/rules/${r.id}`))) return;
+    // The panel stays on the rule's other variants, if it has any.
+    const rest = rules.find((x) => x.key === r.key && x.id !== r.id);
+    if (open?.id === r.id) setOpen(rest ? { key: r.key, id: rest.id } : null);
     await reload();
     toast(`Deleted ${label(r.key)}${r.context ? ` for ${contextLabel(r.context)}` : ""}`, {
       action: { label: "Undo", onClick: () => void create(copyOf(r)) },
       duration: 8000,
     });
+  }
+
+  async function addVariant(r: Rule, c: string) {
+    const made = await create({ ...copyOf(r), context: c });
+    if (made) setOpen({ key: r.key, id: made.id });
   }
 
   /** Optimistic: the section redraws in the new order while the PUT goes out. */
@@ -293,6 +299,16 @@ export function BrandEditor({
   for (const r of rules) sections.set(section(r.key), [...(sections.get(section(r.key)) ?? []), r]);
   const names = [...sections.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   const scope = context ? ` for ${contextLabel(context)}` : "";
+  /** A section's keys, in order: what moving a rule works within. A key's section is part of its name. */
+  const keysIn = (name: string) => [...new Set((sections.get(name) ?? []).map((r) => r.key))];
+
+  function moveTo(key: string, target: string, line: Line) {
+    const keys = keysIn(section(key));
+    if (key === target || section(target) !== section(key)) return;
+    const rest = keys.filter((k) => k !== key);
+    rest.splice(rest.indexOf(target) + (line === "after" ? 1 : 0), 0, key);
+    if (rest.join() !== keys.join()) void reorder(rest);
+  }
 
   // The contents in the sidebar follow the section you are reading.
   const order = names.join();
@@ -310,42 +326,10 @@ export function BrandEditor({
     return () => io.disconnect();
   }, [order]);
 
-  const draftRow = (at: string | null) => {
-    if (draft?.kind === "section" && at === null) {
-      const { preset } = draft;
-      return (
-        <DraftLine
-          key="section"
-          icon={IconBook}
-          initial=""
-          placeholder="Name the new section, e.g. Imagery"
-          hint={(v) => `A new section${camel(v) ? ` (${camel(v)})` : ""}. Enter to go on to the ${preset.label.toLowerCase()}, Esc to cancel.`}
-          check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
-          onCancel={() => setDraft(null)}
-          onCommit={async (v) => setDraft({ kind: "name", preset, at: camel(v) })}
-        />
-      );
-    }
-    if (draft?.kind !== "name" || (draft.at !== at && !(at === null && !sections.has(draft.at)))) return null;
-    const { preset, at: home } = draft;
-    return (
-      <DraftLine
-        key={`name-${home}`}
-        icon={TYPE_ICON[preset.type]}
-        initial={preset.suggest ?? ""}
-        placeholder="Name it"
-        hint={(v) => {
-          const key = keyFor(home, v, taken);
-          return `${key ? `Saved as ${key}` : "Type a name"}${scope}. Enter to add, Esc to cancel.`;
-        }}
-        check={(v) => (keyFor(home, v, taken) ? undefined : "Give it a name with a letter in it")}
-        onCancel={() => setDraft(null)}
-        onCommit={async (name) => {
-          if (await fromPreset(preset, home, name)) setDraft(null);
-        }}
-      />
-    );
-  };
+  const group = open ? rules.filter((r) => r.key === open.key) : [];
+  const current = group.find((r) => r.id === open?.id) ?? group[0];
+  const siblings = current ? keysIn(section(current.key)) : [];
+  const at = current ? siblings.indexOf(current.key) : -1;
 
   return (
     <SidebarProvider>
@@ -356,7 +340,7 @@ export function BrandEditor({
         reviewCount={sidebar.reviewCount}
         currentBrand={brand.slug}
       />
-      {names.length > 1 && <Toc names={names} active={active} />}
+      {names.length > 1 && !current && <Toc names={names} active={active} />}
 
       <SidebarInset className="min-w-0">
         <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
@@ -369,6 +353,8 @@ export function BrandEditor({
             <Button
               variant="ghost"
               size="icon-sm"
+              // A phone's header has room for the rest; its share sheet copies the link.
+              className="hidden sm:inline-flex"
               aria-label="Copy a link to this page"
               title="Copy link"
               onClick={() => copy(window.location.href, "link")}
@@ -376,7 +362,10 @@ export function BrandEditor({
               <IconLink />
             </Button>
             {contexts.length > 0 && <ContextPicker brand={brand} contexts={contexts} context={context} />}
-            <TokensMenu brand={brand} context={context} />
+            <Button variant="outline" size="sm" title="Colors, fonts and the type scale as code" onClick={() => setTokens(true)}>
+              <IconCode />
+              <span className="sr-only sm:not-sr-only">Tokens</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setHistory(true)}>
               <IconHistory />
               <span className="sr-only sm:not-sr-only">History</span>
@@ -385,11 +374,31 @@ export function BrandEditor({
               about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
               reads={brandReads(brand, context)}
             />
+            <Button
+              variant={editing ? "default" : "outline"}
+              size="sm"
+              aria-pressed={editing}
+              onClick={() => {
+                setEditing((e) => !e);
+                setOpen(null);
+                setDraft(null);
+              }}
+            >
+              {editing ? <IconCheck /> : <IconPencil />}
+              <span className="sr-only sm:not-sr-only">{editing ? "Done" : "Edit"}</span>
+            </Button>
             <ThemeToggle />
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-4xl space-y-16 px-4 pt-10 pb-32 sm:px-8 sm:pt-14">
+        <main
+          className={cn(
+            "mx-auto w-full max-w-4xl space-y-16 px-4 pt-10 pb-32 sm:px-8 sm:pt-14",
+            // Room for the panel: the page reflows beside it rather than under it.
+            current && "lg:max-w-[90rem] lg:pr-[34rem]",
+          )}
+        >
+          <TokensDialog brand={brand} context={context} open={tokens} onOpenChange={setTokens} />
           <History
             brand={brand}
             open={history}
@@ -397,112 +406,167 @@ export function BrandEditor({
             edits={edits}
             onRestored={() => void reload()}
           />
-          <Hero brand={brand} rules={rules} context={context} />
+          <ReadOnly.Provider value={true}>
+            <Hero brand={brand} rules={rules} context={context} />
 
-          {!rules.length && !draft && (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <IconBook />
-                </EmptyMedia>
-                <EmptyTitle>Start your guidelines</EmptyTitle>
-                <EmptyDescription>
-                  Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
-                  voice, words to avoid) and edit them into yours. Or press{" "}
-                  <kbd className="bg-muted rounded px-1 font-mono text-xs">/</kbd> to pick one at a time.
-                </EmptyDescription>
-              </EmptyHeader>
-              <Button onClick={essentials}>
-                <IconPlus /> Add the essentials
-              </Button>
-            </Empty>
-          )}
+            {!rules.length && !editing && (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconBook />
+                  </EmptyMedia>
+                  <EmptyTitle>Start your guidelines</EmptyTitle>
+                  <EmptyDescription>
+                    Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
+                    voice, words to avoid) and edit them into yours.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <div className="flex gap-2">
+                  <Button onClick={essentials}>
+                    <IconPlus /> Add the essentials
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditing(true)}>
+                    Start blank
+                  </Button>
+                </div>
+              </Empty>
+            )}
 
-      {names.map((name) => {
-        const inSection = sections.get(name)!;
-        const keys = [...new Set(inSection.map((r) => r.key))];
-        const moveTo = (key: string, target: string, line: Line) => {
-          if (key === target) return;
-          const rest = keys.filter((k) => k !== key);
-          rest.splice(rest.indexOf(target) + (line === "after" ? 1 : 0), 0, key);
-          if (rest.join() !== keys.join()) void reorder(rest);
-        };
-        return (
-          <section key={name} id={`section-${name}`} className="scroll-mt-20 space-y-1">
-            <SectionHeader name={name} count={keys.length} />
-            {inSection.map((r, n) => (
-              <Block
-                key={r.id}
-                rule={r}
-                anchor={inSection.findIndex((x) => x.key === r.key) === n}
-                autoFocus={focus === r.id}
-                line={over?.id === r.id && drag !== r.key ? over.line : null}
-                dragging={drag === r.key}
-                onMove={(step) => {
-                  const to = keys[keys.indexOf(r.key) + step];
-                  if (to) moveTo(r.key, to, step > 0 ? "after" : "before");
-                }}
-                canMove={[keys.indexOf(r.key) > 0, keys.indexOf(r.key) < keys.length - 1]}
-                dnd={{
-                  onDragStart: () => setDrag(r.key),
-                  onDragEnd: () => {
-                    setDrag(null);
-                    setOver(null);
-                  },
-                  // Rules move within their section: a key's section is part of its name.
-                  onDragOver: (e) => {
-                    if (!drag || section(drag) !== name) return;
-                    e.preventDefault();
-                    const box = e.currentTarget.getBoundingClientRect();
-                    const line = e.clientY > box.top + box.height / 2 ? "after" : "before";
-                    if (over?.id !== r.id || over.line !== line) setOver({ id: r.id, line });
-                  },
-                  onDrop: (e) => {
-                    e.preventDefault();
-                    if (drag && over) moveTo(drag, r.key, over.line);
-                    setDrag(null);
-                    setOver(null);
-                  },
-                }}
-                fonts={fonts}
-                onPatch={(body) => patch(r, body)}
-                onDelete={() => remove(r)}
-                onVariant={() => setDraft({ kind: "variant", of: r })}
-                onPickAssets={() => setPicking(r)}
-                onRename={(v) => rename(r, v)}
-              >
-                {draft?.kind === "variant" && draft.of.id === r.id && (
+            {names.map((name) => (
+              <section key={name} id={`section-${name}`} className="scroll-mt-20 space-y-1">
+                <SectionHeader name={name} count={keysIn(name).length} />
+                {keysIn(name).map((key) => (
+                  <RuleView
+                    key={key}
+                    rules={sections.get(name)!.filter((r) => r.key === key)}
+                    editing={editing}
+                    selected={open?.key === key ? current?.id : undefined}
+                    onEdit={(id) => setOpen({ key, id })}
+                    line={over?.key === key && drag !== key ? over.line : null}
+                    dragging={drag === key}
+                    dnd={{
+                      onDragStart: () => setDrag(key),
+                      onDragEnd: () => {
+                        setDrag(null);
+                        setOver(null);
+                      },
+                      onDragOver: (e) => {
+                        if (!drag || section(drag) !== name) return;
+                        e.preventDefault();
+                        const box = e.currentTarget.getBoundingClientRect();
+                        const line = e.clientY > box.top + box.height / 2 ? "after" : "before";
+                        if (over?.key !== key || over.line !== line) setOver({ key, line });
+                      },
+                      onDrop: (e) => {
+                        e.preventDefault();
+                        if (drag && over) moveTo(drag, key, over.line);
+                        setDrag(null);
+                        setOver(null);
+                      },
+                    }}
+                  />
+                ))}
+                {editing && <AddLine label={`Add to ${meta(name).title}${scope}`} at={name} onPick={(p) => pick(p, name)} />}
+              </section>
+            ))}
+
+            {editing && (
+              <section className="space-y-1">
+                {draft && (
                   <DraftLine
-                    icon={IconVersions}
+                    icon={IconBook}
                     initial=""
-                    placeholder="Where it differs, e.g. dark-background"
-                    hint={`A variant of ${label(r.key)} for one context: agents working there get it instead. Enter to add, Esc to cancel.`}
-                    check={(v) => ruleContext.safeParse(v).error?.issues[0]?.message}
+                    placeholder="Name the new section, e.g. Imagery"
+                    hint={(v) => `A new section${camel(v) ? ` (${camel(v)})` : ""} for the ${draft.label.toLowerCase()}. Enter to add, Esc to cancel.`}
+                    check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
                     onCancel={() => setDraft(null)}
-                    onCommit={async (c) => {
-                      if (await create({ ...copyOf(r), context: c })) setDraft(null);
+                    onCommit={async (v) => {
+                      await fromPreset(draft, camel(v), draft.name ?? draft.suggest ?? draft.label);
+                      setDraft(null);
                     }}
                   />
                 )}
-              </Block>
-            ))}
-            {draftRow(name)}
-            <AddLine label={`Add to ${meta(name).title}${scope}`} at={name} onPick={(p) => pick(p, name)} />
-          </section>
-        );
-      })}
+                <AddLine
+                  label={rules.length ? `Add a rule or a section${scope}` : `Add the first rule${scope}`}
+                  at={null}
+                  onPick={(p) => pick(p, null)}
+                />
+              </section>
+            )}
+          </ReadOnly.Provider>
 
-      <section ref={end} className="space-y-1">
-        {draftRow(null)}
-        <AddLine
-          label={rules.length ? `Add a rule or a section${scope}` : `Add the first rule${scope}`}
-          shortcut
-          open={slash}
-          onOpenChange={setSlash}
-          at={null}
-          onPick={(p) => pick(p, null)}
-        />
-      </section>
+          <Sheet open={!!current} modal={false} onOpenChange={(o) => !o && setOpen(null)}>
+            <SheetContent
+              className="w-full gap-0 p-0 sm:max-w-lg"
+              // Under the header, so Done and the rest stay in reach.
+              style={{ top: "3.5rem", height: "calc(100svh - 3.5rem)" }}
+              // Focus stays where you clicked; a rule just made focuses its own name.
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              // A standard side sheet: the page stays live beside it, and shows each change.
+              onInteractOutside={(e) => e.preventDefault()}
+              // Esc in a field puts the field back; only outside one does it close the panel.
+              onEscapeKeyDown={(e) => {
+                const el = document.activeElement;
+                if (!(el instanceof HTMLElement) || !el.matches("input, textarea, [contenteditable=true]")) return;
+                e.preventDefault();
+                // The panel hears Esc before the rich editor can: leave the editor here, which saves it.
+                if (el.isContentEditable) el.blur();
+              }}
+            >
+              {current && (
+                <RulePanel
+                  key={current.key}
+                  rules={group}
+                  rule={current}
+                  contexts={contexts}
+                  fonts={fonts}
+                  named={!!open?.named}
+                  resets={resets}
+                  canMove={[at > 0, at < siblings.length - 1]}
+                  onSelect={(id) => setOpen({ key: current.key, id })}
+                  onPatch={(body) => patch(current, body)}
+                  onRename={(name) => proposeRename(current, name)}
+                  onVariant={(c) => addVariant(current, c)}
+                  onDelete={() => remove(current)}
+                  onPickAssets={() => setPicking(current)}
+                  onMove={(step) => moveTo(current.key, siblings[at + step], step > 0 ? "after" : "before")}
+                />
+              )}
+            </SheetContent>
+          </Sheet>
+
+          <AlertDialog
+            open={!!renaming}
+            onOpenChange={(o) => {
+              if (o) return;
+              setRenaming(null);
+              setResets((n) => n + 1);
+            }}
+          >
+            {renaming && (
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Rename {renaming.rule.key}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Agents, the API and design tokens know this rule as{" "}
+                    <code className="font-mono">{renaming.rule.key}</code>
+                    {["color", "number", "font"].includes(renaming.rule.type) && (
+                      <>
+                        {" "}
+                        (CSS <code className="font-mono">--{kebab(renaming.rule.key)}</code>)
+                      </>
+                    )}
+                    . It becomes <code className="font-mono">{renaming.key}</code>, with its variants, and anything
+                    still asking for the old name stops finding it.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep the name</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void rename(renaming.rule, renaming.key)}>Rename</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            )}
+          </AlertDialog>
 
           {picking && (
             <AssetPicker
@@ -519,6 +583,7 @@ export function BrandEditor({
     </SidebarProvider>
   );
 }
+
 
 // ---- page furniture ---------------------------------------------------------
 
@@ -660,7 +725,8 @@ function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; cont
     .filter(Boolean)
     .sort()
     .at(-1);
-  const colors = rules.filter((r) => r.type === "color");
+  // One swatch per color; its variants are a click away on the rule.
+  const colors = rules.filter((r, i) => r.type === "color" && rules.findIndex((x) => x.key === r.key) === i);
   const facts = [
     `${keys} ${keys === 1 ? "rule" : "rules"}`,
     variants && !context && `${variants} ${variants === 1 ? "variant" : "variants"}`,
@@ -685,11 +751,6 @@ function Hero({ brand, rules, context }: { brand: BrandInfo; rules: Rule[]; cont
           </p>
         </div>
       </div>
-
-      <p className="text-muted-foreground max-w-xl text-pretty">
-        Every rule here is data. Agents read exactly this over the API and MCP, so a change here is a change everywhere,
-        at once.
-      </p>
 
       {colors.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -725,7 +786,10 @@ function ContextPicker({ brand, contexts, context }: { brand: BrandInfo; context
     <Select value={context ?? "*"} onValueChange={(v) => router.push(brandHref(brand, v === "*" ? undefined : v))}>
       <SelectTrigger size="sm" aria-label="Show the rules for a context" title="Show the rules as they apply in one context">
         <IconVersions />
-        <SelectValue />
+        {/* On a phone, the icon: the header's room goes to Edit. */}
+        <span className="hidden sm:inline">
+          <SelectValue />
+        </span>
       </SelectTrigger>
       <SelectContent align="end">
         <SelectItem value="*">All contexts</SelectItem>
@@ -755,265 +819,325 @@ function brandReads(brand: BrandInfo, context?: string) {
   };
 }
 
-const tokensPath = (brand: BrandInfo, context: string | undefined, format: "css" | "json") => {
-  const q = new URLSearchParams({ format });
-  if (!brand.default) q.set("brand", brand.slug);
-  if (context) q.set("context", context);
-  return `/api/v1/brand/tokens?${q}`;
-};
-
-/**
- * The brand as code: colors, numbers, fonts and the scale as CSS custom
- * properties (with @font-face for the font files) or W3C design tokens.
- */
-function TokensMenu({ brand, context }: { brand: BrandInfo; context?: string }) {
-  const name = `${brand.slug}${context ? `-${context}` : ""}`;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" title="Export colors, fonts and the type scale as code">
-          <IconCode />
-          <span className="sr-only sm:not-sr-only">Tokens</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem asChild>
-          <a href={tokensPath(brand, context, "css")} download={`${name}.tokens.css`}>
-            CSS variables
-            <span className="text-muted-foreground ml-auto text-xs">.css</span>
-          </a>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href={tokensPath(brand, context, "json")} download={`${name}.tokens.json`}>
-            Design tokens
-            <span className="text-muted-foreground ml-auto text-xs">W3C .json</span>
-          </a>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => copy(new URL(tokensPath(brand, context, "css"), location.origin).href, "stylesheet link")}>
-          <IconLink /> Copy stylesheet link
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// ---- blocks -----------------------------------------------------------------
+// ---- rules ------------------------------------------------------------------
 
 type Dnd = Pick<React.HTMLAttributes<HTMLDivElement>, "onDragStart" | "onDragEnd" | "onDragOver" | "onDrop">;
 
-function Block({
-  rule: r,
-  anchor,
-  autoFocus,
+/** A rule's variants as a row of toggles: Default, Dark background. */
+function Variants({ rules, current, onPick }: { rules: Rule[]; current: Rule; onPick: (id: string) => void }) {
+  return (
+    <div role="group" aria-label="Variants" className="flex flex-wrap gap-1">
+      {rules.map((x) => (
+        <button
+          key={x.id}
+          type="button"
+          aria-pressed={x.id === current.id}
+          onClick={() => onPick(x.id)}
+          title={x.context ? `Only in ${x.context}` : "Everywhere without its own variant"}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-xs transition-colors",
+            x.id === current.id ? "bg-foreground text-background font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted",
+          )}
+        >
+          {x.context ? contextLabel(x.context) : "Default"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A rule as the guidelines show it: its name, its value as a specimen, its
+ * note and assets, and its variants a click apart. Editing adds a handle to
+ * drag it by and a button that opens it in the panel.
+ */
+function RuleView({
+  rules,
+  editing,
+  selected,
+  onEdit,
   line,
   dragging,
   dnd: { onDragStart, onDragEnd, ...target },
-  onMove,
-  canMove: [canUp, canDown],
-  fonts,
-  onPatch,
-  onDelete,
-  onVariant,
-  onPickAssets,
-  onRename,
-  children,
 }: {
-  rule: Rule;
-  /** The first block of its key: the one /brand#rule-{key} scrolls to. */
-  anchor: boolean;
-  autoFocus: boolean;
+  /** One key's rules: the default first, then its context variants. */
+  rules: Rule[];
+  editing: boolean;
+  /** The variant open in the panel, which the page previews. */
+  selected?: string;
+  onEdit: (id: string) => void;
   line: Line | null;
   dragging: boolean;
   dnd: Dnd;
-  onMove: (step: -1 | 1) => void;
-  canMove: [boolean, boolean];
-  /** The brand's font rules, one per key: what a type scale can be set in. */
-  fonts: Rule[];
-  onPatch: (body: Partial<Pick<Rule, "value" | "usage" | "assets">>) => void;
-  onDelete: () => void;
-  onVariant: () => void;
-  onPickAssets: () => void;
-  onRename: (name: string) => void;
-  children?: React.ReactNode;
 }) {
-  // A menu traps focus while open; run the chosen action once it has closed,
-  // so the line or dialog it opens can take focus.
-  const after = useRef<() => void>(undefined);
+  const [shown, setShown] = useState(rules[0].id);
+  const r = rules.find((x) => x.id === (selected ?? shown)) ?? rules[0];
   const block = useRef<HTMLDivElement>(null);
-  const [menu, setMenu] = useState(false);
+  const others = r.assets.filter((a) => !isFontAsset(a));
   return (
     <div
       ref={block}
-      id={anchor ? `rule-${r.key}` : undefined}
-      {...target}
+      id={`rule-${r.key}`}
+      {...(editing ? target : {})}
       className={cn(
-        "group/block hover:bg-muted/40 focus-within:bg-muted/40 target:bg-primary/10 relative flex scroll-mt-20 gap-1 rounded-lg py-2 pr-2 transition-colors",
+        "group/block target:bg-primary/10 relative -mx-2 scroll-mt-20 space-y-2 rounded-lg px-2 py-3 transition-colors",
+        editing && "hover:bg-muted/40 focus-within:bg-muted/40",
+        selected && "bg-muted/40 ring-border ring-1",
         dragging && "opacity-40",
       )}
     >
       {line && (
         <div
           aria-hidden
-          className={cn(
-            "bg-primary absolute inset-x-0 h-0.5 rounded-full",
-            line === "before" ? "-top-0.5" : "-bottom-0.5",
-          )}
+          className={cn("bg-primary absolute inset-x-0 h-0.5 rounded-full", line === "before" ? "-top-0.5" : "-bottom-0.5")}
         />
       )}
-      {/* The handle, Notion style: drag it to move the rule, click it for the menu. */}
-      <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", r.key);
-          if (block.current) e.dataTransfer.setDragImage(block.current, 16, 16);
-          onDragStart?.(e);
-        }}
-        onDragEnd={onDragEnd}
-        className="cursor-grab pt-0.5 opacity-100 transition-opacity active:cursor-grabbing sm:opacity-0 sm:group-focus-within/block:opacity-100 sm:group-hover/block:opacity-100"
-      >
-        <DropdownMenu open={menu} onOpenChange={setMenu}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground size-6 cursor-[inherit]"
-              aria-label={`${r.key} actions`}
-              title="Drag to move, click for more"
-              // The menu opens on click, not on press, so pressing can start a drag.
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={() => setMenu(true)}
-            >
-              <IconGripVertical />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            onCloseAutoFocus={(e) => {
-              if (!after.current) return;
-              e.preventDefault();
-              after.current();
-              after.current = undefined;
-            }}
-          >
-            <DropdownMenuItem onSelect={() => void (after.current = onPickAssets)}>
-              <IconPhotoPlus /> Assets…
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void (after.current = onVariant)}>
-              <IconVersions /> Add a variant for a context
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(r.key)}>
-              <IconCopy /> Copy key
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!canUp} onSelect={() => onMove(-1)}>
-              <IconArrowUp /> Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canDown} onSelect={() => onMove(1)}>
-              <IconArrowDown /> Move down
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void (after.current = onDelete)}>
-              <IconTrash /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex items-baseline gap-2">
-          <h3 className="min-w-0">
-            <Editable
-              value={label(r.key)}
-              label={`Rename ${r.key}`}
-              className="text-base font-medium"
-              onSave={(v) => v && onRename(v)}
-            />
-          </h3>
-          {r.context && (
+      {editing && (
+        // Drag by the handle, like a Notion block; the panel's arrows do the same from the keyboard.
+        <div
+          draggable
+          aria-hidden
+          title="Drag to move"
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", r.key);
+            if (block.current) e.dataTransfer.setDragImage(block.current, 16, 16);
+            onDragStart?.(e);
+          }}
+          onDragEnd={onDragEnd}
+          className="text-muted-foreground absolute top-3.5 -left-6 hidden cursor-grab opacity-0 transition-opacity group-hover/block:opacity-100 active:cursor-grabbing sm:block"
+        >
+          <IconGripVertical className="size-4" />
+        </div>
+      )}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-base font-medium">
+          {editing ? (
+            <button type="button" onClick={() => onEdit(r.id)} className="hover:underline">
+              {label(r.key)}
+            </button>
+          ) : (
+            label(r.key)
+          )}
+        </h3>
+        {rules.length > 1 ? (
+          <Variants rules={rules} current={r} onPick={(id) => (selected ? onEdit(id) : setShown(id))} />
+        ) : (
+          r.context && (
             <Badge variant="secondary" title={`Only in ${r.context}`}>
               {contextLabel(r.context)}
             </Badge>
-          )}
-          {/* What the handle's menu does, in plain sight on hover; the key is for developers, so it waits there too. */}
-          <div className="ml-auto flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within/block:opacity-100 sm:group-hover/block:opacity-100">
-            <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={onPickAssets}>
-              <IconPhotoPlus /> Assets
-            </Button>
-            {!r.context && (
-              <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={onVariant}>
-                <IconVersions /> Variant
-              </Button>
-            )}
-            <button
-              type="button"
-              onClick={() => copy(r.key, "key")}
-              title="The rule's key, as agents and the API name it. Click to copy"
-              className="text-muted-foreground hover:text-foreground hidden truncate font-mono text-xs sm:inline"
-            >
-              {r.key}
-            </button>
-          </div>
+          )
+        )}
+        {editing && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground ml-auto self-center transition-opacity sm:opacity-0 sm:group-focus-within/block:opacity-100 sm:group-hover/block:opacity-100"
+            aria-label={`Edit ${label(r.key)}`}
+            onClick={() => onEdit(r.id)}
+          >
+            <IconPencil /> Edit
+          </Button>
+        )}
+      </div>
+      <ValueEditor rule={r} onSave={() => {}} />
+      {r.usage && <Markdown text={r.usage} className="text-muted-foreground text-sm" />}
+      {r.type === "font" && fontFiles(r).length > 0 && <FontStyles files={fontFiles(r)} />}
+      {others.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {others.map((a) => (
+            <AssetTile key={a.id} asset={a} />
+          ))}
         </div>
-        <ValueEditor rule={r} autoFocus={autoFocus} onSave={(value) => onPatch({ value })} />
-        {r.type === "font" && fontFiles(r).length === 0 && (
-          <ImportFamily
-            family={fontValue(r.value).family}
-            onImported={(family, ids) =>
-              onPatch({
-                value: { ...fontValue(r.value), family },
-                assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))],
-              })
-            }
-          />
+      )}
+    </div>
+  );
+}
+
+function Part({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-muted-foreground text-xs font-medium">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * One rule, edited: its name (and the key agents know it by), its variants,
+ * the value, the note, the assets. Everything saves as you leave it, and the
+ * page beside it shows the change.
+ */
+function RulePanel({
+  rules,
+  rule: r,
+  contexts,
+  fonts,
+  named,
+  resets,
+  canMove: [canUp, canDown],
+  onSelect,
+  onPatch,
+  onRename,
+  onVariant,
+  onDelete,
+  onPickAssets,
+  onMove,
+}: {
+  rules: Rule[];
+  rule: Rule;
+  /** The brand's contexts: what a new variant is likely for. */
+  contexts: string[];
+  /** The brand's font rules, one per key: what a type scale can be set in. */
+  fonts: Rule[];
+  /** Just made with a placeholder name: the name field is up first. */
+  named: boolean;
+  resets: number;
+  canMove: [boolean, boolean];
+  onSelect: (id: string) => void;
+  onPatch: (body: Partial<Pick<Rule, "value" | "usage" | "assets">>) => void;
+  onRename: (name: string) => void;
+  onVariant: (context: string) => Promise<void>;
+  onDelete: () => void;
+  onPickAssets: () => void;
+  onMove: (step: -1 | 1) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const files = fontFiles(r);
+  const others = r.assets.filter((a) => !isFontAsset(a));
+  return (
+    <>
+      <SheetHeader className="gap-1 border-b pr-12">
+        <SheetDescription className="text-xs">{meta(section(r.key)).title}</SheetDescription>
+        <SheetTitle asChild>
+          <div>
+            <Editable
+              key={`${r.key}:${resets}`}
+              value={label(r.key)}
+              label="Name"
+              autoFocus={named}
+              className="text-lg font-semibold"
+              onSave={(v) => v && onRename(v)}
+            />
+          </div>
+        </SheetTitle>
+        <button
+          type="button"
+          onClick={() => copy(r.key, "key")}
+          title="Agents and the API know the rule by this key. Click to copy"
+          className="text-muted-foreground hover:text-foreground w-fit font-mono text-xs"
+        >
+          {r.key}
+        </button>
+      </SheetHeader>
+
+      <div className="flex flex-wrap items-center gap-1 border-b px-4 py-2">
+        {rules.length > 1 && <Variants rules={rules} current={r} onPick={onSelect} />}
+        {!adding && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground"
+            title="A version of this rule for one context: agents working there get it instead"
+            onClick={() => setAdding(true)}
+          >
+            <IconPlus /> {rules.length > 1 ? "Variant" : "Add a variant for a context"}
+          </Button>
         )}
-        {section(r.key) === "type" &&
-          (r.type === "text" || (r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale")) && (
-            <SetIn rule={r} fonts={fonts} onPatch={onPatch} />
+      </div>
+      {adding && (
+        <div className="border-b px-2 py-2">
+          <DraftLine
+            icon={IconVersions}
+            initial=""
+            placeholder="Where it differs, e.g. dark-background"
+            options={contexts.filter((c) => !rules.some((x) => x.context === c))}
+            hint="Agents working there get this variant instead. Enter to add, Esc to cancel."
+            check={(v) => ruleContext.safeParse(v).error?.issues[0]?.message}
+            onCancel={() => setAdding(false)}
+            onCommit={async (c) => {
+              await onVariant(c);
+              setAdding(false);
+            }}
+          />
+        </div>
+      )}
+
+      <div className="flex-1 space-y-6 overflow-y-auto p-4">
+        <Part title={r.context ? `Value in ${contextLabel(r.context)}` : "Value"}>
+          <ValueEditor key={r.id} rule={r} onSave={(value) => onPatch({ value })} />
+          {r.type === "font" && files.length === 0 && (
+            <ImportFamily
+              family={fontValue(r.value).family}
+              onImported={(family, ids) =>
+                onPatch({
+                  value: { ...fontValue(r.value), family },
+                  assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))],
+                })
+              }
+            />
           )}
-        <Editable
-          value={r.usage ?? ""}
-          placeholder={USAGE_HINT[section(r.key)] ?? "Add a note on when and how to use it"}
-          multiline
-          className="text-muted-foreground text-sm"
-          onSave={(usage) => onPatch({ usage: usage || null })}
-        />
-        {/* A font rule's files read as its styles; on any other rule, a font is what SetIn chose. */}
-        {r.type === "font" && fontFiles(r).length > 0 && (
-          <FontStyles
-            files={fontFiles(r)}
-            onRemove={(id) => onPatch({ assets: r.assets.filter((x) => x.id !== id) })}
-            onAdd={onPickAssets}
+          {section(r.key) === "type" &&
+            (r.type === "text" || (r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale")) && (
+              <SetIn rule={r} fonts={fonts} onPatch={onPatch} />
+            )}
+        </Part>
+        <Part title="Note">
+          <RichText
+            key={r.id}
+            value={r.usage ?? ""}
+            label="Note"
+            placeholder={USAGE_HINT[section(r.key)] ?? "When and how to use it"}
+            className="text-sm"
+            onSave={(usage) => onPatch({ usage: usage || null })}
           />
-        )}
-        {r.assets.some((a) => !isFontAsset(a)) && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {r.assets.filter((a) => !isFontAsset(a)).map((a) => (
+        </Part>
+        <Part title={r.type === "font" ? "Files" : "Assets"}>
+          {files.length > 0 && (
+            <FontStyles
+              files={files}
+              onRemove={(id) => onPatch({ assets: r.assets.filter((x) => x.id !== id) })}
+              onAdd={onPickAssets}
+            />
+          )}
+          <div className="flex flex-wrap gap-2">
+            {others.map((a) => (
               <AssetTile
                 key={a.id}
                 asset={a}
-                onChange={(rendition) =>
-                  onPatch({ assets: r.assets.map((x) => (x.id === a.id ? { ...x, rendition } : x)) })
-                }
+                onChange={(rendition) => onPatch({ assets: r.assets.map((x) => (x.id === a.id ? { ...x, rendition } : x)) })}
                 onRemove={() => onPatch({ assets: r.assets.filter((x) => x.id !== a.id) })}
               />
             ))}
             <button
               type="button"
               onClick={onPickAssets}
-              aria-label="Add assets"
-              className="text-muted-foreground hover:text-foreground hover:border-foreground/30 flex size-28 items-center justify-center rounded-lg border border-dashed transition-colors"
+              className="text-muted-foreground hover:text-foreground hover:border-foreground/30 flex size-28 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-xs transition-colors"
             >
               <IconPlus className="size-5" />
+              {r.type === "font" ? "Add files" : "Add assets"}
             </button>
           </div>
-        )}
-        {children}
+        </Part>
       </div>
-    </div>
+
+      <SheetFooter className="flex-row items-center gap-1 border-t">
+        <Button variant="ghost" size="icon-sm" disabled={!canUp} onClick={() => onMove(-1)} aria-label="Move up" title="Move up">
+          <IconArrowUp />
+        </Button>
+        <Button variant="ghost" size="icon-sm" disabled={!canDown} onClick={() => onMove(1)} aria-label="Move down" title="Move down">
+          <IconArrowDown />
+        </Button>
+        <Button variant="ghost" size="sm" className="text-destructive ml-auto" onClick={onDelete}>
+          <IconTrash />
+          {rules.length > 1 ? `Delete ${r.context ? contextLabel(r.context) : "default"}` : "Delete rule"}
+        </Button>
+      </SheetFooter>
+    </>
   );
 }
+
 
 /**
  * Which of the brand's fonts a typography rule (a scale, a sentence) is set
@@ -1055,8 +1179,9 @@ function SetIn({ rule: r, fonts, onPatch }: { rule: Rule; fonts: Rule[]; onPatch
 }
 
 /**
- * An asset on a rule: its thumbnail, the rendition the rule means, and a
- * menu to change it, open it, copy its URL, or take it off the rule.
+ * An asset on a rule: its thumbnail and the rendition the rule means. On the
+ * page it opens the asset; in the panel, a menu changes the size, copies the
+ * URL, or takes it off the rule.
  */
 function AssetTile({
   asset: a,
@@ -1064,38 +1189,51 @@ function AssetTile({
   onRemove,
 }: {
   asset: RuleAsset;
-  onChange: (rendition: string | null) => void;
-  onRemove: () => void;
+  /** Both left out: read only. */
+  onChange?: (rendition: string | null) => void;
+  onRemove?: () => void;
 }) {
   const path = a.rendition ? `/a/${a.id}/${a.rendition}` : `/a/${a.id}`;
   const name = a.title || a.filename || "Asset";
+  const tile =
+    "bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative block size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2";
+  const face =
+    a.mime && isFont(a.mime, a.filename ?? "") ? (
+      <span className="absolute inset-0 flex items-center justify-center">
+        <FontThumb id={a.id} className="text-4xl" />
+      </span>
+    ) : (
+      <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
+    );
+  // What it is first; the size only when the rule means a particular one.
+  const caption = (
+    <>
+      <span className="truncate text-center text-xs" title={a.filename ?? name}>
+        {name}
+      </span>
+      {a.rendition && (
+        <span className="text-muted-foreground truncate text-center text-xs" title={a.rendition}>
+          {renditionLabel(a.rendition)}
+        </span>
+      )}
+    </>
+  );
+  if (!onChange || !onRemove)
+    return (
+      <a href={path} target="_blank" rel="noreferrer" className="grid w-28 gap-0.5" title={`Open ${name}`}>
+        <span className={tile}>{face}</span>
+        {caption}
+      </a>
+    );
   return (
     <Popover>
       <div className="grid w-28 gap-0.5">
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${name}, ${renditionLabel(a.rendition)}. Change the size`}
-            className="bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2"
-          >
-            {a.mime && isFont(a.mime, a.filename ?? "") ? (
-              <span className="absolute inset-0 flex items-center justify-center">
-                <FontThumb id={a.id} className="text-4xl" />
-              </span>
-            ) : (
-              <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
-            )}
+          <button type="button" aria-label={`${name}, ${renditionLabel(a.rendition)}. Change the size`} className={tile}>
+            {face}
           </button>
         </PopoverTrigger>
-        {/* What it is first; the size only when the rule means a particular one. */}
-        <span className="truncate text-center text-xs" title={a.filename ?? name}>
-          {name}
-        </span>
-        {a.rendition && (
-          <span className="text-muted-foreground truncate text-center text-xs" title={a.rendition}>
-            {renditionLabel(a.rendition)}
-          </span>
-        )}
+        {caption}
       </div>
       <PopoverContent align="start" className="w-80 p-0">
         <RenditionMenu value={a.rendition} onChange={onChange} />
@@ -1121,34 +1259,18 @@ function AssetTile({
 // ---- adding -----------------------------------------------------------------
 
 /**
- * The faint "+ Add" line and its menu, like Notion's "/": named building
- * blocks, searchable, this section's first, the plain kinds last.
+ * The faint "+ Add" line and its menu: named building blocks, searchable,
+ * this section's first, the plain kinds last. What is picked opens in the panel.
  */
-function AddLine({
-  label,
-  at,
-  shortcut,
-  open,
-  onOpenChange,
-  onPick,
-}: {
-  label: string;
-  at: string | null;
-  shortcut?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onPick: (p: Preset) => void;
-}) {
-  const [own, setOwn] = useState(false);
-  const isOpen = open ?? own;
-  const setOpen = onOpenChange ?? setOwn;
+function AddLine({ label, at, onPick }: { label: string; at: string | null; onPick: (p: Preset) => void }) {
+  const [open, setOpen] = useState(false);
   const groups = new Map<string, Preset[]>();
   for (const p of PRESETS) groups.set(p.section, [...(groups.get(p.section) ?? []), p]);
   const order = [...groups.keys()].sort(
     (a, b) => Number(b === at) - Number(a === at) || Number(a === "") - Number(b === "") || rank(a) - rank(b),
   );
   return (
-    <Popover open={isOpen} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -1156,11 +1278,6 @@ function AddLine({
         >
           <IconPlus className="size-4" />
           {label}
-          {shortcut && (
-            <span className="ml-auto text-xs">
-              or press <kbd className="bg-muted rounded px-1 font-mono">/</kbd>
-            </span>
-          )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
@@ -1198,12 +1315,13 @@ function AddLine({
   );
 }
 
-/** A one-line prompt in the flow of the page: a new rule's key, a variant's context. */
+/** A one-line prompt in the flow: a new section's name, a variant's context. */
 function DraftLine({
   icon: I,
   initial,
   placeholder,
   hint,
+  options,
   check,
   onCommit,
   onCancel,
@@ -1211,6 +1329,8 @@ function DraftLine({
   icon: Icon;
   initial: string;
   placeholder: string;
+  /** Offered as you type. */
+  options?: string[];
   hint: string | ((v: string) => string);
   check: (v: string) => string | undefined;
   onCommit: (v: string) => Promise<void>;
@@ -1229,6 +1349,7 @@ function DraftLine({
           placeholder={placeholder}
           aria-label={placeholder}
           aria-invalid={!!problem}
+          list={options?.length ? "draft-options" : undefined}
           disabled={busy}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => {
@@ -1248,6 +1369,13 @@ function DraftLine({
           }}
           className="placeholder:text-muted-foreground/60 min-w-0 flex-1 bg-transparent text-sm outline-none"
         />
+        {!!options?.length && (
+          <datalist id="draft-options">
+            {options.map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
+        )}
       </div>
       <p className={cn("pl-6 text-xs", problem ? "text-destructive" : "text-muted-foreground")}>{problem ?? (typeof hint === "function" ? hint(v.trim()) : hint)}</p>
     </div>

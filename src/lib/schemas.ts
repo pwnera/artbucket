@@ -4,6 +4,7 @@ import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
+import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
 
@@ -58,7 +59,7 @@ export const GoogleFontImport = z.strictObject({
 });
 
 export const TokenQuery = z.object({
-  format: z.enum(["css", "json"]).default("css").describe("css: custom properties and @font-face; json: W3C design tokens"),
+  format: z.enum(TOKEN_FORMAT_IDS).default("css").describe("css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra or json (W3C design tokens)"),
   context: z.string().regex(RULE_CONTEXT).optional().describe("Resolve for this context; otherwise the defaults"),
 });
 
