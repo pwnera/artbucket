@@ -55,3 +55,5 @@ insert into settings (organization_id, key, value, updated_by) values
   ('00000000-0000-4000-8000-000000000001', 'branding', '{"name": "Fixture Assets", "accent": "#0a9396", "logo": "00000000-0000-4000-8000-000000000011"}', 'Ada');
 insert into domains (host, organization_id, portal_id, token, verified_at) values
   ('assets.fixture.test', '00000000-0000-4000-8000-000000000001', null, 'artbucket-fixture-app', now());
+
+insert into instance (id) values ('00000000-0000-4000-8000-000000000050');

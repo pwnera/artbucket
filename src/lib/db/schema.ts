@@ -798,3 +798,13 @@ export const domains = pgTable("domains", {
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("domains_portal_unique").on(t.portalId)]);
+
+/**
+ * This database, one row: its id marks the bucket as swept by it
+ * (lib/bucket-owners.ts), so a second database on the same bucket is noticed
+ * before either sweeps the other's files. Survives a dump and restore.
+ */
+export const instance = pgTable("instance", {
+  singleton: boolean("singleton").primaryKey().default(true),
+  id: uuid("id").notNull().defaultRandom(),
+}, (t) => [check("instance_singleton_check", sql`${t.singleton}`)]);

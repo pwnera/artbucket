@@ -34,6 +34,7 @@ warning instead: set those three in the provider's console.
 | `previews/{sha256}` | Stills for files that aren't images (PDF, PSD, video) |
 | `renditions/` | Sizes and formats made on request. Expire after 30 days and come back on the next request |
 | `staging/{workspace}/` | Browser uploads before they are filed. Expire after a day |
+| `sweep-owners/{id}` | One per database that sweeps the bucket, holding its `APP_URL` |
 
 Back up `assets/` and `previews/`. Renditions and staged uploads are
 disposable.
@@ -45,3 +46,16 @@ runs in the app every six hours, removes the row, and the original once no
 asset in any workspace holds those bytes. Deleting a workspace or an
 organization removes its rows at once, and its files at the next sweep. A file
 written in the last day is never swept, so an upload in flight is safe.
+
+## One bucket per database
+
+The sweeper removes every original its own database doesn't hold, so two
+databases on one bucket (a staging copy, a benchmark, a second install) would
+remove each other's files. Give each database its own bucket.
+
+To catch the mistake, each sweep leaves a marker, `sweep-owners/{id}`, with the
+id of its database, and deletes nothing while the bucket holds another
+database's marker. The server logs a warning naming the markers instead. When
+a database that shared the bucket is gone for good, delete its marker (it
+holds the `APP_URL` of the install that wrote it) and sweeping resumes at the
+next run.
