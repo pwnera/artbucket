@@ -708,7 +708,7 @@ export const traffic = pgTable(
 // ---- portals ------------------------------------------------------------------
 
 /**
- * A brand portal (lib/core/portals.ts): chosen collections, themed, at
+ * A brand portal (lib/core/portals.ts): chosen collections and brands, themed, at
  * /p/{slug} or a domain of its own, for people outside the team. It shows
  * only approved, unexpired, current assets, and offers renditions made for a
  * purpose rather than raw originals. Who gets in: anyone (`public`), whoever
@@ -756,6 +756,21 @@ export const portalCollections = pgTable(
     position: integer("position").notNull(),
   },
   (t) => [primaryKey({ columns: [t.portalId, t.collectionId] }), index("portal_collections_collection_idx").on(t.collectionId)],
+);
+
+/** A portal's brands, in the order its tabs show them: each brand's guidelines, read-only. Deleting a brand takes it off every portal. */
+export const portalBrands = pgTable(
+  "portal_brands",
+  {
+    portalId: uuid("portal_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.portalId, t.brandId] }), index("portal_brands_brand_idx").on(t.brandId)],
 );
 
 export type PortalRequestStatus = "pending" | "approved" | "denied";

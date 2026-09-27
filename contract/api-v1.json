@@ -12682,6 +12682,10 @@
                           "passwordReset": {
                             "type": "boolean",
                             "description": "A forgotten password can be reset by email"
+                          },
+                          "serverEmail": {
+                            "type": "boolean",
+                            "description": "The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"
                           }
                         },
                         "required": [
@@ -12689,7 +12693,8 @@
                           "open",
                           "oidc",
                           "anonymous",
-                          "passwordReset"
+                          "passwordReset",
+                          "serverEmail"
                         ],
                         "additionalProperties": false
                       }
@@ -16334,6 +16339,26 @@
                             "additionalProperties": false
                           }
                         },
+                        "brands": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Brands whose guidelines it publishes, in tab order"
+                        },
                         "domain": {
                           "anyOf": [
                             {
@@ -16417,6 +16442,7 @@
                         "presets",
                         "theme",
                         "collections",
+                        "brands",
                         "domain",
                         "url",
                         "pending",
@@ -16596,15 +16622,24 @@
                   }
                 },
                 "collections": {
-                  "minItems": 1,
+                  "description": "Collections it shows, in this order. With brands, at least one of the two",
                   "maxItems": 50,
                   "type": "array",
                   "items": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                  },
-                  "description": "What it shows, in this order"
+                  }
+                },
+                "brands": {
+                  "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
                 },
                 "domain": {
                   "description": "A host name of its own, e.g. press.example.com; served there once its TXT record is in place",
@@ -16621,8 +16656,7 @@
               },
               "required": [
                 "name",
-                "slug",
-                "collections"
+                "slug"
               ],
               "additionalProperties": false
             }
@@ -16769,6 +16803,26 @@
                           "additionalProperties": false
                         }
                       },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands whose guidelines it publishes, in tab order"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -16852,6 +16906,7 @@
                       "presets",
                       "theme",
                       "collections",
+                      "brands",
                       "domain",
                       "url",
                       "pending",
@@ -17062,6 +17117,26 @@
                           "additionalProperties": false
                         }
                       },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands whose guidelines it publishes, in tab order"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -17145,6 +17220,7 @@
                       "presets",
                       "theme",
                       "collections",
+                      "brands",
                       "domain",
                       "url",
                       "pending",
@@ -17322,15 +17398,24 @@
                   }
                 },
                 "collections": {
-                  "minItems": 1,
+                  "description": "Collections it shows, in this order. With brands, at least one of the two",
                   "maxItems": 50,
                   "type": "array",
                   "items": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                  },
-                  "description": "What it shows, in this order"
+                  }
+                },
+                "brands": {
+                  "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
                 },
                 "domain": {
                   "description": "A host name of its own, e.g. press.example.com; served there once its TXT record is in place",
@@ -17490,6 +17575,26 @@
                           "additionalProperties": false
                         }
                       },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands whose guidelines it publishes, in tab order"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -17573,6 +17678,7 @@
                       "presets",
                       "theme",
                       "collections",
+                      "brands",
                       "domain",
                       "url",
                       "pending",
@@ -17852,6 +17958,26 @@
                           "additionalProperties": false
                         }
                       },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands whose guidelines it publishes, in tab order"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -17935,6 +18061,7 @@
                       "presets",
                       "theme",
                       "collections",
+                      "brands",
                       "domain",
                       "url",
                       "pending",
@@ -18425,7 +18552,7 @@
     ],
     "get": {
       "summary": "Open a brand portal",
-      "description": "What a visitor sees: the portal, themed, its collections with how many usable assets each has, and a page of them with their downloads. URLs are relative to the host asked, so a portal on its own domain loads from there. A password goes in `X-Portal-Password`, an approved request's key in `X-Portal-Key`; a `members` portal reads the session. 401 `password` names how to get in (see PortalGate), 410 `gone` once closed.\n\nNo key needed.",
+      "description": "What a visitor sees: the portal, themed, its collections with how many usable assets each has, its brands, and a page of them with their downloads. URLs are relative to the host asked, so a portal on its own domain loads from there. A password goes in `X-Portal-Password`, an approved request's key in `X-Portal-Key`; a `members` portal reads the session. 401 `password` names how to get in (see PortalGate), 410 `gone` once closed.\n\nNo key needed.",
       "security": [],
       "parameters": [
         {
@@ -18582,6 +18709,26 @@
                           ],
                           "additionalProperties": false
                         }
+                      },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"
                       }
                     },
                     "required": [
@@ -18592,7 +18739,8 @@
                       "access",
                       "expiresAt",
                       "theme",
-                      "collections"
+                      "collections",
+                      "brands"
                     ],
                     "additionalProperties": false
                   },
@@ -18747,6 +18895,391 @@
                   "portal",
                   "data",
                   "total"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Not in yet: how to get in",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "const": "password"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "access": {
+                            "type": "string",
+                            "enum": [
+                              "password",
+                              "members"
+                            ]
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "logo": {
+                                "description": "A URL on this host: the portal's, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "accent": {
+                                "description": "The portal's, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "background": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "icon": {
+                                "description": "The organization's, for the browser tab",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "product": {
+                                "type": "string",
+                                "description": "What the organization calls the product"
+                              }
+                            },
+                            "required": [
+                              "logo",
+                              "accent",
+                              "background",
+                              "icon",
+                              "product"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "access",
+                          "theme"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/portal/{slug}/brands/{brand}": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "The portal's address",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "brand",
+        "in": "path",
+        "required": true,
+        "description": "One of its brands, by slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A brand's guidelines, in a portal",
+      "description": "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET /api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id}.\n\nNo key needed.",
+      "security": [],
+      "parameters": [
+        {
+          "name": "context",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Resolve for one context, e.g. dark-background"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The guidelines",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "brand": {
+                    "type": "object",
+                    "properties": {
+                      "slug": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "slug",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "brand": {
+                          "type": "string",
+                          "description": "The brand's slug"
+                        },
+                        "key": {
+                          "type": "string",
+                          "description": "Dotted, e.g. color.primary"
+                        },
+                        "context": {
+                          "description": "null: the default",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "color",
+                            "text",
+                            "number",
+                            "list",
+                            "font"
+                          ]
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number"
+                                ]
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "family": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "size": {
+                                  "description": "Pixels",
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1000
+                                },
+                                "weight": {
+                                  "description": "400 regular, 700 bold",
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1000
+                                }
+                              },
+                              "required": [
+                                "family"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "usage": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "assets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "rendition": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "title": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "filename": {
+                                "type": "string"
+                              },
+                              "mime": {
+                                "type": "string"
+                              },
+                              "width": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "rendition",
+                              "title",
+                              "filename",
+                              "mime",
+                              "width",
+                              "height"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Assets it points at, in order: /a/{id}, or /a/{id}/{rendition} when it names one"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "brand",
+                        "key",
+                        "context",
+                        "type",
+                        "value",
+                        "usage",
+                        "assets",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Its rules in page order; a rule's assets only when they may be used"
+                  },
+                  "contexts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Contexts some rule is scoped to, for ?context="
+                  }
+                },
+                "required": [
+                  "brand",
+                  "data",
+                  "contexts"
                 ],
                 "additionalProperties": false
               }

@@ -593,6 +593,34 @@ export function BrandEditor({
 // ---- page furniture ---------------------------------------------------------
 
 /** Where you are, Notion style: the guidelines, this brand, the section you are reading. */
+/**
+ * A brand's guidelines as a reader sees them, with nothing to edit: a brand
+ * portal's tab (components/portal-view.tsx). The same sections, rules and
+ * cover as the page above, in the same order.
+ */
+export function Guidelines({ name, rules }: { name: string; rules: Rule[] }) {
+  const sections = new Map<string, Rule[]>();
+  for (const r of rules) sections.set(section(r.key), [...(sections.get(section(r.key)) ?? []), r]);
+  const names = [...sections.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  const keysIn = (n: string) => [...new Set((sections.get(n) ?? []).map((r) => r.key))];
+  return (
+    <ReadOnly.Provider value={true}>
+      <div className="space-y-16">
+        <Hero brand={{ slug: "", name, default: false, rules: rules.length }} rules={rules} />
+        {!rules.length && <p className="text-muted-foreground text-sm">No guidelines here yet.</p>}
+        {names.map((n) => (
+          <section key={n} id={`section-${n}`} className="scroll-mt-20 space-y-1">
+            <SectionHeader name={n} count={keysIn(n).length} />
+            {keysIn(n).map((key) => (
+              <RuleView key={key} rules={sections.get(n)!.filter((r) => r.key === key)} editing={false} onEdit={() => {}} line={null} dragging={false} dnd={{}} />
+            ))}
+          </section>
+        ))}
+      </div>
+    </ReadOnly.Provider>
+  );
+}
+
 function Breadcrumb({ brand, section }: { brand: BrandInfo; section?: string }) {
   return (
     <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">

@@ -9,6 +9,7 @@ import { memo } from "@/lib/memo";
 import { can, needs } from "@/lib/permissions";
 import {
   SETTING_CONTEXTS,
+  lockedBy,
   merge,
   present,
   resolve,
@@ -95,10 +96,11 @@ const described = async (key: SettingKey, context: SettingContext, place: Requir
   };
 };
 
-/** The settings that can be set in this context, each as it applies here and where that comes from. */
+/** The settings that can be set in this context, each as it applies here and where that comes from. The server's own are left out. */
 export async function listSettings(caller: Caller, context: SettingContext) {
   const place = placeOf(caller, context);
-  return Promise.all(SETTING_KEYS.filter((k) => SETTINGS[k].contexts.includes(context)).map((k) => described(k, context, place)));
+  const offered = SETTING_KEYS.filter((k) => SETTINGS[k].contexts.includes(context) && !lockedBy(k, process.env));
+  return Promise.all(offered.map((k) => described(k, context, place)));
 }
 
 function settable(key: string, context: SettingContext): SettingKey {
@@ -106,6 +108,7 @@ function settable(key: string, context: SettingContext): SettingKey {
     throw new AssetError("forbidden", `${SETTINGS[key as SettingKey].label} are set by whoever runs this server`);
   }
   if (!(SETTING_KEYS as string[]).includes(key)) throw new AssetError("not_found", `No setting "${key}". Settings: ${SETTING_KEYS.join(", ")}`);
+  if (lockedBy(key as SettingKey, process.env)) throw new AssetError("forbidden", `${SETTINGS[key as SettingKey].label} is set by whoever runs this server`);
   if (!SETTINGS[key as SettingKey].contexts.includes(context)) throw new AssetError("invalid", `${key} is set on the ${SETTINGS[key as SettingKey].contexts.join(" or ")}, not the ${context}`);
   return key as SettingKey;
 }

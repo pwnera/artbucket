@@ -48,6 +48,7 @@ export type Portal = {
   presets: PortalPreset[];
   theme: { logo: string | null; accent: string | null; background: string | null };
   collections: { id: string; name: string }[];
+  brands: { slug: string; name: string }[];
   domain: { host: string; verified: boolean; record: { type: "TXT"; name: string; value: string } } | null;
   url: string;
   pending: number;
@@ -82,8 +83,9 @@ const slugOf = (name: string) =>
 
 /**
  * Brand portals: a front door for people outside the team onto chosen
- * collections, themed, with downloads made for a purpose. Each from
- * /api/v1/portals like any client's; `?open={id}` opens one's requests.
+ * collections and brand guidelines, themed, with downloads made for a
+ * purpose. Each from /api/v1/portals like any client's; `?open={id}` opens
+ * one's requests.
  */
 export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: Portal[] }) {
   const router = useRouter();
@@ -112,9 +114,9 @@ export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: P
           <PageHeader
             icon={<IconWorld />}
             title="Portals"
-            description="A front door for press, partners and retailers onto the collections you pick: your look, only approved assets, and downloads sized for the job."
+            description="A front door for press, partners and retailers onto the collections and brand guidelines you pick: your look, only approved assets, and downloads sized for the job."
           >
-            <Button size="sm" onClick={() => setEditing("new")} disabled={!sidebar.collections.length}>
+            <Button size="sm" onClick={() => setEditing("new")} disabled={!sidebar.collections.length && !sidebar.brands.length}>
               <IconPlus /> New portal
             </Button>
           </PageHeader>
@@ -126,9 +128,9 @@ export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: P
                 </EmptyMedia>
                 <EmptyTitle>No portals yet</EmptyTitle>
                 <EmptyDescription>
-                  {sidebar.collections.length
-                    ? "Pick a few collections, a logo and a color: a press kit or a partner hub, at an address of its own. Expired, archived and unapproved assets never show."
-                    : "A portal shows collections: make one first."}
+                  {sidebar.collections.length || sidebar.brands.length
+                    ? "Pick a few collections and brands, a logo and a color: a press kit or a partner hub, at an address of its own. Expired, archived and unapproved assets never show."
+                    : "A portal shows collections and brand guidelines: make a collection first."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -150,7 +152,7 @@ export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: P
                       {p.domain && !p.domain.verified && <Badge variant="outline">Domain not verified</Badge>}
                     </p>
                     <p className="text-muted-foreground truncate text-xs">
-                      {p.url.replace(/^https?:\/\//, "")} · {p.collections.map((c) => c.name).join(", ")}
+                      {p.url.replace(/^https?:\/\//, "")} · {[...p.collections, ...p.brands].map((c) => c.name).join(", ")}
                     </p>
                   </div>
                   {p.access !== "public" && (
@@ -179,6 +181,7 @@ export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: P
         <PortalDialog
           portal={editing === "new" ? null : editing}
           collections={sidebar.collections}
+          brands={sidebar.brands}
           onClose={() => setEditing(null)}
           onSaved={() => router.refresh()}
         />
@@ -209,14 +212,48 @@ function ColorField({ label, value, onChange }: { label: string; value: string |
 }
 
 /** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
+/** Checkboxes that remember the order things were picked in: the order the portal shows them. */
+function Picks({
+  legend,
+  items,
+  picked,
+  onChange,
+}: {
+  legend: string;
+  items: { id: string; name: string }[];
+  picked: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="mb-2 text-sm font-medium">{legend}</legend>
+      <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-md border p-2">
+        {items.map((c) => (
+          <label key={c.id} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              aria-label={c.name}
+              checked={picked.includes(c.id)}
+              onCheckedChange={(on) => onChange(on ? [...picked, c.id] : picked.filter((x) => x !== c.id))}
+            />
+            {c.name}
+            {picked.includes(c.id) && <span className="text-muted-foreground ml-auto text-xs">{picked.indexOf(c.id) + 1}</span>}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function PortalDialog({
   portal,
   collections,
+  brands,
   onClose,
   onSaved,
 }: {
   portal: Portal | null;
   collections: { id: string; name: string }[];
+  brands: { slug: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -225,6 +262,7 @@ function PortalDialog({
   const [slug, setSlug] = useState(portal?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(!!portal);
   const [picked, setPicked] = useState<string[]>(portal?.collections.map((c) => c.id) ?? []);
+  const [pickedBrands, setPickedBrands] = useState<string[]>(portal?.brands.map((b) => b.slug) ?? []);
   const [access, setAccess] = useState<PortalAccess>(portal?.access ?? "public");
   const [password, setPassword] = useState("");
   const [expires, setExpires] = useState(portal?.expiresAt?.slice(0, 10) ?? "");
@@ -241,6 +279,7 @@ function PortalDialog({
     e.preventDefault();
     const logoId = logo.trim() ? asAssetId(logo) : null;
     if (logo.trim() && !logoId) return toast.error("The logo is an asset: paste its link from the library, or its id");
+    if (!picked.length && !pickedBrands.length) return toast.error("Pick at least one collection or brand");
     const payload = {
       name: name.trim(),
       slug,
@@ -251,6 +290,7 @@ function PortalDialog({
       presets,
       theme: { logo: logoId, accent, background },
       collections: picked,
+      brands: pickedBrands,
       domain: domain.trim() || null,
     };
     setBusy(true);
@@ -280,7 +320,9 @@ function PortalDialog({
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
-          <DialogDescription>Only approved, unexpired assets of these collections show, and they leave the portal the moment that changes.</DialogDescription>
+          <DialogDescription>
+            Only approved, unexpired assets show, in the collections and on the brands&apos; guidelines alike, and they leave the portal the moment that changes.
+          </DialogDescription>
         </DialogHeader>
         <form id={id} onSubmit={save} className="grid gap-5">
           <div className="grid gap-2">
@@ -311,22 +353,15 @@ function PortalDialog({
               />
             </div>
           </div>
-          <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">Collections, in this order</legend>
-            <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-md border p-2">
-              {collections.map((c) => (
-                <label key={c.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    aria-label={c.name}
-                    checked={picked.includes(c.id)}
-                    onCheckedChange={(on) => setPicked((xs) => (on ? [...xs, c.id] : xs.filter((x) => x !== c.id)))}
-                  />
-                  {c.name}
-                  {picked.includes(c.id) && <span className="text-muted-foreground ml-auto text-xs">{picked.indexOf(c.id) + 1}</span>}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          {collections.length > 0 && <Picks legend="Collections, in this order" items={collections} picked={picked} onChange={setPicked} />}
+          {brands.length > 0 && (
+            <Picks
+              legend="Brands, each a tab of its guidelines"
+              items={brands.map((b) => ({ id: b.slug, name: b.name }))}
+              picked={pickedBrands}
+              onChange={setPickedBrands}
+            />
+          )}
           <div className="grid gap-2">
             <Label>Who gets in</Label>
             <Select value={access} onValueChange={(v) => setAccess(v as PortalAccess)}>

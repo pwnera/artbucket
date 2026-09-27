@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { IconDownload, IconLock, IconPhoto, IconSearch, IconSend } from "@tabler/icons-react";
 import { ThemeToggle, useAccent } from "@/components/brand";
+import { Guidelines } from "@/components/brand-editor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -15,9 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { inkOn } from "@/lib/color";
 import { formatBytes } from "@/lib/filename";
+import type { Rule } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Theme = { logo: string | null; accent: string | null; background: string | null; icon?: string | null; product?: string };
@@ -47,6 +50,7 @@ type View = {
     expiresAt: string | null;
     theme: Theme;
     collections: { id: string; name: string; count: number }[];
+    brands: { slug: string; name: string }[];
   };
   data: Item[];
   total: number;
@@ -71,6 +75,9 @@ export function PortalView({ slug }: { slug: string }) {
   const [q, setQ] = useState("");
   const [collection, setCollection] = useState<string | null>(null);
   const [more, setMore] = useState(false);
+  /** A brand's slug, or null for the assets. In the address as ?brand=, so a tab can be linked to. */
+  // Read once in the browser; the server renders "Opening…" either way, so nothing differs on hydration.
+  const [brand, setBrand] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("brand")));
   const pass = useRef<{ password?: string; key?: string }>({});
   const store = `portal:${slug}`;
 
@@ -162,51 +169,106 @@ export function PortalView({ slug }: { slug: string }) {
   }
 
   const { portal, data, total } = state.view;
+  // Assets when it has collections; a portal of guidelines alone opens on its first brand.
+  const tabs = [...(portal.collections.length ? [{ id: "", name: "Assets" }] : []), ...portal.brands.map((b) => ({ id: b.slug, name: b.name }))];
+  const at = tabs.find((t) => t.id === (brand ?? ""))?.id ?? tabs[0]?.id ?? "";
+  const pick = (id: string) => {
+    setBrand(id || null);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("brand", id);
+    else url.searchParams.delete("brand");
+    history.replaceState(null, "", url);
+  };
   return (
     <Shell theme={portal.theme}>
       <Hero name={portal.name} intro={portal.intro} theme={portal.theme} organization={portal.organization} />
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input type="search" placeholder={`Search ${portal.name}`} value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" aria-label="Search" />
+      {tabs.length > 1 && (
+        <Tabs value={at} onValueChange={pick} className="border-b">
+          <div className="mx-auto w-full max-w-6xl overflow-x-auto px-4 sm:px-8">
+            <TabsList variant="line" aria-label="What this portal shows">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.id || "assets"} value={t.id}>
+                  {t.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        </div>
-        {portal.collections.length > 1 && (
-          <nav className="flex flex-wrap gap-2" aria-label="Collections">
-            <Chip active={!collection} onClick={() => setCollection(null)}>
-              All
-            </Chip>
-            {portal.collections.map((c) => (
-              <Chip key={c.id} active={collection === c.id} onClick={() => setCollection(c.id)}>
-                {c.name} <span className="opacity-60">{c.count}</span>
+        </Tabs>
+      )}
+      {at ? (
+        <BrandTab key={at} slug={slug} brand={at} headers={headers} />
+      ) : (
+        <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input type="search" placeholder={`Search ${portal.name}`} value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" aria-label="Search" />
+            </div>
+          </div>
+          {portal.collections.length > 1 && (
+            <nav className="flex flex-wrap gap-2" aria-label="Collections">
+              <Chip active={!collection} onClick={() => setCollection(null)}>
+                All
               </Chip>
-            ))}
-          </nav>
-        )}
-        <Grid items={data} total={total} />
-        {data.length < total && (
-          <div className="text-center">
-            <Button
-              variant="outline"
-              disabled={more}
-              onClick={async () => {
-                setMore(true);
-                const { res, body } = await fetchPage(data.length);
-                setMore(false);
-                if (res.ok) setState({ at: "open", view: { ...body, data: [...data, ...body.data] } });
-              }}
-            >
-              Show more
-            </Button>
-          </div>
-        )}
-      </main>
+              {portal.collections.map((c) => (
+                <Chip key={c.id} active={collection === c.id} onClick={() => setCollection(c.id)}>
+                  {c.name} <span className="opacity-60">{c.count}</span>
+                </Chip>
+              ))}
+            </nav>
+          )}
+          <Grid items={data} total={total} />
+          {data.length < total && (
+            <div className="text-center">
+              <Button
+                variant="outline"
+                disabled={more}
+                onClick={async () => {
+                  setMore(true);
+                  const { res, body } = await fetchPage(data.length);
+                  setMore(false);
+                  if (res.ok) setState({ at: "open", view: { ...body, data: [...data, ...body.data] } });
+                }}
+              >
+                Show more
+              </Button>
+            </div>
+          )}
+        </main>
+      )}
       <footer className="text-muted-foreground border-t py-6 text-center text-xs">
         {portal.organization}
         {portal.expiresAt && ` · open until ${new Date(portal.expiresAt).toLocaleDateString()}`}
       </footer>
     </Shell>
+  );
+}
+
+/** One of the portal's brands: its guidelines, read-only, from GET /api/v1/portal/{slug}/brands/{brand}. */
+function BrandTab({ slug, brand, headers }: { slug: string; brand: string; headers: () => HeadersInit }) {
+  const [got, setGot] = useState<{ brand: { name: string }; data: Rule[] } | { error: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/portal/${slug}/brands/${encodeURIComponent(brand)}`, { headers: headers(), cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (live) setGot(res.ok ? body : { error: body.error?.message ?? "These guidelines didn't load. Try again in a moment." });
+      })
+      .catch(() => live && setGot({ error: "These guidelines didn't load. Try again in a moment." }));
+    return () => {
+      live = false;
+    };
+  }, [slug, brand, headers]);
+  return (
+    <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-8">
+      {!got ? (
+        <p className="text-muted-foreground py-16 text-center text-sm">Opening…</p>
+      ) : "error" in got ? (
+        <p className="text-muted-foreground py-16 text-center text-sm">{got.error}</p>
+      ) : (
+        <Guidelines name={got.brand.name} rules={got.data} />
+      )}
+    </main>
   );
 }
 

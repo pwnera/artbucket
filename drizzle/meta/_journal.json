@@ -176,6 +176,13 @@
       "when": 1790542385288,
       "tag": "0024_instance",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790551388110,
+      "tag": "0025_portal_brands",
+      "breakpoints": true
     }
   ]
 }

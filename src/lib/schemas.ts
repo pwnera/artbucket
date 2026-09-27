@@ -221,7 +221,8 @@ const portal = {
   expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
   presets: z.array(z.enum(PRESET_IDS)).max(PRESET_IDS.length).optional().describe("What images download as; web, print and social when left out"),
   theme: PortalTheme.partial().optional(),
-  collections: z.array(uuid).min(1).max(50).describe("What it shows, in this order"),
+  collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
+  brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
   domain: z.string().max(253).nullable().optional().describe("A host name of its own, e.g. press.example.com; served there once its TXT record is in place"),
 };
 export const PortalInput = z.strictObject({ ...portal, access: portal.access.default("public") });
@@ -592,6 +593,9 @@ export const Me = z.object({
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
     anonymous: scope.describe("What a request without a key or a session may do"),
     passwordReset: z.boolean().describe("A forgotten password can be reset by email"),
+    serverEmail: z
+      .boolean()
+      .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
   }),
 });
 
@@ -697,6 +701,7 @@ export const Portal = z.object({
   presets: z.array(z.enum(PRESET_IDS)),
   theme: PortalTheme,
   collections: z.array(z.object({ id: uuid, name: z.string() })),
+  brands: z.array(z.object({ slug: z.string(), name: z.string() })).describe("Brands whose guidelines it publishes, in tab order"),
   domain: domainState.nullable(),
   url: z.url().describe("Where visitors go: its domain once verified, else /p/{slug}"),
   pending: z.number().int().describe("Access requests waiting"),
@@ -738,6 +743,7 @@ export const PortalView = z.object({
       product: z.string().describe("What the organization calls the product"),
     }),
     collections: z.array(z.object({ id: uuid, name: z.string(), count: z.number().int() })),
+    brands: z.array(z.object({ slug: z.string(), name: z.string() })).describe("Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"),
   }),
   data: z.array(
     z.object({
@@ -757,6 +763,11 @@ export const PortalView = z.object({
     }),
   ),
   total: z.number().int(),
+});
+export const PortalBrand = z.object({
+  brand: z.object({ slug: z.string(), name: z.string() }),
+  data: z.array(BrandRule).describe("Its rules in page order; a rule's assets only when they may be used"),
+  contexts: z.array(z.string()).describe("Contexts some rule is scoped to, for ?context="),
 });
 export const PortalGate = z.object({
   error: z.object({

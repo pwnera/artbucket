@@ -2,12 +2,14 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { emailOTP } from "better-auth/plugins/email-otp";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { appOrigins } from "@/lib/core/domains";
-import { sendPasswordReset } from "@/lib/core/mail";
+import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
+import { lockedBy } from "@/lib/settings";
 
 /**
  * Who someone is: better-auth, mounted at /api/auth. Email and password, and
@@ -29,6 +31,15 @@ export const oidc = env.OIDC_ISSUER ? { provider: OIDC_PROVIDER, name: env.OIDC_
 
 const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? null;
 
+/**
+ * With the server's own email (EMAIL_*), an address is proved before its
+ * account signs in: a six-digit code, mailed at sign-up and again at a sign-in
+ * that hasn't confirmed yet (accounts made before this included). Without it
+ * there is nothing to send the code from before an organization exists.
+ * Single sign-on needs no code: the provider vouched.
+ */
+const verify = lockedBy("email", process.env);
+
 export const auth = betterAuth({
   baseURL: env.APP_URL,
   // Organizations' own verified domains sign in too, each with its own cookie.
@@ -42,11 +53,35 @@ export const auth = betterAuth({
     // Only when some email can go out (lib/core/mail.ts); otherwise an admin resets it.
     sendResetPassword: async ({ user, url }) => void (await sendPasswordReset(user, url)),
     revokeSessionsOnPasswordReset: true,
+    requireEmailVerification: verify,
   },
+  emailVerification: { sendOnSignUp: verify, sendOnSignIn: verify, autoSignInAfterVerification: true },
+  // Of the email-code plugin, only confirming an address: no passwordless sign-in or reset by code.
+  disabledPaths: [
+    "/sign-in/email-otp",
+    "/email-otp/request-password-reset",
+    "/forget-password/email-otp",
+    "/email-otp/reset-password",
+    "/email-otp/request-email-change",
+    "/email-otp/change-email",
+  ],
   telemetry: { enabled: false },
   // A session and its person in one query (db/schema.ts relations): every request reads one.
   advanced: { database: { joins: true } },
   plugins: [
+    ...(verify
+      ? [
+          emailOTP({
+            overrideDefaultEmailVerification: true,
+            disableSignUp: true,
+            expiresIn: 600,
+            allowedAttempts: 5,
+            storeOTP: "hashed",
+            // Only codes that confirm an address go out; the plugin's other kinds are switched off above.
+            sendVerificationOTP: async ({ email, otp, type }) => void (type === "email-verification" && (await sendSignUpCode(email, otp))),
+          }),
+        ]
+      : []),
     ...(env.OIDC_ISSUER
       ? [
           genericOAuth({

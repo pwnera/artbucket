@@ -23,6 +23,13 @@ test("without a brand: the product's own look", () => {
   assert.doesNotMatch(m.html, /<img/);
 });
 
+test("a one-time code sits large under the lines, in both parts", () => {
+  const m = render({ to: "a@x.test", subject: "{product} code", lines: ["Enter this code."], code: "482913" }, { name: "Artbucket", accent: null, logo: null, emailFooter: null });
+  assert.match(m.text, /Enter this code\.\n\n482913$/);
+  assert.match(m.html, /letter-spacing:8px">482913</);
+  assert.doesNotMatch(render(draft, { name: "A", accent: null, logo: null, emailFooter: null }).html, /letter-spacing/);
+});
+
 test("the server's BRAND_* sit under an organization's own, property by property", () => {
   const env = { BRAND_NAME: "Studio Assets", BRAND_ACCENT: "#112233" };
   assert.deepEqual(brandingFromEnv({}), null);

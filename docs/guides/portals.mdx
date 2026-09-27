@@ -1,12 +1,13 @@
 ---
 title: Portals
-description: A branded front door onto chosen collections, for people outside the team.
+description: A branded front door onto chosen collections and brand guidelines, for people outside the team.
 ---
 
-A portal is a press kit, a partner hub or a retailer page: the collections you
-pick, under your logo and colors, at `/p/{address}` or a domain of its own.
-Make one from **Portals** in the sidebar, or with `POST /api/v1/portals`.
-It takes write on the workspace, and sharing rights on each collection.
+A portal is a press kit, a partner hub or a retailer page: the collections and
+brands you pick, under your logo and colors, at `/p/{address}` or a domain of
+its own. Make one from **Portals** in the sidebar, or with
+`POST /api/v1/portals`. It takes write on the workspace, and sharing rights on
+each collection. A portal shows at least one collection or one brand.
 
 ## What shows
 
@@ -16,6 +17,18 @@ archived or is replaced by a new version leaves every portal the moment that
 happens. Nobody has to remember to take it down.
 
 Visitors search, filter by collection, look closer, and download.
+
+## Brands
+
+Each brand a portal publishes is a tab beside **Assets**: its guidelines as
+the Guidelines page shows them (colors graded for contrast, type specimens,
+logo rules, voice), read-only. A rule's assets show by the same rule as
+everything else, so a draft logo stays in the library. A portal of guidelines
+alone opens on its first brand, and `?brand={slug}` links to one tab.
+
+Brands go in by slug (`"brands": ["default", "sub-brand"]`); the API serves
+each one's guidelines at `GET /api/v1/portal/{address}/brands/{slug}`, behind
+the same door as the portal.
 
 ## Downloads
 
