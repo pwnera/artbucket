@@ -60,7 +60,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
-import { today, type Origin, type Rights } from "@/lib/rights";
+import { STATE_LABEL, type State, type Status } from "@/lib/lifecycle";
+import type { Origin, Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
@@ -84,8 +85,18 @@ export type Asset = {
   fields: Record<string, FieldValue>;
   inherited: Record<string, FieldValue>;
   collections: string[];
-  /** `proposed`: suggested by an agent, waiting for a person; `rejected`: turned down, kept for the agent to learn from. */
-  status: "active" | "proposed" | "rejected";
+  /**
+   * Where it is in its lifecycle (lib/lifecycle.ts). `proposed`: suggested, waiting for a person;
+   * `rejected`: turned down, kept for the agent to learn from.
+   */
+  status: Status;
+  /** The status, or `expired` for an approved asset past its last day of use. */
+  state: State;
+  /** Versions of one thing share a stack; null with one version. */
+  stackId: string | null;
+  version: number | null;
+  /** Its stack's current approved version. */
+  current: boolean;
   /** Who suggested it: an API key's name, or "web". */
   proposedBy: string | null;
   /** Why it was rejected. */
@@ -118,7 +129,7 @@ export type Listing = {
   data: Asset[];
   /** Every match; `data` is the first page of them. */
   total: number;
-  facets: { tags: Count[]; types?: Count[]; fields?: Record<string, Count[]> };
+  facets: { tags: Count[]; types?: Count[]; states?: Count[]; fields?: Record<string, Count[]> };
 };
 
 /** "f.budget.gte=10" as a person would say it. */
@@ -341,7 +352,7 @@ export function Gallery({
 
   const clear = () => {
     setText("");
-    go({ q: "", tags: [], types: [], filters: {}, extra: [] });
+    go({ q: "", tags: [], types: [], status: [], filters: {}, extra: [] });
   };
 
   // With required fields still unmet, files wait for them; otherwise straight up.
@@ -696,6 +707,16 @@ export function Gallery({
                 onChange={(types) => go({ types })}
               />
               <FacetFilter label="Tags" counts={facets.tags} selected={view.tags} onChange={(tags) => go({ tags })} />
+              {/* Review is its own queue; everywhere else the library is what may be used, and the rest a filter away. */}
+              {!view.review && (
+                <FacetFilter
+                  label="Status"
+                  counts={facets.states ?? []}
+                  selected={view.status}
+                  format={(v) => STATE_LABEL[v as State] ?? v}
+                  onChange={(status) => go({ status })}
+                />
+              )}
               {fields.filter(isFacetable).map((d) => (
                 <FacetFilter
                   key={d.key}
@@ -887,6 +908,10 @@ export function Gallery({
             setKnown(a);
             void refresh();
           }}
+          onOpen={(id) => {
+            go({ asset: id }, true);
+            void refresh();
+          }}
         />
       )}
 
@@ -995,6 +1020,7 @@ export function AssetCard({
           )}
           <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[11px] backdrop-blur">
             {fileTypeBadge(a.filename, a.mime, a.probe)}
+            {a.version && <span className="text-muted-foreground">v{a.version}</span>}
           </Badge>
           {(a.status === "proposed" || a.proposedTags.length > 0) && (
             <Badge className="absolute bottom-2 left-2 text-[11px]">
@@ -1005,9 +1031,9 @@ export function AssetCard({
             </Badge>
           )}
           {/* What /api/v1/check would refuse whatever the use: say so before anyone picks it. */}
-          {(a.supersededBy || (a.rights?.expires && a.rights.expires < today())) && (
+          {(a.supersededBy || !["active", "proposed"].includes(a.state)) && (
             <Badge variant="secondary" className="bg-background/80 absolute right-2 bottom-2 text-[11px] backdrop-blur">
-              {a.supersededBy ? "Replaced" : "Expired"}
+              {a.state === "active" ? "Replaced" : STATE_LABEL[a.state]}
             </Badge>
           )}
         </div>

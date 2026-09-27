@@ -108,7 +108,9 @@ front serves them from there.
 | `GET` | `/api/v1/assets` | List or search assets, with tag facet counts and the `total` |
 | `POST` | `/api/v1/assets` | Promote a staged upload (`token`), or ingest one from a `url` |
 | `GET` | `/api/v1/assets/{id}` | Fetch one asset |
-| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`, `rights`, provenance, `supersededBy`; review with `status`, `reviewNote`, `proposedTags` |
+| `PATCH` | `/api/v1/assets/{id}` | Edit `tags`, `fields`, `title`, `description`, `creator`, `copyright`, `rights`, provenance, `supersededBy`; review and archive with `status`, `reviewNote`, `proposedTags` |
+| `GET` | `/api/v1/assets/{id}/versions` | Its stack of versions, newest first, `current` marked |
+| `POST` | `/api/v1/assets/{id}/versions/{n}/current` | Roll back (or forward): make version `n` current |
 | `DELETE` | `/api/v1/assets/{id}` | Delete an asset |
 | `POST` | `/api/v1/assets/{id}/proposed-tags` | Suggest tags, for a person to accept |
 | `POST` | `/api/v1/check` | May this asset be used like this? `{ allowed, reasons, suggest }` |
@@ -334,6 +336,38 @@ can read why (MCP `my_proposals`) and do better next time. Review lists
 what waits as a table, with who suggested it and when; approve or reject a
 row in place, or a whole selection at once.
 
+### Lifecycle and versions
+
+An asset moves from `draft` to `proposed` (in review) to `active` (approved),
+and on to `archived` when it is retired; `rejected` is the review's other
+outcome. Expired is not a status but a date: an approved asset past its
+`rights.expires` reads `state: "expired"` the next day, with nothing to run.
+Upload with `"status": "draft"` to keep work in progress out of the library;
+submitting a draft (`"proposed"`) takes write, and approving, archiving or
+unarchiving takes write with the approve ability. The library, search and
+agents see approved, unexpired assets unless asked for others:
+`GET /api/v1/assets?status=draft&status=archived`, or the Status filter.
+
+A new file for the same thing is a new version, not a new asset:
+`POST /api/v1/assets` with `"versionOf": "{id}"` (or New version in the
+asset's dialog, `artbucket ingest file.png --version-of {id}`, MCP
+`ingest_asset` with `versionOf`) files it where the old one is, with its tags
+and fields. Once approved it becomes the stack's current version: the library
+shows only that one, a share link made for any version serves it, and every
+other approved version is `supersededBy` it, so `/check` refuses them and
+names it. Archiving the current version hands over to the newest approved one
+left; `POST /api/v1/assets/{id}/versions/{n}/current` rolls back. The dialog
+compares any two versions side by side.
+
+What happens at `/a/{id}` follows: only an approved, unexpired asset out of
+embargo is public. Expired or archived, its URLs, renditions included,
+answer `410 Gone`; a draft, a proposal or an embargoed asset is a `404`.
+People who can see it in the library still get it, uncached. Public bytes
+are cached for an hour at most and never past the last day of use, with an
+`ETag` for cheap revalidation, so a takedown reaches caches on time. Select
+assets to submit, approve, archive or unarchive them, or set their last day
+of use, in one go.
+
 Every addition, suggestion, decision and deletion, and every brand rule
 change, is on the Activity tab and at `GET /api/v1/activity`, by actor: a
 person's name, an API key's (`agent: true`), or `web` for the app without an
@@ -454,8 +488,9 @@ Rights live on the asset and are edited in its dialog or by `PATCH`:
 ```
 
 Territories are two-letter country codes, channels are slugs; empty means
-unrestricted. `expires` is the last day of use. `supersededBy` marks what
-replaced an asset; the gallery badges replaced and expired assets.
+unrestricted. `expires` is the last day of use: after it the asset is
+expired, and its URLs answer 410. `supersededBy` marks what replaced an
+asset; the gallery badges replaced, expired and archived assets.
 
 ### Provenance
 
@@ -567,11 +602,11 @@ server and the skill together:
 
 | Tool | Scope | |
 |---|---|---|
-| `search_assets` | read | Full text, tags, collections (by name), field filters, and the `total`; its description lists your fields and collections |
+| `search_assets` | read | Full text, tags, collections (by name), field filters, lifecycle `status`, and the `total`; its description lists your fields and collections |
 | `describe_asset` | read | The same description as `/api/v1/assets/{id}/description`, plus the brand rules that point at it |
 | `check_use` | read | `/api/v1/check`: may it run here, now, in this context; if not, why, and what to use instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; says when it would need to upscale |
-| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with its provenance and rights |
+| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with its provenance and rights; `versionOf` files it as a new version |
 | `import_google_font` | propose | A Google Fonts family, one file per style, as `proposed` |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `my_proposals` | propose | What this key proposed and what became of it: approved, waiting, or rejected with the person's reason |

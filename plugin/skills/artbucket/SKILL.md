@@ -34,6 +34,10 @@ Two ways in, same tools:
    and tell the person why.
 5. **What you add is a suggestion.** `ingest_asset` and `propose_tags` land in Review for a person
    to approve. `my_proposals` says what they decided and why. Don't treat a proposed asset as final.
+6. **A new version is not a new asset.** A redrawn logo or a corrected photo goes in with
+   `ingest_asset({"url": ..., "versionOf": "<id of the old one>"})` (CLI: `--version-of`): once approved it
+   replaces the old one everywhere, and checks point to it. Expired and archived assets are not served:
+   their URLs answer 410, so never hand one out.
 
 ## Filing what a model made
 

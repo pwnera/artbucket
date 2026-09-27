@@ -19,6 +19,7 @@ import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { ASSET_TYPES } from "@/lib/filters";
+import { STATES, STATUSES } from "@/lib/lifecycle";
 import { GOOGLE_FAMILY } from "@/lib/font";
 import { ORIGINS, RightsInput, Use } from "@/lib/rights";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -36,7 +37,7 @@ import { FITS, FORMATS, MAX_DIMENSION, parseTransform, serializeTransform } from
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt).`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -51,6 +52,8 @@ const summary = (a: Asset) => ({
   tags: a.tags,
   fields: { ...a.inherited, ...a.fields },
   status: a.status,
+  state: a.state,
+  version: a.version,
   supersededBy: a.supersededBy,
   url: base(a.id),
   thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
@@ -142,14 +145,19 @@ const TOOLS: Record<string, Tool> = {
         .record(z.string(), z.union([z.string(), z.array(z.string())]))
         .optional()
         .describe('Field filters: {"channel": ["web", "print"], "budget.gte": "10", "expires.lte": "2027-01-31"}'),
+      status: z
+        .array(z.enum(STATES))
+        .optional()
+        .describe("Only assets in these states; approved (active) and unexpired ones when left out, which is what may be used"),
       review: z.boolean().optional().describe("Only what waits on a human: proposed assets and suggested tags"),
       limit: z.number().int().min(1).max(50).default(20),
     }),
-    run: async ({ q, tags, types, collection, filters, review, limit }, caller) => {
+    run: async ({ q, tags, types, collection, filters, status, review, limit }, caller) => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       for (const t of tags ?? []) params.append("tag", t);
       for (const t of types ?? []) params.append("type", t);
+      for (const s of status ?? []) params.append("status", s);
       if (collection) params.set("collection", collection);
       if (review) params.set("review", "true");
       for (const [k, v] of Object.entries(filters ?? {}))
@@ -214,7 +222,7 @@ const TOOLS: Record<string, Tool> = {
 
   check_use: tool({
     description:
-      "Ask before you use an asset: may it run here, now, like this? Checks that it was approved, that nothing " +
+      "Ask before you use an asset: may it run here, now, like this? Checks that it was approved and not archived, that nothing " +
       "replaced it, its license window, territory and channel, its model release, and, with a context, whether the " +
       "brand has a different variant for that context (a light logo for dark backgrounds). `allowed: false` comes " +
       "with reasons and, in `suggest`, what to use instead. Non-blocking reasons are worth knowing; say the " +
@@ -247,6 +255,10 @@ const TOOLS: Record<string, Tool> = {
       prompt: z.string().max(10000).optional().describe("For a generated image: what it was asked for"),
       parentAssetId: z.uuid().optional().describe("The library asset it was made from, e.g. the photo you edited"),
       rights: RightsInput.optional().describe("License, territories, channels, embargo, expires, modelRelease, if known"),
+      versionOf: z
+        .uuid()
+        .optional()
+        .describe("It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved"),
     }),
     run: async (input, caller) => {
       const { asset, deduped } = await ingestFromUrl(caller, input);
@@ -311,7 +323,7 @@ const TOOLS: Record<string, Tool> = {
     action: "asset.upload",
     readOnly: true,
     input: z.object({
-      status: z.enum(["proposed", "active", "rejected"]).optional().describe("Only these; all of them when left out"),
+      status: z.enum(STATUSES).optional().describe("Only these; all of them when left out"),
       limit: z.number().int().min(1).max(50).default(20),
     }),
     run: async ({ status, limit }, caller) => {

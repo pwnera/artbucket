@@ -74,6 +74,7 @@ export type Use = z.infer<typeof Use>;
 
 export type ReasonCode =
   | "not_approved"
+  | "archived"
   | "superseded"
   | "embargoed"
   | "expired"

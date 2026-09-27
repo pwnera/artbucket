@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
+import { Lifecycle, Versions } from "@/components/versions";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,7 @@ export function AssetEditor({
   onClose,
   onSaved,
   onReviewed,
+  onOpen,
 }: {
   asset: Asset;
   fields: FieldDef[];
@@ -69,6 +71,8 @@ export function AssetEditor({
   onSaved: () => void;
   /** A review action changed the asset. */
   onReviewed: (asset: Asset) => void;
+  /** Show another asset instead: another version of this one. */
+  onOpen: (id: string) => void;
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
@@ -261,8 +265,10 @@ export function AssetEditor({
             <Can do="asset.review" on={asset}>
               <Review asset={asset} onReviewed={onReviewed} />
             </Can>
+            <Lifecycle asset={asset} onChanged={onReviewed} />
+            <Versions asset={asset} onChanged={onReviewed} onOpen={onOpen} />
             <Writable do="asset.edit" on={asset}>
-            {asset.supersededBy && <Replaced by={asset.supersededBy} />}
+            {asset.supersededBy && <Replaced by={asset.supersededBy} stacked={!!asset.stackId} />}
             <BrandRules assetId={asset.id} />
             {TEXT.map(({ key, label }) => (
               <Field key={key} label={label} htmlFor={`${id}-${key}`}>
@@ -511,7 +517,7 @@ function AssetRef({
 }
 
 /** A replaced asset says so first, and links to what replaced it. */
-function Replaced({ by }: { by: string }) {
+function Replaced({ by, stacked }: { by: string; stacked: boolean }) {
   return (
     <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-sm">
       <p className="flex items-center gap-2 font-medium">
@@ -522,7 +528,8 @@ function Replaced({ by }: { by: string }) {
         <a href={`/?asset=${by}`} className="text-foreground underline">
           its replacement
         </a>
-        . Clear Replaced by, under Provenance, to use it again.
+        .{" "}
+        {stacked ? "Make this version current, under Versions, to use it again." : "Clear Replaced by, under Provenance, to use it again."}
       </p>
     </div>
   );

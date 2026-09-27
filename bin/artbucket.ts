@@ -17,14 +17,16 @@ const HELP = `artbucket <command>
 
   login                   sign in through the browser; saves a key for ARTBUCKET_URL
   logout                  forget it
-  search [words] [--tag t]... [--collection id] [--review] [--limit n]
+  search [words] [--tag t]... [--collection id] [--status s]... [--review] [--limit n]
+                          --status draft|proposed|active|expired|archived|rejected
   describe <id>
   check <id> [--channel c] [--territory CC] [--date YYYY-MM-DD] [--context c] [--brand b]
                           may it be used like this? exits 1 when it may not
   url <id> [--width n] [--height n] [--fit cover|contain|inside] [--format webp|avif|jpeg|png] [--quality n]
   ingest <file-or-url>... [--tag t]... [--collection id]
-         [--origin shot|licensed|generated] [--generator g] [--prompt text]
-                          what a model made: say so, and with what and how
+         [--origin shot|licensed|generated] [--generator g] [--prompt text] [--version-of id]
+                          what a model made: say so, and with what and how;
+                          --version-of files it as that asset's next version
   propose-tags <id> <tag>...
   review                  what waits on a human
   approve <id>            promote a proposed asset and accept its suggested tags
@@ -95,6 +97,8 @@ const { values: opt, positionals } = parseArgs({
     origin: { type: "string" },
     generator: { type: "string" },
     prompt: { type: "string" },
+    "version-of": { type: "string" },
+    status: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
@@ -148,6 +152,7 @@ async function ingest(source: string) {
     origin: opt.origin,
     generator: opt.generator,
     prompt: opt.prompt,
+    versionOf: opt["version-of"],
   };
   if (/^https?:\/\//.test(source)) return api("POST", "/api/v1/assets", { url: source, ...extra });
   // A local file goes straight to storage, like the web UI's uploads.
@@ -213,6 +218,7 @@ async function main() {
       if (args.length) p.set("q", args.join(" "));
       for (const t of opt.tag ?? []) p.append("tag", t);
       if (opt.collection) p.set("collection", opt.collection);
+      for (const s of opt.status ?? []) p.append("status", s);
       if (opt.review || cmd === "review") p.set("review", "true");
       if (opt.limit) p.set("limit", opt.limit);
       const r = await api("GET", `/api/v1/assets?${p}`);

@@ -13,7 +13,7 @@ export async function record(
   by: { actor: string; key: string | null },
   verb: ActivityVerb,
   asset: Asset,
-  detail?: { tags?: string[]; note?: string },
+  detail?: { tags?: string[]; note?: string; version?: number },
 ) {
   await db
     .insert(activity)
@@ -40,8 +40,8 @@ export type ActivityItem = {
   label: string;
   assetId: string | null;
   brand: { slug: string; name: string; version: number } | null;
-  /** Suggested tags, a rejection's reason, or the rules a brand version touched. */
-  detail: { tags?: string[]; note?: string; rules?: string[]; summary?: string } | null;
+  /** Suggested tags, a rejection's reason, an asset's version, or the rules a brand version touched. */
+  detail: { tags?: string[]; note?: string; version?: number; rules?: string[]; summary?: string } | null;
 };
 
 /**

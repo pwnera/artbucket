@@ -15,3 +15,9 @@ test("/?review opens the queue; a saved search matches however it was written", 
   assert.equal(parseView(new URLSearchParams("review=false")).review, false);
   assert.equal(canonical("f.channel=web&q=fox"), "q=fox&f.channel=web");
 });
+
+test("a status filter narrows the view and keeps its place in the query", () => {
+  const v = parseView(new URLSearchParams("status=archived&q=logo&status=expired"));
+  assert.deepEqual(v.status, ["archived", "expired"]);
+  assert.equal(viewQuery(v), "q=logo&status=archived&status=expired");
+});
