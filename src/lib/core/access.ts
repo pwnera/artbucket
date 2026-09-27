@@ -10,6 +10,7 @@ import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import { memo } from "@/lib/memo";
+import { lockedBy } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
 
 /**
@@ -217,6 +218,7 @@ export async function describeCaller(caller: Caller) {
       oidc: oidc && { name: oidc.name },
       anonymous,
       passwordReset,
+      serverEmail: lockedBy("email", process.env),
     },
   };
 }

@@ -15,10 +15,13 @@ import { Label } from "@/components/ui/label";
  * they may do is /api/v1's business, and every page asks it.
  */
 
-async function authPost(path: string, body: unknown): Promise<{ ok: true; data: { url?: string } } | { ok: false; message: string }> {
+async function authPost(
+  path: string,
+  body: unknown,
+): Promise<{ ok: true; data: { url?: string; token?: string | null } } | { ok: false; message: string; code?: string }> {
   const res = await fetch(`/api/auth/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const json = await res.json().catch(() => ({}));
-  return res.ok ? { ok: true, data: json } : { ok: false, message: json.message ?? "That didn't work" };
+  return res.ok ? { ok: true, data: json } : { ok: false, message: json.message ?? "That didn't work", code: json.code };
 }
 
 /** A centered card with the mark, for pages outside the app. */
@@ -69,6 +72,9 @@ export function AuthForm({
   const [mode, setMode] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const done = () => (then ? then() : go(callbackURL));
 
   async function submit(form: FormData) {
     const email = String(form.get("email") ?? "").trim();
@@ -81,10 +87,13 @@ export function AuthForm({
         ? await authPost("sign-in/email", { email, password })
         : await authPost("sign-up/email", { name: String(form.get("name") ?? "").trim() || email.split("@")[0], email, password });
     setBusy(false);
+    // Made, or known but unconfirmed: either way a code is on its way.
+    if ((r.ok && mode === "up" && !r.data.token) || (!r.ok && r.code === "EMAIL_NOT_VERIFIED")) return setConfirming(email);
     if (!r.ok) return setError(r.message);
-    if (then) then();
-    else go(callbackURL);
+    done();
   }
+
+  if (confirming) return <ConfirmEmail email={confirming} onDone={done} onBack={() => setConfirming(null)} />;
 
   async function sso() {
     beforeSubmit?.();
@@ -166,6 +175,74 @@ export function AuthForm({
         </p>
       )}
     </div>
+  );
+}
+
+/** The six digits mailed to a new account, and a way to have them sent again. */
+function ConfirmEmail({ email, onDone, onBack }: { email: string; onDone: () => void; onBack: () => void }) {
+  const id = useId();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ error: boolean; text: string } | null>(null);
+
+  async function confirm(form: FormData) {
+    setBusy(true);
+    setNote(null);
+    const r = await authPost("email-otp/verify-email", { email, otp: String(form.get("code") ?? "").trim() });
+    setBusy(false);
+    if (!r.ok) return setNote({ error: true, text: r.message });
+    onDone();
+  }
+
+  async function resend() {
+    const r = await authPost("email-otp/send-verification-otp", { email, type: "email-verification" });
+    setNote(r.ok ? { error: false, text: "A new code is on its way." } : { error: true, text: r.message });
+  }
+
+  return (
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void confirm(new FormData(e.currentTarget));
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <IconMailOpened className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+        <p className="text-sm text-pretty">
+          We sent a code to <span className="font-medium">{email}</span>. Enter it to confirm the address and sign in.
+        </p>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-code`}>Code</Label>
+        <Input
+          id={`${id}-code`}
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          required
+          autoFocus
+          className="font-mono text-lg tracking-[0.4em]"
+        />
+      </div>
+      {note && (
+        <p role={note.error ? "alert" : "status"} className={note.error ? "text-destructive text-sm" : "text-muted-foreground text-sm"}>
+          {note.text}
+        </p>
+      )}
+      <Button type="submit" disabled={busy}>
+        Confirm
+      </Button>
+      <p className="text-muted-foreground flex justify-between text-sm">
+        <button type="button" className="underline underline-offset-2" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" className="underline underline-offset-2" onClick={() => void resend()}>
+          Send a new code
+        </button>
+      </p>
+    </form>
   );
 }
 
