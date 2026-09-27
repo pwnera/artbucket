@@ -28,5 +28,14 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
 
 - The rendition endpoint decodes untrusted images with libvips. Keep `sharp`
   current, and put a CDN or rate limiter in front of `/a/*` on a public install.
-- v0.1 ships **no authentication**. Do not expose it to the internet. Multi-user
-  auth and RBAC land in v0.7 - see [ROADMAP.md](ROADMAP.md).
+- A fresh install is open to anyone who can reach it until the first account
+  is made; make it before exposing the server, or set `ANONYMOUS_SCOPE=none`.
+- Set `BETTER_AUTH_SECRET` to a random value (`openssl rand -base64 32`); the
+  app refuses to start in production without one.
+- Cookie-signed writes are only taken from `APP_URL`'s origin; set it to the
+  address people actually use.
+- Rendition and original bytes at `/a/{id}` are public to anyone holding the
+  URL, by design. Access control covers the API: search, descriptions, edits.
+- Invitation links and share links are capabilities: whoever holds one can
+  use it. Invitations work once and expire in a week; give share links a
+  password and an end date when what they show matters.

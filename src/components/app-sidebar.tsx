@@ -16,13 +16,17 @@ import {
   IconPlus,
   IconRobot,
   IconSearch,
+  IconShare,
   IconTrash,
+  IconUpload,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Logo } from "@/components/brand";
+import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { CommandPalette } from "@/components/command-palette";
+import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
   DropLine,
   MoveItems,
@@ -70,6 +74,7 @@ export type SavedSearch = { id: string; name: string; query: string };
  * server round trip to wait for.
  */
 export function AppSidebar({
+  me,
   collections,
   brands,
   searches,
@@ -81,6 +86,7 @@ export function AppSidebar({
   onUpload,
   children,
 }: {
+  me: Me;
   collections: Collection[];
   brands: BrandInfo[];
   searches: SavedSearch[];
@@ -117,6 +123,7 @@ export function AppSidebar({
   const at = {
     brand: pathname === "/brand",
     agents: pathname === "/agents",
+    team: pathname === "/team",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
     assets: inLibrary && !view.collection && !onSearch,
@@ -128,12 +135,7 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="gap-3">
-              <NavLink href="/">
-                <Logo />
-                <span className="truncate text-base font-semibold tracking-tight">Artbucket</span>
-              </NavLink>
-            </SidebarMenuButton>
+            <WorkspaceSwitcher me={me} />
           </SidebarMenuItem>
           <SidebarMenuItem>
             {/* Search, Notion style: it looks like a field, and ⌘K opens it from anywhere. */}
@@ -175,6 +177,9 @@ export function AppSidebar({
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
               <Place href="/activity" label="Activity" icon={<IconActivity />} active={at.activity} />
+              {(me.scope === "write" || me.scope === "admin" || me.narrowed) && (
+                <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -193,7 +198,7 @@ export function AppSidebar({
                 section={section}
                 collections={collections}
                 current={inLibrary && !onSearch ? view.collection : null}
-                onNew={onNewCollection}
+                onNew={me.scope === "write" || me.scope === "admin" ? onNewCollection : undefined}
                 onEdit={onEditCollection}
               />
             );
@@ -211,6 +216,9 @@ export function AppSidebar({
                 <IconAdjustments /> <span>Custom fields</span>
               </NavLink>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <AccountMenu me={me} />
           </SidebarMenuItem>
           {/* A contributor's page, not a user's: only while developing. */}
           {process.env.NODE_ENV === "development" && (
@@ -277,6 +285,7 @@ function Collections({
   onEdit?: (c: Collection) => void;
 }) {
   const { sorted, item } = useSortable("collections", collections, (c) => c.id);
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
   return (
     <SidebarSection
       id="collections"
@@ -304,13 +313,17 @@ function Collections({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start">
                   {onEdit && (
-                    <>
-                      <DropdownMenuItem onSelect={() => onEdit(c)}>
-                        <IconPencil /> Edit collection
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
+                    <DropdownMenuItem onSelect={() => onEdit(c)}>
+                      <IconPencil /> Edit collection
+                    </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onSelect={() => setSharing({ kind: "view", collection: c })}>
+                    <IconShare /> Share a link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setSharing({ kind: "upload", collection: c })}>
+                    <IconUpload /> Collect uploads
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <MoveItems s={s} />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -325,6 +338,7 @@ function Collections({
           </SidebarMenuItem>
         )}
       </SidebarMenu>
+      {sharing && <ShareDialog target={sharing} onClose={() => setSharing(null)} />}
     </SidebarSection>
   );
 }

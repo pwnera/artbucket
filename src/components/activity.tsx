@@ -34,6 +34,7 @@ type Item = {
   id: string;
   at: string;
   actor: string;
+  agent: boolean;
   verb: "added" | "suggested" | "approved" | "rejected" | "deleted" | "suggested_tags" | "edited_rules" | "restored_rules";
   label: string;
   assetId: string | null;
@@ -53,8 +54,6 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   restored_rules: { icon: IconBook, says: "restored an earlier version of" },
 };
 
-/** The app without a key is "web" to the API; a person reads it as the app. */
-const isAgent = (actor: string) => actor !== "web";
 
 /**
  * Who did what, PostHog style: every asset added, suggested, approved,
@@ -79,13 +78,14 @@ export function ActivityFeed({ first, sidebar }: { first: Page; sidebar: Sidebar
     setNext(page.next);
   }
 
-  const shown = items.filter((i) => who === "all" || (who === "agents") === isAgent(i.actor));
+  const shown = items.filter((i) => who === "all" || (who === "agents") === i.agent);
   const days = new Map<string, Item[]>();
   for (const i of shown) days.set(day(i.at), [...(days.get(day(i.at)) ?? []), i]);
 
   return (
     <SidebarProvider>
       <AppSidebar
+        me={sidebar.me}
         collections={sidebar.collections}
         brands={sidebar.brands}
         searches={sidebar.searches}
@@ -111,7 +111,7 @@ export function ActivityFeed({ first, sidebar }: { first: Page; sidebar: Sidebar
           <PageHeader
             icon={<IconActivity />}
             title="Activity"
-            description="Who did what, newest first. Agents go by the name of their key; the web app is anyone using it."
+            description="Who did what, newest first. People go by their name, agents by the name of their key."
           >
             <ToggleGroup
               type="single"
@@ -128,7 +128,7 @@ export function ActivityFeed({ first, sidebar }: { first: Page; sidebar: Sidebar
                 Agents
               </ToggleGroupItem>
               <ToggleGroupItem value="people" className="px-3">
-                Web app
+                People
               </ToggleGroupItem>
             </ToggleGroup>
           </PageHeader>
@@ -179,7 +179,7 @@ export function ActivityFeed({ first, sidebar }: { first: Page; sidebar: Sidebar
 
 function Row({ item: i }: { item: Item }) {
   const { icon: I, says } = VERB[i.verb];
-  const agent = isAgent(i.actor);
+  const agent = i.agent;
   const target = i.brand ? (
     <Link href={brandHref({ slug: i.brand.slug, default: false })} className="font-medium hover:underline">
       {i.label}
@@ -200,7 +200,7 @@ function Row({ item: i }: { item: Item }) {
         <p className="leading-6">
           <span className="inline-flex items-center gap-1 font-medium">
             {agent ? <IconRobot className="text-primary size-4" /> : <IconUser className="text-muted-foreground size-4" />}
-            {agent ? i.actor : "Web app"}
+            {i.actor === "web" ? "Web app" : i.actor}
           </span>{" "}
           <span className="text-muted-foreground">{says}</span> {target}
         </p>

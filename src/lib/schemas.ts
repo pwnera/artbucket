@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
@@ -151,6 +152,34 @@ export const CreateKey = z.strictObject({
   scope: z.enum(SCOPES),
 });
 
+const named = z.strictObject({ name: z.string().trim().min(1).max(80) });
+export const CreateOrganization = named;
+export const OrganizationPatch = named;
+export const CreateWorkspace = named;
+export const WorkspacePatch = named;
+
+const on = {
+  resource: z.enum(RESOURCES).describe("What the grant is on; it reaches everything inside it"),
+  resourceId: uuid.describe("The organization's, workspace's, collection's or asset's id"),
+  scope: z.enum(SCOPES),
+};
+export const GrantInput = z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on });
+export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
+
+export const ShareCreate = z.strictObject({
+  kind: z.enum(["view", "upload"]).describe("view: see and download; upload: send files in, as proposals"),
+  collection: uuid.optional().describe("The collection it shows, or files uploads into"),
+  asset: uuid.optional().describe("For a view link: one asset instead of a collection"),
+  name: z.string().trim().max(120).optional().describe("What the holder sees it called, e.g. Press kit"),
+  password: z.string().min(4).max(200).optional(),
+  expiresAt: z.iso.datetime({ offset: true }).optional().describe("It stops working then"),
+});
+export const ShareFinalize = z.strictObject({
+  token: uuid.describe("From POST /api/v1/shared/{token}/uploads, after the PUT"),
+  filename: z.string().min(1).max(512),
+  mime: z.string().min(1).max(255),
+});
+
 // ---- responses --------------------------------------------------------------
 
 const date = z.iso.datetime({ offset: true });
@@ -191,6 +220,7 @@ const fieldValues = z.record(z.string(), z.union([z.string(), z.number(), z.bool
 
 export const Asset = z.object({
   id: uuid,
+  workspaceId: uuid,
   sha256: z.string(),
   filename: z.string(),
   mime: z.string(),
@@ -216,7 +246,7 @@ export const Asset = z.object({
   fields: fieldValues.describe("The asset's own values"),
   inherited: fieldValues.describe("Values inherited from its collections; own values win"),
   status: z.enum(["active", "proposed", "rejected"]),
-  proposedBy: z.string().nullable().describe('For a proposal: the API key\'s name, or "web"'),
+  proposedBy: z.string().nullable().describe("For a proposal: who made it, a person's or an API key's name"),
   reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
   rights: Rights,
@@ -308,7 +338,7 @@ export const VersionMeta = z.object({
   number: z.number().int(),
   kind: z.enum(["baseline", "edit", "restore"]),
   name: z.string().nullable(),
-  actor: z.string().describe('An API key\'s name, or "web"'),
+  actor: z.string().describe("Who: a person's name, an API key's name, or \"web\" for the app without an account"),
   changed: z.array(z.string()).describe("Keys touched"),
   restoredFrom: z.number().int().nullable().describe("For a restore: the version it put back"),
   summary: z.string(),
@@ -382,7 +412,8 @@ export const Description = z.object({
 export const ActivityItem = z.object({
   id: uuid,
   at: date,
-  actor: z.string().describe('An API key\'s name, or "web" for the app'),
+  actor: z.string().describe("Who: a person's name, an API key's name, or \"web\" for the app without an account"),
+  agent: z.boolean().describe("Done with an API key"),
   verb: z.enum(["added", "suggested", "approved", "rejected", "deleted", "suggested_tags", "edited_rules", "restored_rules"]),
   label: z.string().describe("The asset's title or filename then, or the brand's name"),
   assetId: uuid.nullable(),
@@ -416,6 +447,123 @@ export const CheckResult = z.object({
 });
 
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });
+
+// ---- people and access ------------------------------------------------------
+
+const scope = z.enum(SCOPES).nullable();
+export const Organization = z.object({ id: uuid, slug: z.string(), name: z.string() });
+export const WorkspaceRef = z.object({ id: uuid, slug: z.string(), name: z.string(), organization: Organization });
+export const WorkspaceItem = z.object({ id: uuid, slug: z.string(), name: z.string(), scope: scope.describe("Yours on all of it; null when a grant inside it is all you have") });
+export const OrganizationCreated = Organization.extend({ workspace: z.object({ id: uuid, slug: z.string(), name: z.string() }) });
+
+export const Me = z.object({
+  user: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().describe("Signed in as; null for a key or nobody"),
+  key: z.boolean().describe("Calling with an API key"),
+  actor: z.string().describe("How history names you"),
+  workspace: WorkspaceRef.describe("Where this request acts: a key's workspace, or the one picked in the app"),
+  scope: scope.describe("On the whole workspace"),
+  orgScope: scope.describe("On its organization; admin there manages people and workspaces"),
+  narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
+  workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
+  auth: z.object({
+    signUp: z.boolean().describe("Anyone may make an account: true only before the first one exists"),
+    oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
+    anonymous: scope.describe("What a request without a key or a session may do"),
+  }),
+});
+
+export const Grant = z.object({
+  id: uuid,
+  resource: z.enum(RESOURCES),
+  resourceId: uuid,
+  workspaceId: uuid.nullable(),
+  label: z.string().nullable().describe("The name of what it is on"),
+  scope: z.enum(SCOPES),
+  createdAt: date,
+});
+export const Invitation = z.object({
+  id: uuid,
+  email: z.string(),
+  resource: z.enum(RESOURCES),
+  resourceId: uuid,
+  label: z.string().nullable(),
+  scope: z.enum(SCOPES),
+  invitedBy: z.string(),
+  expiresAt: date,
+  createdAt: date,
+});
+export const InvitationCreated = Invitation.extend({ url: z.url().describe("Send this to them. Shown once") });
+export const Members = z.object({
+  data: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), grants: z.array(Grant) })),
+  invitations: z.array(Invitation).describe("Waiting to be taken"),
+});
+export const InvitationInfo = z.object({
+  email: z.string().describe("Who it was meant for"),
+  organization: z.string(),
+  resource: z.enum(RESOURCES),
+  label: z.string().nullable(),
+  scope: z.enum(SCOPES),
+  invitedBy: z.string(),
+  expiresAt: date,
+  signUp: z.boolean().describe("No account has this email yet"),
+});
+export const Accepted = z.object({ organizationId: uuid, workspaceId: uuid.nullable(), resource: z.enum(RESOURCES), scope: z.enum(SCOPES) });
+
+export const Share = z.object({
+  id: uuid,
+  kind: z.enum(["view", "upload"]),
+  name: z.string().nullable(),
+  target: z.object({ type: z.enum(["collection", "asset", "workspace"]), id: uuid.nullable(), label: z.string().nullable() }),
+  url: z.url(),
+  password: z.boolean(),
+  expiresAt: date.nullable(),
+  expired: z.boolean(),
+  createdBy: z.string(),
+  createdAt: date,
+});
+export const Shared = z.object({
+  share: z.object({
+    kind: z.enum(["view", "upload"]),
+    name: z.string().nullable(),
+    workspace: z.string().nullable(),
+    organization: z.string().nullable(),
+    target: Share.shape.target,
+    expiresAt: date.nullable(),
+  }),
+  data: z.array(
+    z.object({
+      id: uuid,
+      filename: z.string(),
+      title: z.string().nullable(),
+      description: z.string().nullable(),
+      creator: z.string().nullable(),
+      copyright: z.string().nullable(),
+      mime: z.string(),
+      size: z.number().int(),
+      width: z.number().int().nullable(),
+      height: z.number().int().nullable(),
+      url: z.url(),
+      download: z.url(),
+      thumbnail: z.url().nullable(),
+    }),
+  ),
+  total: z.number().int(),
+});
+
+export const AuditEntry = z.object({
+  id: uuid,
+  at: date,
+  organizationId: uuid.nullable(),
+  workspaceId: uuid.nullable(),
+  actor: z.string(),
+  userId: z.string().nullable(),
+  keyId: uuid.nullable(),
+  action: z.string().describe("user.signed_in, grant.set, key.created, share.revoked..."),
+  target: z.string().nullable(),
+  detail: z.record(z.string(), z.unknown()).nullable(),
+  ip: z.string().nullable(),
+});
+export const Audit = z.object({ data: z.array(AuditEntry), next: date.nullable().describe("Pass as `before` for the next page") });
 
 export const ErrorBody = z.object({
   error: z.object({ code: z.string(), message: z.string(), detail: z.unknown().optional() }),

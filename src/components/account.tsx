@@ -1,0 +1,238 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useId, useState } from "react";
+import {
+  IconBuilding,
+  IconCheck,
+  IconChevronDown,
+  IconLogin,
+  IconLogout,
+  IconPlus,
+  IconSelector,
+  IconUsers,
+} from "@tabler/icons-react";
+import { toast } from "sonner";
+import { Logo } from "@/components/brand";
+import { send } from "@/components/collections";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
+import type { Scope } from "@/lib/scopes";
+
+type Ref = { id: string; slug: string; name: string };
+export type WorkspaceRef = Ref & { organization: Ref };
+
+/** GET /api/v1/me: who is looking, where, and what they may do there. */
+export type Me = {
+  user: { id: string; name: string; email: string } | null;
+  key: boolean;
+  actor: string;
+  workspace: WorkspaceRef;
+  scope: Scope | null;
+  orgScope: Scope | null;
+  narrowed: boolean;
+  workspaces: WorkspaceRef[];
+  auth: { signUp: boolean; oidc: { name: string } | null; anonymous: Scope | null };
+};
+
+/** Go somewhere and redraw it from the server: after signing in or out, or switching workspace, every page's data is someone else's. */
+export function useGo() {
+  const router = useRouter();
+  return (path: string) => {
+    router.push(path);
+    router.refresh();
+  };
+}
+
+/** The cookie lib/core/access.ts reads to pick the workspace. A year: it is a preference, not a secret. */
+export function pickWorkspace(id: string) {
+  document.cookie = `ab_workspace=${id}; path=/; max-age=31536000; samesite=lax`;
+}
+
+export async function signOut(go: (path: string) => void) {
+  await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  go("/login");
+}
+
+const initials = (s: string) =>
+  s
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+
+/**
+ * The sidebar's top: the mark, the workspace you are in and its
+ * organization. Opens onto every workspace you can switch to, grouped by
+ * organization, and making a new one.
+ */
+export function WorkspaceSwitcher({ me }: { me: Me }) {
+  const go = useGo();
+  const [making, setMaking] = useState<"workspace" | "organization" | null>(null);
+  const { isMobile } = useSidebar();
+  const orgs = new Map<string, { org: Ref; workspaces: WorkspaceRef[] }>();
+  for (const w of me.workspaces) {
+    const o = orgs.get(w.organization.id) ?? { org: w.organization, workspaces: [] };
+    o.workspaces.push(w);
+    orgs.set(w.organization.id, o);
+  }
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent gap-3">
+            <Logo />
+            <span className="grid min-w-0 flex-1 text-left leading-tight">
+              <span className="truncate font-semibold tracking-tight">{me.workspace.name}</span>
+              <span className="text-muted-foreground truncate text-xs">{me.workspace.organization.name}</span>
+            </span>
+            <IconSelector className="text-muted-foreground ml-auto" />
+          </SidebarMenuButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-64" side={isMobile ? "bottom" : "right"} align="start">
+          {[...orgs.values()].map(({ org, workspaces }, i) => (
+            <DropdownMenuGroup key={org.id}>
+              {i > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className="text-muted-foreground flex items-center gap-1.5 text-xs font-normal">
+                <IconBuilding className="size-3.5" /> {org.name}
+              </DropdownMenuLabel>
+              {workspaces.map((w) => (
+                <DropdownMenuItem key={w.id} onSelect={() => w.id !== me.workspace.id && (pickWorkspace(w.id), go("/"))}>
+                  <span className="bg-muted text-muted-foreground flex size-5 items-center justify-center rounded text-[11px] font-semibold uppercase">
+                    {w.name[0]}
+                  </span>
+                  <span className="truncate">{w.name}</span>
+                  {w.id === me.workspace.id && <IconCheck className="ml-auto" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ))}
+          {(me.orgScope === "admin" || me.user) && <DropdownMenuSeparator />}
+          {me.orgScope === "admin" && (
+            <DropdownMenuItem onSelect={() => setMaking("workspace")}>
+              <IconPlus /> New workspace in {me.workspace.organization.name}
+            </DropdownMenuItem>
+          )}
+          {me.user && (
+            <DropdownMenuItem onSelect={() => setMaking("organization")}>
+              <IconBuilding /> New organization
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {making && <MakeDialog kind={making} org={me.workspace.organization.name} onClose={() => setMaking(null)} />}
+    </>
+  );
+}
+
+/** Name a new workspace or organization, then go into it. */
+export function MakeDialog({ kind, org, onClose }: { kind: "workspace" | "organization"; org?: string; onClose: () => void }) {
+  const id = useId();
+  const go = useGo();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <form
+          className="grid gap-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
+            if (!name) return;
+            setBusy(true);
+            const made = await send("POST", kind === "workspace" ? "/api/v1/workspaces" : "/api/v1/organizations", { name });
+            setBusy(false);
+            if (!made) return;
+            toast.success(`Made ${name}`);
+            pickWorkspace(kind === "workspace" ? made.id : made.workspace.id);
+            onClose();
+            go("/");
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{kind === "workspace" ? "New workspace" : "New organization"}</DialogTitle>
+            <DialogDescription>
+              {kind === "workspace"
+                ? `A library of its own in ${org}: its own assets, collections, fields, brands and keys. The organization's admins can open it.`
+                : "A team of its own, with a first workspace. You are its admin; invite people from Team."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor={id}>Name</Label>
+            <Input id={id} name="name" required maxLength={80} autoFocus placeholder={kind === "workspace" ? "Autumn campaign" : "Acme Studio"} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {kind === "workspace" ? "Make workspace" : "Make organization"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The sidebar's foot: who you are, Team, and signing out; or signing in, for nobody. */
+export function AccountMenu({ me }: { me: Me }) {
+  const { isMobile } = useSidebar();
+  const go = useGo();
+  if (!me.user) {
+    return (
+      <SidebarMenuButton asChild tooltip="Sign in">
+        <Link href="/login">
+          <IconLogin /> <span>Sign in</span>
+        </Link>
+      </SidebarMenuButton>
+    );
+  }
+  const who = me.user.name || me.user.email;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent" tooltip={who}>
+          <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+            {initials(who)}
+          </span>
+          <span className="grid min-w-0 flex-1 text-left leading-tight">
+            <span className="truncate text-sm font-medium">{who}</span>
+            <span className="text-muted-foreground truncate text-xs">{me.user.email}</span>
+          </span>
+          <IconChevronDown className="text-muted-foreground ml-auto" />
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" side={isMobile ? "top" : "right"} align="end">
+        <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+          {me.scope ? `${me.scope} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
+        </DropdownMenuLabel>
+        {(me.scope === "write" || me.scope === "admin" || me.narrowed) && (
+          <DropdownMenuItem asChild>
+            <Link href="/team">
+              <IconUsers /> Team and sharing
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => signOut(go)}>
+          <IconLogout /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

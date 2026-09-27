@@ -1,3 +1,4 @@
+import type { Caller } from "@/lib/core/access";
 import { currentVersion, getAsset, type Asset } from "@/lib/core/assets";
 import { listRules } from "@/lib/core/brand";
 import { AssetError } from "@/lib/core/errors";
@@ -23,8 +24,9 @@ type Suggestion = { id: string; title: string; url: string; why: string };
 const title = (a: Pick<Asset, "filename" | "metadata">) => a.metadata?.title ?? a.filename;
 const url = (id: string, rendition?: string | null) => `${env.APP_URL}/a/${id}${rendition ? `/${rendition}` : ""}`;
 
-export async function checkUse({ asset: id, context, brand, ...use }: Check) {
-  const asset = await getAsset(id);
+export async function checkUse(caller: Caller, { asset: id, context, brand, ...use }: Check) {
+  const ws = caller.workspace.id;
+  const asset = await getAsset(caller, id);
   if (!asset) throw new AssetError("not_found", `No asset ${id}`);
   const date = use.date ?? today();
   const reasons: Reason[] = [];
@@ -51,11 +53,11 @@ export async function checkUse({ asset: id, context, brand, ...use }: Check) {
 
   if (context) {
     // Rules whose default points at this asset, and the variant they have for this context.
-    const pointing = (await listRules({ asset: id, brand })).filter((r) => r.context === null);
+    const pointing = (await listRules(ws, { asset: id, brand })).filter((r) => r.context === null);
     const variants = new Map<string, Awaited<ReturnType<typeof listRules>>>();
     for (const r of pointing) {
       const b = r.brand!;
-      if (!variants.has(b)) variants.set(b, await listRules({ brand: b, context }));
+      if (!variants.has(b)) variants.set(b, await listRules(ws, { brand: b, context }));
       const variant = variants.get(b)!.find((v) => v.key === r.key);
       if (!variant || variant.context !== context || variant.assets.some((a) => a.id === id)) continue;
       const names = variant.assets.map((a) => a.title ?? a.filename).join(", ");

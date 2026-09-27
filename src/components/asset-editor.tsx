@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconBook, IconCertificate, IconCheck, IconDownload, IconLink, IconPhoto, IconReplace, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBook, IconCertificate, IconCheck, IconDownload, IconLink, IconPhoto, IconReplace, IconShare, IconSparkles, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send, type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";
@@ -14,6 +14,7 @@ import { Thumb, type Asset } from "@/components/gallery";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShareDialog } from "@/components/share-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -64,6 +65,7 @@ export function AssetEditor({
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const tags = useLibraryTags();
   const m = asset.metadata ?? {};
 
@@ -183,6 +185,12 @@ export function AssetEditor({
             <Button variant="outline" size="sm" type="button" onClick={copyLink} title="A link to this asset, in the library">
               <IconLink /> <span className="sr-only sm:not-sr-only">Copy link</span>
             </Button>
+            {asset.status === "active" && (
+              <Button variant="outline" size="sm" type="button" onClick={() => setSharing(true)} title="A link for someone without an account">
+                <IconShare /> <span className="sr-only sm:not-sr-only">Share</span>
+              </Button>
+            )}
+            {sharing && <ShareDialog target={{ kind: "view", asset: { id: asset.id, name: m.title || asset.filename } }} onClose={() => setSharing(false)} />}
             {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
             <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}

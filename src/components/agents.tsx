@@ -61,6 +61,7 @@ export function Agents({
   return (
     <SidebarProvider>
       <AppSidebar
+        me={sidebar.me}
         collections={sidebar.collections}
         brands={sidebar.brands}
         searches={sidebar.searches}
@@ -92,8 +93,9 @@ export function Agents({
               <div className="space-y-1">
                 <p className="font-medium">Without a key, anyone can {anonymous === "admin" ? "do anything" : "change everything"}</p>
                 <p className="text-muted-foreground">
-                  That&apos;s fine on your own machine. Before this server is reachable by others, make the keys you need,
-                  then set <code className="font-mono text-xs">ANONYMOUS_SCOPE=read</code> (or <code className="font-mono text-xs">none</code>).
+                  {sidebar.me.auth.signUp &&
+                    "Nobody has an account yet, so the library is open. Make the first account (Sign in, at the bottom of the sidebar): from then on, only people signed in and keys get in. "}
+                  Or set <code className="font-mono text-xs">ANONYMOUS_SCOPE=read</code> (or <code className="font-mono text-xs">none</code>) to decide it yourself.
                 </p>
               </div>
             </div>

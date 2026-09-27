@@ -334,6 +334,7 @@ export function BrandEditor({
   return (
     <SidebarProvider>
       <AppSidebar
+        me={sidebar.me}
         collections={sidebar.collections}
         brands={sidebar.brands}
         searches={sidebar.searches}

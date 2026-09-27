@@ -6,12 +6,15 @@
  *
  *   pnpm seed:demo                      # against http://localhost:3000
  *   APP_URL=https://demo.example pnpm seed:demo
+ *   ARTBUCKET_KEY=ab_... pnpm seed:demo # once someone has an account: a write key
  *
  * Safe to re-run: fields and collections are reused by key and name,
  * identical bytes dedupe on upload, and existing brand rules are left as they are.
  */
 
 const APP = process.env.APP_URL ?? "http://localhost:3000";
+/** Once anyone has an account, the library is closed without one: pass a write key. */
+const KEY = process.env.ARTBUCKET_KEY;
 const UA = "artbucket-seed-demo/0.1 (https://github.com/pwnera/artbucket)";
 
 type Kind = "Poster" | "Still" | "Concept art" | "Behind the scenes";
@@ -98,7 +101,7 @@ const ALLOWED = /^(CC BY \d\.\d|CC0|Public domain)$/;
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(APP + path, {
     method,
-    headers: body ? { "content-type": "application/json" } : {},
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);

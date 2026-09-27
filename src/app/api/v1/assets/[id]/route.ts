@@ -1,13 +1,12 @@
-import { body, ok, route } from "@/lib/api";
+import { body, narrow, ok, route } from "@/lib/api";
 import { deleteAsset, getAsset, updateAsset } from "@/lib/core/assets";
-import { actorOf } from "@/lib/core/brands";
 import { AssetPatch } from "@/lib/schemas";
 
 type P = { id: string };
 const missing = "No such asset";
 
-export const GET = route<P>("read", async (_req, { id }) => {
-  const asset = await getAsset(id);
+export const GET = route<P>(narrow("read"), async (_req, { id }, caller) => {
+  const asset = await getAsset(caller, id);
   return asset && ok({ data: asset });
 }, missing);
 
@@ -21,11 +20,11 @@ export const GET = route<P>("read", async (_req, { id }) => {
  * keeps it, so whoever proposed it can read why. `proposedTags` replaces the
  * pending suggestions, so accepting one is moving it into `tags`.
  */
-export const PATCH = route<P>("write", async (req, { id }, caller) => {
-  const asset = await updateAsset(id, await body(req, AssetPatch), await actorOf(caller));
+export const PATCH = route<P>(narrow("write"), async (req, { id }, caller) => {
+  const asset = await updateAsset(caller, id, await body(req, AssetPatch));
   return asset && ok({ data: asset });
 }, missing);
 
-export const DELETE = route<P>("write", async (_req, { id }, caller) =>
-  (await deleteAsset(id, await actorOf(caller))) ? ok({ data: { deleted: true } }) : null,
+export const DELETE = route<P>(narrow("write"), async (_req, { id }, caller) =>
+  (await deleteAsset(caller, id)) ? ok({ data: { deleted: true } }) : null,
 missing);

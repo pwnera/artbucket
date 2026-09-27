@@ -392,6 +392,8 @@ export function Gallery({
   }, [uploads, uploading]);
 
   const narrowed = isNarrowed(view);
+  // A viewer can't add anything; someone with grants on some collections may, into those.
+  const canUpload = sidebar.me.scope !== "read" && (sidebar.me.scope !== null || sidebar.me.narrowed);
   const filtered = narrowed || view.collection !== null || view.review;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered;
@@ -471,10 +473,11 @@ export function Gallery({
         e.preventDefault();
         dragDepth.current = 0;
         setDragging(false);
-        start(e.dataTransfer.files);
+        if (canUpload) start(e.dataTransfer.files);
       }}
     >
       <AppSidebar
+        me={sidebar.me}
         collections={collections}
         brands={sidebar.brands}
         searches={searches}
@@ -482,7 +485,7 @@ export function Gallery({
         onNewCollection={() => setEditing("new")}
         onEditCollection={setEditing}
         onDeleteSearch={forget}
-        onUpload={() => input.current?.click()}
+        onUpload={canUpload ? () => input.current?.click() : undefined}
       />
 
       <SidebarInset className="min-w-0">
@@ -505,11 +508,13 @@ export function Gallery({
             />
           </div>
           {/* Stays enabled mid-upload: a second batch queues alongside the first. */}
-          <GoogleFontImport into={into} onDone={() => void refresh()} />
-          <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
-            <IconUpload />
-            <span className="hidden sm:inline">Upload</span>
-          </Button>
+          {canUpload && <GoogleFontImport into={into} onDone={() => void refresh()} />}
+          {canUpload && (
+            <Button size="sm" onClick={() => input.current?.click()} aria-busy={uploading}>
+              <IconUpload />
+              <span className="hidden sm:inline">Upload</span>
+            </Button>
+          )}
           <input
             ref={input}
             type="file"

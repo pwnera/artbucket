@@ -1,43 +1,34 @@
 import { createHash, randomBytes } from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
-import { env } from "@/lib/env";
+import type { Caller } from "@/lib/core/access";
+import { recordAudit } from "@/lib/core/audit";
 import type { Scope } from "@/lib/scopes";
 
-const hash = (secret: string) => createHash("sha256").update(secret).digest("hex");
+export const hashKey = (secret: string) => createHash("sha256").update(secret).digest("hex");
 
 const PUBLIC = { id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.prefix, scope: apiKeys.scope, createdAt: apiKeys.createdAt };
 
-/** The secret is returned once, here, and never stored. */
-export async function createKey(input: { name: string; scope: Scope }) {
+/** A key for the caller's workspace. The secret is returned once, here, and never stored. */
+export async function createKey(caller: Caller, input: { name: string; scope: Scope }) {
   const secret = `ab_${randomBytes(32).toString("base64url")}`;
   const [row] = await db
     .insert(apiKeys)
-    .values({ ...input, prefix: secret.slice(0, 10), hash: hash(secret) })
+    .values({ ...input, workspaceId: caller.workspace.id, prefix: secret.slice(0, 10), hash: hashKey(secret) })
     .returning(PUBLIC);
+  await recordAudit(caller, "key.created", row.name, { scope: row.scope });
   return { ...row, secret };
 }
 
-export const listKeys = () => db.select(PUBLIC).from(apiKeys).orderBy(asc(apiKeys.createdAt));
+export const listKeys = (caller: Caller) =>
+  db.select(PUBLIC).from(apiKeys).where(eq(apiKeys.workspaceId, caller.workspace.id)).orderBy(asc(apiKeys.createdAt));
 
-export async function revokeKey(id: string) {
-  return (await db.delete(apiKeys).where(eq(apiKeys.id, id)).returning()).length > 0;
-}
-
-/** Who is calling: a key's scope, or the anonymous one. */
-export type Caller = { scope: Scope | null; key: string | null };
-
-/**
- * Resolve the caller from `Authorization: Bearer ab_...`. A key that is
- * presented but unknown is `undefined`, not anonymous: a revoked key should
- * fail loudly, never quietly fall back to whatever anonymous may do.
- */
-export async function callerFrom(req: Request): Promise<Caller | undefined> {
-  const auth = req.headers.get("authorization");
-  if (!auth) return { scope: env.ANONYMOUS_SCOPE, key: null };
-  const secret = auth.match(/^Bearer\s+(\S+)$/i)?.[1];
-  if (!secret) return undefined;
-  const [row] = await db.select(PUBLIC).from(apiKeys).where(eq(apiKeys.hash, hash(secret)));
-  return row ? { scope: row.scope, key: row.id } : undefined;
+export async function revokeKey(caller: Caller, id: string) {
+  const [gone] = await db
+    .delete(apiKeys)
+    .where(and(eq(apiKeys.id, id), eq(apiKeys.workspaceId, caller.workspace.id)))
+    .returning(PUBLIC);
+  if (gone) await recordAudit(caller, "key.revoked", gone.name, { scope: gone.scope });
+  return !!gone;
 }

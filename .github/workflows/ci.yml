@@ -40,6 +40,7 @@ jobs:
       S3_SECRET_ACCESS_KEY: artbucket
       S3_FORCE_PATH_STYLE: "true"
       APP_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-secret-not-for-anything-real-0123456789
 
     steps:
       - uses: actions/checkout@v5

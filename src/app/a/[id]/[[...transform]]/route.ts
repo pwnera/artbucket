@@ -1,5 +1,5 @@
-import { authorize, fail, handle } from "@/lib/api";
-import { describeAsset, downloadAsset, getAsset } from "@/lib/core/assets";
+import { authorize, fail, handle, narrow } from "@/lib/api";
+import { describeAsset, downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { isRenderable, renderAsset } from "@/lib/core/renditions";
 import { getObject, originalKey } from "@/lib/storage";
 import { parseTransform } from "@/lib/transform";
@@ -17,19 +17,21 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  * The URL is the whole API. Nothing here needs a session, a download button, or
  * a prior round trip - an agent can build the URL it wants and fetch it. The
  * bytes are public to anyone holding the URL, so they can be embedded; the
- * description is API data and needs the read scope.
+ * description is API data and needs read on the asset.
  */
 export async function GET(req: Request, { params }: Ctx) {
   try {
     const { id, transform } = await params;
 
-    const asset = await getAsset(id);
+    const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
 
     if (!transform?.length && wantsJson(req)) {
-      const caller = await authorize(req, "read");
+      const caller = await authorize(req, narrow("read"));
       if (caller instanceof Response) return caller;
-      return Response.json(describeAsset(asset), {
+      const seen = await getAsset(caller, id);
+      if (!seen) return fail(404, "not_found", "No such asset");
+      return Response.json(describeAsset(seen), {
         headers: { "Cache-Control": "private, no-cache", Vary: "Accept" },
       });
     }

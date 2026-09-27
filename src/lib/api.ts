@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
-import { callerFrom, type Caller } from "@/lib/core/keys";
+import { callerFrom, type Caller } from "@/lib/core/access";
+import { widest } from "@/lib/access";
+import { env } from "@/lib/env";
 import { allows, type Scope } from "@/lib/scopes";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
@@ -16,6 +18,8 @@ const STATUS: Record<AssetError["code"], number> = {
   invalid: 422,
   conflict: 409,
   forbidden: 403,
+  gone: 410,
+  password: 401,
 };
 
 /** One place that turns thrown errors into the API's error shape. */
@@ -32,18 +36,38 @@ export async function body<T extends z.ZodType>(req: Request, schema: T): Promis
 }
 
 /**
+ * What a route needs. A scope means that scope on the whole workspace.
+ * `narrow(scope)` lets in a caller who has it on part of the workspace only,
+ * a collection or an asset: core then checks the thing itself. `null` lets
+ * in anyone who is somebody, or nobody: core decides (people, invitations).
+ */
+export type Need = Scope | { scope: Scope; narrow: true } | null;
+export const narrow = (scope: Scope): Need => ({ scope, narrow: true });
+
+const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
  * Resolve the caller and check its scope. Returns the caller, or the response
  * to send instead: 401 when a key is missing or unknown, 403 when a real key
- * lacks the scope.
+ * or a signed-in person lacks the scope.
  */
-export async function authorize(req: Request, need: Scope): Promise<Caller | Response> {
+export async function authorize(req: Request, need: Need): Promise<Caller | Response> {
+  // Cookies ride along on any request a browser makes, so a page elsewhere
+  // could write here as whoever is signed in. Browsers always send Origin on
+  // these requests; nothing without cookies (a key, a CLI) needs it.
+  if (!SAFE.has(req.method) && !req.headers.has("authorization")) {
+    const origin = req.headers.get("origin");
+    if (origin && origin !== new URL(env.APP_URL).origin) return fail(403, "forbidden", "Cross-origin requests are refused");
+  }
   const caller = await callerFrom(req);
   const challenge = { "WWW-Authenticate": 'Bearer realm="artbucket"' };
   if (!caller) return fail(401, "unauthorized", "Unknown API key", undefined, challenge);
-  if (allows(caller.scope, need)) return caller;
-  return caller.key
-    ? fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${need}`)
-    : fail(401, "unauthorized", `Send an API key with the ${need} scope`, undefined, challenge);
+  if (need === null) return caller;
+  const scope = typeof need === "string" ? need : need.scope;
+  if (allows(typeof need === "string" ? caller.scope : widest(caller), scope)) return caller;
+  if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${scope}`);
+  if (caller.user) return fail(403, "forbidden", `You need ${scope} in ${caller.workspace.name} for this`);
+  return fail(401, "unauthorized", `Sign in, or send an API key with the ${scope} scope`, undefined, challenge);
 }
 
 /**
@@ -51,7 +75,7 @@ export async function authorize(req: Request, need: Scope): Promise<Caller | Res
  * Response, or `null` for a 404 with the given message.
  */
 export function route<P = object>(
-  need: Scope,
+  need: Need,
   fn: (req: Request, params: P, caller: Caller) => Promise<Response | null>,
   missing = "Not found",
 ) {

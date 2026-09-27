@@ -22,7 +22,8 @@ const data = (s: z.ZodType) => z.object({ data: s });
 
 type Op = {
   summary: string;
-  scope: Scope | "public";
+  /** "any": anyone gets in; what they may do is checked on the thing itself. */
+  scope: Scope | "public" | "any";
   description?: string;
   body?: z.ZodType;
   query?: Record<string, { schema: object; description: string }>;
@@ -33,10 +34,13 @@ type Op = {
 function op({ summary, scope, description, body, query, ok: [status, desc, res], extra }: Op) {
   return {
     summary,
-    description: [description, scope === "public" ? "No key needed." : `Scope: \`${scope}\`.`]
+    description: [
+      description,
+      scope === "public" ? "No key needed." : scope === "any" ? "Any caller; the scope needed is checked on what it acts on." : `Scope: \`${scope}\`.`,
+    ]
       .filter(Boolean)
       .join("\n\n"),
-    ...(scope === "public" ? { security: [] } : { "x-scope": scope }),
+    ...(scope === "public" ? { security: [] } : scope === "any" ? {} : { "x-scope": scope }),
     ...(query
       ? { parameters: Object.entries(query).map(([name, p]) => ({ name, in: "query", ...p })) }
       : {}),
@@ -66,15 +70,21 @@ export function openapi(serverUrl: string) {
       title: "artbucket",
       version: "1",
       description:
-        "Agent-first asset management. The web UI is built on this API and nothing else. " +
-        "Send `Authorization: Bearer <key>`; scopes are a ladder: read < propose < write < admin. " +
-        "Agents (MCP at POST /api/v1/mcp) usually get `propose`: what they add waits for a human.",
+        "Agent-first asset management. The web UI is built on this API and nothing else, beside signing in at /api/auth. " +
+        "Send `Authorization: Bearer <key>`: a key works in one workspace with one scope, and scopes are a ladder: " +
+        "read < propose < write < admin. People signed in to the app carry a session cookie instead, and their scope is " +
+        "what their grants add up to: on the organization, the workspace, or single collections and assets. A scope " +
+        "shown as needed on the workspace is also enough on the one collection or asset a route acts on. Agents (MCP at " +
+        "POST /api/v1/mcp) usually get `propose`: what they add waits for a human.",
     },
     servers: [{ url: serverUrl }],
     components: {
-      securitySchemes: { bearer: { type: "http", scheme: "bearer", description: "An API key: ab_..." } },
+      securitySchemes: {
+        bearer: { type: "http", scheme: "bearer", description: "An API key: ab_..." },
+        session: { type: "apiKey", in: "cookie", name: "better-auth.session_token", description: "Signed in, at /api/auth" },
+      },
     },
-    security: [{ bearer: [] }, {}],
+    security: [{ bearer: [] }, { session: [] }, {}],
     paths: {
       "/api/v1/uploads": {
         post: op({
@@ -381,6 +391,162 @@ export function openapi(serverUrl: string) {
           scope: "write",
           description: "Replaces the brand's rules with the version's. The restore is a new version, so it can be undone.",
           ok: [200, "Restored", data(S.Restored)],
+        }),
+      },
+      "/api/v1/me": {
+        get: op({
+          summary: "Who is calling",
+          scope: "any",
+          description:
+            "The person or key, the workspace this request acts in (a key's own; for a person, the one in the " +
+            "`ab_workspace` cookie if they can open it), the scope there and on its organization, every workspace " +
+            "they can switch to, and how one signs in here.",
+          ok: [200, "You", data(S.Me)],
+        }),
+      },
+      "/api/v1/organizations": {
+        get: op({ summary: "Your organizations", scope: "any", ok: [200, "Organizations you have a grant in", data(z.array(S.Organization))] }),
+        post: op({
+          summary: "Make an organization",
+          scope: "any",
+          description: "With a first workspace, Library. Needs a signed-in person, who becomes its admin.",
+          body: S.CreateOrganization,
+          ok: [201, "Made", data(S.OrganizationCreated)],
+        }),
+      },
+      "/api/v1/organizations/{id}": {
+        parameters: [path("id", "Organization id")],
+        patch: op({ summary: "Rename the organization", scope: "any", description: "Admin on the organization.", body: S.OrganizationPatch, ok: [200, "Renamed", data(S.Organization)] }),
+      },
+      "/api/v1/workspaces": {
+        get: op({
+          summary: "Workspaces in this organization",
+          scope: "any",
+          description: "Those you can open, with your scope on each; null where a grant inside it is all you have.",
+          ok: [200, "Workspaces", data(z.array(S.WorkspaceItem))],
+        }),
+        post: op({
+          summary: "Make a workspace",
+          scope: "any",
+          description: "A library of its own in the current organization, with a default brand. Admin on the organization.",
+          body: S.CreateWorkspace,
+          ok: [201, "Made", data(S.WorkspaceItem)],
+        }),
+      },
+      "/api/v1/workspaces/{id}": {
+        parameters: [path("id", "Workspace id")],
+        patch: op({ summary: "Rename a workspace", scope: "any", description: "Admin there.", body: S.WorkspacePatch, ok: [200, "Renamed", data(S.WorkspaceItem.omit({ scope: true }))] }),
+      },
+      "/api/v1/members": {
+        get: op({
+          summary: "People and their access",
+          scope: "admin",
+          description:
+            "Everyone with a grant in the organization, with the grants you may see, and invitations still waiting. " +
+            "An organization admin sees every workspace's grants; a workspace admin, the organization's and their workspace's.",
+          ok: [200, "Members", S.Members],
+        }),
+      },
+      "/api/v1/grants": {
+        post: op({
+          summary: "Give a member access, or change it",
+          scope: "any",
+          description:
+            "A scope on the organization (its admins only), a workspace, a collection or one asset (admins of the " +
+            "workspace). Grants add up and reach down. Only for people already in the organization; invite anyone else.",
+          body: S.GrantInput,
+          ok: [200, "The grant", data(S.Grant)],
+        }),
+      },
+      "/api/v1/grants/{id}": {
+        parameters: [path("id", "Grant id")],
+        delete: op({ summary: "Take access away", scope: "any", description: "An organization keeps at least one admin.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/invitations": {
+        post: op({
+          summary: "Invite someone",
+          scope: "any",
+          description:
+            "A grant waiting for whoever holds the link: they make an account or sign in, and have it. The `url` is " +
+            "in this response only. It works once, for seven days. Same rules as giving a grant.",
+          body: S.InvitationInput,
+          ok: [201, "The invitation, with its link", data(S.InvitationCreated)],
+        }),
+      },
+      "/api/v1/invitations/{id}": {
+        parameters: [path("id", "Invitation id")],
+        delete: op({ summary: "Withdraw an invitation", scope: "any", ok: [200, "Withdrawn", S.Deleted] }),
+      },
+      "/api/v1/invite/{token}": {
+        parameters: [path("token", "From the invitation link")],
+        get: op({ summary: "What an invitation offers", scope: "public", ok: [200, "The invitation", data(S.InvitationInfo)] }),
+        post: op({ summary: "Accept an invitation", scope: "any", description: "As the signed-in person.", ok: [200, "Accepted", data(S.Accepted)] }),
+      },
+      "/api/v1/shares": {
+        get: op({ summary: "Share links", scope: "write", description: "The workspace's, on what you may share.", ok: [200, "Links", data(z.array(S.Share))] }),
+        post: op({
+          summary: "Make a share link",
+          scope: "write",
+          description:
+            "For people without an account. `view`: a collection's approved assets, or one asset, to see and download. " +
+            "`upload`: files sent in land `proposed`, in the collection (or the workspace), for review. Either can " +
+            "expire and ask for a password. Needs write on what it shares.",
+          body: S.ShareCreate,
+          ok: [201, "The link", data(S.Share)],
+        }),
+      },
+      "/api/v1/shares/{id}": {
+        parameters: [path("id", "Share link id")],
+        delete: op({ summary: "Revoke a share link", scope: "write", description: "It stops working at once.", ok: [200, "Revoked", S.Deleted] }),
+      },
+      "/api/v1/shared/{token}": {
+        parameters: [path("token", "From the share link")],
+        get: op({
+          summary: "Open a share link",
+          scope: "public",
+          description:
+            "What the link is, and for a view link its approved assets with download URLs. A password goes in " +
+            "`X-Share-Password`: 401 `password` without it or with a wrong one, 410 `gone` once expired.",
+          query: {
+            limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 100 }, description: "Page size" },
+            offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
+          },
+          ok: [200, "The link's contents", S.Shared],
+        }),
+      },
+      "/api/v1/shared/{token}/uploads": {
+        parameters: [path("token", "From an upload link")],
+        post: op({
+          summary: "Start an upload through a link",
+          scope: "public",
+          description: "Like POST /api/v1/uploads: PUT the bytes to `uploadUrl`, then hand them in.",
+          body: S.CreateUpload,
+          ok: [200, "An upload ticket", S.UploadTicket],
+        }),
+      },
+      "/api/v1/shared/{token}/assets": {
+        parameters: [path("token", "From an upload link")],
+        post: op({
+          summary: "Hand in an upload through a link",
+          scope: "public",
+          description: "It lands proposed, in the link's collection. The guest learns it arrived, nothing about the library.",
+          body: S.ShareFinalize,
+          ok: [201, "Received", data(z.object({ received: z.literal(true), deduped: z.boolean() }))],
+        }),
+      },
+      "/api/v1/audit": {
+        get: op({
+          summary: "The audit log",
+          scope: "admin",
+          description:
+            "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, " +
+            "workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace " +
+            "admin, the workspace's.",
+          query: {
+            before: { schema: { type: "string", format: "date-time" }, description: "The `next` of the previous page" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 50 }, description: "Page size" },
+          },
+          ok: [200, "Entries", S.Audit],
         }),
       },
       "/api/v1/keys": {
