@@ -23,6 +23,7 @@ import {
   IconSparkles,
   IconTypography,
   IconUpload,
+  IconLink,
   IconX,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ import { CollectionDialog, CollectionIcon, send, type Collection } from "@/compo
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
 import { FontThumb, GoogleFontImport } from "@/components/font-preview";
+import { LinkImport, Lottie } from "@/components/media";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import { SelectionBar } from "@/components/selection-bar";
 import { useCan } from "@/components/can";
@@ -61,6 +63,7 @@ import { today, type Origin, type Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
+import { hasPreview, isLottie } from "@/lib/preview";
 import type { SidebarData } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
@@ -72,6 +75,8 @@ export type Asset = {
   size: number;
   width: number | null;
   height: number | null;
+  /** What the file shows as when it isn't an image (lib/preview.ts). */
+  probe: Record<string, unknown> | null;
   tags: string[];
   fields: Record<string, FieldValue>;
   inherited: Record<string, FieldValue>;
@@ -179,6 +184,7 @@ export function Gallery({
   const can = useCan();
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
   const [fonts, setFonts] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   const [collections, setCollections] = useState(sidebar.collections);
   const [reviewCount, setReviewCount] = useState(sidebar.reviewCount);
@@ -554,6 +560,10 @@ export function Gallery({
                   <DropdownMenuItem onSelect={() => setFonts(true)}>
                     <IconTypography /> Import a Google font
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setLinking(true)}>
+                    <IconLink /> Add a link
+                    <span className="text-muted-foreground ml-auto pl-4 text-xs">Figma, Google</span>
+                  </DropdownMenuItem>
                   {canRequest && (
                     <>
                       <DropdownMenuSeparator />
@@ -566,6 +576,7 @@ export function Gallery({
                 </DropdownMenuContent>
               </DropdownMenu>
               <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={() => void refresh()} />
+              <LinkImport open={linking} onOpenChange={setLinking} into={into} onDone={() => void refresh()} />
             </div>
           )}
           <input
@@ -940,8 +951,9 @@ export function AssetCard({
   /** `range` is true for a shift-click. */
   onPick?: (range: boolean) => void;
 }) {
+  const [hover, setHover] = useState(false);
   return (
-    <div className="group relative">
+    <div className="group relative" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <button
         type="button"
         onClick={(e) => {
@@ -955,10 +967,13 @@ export function AssetCard({
         )}
       >
         <div className="bg-muted relative aspect-square overflow-hidden">
-          {a.mime.startsWith("image/") ? (
+          {hasPreview(a) ? (
             // Rendition URLs are pure functions of the asset id: no export step,
             // no signing, no prior round trip.
             <Thumb src={`/a/${a.id}/w_260,f_webp`} alt={a.filename} />
+          ) : isLottie(a) ? (
+            // Still until pointed at: a grid of loops is noise.
+            <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
           ) : isFont(a.mime, a.filename) ? (
             <span className="flex size-full items-center justify-center">
               <FontThumb id={a.id} className="text-6xl" />
@@ -969,7 +984,7 @@ export function AssetCard({
             </span>
           )}
           <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-[11px] backdrop-blur">
-            {fileTypeBadge(a.filename, a.mime)}
+            {fileTypeBadge(a.filename, a.mime, a.probe)}
           </Badge>
           {(a.status === "proposed" || a.proposedTags.length > 0) && (
             <Badge className="absolute bottom-2 left-2 text-[11px]">

@@ -35,6 +35,9 @@ export const originalKey = (sha256: string) => `assets/${sha256}`;
 export const renditionKey = (sha256: string, transform: string, ext: string) =>
   `renditions/${sha256}/${transform}.${ext}`;
 
+/** A still derived from a file sharp can't read (lib/core/previews.ts), by the still's own hash. */
+export const previewKey = (sha256: string) => `previews/${sha256}`;
+
 /** Temp landing spot for a browser upload, before its hash is known. */
 export const stagingKey = (token: string) => `staging/${token}`;
 
@@ -49,6 +52,12 @@ export async function presignPut(key: string, contentType: string, expiresIn = 9
 export async function getObject(key: string) {
   const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
   return Buffer.from(await res.Body!.transformToByteArray());
+}
+
+/** Part of an object, for a `Range` request: S3 parses the range and says which bytes it sent. */
+export async function getRange(key: string, range: string) {
+  const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key, Range: range }));
+  return { body: Buffer.from(await res.Body!.transformToByteArray()), contentRange: res.ContentRange! };
 }
 
 export async function putObject(key: string, body: Buffer, contentType: string) {

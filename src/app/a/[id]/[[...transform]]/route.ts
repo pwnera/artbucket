@@ -1,13 +1,15 @@
 import { authorize, fail, handle } from "@/lib/api";
 import { describeAsset, downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
-import { isRenderable, renderAsset } from "@/lib/core/renditions";
-import { getObject, originalKey } from "@/lib/storage";
+import { renderAsset } from "@/lib/core/renditions";
+import { hasPreview } from "@/lib/preview";
+import { getObject, getRange, originalKey } from "@/lib/storage";
 import { parseTransform } from "@/lib/transform";
 
 type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
 
 /**
  * GET /a/{id}                  → the original bytes, exactly as uploaded
+ *                                (a `Range` gets part of them: video seeks)
  * GET /a/{id}?download         → the original with current metadata written in
  * GET /a/{id}/w_800,f_webp     → a rendition, generated once and cached
  * GET /a/{id}  Accept: application/json
@@ -51,6 +53,12 @@ export async function GET(req: Request, { params }: Ctx) {
     }
 
     if (!transform?.length) {
+      const range = req.headers.get("range");
+      if (range && /^bytes=\d*-\d*$/.test(range)) {
+        const part = await getRange(originalKey(asset.sha256), range).catch(() => null);
+        if (!part) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${asset.size}` } });
+        return bytes(part.body, asset.mime, asset.filename, { status: 206, range: part.contentRange });
+      }
       const body = await getObject(originalKey(asset.sha256));
       return bytes(body, asset.mime, asset.filename);
     }
@@ -59,7 +67,7 @@ export async function GET(req: Request, { params }: Ctx) {
 
     const parsed = parseTransform(transform[0]);
     if (!parsed) return fail(400, "invalid_transform", "Malformed transform");
-    if (!isRenderable(asset.mime)) {
+    if (!hasPreview(asset)) {
       return fail(415, "unsupported", `Cannot transform ${asset.mime}`);
     }
 
@@ -70,8 +78,9 @@ export async function GET(req: Request, { params }: Ctx) {
   }
 }
 
-function bytes(buf: Buffer, contentType: string, filename?: string) {
+function bytes(buf: Buffer, contentType: string, filename?: string, part?: { status: 206; range: string }) {
   return new Response(new Uint8Array(buf), {
+    status: part?.status ?? 200,
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(buf.byteLength),
@@ -81,6 +90,8 @@ function bytes(buf: Buffer, contentType: string, filename?: string) {
       Vary: "Accept",
       // Public bytes: other sites may load them, which fonts (@font-face from brand/tokens) require.
       "Access-Control-Allow-Origin": "*",
+      ...(filename ? { "Accept-Ranges": "bytes" } : {}),
+      ...(part ? { "Content-Range": part.range } : {}),
       ...(filename
         ? { "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"` }
         : {}),

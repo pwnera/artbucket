@@ -5,7 +5,7 @@ import { assets, brandRuleAssets, brandRules, brands, brandVersions } from "@/li
 import type { Caller } from "@/lib/core/access";
 import { present, resolveBrand, slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
-import { isRenderable } from "@/lib/core/renditions";
+import { hasPreview } from "@/lib/preview";
 import { diffRules, extendsLatest, summarize, type SnapRule, type VersionKind } from "@/lib/history";
 import { resolve, RULE_VALUE, ruleContext, type RuleAsset, type RuleInput, type RuleType } from "@/lib/rules";
 
@@ -57,12 +57,13 @@ async function assetsOf(ruleIds: string[], tx: Db = db) {
       mime: assets.mime,
       width: assets.width,
       height: assets.height,
+      probe: assets.probe,
     })
     .from(brandRuleAssets)
     .innerJoin(assets, eq(assets.id, brandRuleAssets.assetId))
     .where(inArray(brandRuleAssets.ruleId, ruleIds))
     .orderBy(asc(brandRuleAssets.position));
-  for (const { ruleId, ...a } of rows) out.get(ruleId)!.push(a);
+  for (const { ruleId, probe, ...a } of rows) out.get(ruleId)!.push({ ...a, preview: hasPreview({ mime: a.mime, probe }) });
   return out;
 }
 
@@ -73,12 +74,12 @@ async function assetsOf(ruleIds: string[], tx: Db = db) {
 async function setAssets(tx: Tx, ws: string, ruleId: string, list: RuleAsset[]) {
   if (list.length) {
     const found = await tx
-      .select({ id: assets.id, mime: assets.mime, filename: assets.filename })
+      .select({ id: assets.id, mime: assets.mime, filename: assets.filename, probe: assets.probe })
       .from(assets)
       .where(and(eq(assets.workspaceId, ws), inArray(assets.id, list.map((a) => a.id))));
     const missing = list.filter((a) => !found.some((f) => f.id === a.id));
     if (missing.length) throw new AssetError("invalid", `No such asset: ${missing.map((a) => a.id).join(", ")}`);
-    const flat = found.find((f) => !isRenderable(f.mime) && list.some((a) => a.id === f.id && a.rendition));
+    const flat = found.find((f) => !hasPreview(f) && list.some((a) => a.id === f.id && a.rendition));
     if (flat) throw new AssetError("invalid", `${flat.filename} (${flat.mime}) has no renditions; use the original`);
   }
   await tx.delete(brandRuleAssets).where(eq(brandRuleAssets.ruleId, ruleId));

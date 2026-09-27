@@ -113,6 +113,7 @@ const SAMPLE: Asset = {
   size: 18_400_000,
   width: 4000,
   height: 3000,
+  probe: null,
   tags: ["brand", "spring", "hero", "print"],
   fields: {},
   inherited: {},

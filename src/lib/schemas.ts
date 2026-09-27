@@ -60,8 +60,8 @@ export const Finalize = z.union([
     ...provenance,
   }),
   z.strictObject({
-    url: z.url({ protocol: /^https?$/ }).max(2048).describe("Public http(s) URL the server fetches"),
-    filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment"),
+    url: z.url({ protocol: /^https?$/ }).max(2048).describe("Public http(s) URL the server fetches. A Figma or Google Docs, Sheets, Slides or Drive link is kept as the link and shows as its embed"),
+    filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment, or a linked file's title"),
     ...promote,
     ...provenance,
   }),

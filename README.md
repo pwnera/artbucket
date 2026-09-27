@@ -50,7 +50,11 @@ So artbucket is built API-first for agents as much as people:
 
 ## Quick start
 
-Requires Node 22+, pnpm, and Docker.
+Requires Node 22+, pnpm, and Docker. Optional: `ffmpeg` on the PATH, for video
+thumbnails, and LibreOffice (`soffice`), for Word, Excel and PowerPoint previews
+beyond the thumbnail a file was saved with. PDF, Illustrator, Photoshop, HEIC,
+Sketch, XD, Keynote, InDesign and EPS previews need nothing extra. Figma and
+Google Docs, Sheets, Slides and Drive files are added as links.
 
 ```bash
 git clone https://github.com/pwnera/artbucket.git

@@ -11,6 +11,7 @@ import { FontPlayground } from "@/components/font-preview";
 import { ImagePicker } from "@/components/rich-text";
 import { Renditions } from "@/components/renditions";
 import { Thumb, type Asset } from "@/components/gallery";
+import { Lottie } from "@/components/media";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import type { FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
+import { embedUrl, hasPreview, isLottie } from "@/lib/preview";
 import { CHANNELS } from "@/lib/rights";
 import { ago } from "@/lib/time";
 
@@ -151,6 +153,7 @@ export function AssetEditor({
     }
   };
 
+  const embed = embedUrl(asset);
   const facts = [
     asset.width && asset.height ? `${asset.width} × ${asset.height}` : null,
     formatBytes(asset.size),
@@ -163,7 +166,23 @@ export function AssetEditor({
       <DialogContent className="grid max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[minmax(0,1fr)_380px] md:grid-rows-1 md:overflow-hidden">
         <div className="bg-muted/50 flex min-h-64 flex-col border-b md:min-h-0 md:border-r md:border-b-0">
           <div className="relative flex min-h-64 flex-1 items-center justify-center md:min-h-0">
-            {asset.mime.startsWith("image/") ? (
+            {embed ? (
+              <iframe src={embed} title={m.title || asset.filename} allowFullScreen className="absolute inset-0 size-full" />
+            ) : asset.mime.startsWith("video/") ? (
+              // The original, streamed in ranges; the derived frame shows until it plays.
+              <video
+                src={`/a/${asset.id}`}
+                poster={hasPreview(asset) ? `/a/${asset.id}/w_1280,f_webp` : undefined}
+                controls
+                playsInline
+                preload="metadata"
+                className="absolute inset-0 size-full object-contain p-6"
+              />
+            ) : asset.mime.startsWith("audio/") ? (
+              <audio src={`/a/${asset.id}`} controls preload="metadata" className="w-full px-6" />
+            ) : isLottie(asset) ? (
+              <Lottie src={`/a/${asset.id}`} className="absolute inset-0 p-6" />
+            ) : hasPreview(asset) ? (
               <Thumb src={`/a/${asset.id}/w_640,f_webp`} alt="" className="absolute inset-0 p-6" />
             ) : isFont(asset.mime, asset.filename) ? (
               <FontPlayground id={asset.id} />
@@ -175,15 +194,15 @@ export function AssetEditor({
                   </EmptyMedia>
                   <EmptyTitle>No preview</EmptyTitle>
                   <EmptyDescription>
-                    Sizes and formats are made from images only. Download keeps the {fileTypeBadge(asset.filename, asset.mime)} file as
-                    stored, with these edits written in where the format allows.
+                    Nothing in this {fileTypeBadge(asset.filename, asset.mime, asset.probe)} file to show. Download keeps it as stored, with these
+                    edits written in where the format allows.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}
           </div>
           <div className="flex items-center gap-2 border-t px-4 py-3">
-            <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime)}</Badge>
+            <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime, asset.probe)}</Badge>
             <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
             <span className="ml-auto" />
             {/* Copy: a link for people who have access. Share: a public link, for anyone. */}
@@ -196,7 +215,7 @@ export function AssetEditor({
               </IconButton>
             )}
             {sharing && <ShareDialog target={{ kind: "view", asset: { id: asset.id, name: m.title || asset.filename } }} onClose={() => setSharing(false)} />}
-            {asset.mime.startsWith("image/") && <Renditions asset={asset} />}
+            {hasPreview(asset) && <Renditions asset={asset} />}
             <Button variant="outline" size="sm" asChild>
               {/* The file as stored, with these fields written into it. */}
               <a href={`/a/${asset.id}?download`} download>
@@ -223,7 +242,7 @@ export function AssetEditor({
               about="What an agent reads before using this asset: its title, credit and fields, the brand rules that point at it, and ready-made sizes."
               reads={(origin) => [
                 { label: "MCP tool", text: call("describe_asset", { id: asset.id }) },
-                ...(asset.mime.startsWith("image/")
+                ...(hasPreview(asset)
                   ? [{ label: "A size to hand out", text: call("rendition_url", { id: asset.id, width: 1200, format: "webp" }) }]
                   : []),
                 { label: "REST", text: curl(`${origin}/a/${asset.id}`, ["Accept: application/json"]) },
@@ -439,7 +458,7 @@ function AssetRef({
         {id ? (
           <a href={`/?asset=${id}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-md border p-1.5 text-sm hover:underline">
             <span className="bg-muted relative size-8 shrink-0 overflow-hidden rounded">
-              {shown?.mime.startsWith("image/") && <Thumb src={`/a/${id}/w_64,f_webp`} alt="" />}
+              {shown && hasPreview(shown) && <Thumb src={`/a/${id}/w_64,f_webp`} alt="" />}
             </span>
             <span className="truncate">{shown ? (shown.metadata?.title ?? shown.filename) : "…"}</span>
           </a>

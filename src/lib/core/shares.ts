@@ -7,7 +7,7 @@ import { recordAudit } from "@/lib/core/audit";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { isRenderable } from "@/lib/core/renditions";
+import { hasPreview } from "@/lib/preview";
 import { NONE } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
@@ -187,7 +187,7 @@ const shared = (a: typeof assets.$inferSelect) => {
     height: a.height,
     url: base,
     download: `${base}?download`,
-    thumbnail: isRenderable(a.mime) ? `${base}/w_640,f_webp` : null,
+    thumbnail: hasPreview(a) ? `${base}/w_640,f_webp` : null,
   };
 };
 

@@ -13,7 +13,7 @@ import { listFields } from "@/lib/core/fields";
 import { dropGrants } from "@/lib/core/people";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
-import { isRenderable } from "@/lib/core/renditions";
+import { linkTitle, previewOf } from "@/lib/core/previews";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
@@ -22,6 +22,7 @@ import { fontMime } from "@/lib/font";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
+import { hasPreview, parseLink } from "@/lib/preview";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
@@ -151,11 +152,12 @@ export async function finalizeUpload(
     return { asset: await fileInto(ws, into, existing.id), deduped: true };
   }
 
-  const probe = await probeImage(bytes);
+  const mime = fontMime(bytes) ?? input.mime;
+  // What sharp can't read may still show as something: a still, an animation, an embed.
+  const probe = (await probeImage(bytes)) ?? (await previewOf(bytes, mime));
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
-  const mime = fontMime(bytes) ?? input.mime;
   // Content Credentials say how it was made, unless the uploader says otherwise.
   const c2pa = readC2pa(bytes);
   await putObject(originalKey(sha256), bytes, mime);
@@ -221,6 +223,10 @@ async function fileInto(ws: string, collectionIds: string[], id: string): Promis
  * Ingest from a URL: the server fetches it, stages it, and promotes it like
  * any upload. For agents, which can name a URL but can't PUT bytes. The fetch
  * refuses private and loopback addresses (lib/fetch-public.ts).
+ *
+ * A Figma or Google Docs, Sheets, Slides or Drive link isn't fetched: its
+ * bytes would be the service's web app. It is kept as the link itself
+ * (text/uri-list) and shows as the service's embed (lib/preview.ts parseLink).
  */
 export async function ingestFromUrl(
   caller: Caller,
@@ -228,6 +234,11 @@ export async function ingestFromUrl(
 ) {
   const { url, filename, ...rest } = input;
   uploadScope(caller, rest.collections ?? []);
+  const kept = parseLink(url);
+  if (kept) {
+    const name = filename ?? (await linkTitle(url)) ?? `${kept.service === "Figma" ? "Figma" : `Google ${kept.service}`} link`;
+    return stageAndFinalize(caller, rest, Buffer.from(`${url}\r\n`), "text/uri-list", name);
+  }
   let fetched;
   try {
     fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
@@ -239,11 +250,21 @@ export async function ingestFromUrl(
   }
   const name =
     filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
+  return stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name);
+}
+
+async function stageAndFinalize(
+  caller: Caller,
+  rest: Omit<Parameters<typeof finalizeUpload>[1], "token" | "filename" | "mime">,
+  bytes: Buffer,
+  mime: string,
+  name: string,
+) {
   await ensureBucket();
   const token = randomUUID();
-  await putObject(stagingKey(token), fetched.bytes, fetched.mime);
+  await putObject(stagingKey(token), bytes, mime);
   try {
-    return await finalizeUpload(caller, { ...rest, token, filename: name.slice(0, 512), mime: fetched.mime });
+    return await finalizeUpload(caller, { ...rest, token, filename: name.slice(0, 512), mime });
   } catch (err) {
     // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
     await deleteObject(stagingKey(token)).catch(() => {});
@@ -659,7 +680,7 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
 export function describeAsset(asset: Asset) {
   const base = `${env.APP_URL}/a/${asset.id}`;
   const m = asset.metadata ?? {};
-  const renderable = isRenderable(asset.mime);
+  const renderable = hasPreview(asset);
   return {
     id: asset.id,
     filename: asset.filename,

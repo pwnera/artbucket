@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { hasPreview } from "@/lib/preview";
 
 /**
  * ⌘K: find anything (assets, brand rules, collections, saved searches,
@@ -136,7 +137,7 @@ export function CommandPalette({
                 onSelect={() => go(`/?asset=${a.id}`)}
               >
                 <span className="bg-muted relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border">
-                  {a.mime.startsWith("image/") ? (
+                  {hasPreview(a) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={`/a/${a.id}/w_64,f_webp`} alt="" className="size-full object-contain" />
                   ) : (

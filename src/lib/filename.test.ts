@@ -36,6 +36,8 @@ test("a long trailing dot-segment is not treated as an extension", () => {
 test("badge prefers the extension, falls back to the mime subtype", () => {
   assert.equal(fileTypeBadge("a.psd", "image/vnd.adobe.photoshop"), "PSD");
   assert.equal(fileTypeBadge("noext", "image/png"), "PNG");
+  assert.equal(fileTypeBadge("Brand Kit v2.0", "text/uri-list"), "LINK");
+  assert.equal(fileTypeBadge("Q3 deck", "text/uri-list", { service: "Slides" }), "SLIDES");
 });
 
 test("byte formatting", () => {

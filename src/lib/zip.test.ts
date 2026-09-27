@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { crc32, uniqueNames, zip } from "./zip.ts";
+import { crc32, uniqueNames, unzip, zip } from "./zip.ts";
 
 test("crc32 matches the standard check value", () => {
   assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
@@ -27,4 +27,26 @@ test("zip lays out entries, central directory and end record", () => {
 
 test("uniqueNames suffixes repeats before the extension", () => {
   assert.deepEqual(uniqueNames(["a.png", "a.png", "b", "b", "a.png"]), ["a.png", "a (2).png", "b", "b (2)", "a (3).png"]);
+});
+
+test("unzip reads back stored and deflated entries", async () => {
+  const hello = new TextEncoder().encode("hello hello hello hello");
+  const stored = zip([{ name: "a.txt", data: hello }, { name: "b/preview.png", data: new Uint8Array([1, 2, 3]) }]);
+  const entries = unzip(stored);
+  assert.deepEqual(entries.map((e) => [e.name, e.size]), [["a.txt", hello.length], ["b/preview.png", 3]]);
+  assert.deepEqual(await entries[1].read(), new Uint8Array([1, 2, 3]));
+
+  // Rewrite the first entry as deflated: method 8 and the packed size, in both headers.
+  const packed = new Uint8Array(await new Response(new Blob([hello]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  const one = zip([{ name: "a.txt", data: packed }]);
+  const v = new DataView(one.buffer);
+  const cd = v.getUint32(one.length - 22 + 16, true);
+  v.setUint16(8, 8, true);
+  v.setUint16(cd + 10, 8, true);
+  v.setUint32(cd + 24, hello.length, true);
+  assert.deepEqual(await unzip(one)[0].read(), hello);
+});
+
+test("unzip finds nothing in bytes that aren't a zip", () => {
+  assert.deepEqual(unzip(new Uint8Array(100)), []);
 });

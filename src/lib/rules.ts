@@ -46,6 +46,8 @@ export type RuleAsset = {
   mime?: string;
   width?: number | null;
   height?: number | null;
+  /** Has renditions (lib/preview.ts hasPreview). */
+  preview?: boolean;
 };
 
 export type Rule = {

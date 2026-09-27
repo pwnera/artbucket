@@ -46,6 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { pool } from "@/lib/pool";
 import type { Action } from "@/lib/permissions";
 import { uniqueNames, zip } from "@/lib/zip";
+import { hasPreview } from "@/lib/preview";
 
 const files = (n: number) => `${n} ${n === 1 ? "asset" : "assets"}`;
 
@@ -133,7 +134,8 @@ export function SelectionBar({
     const got: { name: string; data: Uint8Array; date: Date }[] = [];
     let failed = 0;
     await pool(picked, 4, async (a) => {
-      const image = preset && a.mime.startsWith("image/");
+      // A video's still is one frame of it, not the video at another size.
+      const image = preset && hasPreview(a) && !a.mime.startsWith("video/");
       const url = image ? `/a/${a.id}/${preset.spec}` : `/a/${a.id}?download`;
       const res = await fetch(url).catch(() => null);
       if (!res?.ok) return void failed++;

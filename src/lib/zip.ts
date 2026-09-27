@@ -98,3 +98,48 @@ export function zip(entries: Entry[]): Uint8Array<ArrayBuffer> {
   }
   return out;
 }
+
+export type ZipEntry = { name: string; size: number; read: () => Promise<Uint8Array<ArrayBuffer>> };
+
+/**
+ * A zip's entries, each read on demand. Stored and deflated entries, which is
+ * every design file that is a zip (Sketch, XD, Keynote, pptx, .fig, dotLottie).
+ * Corrupt input throws a RangeError.
+ *
+ * ponytail: no ZIP64, like the writer: previews sit in archives far under 4 GB.
+ */
+export function unzip(bytes: Uint8Array): ZipEntry[] {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // The end record is the last 22 bytes, unless a comment (up to 64 KB) follows it.
+  let end = bytes.length - 22;
+  const floor = Math.max(0, end - 0xffff);
+  while (end >= floor && v.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < floor) return [];
+
+  const dec = new TextDecoder();
+  const out: ZipEntry[] = [];
+  let at = v.getUint32(end + 16, true);
+  for (let i = v.getUint16(end + 10, true); i > 0 && v.getUint32(at, true) === 0x02014b50; i--) {
+    const method = v.getUint16(at + 10, true);
+    const packed = v.getUint32(at + 20, true);
+    const size = v.getUint32(at + 24, true);
+    const nameLength = v.getUint16(at + 28, true);
+    const local = v.getUint32(at + 42, true);
+    const name = dec.decode(bytes.subarray(at + 46, at + 46 + nameLength));
+    at += 46 + nameLength + v.getUint16(at + 30, true) + v.getUint16(at + 32, true);
+    out.push({
+      name,
+      size,
+      read: async () => {
+        // The local header's own name and extra lengths can differ from the central copy's.
+        const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+        const data = new Uint8Array(bytes.subarray(start, start + packed));
+        if (method === 0) return data;
+        if (method !== 8) throw new Error(`${name}: unsupported zip compression ${method}`);
+        const inflated = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Uint8Array(await new Response(inflated).arrayBuffer());
+      },
+    });
+  }
+  return out;
+}

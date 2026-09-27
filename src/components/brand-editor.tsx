@@ -73,6 +73,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { isFont, pickFace } from "@/lib/font";
+import { hasPreview } from "@/lib/preview";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
 import {
   contextLabel,
@@ -689,7 +690,7 @@ function Toc({ names, active }: { names: string[]; active: string | null }) {
 function BrandIcon({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
   const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.length);
   const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)$/.test(r.key)) ?? logos[0];
-  const a = named?.assets.find((x) => !x.mime || x.mime.startsWith("image/"));
+  const a = named?.assets.find((x) => x.preview ?? !x.mime);
   // The logo stands on its own, like a page icon; only the initial gets a tile.
   return a ? (
     <span className="relative flex size-16 shrink-0">
@@ -1417,11 +1418,12 @@ function AssetPicker({
     setPicked((p) => (p.some((x) => x.id === id) ? p.filter((x) => x.id !== id) : [...p, { id, rendition: null }]));
   const setRendition = (id: string, rendition: string | null) =>
     setPicked((p) => p.map((x) => (x.id === id ? { ...x, rendition } : x)));
-  // What the rule and the search have shown: a file that isn't an image has no renditions to offer.
-  const [mimes, setMimes] = useState<Record<string, string>>(() =>
-    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, a.mime]] : []))),
+  // What the rule and the search have shown: a file with no preview has no renditions to offer.
+  const [kinds, setKinds] = useState<Record<string, { mime: string; preview: boolean }>>(() =>
+    Object.fromEntries(rule.assets.flatMap((a) => (a.mime ? [[a.id, { mime: a.mime, preview: !!a.preview }]] : []))),
   );
-  if (results?.some((a) => !(a.id in mimes))) setMimes((m) => ({ ...m, ...Object.fromEntries(results.map((a) => [a.id, a.mime])) }));
+  if (results?.some((a) => !(a.id in kinds)))
+    setKinds((k) => ({ ...k, ...Object.fromEntries(results.map((a) => [a.id, { mime: a.mime, preview: hasPreview(a) }])) }));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -1449,7 +1451,7 @@ function AssetPicker({
             {picked.map(({ id, rendition }, i) => (
               <div key={id} className="grid w-20 shrink-0 gap-1">
                 <div className="bg-checker relative size-20 overflow-hidden rounded-md border">
-                  {mimes[id] && isFont(mimes[id], "") ? (
+                  {kinds[id] && isFont(kinds[id].mime, "") ? (
                     <span className="absolute inset-0 flex items-center justify-center">
                       <FontThumb id={id} className="text-2xl" />
                     </span>
@@ -1468,7 +1470,7 @@ function AssetPicker({
                     <IconX className="size-3" />
                   </button>
                 </div>
-                {mimes[id] && isFont(mimes[id], "") ? null : mimes[id] && !mimes[id].startsWith("image/") ? (
+                {kinds[id] && isFont(kinds[id].mime, "") ? null : kinds[id] && !kinds[id].preview ? (
                   <span className="text-muted-foreground truncate text-center text-[11px]">Original</span>
                 ) : (
                   <Popover>
@@ -1507,7 +1509,7 @@ function AssetPicker({
                     n >= 0 && "ring-primary ring-2",
                   )}
                 >
-                  {a.mime.startsWith("image/") ? (
+                  {hasPreview(a) ? (
                     <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
                   ) : isFont(a.mime, a.filename) ? (
                     <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">

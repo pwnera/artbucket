@@ -16,7 +16,7 @@ import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/access";
-import { isRenderable } from "@/lib/core/renditions";
+import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { ASSET_TYPES } from "@/lib/filters";
 import { GOOGLE_FAMILY } from "@/lib/font";
@@ -53,7 +53,7 @@ const summary = (a: Asset) => ({
   status: a.status,
   supersededBy: a.supersededBy,
   url: base(a.id),
-  thumbnail: isRenderable(a.mime) ? `${base(a.id)}/w_480,f_webp` : null,
+  thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
 });
 
 /** Rules as a model reads them: referenced assets come with URLs it can use as is. */
@@ -199,7 +199,7 @@ const TOOLS: Record<string, Tool> = {
     }),
     run: async ({ id, width, height, fit, format, quality }, caller) => {
       const a = await found(caller, id);
-      if (!isRenderable(a.mime)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
+      if (!hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
       const spec = serializeTransform({ w: width, h: height, fit, f: format, q: quality });
       if (!spec) return { url: base(a.id), transform: null, note: "No transform asked for: this is the original." };
       if (!parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
