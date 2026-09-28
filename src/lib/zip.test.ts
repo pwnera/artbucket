@@ -50,3 +50,17 @@ test("unzip reads back stored and deflated entries", async () => {
 test("unzip finds nothing in bytes that aren't a zip", () => {
   assert.deepEqual(unzip(new Uint8Array(100)), []);
 });
+
+test("unzip refuses an entry that inflates past its limit, whatever it declares", async () => {
+  const big = new Uint8Array(4 * 1024 * 1024);
+  const packed = new Uint8Array(await new Response(new Blob([big]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  const one = zip([{ name: "bomb.png", data: packed }]);
+  const v = new DataView(one.buffer);
+  const cd = v.getUint32(one.length - 22 + 16, true);
+  v.setUint16(8, 8, true);
+  v.setUint16(cd + 10, 8, true);
+  v.setUint32(cd + 24, 10, true); // claims 10 bytes
+  const [e] = unzip(one);
+  await assert.rejects(e.read(1024 * 1024), RangeError);
+  assert.equal((await e.read()).length, big.length);
+});

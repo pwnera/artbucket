@@ -63,9 +63,15 @@ export async function isAppOrigin(origin: string) {
   }
 }
 
-/** Every verified app domain, as origins: better-auth's trusted origins. */
-export async function appOrigins() {
-  return [...(await verified())].filter(([, t]) => !t.portal).map(([host]) => `${scheme}//${host}`);
+/**
+ * better-auth's trusted origins for a request: the verified app domain it was
+ * sent to, if it was sent to one, so sign-in works there. Never every
+ * organization's domains: one organization's domain is no reason to trust it
+ * on another's, or on APP_URL.
+ */
+export async function appOriginAt(rawHost: string | null | undefined) {
+  const t = rawHost ? await hostTarget(rawHost).catch(() => null) : null;
+  return t && !t.portal ? [`${scheme}//${hostname(rawHost!)}`] : [];
 }
 
 /** Where an organization's people use the app: its default domain (the first verified one without), else APP_URL. For links in email. */
