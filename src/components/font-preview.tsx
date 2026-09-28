@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCheck, IconChevronRight, IconLoader2, IconPlus, IconSearch, IconTypography, IconX } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconChevronRight,
+  IconDownload,
+  IconItalic,
+  IconLoader2,
+  IconPlus,
+  IconSearch,
+  IconTypography,
+  IconX,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FONT_CATEGORIES, fontStyle, weightName } from "@/lib/font";
@@ -64,24 +75,85 @@ export function FontThumb({ id, className }: { id: string; className?: string })
 const SIZES = [12, 16, 24, 36, 48, 72];
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
 
+/**
+ * The playground's words and size, kept while you step from one font to the
+ * next (each remounts it) and across reloads of the tab. Storage can refuse
+ * (a private window); the module copy still holds for the visit.
+ */
+const KEPT = "artbucket:font-sample";
+type Kept = { text: string; size: number };
+let kept: Kept | undefined;
+function recall(): Kept {
+  if (kept) return kept;
+  try {
+    const k = JSON.parse(sessionStorage.getItem(KEPT) ?? "null");
+    if (typeof k?.text === "string" && typeof k.size === "number") return (kept = k);
+  } catch {}
+  return { text: SAMPLE, size: 48 };
+}
+function remember(k: Kept) {
+  kept = k;
+  try {
+    sessionStorage.setItem(KEPT, JSON.stringify(k));
+  } catch {}
+}
+
 /** The asset dialog's preview: a playground over a size waterfall and the character set. */
 export function FontPlayground({ id }: { id: string }) {
   const family = useAssetFont(id);
-  const [text, setText] = useState(SAMPLE);
-  const [size, setSize] = useState(48);
+  const [text, setText] = useState(() => recall().text);
+  const [size, setSize] = useState(() => recall().size);
+  // The face answers every weight (load()): a variable font shows its range, a static one its own.
+  const [weight, setWeight] = useState(400);
+  const [italic, setItalic] = useState(false);
+  useEffect(() => remember({ text, size }), [text, size]);
 
   if (family === undefined) return <Skeleton className="absolute inset-0 rounded-none" />;
   if (family === null) return <p className="text-muted-foreground p-6 text-sm">This browser can&apos;t read this font file.</p>;
 
-  const face = { fontFamily: family };
+  const face = { fontFamily: family, fontWeight: weight, fontStyle: italic ? "italic" : "normal" };
   return (
     <div className="absolute inset-0 flex flex-col gap-6 overflow-y-auto p-6">
-      <div className="flex items-center gap-3">
-        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type to try it" aria-label="Sample text" />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/* No autofocus: opening a font on a phone shouldn't raise the keyboard. */}
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type to try it"
+          aria-label="Sample text"
+          className="min-w-48 flex-1"
+        />
         <label className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs tabular-nums">
-          <input type="range" min={8} max={160} value={size} onChange={(e) => setSize(Number(e.target.value))} className="w-28" />
+          <span className="sr-only">Size</span>
+          <input
+            type="range"
+            min={8}
+            max={160}
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value))}
+            className="accent-primary w-24"
+          />
           <span className="w-10">{size}px</span>
         </label>
+        <label className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs tabular-nums">
+          <span className="sr-only">Weight</span>
+          <input
+            type="range"
+            min={100}
+            max={900}
+            step={100}
+            value={weight}
+            onChange={(e) => setWeight(Number(e.target.value))}
+            aria-valuetext={weightName(weight)}
+            className="accent-primary w-24"
+          />
+          <span className="w-8" title={weightName(weight)}>
+            {weight}
+          </span>
+        </label>
+        <Toggle variant="outline" size="sm" pressed={italic} onPressedChange={setItalic} aria-label="Italic">
+          <IconItalic />
+        </Toggle>
       </div>
 
       <p className="break-words" style={{ ...face, fontSize: size, lineHeight: 1.15 }}>
@@ -306,7 +378,7 @@ export function ImportFamily({ family, onImported }: { family: string; onImporte
       <Button
         variant="outline"
         size="xs"
-        disabled={busy}
+        pending={busy}
         onClick={async () => {
           setBusy(true);
           try {
@@ -331,21 +403,51 @@ export function ImportFamily({ family, onImported }: { family: string; onImporte
   );
 }
 
-/** One of a font rule's files: its style's name, set in that style. */
-export function FontStyleChip({ id, filename, onRemove }: { id: string; filename: string; onRemove?: () => void }) {
+/**
+ * One of a font rule's files: its style's name, set in that style. Read only,
+ * it is the file itself, a download away; editing, it can come off the rule.
+ */
+export function FontStyleChip({
+  id,
+  filename,
+  onRemove,
+  download,
+}: {
+  id: string;
+  filename: string;
+  onRemove?: () => void;
+  download?: boolean;
+}) {
   const family = useAssetFont(id);
   const { label } = fontStyle(filename);
+  const name = (
+    <span className="text-sm whitespace-nowrap" style={family ? { fontFamily: JSON.stringify(family) } : undefined}>
+      {label}
+    </span>
+  );
+  const chip = "group/chip bg-muted/50 inline-flex h-8 items-center gap-1 rounded-md border pr-1 pl-2.5";
+  if (download)
+    return (
+      <a
+        href={assetUrl(id, "?download")}
+        download
+        title={`Download ${filename || label}`}
+        className={cn(chip, "hover:bg-muted transition-colors")}
+      >
+        {name}
+        {/* Always there on touch, where nothing hovers. The reveals sit inside pointer-fine too, or the hide sorts after them and wins. */}
+        <IconDownload className="text-muted-foreground size-3.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/chip:opacity-100 pointer-fine:group-focus-visible/chip:opacity-100" />
+      </a>
+    );
   return (
-    <span className="group/chip bg-muted/50 inline-flex h-8 items-center gap-1 rounded-md border pr-1 pl-2.5" title={filename}>
-      <span className="text-sm whitespace-nowrap" style={family ? { fontFamily: JSON.stringify(family) } : undefined}>
-        {label}
-      </span>
+    <span className={chip} title={filename}>
+      {name}
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
           aria-label={`Take ${label} off the rule`}
-          className="text-muted-foreground hover:text-foreground rounded p-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/chip:opacity-100 sm:focus-visible:opacity-100"
+          className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/chip:opacity-100 pointer-fine:focus-visible:opacity-100"
         >
           <IconX className="size-3.5" />
         </button>
@@ -355,8 +457,9 @@ export function FontStyleChip({ id, filename, onRemove }: { id: string; filename
 }
 
 /**
- * A font rule's files, folded to one line: how many styles, from which weight
- * to which. Open, each is a chip set in its own style, to take off or add to.
+ * A font rule's files: how many styles, from which weight to which, over a
+ * chip per file set in its own style, to download, take off or add to. A
+ * family of more than eight folds to its one line.
  */
 export function FontStyles({
   files,
@@ -368,7 +471,8 @@ export function FontStyles({
   onRemove?: (id: string) => void;
   onAdd?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(files.length <= 8);
+  const read = !onRemove && !onAdd;
   const styles = files.map((f) => fontStyle(f.filename ?? ""));
   const weights = styles.map((s) => s.weight);
   const [lo, hi] = [Math.min(...weights), Math.max(...weights)];
@@ -389,7 +493,13 @@ export function FontStyles({
       {open && (
         <div className="flex flex-wrap items-center gap-1.5">
           {files.map((f) => (
-            <FontStyleChip key={f.id} id={f.id} filename={f.filename ?? ""} onRemove={onRemove && (() => onRemove(f.id))} />
+            <FontStyleChip
+              key={f.id}
+              id={f.id}
+              filename={f.filename ?? ""}
+              onRemove={onRemove && (() => onRemove(f.id))}
+              download={read}
+            />
           ))}
           {onAdd && (
             <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={onAdd} aria-label="Add font files">

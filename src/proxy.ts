@@ -70,7 +70,7 @@ const who = (req: NextRequest) => {
  * portal and nothing else of the app: every page is the portal's, and only
  * what the portal page calls, /api and /a, passes through as is.
  */
-async function portalRewrite(req: NextRequest) {
+async function portalRewrite(req: NextRequest, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   if (!host || host === appHost) return null;
   const { pathname } = req.nextUrl;
@@ -79,7 +79,7 @@ async function portalRewrite(req: NextRequest) {
   if (!slug) return null;
   const url = req.nextUrl.clone();
   url.pathname = `/p/${slug}`;
-  return NextResponse.rewrite(url);
+  return NextResponse.rewrite(url, init);
 }
 
 export async function proxy(req: NextRequest) {
@@ -93,10 +93,14 @@ export async function proxy(req: NextRequest) {
       );
     }
   }
-  const res = (await portalRewrite(req)) ?? NextResponse.next();
+  const page = !pathname.startsWith("/api/") && !pathname.startsWith("/a/");
+  // A page learns its own address (lib/sidebar.ts whoami): someone signed out goes to sign in, then back to it.
+  const init = page ? { request: { headers: new Headers(req.headers) } } : undefined;
+  init?.request.headers.set("x-path", pathname + req.nextUrl.search);
+  const res = (await portalRewrite(req, init)) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own; pages get the app's.
-  if (!pathname.startsWith("/api/") && !pathname.startsWith("/a/")) res.headers.set("Content-Security-Policy", CSP);
+  if (page) res.headers.set("Content-Security-Policy", CSP);
   return res;
 }
 

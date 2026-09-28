@@ -1,8 +1,71 @@
 "use client";
 
-import { IconActivity, IconInbox, IconPhoto } from "@tabler/icons-react";
+import { IconActivity, IconInbox, IconPhoto, IconSearch } from "@tabler/icons-react";
 import { NavLink } from "@/components/app-sidebar";
+import { ThemeToggle } from "@/components/brand";
+import { useMe } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
+import { useShell } from "@/components/shell";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+
+export type Crumb = { label: string; href?: string };
+
+const isTrail = (t: Crumb[] | React.ReactNode): t is Crumb[] =>
+  Array.isArray(t) && t.every((c) => typeof c === "object" && c !== null && "label" in c);
+
+/**
+ * Every page's top bar, Linear style: where you are on the left, as a trail
+ * whose last step is this page, and what you can do here on the right.
+ * `trail` is crumbs, or a node for a page that draws its own.
+ */
+export function AppHeader({ trail, children }: { trail: Crumb[] | React.ReactNode; children?: React.ReactNode }) {
+  const { openPalette } = useShell();
+  const me = useMe();
+  return (
+    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
+      <SidebarTrigger className="-ml-1" />
+      <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+      {isTrail(trail) ? <Trail crumbs={trail} /> : trail}
+      <div className="ml-auto flex items-center gap-2">
+        {children}
+        {/* The sidebar's search sits in the phone's sheet; this opens it in one tap. */}
+        <IconButton variant="ghost" label="Search" className="md:hidden" onClick={openPalette}>
+          <IconSearch />
+        </IconButton>
+        {/* Signed in, the theme lives in the account menu and ⌘K. */}
+        {!me?.user && <ThemeToggle />}
+      </div>
+    </header>
+  );
+}
+
+function Trail({ crumbs }: { crumbs: Crumb[] }) {
+  return (
+    <nav aria-label="Breadcrumb" className="min-w-0 overflow-hidden">
+      <ol className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap">
+        {crumbs.map((c, i) => {
+          const last = i === crumbs.length - 1;
+          return (
+            <li key={i} className={cn("flex min-w-0 items-center gap-1.5", last ? "text-foreground truncate font-medium" : "hidden sm:flex")}>
+              {i > 0 && <span aria-hidden className={cn(last && "hidden sm:inline")}>/</span>}
+              {c.href && !last ? (
+                <NavLink href={c.href} className="hover:text-foreground">
+                  {c.label}
+                </NavLink>
+              ) : (
+                <span className="truncate" aria-current={last ? "page" : undefined}>
+                  {c.label}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
 
 /**
  * The library's three views, PostHog style: what's in it, what waits on you,
@@ -28,10 +91,14 @@ export function LibraryTabs({ at, reviewCount }: { at: "assets" | "review" | "ac
               : "text-muted-foreground hover:text-foreground border-transparent",
           )}
         >
-          <t.icon className={cn("size-4", at === t.id ? "text-primary" : "text-muted-foreground/70")} />
+          <t.icon className={cn("size-4", at === t.id ? "text-primary-ink" : "text-muted-foreground/70")} />
           {t.label}
           {"count" in t && t.count > 0 && (
-            <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs leading-4 tabular-nums">
+            // Keyed so each change pops in: approving an item visibly ticks it down.
+            <span
+              key={t.count}
+              className="bg-primary text-primary-foreground animate-in zoom-in-50 rounded-full px-1.5 text-xs leading-4 tabular-nums duration-200"
+            >
               {t.count}
             </span>
           )}

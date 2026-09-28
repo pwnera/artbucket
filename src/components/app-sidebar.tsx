@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
+import { Collapsible } from "radix-ui";
 import {
   IconBook,
   IconBookmark,
@@ -26,16 +27,18 @@ import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { useCan } from "@/components/can";
-import { CommandPalette } from "@/components/command-palette";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
   DropLine,
+  FOLD,
   MoveItems,
   SectionAdd,
   SidebarSection,
+  liveRecents,
   useRecents,
   useSections,
   useSortable,
+  type Recent,
   type SortableItem,
 } from "@/components/sidebar-prefs";
 import {
@@ -45,6 +48,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
   SidebarContent,
@@ -74,6 +78,8 @@ export type SavedSearch = { id: string; name: string; query: string };
  * Library links move within the page (history.pushState) when you are
  * already on it: the library draws its own view from the URL, so there is no
  * server round trip to wait for.
+ *
+ * ⌘K and the "?" sheet are the shell's (components/shell.tsx); these open them.
  */
 export function AppSidebar({
   me,
@@ -82,10 +88,11 @@ export function AppSidebar({
   searches,
   reviewCount,
   currentBrand,
+  openSearch,
+  openShortcuts,
   onNewCollection,
   onEditCollection,
   onDeleteSearch,
-  onUpload,
   children,
 }: {
   me: Me;
@@ -95,12 +102,12 @@ export function AppSidebar({
   reviewCount: number;
   /** The brand being shown, on the brand page. */
   currentBrand?: string;
-  /** The library's dialogs; elsewhere these actions are left out. */
+  openSearch: () => void;
+  openShortcuts: () => void;
+  /** The shell's dialogs; each is left out for whoever may not use it. */
   onNewCollection?: () => void;
   onEditCollection?: (c: Collection) => void;
   onDeleteSearch?: (id: string) => void;
-  /** Offered in ⌘K where the page can upload. */
-  onUpload?: () => void;
   children?: React.ReactNode;
 }) {
   const sections = useSections();
@@ -108,18 +115,6 @@ export function AppSidebar({
   // Offered only to whoever may: the page passes what it can do, this keeps what they may.
   const newCollection = can("collection.create") ? onNewCollection : undefined;
   const deleteSearch = can("search.delete") ? onDeleteSearch : undefined;
-  // ⌘K (or Ctrl+K) opens search from anywhere, even inside a text field.
-  const [searching, setSearching] = useState(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearching((o) => !o);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
   const pathname = usePathname();
   const params = useSearchParams();
   const inLibrary = pathname === "/";
@@ -127,7 +122,8 @@ export function AppSidebar({
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
   const at = {
-    brand: pathname === "/brand",
+    // With several brands, the brand's own row below is lit instead: one place, one lit entry.
+    brand: pathname === "/brand" && brands.length < 2,
     agents: pathname === "/agents",
     team: pathname === "/team",
     portals: pathname === "/portals",
@@ -144,26 +140,25 @@ export function AppSidebar({
             <WorkspaceSwitcher me={me} />
           </SidebarMenuItem>
           <SidebarMenuItem>
-            {/* Search, Notion style: it looks like a field, and ⌘K opens it from anywhere. */}
+            {/* Jump, Notion style: it looks like a field, and ⌘K opens it from anywhere. The page's own field filters it. */}
             <SidebarMenuButton
-              onClick={() => setSearching(true)}
-              tooltip="Search (⌘K)"
+              onClick={openSearch}
+              aria-keyshortcuts="Meta+K Control+K"
+              tooltip={{
+                children: (
+                  <>
+                    Jump to
+                    <Kbd keys={["mod", "K"]} className="ml-2" />
+                  </>
+                ),
+              }}
               className="bg-background text-muted-foreground hover:text-foreground border shadow-xs group-data-[collapsible=icon]:border-0"
             >
-              <IconSearch /> <span>Search or jump to</span>
-              <kbd className="bg-muted ml-auto rounded px-1.5 font-[system-ui] text-[11px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
+              <IconSearch /> <span>Jump to…</span>
+              <Kbd keys={["mod", "K"]} className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <CommandPalette
-          open={searching}
-          onOpenChange={setSearching}
-          collections={collections}
-          brands={brands}
-          searches={searches}
-          onUpload={onUpload}
-          onNewCollection={newCollection}
-        />
       </SidebarHeader>
 
       {/* Sections space themselves (see SidebarSection), so folded ones sit close. */}
@@ -193,7 +188,7 @@ export function AppSidebar({
         {/* The person's own arrangement: sections in their order, each foldable and sortable. */}
         {sections.sorted.map((id) => {
           const section = sections.item(id);
-          if (id === "recents") return <Recents key={id} section={section} />;
+          if (id === "recents") return <Recents key={id} section={section} collections={collections} searches={searches} />;
           if (id === "brands") return <Brands key={id} brands={brands} current={currentBrand} section={section} />;
           if (id === "collections")
             return (
@@ -225,7 +220,7 @@ export function AppSidebar({
         <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
-            <AccountMenu me={me} />
+            <AccountMenu me={me} openShortcuts={openShortcuts} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
@@ -234,37 +229,48 @@ export function AppSidebar({
   );
 }
 
-/** What you opened lately, newest first, with how long ago. */
-function Recents({ section }: { section: SortableItem }) {
-  const [recents, setRecents] = useRecents();
-  if (!recents.length) return null;
-  const icon = { asset: <IconPhoto />, collection: <IconFolder />, search: <IconBookmark />, brand: <IconBook /> };
+export const RECENT_ICON: Record<Recent["kind"], React.ReactNode> = {
+  asset: <IconPhoto />,
+  collection: <IconFolder />,
+  search: <IconBookmark />,
+  brand: <IconBook />,
+};
+
+/** What you opened lately, newest first, with how long ago, under today's names. */
+function Recents({ section, collections, searches }: { section: SortableItem; collections: Collection[]; searches: SavedSearch[] }) {
+  const [stored, setRecents] = useRecents();
+  const recents = liveRecents(stored, collections, searches).slice(0, 5);
   return (
-    <SidebarSection
-      id="recents"
-      label="Recents"
-      sortable={section}
-      menu={
-        <DropdownMenuItem onSelect={() => setRecents([])}>
-          <IconX /> Clear recents
-        </DropdownMenuItem>
-      }
-    >
-      <SidebarMenu>
-        {recents.slice(0, 5).map((r) => (
-          <SidebarMenuItem key={`${r.kind}-${r.id}`}>
-            <SidebarMenuButton asChild tooltip={r.label}>
-              <NavLink href={r.href}>
-                {icon[r.kind]} <span>{r.label}</span>
-              </NavLink>
-            </SidebarMenuButton>
-            <SidebarMenuBadge className="text-muted-foreground font-normal" suppressHydrationWarning>
-              {short(r.at)}
-            </SidebarMenuBadge>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    </SidebarSection>
+    // Grows in with the first thing opened, and folds away when cleared, rather than popping.
+    <Collapsible.Root open={recents.length > 0}>
+      <Collapsible.Content className={FOLD}>
+        <SidebarSection
+          id="recents"
+          label="Recents"
+          sortable={section}
+          menu={
+            <DropdownMenuItem onSelect={() => setRecents([])}>
+              <IconX /> Clear recents
+            </DropdownMenuItem>
+          }
+        >
+          <SidebarMenu>
+            {recents.map((r) => (
+              <SidebarMenuItem key={`${r.kind}-${r.id}`}>
+                <SidebarMenuButton asChild tooltip={r.label}>
+                  <NavLink href={r.href}>
+                    {RECENT_ICON[r.kind]} <span>{r.label}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-muted-foreground font-normal" suppressHydrationWarning>
+                  {short(r.at)}
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarSection>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
 
@@ -297,7 +303,8 @@ function Collections({
           return (
             <SidebarMenuItem key={c.id} {...s.target} {...s.handle} className={s.dragging ? "opacity-50" : undefined}>
               <DropLine line={s.line} />
-              <SidebarMenuButton asChild isActive={current === c.id} tooltip={c.name}>
+              {/* On touch the dots never hide: the count sits beside them, and the name ends before both. */}
+              <SidebarMenuButton asChild isActive={current === c.id} tooltip={c.name} className="pointer-coarse:pr-14">
                 <NavLink href={`/?collection=${c.id}`} draggable={false}>
                   <CollectionIcon icon={c.icon} />{" "}
                   <span>
@@ -306,7 +313,10 @@ function Collections({
                   </span>
                 </NavLink>
               </SidebarMenuButton>
-              <SidebarMenuBadge className="group-hover/menu-item:opacity-0">{c.count}</SidebarMenuBadge>
+              {/* Out of the dots' way whenever they show: hovered, focused, or their menu open. */}
+              <SidebarMenuBadge className="transition-opacity group-hover/menu-item:opacity-0 group-focus-within/menu-item:opacity-0 group-has-data-[state=open]/menu-item:opacity-0 pointer-coarse:right-7">
+                {c.count}
+              </SidebarMenuBadge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuAction showOnHover>
@@ -420,16 +430,45 @@ function Place({
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={hint ? `${label}: ${hint}` : label}>
         <NavLink href={href}>
-          {icon} <span>{label}</span>
+          {icon}{" "}
+          <span>
+            {label}
+            {/* What the number counts, for a screen reader; the badge itself is only a picture of it. */}
+            {hint && <span className="sr-only">, {hint}</span>}
+          </span>
         </NavLink>
       </SidebarMenuButton>
       {badge !== undefined && (
-        <SidebarMenuBadge className="bg-primary text-primary-foreground rounded-full px-1.5" title={hint}>
+        // Keyed so a change pops in; the peer overrides keep it white when Assets is hovered or lit.
+        <SidebarMenuBadge
+          key={badge}
+          aria-hidden
+          className="bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-[active=true]/menu-button:text-primary-foreground animate-in zoom-in-50 rounded-full px-1.5 duration-200"
+        >
           {badge}
         </SidebarMenuBadge>
       )}
     </SidebarMenuItem>
   );
+}
+
+const isLibrary = (href: string) => href === "/" || href.startsWith("/?");
+
+/**
+ * Move within the library without a round trip: it draws its view from the
+ * URL. A new place starts at its top, as a Link would; opening an asset
+ * keeps your place under it.
+ */
+export function pushView(href: string) {
+  window.history.pushState(null, "", href);
+  if (!new URL(href, window.location.href).searchParams.has("asset")) window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+/** Go to `href`: within the library when you are in it, else as a navigation. For ⌘K and the keyboard. */
+export function useNavigate() {
+  const router = useRouter();
+  const pathname = usePathname();
+  return useCallback((href: string) => (pathname === "/" && isLibrary(href) ? pushView(href) : router.push(href)), [router, pathname]);
 }
 
 /**
@@ -455,11 +494,10 @@ export function NavLink({
       {...props}
       onClick={(e) => {
         setOpenMobile(false);
-        const library = href === "/" || href.startsWith("/?");
-        if (pathname !== "/" || !library) return;
+        if (pathname !== "/" || !isLibrary(href)) return;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
-        window.history.pushState(null, "", href);
+        pushView(href);
       }}
     >
       {children}

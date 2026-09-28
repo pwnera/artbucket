@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { BrandProvider } from "@/components/brand";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { inkOn } from "@/lib/color";
+import { inkOn, lift } from "@/lib/color";
 import { brand, iconOf } from "@/lib/sidebar";
 import "./globals.css";
 
@@ -22,22 +22,39 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-/** An organization's accent, as the app's primary color in light and dark. */
-const accentVars = (accent: string | null) =>
-  (accent
-    ? { "--primary": accent, "--primary-foreground": inkOn(accent), "--ring": accent, "--sidebar-primary": accent, "--sidebar-primary-foreground": inkOn(accent) }
-    : undefined) as React.CSSProperties | undefined;
+/** The mobile browser's toolbar, in the page's background for each theme. */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#111111" },
+  ],
+};
+
+/**
+ * An organization's accent as the app's primary color, once per theme and
+ * lifted until it shows on that theme's background: a black accent would
+ * erase buttons and focus rings in dark. html-qualified, so these outrank
+ * globals.css whatever the order. lift() only returns "#rrggbb".
+ */
+const vars = (c: string) =>
+  `--primary:${c};--primary-foreground:${inkOn(c)};--ring:${c};--sidebar-primary:${c};--sidebar-primary-foreground:${inkOn(c)};`;
+const accentCss = (accent: string | null) =>
+  accent && `html:root{${vars(lift(accent, "#ffffff"))}}html.dark{${vars(lift(accent, "#111111"))}}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const b = await brand();
+  const accent = accentCss(b.accent);
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`} style={accentVars(b.accent)} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>{accent && <style>{accent}</style>}</head>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <BrandProvider value={b}>
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider delayDuration={400} skipDelayDuration={300}>
+              {children}
+            </TooltipProvider>
           </BrandProvider>
-          <Toaster richColors />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

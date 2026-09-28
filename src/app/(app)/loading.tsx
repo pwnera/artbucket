@@ -1,37 +1,37 @@
 import { GridSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** The library's shell while the first listing streams in from the API. */
+/**
+ * The library's pane while the first listing streams in, shaped like it so
+ * nothing jumps when it lands: header, tabs, title, filters, tiles. The frame
+ * around it stays (components/shell.tsx).
+ */
 export default function Loading() {
   return (
-    <div className="flex min-h-svh" role="status" aria-label="Loading library">
-      <aside className="bg-sidebar hidden w-64 shrink-0 flex-col gap-6 border-r p-4 md:flex">
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-8 rounded-lg" />
-          <Skeleton className="h-4 w-24" />
+    <div className="flex min-w-0 flex-1 flex-col" role="status" aria-label="Loading library">
+      <header className="flex h-14 items-center gap-3 border-b px-4">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="ml-auto h-8 w-40 sm:w-64" />
+        <Skeleton className="h-8 w-20" />
+      </header>
+      <div className="flex flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6">
+        <div className="-mx-4 flex gap-5 border-b px-4 py-3 md:-mx-6 md:px-6">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-16" />
         </div>
-        <Skeleton className="h-8 w-full" />
-        <div className="grid gap-3">
-          <Skeleton className="h-3 w-20" />
-          {[70, 55, 80].map((w) => (
-            <Skeleton key={w} className="h-4" style={{ width: `${w}%` }} />
-          ))}
+        <div className="grid gap-2">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-80 max-w-full" />
         </div>
-      </aside>
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-3 border-b px-4">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="ml-auto h-8 w-full max-w-sm" />
+        <div className="flex gap-2 py-2">
+          <Skeleton className="h-8 w-24" />
           <Skeleton className="h-8 w-20" />
-        </header>
-        <div className="grid gap-4 p-4 md:p-6">
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-24" />
-          </div>
-          <GridSkeleton />
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="ml-auto h-8 w-16" />
         </div>
-      </main>
+        <GridSkeleton />
+      </div>
     </div>
   );
 }

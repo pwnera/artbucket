@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArchive, IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconStack2, IconUpload } from "@tabler/icons-react";
+import { IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconUpload, IconArchive } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { send } from "@/components/collections";
 import { useCan } from "@/components/can";
+import { Fold } from "@/components/fields";
 import { Thumb, type Asset } from "@/components/gallery";
+import { moveTo } from "@/components/review-actions";
+import { usePref } from "@/components/sidebar-prefs";
 import { putWithProgress } from "@/components/uploads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,92 +19,151 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
-import { ago } from "@/lib/time";
+import { ago, exact } from "@/lib/time";
+import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
 
 const title = (a: Asset) => a.metadata?.title || a.filename;
 
+/** What sits behind a preview: a transparency grid, white or black, so white and black marks both show. */
+export type PreviewBg = "checker" | "light" | "dark";
+export const PREVIEW_BG: Record<PreviewBg | "auto", string> = {
+  checker: "bg-checker",
+  light: "bg-white",
+  dark: "bg-neutral-900",
+  auto: "bg-muted/50",
+};
+const TRANSPARENT = /^image\/(png|svg\+xml|webp|avif|gif)$/;
+
 /**
- * Where an asset is in its lifecycle, and the move that comes next. A
- * proposal and a rejection are Review's to show; this is the rest. Each
- * button acts at once through the public PATCH, separately from Save.
+ * The preview background the viewer picked, remembered per browser; until
+ * they pick, a format that can be transparent gets the grid.
  */
-export function Lifecycle({ asset, onChanged }: { asset: Asset; onChanged: (asset: Asset) => void }) {
-  const [busy, setBusy] = useState(false);
+export function usePreviewBg(mime: string) {
+  const [picked, setPicked] = usePref<PreviewBg | null>("artbucket:preview-bg", null);
+  const bg: PreviewBg | "auto" = picked ?? (TRANSPARENT.test(mime) ? "checker" : "auto");
+  return [bg, setPicked] as const;
+}
+
+/** Undo a status move: back where it was, and the panel told. */
+const moveBack = (a: Asset, status: Asset["status"], onChanged: (asset: Asset) => void) => async () => {
+  const r = await moveTo(a, status);
+  if (!r.ok) throw new Error();
+  onChanged((await r.json()).data);
+};
+
+/** The status in a line of badges under the title: "Approved", "until 12/31/2026", "embargoed until". */
+export function StatusBadges({ asset }: { asset: Asset }) {
+  const r = asset.rights;
+  const today = new Date().toISOString().slice(0, 10);
+  if (asset.state !== "active") return <Badge variant="outline">{STATE_LABEL[asset.state]}</Badge>;
+  return (
+    <>
+      <Badge variant="success">
+        <IconCheck /> Approved
+      </Badge>
+      {r?.expires && <Badge variant="outline">until {new Date(`${r.expires}T00:00:00`).toLocaleDateString()}</Badge>}
+      {r?.embargo && r.embargo > today && (
+        <Badge variant="warning">embargoed until {new Date(`${r.embargo}T00:00:00`).toLocaleDateString()}</Badge>
+      )}
+    </>
+  );
+}
+
+/**
+ * Where an asset is in its lifecycle when it is out of the library, and the
+ * move that comes next. A proposal and a rejection are Review's to show, an
+ * approved asset's status is a badge under the title; this is the rest.
+ * `approve` is the viewer's own, so a draft goes live with what the form says.
+ */
+export function Lifecycle({
+  asset,
+  onChanged,
+  approve,
+}: {
+  asset: Asset;
+  onChanged: (asset: Asset) => void;
+  approve?: () => Promise<unknown>;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
   const can = useCan();
   const review = can("asset.review", asset);
-  const move = async (status: Asset["status"], done: string) => {
-    setBusy(true);
+  const move = async (status: Asset["status"], done: string, undo?: boolean) => {
+    setBusy(status);
     const next = await send("PATCH", `/api/v1/assets/${asset.id}`, { status });
-    setBusy(false);
+    setBusy(null);
     if (!next) return;
-    toast.success(done);
     onChanged(next);
+    if (undo) undoable(done, { undo: moveBack(asset, asset.status, onChanged) });
+    else toast.success(done);
   };
   const r = asset.rights;
-
-  if (asset.state === "active") {
-    if (!review) return null;
-    return (
-      <div className="text-muted-foreground flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs">
-        <IconCheck className="size-4" />
-        <span className="flex-1">
-          Approved{r?.expires ? `, in use until ${r.expires}` : ""}
-          {r?.embargo && r.embargo > new Date().toISOString().slice(0, 10) ? `; embargoed until ${r.embargo}` : ""}
-        </span>
-        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => move("archived", "Archived: its links now answer 410")}>
-          <IconArchive /> Archive
-        </Button>
-      </div>
-    );
-  }
+  if (asset.state === "active") return null;
 
   const restore = async () => {
-    setBusy(true);
+    setBusy("restore");
     const back = await send("POST", `/api/v1/assets/${asset.id}/restore`);
-    setBusy(false);
+    setBusy(null);
     if (!back) return;
     toast.success("Restored");
     onChanged(back);
   };
-  const purged = asset.deletedAt ? new Date(new Date(asset.deletedAt).getTime() + 30 * 86_400_000).toISOString().slice(0, 10) : null;
+  const purged = asset.deletedAt ? new Date(new Date(asset.deletedAt).getTime() + 30 * 86_400_000).toLocaleDateString() : null;
   const says = {
-    deleted: `Deleted: out of the library, and its links answer 410. Restore it before ${purged}; after, it is gone for good.`,
+    deleted: `Deleted. Its links stop working. Restore it before ${purged}; after that it is gone for good.`,
     draft: "Out of the library, and its links, until it is approved.",
-    expired: `Its last day of use was ${r?.expires}: its links answer 410 and checks refuse it. A later date under Rights brings it back.`,
-    archived: "Retired: out of the library, its links answer 410, and checks refuse it.",
+    expired: `Its last day of use was ${r?.expires}. Its links stop working and checks refuse it. A later date under Rights brings it back.`,
+    archived: "Archived. Its links stop working and checks refuse it.",
   }[asset.state as "deleted" | "draft" | "expired" | "archived"];
   if (!says) return null;
   return (
     <div className="bg-muted/40 grid gap-2 rounded-lg border p-3 text-sm">
-      <p className="font-medium">{STATE_LABEL[asset.state]}</p>
       <p className="text-muted-foreground text-xs">{says}</p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 empty:hidden">
         {asset.state === "draft" && can("asset.edit", asset) && (
-          <Button type="button" size="sm" variant={review ? "outline" : "default"} disabled={busy} onClick={() => move("proposed", "Sent for review")}>
+          <Button
+            type="button"
+            size="sm"
+            variant={review ? "outline" : "default"}
+            disabled={!!busy}
+            pending={busy === "proposed"}
+            onClick={() => move("proposed", "Sent for review")}
+          >
             <IconSend /> Submit for review
           </Button>
         )}
         {asset.state === "draft" && review && (
-          <Button type="button" size="sm" disabled={busy} onClick={() => move("active", "Approved")}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!!busy}
+            pending={busy === "active"}
+            onClick={async () => {
+              if (!approve) return move("active", "Approved");
+              setBusy("active");
+              await approve();
+              setBusy(null);
+            }}
+          >
             <IconCheck /> Approve
           </Button>
         )}
         {asset.state === "expired" && review && (
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => move("archived", "Archived")}>
+          <Button type="button" size="sm" variant="outline" disabled={!!busy} pending={busy === "archived"} onClick={() => move("archived", "Archived. Its links stop working.", true)}>
             <IconArchive /> Archive
           </Button>
         )}
         {asset.state === "deleted" && can("asset.delete", asset) && (
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={restore}>
+          <Button type="button" size="sm" variant="outline" disabled={!!busy} pending={busy === "restore"} onClick={restore}>
             <IconArrowBackUp /> Restore
           </Button>
         )}
         {asset.state === "archived" && review && (
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => move("active", "Back in the library")}>
+          <Button type="button" size="sm" variant="outline" disabled={!!busy} pending={busy === "active"} onClick={() => move("active", "Back in the library", true)}>
             <IconArrowBackUp /> Unarchive
           </Button>
         )}
@@ -111,50 +173,13 @@ export function Lifecycle({ asset, onChanged }: { asset: Asset; onChanged: (asse
 }
 
 /**
- * The asset's stack of versions: which one is current, rolling back to an
- * earlier one, comparing two side by side, and adding the next.
+ * A new file for this asset: uploaded, then added to its stack with
+ * versionOf, current at once or as a draft. Shared by the New version menu
+ * and a file dropped on the open asset. `onOpen` shows the version made.
  */
-export function Versions({
-  asset,
-  onChanged,
-  onOpen,
-}: {
-  asset: Asset;
-  /** Something about this asset changed: current, superseded. */
-  onChanged: (asset: Asset) => void;
-  onOpen: (id: string) => void;
-}) {
-  const [versions, setVersions] = useState<Asset[]>([]);
-  const [comparing, setComparing] = useState<Asset | null>(null);
+export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
   const [busy, setBusy] = useState(false);
-  const file = useRef<HTMLInputElement>(null);
-  const draft = useRef(false);
-  const can = useCan();
-  useEffect(() => {
-    let live = true;
-    fetch(`/api/v1/assets/${asset.id}/versions`)
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j) => live && setVersions(j.data));
-    return () => {
-      live = false;
-    };
-  }, [asset.id, asset.updatedAt]);
-
-  const mayAdd = can("asset.version", asset);
-  if (versions.length < 2 && !mayAdd) return null;
-
-  async function makeCurrent(v: Asset) {
-    setBusy(true);
-    const next: Asset[] | null = await send("POST", `/api/v1/assets/${asset.id}/versions/${v.version}/current`);
-    setBusy(false);
-    if (!next) return;
-    toast.success(`Version ${v.version} is current`);
-    setVersions(next);
-    const self = next.find((x) => x.id === asset.id);
-    if (self) onChanged(self);
-  }
-
-  async function upload(f: File) {
+  async function upload(f: File, draft = false) {
     setBusy(true);
     const id = toast.loading(`Uploading ${f.name}`);
     const mime = f.type || "application/octet-stream";
@@ -164,7 +189,7 @@ export function Versions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: f.name, mime, size: f.size }),
       });
-      if (!ticket.ok) throw new Error((await ticket.json()).error?.message ?? "Upload failed");
+      if (!ticket.ok) throw new Error((await ticket.json().catch(() => null))?.error?.message ?? "Upload failed");
       const { token, uploadUrl } = await ticket.json();
       await putWithProgress(uploadUrl, f, mime, (loaded) =>
         toast.loading(`Uploading ${f.name}: ${Math.round((loaded / f.size) * 100)}%`, { id }),
@@ -172,10 +197,10 @@ export function Versions({
       const res = await fetch("/api/v1/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, filename: f.name, mime, versionOf: asset.id, ...(draft.current && { status: "draft" }) }),
+        body: JSON.stringify({ token, filename: f.name, mime, versionOf: asset.id, ...(draft && { status: "draft" }) }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error?.message ?? "Couldn't add the version");
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) throw new Error(body?.error?.message ?? "Couldn't add the version");
       const v: Asset = body.data;
       toast.success(
         body.deduped
@@ -192,59 +217,135 @@ export function Versions({
       setBusy(false);
     }
   }
+  return { upload, busy };
+}
+
+/**
+ * The asset's stack of versions, folded to "3 versions · v3 current": which
+ * one is current, rolling back to an earlier one, comparing two side by
+ * side, and adding the next.
+ */
+export function Versions({
+  asset,
+  onChanged,
+  onOpen,
+}: {
+  asset: Asset;
+  /** Something about this asset changed: current, superseded. */
+  onChanged: (asset: Asset) => void;
+  onOpen: (id: string) => void;
+}) {
+  // null while loading: a stack shows skeleton rows, not the explanation, until it lands.
+  const [versions, setVersions] = useState<Asset[] | null>(null);
+  const [comparing, setComparing] = useState<{ with: Asset; open: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  const draft = useRef(false);
+  const can = useCan();
+  const { upload, busy: uploading } = useVersionUpload(asset, onOpen);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/assets/${asset.id}/versions`)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j) => live && setVersions(j.data))
+      .catch(() => live && setVersions([]));
+    return () => {
+      live = false;
+    };
+  }, [asset.id, asset.updatedAt]);
+
+  const mayAdd = can("asset.version", asset);
+  const list = versions ?? [];
+  if (versions && versions.length < 2 && !mayAdd) return null;
+  if (!versions && !asset.stackId && !mayAdd) return null;
+
+  async function makeCurrent(v: Asset) {
+    const was = list.find((x) => x.current);
+    setBusy(true);
+    const next: Asset[] | null = await send("POST", `/api/v1/assets/${asset.id}/versions/${v.version}/current`);
+    setBusy(false);
+    if (!next) return;
+    const apply = (vs: Asset[]) => {
+      setVersions(vs);
+      const self = vs.find((x) => x.id === asset.id);
+      if (self) onChanged(self);
+    };
+    apply(next);
+    const message = `Version ${v.version} is current`;
+    if (!was) return void toast.success(message);
+    undoable(message, {
+      undo: async () => {
+        const back: Asset[] | null = await send("POST", `/api/v1/assets/${asset.id}/versions/${was.version}/current`);
+        if (!back) throw new Error();
+        apply(back);
+      },
+    });
+  }
 
   const pick = (asDraft: boolean) => {
     draft.current = asDraft;
     file.current?.click();
   };
+  const current = list.find((v) => v.current);
+  const summary = versions
+    ? `${list.length || 1} ${list.length > 1 ? "versions" : "version"}${current && list.length > 1 ? ` · v${current.version} current` : ""}`
+    : "";
 
   return (
-    <div className="grid gap-2 rounded-lg border p-3">
-      <div className="flex items-center gap-2">
-        <p className="flex flex-1 items-center gap-2 text-sm font-medium">
-          <IconStack2 className="size-4" /> Versions
-        </p>
-        {mayAdd && (
-          <>
-            <input
-              ref={file}
-              type="file"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void upload(f);
-              }}
-            />
-            {can("asset.edit", asset) ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" size="sm" variant="outline" disabled={busy}>
-                    <IconUpload /> New version
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => pick(false)}>Upload, and make it current</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => pick(true)}>Upload as a draft</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => pick(false)}>
-                <IconUpload /> Suggest a new version
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-      {versions.length < 2 ? (
+    <Fold title="Versions" summary={summary} remember="versions">
+      {mayAdd && (
+        <div className="flex">
+          <input
+            ref={file}
+            type="file"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void upload(f, draft.current);
+            }}
+          />
+          {can("asset.edit", asset) ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="outline" pending={uploading} disabled={busy}>
+                  <IconUpload /> New version
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => pick(false)}>Upload, and make it current</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => pick(true)}>Upload as a draft</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button type="button" size="sm" variant="outline" pending={uploading} disabled={busy} onClick={() => pick(false)}>
+              <IconUpload /> Suggest a new version
+            </Button>
+          )}
+        </div>
+      )}
+      {!versions ? (
+        asset.stackId && <ul className="grid gap-1" aria-busy>
+          {[0, 1].map((i) => (
+            <li key={i} className="flex items-center gap-2 p-1">
+              <Skeleton className="size-8 shrink-0 rounded" />
+              <Skeleton className="h-3 flex-1" />
+            </li>
+          ))}
+        </ul>
+      ) : list.length < 2 ? (
         <p className="text-muted-foreground text-xs">
-          A new file for the same thing replaces this one once approved: checks point to it, and share links serve it.
+          A new file for the same thing replaces this one once approved: checks point to it, and share links serve it. Drop one on the preview to add it.
         </p>
       ) : (
         <ul className="grid gap-1">
-          {versions.map((v) => (
-            <li key={v.id} className={cn("flex items-center gap-2 rounded-md p-1 text-sm", v.id === asset.id && "bg-muted")}>
-              <button type="button" onClick={() => onOpen(v.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline">
+          {list.map((v) => (
+            <li
+              key={v.id}
+              aria-current={v.id === asset.id || undefined}
+              className={cn("flex items-center gap-2 rounded-md p-1 text-sm", v.id === asset.id && "bg-muted")}
+            >
+              <button type="button" onClick={() => onOpen(v.id)} className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left hover:underline">
                 <span className="bg-muted relative size-8 shrink-0 overflow-hidden rounded">
                   {hasPreview(v) && <Thumb src={`/a/${v.id}/w_64,f_webp`} alt="" />}
                 </span>
@@ -256,11 +357,22 @@ export function Versions({
               ) : v.state !== "active" ? (
                 <Badge variant="outline">{STATE_LABEL[v.state]}</Badge>
               ) : null}
-              <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline" suppressHydrationWarning>
+              <time
+                dateTime={v.createdAt}
+                title={exact(v.createdAt)}
+                className="text-muted-foreground hidden shrink-0 text-xs sm:inline"
+                suppressHydrationWarning
+              >
                 {ago(v.createdAt)}
-              </span>
+              </time>
               {v.id !== asset.id && (
-                <Button type="button" size="icon-sm" variant="ghost" aria-label={`Compare with version ${v.version}`} onClick={() => setComparing(v)}>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Compare with version ${v.version}`}
+                  onClick={() => setComparing({ with: v, open: true })}
+                >
                   <IconColumns />
                 </Button>
               )}
@@ -273,13 +385,20 @@ export function Versions({
           ))}
         </ul>
       )}
-      {comparing && <Compare pair={[comparing, asset].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)) as [Asset, Asset]} onClose={() => setComparing(null)} />}
-    </div>
+      {comparing && (
+        <Compare
+          open={comparing.open}
+          pair={[comparing.with, asset].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)) as [Asset, Asset]}
+          onClose={() => setComparing((c) => c && { ...c, open: false })}
+        />
+      )}
+    </Fold>
   );
 }
 
 /** Two versions side by side, older on the left, and what differs between them. */
-function Compare({ pair, onClose }: { pair: [Asset, Asset]; onClose: () => void }) {
+function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean; onClose: () => void }) {
+  const [bg] = usePreviewBg(pair[1].mime);
   const rows: [string, (a: Asset) => string][] = [
     ["State", (a) => (a.current ? `${STATE_LABEL[a.state]}, current` : STATE_LABEL[a.state])],
     ["File", (a) => a.filename],
@@ -291,8 +410,9 @@ function Compare({ pair, onClose }: { pair: [Asset, Asset]; onClose: () => void 
     ["Added", (a) => `${new Date(a.createdAt).toLocaleDateString()}${a.proposedBy ? `, by ${a.proposedBy}` : ""}`],
   ];
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-4xl">
+    // Kept mounted while it closes, so it animates out.
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-4xl">
         <DialogTitle>
           Version {pair[0].version} and version {pair[1].version}
         </DialogTitle>
@@ -300,7 +420,7 @@ function Compare({ pair, onClose }: { pair: [Asset, Asset]; onClose: () => void 
         <div className="grid grid-cols-2 gap-3">
           {pair.map((a) => (
             <figure key={a.id} className="grid gap-2">
-              <div className="bg-muted relative aspect-square overflow-hidden rounded-lg border">
+              <div className={cn("relative aspect-square overflow-hidden rounded-lg border", PREVIEW_BG[bg])}>
                 {hasPreview(a) ? (
                   <Thumb src={`/a/${a.id}/w_640,f_webp`} alt={title(a)} className="p-3" />
                 ) : (

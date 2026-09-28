@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Agents, type Key } from "@/components/agents";
 import { env } from "@/lib/env";
-import { get, sidebarData } from "@/lib/sidebar";
+import { get, whoami } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Agents" };
@@ -12,6 +12,6 @@ export const metadata: Metadata = { title: "Agents" };
  * agents for anyone else.
  */
 export default async function AgentsPage() {
-  const [keys, sidebar] = await Promise.all([get("keys", (b: { data: Key[] }) => b.data, []), sidebarData()]);
-  return <Agents keys={keys} sidebar={sidebar} origin={env.APP_URL} anonymous={sidebar.me.auth.anonymous} />;
+  const [keys, me] = await Promise.all([get("keys", (b: { data: Key[] }) => b.data, []), whoami()]);
+  return <Agents keys={keys} origin={env.APP_URL} anonymous={me.auth.anonymous} />;
 }

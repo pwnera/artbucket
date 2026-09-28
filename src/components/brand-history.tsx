@@ -10,22 +10,12 @@ import {
   IconRestore,
   IconSparkles,
 } from "@tabler/icons-react";
-import { Can, useCan } from "@/components/can";
-import { toast } from "sonner";
+import type { Me } from "@/components/account";
+import { Can, useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";
+import { Confirm } from "@/components/confirm";
 import { Thumb } from "@/components/gallery";
 import { renditionLabel } from "@/components/rendition-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -34,6 +24,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Editable } from "@/components/brand-values";
 import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/history";
 import { day } from "@/lib/time";
+import { undoable } from "@/lib/undo";
 import { contextLabel, fontLabel, ruleLabel, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
@@ -48,12 +39,19 @@ type Meta = {
   createdAt: string;
   updatedAt: string;
 };
+type Mode = "made" | "now";
 type Detail = Omit<Meta, "rules"> & { rules: SnapRule[]; against: number | "current" | null; diff: RuleChange[] };
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+/**
+ * Who made a version, in words: the baseline artbucket recorded, an edit
+ * with no one signed in, you, or the person or key by name.
+ */
+export const who = (actor: string, me: Me | null) =>
+  actor === "artbucket" ? "Start of history" : actor === "web" ? "Someone on the web" : me?.user && actor === me.actor ? "You" : actor;
 
 /**
  * A brand's version history, like a doc's: every change is kept, grouped by
@@ -77,6 +75,7 @@ export function History({
   const [versions, setVersions] = useState<Meta[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
+  const me = useMe();
 
   useEffect(() => {
     if (!open) return;
@@ -125,6 +124,11 @@ export function History({
               setTick((t) => t + 1);
               setSelected(n);
             }}
+            // Undo can land after the sheet moved on or closed: refresh, don't navigate.
+            onUndone={() => {
+              onRestored();
+              setTick((t) => t + 1);
+            }}
           />
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -140,7 +144,11 @@ export function History({
                 <h3 className="text-muted-foreground px-3 pt-3 pb-1 text-xs font-medium">{label}</h3>
                 <ol>
                   {vs.map((v) => (
-                    <li key={v.number}>
+                    // The line down to the next dot, so a day reads as a timeline.
+                    <li
+                      key={v.number}
+                      className="relative before:absolute before:top-7 before:-bottom-3 before:left-[1.375rem] before:w-px before:bg-border last:before:hidden"
+                    >
                       <button
                         type="button"
                         onClick={() => setSelected(v.number)}
@@ -155,7 +163,7 @@ export function History({
                             {v.number === latest && <Badge variant="secondary">Current</Badge>}
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
-                            {time(v.updatedAt)} · {v.actor}
+                            {time(v.updatedAt)} · {who(v.actor, me)}
                             {v.name && ` · ${v.summary}`}
                           </div>
                         </div>
@@ -178,7 +186,8 @@ function KindIcon({ kind, named }: { kind: VersionKind; named: boolean }) {
   return (
     <span
       className={cn(
-        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
+        // Positioned, so it sits over the timeline's line.
+        "relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
         named ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
       )}
     >
@@ -195,6 +204,7 @@ function VersionDetail({
   onBack,
   onChanged,
   onRestored,
+  onUndone,
 }: {
   brand: string;
   number: number;
@@ -202,29 +212,44 @@ function VersionDetail({
   onBack: () => void;
   onChanged: () => void;
   onRestored: (version: number) => void;
+  onUndone: () => void;
 }) {
-  const [mode, setMode] = useState<"made" | "now">("made");
-  const [v, setV] = useState<Detail | null>(null);
+  const [mode, setMode] = useState<Mode>("made");
+  // The diff is kept with the mode it was fetched for: switching dims the old one until the new one lands.
+  const [got, setGot] = useState<{ mode: Mode; v: Detail | null } | null>(null);
+  const v = got?.v ?? null;
+  const stale = !!got && got.mode !== mode;
   const can = useCan();
+  const me = useMe();
 
   useEffect(() => {
     let live = true;
     fetch(`/api/v1/brands/${brand}/versions/${number}${mode === "now" ? "?against=current" : ""}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => live && setV(j?.data ?? null));
+      .then((j) => live && setGot({ mode, v: j?.data ?? null }));
     return () => {
       live = false;
     };
   }, [brand, number, mode]);
 
+  // Resolves to send()'s result, so a failed restore keeps the confirm open.
   async function restore() {
     const r = await send("POST", `/api/v1/brands/${brand}/versions/${number}/restore`);
-    if (!r) return;
-    toast.success(
-      `Restored version ${number}. What you had is kept as the version before it.` +
+    if (!r) return null;
+    // What you had is the version just before the restore: putting it back is the same call.
+    undoable(`Restored version ${number}`, {
+      description:
+        "What you had is kept in the history." +
         (r.droppedAssets ? ` ${r.droppedAssets} deleted asset${r.droppedAssets > 1 ? "s were" : " was"} left out.` : ""),
-    );
+      undo: async () => {
+        const x = await send("POST", `/api/v1/brands/${brand}/versions/${r.version - 1}/restore`);
+        // send() has said why; don't also say Undone.
+        if (!x) return false;
+        onUndone();
+      },
+    });
     onRestored(r.version);
+    return r;
   }
 
   return (
@@ -248,7 +273,7 @@ function VersionDetail({
                 />
               </Can>
               <p className="text-muted-foreground text-sm">
-                v{number} · {stamp(v.updatedAt)} · {v.actor} · {v.rules.length} rules
+                v{number} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
                 {v.kind === "restore" && v.restoredFrom && ` · restored version ${v.restoredFrom}`}
               </p>
             </div>
@@ -258,7 +283,7 @@ function VersionDetail({
                 variant="outline"
                 size="sm"
                 value={mode}
-                onValueChange={(m) => m && setMode(m as "made" | "now")}
+                onValueChange={(m) => m && setMode(m as Mode)}
               >
                 <ToggleGroupItem value="made">What changed</ToggleGroupItem>
                 <ToggleGroupItem value="now" disabled={current}>
@@ -266,26 +291,17 @@ function VersionDetail({
                 </ToggleGroupItem>
               </ToggleGroup>
               {!current && can("brand.edit") && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" className="ml-auto">
-                      <IconRestore /> Restore this version
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Restore version {number}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        The brand&apos;s rules go back to how they were in this version. Nothing is lost: the rules you
-                        have now stay in the history, and you can restore them the same way.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={restore}>Restore</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Confirm
+                  title={`Restore version ${number}?`}
+                  says="The brand's rules go back to how they were in this version. Nothing is lost: the rules you have now stay in the history, and you can restore them the same way."
+                  action="Restore"
+                  destructive={false}
+                  run={restore}
+                >
+                  <Button size="sm" className="ml-auto">
+                    <IconRestore /> Restore this version
+                  </Button>
+                </Confirm>
               )}
             </div>
           </>
@@ -294,10 +310,13 @@ function VersionDetail({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div
+        aria-busy={stale}
+        className={cn("min-h-0 flex-1 space-y-3 overflow-y-auto p-4 transition-opacity", stale && "opacity-50")}
+      >
         {v && (
           <p className="text-muted-foreground text-sm">
-            {mode === "now"
+            {got?.mode === "now"
               ? "What restoring would undo: how the rules changed from this version to now."
               : v.kind === "baseline"
                 ? "Where this brand's history starts: every rule it had."
@@ -314,9 +333,9 @@ function VersionDetail({
 }
 
 const CHANGE_STYLE: Record<RuleChange["change"], string> = {
-  added: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  removed: "bg-red-500/15 text-red-700 dark:text-red-400",
-  changed: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  added: "bg-success/15 text-success",
+  removed: "bg-destructive/15 text-destructive",
+  changed: "bg-warning/15 text-warning",
   moved: "bg-muted text-muted-foreground",
 };
 
@@ -324,7 +343,7 @@ function Change({ change: c }: { change: RuleChange }) {
   return (
     <div className="space-y-2 rounded-xl border p-3">
       <div className="flex items-center gap-2">
-        <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase", CHANGE_STYLE[c.change])}>
+        <span className={cn("rounded px-1.5 py-0.5 text-2xs font-semibold tracking-wide uppercase", CHANGE_STYLE[c.change])}>
           {c.change}
         </span>
         <span className="truncate text-sm font-medium">{ruleLabel(c.key)}</span>
@@ -390,7 +409,7 @@ function Field({ f }: { f: FieldChange }) {
       return (
         <ul className="space-y-0.5 text-sm">
           {is.map((x, i) => (
-            <li key={`is-${i}`} className={cn(!was.includes(x) && "text-emerald-700 dark:text-emerald-400")}>
+            <li key={`is-${i}`} className={cn(!was.includes(x) && "text-success")}>
               {was.includes(x) ? "  " : "+ "}
               {x}
             </li>
@@ -398,7 +417,7 @@ function Field({ f }: { f: FieldChange }) {
           {was
             .filter((x) => !is.includes(x))
             .map((x, i) => (
-              <li key={`was-${i}`} className="text-red-700 line-through dark:text-red-400">
+              <li key={`was-${i}`} className="text-destructive line-through">
                 − {x}
               </li>
             ))}
@@ -416,8 +435,8 @@ function Field({ f }: { f: FieldChange }) {
     }
     return (
       <div className="space-y-1 text-sm">
-        <p className="text-red-700 line-through dark:text-red-400">{text(f.before)}</p>
-        <p className="text-emerald-700 dark:text-emerald-400">{text(f.after)}</p>
+        <p className="text-destructive line-through">{text(f.before)}</p>
+        <p className="text-success">{text(f.after)}</p>
       </div>
     );
   })();
@@ -447,7 +466,7 @@ function Assets({ list, dim }: { list: RuleAsset[]; dim?: boolean }) {
           <div className="bg-checker relative size-14 overflow-hidden rounded-md border">
             <Thumb src={`/a/${a.id}/w_56,f_webp`} alt="" className="p-1" />
           </div>
-          <span className="text-muted-foreground truncate text-center text-[11px]">{renditionLabel(a.rendition)}</span>
+          <span className="text-muted-foreground truncate text-center text-2xs">{renditionLabel(a.rendition)}</span>
         </div>
       ))}
     </div>

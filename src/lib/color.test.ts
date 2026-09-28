@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { contrast, grade, hsl, inkOn, rgb } from "./color.ts";
+import { readFileSync } from "node:fs";
+import { contrast, grade, hsl, inkOn, lift, rgb } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -28,4 +29,25 @@ test("grades and ink", () => {
   assert.equal(grade(2.9), "fail");
   assert.equal(inkOn("#ffff00"), "#000000");
   assert.equal(inkOn("#1f2937"), "#ffffff");
+});
+
+test("lift keeps a color that passes and moves one that does not", () => {
+  assert.equal(lift("#6d4aff", "#ffffff"), "#6d4aff");
+  assert.equal(lift("#6D4AFF", "#ffffff"), "#6d4aff", "normalized");
+  assert.ok(contrast(lift("#111111", "#111111"), "#111111") >= 3, "black accent in dark");
+  assert.ok(contrast(lift("#ffffff", "#ffffff"), "#ffffff") >= 3, "white accent in light");
+  assert.ok(contrast(lift("#777777", "#111111", 4.5), "#111111") >= 4.5);
+});
+
+test("status colors read as text on the background in both themes", () => {
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const block = (sel: string) => css.slice(css.indexOf(`${sel} {`)).split("}")[0];
+  for (const [sel, bg] of [[":root", "#ffffff"], [".dark", "#111111"]]) {
+    assert.ok(block(sel).includes(`--background: ${bg};`), `${sel} background`);
+    for (const name of ["success", "warning"]) {
+      const value = block(sel).match(new RegExp(`--${name}: (#[0-9a-f]{6});`))?.[1];
+      assert.ok(value, `${sel} --${name}`);
+      assert.ok(contrast(value, bg) >= 4.5, `${sel} --${name} ${value}`);
+    }
+  }
 });

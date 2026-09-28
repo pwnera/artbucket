@@ -1,80 +1,82 @@
 "use client";
 
-import Link from "next/link";
-import { IconSettings } from "@tabler/icons-react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/brand";
-import { PageHeader } from "@/components/page";
+import Link, { useLinkStatus } from "next/link";
+import { useSelectedLayoutSegments } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { IconLoader2, type Icon } from "@tabler/icons-react";
+import { useMe } from "@/components/can";
+import { AppHeader, PageHeader } from "@/components/page";
 import { allowedFor, contextTitle, CONTEXTS, find, hrefOf } from "@/components/settings/sections";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import type { SidebarData } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 
 /**
- * Settings' frame: the app's sidebar, a menu of the sections this person may
- * open grouped by what they apply to, and the open one.
+ * Settings' frame, mounted once by settings/layout.tsx: a menu of the
+ * sections this person may open grouped by what they apply to, and the open
+ * one's title. Only the pane beside it swaps when a section changes, and the
+ * open one is read from the URL, so the menu moves the moment you click.
  */
-export function SettingsShell({
-  sidebar,
-  at,
-  children,
-}: {
-  sidebar: SidebarData;
-  at: { context: string; id: string };
-  children: React.ReactNode;
-}) {
-  const me = sidebar.me;
+export function SettingsShell({ children }: { children: React.ReactNode }) {
+  const me = useMe()!;
+  const [context, id] = useSelectedLayoutSegments();
   const sections = allowedFor(me);
-  const current = find(at.context, at.id)!;
+  const current = context && id ? find(context, id) : undefined;
+  const active = useRef<HTMLAnchorElement>(null);
+  // On a phone the menu is a row that scrolls sideways: keep the open section in it, not off to the right.
+  useEffect(() => {
+    active.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [context, id]);
   return (
-    <SidebarProvider>
-      <AppSidebar me={me} collections={sidebar.collections} brands={sidebar.brands} searches={sidebar.searches} reviewCount={sidebar.reviewCount} />
-      <SidebarInset className="min-w-0">
-        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <IconSettings className="text-muted-foreground size-4" />
-          <span className="text-sm font-semibold">Settings</span>
-          <ThemeToggle className="ml-auto" />
-        </header>
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-6 pb-16 md:flex-row md:px-6">
-          <nav aria-label="Settings" className="-mx-4 flex shrink-0 gap-6 overflow-x-auto px-4 pb-1 md:mx-0 md:w-52 md:flex-col md:overflow-visible md:px-0">
-            {CONTEXTS.map((c) => {
-              const here = sections.filter((s) => s.context === c);
-              if (!here.length) return null;
-              return (
-                <div key={c} className="shrink-0 space-y-1 md:min-w-0 md:shrink">
-                  <p className="text-muted-foreground truncate px-2 text-xs font-medium">{contextTitle(c, me)}</p>
-                  <ul className="flex gap-1 md:flex-col">
-                    {here.map((s) => {
-                      const active = s.context === at.context && s.id === at.id;
-                      return (
-                        <li key={s.id}>
-                          <Link
-                            href={hrefOf(s)}
-                            aria-current={active ? "page" : undefined}
-                            className={cn(
-                              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm whitespace-nowrap transition-colors",
-                              active ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                            )}
-                          >
-                            <s.icon className="size-4 shrink-0" /> {s.label}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })}
-          </nav>
-          <main className="min-w-0 flex-1 space-y-6">
-            <PageHeader icon={<current.icon />} title={current.label} description={current.description} />
-            {children}
-          </main>
+    <>
+      <AppHeader
+        trail={[{ label: "Settings", href: "/settings" }, ...(current ? [{ label: contextTitle(current.context, me) }, { label: current.label }] : [])]}
+      />
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-6 pb-16 md:flex-row md:px-6">
+        <nav
+          aria-label="Settings"
+          // The edges fade on a phone, so it reads as a row that goes on.
+          className="-mx-4 flex shrink-0 gap-6 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,transparent,#000_1rem,#000_calc(100%-1rem),transparent)] [scrollbar-width:none] md:mx-0 md:w-52 md:flex-col md:overflow-visible md:px-0 md:[mask-image:none]"
+        >
+          {CONTEXTS.map((c) => {
+            const here = sections.filter((s) => s.context === c);
+            if (!here.length) return null;
+            return (
+              <div key={c} className="shrink-0 space-y-1 md:min-w-0 md:shrink">
+                <p className="text-muted-foreground truncate px-2 text-xs font-medium">{contextTitle(c, me)}</p>
+                <ul className="flex gap-1 md:flex-col">
+                  {here.map((s) => {
+                    const on = s.context === context && s.id === id;
+                    return (
+                      <li key={s.id}>
+                        <Link
+                          ref={on ? active : undefined}
+                          href={hrefOf(s)}
+                          aria-current={on ? "page" : undefined}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm whitespace-nowrap transition-colors",
+                            on ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                          )}
+                        >
+                          <NavIcon icon={s.icon} /> {s.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </nav>
+        <div className="min-w-0 flex-1 space-y-6">
+          {current && <PageHeader icon={<current.icon />} title={current.label} description={current.description} />}
+          {children}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </>
   );
+}
+
+/** The section's icon, a spinner in its place while its link is on its way: same size, so nothing moves. */
+function NavIcon({ icon: I }: { icon: Icon }) {
+  const { pending } = useLinkStatus();
+  return pending ? <IconLoader2 className="size-4 shrink-0 animate-spin" /> : <I className="size-4 shrink-0" />;
 }

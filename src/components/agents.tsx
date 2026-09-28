@@ -2,37 +2,26 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconExternalLink, IconKey, IconLoader2, IconPlus, IconRobot, IconTrash } from "@tabler/icons-react";
-import { useCan } from "@/components/can";
+import { IconAlertTriangle, IconCircleCheck, IconExternalLink, IconKey, IconLoader2, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/brand";
+import { Initials } from "@/components/activity";
 import { Snippet } from "@/components/agent-access";
 import { AGENTS, GROUPS, type Agent, type Part } from "@/components/agent-catalog";
-import { send } from "@/components/collections";
+import { useCan } from "@/components/can";
+import { Confirm } from "@/components/confirm";
 import { scopeLabel, SCOPE_LABELS } from "@/components/consent";
 import { Field } from "@/components/fields";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { IconButton } from "@/components/icon-button";
+import { AppHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { SidebarData } from "@/lib/sidebar";
 import type { Scope } from "@/lib/scopes";
+import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 
 export type Key = {
@@ -47,178 +36,247 @@ export type Key = {
   waiting: number;
 };
 
+/** What to ask first, once connected: something only the brand can answer. */
+const TRY = [
+  "What's our primary color on dark backgrounds, and how should it be used?",
+  "Find our logo and give me a 512px PNG link.",
+  "Add this photo to the library and suggest tags for it.",
+];
+
+/** Where a search that finds nothing points: every MCP client connects the same way. */
+const ANY = AGENTS.find((a) => a.name === "Any MCP client");
+
 /**
- * Connect an agent: pick it from its group's tab, follow its two lines, and watch
- * for its first call. Below, every agent connected, when it last called, and
- * what it left waiting in Review.
+ * Connect an agent: find it or pick it from its group's tab, follow its two
+ * lines, and watch for its first call. Below, every agent connected, when it
+ * last called, and what it left waiting in Review.
  */
 export function Agents({
   keys: initialKeys,
-  sidebar,
   origin,
   anonymous,
 }: {
   keys: Key[];
-  sidebar: SidebarData;
   origin: string;
   anonymous: Scope | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
-  const [open, setOpen] = useState<Agent | null>(null);
+  const [open, setOpen] = useState(false);
+  // The agent last opened stays, so the dialog keeps its content while it animates closed.
+  const [shown, setShown] = useState<{ agent: Agent; round: number } | null>(null);
+  // A shown-once key is on screen: closing asks first, unless it is Done.
+  const [holding, setHolding] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [q, setQ] = useState("");
   const can = useCan();
   const mcp = `${origin}/api/v1/mcp`;
+  const needle = q.trim().toLowerCase();
+  const found = needle ? AGENTS.filter((a) => `${a.name} ${a.blurb}`.toLowerCase().includes(needle)) : [];
+
+  const pick = (agent: Agent) => {
+    setShown((s) => ({ agent, round: (s?.round ?? 0) + 1 }));
+    setHolding(false);
+    setOpen(true);
+  };
+  const grid = (list: Agent[]) => (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      {list.map((a) => (
+        <button
+          key={a.name}
+          type="button"
+          onClick={() => pick(a)}
+          className="hover:bg-muted/60 hover:border-primary/40 flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+        >
+          <a.icon className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+          <span className="grid min-w-0 gap-0.5">
+            <span className="truncate text-sm font-medium">{a.name}</span>
+            <span className="text-muted-foreground line-clamp-2 text-xs">{a.blurb}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        me={sidebar.me}
-        collections={sidebar.collections}
-        brands={sidebar.brands}
-        searches={sidebar.searches}
-        reviewCount={sidebar.reviewCount}
-      />
-      <SidebarInset className="min-w-0">
-        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <span className="truncate text-sm font-semibold">Agents</span>
-          <ThemeToggle className="ml-auto" />
-        </header>
+    <>
+      <AppHeader trail={[{ label: "Agents" }]} />
 
-        <main className="mx-auto w-full max-w-4xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
-          <div className="space-y-3">
-            <p className="text-primary flex items-center gap-2 text-sm font-medium">
-              <IconRobot className="size-4" /> Any agent you already use
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight">Give an agent the brand</h2>
-            <p className="text-muted-foreground text-lg text-pretty">
-              A connected agent searches the library, reads the brand rules before it makes anything, and hands out
-              assets at the right size. What it adds is only a suggestion: it waits in Review until you approve it.
-            </p>
-            <div className="max-w-xl space-y-1 pt-2">
-              <p className="text-muted-foreground text-xs">One URL for all of them. Most sign you in on their own; no key to paste.</p>
-              <Snippet text={mcp} what="the URL" />
+      <div className="mx-auto w-full max-w-4xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
+        <div className="space-y-3">
+          <p className="text-primary-ink flex items-center gap-2 text-sm font-medium">
+            <IconRobot className="size-4" /> Any agent you already use
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Give an agent the brand</h1>
+          <p className="text-muted-foreground text-lg text-pretty">
+            A connected agent searches the library, reads the brand rules before it makes anything, and hands out
+            assets at the right size. What it adds is only a suggestion: it waits in Review until you approve it.
+          </p>
+          <div className="max-w-xl space-y-1 pt-2">
+            <p className="text-muted-foreground text-xs">One URL for all of them. Most sign you in on their own; no key to paste.</p>
+            <Snippet text={mcp} what="the URL" />
+          </div>
+        </div>
+
+        {(anonymous === "write" || anonymous === "admin") && (
+          <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-lg border p-4 text-sm">
+            <IconAlertTriangle className="text-warning size-5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">Without a key, anyone can {anonymous === "admin" ? "do anything" : "change everything"}</p>
+              <p className="text-muted-foreground">
+                <code className="font-mono text-xs">ANONYMOUS_SCOPE</code> is set to {anonymous}. Unless the library is meant to be public, remove it or set it to <code className="font-mono text-xs">read</code>.
+              </p>
             </div>
           </div>
+        )}
 
-          {(anonymous === "write" || anonymous === "admin") && (
-            <div className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-              <IconAlertTriangle className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div className="space-y-1">
-                <p className="font-medium">Without a key, anyone can {anonymous === "admin" ? "do anything" : "change everything"}</p>
-                <p className="text-muted-foreground">
-                  <code className="font-mono text-xs">ANONYMOUS_SCOPE</code> is set to {anonymous}. Unless the library is meant to be public, remove it or set it to <code className="font-mono text-xs">read</code>.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <Tabs defaultValue={GROUPS[0]}>
-            {/* Seven groups don't fit a phone: the tabs scroll sideways instead of wrapping. */}
-            <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
-              <TabsList variant="line">
-                {GROUPS.map((group) => (
-                  <TabsTrigger key={group} value={group}>
-                    {group}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-            {GROUPS.map((group) => (
-              <TabsContent key={group} value={group} className="pt-3">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {AGENTS.filter((a) => a.group === group).map((a) => (
-                    <button
-                      key={a.name}
-                      type="button"
-                      onClick={() => setOpen(a)}
-                      className="hover:bg-muted/60 hover:border-primary/40 flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-                    >
-                      <a.icon className="text-muted-foreground mt-0.5 size-5 shrink-0" />
-                      <span className="grid min-w-0 gap-0.5">
-                        <span className="truncate text-sm font-medium">{a.name}</span>
-                        <span className="text-muted-foreground line-clamp-2 text-xs">{a.blurb}</span>
-                      </span>
-                    </button>
+        <section className="space-y-3" aria-label="Agents to connect">
+          <div className="relative max-w-sm">
+            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find your agent" aria-label="Find your agent" className="pl-8" />
+          </div>
+          {needle ? (
+            found.length ? (
+              grid(found)
+            ) : (
+              <Empty size="sm" className="border">
+                <EmptyHeader>
+                  <EmptyTitle>No agent called &ldquo;{q.trim()}&rdquo; here</EmptyTitle>
+                  <EmptyDescription>Anything that speaks MCP connects the same way, with the URL above.</EmptyDescription>
+                </EmptyHeader>
+                {ANY && (
+                  <Button variant="outline" size="sm" onClick={() => pick(ANY)}>
+                    Set up any MCP client
+                  </Button>
+                )}
+              </Empty>
+            )
+          ) : (
+            <Tabs defaultValue={GROUPS[0]}>
+              {/* Seven groups don't fit a phone: the tabs scroll sideways instead of wrapping. */}
+              <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
+                <TabsList variant="line">
+                  {GROUPS.map((group) => (
+                    <TabsTrigger key={group} value={group}>
+                      {group}
+                    </TabsTrigger>
                   ))}
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
+                </TabsList>
+              </div>
+              {GROUPS.map((group) => (
+                <TabsContent key={group} value={group} className="pt-3">
+                  {grid(AGENTS.filter((a) => a.group === group))}
+                </TabsContent>
+              ))}
+            </Tabs>
+          )}
+        </section>
 
-          <Connected keys={keys.filter((k) => k.owner)} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
+        <Connected keys={keys.filter((k) => k.owner)} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
 
-          {can("key.manage") && (
-            <ApiKeys
-              keys={keys.filter((k) => !k.owner)}
-              onMade={(k) => setKeys((ks) => [...ks, k])}
-              onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
+        {can("key.manage") && (
+          <ApiKeys
+            keys={keys.filter((k) => !k.owner)}
+            onMade={(k) => setKeys((ks) => [...ks, k])}
+            onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
+          />
+        )}
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Try it</h2>
+          <p className="text-muted-foreground text-sm">
+            Ask something only the brand can answer. Every page here has a For agents button with the exact call for what it shows.
+          </p>
+          <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
+            <li>&ldquo;{TRY[0]}&rdquo;</li>
+            <li>&ldquo;{TRY[1]}&rdquo;</li>
+            <li>&ldquo;{TRY[2]}&rdquo; (then look in Review)</li>
+          </ul>
+        </section>
+      </div>
+
+      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : holding ? setAsking(true) : setOpen(false))}>
+        <DialogContent className="sm:max-w-xl">
+          {shown && (
+            <Setup
+              // A fresh one per opening: its key, its snapshot and its watch start over.
+              key={shown.round}
+              agent={shown.agent}
+              active={open}
+              keys={keys}
+              origin={origin}
+              mcp={mcp}
+              onKeys={setKeys}
+              onMade={(k) => {
+                setKeys((ks) => [...ks, k]);
+                setHolding(true);
+              }}
+              onDone={() => setOpen(false)}
             />
           )}
-
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">Try it</h3>
-            <p className="text-muted-foreground text-sm">
-              Ask something only the brand can answer. Every page here has a For agents button with the exact call for what it shows.
-            </p>
-            <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
-              <li>&ldquo;What&apos;s our primary color on dark backgrounds, and how should it be used?&rdquo;</li>
-              <li>&ldquo;Find our logo and give me a 512px PNG link.&rdquo;</li>
-              <li>&ldquo;Add this photo to the library and suggest tags for it.&rdquo; (then look in Review)</li>
-            </ul>
-          </section>
-        </main>
-      </SidebarInset>
-
-      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent className="sm:max-w-xl">
-          {open && <Setup agent={open} origin={origin} mcp={mcp} onKeys={setKeys} onMade={(k) => setKeys((ks) => [...ks, k])} />}
+          <Confirm
+            open={asking}
+            onOpenChange={setAsking}
+            title="Close without copying the key?"
+            says="It is shown this once. Once closed it can't be shown again: you would revoke it and make another."
+            action="Close"
+            run={() => {
+              setOpen(false);
+              return true;
+            }}
+          />
         </DialogContent>
       </Dialog>
-    </SidebarProvider>
+    </>
   );
 }
 
 /**
  * One agent's setup, and whether it has called yet: the keys list is polled
- * while this is open, and the first key used since it opened is the one.
+ * while this is open. The first call is from a key that wasn't there when it
+ * opened (or the key made here), so another agent's traffic isn't mistaken
+ * for this one's.
  */
 function Setup({
   agent,
+  active,
+  keys,
   origin,
   mcp,
   onKeys,
   onMade,
+  onDone,
 }: {
   agent: Agent;
+  active: boolean;
+  keys: Key[];
   origin: string;
   mcp: string;
   onKeys: (k: Key[]) => void;
   onMade: (k: Key) => void;
+  onDone: () => void;
 }) {
   const can = useCan();
-  const [secret, setSecret] = useState<string | null>(null);
+  const [secret, setSecret] = useState<{ id: string; secret: string } | null>(null);
   const [first, setFirst] = useState<Key | null>(null);
-  const watch = agent.auth === "oauth" || agent.auth === "key" || agent.auth === "skill";
+  // The keys there were when it opened: none of them is this agent's first call.
+  const [known] = useState(() => new Set(keys.map((k) => k.id)));
+  const watch = (agent.auth === "oauth" || agent.auth === "key" || agent.auth === "skill") && active && !first;
+  const made = secret?.id;
 
   useEffect(() => {
     if (!watch) return;
-    const since = Date.now();
     const poll = setInterval(async () => {
       const res = await fetch("/api/v1/keys").catch(() => null);
       if (!res?.ok) return;
       const { data } = (await res.json()) as { data: Key[] };
       onKeys(data);
-      const called = data.find((k) => k.lastUsedAt && new Date(k.lastUsedAt).getTime() >= since);
-      if (called) {
-        setFirst(called);
-        clearInterval(poll);
-      }
+      const called = data.find((k) => k.lastUsedAt && (made ? k.id === made : !known.has(k.id)));
+      if (called) setFirst(called);
     }, 3000);
     return () => clearInterval(poll);
-  }, [watch, onKeys]);
+  }, [watch, made, known, onKeys]);
 
-  const parts = agent.snippet({ origin, mcp, key: secret ?? "<key>" });
+  const parts = agent.snippet({ origin, mcp, key: secret?.secret ?? "<key>" });
   return (
     <>
       <DialogHeader>
@@ -232,19 +290,21 @@ function Setup({
         (can("key.manage") ? (
           secret ? (
             <p className="border-primary/40 bg-primary/5 rounded-lg border p-3 text-sm">
-              Key made. Copy it now: it is shown this once, and it&apos;s filled in below.
+              Key made and filled in below. Copy it now: it is shown this once.
             </p>
           ) : (
             <NewKey
               name={agent.name}
               onMade={({ secret, ...k }) => {
-                setSecret(secret);
+                setSecret({ id: k.id, secret });
                 onMade(k);
               }}
             />
           )
         ) : (
-          <p className="text-muted-foreground text-sm">This one needs a key, and making keys needs an admin. Ask one for a key with Suggest.</p>
+          <p className="text-muted-foreground text-sm">
+            This one needs a key, and only an admin can make one. Ask an admin for a key with the Suggest scope.
+          </p>
         ))}
 
       <div className="min-w-0 space-y-3">
@@ -253,22 +313,34 @@ function Setup({
         ))}
       </div>
 
-      {watch && (
-        <div className="flex items-center gap-2 border-t pt-4 text-sm">
-          {first ? (
-            <>
-              <IconCircleCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
-              <span>
-                <span className="font-medium">{first.name}</span> made its first call.
-              </span>
-            </>
-          ) : (
-            <>
-              <IconLoader2 className="text-muted-foreground size-4 animate-spin" />
-              <span className="text-muted-foreground">Waiting for its first call…</span>
-            </>
-          )}
+      {first ? (
+        <div className="animate-in fade-in-0 zoom-in-95 space-y-3 border-t pt-4 duration-200">
+          <p className="flex items-center gap-2 text-sm">
+            <IconCircleCheck className="text-success size-4" />
+            <span>
+              <span className="font-medium">{first.name}</span> is connected.
+            </span>
+          </p>
+          <div className="space-y-1">
+            <p className="text-muted-foreground text-xs">Try it: ask it this</p>
+            <Snippet text={TRY[0]!} what="the prompt" prose />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={onDone}>Done</Button>
+          </div>
         </div>
+      ) : (
+        (agent.auth === "oauth" || agent.auth === "key" || agent.auth === "skill") && (
+          <div className="flex items-center gap-2 border-t pt-4 text-sm">
+            <IconLoader2 className="text-muted-foreground size-4 animate-spin" />
+            <span className="text-muted-foreground">Waiting for its first call…</span>
+            {secret && (
+              <Button variant="outline" size="sm" className="ml-auto" onClick={onDone}>
+                Done
+              </Button>
+            )}
+          </div>
+        )
       )}
     </>
   );
@@ -292,7 +364,7 @@ function SetupPart({ part }: { part: Part }) {
 function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) => void }) {
   return (
     <section className="space-y-3">
-      <h3 className="text-lg font-semibold">Connected agents</h3>
+      <h2 className="text-lg font-semibold">Connected agents</h2>
       {!keys.length ? <p className="text-muted-foreground text-sm">None yet. Pick one above.</p> : <KeyList keys={keys} onRevoked={onRevoked} />}
     </section>
   );
@@ -303,12 +375,12 @@ function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) =
  * scripts, CI. They answer to nobody, so they're the workspace's to manage.
  */
 function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) => void; onRevoked: (id: string) => void }) {
-  // The secret of the key just made: shown once.
-  const [secret, setSecret] = useState<string | null>(null);
+  // The key just made: its secret, shown once, until dismissed.
+  const [made, setMade] = useState<{ id: string; name: string; secret: string } | null>(null);
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <h3 className="text-lg font-semibold">API keys</h3>
+        <h2 className="text-lg font-semibold">API keys</h2>
         <p className="text-muted-foreground text-sm">
           For what can&apos;t sign in on its own: n8n, scripts, CI. One per use, so you can revoke one without the others.
         </p>
@@ -316,48 +388,66 @@ function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) =>
       <NewKey
         name=""
         onMade={({ secret, ...k }) => {
-          setSecret(secret);
+          setMade({ id: k.id, name: k.name, secret });
           onMade(k);
         }}
       />
-      {secret && (
-        <div className="border-primary/40 bg-primary/5 space-y-2 rounded-lg border p-3">
-          <p className="text-sm font-medium">Copy it now: it is shown this once</p>
-          <Snippet text={secret} what="the key" />
+      {made && (
+        <div key={made.id} className="border-primary/40 bg-primary/5 animate-in fade-in-0 space-y-2 rounded-lg border p-3">
+          <div className="flex items-center gap-2">
+            <p className="flex-1 text-sm font-medium">Copy {made.name} now: it is shown this once</p>
+            <IconButton variant="ghost" size="icon-xs" label="Done, I copied it" onClick={() => setMade(null)}>
+              <IconX />
+            </IconButton>
+          </div>
+          <Snippet text={made.secret} what="the key" />
         </div>
       )}
-      {keys.length > 0 && <KeyList keys={keys} onRevoked={onRevoked} showPrefix />}
+      {keys.length > 0 && <KeyList keys={keys} onRevoked={onRevoked} showPrefix fresh={made?.id} />}
     </section>
   );
 }
 
-function KeyList({ keys, onRevoked, showPrefix }: { keys: Key[]; onRevoked: (id: string) => void; showPrefix?: boolean }) {
+function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoked: (id: string) => void; showPrefix?: boolean; fresh?: string }) {
   return (
     <ul className="divide-y rounded-lg border">
-      {keys.map((k) => (
-        <li key={k.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
-          <IconKey className="text-muted-foreground size-4 shrink-0" />
-          <span className="min-w-0 truncate font-medium">{k.name}</span>
-          <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
-          {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
-          {k.waiting > 0 && (
-            <Link href="/?review" className="text-primary text-xs hover:underline">
-              {k.waiting} waiting in Review
-            </Link>
-          )}
-          <span className="text-muted-foreground ml-auto text-xs" title={k.lastUsedAt ? exact(k.lastUsedAt) : undefined} suppressHydrationWarning>
-            {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
-          </span>
-          <Revoke
-            name={k.name}
-            onRevoke={async () => {
-              if (!(await send("DELETE", `/api/v1/keys/${k.id}`))) return;
-              onRevoked(k.id);
-              toast.success(`Revoked ${k.name}`);
-            }}
-          />
-        </li>
-      ))}
+      {keys.map((k) => {
+        const whose = k.owner ? `${k.owner}'s ${k.name}` : k.name;
+        return (
+          // The key just made stays where the API lists it, last, and flashes so it is found.
+          <li key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
+            {k.owner ? <Initials name={k.owner} className="size-5 text-[9px]" /> : <IconKey className="text-muted-foreground size-4 shrink-0" />}
+            <span className="min-w-0 truncate font-medium">{k.name}</span>
+            {k.owner && <span className="text-muted-foreground min-w-0 truncate text-xs">{k.owner}</span>}
+            <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
+            {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
+            {k.waiting > 0 && (
+              <Link href="/?review" className="text-primary-ink text-xs hover:underline">
+                {k.waiting} waiting in Review
+              </Link>
+            )}
+            <span className="text-muted-foreground ml-auto text-xs" title={k.lastUsedAt ? exact(k.lastUsedAt) : undefined} suppressHydrationWarning>
+              {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
+            </span>
+            <Confirm
+              title={`Revoke ${whose}?`}
+              says="Anything using it stops working at once, with a 401. What it already suggested stays in Review."
+              action="Revoke"
+              run={async () => {
+                const ok = await send("DELETE", `/api/v1/keys/${k.id}`);
+                if (!ok) return null;
+                onRevoked(k.id);
+                toast.success(`Revoked ${whose}`);
+                return ok;
+              }}
+            >
+              <IconButton variant="ghost" label={`Revoke ${whose}`} className="text-muted-foreground hover:text-destructive">
+                <IconTrash />
+              </IconButton>
+            </Confirm>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -406,35 +496,9 @@ function NewKey({ name: initial, onMade }: { name: string; onMade: (k: Key & { s
           </SelectContent>
         </Select>
       </Field>
-      <Button type="submit" disabled={busy || !name.trim()}>
+      <Button type="submit" pending={busy} disabled={!name.trim()}>
         <IconPlus /> Make key
       </Button>
     </form>
-  );
-}
-
-function Revoke({ name, onRevoke }: { name: string; onRevoke: () => void }) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Revoke ${name}`} className="text-muted-foreground hover:text-destructive">
-          <IconTrash />
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Revoke {name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Anything using it stops working at once, with a 401. What it already suggested stays in Review.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onRevoke}>
-            Revoke
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }

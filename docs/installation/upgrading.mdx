@@ -39,6 +39,13 @@ notes said how. From 0.9, upgrading to 1.0 changes nothing you call.
 
 ## Notes by version
 
+**1.5.** Nothing to do. A pass over the whole app's feel. Brand guidelines
+are edited in place, as in Notion: no Edit mode, "/" to add a rule or a block,
+a handle to move one, autosave with Saved or Not saved in the header, and Undo
+after a delete. The sidebar stays mounted between pages, and every page shares
+one header. Motion, focus, pending buttons, copy, confirm and undo work the same
+way everywhere. `/api/v1` and the MCP tools are unchanged.
+
 **1.4.** Asset files are private. `/a/{id}` now serves people who can see
 the asset, and anyone with a signed URL; to keep an embed made before 1.4
 working, make its asset public (Share, Public, or `PATCH /api/v1/assets/{id}`

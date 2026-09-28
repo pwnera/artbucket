@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useId, useState, useTransition } from "react";
 import {
   IconBuilding,
   IconCheck,
+  IconKeyboard,
+  IconLoader2,
   IconLogin,
   IconLogout,
   IconPlus,
   IconSelector,
+  IconSettings,
+  IconSunMoon,
   IconUser,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { BrandMark } from "@/components/brand";
+import { BrandMark, ThemeItems } from "@/components/brand";
 import { send } from "@/components/collections";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,13 +28,18 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { can } from "@/lib/permissions";
-import type { Scope } from "@/lib/scopes";
+import { roleName, type Scope } from "@/lib/scopes";
 import type { Off } from "@/lib/access";
 
 type Ref = { id: string; slug: string; name: string };
@@ -63,14 +72,43 @@ export function useGo() {
   };
 }
 
+let channel: BroadcastChannel | null | undefined;
+/** Where a tab says it switched workspace. One per tab: a channel never hears its own messages, so a tab never hears itself. */
+export const workspaceChannel = () =>
+  channel === undefined ? (channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("artbucket:workspace")) : channel;
+
+/** The workspace cookie as this tab last wrote or saw it: a change it didn't make was made in another tab. */
+let known: string | undefined;
+
 /** The cookie lib/core/access.ts reads to pick the workspace. A year: it is a preference, not a secret. */
 export function pickWorkspace(id: string) {
   document.cookie = `ab_workspace=${id}; path=/; max-age=31536000; samesite=lax`;
+  known = id;
+  workspaceChannel()?.postMessage(id);
 }
 
-export async function signOut(go: (path: string) => void) {
-  await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-  go("/login");
+/**
+ * The workspace another tab switched this browser to since this tab last
+ * looked, or null. The cookie is shared, so every request this tab makes
+ * already goes there.
+ */
+export function switchedElsewhere(): string | null {
+  const now = document.cookie.match(/(?:^|;\s*)ab_workspace=([^;]*)/)?.[1];
+  if (!now || now === known) return null;
+  known = now;
+  return now;
+}
+
+/** Signs out, then goes to `to`; an invitation passes its own page, so it isn't lost. Offline, it stays and says so. */
+export async function signOut(go: (path: string) => void, to = "/login") {
+  const res = await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(
+    () => null,
+  );
+  if (!res?.ok) {
+    toast.error("Couldn't sign you out", { description: "Check the connection and try again." });
+    return;
+  }
+  go(to);
 }
 
 const initials = (s: string) =>
@@ -87,7 +125,9 @@ const initials = (s: string) =>
  * organization, and making a new one.
  */
 export function WorkspaceSwitcher({ me }: { me: Me }) {
-  const go = useGo();
+  const router = useRouter();
+  // The old workspace stays on screen until the new one arrives: say it's on its way.
+  const [pending, start] = useTransition();
   const [making, setMaking] = useState<"workspace" | "organization" | null>(null);
   const { isMobile } = useSidebar();
   const orgs = new Map<string, { org: Ref; workspaces: WorkspaceRef[] }>();
@@ -100,13 +140,17 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent gap-3">
+          <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent gap-3" aria-busy={pending || undefined}>
             <BrandMark className="max-w-8" />
             <span className="grid min-w-0 flex-1 text-left leading-tight">
               <span className="truncate font-semibold tracking-tight">{me.workspace.name}</span>
               <span className="text-muted-foreground truncate text-xs">{me.workspace.organization.name}</span>
             </span>
-            <IconSelector className="text-muted-foreground ml-auto" />
+            {pending ? (
+              <IconLoader2 className="text-muted-foreground ml-auto animate-spin" aria-label="Switching workspace" />
+            ) : (
+              <IconSelector className="text-muted-foreground ml-auto" />
+            )}
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-64" side={isMobile ? "bottom" : "right"} align="start">
@@ -117,8 +161,18 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
                 <IconBuilding className="size-3.5" /> {org.name}
               </DropdownMenuLabel>
               {workspaces.map((w) => (
-                <DropdownMenuItem key={w.id} onSelect={() => w.id !== me.workspace.id && (pickWorkspace(w.id), go("/"))}>
-                  <span className="bg-muted text-muted-foreground flex size-5 items-center justify-center rounded text-[11px] font-semibold uppercase">
+                <DropdownMenuItem
+                  key={w.id}
+                  onSelect={() =>
+                    w.id !== me.workspace.id &&
+                    start(() => {
+                      pickWorkspace(w.id);
+                      router.push("/");
+                      router.refresh();
+                    })
+                  }
+                >
+                  <span className="bg-muted text-muted-foreground flex size-5 items-center justify-center rounded text-2xs font-semibold uppercase">
                     {w.name[0]}
                   </span>
                   <span className="truncate">{w.name}</span>
@@ -195,14 +249,17 @@ export function MakeDialog({ kind, org, onClose }: { kind: "workspace" | "organi
   );
 }
 
-/** The sidebar's foot: who you are, Team, and signing out; or signing in, for nobody. */
-export function AccountMenu({ me }: { me: Me }) {
-  const { isMobile } = useSidebar();
+/** The sidebar's foot: who you are, settings, keys, theme and signing out; or signing in, for nobody, back to this page. */
+export function AccountMenu({ me, openShortcuts }: { me: Me; openShortcuts: () => void }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const go = useGo();
+  const pathname = usePathname();
+  const params = useSearchParams();
   if (!me.user) {
+    const here = `${pathname}${params.size ? `?${params}` : ""}`;
     return (
       <SidebarMenuButton asChild tooltip="Sign in">
-        <Link href="/login">
+        <Link href={here === "/" ? "/login" : `/login?next=${encodeURIComponent(here)}`}>
           <IconLogin /> <span>Sign in</span>
         </Link>
       </SidebarMenuButton>
@@ -213,8 +270,8 @@ export function AccountMenu({ me }: { me: Me }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton className="data-[state=open]:bg-sidebar-accent" tooltip={who}>
-          {/* The width of an icon, so it lines up with the items above it. */}
-          <span className="bg-muted flex size-4 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold">
+          {/* A little wider than an icon, pulled left so its centre lines up with the icons above. */}
+          <span className="bg-muted -ml-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold">
             {initials(who)}
           </span>
           <span className="truncate">{who}</span>
@@ -226,16 +283,45 @@ export function AccountMenu({ me }: { me: Me }) {
           <span className="truncate font-medium">{who}</span>
           <span className="text-muted-foreground truncate text-xs">{me.user.email}</span>
           <span className="text-muted-foreground truncate text-xs">
-            {me.scope ? `${me.scope} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
+            {me.scope ? `${roleName(me.scope)} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings/account/profile">
+          <Link href="/settings/account/profile" onClick={() => setOpenMobile(false)}>
             <IconUser /> Profile
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => signOut(go)}>
+        <DropdownMenuItem asChild>
+          <Link href="/settings" onClick={() => setOpenMobile(false)}>
+            <IconSettings /> Settings
+            <DropdownMenuShortcut className="flex gap-1 tracking-normal">
+              <Kbd keys={["G"]} />
+              <Kbd keys={["S"]} />
+            </DropdownMenuShortcut>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            setOpenMobile(false);
+            openShortcuts();
+          }}
+        >
+          <IconKeyboard /> Keyboard shortcuts
+          <DropdownMenuShortcut className="tracking-normal">
+            <Kbd keys={["?"]} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconSunMoon /> Theme
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <ThemeItems />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void signOut(go)}>
           <IconLogout /> Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

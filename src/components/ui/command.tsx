@@ -29,14 +29,22 @@ function Command({
   )
 }
 
+/**
+ * Pinned near the top, not centered, so the input stays put while results
+ * grow and shrink under it. Esc closes it, so there is no X over the input.
+ */
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
   children,
   className,
-  showCloseButton = true,
+  showCloseButton = false,
+  filter,
+  loop,
+  shouldFilter,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: React.ComponentProps<typeof Dialog> &
+  Pick<React.ComponentProps<typeof CommandPrimitive>, "filter" | "loop" | "shouldFilter"> & {
   title?: string
   description?: string
   className?: string
@@ -49,10 +57,18 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn("overflow-hidden p-0", className)}
+        className={cn(
+          "top-[max(1rem,12vh)] translate-y-0 overflow-hidden p-0 data-[state=open]:slide-in-from-top-2 data-[state=open]:zoom-in-100",
+          className
+        )}
         showCloseButton={showCloseButton}
       >
-        <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command
+          filter={filter}
+          loop={loop}
+          shouldFilter={shouldFilter}
+          className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:size-4"
+        >
           {children}
         </Command>
       </DialogContent>
@@ -73,7 +89,7 @@ function CommandInput({
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full rounded-md bg-transparent py-3 text-base outline-hidden md:text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}
@@ -90,7 +106,7 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
+        "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
         className
       )}
       {...props}
@@ -171,8 +187,12 @@ function CommandShortcut({
   )
 }
 
+// While async results load, as `<CommandLoading>Searching</CommandLoading>`.
+const CommandLoading = CommandPrimitive.Loading
+
 export {
   Command,
+  CommandLoading,
   CommandDialog,
   CommandInput,
   CommandList,

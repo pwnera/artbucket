@@ -9,6 +9,7 @@ import {
   IconPalette,
   IconUser,
   IconUsers,
+  IconUsersGroup,
   type Icon,
 } from "@tabler/icons-react";
 import type { Me } from "@/components/account";
@@ -57,6 +58,15 @@ export const SECTIONS: Section[] = [
     icon: IconUsers,
     description: "Who can open this workspace and what each may do here: through the organization, here, or on some collections.",
     action: "member.manage",
+  },
+  {
+    context: "workspace",
+    id: "team",
+    label: "Team",
+    icon: IconUsersGroup,
+    description: "Everyone in the organization, share and upload links, and the audit log.",
+    action: "member.manage",
+    href: "/team",
   },
   {
     context: "workspace",

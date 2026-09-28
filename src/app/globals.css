@@ -23,6 +23,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-primary-ink: var(--primary-ink);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -38,6 +41,20 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+ * One motion language: things arrive on a quick ease-out, leave faster on an
+ * ease-in. The defaults retime every transition-* utility at once.
+ */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: var(--ease-out);
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
 }
 
 :root {
@@ -58,6 +75,9 @@
   --accent: #f5f5f7;
   --accent-foreground: #111111;
   --destructive: oklch(0.577 0.245 27.325);
+  /* Status as text: each clears 4.5:1 on the background (lib/color.test.ts). */
+  --success: #007e46;
+  --warning: #a75c00;
   --border: #e4e4ea;
   --input: #e4e4ea;
   --ring: #6d4aff;
@@ -69,6 +89,8 @@
   --sidebar-accent-foreground: #111111;
   --sidebar-border: #e4e4ea;
   --sidebar-ring: #6d4aff;
+  /* Primary as text or a thin icon. Violet fill is fine on #111, violet text is not. */
+  --primary-ink: var(--primary);
 }
 
 .dark {
@@ -88,6 +110,8 @@
   --accent: #2b2b2b;
   --accent-foreground: #fafafa;
   --destructive: oklch(0.704 0.191 22.216);
+  --success: #63d18f;
+  --warning: #f3b94c;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: #6d4aff;
@@ -99,15 +123,89 @@
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: #6d4aff;
+  --primary-ink: color-mix(in oklab, var(--primary) 70%, white);
+}
+
+:root {
+  interpolate-size: allow-keywords;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
   }
+  /* One focus ring for everything you can tab to, solid so it clears 3:1. Fields draw their own. */
+  :where(a, button, summary, [tabindex], [role="button"], [role="tab"], [role="menuitem"], [role="option"]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary {
+    cursor: pointer;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Motion is decoration: asked for less, it all but stops. A delay is not motion, so it stays. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* A spinner is a status, not decoration. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+::view-transition-group(*) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Folds open by height where the browser can animate to auto; elsewhere, or asked for less motion, they just open. */
+@media (prefers-reduced-motion: no-preference) {
+  details::details-content {
+    height: 0;
+    overflow: clip;
+    /* Room for the fields' 3px focus rings, which would otherwise be cut at the sides and bottom. */
+    overflow-clip-margin: 4px;
+    transition: height 0.2s var(--ease-out), content-visibility 0.2s allow-discrete;
+  }
+  details[open]::details-content {
+    height: auto;
+  }
+}
+
+/*
+ * Sonner injects its CSS unlayered, so these are unlayered too. A modal
+ * dialog sets pointer-events: none on body; toasts stay clickable (Undo)
+ * over it. While the selection bar is up, bottom toasts sit above it.
+ */
+[data-sonner-toaster] {
+  pointer-events: auto;
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  box-shadow: var(--shadow-lg);
+}
+body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(var(--offset-bottom) + 3.5rem);
 }
 
 /*
@@ -133,7 +231,7 @@
 [data-sidebar="menu-button"] > svg:not([class*="text-"]),
 [data-sidebar="group-label"] > svg:not([class*="text-"]) {
   color: var(--muted-foreground);
-  transition: color 150ms;
+  transition: color var(--default-transition-duration) var(--ease-out);
 }
 [data-sidebar="menu-button"]:hover > svg:not([class*="text-"]) {
   color: var(--sidebar-accent-foreground);
@@ -158,9 +256,18 @@
  * Rich text: a rule's Markdown, on the page (lib/markdown.ts) and in the
  * panel's editor (components/rich-text.tsx), set the same way in both.
  */
+.rich { caret-color: var(--primary); }
 .rich > * + * { margin-top: 0.75em; }
-.rich h2 { margin-top: 1.25em; font-size: 1.3em; font-weight: 600; line-height: 1.3; }
-.rich h3 { margin-top: 1em; font-size: 1.1em; font-weight: 600; line-height: 1.35; }
+/*
+ * Headings are demoted two levels when drawn (## is an h4), so they stay
+ * under the rule's own h3 name. h1 and h2 only reach here undemoted, and
+ * still stay small.
+ */
+.rich :is(h1, h2, h3, h4, h5, h6) { margin-top: 1em; font-weight: 600; line-height: 1.35; }
+.rich h1, .rich h2 { font-size: 1.125em; }
+.rich h3 { font-size: 1.05em; }
+.rich h4 { font-size: 1em; }
+.rich h5, .rich h6 { font-size: 0.95em; color: var(--muted-foreground); }
 .rich ul { padding-left: 1.4em; list-style: disc; }
 .rich ol { padding-left: 1.4em; list-style: decimal; }
 .rich li + li { margin-top: 0.25em; }
@@ -180,11 +287,23 @@
 .rich .tableWrapper { overflow-x: auto; }
 .rich .selectedCell { background: color-mix(in oklab, var(--primary) 12%, transparent); }
 .rich .ProseMirror-selectednode { outline: 2px solid var(--ring); }
-.rich p.is-editor-empty:first-child::before {
+/* The hint shows on an empty document, and on the empty line the caret is on. */
+.rich p.is-editor-empty:first-child::before,
+.rich.ProseMirror-focused > .is-empty:not(.is-editor-empty)::before {
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
   color: var(--muted-foreground);
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+/* A rule you land on, from the TOC or the palette, flashes and fades rather than staying tinted. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes target-flash {
+    from { background-color: color-mix(in oklab, var(--primary) 16%, transparent); }
+  }
+  [data-flash], [data-block]:target {
+    animation: target-flash 1.6s var(--ease-out);
+  }
 }

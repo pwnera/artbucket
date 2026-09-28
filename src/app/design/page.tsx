@@ -21,6 +21,13 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { Confirm } from "@/components/confirm";
+import { CopyButton } from "@/components/copy-button";
+import { IconButton } from "@/components/icon-button";
+import { SaveStatus } from "@/components/save-status";
+import { Kbd } from "@/components/ui/kbd";
+import { track } from "@/lib/saving";
+import { undoable } from "@/lib/undo";
 import { AppIcon, Logo, ThemeToggle } from "@/components/brand";
 import { Combobox, MultiCombobox } from "@/components/combobox";
 import { FacetFilter } from "@/components/facet-filter";
@@ -164,6 +171,9 @@ const SECTIONS = [
   ["icons", "Icons"],
   ["buttons", "Buttons"],
   ["badges", "Badges"],
+  ["states", "States"],
+  ["keys", "Keys"],
+  ["focus", "Focus"],
   ["inputs", "Inputs"],
   ["autocomplete", "Autocomplete"],
   ["filters", "Filters"],
@@ -175,6 +185,7 @@ const SECTIONS = [
 
 export default function DesignSystem() {
   const [facet, setFacet] = useState<string[]>(["brand"]);
+  const [pending, setPending] = useState(false);
   return (
     <div className="min-h-dvh">
       <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
@@ -292,9 +303,103 @@ export default function DesignSystem() {
               <Badge variant="secondary">Secondary</Badge>
               <Badge variant="outline">Outline</Badge>
               <Badge variant="destructive">Destructive</Badge>
+              <Badge variant="success">Approved</Badge>
+              <Badge variant="warning">Expires soon</Badge>
               <Badge variant="secondary" className="font-mono">
                 PSD
               </Badge>
+            </div>
+          </Section>
+
+          <Section
+            id="states"
+            title="States"
+            description="One way to say working, copied, saved and undone. Buttons go pending in place; copy confirms where you clicked; writes report Saving, Saved or Not saved; a soft delete offers Undo for 8s and Cmd+Z."
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Button pending={pending} onClick={() => (setPending(true), setTimeout(() => setPending(false), 1500))}>
+                <IconUpload /> Upload
+              </Button>
+              <Button variant="outline" pending>
+                Saving
+              </Button>
+              <Button variant="destructive" pending>
+                <IconTrash /> Delete
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="bg-muted flex items-center gap-2 rounded-md py-1.5 pr-1 pl-3">
+                <code className="font-mono text-xs">#6d4aff</code>
+                <CopyButton text="#6d4aff" label="Copy hex" />
+              </div>
+              <CopyButton
+                text={() => new Promise((r) => setTimeout(() => r(`${location.origin}/a/sample/w_800,f_webp`), 600))}
+                label="Copy a signed link"
+                size="icon-sm"
+                variant="outline"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Confirm
+                title="Delete Spring 2026?"
+                says="Its assets stay in the library."
+                action="Delete"
+                run={() => new Promise((r) => setTimeout(() => r(true), 800))}
+              >
+                <Button variant="outline">Confirm</Button>
+              </Confirm>
+              <Confirm
+                title="Delete Spring 2026?"
+                says="This one fails, so the dialog stays open to retry."
+                action="Delete"
+                run={() => new Promise((r) => setTimeout(() => (toast.error("Something went wrong", { duration: 10_000 }), r(null)), 800))}
+              >
+                <Button variant="outline">Confirm, failing</Button>
+              </Confirm>
+              <Button
+                variant="outline"
+                onClick={() => undoable("Deleted spring-hero.psd", { undo: () => new Promise((r) => setTimeout(r, 300)) })}
+              >
+                Undo toast
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <Button variant="outline" onClick={() => track(new Promise((r) => setTimeout(() => r({}), 800)))}>
+                Save
+              </Button>
+              <Button variant="outline" onClick={() => track(new Promise((r) => setTimeout(() => r(null), 800)))}>
+                Save, failing
+              </Button>
+              <SaveStatus fallback="Edited 2 minutes ago" />
+            </div>
+          </Section>
+
+          <Section id="keys" title="Keys" description="Every frequent action has a key, shown in its tooltip and its menu. mod is ⌘ on a Mac, Ctrl elsewhere.">
+            <div className="flex flex-wrap items-center gap-3">
+              <Kbd keys={["mod", "K"]} />
+              <Kbd keys={["mod", "B"]} />
+              <Kbd keys={["mod", "Z"]} />
+              <Kbd keys={["?"]} />
+              <Kbd keys={["Esc"]} />
+              <IconButton label="Search" shortcut={["mod", "K"]}>
+                <IconSearch />
+              </IconButton>
+            </div>
+          </Section>
+
+          <Section id="focus" title="Focus" description="Tab through: every control shows the same ring, only for the keyboard.">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button>Button</Button>
+              <Button variant="outline">Outline</Button>
+              <Input aria-label="Focus example" placeholder="Input" className="w-40" />
+              <Checkbox aria-label="Focus example" />
+              <Switch aria-label="Focus example" />
+              <a href="#focus" className="text-sm underline underline-offset-4">
+                Link
+              </a>
+              <IconButton label="Edit" variant="ghost">
+                <IconPencil />
+              </IconButton>
             </div>
           </Section>
 

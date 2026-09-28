@@ -1,16 +1,15 @@
 "use client";
 
 import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
-import { toast } from "sonner";
 import { FontThumb } from "@/components/font-preview";
-import { Thumb, type Asset } from "@/components/gallery";
+import { stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
 import { stem } from "@/components/renditions";
-import { Can } from "@/components/can";
-import { AssetMenu } from "@/components/asset-menu";
+import { Can, useCan } from "@/components/can";
+import { AssetMenu, type ActionContext } from "@/components/asset-menu";
+import { IconButton } from "@/components/icon-button";
 import { approve, reject, suggestions } from "@/components/review-actions";
-import { RejectAction } from "@/components/selection-bar";
+import { decideLater, RejectAction, type Patch } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
@@ -21,16 +20,22 @@ import { hasPreview } from "@/lib/preview";
 /**
  * The library as rows, PostHog style: denser than the grid, and the right
  * shape for deciding. In Review each row says who suggested it and when, and
- * decides it in place.
+ * decides it in place: A approves, R rejects, J and K move, and a decision
+ * can be undone for 8s. Rows move with the same keys as the grid's tiles.
  */
 export function AssetTable({
   assets,
   selected,
   selecting,
   review,
+  cursor,
+  well,
+  onCursor,
+  onKeyDown,
+  menu,
   onOpen,
   onPick,
-  onShare,
+  patch,
   onChanged,
 }: {
   assets: Asset[];
@@ -38,22 +43,35 @@ export function AssetTable({
   /** Once anything is selected, a click selects instead of opening. */
   selecting: boolean;
   review: boolean;
+  /** The row that takes Tab: an asset id. */
+  cursor: string | null;
+  /** The thumbnails' backdrop (components/gallery.tsx WELLS). */
+  well: string;
+  onCursor: (id: string) => void;
+  /** The grid's keys: arrows, Enter, X, Delete. */
+  onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
+  /** What a row's context menu acts with. */
+  menu: (a: Asset) => ActionContext;
   onOpen: (a: Asset) => void;
-  onPick: (i: number, range: boolean) => void;
-  onShare: (a: Asset) => void;
+  onPick: (a: Asset, range: boolean) => void;
+  patch?: Patch;
   onChanged: () => void;
 }) {
-  async function decide(res: Promise<Response>, done: string) {
-    const r = await res.catch(() => null);
-    if (r?.ok) toast.success(done);
-    else toast.error("Couldn't do that", { description: (await r?.json().catch(() => null))?.error?.message });
-    onChanged();
-    return !!r?.ok;
-  }
+  const can = useCan();
+  const tab = assets.some((a) => a.id === cursor) ? cursor : assets[0]?.id;
+  const decide = (a: Asset, verdict: "approve" | "reject", reason = "") => {
+    const title = a.metadata?.title || a.filename;
+    decideLater(
+      `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
+      [a],
+      verdict === "approve" ? approve : (x) => reject(x, reason),
+      { patch, onDone: onChanged },
+    );
+  };
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="group/well w-full text-sm" data-well={well}>
         <thead className="text-muted-foreground bg-muted/40 text-left text-xs tracking-wide uppercase">
           <tr>
             <th className="w-10 px-3 py-2">
@@ -70,117 +88,161 @@ export function AssetTable({
             )}
           </tr>
         </thead>
-        <tbody className="divide-y">
-          {assets.map((a, i) => {
+        <tbody
+          className="divide-y"
+          onKeyDown={(e) => {
+            const row = e.target as HTMLElement;
+            const a = row.dataset.cursor ? assets.find((x) => x.id === row.dataset.cursor) : undefined;
+            if (review && a && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === "a" || e.key === "r") && can("asset.review", a)) {
+              e.preventDefault();
+              // The next row takes focus before this one leaves, so triage keeps its place.
+              const next = (row.nextElementSibling ?? row.previousElementSibling) as HTMLElement | null;
+              if (next?.dataset.cursor) {
+                next.focus();
+                onCursor(next.dataset.cursor);
+              }
+              decide(a, e.key === "a" ? "approve" : "reject");
+              return;
+            }
+            onKeyDown(e);
+          }}
+        >
+          {assets.map((a) => {
             const title = a.metadata?.title || a.filename;
+            const badge = stateBadge(a);
             return (
-              <AssetMenu key={a.id} asset={a} onOpen={() => onOpen(a)} onShare={() => onShare(a)} onPick={() => onPick(i, false)} selected={selected.has(a.id)} onChanged={onChanged}>
-              <tr
-                onClick={(e) => {
-                  if ((e.target as Element).closest("button, a, [role=checkbox], [data-slot=popover-content]")) return;
-                  if (selecting || e.metaKey || e.ctrlKey || e.shiftKey) onPick(i, e.shiftKey);
-                  else onOpen(a);
-                }}
-                className={cn("hover:bg-muted/40 cursor-pointer", selected.has(a.id) && "bg-primary/5")}
-              >
-                <td className="px-3 py-2">
-                  <Checkbox
-                    checked={selected.has(a.id)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onPick(i, e.shiftKey);
-                    }}
-                    aria-label={`Select ${a.filename}`}
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="bg-muted relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-                      {hasPreview(a) ? (
-                        <Thumb src={`/a/${a.id}/w_40,f_webp`} alt="" className="p-0.5" />
-                      ) : isFont(a.mime, a.filename) ? (
-                        <FontThumb id={a.id} className="text-base" />
-                      ) : (
-                        <IconPhoto className="text-muted-foreground size-4" />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => onOpen(a)}
-                        className="block max-w-64 truncate text-left font-medium hover:underline"
-                        title={a.filename}
-                      >
-                        {title}
-                      </button>
-                      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                        <span className="font-mono">{fileTypeBadge(a.filename, a.mime, a.probe)}</span>
-                        {/* The filename only when it says something the title doesn't. */}
-                        {title !== stem(a.filename) && title !== a.filename && <span className="max-w-56 truncate">{a.filename}</span>}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="text-muted-foreground hidden px-3 py-2 text-xs whitespace-nowrap tabular-nums md:table-cell">
-                  {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
-                  {formatBytes(a.size)}
-                </td>
-                <td className="hidden px-3 py-2 xl:table-cell">
-                  <div className="flex max-w-64 items-center gap-1 overflow-hidden">
-                    {a.tags.slice(0, 2).map((t) => (
-                      <Badge key={t} variant="outline" className="shrink-0 font-normal">
-                        {t}
-                      </Badge>
-                    ))}
-                    {a.tags.length > 2 && <span className="text-muted-foreground shrink-0 text-xs">+{a.tags.length - 2}</span>}
-                    {a.proposedTags.slice(0, 3).map((t) => (
-                      <Badge key={t} variant="outline" className="border-primary/50 border-dashed font-normal" title="Suggested">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {review ? (
-                    <div className="grid gap-0.5">
-                      <span className="flex items-center gap-1.5">
-                        <IconSparkles className="text-primary size-4" />
-                        {a.proposedBy ?? "an agent"}
-                      </span>
-                      <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>
-                        {a.status === "proposed" ? "New asset" : suggestions(a)} ·{" "}
-                        {ago(a.updatedAt)}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>
-                      {ago(a.createdAt)}
-                    </span>
+              <AssetMenu key={a.id} asset={a} {...menu(a)}>
+                <tr
+                  data-cursor={a.id}
+                  tabIndex={a.id === tab ? 0 : -1}
+                  aria-selected={selected.has(a.id)}
+                  onFocus={(e) => e.target === e.currentTarget && onCursor(a.id)}
+                  onClick={(e) => {
+                    if ((e.target as Element).closest("button, a, [role=checkbox], [data-slot=popover-content]")) return;
+                    if (selecting || e.metaKey || e.ctrlKey || e.shiftKey) onPick(a, e.shiftKey);
+                    else onOpen(a);
+                  }}
+                  className={cn(
+                    "hover:bg-muted/40 data-[state=open]:bg-muted/60 cursor-pointer -outline-offset-2",
+                    selected.has(a.id) && "bg-primary/5",
                   )}
-                </td>
-                {review && (
+                >
                   <td className="px-3 py-2">
-                    <Can do="asset.review" on={a}>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Approve ${title}`}
-                        title={a.status === "proposed" ? "Approve, with what was suggested for it" : "Accept what was suggested"}
-                        onClick={() => void decide(approve(a), `Approved ${title}`)}
-                      >
-                        <IconCheck />
-                      </Button>
-                      <RejectAction
-                        compact
-                        side="left"
-                        onReject={(reason) => decide(reject(a, reason), `Rejected ${title}`)}
-                      />
-                    </div>
-                    </Can>
+                    <Checkbox
+                      checked={selected.has(a.id)}
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onPick(a, e.shiftKey);
+                      }}
+                      aria-label={`Select ${a.filename}`}
+                    />
                   </td>
-                )}
-              </tr>
+                  <td className="px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className={cn("relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border", wellClass(a))}>
+                        {hasPreview(a) ? (
+                          <Thumb src={`/a/${a.id}/w_40,f_webp`} alt="" className="p-0.5" />
+                        ) : isFont(a.mime, a.filename) ? (
+                          <FontThumb id={a.id} className="text-base" />
+                        ) : (
+                          <IconPhoto className="text-muted-foreground size-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        {/* The row is the tab stop; Enter on it opens. */}
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => onOpen(a)}
+                          className="block max-w-64 truncate text-left font-medium hover:underline"
+                          title={a.filename}
+                        >
+                          {title}
+                        </button>
+                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                          <span className="font-mono">
+                            {fileTypeBadge(a.filename, a.mime, a.probe)}
+                            {badge.version && ` ${badge.version}`}
+                          </span>
+                          {badge.state && (
+                            <Badge variant="secondary" className="text-2xs h-4 px-1.5">
+                              {badge.state}
+                            </Badge>
+                          )}
+                          {!review && badge.suggested && (
+                            <Badge className="text-2xs h-4 px-1.5">
+                              <IconSparkles /> {badge.suggested}
+                            </Badge>
+                          )}
+                          {/* The filename only when it says something the title doesn't. */}
+                          {title !== stem(a.filename) && title !== a.filename && <span className="max-w-56 truncate">{a.filename}</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-muted-foreground hidden px-3 py-2 text-xs whitespace-nowrap tabular-nums md:table-cell">
+                    {a.width && a.height ? `${a.width} × ${a.height} · ` : ""}
+                    {formatBytes(a.size)}
+                  </td>
+                  <td className="hidden px-3 py-2 xl:table-cell">
+                    <div className="flex max-w-64 items-center gap-1 overflow-hidden">
+                      {a.tags.slice(0, 2).map((t) => (
+                        <Badge key={t} variant="outline" className="shrink-0 font-normal">
+                          {t}
+                        </Badge>
+                      ))}
+                      {a.tags.length > 2 && <span className="text-muted-foreground shrink-0 text-xs">+{a.tags.length - 2}</span>}
+                      {a.proposedTags.slice(0, 3).map((t) => (
+                        <Badge key={t} variant="outline" className="border-primary/50 border-dashed font-normal" title="Suggested">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {review ? (
+                      <div className="grid gap-0.5">
+                        <span className="flex items-center gap-1.5">
+                          <IconSparkles className="text-primary-ink size-4" />
+                          {a.proposedBy === "web" ? "Someone on the web" : (a.proposedBy ?? "an agent")}
+                        </span>
+                        <span className="text-muted-foreground text-xs" title={exact(a.updatedAt)} suppressHydrationWarning>
+                          {a.status === "proposed" ? "New asset" : suggestions(a)} · {ago(a.updatedAt)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>
+                        {ago(a.createdAt)}
+                      </span>
+                    )}
+                  </td>
+                  {review && (
+                    <td className="px-3 py-2">
+                      <Can do="asset.review" on={a}>
+                        <div className="flex justify-end gap-1">
+                          <IconButton
+                            variant="ghost"
+                            label={a.status === "proposed" ? "Approve, with what was suggested for it" : "Accept what was suggested"}
+                            shortcut={["A"]}
+                            tabIndex={-1}
+                            onClick={() => decide(a, "approve")}
+                          >
+                            <IconCheck />
+                          </IconButton>
+                          <RejectAction
+                            compact
+                            side="left"
+                            onReject={async (reason) => {
+                              decide(a, "reject", reason);
+                              return true;
+                            }}
+                          />
+                        </div>
+                      </Can>
+                    </td>
+                  )}
+                </tr>
               </AssetMenu>
             );
           })}

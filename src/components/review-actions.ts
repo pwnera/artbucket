@@ -7,14 +7,23 @@ const patch = (a: Asset, body: object) =>
     body: JSON.stringify(body),
   });
 
-/** Approve takes the asset (a proposal or a draft) and every tag and value suggested for it. */
-export const approve = (a: Asset) =>
-  patch(a, {
-    ...((a.status === "proposed" || a.status === "draft") && { status: "active" }),
-    tags: [...new Set([...a.tags, ...a.proposedTags])],
+/**
+ * What approving sends: the asset (a proposal or a draft) goes live with every
+ * tag and value suggested for it. `overrides` is what the viewer's form says
+ * instead: the tags on screen, and the values typed over the suggestions.
+ */
+export function approveBody(a: Asset, overrides: { tags?: string[]; fields?: Record<string, unknown> } = {}) {
+  const fields = overrides.fields ?? a.proposedFields ?? {};
+  return {
+    ...((a.status === "proposed" || a.status === "draft") && { status: "active" as const }),
+    tags: overrides.tags ?? [...new Set([...a.tags, ...a.proposedTags])],
     proposedTags: [],
-    ...(Object.keys(a.proposedFields ?? {}).length && { fields: a.proposedFields, proposedFields: {} }),
-  });
+    ...((Object.keys(fields).length || Object.keys(a.proposedFields ?? {}).length) && { fields, proposedFields: {} }),
+  };
+}
+
+/** Approve takes the asset (a proposal or a draft) and every tag and value suggested for it. */
+export const approve = (a: Asset) => patch(a, approveBody(a));
 
 /** What waits on an approved asset, in words: "2 tags, 1 value"; empty when nothing does. */
 export function suggestions(a: Asset) {

@@ -47,3 +47,21 @@ export function grade(ratio: number): "AAA" | "AA" | "AA large" | "fail" {
 
 /** Black or white, whichever reads better on this color. */
 export const inkOn = (hex: string) => (contrast(hex, "#ffffff") >= contrast(hex, "#000000") ? "#ffffff" : "#000000");
+
+const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+
+/**
+ * The color, moved toward white on a dark background or black on a light
+ * one, just until it clears `min` against it: an org accent that vanishes in
+ * one theme still draws buttons and focus rings there. Always a normalized
+ * "#rrggbb", so it is safe to write into CSS.
+ */
+export function lift(color: string, bg: string, min = 3) {
+  const c = rgb(color);
+  const to = luminance(rgb(bg)) < 0.5 ? 255 : 0;
+  for (let t = 0; t < 1; t += 0.05) {
+    const x = hex(c.map((v) => v + (to - v) * t) as Rgb);
+    if (contrast(x, bg) >= min) return x;
+  }
+  return hex([to, to, to]);
+}
