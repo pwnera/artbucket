@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb } from "./color.ts";
+import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -71,4 +71,20 @@ test("a hex as typed is the color it means, or nothing", () => {
   assert.equal(hexOf("red"), null);
   assert.ok(isHex("#6D4AFF") && isHex("#6d4aff80"));
   assert.ok(!isHex("#abc") && !isHex("6d4aff") && !isHex("#6d4aff8"));
+});
+
+test("tints are the color at a percent, the rest white", () => {
+  assert.equal(tintOf("#e87d0d", 100), "#e87d0d");
+  assert.equal(tintOf("#e87d0d", 0), "#ffffff");
+  assert.equal(tintOf("#000000", 60), "#666666");
+  assert.equal(tintOf("#E87D0D", 50), mix("#e87d0d", "#ffffff", 0.5), "normalized");
+});
+
+test("CMYK converted from RGB, in whole percents", () => {
+  assert.deepEqual(toCmyk("#ff0000"), [0, 100, 100, 0]);
+  assert.deepEqual(toCmyk("#000000"), [0, 0, 0, 100]);
+  assert.deepEqual(toCmyk("#ffffff"), [0, 0, 0, 0]);
+  assert.deepEqual(toCmyk("#808080"), [0, 0, 0, 50]);
+  assert.deepEqual(toCmyk("#e87d0d"), [0, 46, 94, 9]);
+  assert.deepEqual(toCmyk("#265787"), [72, 36, 0, 47]);
 });

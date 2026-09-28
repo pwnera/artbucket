@@ -5,12 +5,15 @@ import { TOOL_INPUTS, toolSchemas } from "./mcp-tools.ts";
 // Every tools/list carries these into an agent's context: the flat wire keeps them small as templates grow.
 // 8000 held through W1. W2's four templates and the cover's hero props took edit_page to 8818; listing the
 // icons once and dropping the pattern from section references brought it back to 8472, so the line moved to
-// 9000, still well under the 13 KB save_page advertised before the flat wire. Raise it only after the same hunt.
-test("the page tools' schemas stay under 9000 characters", () => {
+// 9000, still well under the 13 KB save_page advertised before the flat wire. W4's diagram template, its 13
+// props and Item.span took edit_page to 9885 (save_page 8689): about 1000 of that is their names, enums and
+// bounds before any description, so no trim of the new words fits 9000, and the W1 and W2 words stay. The
+// line moved to 10000. Raise it only after the same hunt.
+test("the page tools' schemas stay under 10000 characters", () => {
   const s = toolSchemas();
   for (const name of ["save_page", "edit_page"]) {
     const size = JSON.stringify(s[name]).length;
-    assert.ok(size < 9000, `${name} is ${size} characters`);
+    assert.ok(size < 10000, `${name} is ${size} characters`);
   }
 });
 

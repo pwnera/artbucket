@@ -117,13 +117,15 @@ export function planView(src: Source, slug: string | null, o: { context?: string
   ]);
   const keys = new Set([...bound, ...src.rules.filter((r) => bound.has(r.key)).flatMap((r) => specKeys(r.spec))]);
   // Every context version: sections with `contexts` and `only`, and the reader's context switch, resolve on the page.
+  // A label names the key: a context version without its own reads its default's.
+  const labelOf = new Map(src.rules.filter((r) => r.context === null && r.label).map((r) => [r.key, r.label!]));
   const rules: PlannedRule[] = src.rules
     .filter((r) => keys.has(r.key))
     .map((r) => ({
       key: r.key,
       context: r.context,
       type: r.type,
-      label: r.label ?? null,
+      label: r.label ?? labelOf.get(r.key) ?? null,
       value: r.value,
       usage: r.usage,
       spec: r.spec ?? null,

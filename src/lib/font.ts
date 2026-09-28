@@ -129,3 +129,118 @@ export function searchCatalog(list: GoogleFamily[], { q = "", category }: { q?: 
     .filter((f) => (!category || f.category === category) && f.family.toLowerCase().includes(needle))
     .sort((a, b) => rank(a) - rank(b) || a.popularity - b.popularity);
 }
+
+// ---- specimens and embed code -------------------------------------------------
+
+/**
+ * A line to set and a character set to show, per ISO 15924 script, and the
+ * language to tag them with: a browser picks Japanese forms of a Han
+ * character only when told the text is Japanese. Right-to-left ones say so.
+ */
+export const SCRIPT_SAMPLES: Record<string, { lang: string; sample: string; glyphs: string; rtl?: true }> = {
+  Latn: {
+    lang: "en",
+    sample: "The quick brown fox jumps over the lazy dog",
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 &@#%?!.,:;()[]{}\"'",
+  },
+  Cyrl: {
+    lang: "ru",
+    sample: "Съешь же ещё этих мягких французских булок, да выпей чаю",
+    glyphs: "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ абвгдеёжзийклмнопрстуфхцчшщъыьэюя 0123456789",
+  },
+  Grek: {
+    lang: "el",
+    sample: "Ξεσκεπάζω την ψυχοφθόρα βδελυγμία",
+    glyphs: "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ αβγδεζηθικλμνξοπρσςτυφχψω 0123456789",
+  },
+  Arab: {
+    lang: "ar",
+    rtl: true,
+    sample: "نص حكيم له سر قاطع وذو شأن عظيم مكتوب على ثوب أخضر ومغلف بجلد أزرق",
+    // Spaced: joined, they would show the connected forms, not the letters.
+    glyphs: "ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ي ء ٠١٢٣٤٥٦٧٨٩",
+  },
+  Hebr: {
+    lang: "he",
+    rtl: true,
+    sample: "דג סקרן שט בים מאוכזב ולפתע מצא חברה",
+    glyphs: "אבגדהוזחטיכךלמםנןסעפףצץקרשת 0123456789",
+  },
+  Deva: {
+    lang: "hi",
+    sample: "ऋषियों को सताने वाले दुष्ट राक्षसों के राजा रावण का सर्वनाश करने वाले विष्णुवतार भगवान श्रीराम",
+    glyphs: "अआइईउऊऋएऐओऔ कखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह ०१२३४५६७८९",
+  },
+  Hani: {
+    lang: "zh",
+    sample: "天地玄黄，宇宙洪荒。日月盈昃，辰宿列张。",
+    glyphs: "一二三四五六七八九十百千万上下左右中大小人口日月山水火木金土天地",
+  },
+  Jpan: {
+    lang: "ja",
+    sample: "いろはにほへと ちりぬるを わかよたれそ つねならむ",
+    glyphs: "あいうえお かきくけこ さしすせそ アイウエオ カキクケコ サシスセソ 日本語 漢字",
+  },
+  Kore: {
+    lang: "ko",
+    sample: "키스의 고유조건은 입술끼리 만나야 하고 특별한 기술은 필요치 않다",
+    glyphs: "ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ ㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣ 가나다라마바사아자차카타파하",
+  },
+  Thai: {
+    lang: "th",
+    sample: "เป็นมนุษย์สุดประเสริฐเลิศคุณค่า",
+    glyphs: "กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮ ๐๑๒๓๔๕๖๗๘๙",
+  },
+};
+
+/** A spec's tracking at `size` px: its em, or of [size, em] pairs the largest size's not over it (below them all, the smallest's). */
+export function trackingAt(tracking: number | [number, number][] | undefined, size: number) {
+  if (!Array.isArray(tracking)) return tracking;
+  const steps = [...tracking].sort((a, b) => a[0] - b[0]);
+  return (steps.filter(([s]) => s <= size).at(-1) ?? steps[0])?.[1];
+}
+
+const FORMAT: Record<string, string> = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "truetype", "font/otf": "opentype" };
+
+/**
+ * The code another site loads a family with. A Google face: Google's own
+ * <link>, for the weights the brand sets it in (one the family lacks fails
+ * Google's request, as it would on Google's page). Else an @font-face per
+ * file at `url(id)`, its weight and style read from its name. Nothing for a
+ * face with neither: a system face, an Adobe kit.
+ */
+export function embedCss(
+  family: string,
+  {
+    google,
+    files = [],
+    weights = [400],
+    url,
+  }: { google?: boolean; files?: { id: string; filename?: string | null; mime?: string | null }[]; weights?: number[]; url: (id: string) => string },
+) {
+  if (google && GOOGLE_FAMILY.test(family)) {
+    const wght = [...new Set(weights)].sort((a, b) => a - b).join(";");
+    return [
+      `<link rel="preconnect" href="https://fonts.googleapis.com">`,
+      `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
+      `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${family.replace(/ +/g, "+")}:wght@${wght}&display=swap">`,
+    ].join("\n");
+  }
+  return files.map((f) => fontFace(family, f, url)).join("\n");
+}
+
+/** One font file as @font-face, at the weight and style its name says. The theme (brand-theme.ts) and the token exports write theirs with it too. */
+export function fontFace(family: string, file: { id: string; filename?: string | null; mime?: string | null }, url: (id: string) => string) {
+  const { weight, italic } = fontStyle(file.filename ?? "");
+  const format = FORMAT[file.mime ?? ""];
+  const str = JSON.stringify;
+  return [
+    "@font-face {",
+    `  font-family: ${str(family)};`,
+    `  src: url(${str(url(file.id))})${format ? ` format(${str(format)})` : ""};`,
+    `  font-weight: ${weight};`,
+    `  font-style: ${italic ? "italic" : "normal"};`,
+    "  font-display: swap;",
+    "}",
+  ].join("\n");
+}

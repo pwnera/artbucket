@@ -50,7 +50,7 @@ test("fixtureView: each blender page, with its rules and pictures", () => {
   assert.equal(first.page?.slug, "overview");
   assert.deepEqual(first.nav.filter((p) => p.home).map((p) => p.slug), ["overview"]);
   assert.equal(first.nav.find((p) => p.slug === "logo-use")?.parent, "logo");
-  assert.deepEqual(first.contexts, ["dark-background"]);
+  assert.deepEqual(first.contexts, ["dark-background", "print"]);
   assert.ok(first.theme.v1.accent && first.theme.v1.head);
   // The derived look, as the server gives it, and its failing pairs warn, as they do an editor.
   assert.deepEqual(first.theme.settings, blender().theme);
@@ -65,15 +65,16 @@ test("fixtureView: each blender page, with its rules and pictures", () => {
   assert.throws(() => fixtureView("blender", "nope"), /No page "nope"/);
 });
 
-test("big: 60 rules and a page of 30 sections, all binding", () => {
+test("big: 60 rules and a page of every blender section and 8 more, all binding", () => {
   const book = big();
   const rules = book.rules.map((r) => ({ assets: [], ...RuleInput.parse(r) }));
   assert.equal(new Set(rules.map((r) => `${r.key} ${r.context ?? ""}`)).size, 60);
   const { sections, errors } = parseSections(book.pages.at(-1)!.sections);
   assert.deepEqual(errors, []);
-  assert.equal(sections.length, 30);
+  const n = blender().pages.flatMap((p) => p.sections).length + 8;
+  assert.equal(sections.length, n);
   assert.deepEqual(checkBindings(sections, rules), []);
-  assert.equal(fixtureView("big", "everything").page?.sections.length, 30);
+  assert.equal(fixtureView("big", "everything").page?.sections.length, n);
 });
 
 // The theme's fixtures (W3): books that build as cleanly as blender, whose looks the guardrails must rescue.

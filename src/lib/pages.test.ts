@@ -25,6 +25,7 @@ import {
   templateCatalog,
   TEMPLATES,
   PageOp,
+  type Item,
   type Section,
   type SnapPage,
 } from "./pages.ts";
@@ -224,7 +225,7 @@ test("checkSection: grounds need their parameter, items go where the template li
   assert.deepEqual(check({ template: "text", tone: "image", background: { image: A, scrim: 0.3 } }), []);
   assert.deepEqual(check({ template: "palette", items: [{ title: "x" }] }), ["sections[0].items: a Color palette section takes no items"]);
   assert.deepEqual(check({ template: "gallery", items: [{ asset: A, verdict: "do" }, { title: "no picture" }] }), [
-    "sections[0].items[0].verdict: only do/don't items take a verdict",
+    "sections[0].items[0].verdict: only do/don't and logos items take a verdict",
     "sections[0].items[1]: a Gallery item needs asset",
   ]);
   assert.deepEqual(check({ template: "dodont", items: [{ title: "which?" }] }), ["sections[0].items[0]: a Do / Don't item needs verdict"]);
@@ -245,7 +246,7 @@ test("bindings: unknown keys name the section's rules; a template takes only wha
     'sections[0].keys[0]: no rule "color.primery"; this brand has color.primary, color.secondary',
     "sections[0].keys[1]: a Color palette section shows color rules; type.heading is a font",
     "sections[1].keys: a Cover section binds no rules",
-    "sections[2].keys[1]: a Logo showcase section shows rules with assets (the logo files); logo.minSize is a number with no assets",
+    "sections[2].keys[1]: a Logo showcase section shows rules with assets (the logo files), and color rules to set them on; logo.minSize is a number with no assets",
   ]);
 });
 
@@ -468,8 +469,11 @@ test("W2 templates: cover's hero props, do/don't layouts, and cards, links and p
 
 test("W2 templates: layouts merge into one enum on the wire, each template's values named", () => {
   const layout = mergedProps().shape.layout;
-  assert.deepEqual([...(layout.unwrap() as z.ZodEnum).options].sort(), ["cards", "grid", "list", "masonry", "pairs", "rows"]);
-  assert.equal(layout.description, "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list");
+  assert.deepEqual([...(layout.unwrap() as z.ZodEnum).options].sort(), ["bento", "cards", "carousel", "grid", "list", "masonry", "pairs", "rows"]);
+  assert.equal(
+    layout.description,
+    "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+  );
 });
 
 test("W2 templates: a pages section's from is a link, so a missing page warns and markdown says whose pages", () => {
@@ -478,6 +482,114 @@ test("W2 templates: a pages section's from is a link, so a missing page warns an
   assert.deepEqual(pageWarnings(page, [], RULES), ['sections[0].props.from: links to /logos, but there is no page "logos"']);
   assert.match(pageMarkdown({ title: "Home", sections: page.sections }, []), /The pages under \/logos\./);
   assert.match(pageMarkdown({ title: "Home", sections: [stored({ id: "n", template: "pages" })] }, []), /The pages under this one\./);
+});
+
+// ---- W4 rule depth --------------------------------------------------------------
+
+test("W4 props: palette, type, logos, gallery and diagram settings, and a gallery item's span", () => {
+  const ok = [
+    { template: "palette", keys: ["color.primary"], props: { show: ["hex", "cmyk", "pantone"], media: "print", matrix: true, ase: true } },
+    { template: "type", keys: ["type.heading"], props: { sample: "Aa", roles: true, glyphs: false, embed: true } },
+    { template: "logos", keys: ["logo.mark", "color.primary"], props: { kit: false }, items: [{ asset: A, key: "color.primary", verdict: "dont", caption: "Lost" }] },
+    { template: "gallery", props: { layout: "bento" }, items: [{ asset: A, span: 2 }, { asset: B, span: 1 }] },
+    { template: "gallery", props: { layout: "carousel" }, items: [{ asset: A }] },
+    { template: "diagram", keys: ["logo.mark", "logo.minSize"], props: { kind: "minsize" }, contexts: ["default", "print"] },
+    { template: "diagram", keys: ["logo.mark"], props: { kind: "placement", positions: ["tl", "br"] } },
+    { template: "diagram", keys: ["logo.mark"], props: { kind: "cobrand", partner: "Studio", separator: "x" }, items: [{ asset: B, title: "Studio" }] },
+  ];
+  const { sections, errors } = parseSections(ok);
+  assert.deepEqual([...errors, ...checkBindings(sections, RULES)], []);
+  assert.equal(sections[3].items?.[0].span, 2);
+  assert.ok(SectionInput.safeParse(sections[3]).success, "a stored span parses again");
+
+  assert.deepEqual(
+    parseSections([
+      { template: "palette", props: { show: ["cmky"] } },
+      { template: "gallery", props: { layout: "masonry" } },
+      { template: "gallery", items: [{ asset: A, span: 3 }] },
+      { template: "dodont", items: [{ verdict: "do", span: 2 }] },
+      { template: "logos", items: [{ asset: A, key: "color.primary", verdict: "do" }, { asset: A }] },
+      { template: "diagram", props: { kind: "lockup", positions: ["top"] } },
+      { template: "diagram", props: { kind: "clearspace" }, items: [{ asset: A }] },
+      { template: "diagram", items: [{ asset: A }] },
+      { template: "diagram", props: { kind: "cobrand" }, items: [{ title: "No mark" }] },
+    ]).errors,
+    [
+      'sections[0].props.show[0]: Invalid option: expected one of "hex"|"rgb"|"hsl"|"cmyk"|"pantone"|"ral"|"token"|"css"',
+      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"',
+      "sections[2].items[0].span: Too big: expected number to be <=2",
+      "sections[3].items[0].span: only gallery items span",
+      "sections[4].items[0].verdict: a logos item marks a pair never to use: dont",
+      "sections[4].items[1]: a Logo showcase item needs key",
+      'sections[5].props.kind: Invalid option: expected one of "clearspace"|"minsize"|"placement"|"cobrand"',
+      'sections[5].props.positions[0]: Invalid option: expected one of "tl"|"tc"|"tr"|"ml"|"mc"|"mr"|"bl"|"bc"|"br"',
+      "sections[6].items: only a cobrand diagram takes items, its partner",
+      "sections[7].items: only a cobrand diagram takes items, its partner",
+      "sections[8].items[0]: a Diagram item needs asset",
+    ],
+  );
+});
+
+test("W4 bindings: logos take colors as grounds, and an item's key is one; a diagram takes a mark and numbers", () => {
+  const { sections } = parseSections([
+    { template: "logos", keys: ["logo.mark", "color.primary", "tone.voice"], items: [{ asset: A, key: "type.heading" }] },
+    { template: "diagram", keys: ["logo.mark", "logo.minSize", "color.primary"] },
+  ]);
+  assert.deepEqual(checkBindings(sections, RULES), [
+    "sections[0].keys[2]: a Logo showcase section shows rules with assets (the logo files), and color rules to set them on; tone.voice is text with no assets",
+    "sections[0].items[0].key: a logos item's key is a color rule; type.heading is a font",
+    "sections[1].keys[2]: a Diagram section shows a rule with assets (the mark) and number rules (clear space in x, sizes in px or mm); color.primary is a color with no assets",
+  ]);
+});
+
+/** Number rules with units, and a print version of one: what the units warning reads. */
+const SIZES: Parameters<typeof pageWarnings>[2] = [
+  ...RULES.filter((x) => x.key !== "logo.minSize"),
+  { ...r("logo.minSize", "number", 24), spec: { unit: "px" } },
+  { ...r("logo.minSize", "number", 8), context: "print", spec: { unit: "mm" } },
+  { ...r("logo.clearSpace", "number", 0.5), spec: { unit: "x" } },
+  { ...r("logo.minHeight", "number", 40), spec: { unit: "px" } },
+  { ...r("logo.minPrint", "number", 10), spec: { unit: "mm" } },
+];
+
+test("pageWarnings: lengths in two units side by side, per context; ratios mix with anything", () => {
+  const page = (keys: string[], extra: Partial<Section> = {}) => ({ slug: "logo", sections: [stored({ id: "a", template: "text", keys, ...extra })] });
+  assert.deepEqual(pageWarnings(page(["logo.minSize", "logo.clearSpace"]), [], SIZES), [], "px and x: not the same measure");
+  assert.deepEqual(pageWarnings(page(["logo.minSize", "logo.minPrint"]), [], SIZES), [
+    "sections[0]: mixes px and mm (logo.minSize in px, logo.minPrint in mm); give them one unit",
+  ]);
+  // In print, minSize reads its print version beside minHeight's default: mm beside px.
+  assert.deepEqual(pageWarnings(page(["logo.minSize", "logo.minHeight"]), [], SIZES), [
+    "sections[0]: mixes mm and px in print (logo.minSize in mm, logo.minHeight in px); give them one unit",
+  ]);
+});
+
+test("pageWarnings: a diagram with nothing to draw from", () => {
+  const diagram = (keys: string[], props: Record<string, unknown> = {}, items?: Item[]) => ({
+    slug: "logo",
+    sections: [stored({ id: "d", template: "diagram", keys, props, ...(items && { items }) })],
+  });
+  assert.deepEqual(pageWarnings(diagram(["logo.mark", "logo.clearSpace"]), [], SIZES), []);
+  assert.deepEqual(pageWarnings(diagram(["logo.mark"]), [], SIZES), [
+    "sections[0].keys: a clearspace diagram draws from a number rule, its clear space in x; bind one",
+  ]);
+  assert.deepEqual(pageWarnings(diagram(["logo.minSize"], { kind: "minsize" }), [], SIZES), ["sections[0].keys: a minsize diagram draws a mark; bind a rule with its picture"]);
+  assert.deepEqual(pageWarnings(diagram(["logo.mark"], { kind: "placement" }), [], SIZES), []);
+  assert.deepEqual(pageWarnings(diagram(["logo.mark"], { kind: "cobrand" }), [], SIZES), [
+    "sections[0]: a cobrand diagram needs its partner: an item with their mark, or props.partner",
+  ]);
+  assert.deepEqual(pageWarnings(diagram(["logo.mark"], { kind: "cobrand" }, [{ asset: B }]), [], SIZES), []);
+});
+
+test("markdown: a logos section's forbidden pairs, and what a diagram draws", () => {
+  const { sections, errors } = parseSections([
+    { id: "l", template: "logos", keys: ["logo.mark", "color.primary"], items: [{ asset: A, key: "color.primary", caption: "Lost" }] },
+    { id: "d", template: "diagram", keys: ["logo.mark"], props: { kind: "cobrand", partner: "Studio", positions: ["tl"] } },
+  ]);
+  assert.deepEqual(errors, []);
+  const md = pageMarkdown({ title: "Logo", sections }, RULES);
+  assert.match(md, new RegExp(`- Don't: asset ${A} on \`color\\.primary\`\\. Lost`));
+  assert.match(md, /Drawn: cobrand, at tl, beside Studio\./);
 });
 
 test("edit_page names a section by id with no pattern: the op finds it or lists the ones there are", () => {
@@ -505,13 +617,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 13 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 14 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 13);
+  assert.equal(templates.length, 14);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -522,7 +634,7 @@ test("templateCatalog: the 13 templates, each with an example that parses as its
   }
   assert.equal(templates.find((t) => t.template === "dodont")!.items, "a do or a don't with its picture: verdict (needed), asset, title, text, caption");
   assert.equal(templates.find((t) => t.template === "palette")!.items, null);
-  for (const t of ["cards", "links", "pages"]) assert.ok(templates.find((x) => x.template === t)!.items, t);
+  for (const t of ["cards", "links", "pages", "logos", "diagram"]) assert.ok(templates.find((x) => x.template === t)!.items, t);
   assert.equal(templates.find((t) => t.template === "header")!.items, null);
   for (const k of ["id", "tone", "keys", "items", "background", "audience", "contexts", "only"]) assert.ok(common.includes(k), k);
 });

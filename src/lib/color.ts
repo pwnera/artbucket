@@ -1,6 +1,6 @@
 /**
- * Just enough color math for the guidelines page: RGB and HSL readouts, and
- * WCAG 2 contrast so a palette says where each color may carry text.
+ * Just enough color math for the guidelines page: RGB, HSL and CMYK readouts,
+ * tints, and WCAG 2 contrast so a palette says where each color may carry text.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
@@ -66,6 +66,26 @@ const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, 
 export function mix(a: string, b: string, t: number) {
   const y = rgb(b);
   return hex(rgb(a).map((v, i) => v + (y[i] - v) * t) as Rgb);
+}
+
+/**
+ * A tint at `pct` percent of the color, the rest paper white, as print tint
+ * steps are named: tintOf(c, 80) is 80% ink. Always "#rrggbb".
+ */
+export const tintOf = (color: string, pct: number) => mix(color, "#ffffff", 1 - pct / 100);
+
+export type Cmyk = [c: number, m: number, y: number, k: number];
+
+/**
+ * CMYK in whole percents, converted naively from RGB (no ICC profile), for a
+ * color whose book gives none. Palettes mark it converted: a printer should
+ * get the book's own values, or a proof.
+ */
+export function toCmyk(color: string): Cmyk {
+  const c = rgb(color);
+  const max = Math.max(...c);
+  if (!max) return [0, 0, 0, 100];
+  return [...c.map((v) => Math.round(((max - v) / max) * 100)), Math.round((1 - max / 255) * 100)] as Cmyk;
 }
 
 /**

@@ -1582,6 +1582,12 @@
                   "download": {
                     "description": "false: for reference, never offered as a download",
                     "type": "boolean"
+                  },
+                  "span": {
+                    "description": "gallery bento: 2 takes two cells",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2
                   }
                 },
                 "additionalProperties": false
@@ -1628,7 +1634,8 @@
                 "gallery",
                 "collection",
                 "links",
-                "pages"
+                "pages",
+                "diagram"
               ]
             },
             "props": {
@@ -1671,7 +1678,7 @@
                   "type": "boolean"
                 },
                 "layout": {
-                  "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                  "description": "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
                   "type": "string",
                   "enum": [
                     "cards",
@@ -1679,13 +1686,65 @@
                     "pairs",
                     "grid",
                     "rows",
+                    "bento",
+                    "carousel",
                     "masonry"
                   ]
+                },
+                "show": {
+                  "description": "palette: Values listed; all it has when left out",
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "hex",
+                      "rgb",
+                      "hsl",
+                      "cmyk",
+                      "pantone",
+                      "ral",
+                      "token",
+                      "css"
+                    ]
+                  }
+                },
+                "media": {
+                  "description": "palette: Values it opens on; screen when left out",
+                  "type": "string",
+                  "enum": [
+                    "screen",
+                    "print"
+                  ]
+                },
+                "matrix": {
+                  "description": "palette: Contrast of every pair",
+                  "type": "boolean"
+                },
+                "ase": {
+                  "description": "palette: An .ase swatch download",
+                  "type": "boolean"
                 },
                 "sample": {
                   "description": "type: The specimen's starting text",
                   "type": "string",
                   "maxLength": 200
+                },
+                "roles": {
+                  "description": "type: A table of roles",
+                  "type": "boolean"
+                },
+                "glyphs": {
+                  "description": "type: Character sets",
+                  "type": "boolean"
+                },
+                "embed": {
+                  "description": "type: Code to load the faces",
+                  "type": "boolean"
+                },
+                "kit": {
+                  "description": "logos: A zip of every mark; true when left out",
+                  "type": "boolean"
                 },
                 "collection": {
                   "description": "collection: A collection's id",
@@ -1732,6 +1791,49 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 3
+                },
+                "kind": {
+                  "description": "diagram: clearspace when left out",
+                  "type": "string",
+                  "enum": [
+                    "clearspace",
+                    "minsize",
+                    "placement",
+                    "cobrand"
+                  ]
+                },
+                "positions": {
+                  "description": "diagram: placement: where it may sit",
+                  "maxItems": 9,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "tl",
+                      "tc",
+                      "tr",
+                      "ml",
+                      "mc",
+                      "mr",
+                      "bl",
+                      "bc",
+                      "br"
+                    ]
+                  }
+                },
+                "partner": {
+                  "description": "diagram: cobrand: their name",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "separator": {
+                  "description": "diagram: cobrand: line when left out",
+                  "type": "string",
+                  "enum": [
+                    "line",
+                    "x",
+                    "none"
+                  ]
                 }
               },
               "additionalProperties": false
@@ -2043,6 +2145,12 @@
                           "download": {
                             "description": "false: for reference, never offered as a download",
                             "type": "boolean"
+                          },
+                          "span": {
+                            "description": "gallery bento: 2 takes two cells",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2
                           }
                         },
                         "additionalProperties": false
@@ -2089,7 +2197,8 @@
                         "gallery",
                         "collection",
                         "links",
-                        "pages"
+                        "pages",
+                        "diagram"
                       ]
                     },
                     "props": {
@@ -2132,7 +2241,7 @@
                           "type": "boolean"
                         },
                         "layout": {
-                          "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                          "description": "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
                           "type": "string",
                           "enum": [
                             "cards",
@@ -2140,13 +2249,65 @@
                             "pairs",
                             "grid",
                             "rows",
+                            "bento",
+                            "carousel",
                             "masonry"
                           ]
+                        },
+                        "show": {
+                          "description": "palette: Values listed; all it has when left out",
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "hex",
+                              "rgb",
+                              "hsl",
+                              "cmyk",
+                              "pantone",
+                              "ral",
+                              "token",
+                              "css"
+                            ]
+                          }
+                        },
+                        "media": {
+                          "description": "palette: Values it opens on; screen when left out",
+                          "type": "string",
+                          "enum": [
+                            "screen",
+                            "print"
+                          ]
+                        },
+                        "matrix": {
+                          "description": "palette: Contrast of every pair",
+                          "type": "boolean"
+                        },
+                        "ase": {
+                          "description": "palette: An .ase swatch download",
+                          "type": "boolean"
                         },
                         "sample": {
                           "description": "type: The specimen's starting text",
                           "type": "string",
                           "maxLength": 200
+                        },
+                        "roles": {
+                          "description": "type: A table of roles",
+                          "type": "boolean"
+                        },
+                        "glyphs": {
+                          "description": "type: Character sets",
+                          "type": "boolean"
+                        },
+                        "embed": {
+                          "description": "type: Code to load the faces",
+                          "type": "boolean"
+                        },
+                        "kit": {
+                          "description": "logos: A zip of every mark; true when left out",
+                          "type": "boolean"
                         },
                         "collection": {
                           "description": "collection: A collection's id",
@@ -2193,6 +2354,49 @@
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 3
+                        },
+                        "kind": {
+                          "description": "diagram: clearspace when left out",
+                          "type": "string",
+                          "enum": [
+                            "clearspace",
+                            "minsize",
+                            "placement",
+                            "cobrand"
+                          ]
+                        },
+                        "positions": {
+                          "description": "diagram: placement: where it may sit",
+                          "maxItems": 9,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "tl",
+                              "tc",
+                              "tr",
+                              "ml",
+                              "mc",
+                              "mr",
+                              "bl",
+                              "bc",
+                              "br"
+                            ]
+                          }
+                        },
+                        "partner": {
+                          "description": "diagram: cobrand: their name",
+                          "type": "string",
+                          "maxLength": 60
+                        },
+                        "separator": {
+                          "description": "diagram: cobrand: line when left out",
+                          "type": "string",
+                          "enum": [
+                            "line",
+                            "x",
+                            "none"
+                          ]
                         }
                       },
                       "additionalProperties": false

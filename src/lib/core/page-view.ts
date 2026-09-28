@@ -70,7 +70,7 @@ export async function viewPage(
     assets: r.assets.flatMap(({ id, rendition }) => {
       const a = usable.get(id);
       if (!a) return [];
-      return [{ id, rendition, title: a.metadata?.title ?? null, filename: a.filename, mime: a.mime, size: a.size, width: a.width, height: a.height, preview: hasPreview(a) }];
+      return [{ id, rendition, title: a.metadata?.title ?? null, filename: a.filename, mime: a.mime, size: a.size, width: a.width, height: a.height, preview: hasPreview(a), supersededBy: a.supersededBy }];
     }),
   }));
 

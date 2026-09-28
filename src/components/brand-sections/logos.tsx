@@ -1,19 +1,33 @@
 "use client";
 
-import { HEAD } from "@/components/brand-sections/look";
+import { useState } from "react";
+import { IconDownload, IconLoader2 } from "@tabler/icons-react";
+import { toast } from "sonner";
+import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { AssetTile, LogoTile, pictured } from "@/components/brand-sections/parts";
-import { Body, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, ItemCaption, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
-import { Markdown } from "@/components/brand-values";
-import { ruleName } from "@/lib/rules";
-import type { ViewRule } from "@/lib/site";
+import { Markdown, MARKER } from "@/components/brand-values";
+import { saveZip } from "@/components/save-zip";
+import { useAssetUrl } from "@/components/site/asset-url";
+import { useSite } from "@/components/site/site-context";
+import { Thumb } from "@/components/thumb";
+import { Button } from "@/components/ui/button";
+import { fileSlug } from "@/lib/branding";
+import { formatBytes } from "@/lib/filename";
+import { pool } from "@/lib/pool";
+import { contextLabel, ruleName } from "@/lib/rules";
+import type { ViewAsset, ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import type { Entry } from "@/lib/zip";
 
 /**
- * The marks, big and a click from taken: each bound rule's name, then its
- * pictures as tiles on a transparent, light or dark backdrop, each with its
- * download and URL, then what it is, when to use it, and its other files.
- * W4 adds backdrops from bound colors, don't pairs and the kit.
+ * The marks, big and a click from taken: each bound logo rule's pictures as
+ * tiles on a transparent, light or dark backdrop, each with its download and
+ * URL, captioned by its name, what it is and when to use it. Then every mark
+ * on every color the section binds (its keys' and its items' color rules),
+ * each item a pair never to use, crossed and numbered with a legend. And the
+ * kit: every version's originals in one zip.
  */
 
 /** Marks per row, as the section's room allows: one on a phone. */
@@ -23,33 +37,76 @@ const GRID: Record<number, string> = {
   4: "@xl:grid-cols-2 @4xl:grid-cols-4",
 };
 
-export function LogosSection({ section, rules: bound }: SectionProps) {
+/** A mark's picture as a row of the on-color grid. */
+type Row = { key: string; asset: ViewAsset; name: string };
+
+/** A file of the kit: where it goes in the zip, and what it is. */
+type KitFile = { name: string; asset: ViewAsset };
+
+// ponytail: ViewAsset doesn't carry supersededBy yet, so every asset passes until the view does.
+const current = (a: ViewAsset) => !("supersededBy" in a && a.supersededBy);
+
+const hexOf = (r: ViewRule) => String(r.value).slice(0, 7);
+
+export function LogosSection({ section: s, rules: bound }: SectionProps) {
+  const { view } = useSite();
   const anchor = useRuleAnchor();
-  // Only its keys: `rules` also carries a background color and items' keys (W4's grounds).
-  const rules = bound.filter((r) => section.keys.includes(r.key));
+  // A context's version often has no label of its own: it goes by its default's.
+  const nameOf = (key: string) => ruleName(view.rules.find((r) => r.key === key && r.label) ?? { key });
+  const items = s.items ?? [];
+  // `rules` also carries a background color: grounds are the keys' and items' colors only.
+  const grounds = new Set([...s.keys, ...items.flatMap((it) => it.key ?? [])]);
+  const marks = bound.filter((r) => s.keys.includes(r.key) && r.type !== "color");
+  const colors = bound.filter((r) => r.type === "color" && grounds.has(r.key));
+  const rows = marks.flatMap((r): Row[] => {
+    const pics = r.assets.filter(pictured);
+    return pics.map((a) => ({ key: r.key, asset: a, name: pics.length > 1 ? `${nameOf(r.key)}, ${a.title || a.filename}` : nameOf(r.key) }));
+  });
+  // Every version of every mark, not just this context's: a dark-background logo is in the kit too.
+  const kit =
+    s.props.kit === false
+      ? []
+      : s.keys.flatMap((k) =>
+          view.rules
+            .filter((r) => r.key === k && r.type !== "color")
+            .flatMap((r) => {
+              const folder = `${nameOf(k)}${r.context ? ` (${contextLabel(r.context)})` : ""}`.replace(/[\\/]/g, "-");
+              return r.assets.filter(current).map((a): KitFile => ({ name: `${folder}/${a.filename}`, asset: a }));
+            }),
+        );
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <Body />
-      {rules.length > 0 && (
+      {kit.length > 0 && <Kit files={kit} name={`${fileSlug(view.brand.name)}-logo-kit.zip`} />}
+      {marks.length > 0 && (
         // Its own container: the frame's is the whole section, wider than the column this sits in.
         <div className="@container">
-          <div className={cn("grid gap-x-6 gap-y-10", GRID[section.columns])}>
-            {rules.map((r) => (
-              <Mark key={r.key} rule={r} id={anchor(r.key)} />
+          <div className={cn("grid gap-x-6 gap-y-10", GRID[s.columns])}>
+            {marks.map((r) => (
+              <Mark key={r.key} rule={r} name={nameOf(r.key)} id={anchor(r.key)} />
             ))}
           </div>
         </div>
+      )}
+      {rows.length > 0 && colors.length > 0 && (
+        <OnColor
+          rows={rows}
+          colors={colors}
+          nameOf={nameOf}
+          anchor={anchor}
+          donts={items.flatMap((it, i) => (it.asset && it.key ? [{ i, asset: it.asset, key: it.key }] : []))}
+        />
       )}
     </div>
   );
 }
 
-function Mark({ rule: r, id }: { rule: ViewRule; id?: string }) {
+function Mark({ rule: r, name, id }: { rule: ViewRule; name: string; id?: string }) {
   const pics = r.assets.filter(pictured);
   const files = r.assets.filter((a) => !pictured(a));
   return (
     <div id={id} className="@container min-w-0 scroll-mt-20 space-y-3">
-      <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>{ruleName(r)}</h3>
       {pics.length > 0 && (
         <div className={cn("grid gap-3", pics.length > 1 && "@lg:grid-cols-2")}>
           {pics.map((a) => (
@@ -58,8 +115,16 @@ function Mark({ rule: r, id }: { rule: ViewRule; id?: string }) {
           ))}
         </div>
       )}
-      <RuleValue rule={r} />
-      {r.usage && <Markdown text={r.usage} className="text-muted-foreground text-sm" demote />}
+      <div className="space-y-1.5">
+        <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>{name}</h3>
+        <RuleValue rule={r} />
+        {r.usage && (
+          <div className="space-y-0.5">
+            <p className={cn(LABEL, "text-muted-foreground")}>When to use</p>
+            <Markdown text={r.usage} className="text-muted-foreground text-sm" demote />
+          </div>
+        )}
+      </div>
       {files.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
           {files.map((a) => (
@@ -67,6 +132,151 @@ function Mark({ rule: r, id }: { rule: ViewRule; id?: string }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A pair's number, in its cell and in the legend. */
+function Num({ n }: { n: number }) {
+  return (
+    <span className="bg-foreground text-background flex size-5 shrink-0 items-center justify-center rounded-full text-2xs font-semibold tabular-nums">
+      {n}
+    </span>
+  );
+}
+
+/**
+ * Every mark on every bound color, a row per mark: a pair an item forbids
+ * carries a cross and its number, which the legend under it explains; every
+ * other pair a check. Scrolls sideways when the colors outgrow the room.
+ */
+function OnColor({
+  rows,
+  colors,
+  donts,
+  nameOf,
+  anchor,
+}: {
+  rows: Row[];
+  colors: ViewRule[];
+  donts: { i: number; asset: string; key: string }[];
+  nameOf: (key: string) => string;
+  anchor: (key: string) => string | undefined;
+}) {
+  const url = useAssetUrl();
+  const markName = (asset: string) => rows.find((r) => r.asset.id === asset)?.name ?? "A mark";
+  return (
+    <div className="space-y-4">
+      <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>On color</h3>
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <table className="border-separate border-spacing-2 text-xs">
+          <thead>
+            <tr>
+              <td />
+              {colors.map((c) => (
+                <th key={c.key} id={anchor(c.key)} scope="col" className="max-w-36 scroll-mt-20 px-1 text-start font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <span className="ring-border size-3 shrink-0 rounded-full ring-1" style={{ backgroundColor: hexOf(c) }} />
+                    <span className="truncate">{nameOf(c.key)}</span>
+                  </span>
+                  <span className="text-muted-foreground font-mono font-normal">{hexOf(c)}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.key}:${row.asset.id}`}>
+                <th scope="row" className="max-w-32 pe-2 text-start align-middle font-medium">
+                  {row.name}
+                </th>
+                {colors.map((c) => {
+                  const dont = donts.find((d) => d.asset === row.asset.id && d.key === c.key);
+                  return (
+                    <td key={c.key} className="p-0">
+                      <div className="ring-border relative aspect-[4/3] w-36 overflow-hidden rounded-lg ring-1" style={{ backgroundColor: hexOf(c) }}>
+                        <Thumb src={url(row.asset.id, "/w_240,f_webp")} alt={`${row.name} on ${nameOf(c.key)}`} className="p-5" />
+                        <span className="bg-background absolute bottom-1.5 start-1.5 flex items-center gap-1 rounded-full p-0.5 shadow-sm">
+                          {dont ? (
+                            <>
+                              {MARKER.dont}
+                              <Num n={dont.i + 1} />
+                              <span className="sr-only">Don&apos;t, see {dont.i + 1}</span>
+                            </>
+                          ) : (
+                            <>
+                              {MARKER.do}
+                              <span className="sr-only">Allowed</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {donts.length > 0 && (
+        <ol className="grid gap-x-8 gap-y-4 @xl:grid-cols-2">
+          {donts.map((d) => (
+            <li key={d.i} className="flex min-w-0 gap-2">
+              <Num n={d.i + 1} />
+              {MARKER.dont}
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-medium">
+                  <span className="sr-only">Don&apos;t: </span>
+                  {markName(d.asset)} on {nameOf(d.key)}
+                </p>
+                <ItemCaption i={d.i} />
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Every version's originals in one zip, a folder per version ("The logo
+ * (Dark background)/logo.svg"), fetched over the page's own signed URLs.
+ */
+function Kit({ files, name }: { files: KitFile[]; name: string }) {
+  const url = useAssetUrl();
+  const [busy, setBusy] = useState(false);
+  const size = files.reduce((n, f) => n + f.asset.size, 0);
+
+  async function download() {
+    setBusy(true);
+    // By index: the zip lists the files in the page's order, whichever arrives first.
+    const got: (Entry | undefined)[] = [];
+    try {
+      await pool([...files.keys()], 4, async (i) => {
+        const res = await fetch(url(files[i].asset.id, "?download")).catch(() => null);
+        // A connection dropped mid-body fails this file, not the kit.
+        const body = res?.ok ? await res.arrayBuffer().catch(() => null) : null;
+        if (body) got[i] = { name: files[i].name, data: new Uint8Array(body) };
+      });
+    } finally {
+      setBusy(false);
+    }
+    const entries = got.filter((e): e is Entry => !!e);
+    if (!entries.length) return void toast.error("The kit couldn't be downloaded", { description: "Try again in a moment." });
+    saveZip(entries, name);
+    if (entries.length < files.length) toast.warning(`${files.length - entries.length} of ${files.length} files couldn't be fetched`);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Button variant="outline" size="sm" onClick={download} disabled={busy} aria-busy={busy}>
+        {busy ? <IconLoader2 className="motion-safe:animate-spin" /> : <IconDownload />} Download the kit
+      </Button>
+      <span className="text-muted-foreground text-sm">
+        {files.length} {files.length === 1 ? "file" : "files"}, {formatBytes(size)}
+      </span>
     </div>
   );
 }

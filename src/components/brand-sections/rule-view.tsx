@@ -520,7 +520,9 @@ export function RuleView({
       ) : (
         r.usage && <Markdown text={r.usage} className="text-muted-foreground text-sm" demote />
       )}
-      {r.type === "font" && fontFiles(r).length > 0 && <FontStyles files={fontFiles(r)} />}
+      {r.type === "font" && fontFiles(r).length > 0 && (
+        <FontStyles files={fontFiles(r)} download={(r.spec as { download?: boolean } | null)?.download !== false} />
+      )}
       {pics.length > 0 &&
         (look === "do" || look === "dont" ? (
           <DoCards assets={pics} look={look} />

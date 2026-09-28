@@ -4,6 +4,7 @@ import { memo, useMemo } from "react";
 import { CardsSection } from "@/components/brand-sections/cards";
 import { CollectionSection } from "@/components/brand-sections/collection";
 import { CoverSection } from "@/components/brand-sections/cover";
+import { DiagramSection } from "@/components/brand-sections/diagram";
 import { DoDontSection } from "@/components/brand-sections/dodont";
 import { SectionFrame } from "@/components/brand-sections/frame";
 import { GallerySection } from "@/components/brand-sections/gallery";
@@ -49,6 +50,7 @@ export const RENDERERS: Record<Template, Renderer> = {
   collection: { View: CollectionSection },
   links: { View: LinksSection },
   pages: { View: PagesSection },
+  diagram: { View: DiagramSection },
 };
 
 /** A template from a newer server than this page: the frame, its title and its body, at least. */

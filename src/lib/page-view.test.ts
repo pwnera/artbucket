@@ -307,3 +307,12 @@ test("a brand whose every page is hidden has nothing for readers", () => {
   assert.deepEqual(plan(null, "members", src), { kind: "missing" });
   assert.equal(page(null, "editor", src).view.page?.slug, "overview");
 });
+
+test("a context version without a label reads its default's; its own label wins", () => {
+  const rules = RULES.map((r) => (r.key === "color.accent" && r.context === null ? { ...r, label: "Blender blue" } : r));
+  const labels = (src: Source) =>
+    page("overview", "everyone", src).view.rules.filter((r) => r.key === "color.accent").map((r) => r.label);
+  assert.deepEqual(labels({ ...SRC, rules }), ["Blender blue", "Blender blue"]);
+  const own = rules.map((r) => (r.key === "color.accent" && r.context ? { ...r, label: "Blue on dark" } : r));
+  assert.deepEqual(labels({ ...SRC, rules: own }), ["Blender blue", "Blue on dark"]);
+});

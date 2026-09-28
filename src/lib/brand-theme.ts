@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { contrast, inkOn, isHex, lift, luminance, mix, rgb } from "./color.ts";
-import { fontFiles, fontStyle, googleFontsCss, pickFace } from "./font.ts";
+import { fontFace, fontFiles, googleFontsCss, pickFace } from "./font.ts";
 import type { Section } from "./pages.ts";
 import { type COLOR_SPEC, type FONT_SPEC, fontValue, type Rule, type RuleAsset, ruleKey } from "./rules.ts";
 
@@ -492,24 +492,6 @@ export function sectionGround(t: Theme, s: Pick<Section, "tone" | "background">,
     default:
       return { background: null, dark: false, vars: {}, checks: [] };
   }
-}
-
-const FORMAT: Record<string, string> = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "truetype", "font/otf": "opentype" };
-
-/** One font file as @font-face, at the weight and style its name says. The token exports (tokens.ts) write theirs with it too. */
-export function fontFace(family: string, file: FaceFile, url: (id: string) => string) {
-  const { weight, italic } = fontStyle(file.filename ?? "");
-  const format = FORMAT[file.mime ?? ""];
-  const str = JSON.stringify;
-  return [
-    "@font-face {",
-    `  font-family: ${str(family)};`,
-    `  src: url(${str(url(file.id))})${format ? ` format(${str(format)})` : ""};`,
-    `  font-weight: ${weight};`,
-    `  font-style: ${italic ? "italic" : "normal"};`,
-    "  font-display: swap;",
-    "}",
-  ].join("\n");
 }
 
 /**

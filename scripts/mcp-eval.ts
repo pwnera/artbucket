@@ -19,6 +19,7 @@ import { createHash, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { checkWarnings, type Theme } from "../src/lib/brand-theme.ts";
 import { blender, type BookAssets } from "../src/lib/fixtures/brand-book.ts";
+import type { DIAGRAMS } from "../src/lib/pages.ts";
 
 const URL_ = process.env.ARTBUCKET_URL ?? "http://localhost:3000";
 if (!process.env.DATABASE_URL) {
@@ -73,6 +74,12 @@ async function refused(name: string, args: Record<string, unknown>): Promise<str
   const r = await rpc<{ content: { text: string }[]; isError?: boolean }>("tools/call", { name, arguments: args });
   assert.ok(r.isError, `${name} should have been refused`);
   return JSON.parse(r.content[0].text).error;
+}
+
+/** A section comes back as sent: every field it was given, items, tones, props and all. */
+function asSent(got: Section | undefined, sent: object, at: string) {
+  assert.ok(got, `${at}: there`);
+  for (const [k, v] of Object.entries(sent)) assert.deepEqual(got[k], v, `${at}.${k}`);
 }
 
 let passed = 0;
@@ -139,9 +146,7 @@ try {
     assert.equal(got.page.parent, meta.parent ?? null, `${slug}.parent`);
     // Every field sent comes back as sent: items, tones, backgrounds, tabs, contexts, audience.
     assert.equal(got.page.sections.length, sections.length, `${slug}: sections`);
-    sections.forEach((s, i) => {
-      for (const [k, v] of Object.entries(s)) assert.deepEqual(got.page.sections[i][k], v, `${slug}.sections[${i}].${k}`);
-    });
+    sections.forEach((s, i) => asSent(got.page.sections[i], s, `${slug}.sections[${i}]`));
   }
   ok("get_page: every page as saved, nothing missing, no warnings, a url");
 
@@ -271,6 +276,85 @@ try {
   assert.match(error.detail.errors[0], /^ink: no color rule "color\.nope"/);
   assert.deepEqual((await call<ThemeView>("get_theme", { brand })).settings, { ...book.theme, radius: 12, accent: "color.yellow" });
   ok("set_theme and PATCH theme: a missing key is refused with its path (422), and nothing is written");
+
+  // W4: the rules in depth. A section of the fixture's, by page and id.
+  const sent = (slug: string, id: string) => book.pages.find((p) => p.slug === slug)!.sections.find((s) => s.id === id)!;
+  const byId = (p: Page, id: string) => p.sections.find((s) => s.id === id);
+  type Read = { page: Page; rules: { key: string; spec: Record<string, unknown> | null }[]; markdown: string; warnings: string[] };
+
+  // The color page, deleted above, saved again: get_page hands back each palette rule's spec whole.
+  const { slug: colorSlug, ...color } = book.pages.find((p) => p.slug === "color")!;
+  assert.equal((await call<{ created: boolean }>("save_page", { brand, page: colorSlug, ...color })).created, true);
+  const palette = await call<Read>("get_page", { brand, page: colorSlug });
+  assert.deepEqual(palette.warnings, []);
+  color.sections.forEach((s, i) => asSent(palette.page.sections[i], s, `color.sections[${i}]`));
+  for (const r of palette.rules) {
+    const want = book.rules.find((x) => x.key === r.key && !x.context);
+    assert.deepEqual(r.spec, (want && "spec" in want && want.spec) || null, `${r.key}.spec`);
+  }
+  const specs = palette.rules.map((r) => r.spec ?? {});
+  for (const f of ["cmyk", "pantone", "ral", "rgb", "tints", "gradient", "pair", "weight"]) assert.ok(specs.some((s) => f in s), `a palette rule with ${f}`);
+  assert.deepEqual(new Set(specs.map((s) => s.print).filter(Boolean)), new Set(["specified", "converted"]));
+  ok("get_page: a palette's rules with print values given and converted, tints, a gradient, pairs and weights, and its print view and ASE");
+
+  // Each kind of diagram saves and says what it draws in the page's Markdown.
+  const drawn = {
+    clearspace: "Drawn: clearspace.",
+    minsize: "Drawn: minsize.",
+    placement: "Drawn: placement, at tl, bl, br.",
+    cobrand: "Drawn: cobrand, beside Blender Studio.",
+  } satisfies Record<(typeof DIAGRAMS)[number], string>;
+  const use = await call<Read>("get_page", { brand, page: "logo-use" });
+  assert.deepEqual(use.warnings, []);
+  for (const [kind, line] of Object.entries(drawn)) {
+    const s = book.pages.find((p) => p.slug === "logo-use")!.sections.find((x) => x.template === "diagram" && x.props?.kind === kind);
+    assert.ok(s, `the fixture has a ${kind} diagram`);
+    asSent(byId(use.page, s.id!), s, `logo-use#${s.id}`);
+    assert.ok(use.markdown.split("\n").includes(line), line);
+  }
+  ok("get_page: a diagram of each kind, as saved and drawn in the Markdown");
+
+  // A clear space diagram with no number to measure by, and a length in px beside one in mm, each warn, and exactly.
+  await call("set_rules", { brand, set: [{ key: "logo.bleed", type: "number", value: 3, spec: { unit: "mm" } }] });
+  const checks = await call<{ warnings: string[] }>("save_page", {
+    brand,
+    page: "checks",
+    title: "Checks",
+    sections: [
+      { template: "diagram", title: "Clear space", keys: ["logo.mark"], props: { kind: "clearspace" } },
+      { template: "text", title: "Sizes", keys: ["logo.minSize", "logo.bleed"] },
+    ],
+  });
+  const warned = [
+    "sections[0].keys: a clearspace diagram draws from a number rule, its clear space in x; bind one",
+    "sections[1]: mixes px and mm (logo.minSize in px, logo.bleed in mm); give them one unit",
+  ];
+  assert.deepEqual(checks.warnings, warned);
+  assert.deepEqual((await call<Read>("get_page", { brand, page: "checks" })).warnings, warned);
+  ok("save_page and get_page: a diagram missing its number rule, and px beside mm, warn exactly");
+
+  // A logos item marks a mark never set on a color: it comes back, reads as a don't, and binds colors only.
+  const logos = await call<Read>("get_page", { brand, page: "logos" });
+  asSent(byId(logos.page, "versions"), sent("logo", "versions"), "logos#versions");
+  assert.ok(logos.markdown.includes(`- Don't: asset ${ids.mark} on \`color.primary\`. The circle vanishes on its own orange.`));
+  const onLogo = await refused("edit_page", {
+    brand,
+    page: "logos",
+    ops: [{ op: "update", id: "versions", set: { items: [{ asset: ids.mark, key: "logo.wordmark", verdict: "dont" }] } }],
+  });
+  // The page is note, mark, versions since the edit above.
+  assert.equal(onLogo, "sections[2].items[0].key: a logos item's key is a color rule; logo.wordmark is text");
+  ok("logos: a don't on a color round-trips; one on a logo is refused with its path");
+
+  // A bento gallery with a wide tile, and a carousel.
+  const overview = await call<Read>("get_page", { brand, page: "overview" });
+  const bento = byId(overview.page, "in-use");
+  asSent(bento, sent("overview", "in-use"), "overview#in-use");
+  assert.deepEqual([bento!.props, (bento!.items as { span?: number }[]).map((it) => it.span)], [{ layout: "bento" }, [2, undefined]]);
+  const carousel = byId(use.page, "seen");
+  asSent(carousel, sent("logo-use", "seen"), "logo-use#seen");
+  assert.deepEqual(carousel!.props, { layout: "carousel" });
+  ok("gallery: a bento with a span, and a carousel, as saved");
 
   console.log(`\nThe Blender book builds over MCP: ${passed} steps passed.`);
 } finally {

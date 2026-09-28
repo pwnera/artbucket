@@ -17,7 +17,8 @@ import type { RuleAsset, RuleSpec, RuleType, RuleValue } from "./rules.ts";
 // ---- the view -----------------------------------------------------------------
 
 /** A rule's asset as a view carries it: always described. */
-export type ViewAsset = RuleAsset & { title: string | null; filename: string; mime: string; size: number; preview: boolean };
+/** `supersededBy`: a newer version replaced it; kits and downloads skip it. */
+export type ViewAsset = RuleAsset & { title: string | null; filename: string; mime: string; size: number; preview: boolean; supersededBy: string | null };
 
 /** A rule as a page shows it, one per context version. */
 export type ViewRule = {

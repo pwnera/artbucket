@@ -484,11 +484,14 @@ export function FontStyles({
   files,
   onRemove,
   onAdd,
+  download = true,
 }: {
   files: { id: string; filename?: string }[];
   /** Both left out: read only. */
   onRemove?: (id: string) => void;
   onAdd?: () => void;
+  /** false: the face is licensed for show, not for taking (a font rule's spec.download). */
+  download?: boolean;
 }) {
   const [open, setOpen] = useState(files.length <= 8);
   const read = !onRemove && !onAdd;
@@ -517,7 +520,7 @@ export function FontStyles({
               id={f.id}
               filename={f.filename ?? ""}
               onRemove={onRemove && (() => onRemove(f.id))}
-              download={read}
+              download={read && download}
             />
           ))}
           {onAdd && (

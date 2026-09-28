@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { COLLECTION_ICONS, type CollectionIcon } from "./collection-icons.ts";
 import { SITE_PATH } from "./markdown.ts";
-import { fontValue, listStyle, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
+import { fontValue, listStyle, resolve, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
 
 /**
  * Brand pages: how guidelines are laid out for people, over the rules agents
@@ -18,7 +18,7 @@ import { fontValue, listStyle, ruleContext, ruleKey, ruleLabel, section, type Ru
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages"] as const;
+export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages", "diagram"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const WIDTHS = ["text", "wide", "full"] as const;
@@ -138,7 +138,7 @@ export const TEMPLATE_INFO: Record<
     width: "wide",
     columns: 3,
     tone: "plain",
-    example: { template: "palette", title: "Palette", keys: ["color.primary", "color.secondary", "color.background"] },
+    example: { template: "palette", title: "Palette", keys: ["color.primary", "color.secondary", "color.background"], props: { show: ["hex", "cmyk", "pantone"], matrix: true } },
   },
   type: {
     name: "Type specimen",
@@ -149,18 +149,19 @@ export const TEMPLATE_INFO: Record<
     width: "wide",
     columns: 1,
     tone: "plain",
-    example: { template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way" } },
+    example: { template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way", roles: true } },
   },
   logos: {
     name: "Logo showcase",
-    use: "Marks on light and dark, ready to download.",
-    binds: "rules with assets (the logo files)",
-    accepts: hasAssets,
-    items: null,
+    use: "Marks on light and dark and on the colors it binds, ready to download one by one or as a kit.",
+    binds: "rules with assets (the logo files), and color rules to set them on",
+    accepts: (r) => hasAssets(r) || r.type === "color",
+    items: "a pair never to use: asset (a mark's picture) and key (a color), both needed; verdict dont; caption",
+    needs: [["asset"], ["key"]],
     width: "wide",
     columns: 2,
     tone: "plain",
-    example: { template: "logos", title: "The marks", keys: ["logo.mark", "logo.wordmark"], tone: "panel" },
+    example: { template: "logos", title: "The marks", keys: ["logo.mark", "logo.wordmark", "color.primary"], tone: "panel" },
   },
   dodont: {
     name: "Do / Don't",
@@ -187,12 +188,12 @@ export const TEMPLATE_INFO: Record<
     use: "In-use examples: the pictures of the rules it binds.",
     binds: "rules with assets",
     accepts: hasAssets,
-    items: "a picture: asset (needed), caption, title, download",
+    items: "a picture: asset (needed), caption, title, download, span (2: two cells wide in bento)",
     needs: [["asset"]],
     width: "full",
     columns: 3,
     tone: "plain",
-    example: { template: "gallery", title: "In use", body: "Real work, on real surfaces.", keys: ["imagery.examples"], tone: "tint" },
+    example: { template: "gallery", title: "In use", body: "Real work, on real surfaces.", keys: ["imagery.examples"], tone: "tint", props: { layout: "bento" } },
   },
   collection: {
     name: "Collection",
@@ -237,6 +238,18 @@ export const TEMPLATE_INFO: Record<
     tone: "plain",
     example: { template: "pages", title: "Using the logo", props: { from: "logo", layout: "cards" } },
   },
+  diagram: {
+    name: "Diagram",
+    use: "A logo rule drawn over the real mark: its clear space, its minimum size at true size, where it sits on a page, or beside a partner's mark.",
+    binds: "a rule with assets (the mark) and number rules (clear space in x, sizes in px or mm)",
+    accepts: (r) => hasAssets(r) || r.type === "number",
+    items: "a co-brand partner: asset (their mark, needed), title",
+    needs: [["asset"]],
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: { template: "diagram", title: "Clear space", keys: ["logo.mark", "logo.clearSpace"], props: { kind: "clearspace" } },
+  },
 };
 
 // ---- schemas ----------------------------------------------------------------
@@ -271,10 +284,13 @@ export const Item = z.strictObject({
     .optional()
     .describe("One of the icons a page takes"),
   download: z.boolean().optional().describe("false: for reference, never offered as a download"),
+  span: z.number().int().min(1).max(2).optional().describe("gallery bento: 2 takes two cells"),
 });
 export type Item = z.output<typeof Item>;
 
 const image = z.uuid().optional().describe("An asset id, from search_assets");
+/** What a diagram draws. lib/diagram.ts holds the geometry. */
+export const DIAGRAMS = ["clearspace", "minsize", "placement", "cobrand"] as const;
 
 /** Each template's own settings. Strict: a misspelled one is an error, not ignored. */
 export const TEMPLATE_PROPS = {
@@ -289,11 +305,26 @@ export const TEMPLATE_PROPS = {
   text: z.strictObject({}),
   split: z.strictObject({ image: image.describe("Shown beside the words; else the first bound rule's picture"), flip: z.boolean().optional().describe("Image on the left") }),
   cards: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
-  palette: z.strictObject({}),
-  type: z.strictObject({ sample: z.string().max(200).optional().describe("The specimen's starting text") }),
-  logos: z.strictObject({}),
+  // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
+  palette: z.strictObject({
+    show: z
+      .array(z.enum(["hex", "rgb", "hsl", "cmyk", "pantone", "ral", "token", "css"]))
+      .max(8)
+      .optional()
+      .describe("Values listed; all it has when left out"),
+    media: z.enum(["screen", "print"]).optional().describe("Values it opens on; screen when left out"),
+    matrix: z.boolean().optional().describe("Contrast of every pair"),
+    ase: z.boolean().optional().describe("An .ase swatch download"),
+  }),
+  type: z.strictObject({
+    sample: z.string().max(200).optional().describe("The specimen's starting text"),
+    roles: z.boolean().optional().describe("A table of roles"),
+    glyphs: z.boolean().optional().describe("Character sets"),
+    embed: z.boolean().optional().describe("Code to load the faces"),
+  }),
+  logos: z.strictObject({ kit: z.boolean().optional().describe("A zip of every mark; true when left out") }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
-  gallery: z.strictObject({}),
+  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel"]).optional() }),
   collection: z
     .strictObject({
       collection: z.uuid().optional().describe("A collection's id"),
@@ -314,6 +345,12 @@ export const TEMPLATE_PROPS = {
     from: pageSlug.optional().describe("The page whose children it shows; this page when left out"),
     layout: z.enum(["cards", "list"]).optional(),
     depth: z.number().int().min(1).max(3).optional().describe("How many levels a list goes down: a table of contents"),
+  }),
+  diagram: z.strictObject({
+    kind: z.enum(DIAGRAMS).optional().describe("clearspace when left out"),
+    positions: z.array(z.enum(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"])).max(9).optional().describe("placement: where it may sit"),
+    partner: z.string().trim().max(60).optional().describe("cobrand: their name"),
+    separator: z.enum(["line", "x", "none"]).optional().describe("cobrand: line when left out"),
   }),
 } satisfies Record<Template, z.ZodType>;
 
@@ -374,6 +411,7 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("collection", TEMPLATE_PROPS.collection),
   variant("links", TEMPLATE_PROPS.links),
   variant("pages", TEMPLATE_PROPS.pages),
+  variant("diagram", TEMPLATE_PROPS.diagram),
 ]);
 export type SectionInput = z.input<typeof SectionInput>;
 
@@ -591,10 +629,13 @@ export function checkSection(s: Section, at: string): string[] {
   if (s.tone !== "image" && (bg.image || bg.scrim !== undefined)) errors.push(`${at}.background.${bg.image ? "image" : "scrim"}: only for tone image`);
   if (s.contexts && !info.accepts) errors.push(`${at}.contexts: a ${info.name} section binds no rules, so it has no contexts to show`);
   if (s.items?.length && !info.items) errors.push(`${at}.items: a ${info.name} section takes no items`);
+  else if (s.items?.length && s.template === "diagram" && s.props.kind !== "cobrand") errors.push(`${at}.items: only a cobrand diagram takes items, its partner`);
   else {
     s.items?.forEach((it, k) => {
-      // W4: logos take verdicts too (a forbidden logo-on-color pair).
-      if (it.verdict && s.template !== "dodont") errors.push(`${at}.items[${k}].verdict: only do/don't items take a verdict`);
+      // A logos item is a pair never to use, so a don't is all it can be.
+      if (it.verdict && s.template !== "dodont" && !(s.template === "logos" && it.verdict === "dont"))
+        errors.push(`${at}.items[${k}].verdict: ${s.template === "logos" ? "a logos item marks a pair never to use: dont" : "only do/don't and logos items take a verdict"}`);
+      if (it.span !== undefined && s.template !== "gallery") errors.push(`${at}.items[${k}].span: only gallery items span`);
       for (const group of info.needs ?? []) {
         if (!group.some((f) => it[f] !== undefined)) errors.push(`${at}.items[${k}]: a ${info.name} item needs ${group.join(" or ")}`);
       }
@@ -697,10 +738,11 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
           const near = [...byKey.keys()].filter((x) => section(x) === section(k));
           errors.push(`${prefix}[${i}].${at}: no rule "${k}"${near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
         }
-      } else if (at === "background.color") {
-        if (r.type !== "color") errors.push(`${prefix}[${i}].${at}: a background is a color rule; ${k} is ${TYPE_WORD[r.type]}`);
+      } else if (at === "background.color" || (s.template === "logos" && at.startsWith("items["))) {
+        const what = at === "background.color" ? "a background" : "a logos item's key";
+        if (r.type !== "color") errors.push(`${prefix}[${i}].${at}: ${what} is a color rule; ${k} is ${TYPE_WORD[r.type]}`);
       } else if (at.startsWith("keys[") && info.accepts && !info.accepts(r)) {
-        errors.push(`${prefix}[${i}].${at}: a ${info.name} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.accepts === hasAssets && !hasAssets(r) ? " with no assets" : ""}`);
+        errors.push(`${prefix}[${i}].${at}: a ${info.name} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.binds?.includes("assets") && !hasAssets(r) ? " with no assets" : ""}`);
       }
     }
   });
@@ -782,12 +824,44 @@ export function applyOps(stored: Section[], ops: PageOp[], slug: string): { sect
 }
 
 type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null };
+type Warned = Pick<Rule, "key"> & Partial<Pick<Rule, "type" | "context" | "spec" | "assets">>;
+
+/** Lengths a reader compares; x, %, em and ms are of something else, so they mix with anything. */
+const LENGTHS = ["px", "pt", "mm", "cm", "in"];
+const unitOf = (r: Warned) => (r.type === "number" && r.spec && "unit" in r.spec ? r.spec.unit : undefined);
+
+/** The number rule a diagram measures by, beside its mark. */
+const DIAGRAM_NEEDS: Partial<Record<(typeof DIAGRAMS)[number], string>> = {
+  clearspace: "a number rule, its clear space in x",
+  minsize: "a number rule, its minimum size in px or mm",
+};
+
+/** A section's warnings that are about its rules rather than its links: units that mix, a diagram with nothing to draw from. */
+function ruleWarnings(s: Section, at: string, rules: Warned[]): string[] {
+  const out: string[] = [];
+  const keys = new Set(boundKeys(s));
+  const bound = rules.filter((r) => keys.has(r.key));
+  // A context shows its own versions and the defaults of the rest: those are the units read side by side.
+  for (const ctx of new Set(bound.map((r) => r.context ?? ""))) {
+    const shown = resolve(bound.map((r) => ({ ...r, context: r.context ?? null })), ctx).filter((r) => LENGTHS.includes(unitOf(r) ?? ""));
+    const units = [...new Set(shown.map(unitOf))];
+    if (units.length > 1) out.push(`${at}: mixes ${units.join(" and ")}${ctx ? ` in ${ctx}` : ""} (${shown.map((r) => `${r.key} in ${unitOf(r)}`).join(", ")}); give them one unit`);
+  }
+  if (s.template === "diagram") {
+    const kind = (s.props.kind as (typeof DIAGRAMS)[number] | undefined) ?? "clearspace";
+    if (!bound.some((r) => r.assets?.length)) out.push(`${at}.keys: a ${kind} diagram draws a mark; bind a rule with its picture`);
+    if (DIAGRAM_NEEDS[kind] && !bound.some((r) => r.type === "number")) out.push(`${at}.keys: a ${kind} diagram draws from ${DIAGRAM_NEEDS[kind]}; bind one`);
+    if (kind === "cobrand" && !s.items?.length && !s.props.partner) out.push(`${at}: a cobrand diagram needs its partner: an item with their mark, or props.partner`);
+  }
+  return out;
+}
 
 /**
  * What a reader would trip on, though the page saves: links to a page or
- * section that isn't there or is hidden, and bound keys with no rule.
+ * section that isn't there or is hidden, bound keys with no rule, lengths in
+ * two units side by side, and a diagram missing what it draws from.
  */
-export function pageWarnings(page: Linked, pages: Linked[], rules: Pick<Rule, "key">[]): string[] {
+export function pageWarnings(page: Linked, pages: Linked[], rules: Warned[]): string[] {
   const all = [page, ...pages.filter((p) => p.slug !== page.slug)];
   const find = (slug: string) => all.find((p) => p.slug === slug) ?? all.find((p) => p.aliases?.includes(slug));
   const out: string[] = [];
@@ -803,6 +877,7 @@ export function pageWarnings(page: Linked, pages: Linked[], rules: Pick<Rule, "k
   const keys = new Set(rules.map((r) => r.key));
   page.sections.forEach((s, i) => {
     for (const b of bindings(s)) if (!keys.has(b.key)) out.push(`sections[${i}].${b.at}: no rule "${b.key}"; readers see nothing for it`);
+    out.push(...ruleWarnings(s, `sections[${i}]`, rules));
   });
   return out;
 }
@@ -982,7 +1057,12 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
     if (s.body) out.push("", s.body);
     const lines = s.keys.map((k) => (byKey.has(k) ? ruleLine(byKey.get(k)!) : `- \`${k}\`: (no such rule)`));
     if (lines.length) out.push("", ...lines);
-    if (s.items?.length) out.push("", ...s.items.map(itemLine));
+    if (s.template === "logos" && s.items?.length) out.push("", ...s.items.map((it) => `- Don't: asset ${it.asset} on \`${it.key}\`${it.caption ? `. ${it.caption}` : ""}`));
+    else if (s.items?.length) out.push("", ...s.items.map(itemLine));
+    if (s.template === "diagram") {
+      const p = s.props as { kind?: string; positions?: string[]; partner?: string };
+      out.push("", `Drawn: ${p.kind ?? "clearspace"}${p.positions?.length ? `, at ${p.positions.join(", ")}` : ""}${p.partner ? `, beside ${p.partner}` : ""}.`);
+    }
     if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
     if (s.template === "pages" && !s.items?.length) out.push("", `The pages under ${typeof s.props.from === "string" ? `/${s.props.from}` : "this one"}.`);
     if (s.template === "collection") {

@@ -28,11 +28,13 @@ const PLACEHOLDERS: BookAssets = {
 };
 
 /**
- * Blender: the seed's rules (scripts/seed-demo.ts) with labels, specs, an ink
- * and a gradient, and six pages that use every template, items, tones, tabs
- * and a tree (logo-use sits under logo). Every page links and binds only what
- * is there, so get_page answers it with no missing keys and no warnings. The
- * eval edits the logo page and counts its sections, so new sections go elsewhere.
+ * Blender: the seed's rules (scripts/seed-demo.ts) with labels, specs (print
+ * values, tints, a gradient, font roles and metrics, units, a print size), an
+ * ink, and six pages that use every template, items, tones, tabs and a tree
+ * (logo-use, with a diagram of each kind, sits under logo). Every page links
+ * and binds only what is there, so get_page answers it with no missing keys
+ * and no warnings. The eval edits the logo page and counts its sections, so
+ * new sections go elsewhere.
  */
 export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
   return {
@@ -50,7 +52,17 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         type: "color",
         value: "#e87d0d",
         usage: "Blender orange (PMS 716). The logo's circle and the brand's accent: links, highlights, calls to action.",
-        spec: { token: "Orange", group: "Primary", weight: 40, pair: "color.background", pantone: ["716 C"], cmyk: [0, 60, 100, 0], print: "converted" },
+        spec: {
+          token: "Orange",
+          group: "Primary",
+          weight: 40,
+          pair: "color.background",
+          tints: [80, 60, 40, 20],
+          pantone: ["716 C", "716 U"],
+          cmyk: [0, 60, 100, 0],
+          ral: "2011",
+          print: "specified",
+        },
       },
       {
         key: "color.secondary",
@@ -58,7 +70,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         type: "color",
         value: "#265787",
         usage: "Blender blue (PMS 647). The logo's inner dot and headings on light backgrounds.",
-        spec: { token: "Blue", group: "Primary", weight: 25, pair: "color.background", pantone: ["647 C"] },
+        spec: { token: "Blue", group: "Primary", weight: 25, pair: "color.background", tints: [60, 30], pantone: ["647 C"], cmyk: [72, 36, 0, 47], print: "converted" },
       },
       {
         key: "color.background",
@@ -81,7 +93,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         type: "color",
         value: "#1d1d1d",
         usage: "Text on white, and the dark ground: the Blender interface's near black.",
-        spec: { group: "Neutrals", weight: 10, pair: "color.background" },
+        spec: { group: "Neutrals", weight: 10, pair: "color.background", rgb: [29, 29, 29] },
       },
       {
         key: "color.blend",
@@ -100,6 +112,8 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         spec: {
           role: "body",
           lineHeight: 1.5,
+          script: "Latn",
+          features: ["cv11"],
           source: "google",
           url: "https://fonts.google.com/specimen/Inter",
           license: "SIL Open Font License 1.1",
@@ -112,7 +126,15 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         type: "font",
         value: { family: "Inter", size: 32, weight: 700 },
         usage: "Headings. One weight step up is enough; no italics.",
-        spec: { role: "headline", lineHeight: 1.2, tracking: -0.01, source: "google" },
+        spec: { role: "headline", lineHeight: 1.2, tracking: [[16, 0], [32, -0.01], [48, -0.02]], source: "google" },
+      },
+      {
+        key: "type.label",
+        label: "Labels",
+        type: "font",
+        value: { family: "Inter", size: 12, weight: 600 },
+        usage: "Eyebrows, tags and table heads.",
+        spec: { role: "label", lineHeight: 1.3, tracking: 0.08, case: "upper", features: ["tnum"], source: "google" },
       },
       { key: "type.scale", label: "Type scale", type: "list", value: [12, 14, 16, 20, 24, 32, 48], usage: "Pixels. Pick from the scale, nothing between steps." },
       {
@@ -132,6 +154,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         assets: [a.wordmark],
       },
       { key: "logo.minSize", label: "Minimum size", type: "number", value: 24, usage: "The mark's height on screen, at the least.", spec: { unit: "px" } },
+      { key: "logo.minSize", context: "print", type: "number", value: 8, usage: "The mark's height in print, at the least.", spec: { unit: "mm" } },
       {
         key: "logo.clearSpace",
         label: "Clear space",
@@ -139,6 +162,14 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         value: 0.5,
         usage: "Room on every side, kept free of text and other marks.",
         spec: { unit: "x", of: "the mark's height" },
+      },
+      {
+        key: "logo.margin",
+        label: "Margin",
+        type: "number",
+        value: 5,
+        usage: "From the page's edges to the logo.",
+        spec: { unit: "%", of: "the page's shorter side" },
       },
       {
         key: "logo.always",
@@ -178,8 +209,9 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             template: "gallery",
             title: "In use",
             body: "The logo as it appears in credits and on screens.",
+            props: { layout: "bento" },
             items: [
-              { asset: a.wordmark, title: "Credits", caption: "The logo, linked to blender.org." },
+              { asset: a.wordmark, title: "Credits", caption: "The logo, linked to blender.org.", span: 2 },
               { asset: a.mark, title: "App icon", caption: "The mark alone, where the name is already on screen.", download: false },
             ],
           },
@@ -202,7 +234,14 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         tabs: true,
         sections: [
           { id: "mark", template: "split", title: "The mark", body: "An orange circle holding a blue dot.", keys: ["logo.mark"] },
-          { id: "versions", template: "logos", title: "Versions", keys: ["logo.mark", "logo.wordmark"], tone: "panel" },
+          {
+            id: "versions",
+            template: "logos",
+            title: "Versions",
+            keys: ["logo.mark", "logo.wordmark", "color.secondary", "color.primary"],
+            tone: "panel",
+            items: [{ asset: a.mark, key: "color.primary", verdict: "dont", caption: "The circle vanishes on its own orange." }],
+          },
           { id: "size", template: "text", title: "Size and space", body: "Give it room, and never set it smaller than it reads.", keys: ["logo.minSize", "logo.clearSpace"] },
         ],
       },
@@ -239,6 +278,41 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             keys: ["logo.mark", "logo.wordmark"],
             items: [{ title: "The logo on blender.org", text: "The official files and terms.", link: "https://www.blender.org/about/logo/", label: "Web" }],
           },
+          {
+            id: "clear-space",
+            template: "diagram",
+            title: "Clear space",
+            body: "Half the mark's height, free on every side.",
+            keys: ["logo.mark", "logo.clearSpace"],
+            props: { kind: "clearspace" },
+          },
+          {
+            id: "min-size",
+            template: "diagram",
+            title: "Minimum size",
+            keys: ["logo.mark", "logo.minSize"],
+            props: { kind: "minsize" },
+            contexts: ["default", "print"],
+          },
+          { id: "placement", template: "diagram", title: "Placement", keys: ["logo.wordmark", "logo.margin"], props: { kind: "placement", positions: ["tl", "bl", "br"] } },
+          {
+            id: "cobrand",
+            template: "diagram",
+            title: "Beside a partner",
+            keys: ["logo.wordmark", "logo.clearSpace"],
+            props: { kind: "cobrand", partner: "Blender Studio", separator: "line" },
+            items: [{ asset: a.mark, title: "Blender Studio" }],
+          },
+          {
+            id: "seen",
+            template: "gallery",
+            title: "Seen in credits",
+            props: { layout: "carousel" },
+            items: [
+              { asset: a.wordmark, caption: "End credits." },
+              { asset: a.mark, caption: "A splash screen." },
+            ],
+          },
         ],
       },
       {
@@ -254,6 +328,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             keys: ["color.primary", "color.secondary", "color.background", "color.ink"],
             contexts: ["default", "dark-background"],
             tab: "Screen",
+            props: { matrix: true, ase: true },
           },
           { id: "blend", template: "palette", title: "Gradient", body: "For covers and title cards; everywhere else, its solid.", keys: ["color.blend"], tone: "dark", tab: "Screen" },
           {
@@ -263,6 +338,14 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             body: "Blender orange is Pantone 716 C and Blender blue Pantone 647 C. Use CMYK only where spot colors can't go.",
             tab: "Print",
           },
+          {
+            id: "print-values",
+            template: "palette",
+            title: "Print values",
+            keys: ["color.primary", "color.secondary"],
+            tab: "Print",
+            props: { media: "print", show: ["pantone", "cmyk", "ral", "hex"], ase: true },
+          },
         ],
       },
       {
@@ -271,7 +354,13 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         lede: "Inter, in two weights.",
         icon: "brush",
         sections: [
-          { id: "faces", template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "The freedom to create" } },
+          {
+            id: "faces",
+            template: "type",
+            title: "Typefaces",
+            keys: ["type.heading", "type.primary", "type.label", "type.scale"],
+            props: { sample: "The freedom to create", roles: true, glyphs: true, embed: true },
+          },
           {
             id: "setting",
             template: "text",
@@ -329,8 +418,8 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
 }
 
 /**
- * Blender and then some: 60 rules, and a last page of 30 sections (each of
- * Blender's, then palettes and notes of made-up rules). A long page, for
+ * Blender and then some: 60 rules, and a last page of every section of
+ * Blender's, then 8 palettes and notes of made-up rules. A long page, for
  * profiling the builder (W6).
  */
 export function big(a: BookAssets = PLACEHOLDERS): BrandBook {
@@ -464,7 +553,7 @@ function media(id: string): Media {
 
 const viewAsset = (id: string): ViewAsset => {
   const m = media(id);
-  return { id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, preview: true, width: m.width, height: m.height };
+  return { id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, preview: true, width: m.width, height: m.height, supersededBy: null };
 };
 
 /**
@@ -477,13 +566,15 @@ export function fixtureView(name: string, slug?: string | null): PageView {
   const make = Object.hasOwn(FIXTURES, name) ? FIXTURES[name] : undefined;
   if (!make) throw new Error(`No fixture "${name}"; there are ${Object.keys(FIXTURES).join(", ")}`);
   const book = make();
-  const rules = book.rules.map((raw): ViewRule => {
-    const r = RuleInput.parse(raw);
+  const parsed = book.rules.map((raw) => RuleInput.parse(raw));
+  // As the planner does: a context version without a label reads its default's.
+  const labelOf = new Map(parsed.filter((r) => !r.context && r.label).map((r) => [r.key, r.label!]));
+  const rules = parsed.map((r): ViewRule => {
     return {
       key: r.key,
       context: r.context ?? null,
       type: r.type,
-      label: r.label ?? null,
+      label: r.label ?? labelOf.get(r.key) ?? null,
       value: r.value,
       usage: r.usage ?? null,
       spec: ("spec" in r && r.spec) || null,
