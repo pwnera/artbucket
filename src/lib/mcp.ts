@@ -25,7 +25,7 @@ import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
-import { issues, templateCatalog } from "@/lib/pages";
+import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
 import { parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -42,7 +42,11 @@ const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
-To build a brand's guidelines for people, write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Read list_templates, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed.`;
+To build a brand's guidelines for people, write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed.`;
+
+/** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
+const READ_ONLY_BRAND =
+  "\n\nThis key can't edit brands: set_rules, save_page, edit_page, generate_pages, set_theme and publish need write on the workspace, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -550,7 +554,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
         serverInfo: { name: "artbucket", version: "1.2.0" },
-        instructions: INSTRUCTIONS,
+        instructions: can(caller, "brand.edit") ? INSTRUCTIONS : INSTRUCTIONS + READ_ONLY_BRAND,
       });
     }
     case "ping":

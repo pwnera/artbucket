@@ -23,7 +23,7 @@ import type { Scope } from "@/lib/scopes";
 export const SCOPE_LABELS: { scope: Scope; label: string; hint: string }[] = [
   { scope: "read", label: "Read only", hint: "Search and read the brand; changes nothing. Like a Viewer." },
   { scope: "propose", label: "Suggest", hint: "Also suggest assets and tags, which wait for you to review. Like a Contributor." },
-  { scope: "write", label: "Edit", hint: "Also change and delete assets, collections and fields directly, no review. Like an Editor." },
+  { scope: "write", label: "Edit", hint: "Also change and delete assets, collections and fields directly, no review, and edit brand rules, pages and theme. Like an Editor." },
   { scope: "admin", label: "Admin", hint: "Everything, including making and revoking keys. Like an Admin." },
 ];
 export const scopeLabel = (s: Scope) => SCOPE_LABELS.find((x) => x.scope === s)?.label ?? s;
