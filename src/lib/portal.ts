@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withSignature } from "./asset-url.ts";
 
 /**
  * Brand portals: a curated, themed front door onto chosen collections, for
@@ -30,19 +31,21 @@ export type Download = { preset: PortalPreset; label: string; hint: string; url:
 /**
  * The downloads a portal offers for one asset. Images get the portal's
  * presets; anything else (a PDF, a video, a font) is only useful as itself,
- * so it gets its original whatever the presets say.
+ * so it gets its original whatever the presets say. `s` signs them
+ * (lib/signed.ts) for a visitor without an account.
  */
-export function downloadsFor(asset: { id: string; filename: string; mime: string }, presets: PortalPreset[], base: string): Download[] {
+export function downloadsFor(asset: { id: string; filename: string; mime: string }, presets: PortalPreset[], base: string, s?: string): Download[] {
   const at = `${base}/a/${asset.id}`;
+  const url = (path: string) => (s ? withSignature(path, s) : path);
   const stem = asset.filename.replace(/\.[^.]+$/, "");
   const { label, hint } = PORTAL_PRESETS.original;
-  const original: Download = { preset: "original", label, hint, url: `${at}?download`, filename: asset.filename };
+  const original: Download = { preset: "original", label, hint, url: url(`${at}?download`), filename: asset.filename };
   if (!asset.mime.startsWith("image/")) return [original];
   const out = presets.flatMap((p): Download[] => {
     const { label, hint, spec } = PORTAL_PRESETS[p];
     if (!spec) return [original];
     const ext = spec.match(/f_(\w+)/)?.[1] === "png" ? "png" : "jpg";
-    return [{ preset: p, label, hint, url: `${at}/${spec}`, filename: `${stem}-${p}.${ext}` }];
+    return [{ preset: p, label, hint, url: url(`${at}/${spec}`), filename: `${stem}-${p}.${ext}` }];
   });
   return out.length ? out : [original];
 }

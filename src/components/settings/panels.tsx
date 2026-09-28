@@ -329,7 +329,7 @@ export function DeleteOrganization({ me }: { me: Me }) {
 
 export type Usage = {
   limits: Limits;
-  used: { storage: number; editors: number; workspaces: number; brands: number };
+  used: { storage: number; editors: number; workspaces: number; brands: number; domains: number };
   traffic: {
     days: number;
     workspaces: { id: string; name: string; storage: number; requests: number; bytes: number }[];
@@ -345,6 +345,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
     ["Editors", used.editors, l.editors, String],
     ["Workspaces", used.workspaces, l.workspaces, String],
     ["Brands", used.brands, l.brands, String],
+    ["Custom domains", used.domains, l.domains, String],
   ];
   const off = l.features ? (["agents", "shares"] as const).filter((f) => !l.features!.includes(f)) : [];
   const total = traffic.workspaces.reduce((t, w) => ({ requests: t.requests + w.requests, bytes: t.bytes + w.bytes }), { requests: 0, bytes: 0 });

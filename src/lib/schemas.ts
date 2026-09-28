@@ -114,10 +114,15 @@ export const AssetPatch = z.strictObject({
     ),
   reviewNote: z.string().max(2000).nullable().optional().describe("Why it was rejected, for whoever proposed it"),
   proposedTags: tags.optional().describe("Replaces the pending suggestions; [] dismisses them all"),
+  proposedFields: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe("The suggested values to keep waiting, by key; the rest are dismissed. {} dismisses them all. Accept one by setting it in `fields`"),
   ...provenance,
   rights: provenance.rights.describe("Replaces them whole; null clears"),
   supersededBy: uuid.nullable().optional().describe("The asset that replaces this one; /api/v1/check then refuses it and names that"),
   private: z.boolean().optional().describe("Only people with a grant on it, or on a collection it is in, and admins see it"),
+  public: z.boolean().optional().describe("Serve it at /a/{id} to anyone, for embedding, while it may be used. Takes share on it"),
 });
 
 export const CheckInput = Use.extend({
@@ -128,6 +133,13 @@ export const CheckInput = Use.extend({
 
 export const ProposeTags = z.strictObject({
   tags: z.array(z.string().min(1).max(MAX_TAG_LENGTH)).min(1).max(50),
+});
+
+export const ProposeFields = z.strictObject({
+  fields: z
+    .record(z.string(), z.unknown())
+    .refine((v) => Object.keys(v).length > 0 && Object.keys(v).length <= 50, "One to fifty values")
+    .describe("Custom field values by key (GET /api/v1/fields), each checked against its field"),
 });
 
 const icon = z.enum(COLLECTION_ICONS).nullable().optional();
@@ -223,7 +235,12 @@ const portal = {
   theme: PortalTheme.partial().optional(),
   collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
   brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
-  domain: z.string().max(253).nullable().optional().describe("A host name of its own, e.g. press.example.com; served there once its TXT record is in place"),
+  domain: z
+    .string()
+    .max(253)
+    .nullable()
+    .optional()
+    .describe("One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none"),
 };
 export const PortalInput = z.strictObject({ ...portal, access: portal.access.default("public") });
 export const PortalPatch = z.strictObject(portal).partial();
@@ -234,6 +251,16 @@ export const PortalRequestInput = z.strictObject({
 });
 export const PortalDecision = z.strictObject({ status: z.enum(["approved", "denied"]) });
 export const DomainInput = z.strictObject({ host: z.string().min(1).max(253).describe("A host name of the organization's, e.g. assets.example.com") });
+export const DomainPatch = z.strictObject({ primary: z.literal(true).describe("Make it the default: where links in email point") });
+export const SignedUrlInput = z.strictObject({
+  expiresIn: z
+    .number()
+    .int()
+    .min(60)
+    .max(365 * 86400)
+    .default(7 * 86400)
+    .describe("Seconds it works for: a minute to a year, a week when left out"),
+});
 
 // ---- responses --------------------------------------------------------------
 
@@ -318,10 +345,12 @@ export const Asset = z.object({
   proposedBy: z.string().nullable().describe("For a proposal: who made it, a person's or an API key's name"),
   reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
+  proposedFields: fieldValues.describe("Custom field values an agent suggested, waiting for a person to accept or dismiss"),
   rights: Rights,
   ...provenanceOut,
   supersededBy: uuid.nullable().describe("The asset that replaces this one"),
   private: z.boolean().describe("Its own flag; it is private too when every collection it is in is"),
+  public: z.boolean().describe("Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"),
   collections: z.array(uuid),
   createdAt: date,
   updatedAt: date,
@@ -473,6 +502,7 @@ export const Description = z.object({
   rights: Rights,
   provenance: z.object(provenanceOut),
   supersededBy: uuid.nullable().describe("Replaced: use this one instead"),
+  public: z.boolean().describe("Its URLs work for anyone while it may be used; otherwise with a key or session, or signed (POST /api/v1/assets/{id}/signed-url)"),
   urls: z.object({
     original: z.url(),
     download: z.url().describe("The original with current metadata written in"),
@@ -504,6 +534,7 @@ export const ActivityItem = z.object({
     "rejected",
     "deleted",
     "suggested_tags",
+    "suggested_fields",
     "archived",
     "unarchived",
     "made_current",
@@ -514,7 +545,7 @@ export const ActivityItem = z.object({
   assetId: uuid.nullable(),
   brand: z.object({ slug: z.string(), name: z.string(), version: z.number().int() }).nullable(),
   detail: z
-    .object({ tags: z.array(z.string()), note: z.string(), version: z.number().int(), rules: z.array(z.string()), summary: z.string() })
+    .object({ tags: z.array(z.string()), fields: z.array(z.string()), note: z.string(), version: z.number().int(), rules: z.array(z.string()), summary: z.string() })
     .partial()
     .nullable(),
 });
@@ -550,10 +581,11 @@ export const Usage = z.object({
     editors: limit("People with write or admin, invitations included"),
     workspaces: limit("Workspaces"),
     brands: limit("Brands, over all workspaces"),
+    domains: limit("Custom domains, the app's and its portals'"),
     features: z.array(z.enum(["agents", "shares"])).nullable().describe("What it may use; null: everything"),
     readOnly: z.boolean(),
   }).describe("Set by whoever runs the server; never by the organization"),
-  used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int() }),
+  used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int(), domains: z.number().int() }),
   traffic: z.object({
     days: z.number().int().describe("How far back"),
     workspaces: z.array(z.object({ id: uuid, name: z.string(), storage: z.number(), requests: z.number().int(), bytes: z.number() })),
@@ -691,7 +723,7 @@ const domainState = z.object({
   cname: z
     .object({ type: z.literal("CNAME"), name: z.string(), value: z.string() })
     .nullable()
-    .describe("Where to point it, when the server says (DOMAIN_TARGET); null: at this server"),
+    .describe("Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"),
 });
 export const Portal = z.object({
   id: uuid,
@@ -725,8 +757,17 @@ export const PortalRequest = z.object({
   createdAt: date,
   url: z.string().nullable().describe("For an approved request: their own link, to copy"),
 });
+export const PortalDomain = z.object({
+  host: z.string(),
+  portal: z.string().nullable().describe("The portal it serves, by slug; null: free to pick"),
+});
+export const SignedUrl = z.object({
+  url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
+  expiresAt: date,
+});
 export const Decided = z.object({ data: PortalRequest, emailed: z.boolean() });
 export const Domain = domainState.extend({
+  primary: z.boolean().describe("The app's default address: links in email point here"),
   portal: z.string().nullable().describe("The portal it serves, by slug; null for the whole app"),
   url: z.url(),
 });
@@ -772,6 +813,7 @@ export const PortalBrand = z.object({
   brand: z.object({ slug: z.string(), name: z.string() }),
   data: z.array(BrandRule).describe("Its rules in page order; a rule's assets only when they may be used"),
   contexts: z.array(z.string()).describe("Contexts some rule is scoped to, for ?context="),
+  signed: z.record(uuid, z.string()).describe("Each listed asset's signature: /a/{id}/{rendition}?s={it} loads it for the visitor"),
 });
 export const PortalGate = z.object({
   error: z.object({

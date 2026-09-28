@@ -1,0 +1,38 @@
+---
+title: "0012: Asset bytes are private; sharing signs them"
+description: Accepted, v1.4. Amends 0007.
+---
+
+## Context
+
+Until 1.4, `/a/{id}` served any approved asset to anyone holding the URL. The
+id is random and unguessable, so the URL was the key: easy to embed, easy for
+an agent to hand on. But a URL leaks (a forwarded email, a pasted link, a
+`Referer`), it can't be taken back from one person, and "approved" meant
+"public" with no way to keep an approved asset for the team only.
+
+## Decision
+
+`/a/{id}` serves people who can see the asset in the library, by session or
+key, following its permissions. Anyone else needs one of two things:
+
+- a **signed URL**, `?s={expiry}.{mac}`: an HMAC over the asset and the time,
+  so one signature serves the original, every rendition and the download,
+  until it expires. Share links and portals sign what they show, a day at a
+  time; a person makes one to send (`POST /api/v1/assets/{id}/signed-url`),
+  and an agent asks `rendition_url` for one.
+- the asset made **public** (`public: true`), for embedding: its URL works
+  for anyone, and never changes.
+
+Either way, lifecycle still decides first (0007): only an approved,
+unexpired asset out of embargo leaves.
+
+## Consequences
+
+- A leaked URL is a person's session, a signature that runs out, or a public
+  asset someone chose to make public.
+- A share link or a portal that is revoked stops its signatures within a day.
+  Archiving the asset stops them at once.
+- Every in-app thumbnail now checks the session. The browser keeps what it
+  was allowed for an hour; a session cache is the upgrade if it shows.
+- Embeds made before 1.4 break until their assets are made public.

@@ -264,6 +264,18 @@ export function openapi(serverUrl: string) {
           ok: [200, "The asset, with its suggestions", data(S.Asset)],
         }),
       },
+      "/api/v1/assets/{id}/proposed-fields": {
+        parameters: [path("id", "Asset id")],
+        post: op({
+          summary: "Suggest custom field values",
+          scope: "propose",
+          description:
+            "They wait in `proposedFields` for someone with the write scope, who accepts one by setting it in `fields`, " +
+            "or dismisses it through `proposedFields`. Each is checked against its field; one the asset already has is dropped.",
+          body: S.ProposeFields,
+          ok: [200, "The asset, with its suggestions", data(S.Asset)],
+        }),
+      },
       "/api/v1/assets/{id}/description": {
         parameters: [path("id", "Asset id")],
         get: op({
@@ -273,6 +285,20 @@ export function openapi(serverUrl: string) {
             "Title, credit, tags, effective field values, rights, provenance, what supersedes it, its URLs, the " +
             "transforms it allows and ready-made rendition URLs. Whether a particular use is allowed: POST /api/v1/check.",
           ok: [200, "The description", S.Description],
+        }),
+      },
+      "/api/v1/assets/{id}/signed-url": {
+        parameters: [path("id", "Asset id")],
+        post: op({
+          summary: "A signed URL to an asset",
+          scope: "write",
+          description:
+            "Asset bytes are private: /a/{id} serves people who can see the asset. A signed URL lets anyone who holds " +
+            "it in until it expires, originals, renditions and downloads alike, while the asset may be used. Takes " +
+            "share on it; only an approved, unexpired asset out of embargo. To serve it to anyone for good, PATCH it " +
+            "`public: true` instead.",
+          body: S.SignedUrlInput,
+          ok: [200, "The URL", data(S.SignedUrl)],
         }),
       },
       "/api/v1/collections": {
@@ -646,7 +672,7 @@ export function openapi(serverUrl: string) {
             "a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions " +
             "made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` " +
             "(people with access to the workspace); the last two take access requests. Needs sharing rights on each " +
-            "collection. A `domain` is served once its TXT record is in place: POST /api/v1/portals/{id}/domain.",
+            "collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.",
           body: S.PortalInput,
           ok: [201, "The portal", data(S.Portal)],
         }),
@@ -657,18 +683,26 @@ export function openapi(serverUrl: string) {
         patch: op({
           summary: "Change a brand portal",
           scope: "write",
-          description: "Only what is given changes. A new `domain` needs proving again; null removes it. A left-out `password` stays.",
+          description: "Only what is given changes. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
           body: S.PortalPatch,
           ok: [200, "The portal", data(S.Portal)],
         }),
         delete: op({ summary: "Delete a brand portal", scope: "write", description: "Its address and domain stop answering at once.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/portals/domains": {
+        get: op({
+          summary: "Domains a portal can be served at",
+          scope: "write",
+          description: "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
+          ok: [200, "Domains", data(z.array(S.PortalDomain))],
+        }),
       },
       "/api/v1/portals/{id}/domain": {
         parameters: [path("id", "Portal id")],
         post: op({
           summary: "Verify a portal's domain",
           scope: "write",
-          description: "Looks up the TXT record named in `domain.record` now. Found, the portal is served at its domain; a 422 says what was found instead.",
+          description: "Looks up the TXT record named in `domain.record`, and the CNAME in `domain.cname`, now. Found, the portal is served at its domain; a 422 says what was missing.",
           ok: [200, "The portal", data(S.Portal)],
         }),
       },
@@ -714,7 +748,8 @@ export function openapi(serverUrl: string) {
           scope: "public",
           description:
             "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET " +
-            "/api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id}.",
+            "/api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id} " +
+            "with the signature in `signed`; images in a rule's text come signed.",
           query: { context: { schema: str, description: "Resolve for one context, e.g. dark-background" } },
           ok: [200, "The guidelines", S.PortalBrand],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
@@ -744,22 +779,30 @@ export function openapi(serverUrl: string) {
       "/api/v1/domains": {
         get: op({ summary: "The organization's domains", scope: "admin", description: "Its app's and its portals'. Organization admin.", ok: [200, "Domains", data(z.array(S.Domain))] }),
         post: op({
-          summary: "Add an app domain",
+          summary: "Add a domain",
           scope: "admin",
           description:
-            "An address of the organization's own for the whole app. Add the TXT record in `record`, point the domain at " +
-            "this server, then POST /api/v1/domains/{host}/verify. Its people sign in there; links in email point there.",
+            "An address of the organization's own: the app's, or a portal's once the portal picks it. Add the TXT record " +
+            "in `record`, point it at the server (`cname`), then POST /api/v1/domains/{host}/verify. The first verified " +
+            "one becomes the default, where links in email point. Counts against the `domains` limit.",
           body: S.DomainInput,
           ok: [201, "The domain, not verified yet", data(S.Domain)],
         }),
       },
       "/api/v1/domains/{host}": {
         parameters: [path("host", "e.g. assets.example.com")],
-        delete: op({ summary: "Remove an app domain", scope: "admin", description: "It stops answering at once. A portal's domain is changed on the portal.", ok: [200, "Removed", S.Deleted] }),
+        patch: op({
+          summary: "Make a domain the default",
+          scope: "admin",
+          description: "The app's default address: links in email point there. It must be verified, and not serve a portal.",
+          body: S.DomainPatch,
+          ok: [200, "The domain", data(S.Domain)],
+        }),
+        delete: op({ summary: "Remove a domain", scope: "admin", description: "It stops answering at once; a portal served there goes back to /p/{slug}.", ok: [200, "Removed", S.Deleted] }),
       },
       "/api/v1/domains/{host}/verify": {
         parameters: [path("host", "e.g. assets.example.com")],
-        post: op({ summary: "Verify an app domain", scope: "admin", description: "Looks up its TXT record now; a 422 names what was found instead.", ok: [200, "The domain", data(S.Domain)] }),
+        post: op({ summary: "Verify a domain", scope: "admin", description: "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.", ok: [200, "The domain", data(S.Domain)] }),
       },
       "/api/v1/domains/check": {
         get: op({
@@ -925,10 +968,15 @@ export function openapi(serverUrl: string) {
           description:
             "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except " +
             "into a file with Content Credentials, which it leaves as signed. What the asset is: " +
-            "GET /api/v1/assets/{id}/description. Public while approved, unexpired and out of embargo, and cached for " +
-            "an hour at most, never past the last day of use. Expired or archived: 410. Not approved yet: 404, except " +
-            "to someone who can see it in the library.",
-          query: { download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" } },
+            "GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by " +
+            "session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share " +
+            "link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of " +
+            "embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. " +
+            "Not there for this caller: 404.",
+          query: {
+            download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" },
+            s: { schema: { type: "string" }, description: "A signature: lets whoever holds the URL in until it expires. Renditions take it too" },
+          },
           ok: [200, "The file"],
           extra: { 410: { description: "Expired or archived", content: json(S.ErrorBody) } },
         }),

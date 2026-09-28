@@ -41,8 +41,11 @@ the server never proxies them. The server then hashes what arrived (SHA-256)
 and files it under that hash, so identical bytes are stored once.
 
 Delivery is a URL: `/a/{id}` is the original, `/a/{id}/w_800,f_webp` a
-rendition, made on first request and cached in storage for 30 days. Only an
-approved, unexpired asset is public: an archived, expired or deleted one
+rendition, made on first request and cached in storage for 30 days. The bytes
+are private: they go to people who can see the asset, by session or key.
+Anyone else needs a signed URL, which share links and portals hand out, or the
+asset made public ([0012](/decisions/0012-private-delivery)). Either way only
+an approved, unexpired asset leaves: an archived, expired or deleted one
 answers `410 Gone`, so embeds stop on time.
 
 ## The canon

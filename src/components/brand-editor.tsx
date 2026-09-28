@@ -90,6 +90,7 @@ import type { SidebarData } from "@/lib/sidebar";
 import { ago, exact } from "@/lib/time";
 import { kebab } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
+import { assetUrl } from "@/lib/asset-url";
 
 const label = ruleLabel;
 
@@ -722,7 +723,7 @@ function BrandIcon({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
   // The logo stands on its own, like a page icon; only the initial gets a tile.
   return a ? (
     <span className="relative flex size-16 shrink-0">
-      <Thumb src={`/a/${a.id}/w_64,f_webp`} alt={`${brand.name} logo`} className="rounded-2xl p-0" />
+      <Thumb src={assetUrl(a.id, "/w_64,f_webp")} alt={`${brand.name} logo`} className="rounded-2xl p-0" />
     </span>
   ) : (
     <span className="bg-muted flex size-16 shrink-0 items-center justify-center rounded-2xl border text-2xl font-semibold">
@@ -1227,7 +1228,7 @@ function AssetTile({
   onChange?: (rendition: string | null) => void;
   onRemove?: () => void;
 }) {
-  const path = a.rendition ? `/a/${a.id}/${a.rendition}` : `/a/${a.id}`;
+  const path = a.rendition ? assetUrl(a.id, `/${a.rendition}`) : assetUrl(a.id);
   const name = a.title || a.filename || "Asset";
   const tile =
     "bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative block size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2";
@@ -1237,7 +1238,7 @@ function AssetTile({
         <FontThumb id={a.id} className="text-4xl" />
       </span>
     ) : (
-      <Thumb src={`/a/${a.id}/w_112,f_webp`} alt="" className="p-2" />
+      <Thumb src={assetUrl(a.id, "/w_112,f_webp")} alt="" className="p-2" />
     );
   // What it is first; the size only when the rule means a particular one.
   const caption = (
@@ -1484,7 +1485,7 @@ function AssetPicker({
                       <FontThumb id={id} className="text-2xl" />
                     </span>
                   ) : (
-                    <Thumb src={`/a/${id}/w_80,f_webp`} alt="" className="p-1" />
+                    <Thumb src={assetUrl(id, "/w_80,f_webp")} alt="" className="p-1" />
                   )}
                   <span className="bg-primary text-primary-foreground absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded-full text-[11px]">
                     {i + 1}
@@ -1538,7 +1539,7 @@ function AssetPicker({
                   )}
                 >
                   {hasPreview(a) ? (
-                    <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
+                    <Thumb src={assetUrl(a.id, "/w_160,f_webp")} alt={a.filename} />
                   ) : isFont(a.mime, a.filename) ? (
                     <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">
                       <FontThumb id={a.id} className="text-3xl" />

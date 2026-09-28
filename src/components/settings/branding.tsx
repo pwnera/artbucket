@@ -19,7 +19,7 @@ import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
 type Dns<T extends string> = { type: T; name: string; value: string };
-export type Domain = { host: string; verified: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
+export type Domain = { host: string; verified: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
 
 const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 
@@ -123,83 +123,92 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
 }
 
 /**
- * The organization's own addresses: for the whole app, where its people sign
- * in and every emailed link points, and its portals' (managed on the portal).
+ * The organization's own addresses. Each serves the whole app, the default
+ * one being where links in email point, or one portal, which picks it in
+ * Portals. Each is proved by a TXT record, and by pointing at the server.
  */
 export function DomainsPanel({ domains }: { domains: Domain[] }) {
   const id = useId();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const app = domains.filter((d) => !d.portal);
-  const portals = domains.filter((d) => d.portal);
+  const act = async (method: string, path: string, body: unknown, done: string) => {
+    setBusy(true);
+    const ok = await send(method, path, body);
+    setBusy(false);
+    if (!ok) return;
+    toast.success(done);
+    router.refresh();
+  };
   return (
     <div className="space-y-6">
       <Group
-        title="The app"
-        description="An address of your own for everything: people sign in there, links in email point there, and it wears your brand. Point it at this server, add the TXT record, then check it."
+        title="Domains"
+        description="Addresses of your own. People sign in at any of them, and the default is where links in email point; a portal can take one instead, in Portals. Point each at this server, add the TXT record, then check it."
       >
-        {app.length > 0 && (
+        {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
-            {app.map((d) => (
-              <li key={d.host} className="grid gap-2 p-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate font-medium">{d.host}</span>
-                  {d.verified ? (
-                    <Badge variant="outline" className="text-emerald-600">
-                      <IconCheck /> Verified
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
+            {domains.map((d) => {
+              const at = `/api/v1/domains/${encodeURIComponent(d.host)}`;
+              return (
+                <li key={d.host} className="grid gap-2 p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
+                      {d.host}
+                    </span>
+                    {d.primary && <Badge>Default</Badge>}
+                    {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
+                    {d.verified ? (
+                      <Badge variant="outline" className="text-emerald-600">
+                        <IconCheck /> Verified
+                      </Badge>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => act("POST", `${at}/verify`, undefined, `${d.host} is verified`)}>
+                        Check now
+                      </Button>
+                    )}
+                    {d.verified && !d.primary && !d.portal && (
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => act("PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
+                        Make default
+                      </Button>
+                    )}
+                    <IconButton
+                      variant="ghost"
+                      label={`Remove ${d.host}`}
                       onClick={async () => {
-                        setBusy(true);
-                        const ok = await send("POST", `/api/v1/domains/${encodeURIComponent(d.host)}/verify`);
-                        setBusy(false);
-                        if (!ok) return;
-                        toast.success(`${d.host} is verified`);
-                        router.refresh();
+                        const then = d.portal ? `The portal goes back to /p/${d.portal}.` : `People using it will have to use another address.`;
+                        if (!confirm(`Stop answering at ${d.host}? ${then}`)) return;
+                        if (await send("DELETE", at)) router.refresh();
                       }}
                     >
-                      Check now
-                    </Button>
-                  )}
-                  <IconButton
-                    variant="ghost"
-                    label={`Remove ${d.host}`}
-                    onClick={async () => {
-                      if (!confirm(`Stop answering at ${d.host}? People using it will have to use ${new URL(window.location.href).host}.`)) return;
-                      if (await send("DELETE", `/api/v1/domains/${encodeURIComponent(d.host)}`)) router.refresh();
-                    }}
-                  >
-                    <IconTrash />
-                  </IconButton>
-                </div>
-                {!d.verified && (
-                  <div className="bg-muted/50 grid gap-1 rounded-md p-2.5 font-mono text-xs">
-                    {d.cname && (
-                      <p className="flex items-center gap-2 break-all">
-                        <span className="text-muted-foreground w-10 shrink-0 font-sans">CNAME</span>
-                        {d.cname.name} → {d.cname.value}
-                        <IconButton variant="ghost" label="Copy the target" onClick={() => copy(d.cname!.value, "the target")}>
-                          <IconCopy />
-                        </IconButton>
-                      </p>
-                    )}
-                    {[d.record.name, d.record.value].map((x, i) => (
-                      <p key={x} className="flex items-center gap-2 break-all">
-                        <span className="text-muted-foreground w-10 shrink-0 font-sans">{i ? "Value" : "TXT"}</span>
-                        {x}
-                        <IconButton variant="ghost" label={i ? "Copy the value" : "Copy the name"} onClick={() => copy(x, i ? "the value" : "the name")}>
-                          <IconCopy />
-                        </IconButton>
-                      </p>
-                    ))}
+                      <IconTrash />
+                    </IconButton>
                   </div>
-                )}
-              </li>
-            ))}
+                  {!d.verified && (
+                    <div className="bg-muted/50 grid gap-1 rounded-md p-2.5 font-mono text-xs">
+                      {d.cname && (
+                        <p className="flex items-center gap-2 break-all">
+                          <span className="text-muted-foreground w-10 shrink-0 font-sans">CNAME</span>
+                          {d.cname.name} → {d.cname.value}
+                          <IconButton variant="ghost" label="Copy the target" onClick={() => copy(d.cname!.value, "the target")}>
+                            <IconCopy />
+                          </IconButton>
+                        </p>
+                      )}
+                      {[d.record.name, d.record.value].map((x, i) => (
+                        <p key={x} className="flex items-center gap-2 break-all">
+                          <span className="text-muted-foreground w-10 shrink-0 font-sans">{i ? "Value" : "TXT"}</span>
+                          {x}
+                          <IconButton variant="ghost" label={i ? "Copy the value" : "Copy the name"} onClick={() => copy(x, i ? "the value" : "the name")}>
+                            <IconCopy />
+                          </IconButton>
+                        </p>
+                      ))}
+                      {d.cname && <p className="text-muted-foreground mt-1 font-sans">Both are checked. At a zone&apos;s apex, where a CNAME can&apos;t go, an ALIAS or flattened record to the same target works.</p>}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         <form
@@ -223,19 +232,6 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
           </Button>
         </form>
       </Group>
-      {portals.length > 0 && (
-        <Group title="Portals" description="Each is set on its portal, in Portals.">
-          <ul className="divide-y rounded-md border text-sm">
-            {portals.map((d) => (
-              <li key={d.host} className="flex items-center gap-2 p-3">
-                <span className="min-w-0 flex-1 truncate">{d.host}</span>
-                <span className="text-muted-foreground text-xs">/p/{d.portal}</span>
-                <Badge variant="outline">{d.verified ? "Verified" : "Not verified"}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Group>
-      )}
     </div>
   );
 }

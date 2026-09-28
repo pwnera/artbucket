@@ -37,6 +37,7 @@ export const ACTIONS = {
   /** Uploading into no collection: the workspace itself. */
   "workspace.upload": { scope: "propose", on: "workspace" },
   "asset.propose_tags": { scope: "propose", on: "asset" },
+  "asset.propose_fields": { scope: "propose", on: "asset" },
   /** A new version of it: approved with write on it, a proposal with propose. */
   "asset.version": { scope: "propose", on: "asset" },
   "asset.edit": { scope: "write", on: "asset" },

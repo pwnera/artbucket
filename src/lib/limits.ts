@@ -7,7 +7,7 @@ import { z } from "zod";
  * Everything is unlimited until someone says otherwise.
  *
  * lib/core/limits.ts checks them, at the moment something would go over:
- * an upload, a grant or an invitation, a new workspace, brand, key or link.
+ * an upload, a grant or an invitation, a new workspace, brand, domain, key or link.
  *
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
@@ -47,6 +47,8 @@ export const Limits = z.object({
   workspaces: count.nullable(),
   /** Brands, over all its workspaces. */
   brands: count.nullable(),
+  /** Custom domains, the app's and its portals', verified or not. */
+  domains: count.nullable(),
   /** What it may use; null is everything. */
   features: z.array(z.enum(FEATURES)).nullable(),
   /** Nothing changes: every caller is held to read. */
@@ -54,15 +56,15 @@ export const Limits = z.object({
 });
 export type Limits = z.infer<typeof Limits>;
 
-export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, features: null, readOnly: false };
+export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, domains: null, features: null, readOnly: false };
 
 type Env = Record<string, string | undefined>;
 
-/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_FEATURES=shares (or none): every organization's. */
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_FEATURES=shares (or none): every organization's. */
 export function limitsFromEnv(env: Env): Limits | null {
   const out: Record<string, unknown> = {};
   if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
-  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"]] as const) {
+  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"]] as const) {
     if (env[name]?.trim()) out[k] = Number(env[name]);
   }
   const f = env.LIMIT_FEATURES?.trim();

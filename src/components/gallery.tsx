@@ -44,6 +44,8 @@ import { SelectionBar } from "@/components/selection-bar";
 import { useCan } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AssetMenu } from "@/components/asset-menu";
+import { suggestions } from "@/components/review-actions";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import { usePref, useRemember } from "@/components/sidebar-prefs";
 import { GridSkeleton } from "@/components/skeletons";
@@ -74,6 +76,8 @@ export type Asset = {
   id: string;
   /** Its own flag: it is private too when every collection it is in is. */
   private?: boolean;
+  /** Served at /a/{id} to anyone while approved; otherwise to people with access, and signed URLs. */
+  public?: boolean;
   filename: string;
   mime: string;
   size: number;
@@ -105,6 +109,8 @@ export type Asset = {
   reviewNote: string | null;
   /** Tags an agent suggested, waiting to be accepted or dismissed. */
   proposedTags: string[];
+  /** Custom field values an agent suggested, by key, waiting for a person. */
+  proposedFields?: Record<string, unknown>;
   rights: Rights | null;
   origin: Origin | null;
   /** The asset it was made from. */
@@ -444,6 +450,7 @@ export function Gallery({
   const empty = assets.length === 0 && !filtered;
 
   const picked = assets.filter((a) => selected.has(a.id));
+  const shareAsset = (a: Asset) => setSharing({ kind: "view", asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public } });
   const selectAll = () => setSelected(new Set(assets.map((a) => a.id)));
   const clearSelection = () => setSelected(new Set());
   // Shift extends from the last one clicked, as in a file manager.
@@ -854,6 +861,7 @@ export function Gallery({
                     review={view.review}
                     onOpen={(a) => go({ asset: a.id }, true)}
                     onPick={pick}
+                    onShare={shareAsset}
                     onChanged={() => void refresh()}
                   />
                 </div>
@@ -866,16 +874,26 @@ export function Gallery({
                 )}
               >
                 {assets.map((a, i) => (
-                  <li key={a.id}>
-                    <AssetCard
-                      asset={a}
-                      onOpen={() => go({ asset: a.id }, true)}
-                      selected={selected.has(a.id)}
-                      // Once anything is selected, a click selects instead of opening.
-                      selecting={picked.length > 0}
-                      onPick={(range) => pick(i, range)}
-                    />
-                  </li>
+                  <AssetMenu
+                    key={a.id}
+                    asset={a}
+                    onOpen={() => go({ asset: a.id }, true)}
+                    onShare={() => shareAsset(a)}
+                    onPick={() => pick(i, false)}
+                    selected={selected.has(a.id)}
+                    onChanged={() => void refresh()}
+                  >
+                    <li>
+                      <AssetCard
+                        asset={a}
+                        onOpen={() => go({ asset: a.id }, true)}
+                        selected={selected.has(a.id)}
+                        // Once anything is selected, a click selects instead of opening.
+                        selecting={picked.length > 0}
+                        onPick={(range) => pick(i, range)}
+                      />
+                    </li>
+                  </AssetMenu>
                 ))}
               </ul>
               )}
@@ -945,7 +963,7 @@ export function Gallery({
       />
 
 
-      {sharing && <ShareDialog target={sharing} collections={collections} onClose={() => setSharing(null)} />}
+      {sharing && <ShareDialog target={sharing} collections={collections} onClose={() => setSharing(null)} onChanged={() => void refresh()} />}
       {editing && (
         <CollectionDialog
           collection={editing === "new" ? undefined : editing}
@@ -1024,12 +1042,10 @@ export function AssetCard({
             {fileTypeBadge(a.filename, a.mime, a.probe)}
             {a.version && <span className="text-muted-foreground">v{a.version}</span>}
           </Badge>
-          {(a.status === "proposed" || a.proposedTags.length > 0) && (
+          {(a.status === "proposed" || suggestions(a)) && (
             <Badge className="absolute bottom-2 left-2 text-[11px]">
               <IconSparkles />
-              {a.status === "proposed"
-                ? "Suggested"
-                : `${a.proposedTags.length} suggested ${a.proposedTags.length === 1 ? "tag" : "tags"}`}
+              {a.status === "proposed" ? "Suggested" : `Suggested: ${suggestions(a)}`}
             </Badge>
           )}
           {/* What /api/v1/check would refuse whatever the use: say so before anyone picks it. */}

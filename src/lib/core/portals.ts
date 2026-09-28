@@ -10,17 +10,19 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, claimable, claimHost, cnameFor, forgetHosts, proveHost, releaseHost } from "@/lib/core/domains";
+import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, downloadsFor, hostname, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
+import { challengeName, DEFAULT_PRESETS, downloadsFor, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
+import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
+import { longSig, pageSig } from "@/lib/core/signing";
 import { hashPassword, verifyPassword } from "@/lib/share";
 
 /**
@@ -173,15 +175,8 @@ async function slugFree(slug: string, except?: string) {
   if (taken && taken.id !== except) throw new AssetError("conflict", `/p/${slug} is taken: pick another address`);
 }
 
-/** Point a host name at the portal, or none. A new name needs proving again. */
-async function setDomain(caller: Caller, portalId: string, raw: string | null) {
-  const current = await domainOf(portalId);
-  if (raw !== null && current?.host === hostname(raw)) return;
-  // Checked before the old one goes, so a refused name leaves the portal where it was.
-  if (raw !== null) await claimable(raw);
-  if (current) await releaseHost(current.host);
-  if (raw !== null) await claimHost(caller.workspace.organizationId, portalId, raw);
-}
+/** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
+const setDomain = (caller: Caller, portalId: string, raw: string | null) => assignHost(caller.workspace.organizationId, portalId, raw);
 
 async function setCollections(portalId: string, ids: string[]) {
   await db.delete(portalCollections).where(eq(portalCollections.portalId, portalId));
@@ -211,6 +206,8 @@ export async function createPortal(caller: Caller, input: Input & { name: string
   const brandIds = await checkBrands(caller, input.brands ?? []);
   showsSomething(ids, brandIds);
   const theme = await checkTheme(caller, input.theme ?? {}, { logo: null, accent: null, background: null });
+  // Refused before anything is made, so a wrong domain leaves no half-made portal.
+  if (input.domain) await assignable(caller.workspace.organizationId, null, input.domain);
   const [p] = await db
     .insert(portals)
     .values({
@@ -310,17 +307,21 @@ const floods = limiter(30, 60 * 60_000);
 
 type Pass = { password?: string | null; key?: string | null; headers?: Headers };
 
-const logoUrl = async (theme: PortalTheme) => {
-  if (!theme.logo) return null;
-  const [a] = await db.select({ id: assets.id }).from(assets).where(and(eq(assets.id, theme.logo), deliverableSql));
-  return a ? `/a/${a.id}/h_128,f_webp` : null;
+/** The logo, signed as the organization's (lib/core/branding.ts): it shows at the door too, to anyone. */
+const logoUrl = async (p: Row) => {
+  if (!p.theme.logo) return null;
+  const [a] = await db
+    .select({ id: assets.id })
+    .from(assets)
+    .where(and(eq(assets.id, p.theme.logo), eq(assets.workspaceId, p.workspaceId), deliverableSql));
+  return a ? withSignature(`/a/${a.id}/h_128,f_webp`, longSig(a.id, 30)) : null;
 };
 
 /** The portal's own look over its organization's brand (lib/core/branding.ts): one source of truth, overridden here. */
 const shownTheme = async (p: Row) => {
   const brand = await brandOfWorkspace(p.workspaceId);
   return {
-    logo: (await logoUrl(p.theme)) ?? brand.logo,
+    logo: (await logoUrl(p)) ?? brand.logo,
     accent: p.theme.accent ?? brand.accent,
     background: p.theme.background,
     icon: brand.icon,
@@ -385,9 +386,11 @@ async function open(slug: string, pass: Pass) {
   );
 }
 
-const shown = (a: typeof assets.$inferSelect, presets: PortalPreset[]) => {
+/** Its URLs signed for the visitor (lib/core/signing.ts): a day at a time, never past the portal's end. */
+const shown = (a: typeof assets.$inferSelect, p: Row) => {
   const m = a.metadata ?? {};
   const still = hasPreview(a);
+  const s = pageSig(a.id, p.expiresAt);
   return {
     id: a.id,
     filename: a.filename,
@@ -400,9 +403,9 @@ const shown = (a: typeof assets.$inferSelect, presets: PortalPreset[]) => {
     width: a.width,
     height: a.height,
     // On this host, not APP_URL: a portal on its own domain loads everything from there.
-    thumbnail: still ? `/a/${a.id}/w_640,f_webp` : null,
-    preview: still ? `/a/${a.id}/w_1600,f_webp` : null,
-    downloads: downloadsFor(a, presets, ""),
+    thumbnail: still ? withSignature(`/a/${a.id}/w_640,f_webp`, s) : null,
+    preview: still ? withSignature(`/a/${a.id}/w_1600,f_webp`, s) : null,
+    downloads: downloadsFor(a, p.presets, "", s),
   };
 };
 
@@ -465,7 +468,7 @@ export async function viewPortal(
       collections: cols,
       brands: (await brandsOf(p.id)).map(({ slug, name }) => ({ slug, name })),
     },
-    data: rows.map((a) => shown(a, p.presets)),
+    data: rows.map((a) => shown(a, p)),
     total,
   };
 }
@@ -474,20 +477,30 @@ export async function viewPortal(
  * One of a portal's brands, as its guidelines page reads (lib/core/brand.ts
  * listRules), under the same door as the portal. A rule's assets show only
  * when they may be used (lib/lifecycle.ts): a draft logo stays in the library.
+ * Those, and images in its text, are signed for the visitor; `signed` holds
+ * each one's signature, for URLs the page builds itself.
  */
 export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: string, { context }: { context?: string | null } = {}) {
   const p = await open(slug, pass);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
   const [rules, contexts] = await Promise.all([listRules(p.workspaceId, { brand: brand.slug, context: context ?? undefined }), listContexts(p.workspaceId, brand.slug)]);
-  const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
+  const ids = [...new Set([...rules.flatMap((r) => r.assets.map((a) => a.id)), ...assetIdsIn(JSON.stringify(rules))])];
+  // Only this workspace's: an id pasted into a rule's text signs nothing of anyone else's.
   const usable = ids.length
-    ? new Set((await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), deliverableSql))).map((a) => a.id))
+    ? new Set(
+        (await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))).map(
+          (a) => a.id,
+        ),
+      )
     : new Set<string>();
+  const signed = Object.fromEntries([...usable].map((id) => [id, pageSig(id, p.expiresAt)]));
+  const data = rules.map((r) => ({ ...r, assets: r.assets.filter((a) => usable.has(a.id)) }));
   return {
     brand: { slug: brand.slug, name: brand.name },
-    data: rules.map((r) => ({ ...r, assets: r.assets.filter((a) => usable.has(a.id)) })),
+    data: JSON.parse(signUrlsIn(JSON.stringify(data), (id) => signed[id] ?? null)) as typeof data,
     contexts,
+    signed,
   };
 }
 

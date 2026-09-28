@@ -1,0 +1,1 @@
+ALTER TABLE "assets" ADD COLUMN "proposed_fields" jsonb DEFAULT '{}'::jsonb NOT NULL;

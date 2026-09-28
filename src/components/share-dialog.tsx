@@ -11,11 +11,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export type ShareTarget = {
   kind: "view" | "upload";
   collection?: { id: string; name: string };
-  asset?: { id: string; name: string };
+  /** `public`: served at /a/{id} to anyone already. `shareable`: approved, and the caller may share it; else only its team link. */
+  asset?: { id: string; name: string; public?: boolean; shareable?: boolean };
 };
 
 export type ShareLink = {
@@ -45,18 +48,25 @@ const WORKSPACE = "workspace";
  * asset and download it, or to send files into a collection for review. It
  * can expire, ask for a password, and go straight to people by email.
  * Without a collection or asset given, it asks which (`collections`).
+ *
+ * An asset asks one question: who can open it. People with access (its link
+ * in the library), anyone with a link (the page above), or anyone at all
+ * (public, for embedding). A file link for anyone, for a while, is in Sizes
+ * and formats. `onChanged` hears the asset back when public changes.
  */
 export function ShareDialog({
   target,
   collections = [],
   onClose,
   onMade,
+  onChanged,
 }: {
   target: ShareTarget;
   /** To pick from, when the target has none yet. */
   collections?: { id: string; name: string }[];
   onClose: () => void;
   onMade?: () => void;
+  onChanged?: (asset: { id: string; public: boolean }) => void;
 }) {
   const id = useId();
   const can = useCan();
@@ -68,8 +78,10 @@ export function ShareDialog({
   const choices = collections.filter((c) => can(upload ? "collection.collect" : "collection.share", c));
   const intoWorkspace = upload && can("share.collect_workspace");
   const [picked, setPicked] = useState(choices[0]?.id ?? (intoWorkspace ? WORKSPACE : ""));
-  const chosen = target.collection ?? choices.find((c) => c.id === picked);
+  const chosen = target.collection ?? (choosing ? choices.find((c) => c.id === picked) : undefined);
   const what = chosen?.name ?? target.asset?.name ?? "the workspace";
+  const shareable = target.asset?.shareable !== false;
+  const [mode, setMode] = useState<"team" | "link" | "public">(shareable ? "link" : "team");
 
   async function make(form: FormData) {
     const expires = String(form.get("expires") ?? "");
@@ -92,6 +104,103 @@ export function ShareDialog({
     onMade?.();
   }
 
+  const body = made ? (
+    <div className="grid gap-3">
+      <Snippet text={made.url} what="the link" />
+      <p className="text-muted-foreground text-sm">
+        {made.emailed > 0 && `Emailed to ${made.emailed} ${made.emailed === 1 ? "person" : "people"}. `}
+        {made.password && (
+          <>
+            <IconLock className="mr-1 inline size-3.5" />
+            It asks for the password: send that separately.{" "}
+          </>
+        )}
+        {made.expiresAt ? `It works until ${new Date(made.expiresAt).toLocaleDateString()}.` : "It works until you revoke it."}{" "}
+        Every link is in{" "}
+        <Link href="/team?tab=sharing" className="underline underline-offset-2">
+          Team
+        </Link>
+        .
+      </p>
+      <DialogFooter>
+        <Button onClick={onClose}>Done</Button>
+      </DialogFooter>
+    </div>
+  ) : (
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void make(new FormData(e.currentTarget));
+      }}
+    >
+      {choosing && (
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-where`}>{upload ? "Files go into" : "Collection"}</Label>
+          <Select value={picked} onValueChange={setPicked}>
+            <SelectTrigger id={`${id}-where`} className="w-full">
+              <SelectValue placeholder="Pick one" />
+            </SelectTrigger>
+            <SelectContent>
+              {choices.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+              {intoWorkspace && <SelectItem value={WORKSPACE}>The workspace, no collection</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-name`}>What they see it called</Label>
+        <Input
+          key={what}
+          id={`${id}-name`}
+          name="name"
+          maxLength={120}
+          defaultValue={upload ? `Uploads for ${what}` : what}
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-emails`}>Send it to</Label>
+        <Input id={`${id}-emails`} name="emails" placeholder="photographer@studio.com, agency@example.com" disabled={!me?.email} />
+        <p className="text-muted-foreground text-xs">
+          {me?.email ? (
+            "Optional. They get it by email; the link is also shown here."
+            ) : (
+            <>
+              Email is off: copy the link instead.{" "}
+              {can("organization.manage") && (
+                <Link href="/settings/organization/email" className="underline underline-offset-2">
+                  Turn it on
+                </Link>
+              )}
+            </>
+          )}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-expires`}>Last day</Label>
+          <Input id={`${id}-expires`} name="expires" type="date" min={new Date().toISOString().slice(0, 10)} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-password`}>Password</Label>
+          <Input id={`${id}-password`} name="password" type="password" minLength={4} autoComplete="new-password" placeholder="None" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy || (choosing && !picked && !target.asset)}>
+          Make link
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -103,104 +212,35 @@ export function ShareDialog({
           <DialogDescription>
             {upload
               ? "Anyone with the link can send files, without an account. They land in Review, not in the library, until someone approves them."
-              : "Anyone with the link can see and download its approved assets, without an account."}
+              : target.asset
+                ? "Who can open it?"
+                : "Anyone with the link can see and download its approved assets, without an account."}
           </DialogDescription>
         </DialogHeader>
-        {made ? (
-          <div className="grid gap-3">
-            <Snippet text={made.url} what="the link" />
-            <p className="text-muted-foreground text-sm">
-              {made.emailed > 0 && `Emailed to ${made.emailed} ${made.emailed === 1 ? "person" : "people"}. `}
-              {made.password && (
-                <>
-                  <IconLock className="mr-1 inline size-3.5" />
-                  It asks for the password: send that separately.{" "}
-                </>
-              )}
-              {made.expiresAt ? `It works until ${new Date(made.expiresAt).toLocaleDateString()}.` : "It works until you revoke it."}{" "}
-              Every link is in{" "}
-              <Link href="/team?tab=sharing" className="underline underline-offset-2">
-                Team
-              </Link>
-              .
-            </p>
-            <DialogFooter>
-              <Button onClick={onClose}>Done</Button>
-            </DialogFooter>
-          </div>
+        {target.asset && !upload ? (
+          <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="team">People with access</TabsTrigger>
+              <TabsTrigger value="link" disabled={!shareable}>
+                Anyone with the link
+              </TabsTrigger>
+              <TabsTrigger value="public" disabled={!shareable}>
+                Public
+              </TabsTrigger>
+            </TabsList>
+            {!shareable && <p className="text-muted-foreground text-xs">It goes outside once it is approved, by someone who may share it.</p>}
+            <TabsContent value="team">
+              <TeamLink id={target.asset.id} />
+            </TabsContent>
+            <TabsContent value="link" className="grid gap-3">
+              {body}
+            </TabsContent>
+            <TabsContent value="public">
+              <PublicToggle asset={target.asset} onChanged={onChanged} />
+            </TabsContent>
+          </Tabs>
         ) : (
-          <form
-            className="grid gap-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void make(new FormData(e.currentTarget));
-            }}
-          >
-            {choosing && (
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-where`}>{upload ? "Files go into" : "Collection"}</Label>
-                <Select value={picked} onValueChange={setPicked}>
-                  <SelectTrigger id={`${id}-where`} className="w-full">
-                    <SelectValue placeholder="Pick one" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {choices.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                    {intoWorkspace && <SelectItem value={WORKSPACE}>The workspace, no collection</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-name`}>What they see it called</Label>
-              <Input
-                key={what}
-                id={`${id}-name`}
-                name="name"
-                maxLength={120}
-                defaultValue={upload ? `Uploads for ${what}` : what}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-emails`}>Send it to</Label>
-              <Input id={`${id}-emails`} name="emails" placeholder="photographer@studio.com, agency@example.com" disabled={!me?.email} />
-              <p className="text-muted-foreground text-xs">
-                {me?.email ? (
-                  "Optional. They get it by email; the link is also shown here."
-                ) : (
-                  <>
-                    Email is off: copy the link instead.{" "}
-                    {can("organization.manage") && (
-                      <Link href="/settings/organization/email" className="underline underline-offset-2">
-                        Turn it on
-                      </Link>
-                    )}
-                  </>
-                )}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-expires`}>Last day</Label>
-                <Input id={`${id}-expires`} name="expires" type="date" min={new Date().toISOString().slice(0, 10)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-password`}>Password</Label>
-                <Input id={`${id}-password`} name="password" type="password" minLength={4} autoComplete="new-password" placeholder="None" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={busy || (choosing && !picked && !target.asset)}>
-                Make link
-              </Button>
-            </DialogFooter>
-          </form>
+          body
         )}
       </DialogContent>
     </Dialog>
@@ -260,5 +300,48 @@ export function SendLinkDialog({ link, onClose }: { link: ShareLink; onClose: ()
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The asset in the library: it opens for people with access to it, and nobody else. */
+function TeamLink({ id }: { id: string }) {
+  const href = typeof window === "undefined" ? "" : new URL(`/?asset=${id}`, window.location.origin).href;
+  return (
+    <div className="grid gap-3 pt-2">
+      <Snippet text={href} what="the link" />
+      <p className="text-muted-foreground text-sm">Only people who can already see it in the library can open this. Anyone else is asked to sign in.</p>
+    </div>
+  );
+}
+
+/** Served at /a/{id} to anyone while it stays approved: for embedding on a site. */
+function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: boolean }; onChanged?: (a: { id: string; public: boolean }) => void }) {
+  const fieldId = useId();
+  const [on, setOn] = useState(!!asset.public);
+  const [busy, setBusy] = useState(false);
+  const url = typeof window === "undefined" ? "" : new URL(`/a/${asset.id}`, window.location.origin).href;
+  return (
+    <div className="grid gap-3 pt-2">
+      <div className="flex items-center gap-3">
+        <Switch
+          id={fieldId}
+          checked={on}
+          disabled={busy}
+          onCheckedChange={async (next) => {
+            setBusy(true);
+            const a = await send("PATCH", `/api/v1/assets/${asset.id}`, { public: next });
+            setBusy(false);
+            if (!a) return;
+            setOn(a.public);
+            onChanged?.(a);
+          }}
+        />
+        <Label htmlFor={fieldId}>{on ? "Anyone with the URL gets the file" : "Off: only people with access"}</Label>
+      </div>
+      {on && <Snippet text={url} what="the URL" />}
+      <p className="text-muted-foreground text-sm">
+        For embedding on a site or in an email: the URL never changes, and works while the asset stays approved and unexpired. Archive it, or turn this off, and it stops.
+      </p>
+    </div>
   );
 }

@@ -25,8 +25,8 @@ test("nothing is limited until the operator says so, and a limit is only passed 
 });
 
 test("the environment sets every organization's; one organization's row overrides it property by property", () => {
-  const env = { LIMIT_STORAGE: "10GB", LIMIT_EDITORS: "5", LIMIT_FEATURES: "shares" };
-  assert.deepEqual(limitsFromEnv(env), { ...UNLIMITED, storage: 10e9, editors: 5, features: ["shares"] });
+  const env = { LIMIT_STORAGE: "10GB", LIMIT_EDITORS: "5", LIMIT_DOMAINS: "2", LIMIT_FEATURES: "shares" };
+  assert.deepEqual(limitsFromEnv(env), { ...UNLIMITED, storage: 10e9, editors: 5, domains: 2, features: ["shares"] });
   assert.equal(limitsFromEnv({}), null);
   assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "none" })?.features, []);
   const org = resolve("limits", { organization: { storage: "1TB", readOnly: true } }, env).value;

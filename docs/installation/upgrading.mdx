@@ -39,6 +39,16 @@ notes said how. From 0.9, upgrading to 1.0 changes nothing you call.
 
 ## Notes by version
 
+**1.4.** Asset files are private. `/a/{id}` now serves people who can see
+the asset, and anyone with a signed URL; to keep an embed made before 1.4
+working, make its asset public (Share, Public, or `PATCH /api/v1/assets/{id}`
+with `public: true`). Share links and portals keep working: they sign what they
+show. A domain is verified by its TXT record and, with `DOMAIN_TARGET` set, its
+CNAME; an organization can have several, one the default, and a portal picks
+one of them instead of claiming its own. Agents can suggest custom field
+values (`propose_fields`), as they suggest tags. `/api/v1` and the MCP tools
+only gained things. Why: [0012](/decisions/0012-private-delivery).
+
 **1.3.** Nothing to do. With `EMAIL_*` set, organizations' own email settings
 are no longer used or offered, and accounts that never confirmed their address
 get a code at their next sign-in. Portals can publish brands.

@@ -14,6 +14,7 @@ next to what they use.
 | `editors` | People with write or admin anywhere in it, and invitations that would make more | Access is given, or an invitation made |
 | `workspaces` | Workspaces | One is made |
 | `brands` | Brands, across its workspaces | One is made |
+| `domains` | Custom domains, the app's and its portals', verified or not | One is added |
 | `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links). Unset: everything | A key, an agent connection or a link is made |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 
@@ -28,6 +29,7 @@ LIMIT_STORAGE=10GB        # or 500MB, 1.5TB, or a number of bytes
 LIMIT_EDITORS=5
 LIMIT_WORKSPACES=3
 LIMIT_BRANDS=5
+LIMIT_DOMAINS=2
 LIMIT_FEATURES=agents     # comma-separated, or none
 ```
 

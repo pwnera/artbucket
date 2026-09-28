@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { addSignatures } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";
 import { formatBytes } from "@/lib/filename";
 import type { Rule } from "@/lib/rules";
@@ -252,6 +253,8 @@ function BrandTab({ slug, brand, headers }: { slug: string; brand: string; heade
     fetch(`/api/v1/portal/${slug}/brands/${encodeURIComponent(brand)}`, { headers: headers(), cache: "no-store" })
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
+        // Before they render: the guidelines build their asset URLs from these.
+        if (res.ok) addSignatures(body.signed);
         if (live) setGot(res.ok ? body : { error: body.error?.message ?? "These guidelines didn't load. Try again in a moment." });
       })
       .catch(() => live && setGot({ error: "These guidelines didn't load. Try again in a moment." }));

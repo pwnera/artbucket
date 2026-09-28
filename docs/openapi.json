@@ -500,6 +500,20 @@
                               "type": "string"
                             }
                           },
+                          "proposedFields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                          },
                           "rights": {
                             "anyOf": [
                               {
@@ -712,6 +726,10 @@
                             "type": "boolean",
                             "description": "Its own flag; it is private too when every collection it is in is"
                           },
+                          "public": {
+                            "type": "boolean",
+                            "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                          },
                           "collections": {
                             "type": "array",
                             "items": {
@@ -754,6 +772,7 @@
                           "proposedBy",
                           "reviewNote",
                           "proposedTags",
+                          "proposedFields",
                           "rights",
                           "origin",
                           "parentAssetId",
@@ -762,6 +781,7 @@
                           "c2pa",
                           "supersededBy",
                           "private",
+                          "public",
                           "collections",
                           "createdAt",
                           "updatedAt"
@@ -1591,6 +1611,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -1803,6 +1837,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -1845,6 +1883,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -1853,6 +1892,7 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -2121,6 +2161,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -2333,6 +2387,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -2375,6 +2433,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -2383,6 +2442,7 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -3180,6 +3240,20 @@
                               "type": "string"
                             }
                           },
+                          "proposedFields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                          },
                           "rights": {
                             "anyOf": [
                               {
@@ -3392,6 +3466,10 @@
                             "type": "boolean",
                             "description": "Its own flag; it is private too when every collection it is in is"
                           },
+                          "public": {
+                            "type": "boolean",
+                            "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                          },
                           "collections": {
                             "type": "array",
                             "items": {
@@ -3434,6 +3512,7 @@
                           "proposedBy",
                           "reviewNote",
                           "proposedTags",
+                          "proposedFields",
                           "rights",
                           "origin",
                           "parentAssetId",
@@ -3442,6 +3521,7 @@
                           "c2pa",
                           "supersededBy",
                           "private",
+                          "public",
                           "collections",
                           "createdAt",
                           "updatedAt"
@@ -3761,6 +3841,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -3973,6 +4067,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -4015,6 +4113,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -4023,6 +4122,7 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -4177,6 +4277,14 @@
                       "maxLength": 64
                     }
                   },
+                  "proposedFields": {
+                    "description": "The suggested values to keep waiting, by key; the rest are dismissed. {} dismisses them all. Accept one by setting it in `fields`",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
                   "rights": {
                     "description": "Replaces them whole; null clears",
                     "anyOf": [
@@ -4330,6 +4438,10 @@
                   },
                   "private": {
                     "description": "Only people with a grant on it, or on a collection it is in, and admins see it",
+                    "type": "boolean"
+                  },
+                  "public": {
+                    "description": "Serve it at /a/{id} to anyone, for embedding, while it may be used. Takes share on it",
                     "type": "boolean"
                   }
                 },
@@ -4588,6 +4700,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -4800,6 +4926,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -4842,6 +4972,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -4850,6 +4981,7 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -5236,6 +5368,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -5448,6 +5594,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -5490,6 +5640,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -5498,6 +5649,7 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -5817,6 +5969,20 @@
                               "type": "string"
                             }
                           },
+                          "proposedFields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                          },
                           "rights": {
                             "anyOf": [
                               {
@@ -6029,6 +6195,10 @@
                             "type": "boolean",
                             "description": "Its own flag; it is private too when every collection it is in is"
                           },
+                          "public": {
+                            "type": "boolean",
+                            "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                          },
                           "collections": {
                             "type": "array",
                             "items": {
@@ -6071,6 +6241,7 @@
                           "proposedBy",
                           "reviewNote",
                           "proposedTags",
+                          "proposedFields",
                           "rights",
                           "origin",
                           "parentAssetId",
@@ -6079,6 +6250,7 @@
                           "c2pa",
                           "supersededBy",
                           "private",
+                          "public",
                           "collections",
                           "createdAt",
                           "updatedAt"
@@ -6408,6 +6580,20 @@
                               "type": "string"
                             }
                           },
+                          "proposedFields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                          },
                           "rights": {
                             "anyOf": [
                               {
@@ -6620,6 +6806,10 @@
                             "type": "boolean",
                             "description": "Its own flag; it is private too when every collection it is in is"
                           },
+                          "public": {
+                            "type": "boolean",
+                            "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                          },
                           "collections": {
                             "type": "array",
                             "items": {
@@ -6662,6 +6852,7 @@
                           "proposedBy",
                           "reviewNote",
                           "proposedTags",
+                          "proposedFields",
                           "rights",
                           "origin",
                           "parentAssetId",
@@ -6670,6 +6861,7 @@
                           "c2pa",
                           "supersededBy",
                           "private",
+                          "public",
                           "collections",
                           "createdAt",
                           "updatedAt"
@@ -7014,6 +7206,20 @@
                             "type": "string"
                           }
                         },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -7226,6 +7432,10 @@
                           "type": "boolean",
                           "description": "Its own flag; it is private too when every collection it is in is"
                         },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
                         "collections": {
                           "type": "array",
                           "items": {
@@ -7268,6 +7478,7 @@
                         "proposedBy",
                         "reviewNote",
                         "proposedTags",
+                        "proposedFields",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -7276,6 +7487,630 @@
                         "c2pa",
                         "supersededBy",
                         "private",
+                        "public",
+                        "collections",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{id}/proposed-fields": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Asset id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Suggest custom field values",
+        "description": "They wait in `proposedFields` for someone with the write scope, who accepts one by setting it in `fields`, or dismisses it through `proposedFields`. Each is checked against its field; one the asset already has is dropped.\n\nScope: `propose`.",
+        "x-scope": "propose",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {},
+                    "description": "Custom field values by key (GET /api/v1/fields), each checked against its field"
+                  }
+                },
+                "required": [
+                  "fields"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The asset, with its suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "workspaceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sha256": {
+                          "type": "string"
+                        },
+                        "filename": {
+                          "type": "string"
+                        },
+                        "mime": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "width": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "height": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "probe": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "metadata": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "keywords": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "creator": {
+                                  "type": "string"
+                                },
+                                "copyright": {
+                                  "type": "string"
+                                },
+                                "capturedAt": {
+                                  "type": "string"
+                                },
+                                "camera": {
+                                  "type": "string"
+                                },
+                                "lens": {
+                                  "type": "string"
+                                },
+                                "gps": {
+                                  "type": "object",
+                                  "properties": {
+                                    "lat": {
+                                      "type": "number"
+                                    },
+                                    "lon": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "lat",
+                                    "lon"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "fields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "The asset's own values"
+                        },
+                        "inherited": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Values inherited from its collections; own values win"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "proposed",
+                            "active",
+                            "archived",
+                            "rejected"
+                          ],
+                          "description": "draft, proposed (in review), active (approved), archived or rejected"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "proposed",
+                            "active",
+                            "expired",
+                            "archived",
+                            "rejected",
+                            "deleted"
+                          ],
+                          "description": "The status; expired for an approved asset past its last day of use; deleted, until restored or purged"
+                        },
+                        "deletedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When it was deleted: restorable for 30 days, then purged"
+                        },
+                        "stackId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Versions of one thing share a stack; null when it has one version"
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Its number in the stack"
+                        },
+                        "current": {
+                          "type": "boolean",
+                          "description": "Its stack's current approved version: the others are superseded by it"
+                        },
+                        "proposedBy": {
+                          "description": "For a proposal: who made it, a person's or an API key's name",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reviewNote": {
+                          "description": "Why a person rejected it",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "proposedTags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
+                        "rights": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "license": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "territories": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "ISO 3166-1 alpha-2; empty: anywhere"
+                                },
+                                "channels": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "empty: any use"
+                                },
+                                "embargo": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Not before this day"
+                                },
+                                "expires": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The last day it may be used"
+                                },
+                                "modelRelease": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "released",
+                                        "missing",
+                                        "not-needed"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "license",
+                                "territories",
+                                "channels",
+                                "embargo",
+                                "expires",
+                                "modelRelease"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "origin": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "shot",
+                                "licensed",
+                                "generated"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parentAssetId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "generator": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "prompt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "c2pa": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "manifests": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "generator": {
+                                  "description": "The app that signed it",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "title": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "signedBy": {
+                                  "description": "The signing certificate's organization, as the file claims it; not verified",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "digitalSourceType": {
+                                  "description": "IPTC: digitalCapture, trainedAlgorithmicMedia...",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "softwareAgent": {
+                                  "description": "The tool the actions name, often the model",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "ingredients": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "manifests",
+                                "generator",
+                                "title",
+                                "signedBy",
+                                "actions",
+                                "digitalSourceType",
+                                "softwareAgent",
+                                "ingredients"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                        },
+                        "supersededBy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The asset that replaces this one"
+                        },
+                        "private": {
+                          "type": "boolean",
+                          "description": "Its own flag; it is private too when every collection it is in is"
+                        },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
+                        "collections": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "workspaceId",
+                        "sha256",
+                        "filename",
+                        "mime",
+                        "size",
+                        "width",
+                        "height",
+                        "probe",
+                        "metadata",
+                        "tags",
+                        "fields",
+                        "inherited",
+                        "status",
+                        "state",
+                        "deletedAt",
+                        "stackId",
+                        "version",
+                        "current",
+                        "proposedBy",
+                        "reviewNote",
+                        "proposedTags",
+                        "proposedFields",
+                        "rights",
+                        "origin",
+                        "parentAssetId",
+                        "generator",
+                        "prompt",
+                        "c2pa",
+                        "supersededBy",
+                        "private",
+                        "public",
                         "collections",
                         "createdAt",
                         "updatedAt"
@@ -7719,6 +8554,10 @@
                       ],
                       "description": "Replaced: use this one instead"
                     },
+                    "public": {
+                      "type": "boolean",
+                      "description": "Its URLs work for anyone while it may be used; otherwise with a key or session, or signed (POST /api/v1/assets/{id}/signed-url)"
+                    },
                     "urls": {
                       "type": "object",
                       "properties": {
@@ -7885,9 +8724,119 @@
                     "rights",
                     "provenance",
                     "supersededBy",
+                    "public",
                     "urls",
                     "constraints",
                     "alternatives"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{id}/signed-url": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Asset id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "A signed URL to an asset",
+        "description": "Asset bytes are private: /a/{id} serves people who can see the asset. A signed URL lets anyone who holds it in until it expires, originals, renditions and downloads alike, while the asset may be used. Takes share on it; only an approved, unexpired asset out of embargo. To serve it to anyone for good, PATCH it `public: true` instead.\n\nScope: `write`.",
+        "x-scope": "write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expiresIn": {
+                    "default": 604800,
+                    "description": "Seconds it works for: a minute to a year, a week when left out",
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 31536000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "expiresAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
                   ],
                   "additionalProperties": false
                 }
@@ -9230,6 +10179,7 @@
                               "rejected",
                               "deleted",
                               "suggested_tags",
+                              "suggested_fields",
                               "archived",
                               "unarchived",
                               "made_current",
@@ -9288,6 +10238,12 @@
                                 "type": "object",
                                 "properties": {
                                   "tags": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "fields": {
                                     "type": "array",
                                     "items": {
                                       "type": "string"
@@ -13226,6 +14182,13 @@
                                 "null"
                               ]
                             },
+                            "domains": {
+                              "description": "Custom domains, the app's and its portals'; null: no limit",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
                             "features": {
                               "anyOf": [
                                 {
@@ -13253,6 +14216,7 @@
                             "editors",
                             "workspaces",
                             "brands",
+                            "domains",
                             "features",
                             "readOnly"
                           ],
@@ -13279,13 +14243,19 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "domains": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             }
                           },
                           "required": [
                             "storage",
                             "editors",
                             "workspaces",
-                            "brands"
+                            "brands",
+                            "domains"
                           ],
                           "additionalProperties": false
                         },
@@ -16455,7 +17425,7 @@
                                         "type": "null"
                                       }
                                     ],
-                                    "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                                    "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                                   }
                                 },
                                 "required": [
@@ -16565,7 +17535,7 @@
       },
       "post": {
         "summary": "Make a brand portal",
-        "description": "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` (people with access to the workspace); the last two take access requests. Needs sharing rights on each collection. A `domain` is served once its TXT record is in place: POST /api/v1/portals/{id}/domain.\n\nScope: `write`.",
+        "description": "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` (people with access to the workspace); the last two take access requests. Needs sharing rights on each collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -16708,7 +17678,7 @@
                     }
                   },
                   "domain": {
-                    "description": "A host name of its own, e.g. press.example.com; served there once its TXT record is in place",
+                    "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
                     "anyOf": [
                       {
                         "type": "string",
@@ -16949,7 +17919,7 @@
                                       "type": "null"
                                     }
                                   ],
-                                  "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                                  "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                                 }
                               },
                               "required": [
@@ -17293,7 +18263,7 @@
                                       "type": "null"
                                     }
                                   ],
-                                  "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                                  "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                                 }
                               },
                               "required": [
@@ -17402,7 +18372,7 @@
       },
       "patch": {
         "summary": "Change a brand portal",
-        "description": "Only what is given changes. A new `domain` needs proving again; null removes it. A left-out `password` stays.\n\nScope: `write`.",
+        "description": "Only what is given changes. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -17544,7 +18514,7 @@
                     }
                   },
                   "domain": {
-                    "description": "A host name of its own, e.g. press.example.com; served there once its TXT record is in place",
+                    "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
                     "anyOf": [
                       {
                         "type": "string",
@@ -17781,7 +18751,7 @@
                                       "type": "null"
                                     }
                                   ],
-                                  "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                                  "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                                 }
                               },
                               "required": [
@@ -17958,6 +18928,87 @@
         }
       }
     },
+    "/api/v1/portals/domains": {
+      "get": {
+        "summary": "Domains a portal can be served at",
+        "description": "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Domains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "host": {
+                            "type": "string"
+                          },
+                          "portal": {
+                            "description": "The portal it serves, by slug; null: free to pick",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "host",
+                          "portal"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portals/{id}/domain": {
       "parameters": [
         {
@@ -17972,7 +19023,7 @@
       ],
       "post": {
         "summary": "Verify a portal's domain",
-        "description": "Looks up the TXT record named in `domain.record` now. Found, the portal is served at its domain; a 422 says what was found instead.\n\nScope: `write`.",
+        "description": "Looks up the TXT record named in `domain.record`, and the CNAME in `domain.cname`, now. Found, the portal is served at its domain; a 422 says what was missing.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -18194,7 +19245,7 @@
                                       "type": "null"
                                     }
                                   ],
-                                  "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                                  "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                                 }
                               },
                               "required": [
@@ -19245,7 +20296,7 @@
       ],
       "get": {
         "summary": "A brand's guidelines, in a portal",
-        "description": "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET /api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id}.\n\nNo key needed.",
+        "description": "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET /api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id} with the signature in `signed`; images in a rule's text come signed.\n\nNo key needed.",
         "security": [],
         "parameters": [
           {
@@ -19460,12 +20511,25 @@
                         "type": "string"
                       },
                       "description": "Contexts some rule is scoped to, for ?context="
+                    },
+                    "signed": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "Each listed asset's signature: /a/{id}/{rendition}?s={it} loads it for the visitor"
                     }
                   },
                   "required": [
                     "brand",
                     "data",
-                    "contexts"
+                    "contexts",
+                    "signed"
                   ],
                   "additionalProperties": false
                 }
@@ -19906,7 +20970,11 @@
                                 "type": "null"
                               }
                             ],
-                            "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                            "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                          },
+                          "primary": {
+                            "type": "boolean",
+                            "description": "The app's default address: links in email point here"
                           },
                           "portal": {
                             "description": "The portal it serves, by slug; null for the whole app",
@@ -19925,6 +20993,7 @@
                           "verified",
                           "record",
                           "cname",
+                          "primary",
                           "portal",
                           "url"
                         ],
@@ -19976,8 +21045,8 @@
         }
       },
       "post": {
-        "summary": "Add an app domain",
-        "description": "An address of the organization's own for the whole app. Add the TXT record in `record`, point the domain at this server, then POST /api/v1/domains/{host}/verify. Its people sign in there; links in email point there.\n\nScope: `admin`.",
+        "summary": "Add a domain",
+        "description": "An address of the organization's own: the app's, or a portal's once the portal picks it. Add the TXT record in `record`, point it at the server (`cname`), then POST /api/v1/domains/{host}/verify. The first verified one becomes the default, where links in email point. Counts against the `domains` limit.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -20067,7 +21136,11 @@
                               "type": "null"
                             }
                           ],
-                          "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                          "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                        },
+                        "primary": {
+                          "type": "boolean",
+                          "description": "The app's default address: links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -20086,6 +21159,7 @@
                         "verified",
                         "record",
                         "cname",
+                        "primary",
                         "portal",
                         "url"
                       ],
@@ -20148,9 +21222,173 @@
           }
         }
       ],
+      "patch": {
+        "summary": "Make a domain the default",
+        "description": "The app's default address: links in email point there. It must be verified, and not serve a portal.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "primary": {
+                    "type": "boolean",
+                    "const": true,
+                    "description": "Make it the default: where links in email point"
+                  }
+                },
+                "required": [
+                  "primary"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: add this record at your DNS host"
+                        },
+                        "cname": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "const": "CNAME"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "type",
+                                "name",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                        },
+                        "primary": {
+                          "type": "boolean",
+                          "description": "The app's default address: links in email point here"
+                        },
+                        "portal": {
+                          "description": "The portal it serves, by slug; null for the whole app",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "host",
+                        "verified",
+                        "record",
+                        "cname",
+                        "primary",
+                        "portal",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
-        "summary": "Remove an app domain",
-        "description": "It stops answering at once. A portal's domain is changed on the portal.\n\nScope: `admin`.",
+        "summary": "Remove a domain",
+        "description": "It stops answering at once; a portal served there goes back to /p/{slug}.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "200": {
@@ -20231,8 +21469,8 @@
         }
       ],
       "post": {
-        "summary": "Verify an app domain",
-        "description": "Looks up its TXT record now; a 422 names what was found instead.\n\nScope: `admin`.",
+        "summary": "Verify a domain",
+        "description": "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "200": {
@@ -20300,7 +21538,11 @@
                               "type": "null"
                             }
                           ],
-                          "description": "Where to point it, when the server says (DOMAIN_TARGET); null: at this server"
+                          "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                        },
+                        "primary": {
+                          "type": "boolean",
+                          "description": "The app's default address: links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -20319,6 +21561,7 @@
                         "verified",
                         "record",
                         "cname",
+                        "primary",
                         "portal",
                         "url"
                       ],
@@ -22448,7 +23691,7 @@
       ],
       "get": {
         "summary": "The original",
-        "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Public while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not approved yet: 404, except to someone who can see it in the library.\n\nNo key needed.",
+        "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not there for this caller: 404.\n\nNo key needed.",
         "security": [],
         "parameters": [
           {
@@ -22458,6 +23701,14 @@
               "type": "string"
             },
             "description": "Present: attach, with metadata embedded"
+          },
+          {
+            "name": "s",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A signature: lets whoever holds the URL in until it expires. Renditions take it too"
           }
         ],
         "responses": {

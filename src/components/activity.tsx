@@ -45,6 +45,7 @@ type Item = {
     | "rejected"
     | "deleted"
     | "suggested_tags"
+    | "suggested_fields"
     | "archived"
     | "unarchived"
     | "made_current"
@@ -53,7 +54,7 @@ type Item = {
   label: string;
   assetId: string | null;
   brand: { slug: string; name: string; version: number } | null;
-  detail: { tags?: string[]; note?: string; version?: number; rules?: string[]; summary?: string } | null;
+  detail: { tags?: string[]; fields?: string[]; note?: string; version?: number; rules?: string[]; summary?: string } | null;
 };
 export type Page = { data: Item[]; next: string | null };
 
@@ -64,6 +65,7 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   rejected: { icon: IconX, says: "rejected" },
   deleted: { icon: IconTrash, says: "deleted" },
   suggested_tags: { icon: IconTag, says: "suggested tags for" },
+  suggested_fields: { icon: IconTag, says: "suggested values for" },
   archived: { icon: IconArchive, says: "archived" },
   unarchived: { icon: IconArrowBackUp, says: "unarchived" },
   made_current: { icon: IconStack2, says: "made current" },

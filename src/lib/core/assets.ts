@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { record } from "@/lib/core/activity";
+import { recordAudit } from "@/lib/core/audit";
 import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
@@ -502,7 +503,7 @@ export async function searchAssets(
       proposedBy !== undefined
         ? eq(assets.proposedBy, proposedBy)
         : review
-          ? sql`(${assets.deletedAt} is null and (${assets.status} = 'proposed' or (${assets.status} = 'active' and ${assets.proposedTags} <> '[]'::jsonb)))`
+          ? sql`(${assets.deletedAt} is null and (${assets.status} = 'proposed' or (${assets.status} = 'active' and (${assets.proposedTags} <> '[]'::jsonb or ${assets.proposedFields} <> '{}'::jsonb))))`
           : anyState
             ? undefined
             : inArray(stateSql, status.length ? status : ["active"]),
@@ -606,10 +607,7 @@ export async function getAsset(caller: Caller, id: string): Promise<Asset | null
   return asset ?? null;
 }
 
-/**
- * Any asset, by id, whoever asks: for serving bytes at /a/{id}, which are
- * public to whoever holds the URL, and for code that already checked.
- */
+/** Any asset, by id, whoever asks: for code that checks access itself, as /a/{id} does. */
 export async function findAsset(id: string): Promise<Asset | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const [asset] = await db.select(columns).from(assets).where(eq(assets.id, id)).limit(1);
@@ -672,12 +670,16 @@ export type AssetPatch = {
   reviewNote?: string | null;
   /** Replaces the pending suggestions. */
   proposedTags?: string[];
+  /** Replaces the pending field values; {} dismisses them all. */
+  proposedFields?: Record<string, unknown>;
   /** Custom field values to merge; null clears one. */
   fields?: Record<string, unknown>;
   /** The asset that replaces this one; null un-replaces it. */
   supersededBy?: string | null;
   /** Only grants on it (or a collection it is in) and admins reach it. */
   private?: boolean;
+  /** Served at /a/{id} to anyone while it may be used. Takes share on it. */
+  public?: boolean;
 } & Provenance & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
@@ -692,6 +694,7 @@ export async function updateAsset(
     status,
     reviewNote,
     proposedTags,
+    proposedFields,
     fields: custom,
     rights,
     origin,
@@ -700,6 +703,7 @@ export async function updateAsset(
     prompt,
     supersededBy,
     private: hidden,
+    public: open,
     ...fields
   }: AssetPatch,
 ): Promise<Asset | null> {
@@ -708,9 +712,13 @@ export async function updateAsset(
   if (current.deletedAt) throw new AssetError("invalid", "Deleted: restore it first");
   // Deciding what the library holds is reviewing; reworking a draft, and anything else, is editing.
   const moves = status !== undefined && status !== current.status;
-  const reviewing = (moves && isReview(current.status, status)) || reviewNote !== undefined || proposedTags !== undefined;
+  const reviewing = (moves && isReview(current.status, status)) || reviewNote !== undefined || proposedTags !== undefined || proposedFields !== undefined;
   const action = reviewing ? "asset.review" : "asset.edit";
-  if (!can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
+  const publishing = open !== undefined && open !== current.public;
+  // Making it public is sharing it; on its own, that is all it takes.
+  const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, ...fields });
+  if (others.some(([, v]) => v !== undefined) && !can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
+  if (publishing && !can(caller, "asset.share", current)) throw new AssetError("forbidden", `Making it public takes ${needs("asset.share")}`);
   const ws = caller.workspace.id;
   const set: PgUpdateSetSource<typeof assets> = {};
   if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
@@ -733,10 +741,13 @@ export async function updateAsset(
   }
   if (supersededBy !== undefined) set.supersededBy = supersededBy;
   if (hidden !== undefined) set.private = hidden;
+  if (publishing) set.public = open;
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
   if (proposedTags) set.proposedTags = normalizeTags(proposedTags);
+  // Only ever fewer: what is left of the suggestions after some were accepted or dismissed.
+  if (proposedFields) set.proposedFields = Object.fromEntries(Object.entries(current.proposedFields).filter(([k]) => k in proposedFields));
   if (custom && Object.keys(custom).length) {
     const values = await validFields(ws, custom, "patch", current.inherited);
     set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
@@ -765,6 +776,7 @@ export async function updateAsset(
     .returning(columns);
   if (!asset) return null;
   if (hidden) await keepReach(caller, "asset", id);
+  if (publishing) await recordAudit(caller, open ? "asset.published" : "asset.unpublished", asset.filename);
   if (moves) {
     // Approving a newer version makes it current; archiving the current one hands over to the newest
     // approved. Unarchiving brings one back without taking over: make it current for that.
@@ -819,6 +831,35 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
 }
 
 /**
+ * Suggest custom field values without applying them: they wait in
+ * `proposedFields` for a human to accept (into `fields`) or dismiss. Each is
+ * checked against its field now, so what waits can be accepted as it is; a
+ * value the asset already has is dropped.
+ */
+export async function proposeFields(caller: Caller, id: string, suggested: Record<string, unknown>): Promise<Asset | null> {
+  const before = await allowed(caller, id, "asset.propose_fields");
+  if (!before) return null;
+  const values = await validFields(before.workspaceId, suggested, "patch", before.inherited);
+  const own = { ...before.inherited, ...before.fields };
+  const fresh = Object.fromEntries(
+    Object.entries(values).filter(([k, v]) => v !== null && v !== undefined && JSON.stringify(own[k]) !== JSON.stringify(v)),
+  );
+  if (!Object.keys(fresh).length) return before;
+  const [asset] = await db
+    .update(assets)
+    .set({
+      proposedFields: sql`${assets.proposedFields} || ${JSON.stringify(fresh)}::jsonb`,
+      proposedBy: sql`coalesce(${assets.proposedBy}, ${caller.actor})`,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(assets.id, id))
+    .returning(columns);
+  const added = Object.keys(fresh).filter((k) => JSON.stringify(before.proposedFields[k]) !== JSON.stringify(fresh[k]));
+  if (asset && added.length) await record(caller, "suggested_fields", asset, { fields: added });
+  return asset ?? null;
+}
+
+/**
  * What an asset is, for a machine deciding whether and how to use it:
  * `GET /api/v1/assets/{id}/description`, and MCP's describe tool.
  * Whether a particular use is allowed is /api/v1/check's question (lib/core/check.ts).
@@ -859,6 +900,8 @@ export function describeAsset(asset: Asset) {
       c2pa: asset.c2pa,
     },
     supersededBy: asset.supersededBy,
+    /** Its URLs work for anyone while it may be used; otherwise for people who can see it, and signed. */
+    public: asset.public,
     urls: {
       original: base,
       download: `${base}?download`,

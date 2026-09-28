@@ -134,7 +134,8 @@ Then build any rendition URL you like, no API call needed:
 
 Transforms: `w` `h` (1-8000), `fit` (cover, contain, inside, outside, fill),
 `q` (1-100), `f` (jpeg, png, webp, avif). Renditions are generated once and
-cached; the URL is immutable, so a CDN in front serves them from there.
+cached. The bytes are private: the URLs work with your key or session, and for
+anyone else once signed (`POST /api/v1/assets/{id}/signed-url`) or made public.
 
 ### 3. Connect your agents
 
@@ -152,11 +153,13 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 | `search_assets` | read | Full text, tags, collections, custom fields, status |
 | `describe_asset` | read | Everything needed to decide whether and how to use an asset |
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
-| `rendition_url` | read | A URL for a size, fit, format and quality |
+| `rendition_url` | read | A URL for a size, fit, format and quality, signed for outsiders on request |
 | `brand_rules` | read | A brand's rules for a context, with the assets they point at |
 | `ingest_asset` | propose | Fetch a public URL into the library, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
 | `propose_tags` | propose | Suggest tags for a person to accept |
+| `list_fields` | read | The library's custom fields: keys, types, options |
+| `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed and what became of it |
 
 The Claude Code plugin brings the MCP server and a skill that teaches the
