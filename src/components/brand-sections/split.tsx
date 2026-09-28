@@ -13,7 +13,17 @@ import { cn } from "@/lib/utils";
  * props.image, else the first picture of those rules, on the other. A rule's
  * picture shown here leaves its block, so it shows once. `flip` puts the
  * picture on the start side; in a narrow container the words come first.
+ * `ratio`, `align` and `fit` are the builder's say over the layout.
  */
+
+/** Which side is wider, on a wide screen. */
+const COLUMNS = {
+  even: "@3xl:grid-cols-2",
+  words: "@3xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]",
+  picture: "@3xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
+} as const;
+/** The same, with the picture on the start side. */
+const FLIPPED = { ...COLUMNS, words: COLUMNS.picture, picture: COLUMNS.words };
 export function SplitSection({ section: s, rules }: SectionProps) {
   const { url } = useSite();
   const image = typeof s.props.image === "string" ? s.props.image : undefined;
@@ -39,15 +49,19 @@ export function SplitSection({ section: s, rules }: SectionProps) {
     </div>
   );
   if (!pic) return words;
+  const flip = s.props.flip === true;
+  const ratio = (s.props.ratio as keyof typeof COLUMNS | undefined) ?? "even";
+  // A picture fills its frame; a rule's (a logo, say) is a specimen, whole, with room around it.
+  const fill = s.props.fit === "fill" || (s.props.fit !== "whole" && !!image);
   return (
-    <div className="grid items-center gap-8 @3xl:grid-cols-2 @3xl:gap-12">
+    <div className={cn("grid gap-8 @3xl:gap-12", s.props.align === "center" ? "items-center" : "items-start", (flip ? FLIPPED : COLUMNS)[ratio])}>
       {words}
       <div
-        className={cn("bg-muted relative max-h-[36rem] overflow-hidden rounded-xl", s.props.flip === true && "@3xl:order-first")}
+        className={cn("bg-muted relative max-h-[36rem] overflow-hidden rounded-xl", flip && "@3xl:order-first")}
         // Between portrait and wide, so neither a tall nor a thin picture takes over the section.
         style={{ aspectRatio: Math.min(Math.max(pic.ratio, 3 / 4), 16 / 9) }}
       >
-        <Thumb src={url(pic.id, "/w_960,f_webp")} alt={pic.alt} className={image ? "p-0" : "p-8"} />
+        <Thumb src={url(pic.id, "/w_960,f_webp")} alt={pic.alt} className={fill ? "object-cover p-0" : "p-8"} />
       </div>
     </div>
   );

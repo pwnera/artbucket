@@ -15568,6 +15568,14 @@
                                   "description": "Every page opens on a band of the brand color",
                                   "type": "boolean"
                                 },
+                                "separation": {
+                                  "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                  "type": "string",
+                                  "enum": [
+                                    "space",
+                                    "hairline"
+                                  ]
+                                },
                                 "numbering": {
                                   "description": "Number chapters and pages: 01, 01.2",
                                   "type": "boolean"
@@ -17459,7 +17467,7 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "align": {
-                              "description": "cover",
+                              "description": "cover: start, center, end; split: start, center",
                               "type": "string",
                               "enum": [
                                 "start",
@@ -17480,9 +17488,36 @@
                               "description": "cover: The palette as a strip; true when left out",
                               "type": "boolean"
                             },
+                            "mark": {
+                              "description": "cover: The logo above the title; home: on the home page",
+                              "type": "string",
+                              "enum": [
+                                "home",
+                                "always",
+                                "never"
+                              ]
+                            },
                             "flip": {
                               "description": "split: Image on the left",
                               "type": "boolean"
+                            },
+                            "ratio": {
+                              "description": "split: The wider side",
+                              "type": "string",
+                              "enum": [
+                                "even",
+                                "words",
+                                "picture"
+                              ]
+                            },
+                            "fit": {
+                              "description": "split: fill: crop to the frame; whole: all of it, with room",
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "fill",
+                                "whole"
+                              ]
                             },
                             "layout": {
                               "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
@@ -17594,6 +17629,24 @@
                             "ask": {
                               "description": "logos: Which mark for which context",
                               "type": "boolean"
+                            },
+                            "size": {
+                              "description": "logos: How much of its tile a mark fills",
+                              "type": "string",
+                              "enum": [
+                                "medium",
+                                "small",
+                                "large"
+                              ]
+                            },
+                            "backdrop": {
+                              "description": "logos",
+                              "type": "string",
+                              "enum": [
+                                "checker",
+                                "light",
+                                "dark"
+                              ]
                             },
                             "collection": {
                               "description": "collection: A collection's id",
@@ -19147,7 +19200,7 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "align": {
-                                      "description": "cover",
+                                      "description": "cover: start, center, end; split: start, center",
                                       "type": "string",
                                       "enum": [
                                         "start",
@@ -19168,9 +19221,36 @@
                                       "description": "cover: The palette as a strip; true when left out",
                                       "type": "boolean"
                                     },
+                                    "mark": {
+                                      "description": "cover: The logo above the title; home: on the home page",
+                                      "type": "string",
+                                      "enum": [
+                                        "home",
+                                        "always",
+                                        "never"
+                                      ]
+                                    },
                                     "flip": {
                                       "description": "split: Image on the left",
                                       "type": "boolean"
+                                    },
+                                    "ratio": {
+                                      "description": "split: The wider side",
+                                      "type": "string",
+                                      "enum": [
+                                        "even",
+                                        "words",
+                                        "picture"
+                                      ]
+                                    },
+                                    "fit": {
+                                      "description": "split: fill: crop to the frame; whole: all of it, with room",
+                                      "type": "string",
+                                      "enum": [
+                                        "auto",
+                                        "fill",
+                                        "whole"
+                                      ]
                                     },
                                     "layout": {
                                       "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
@@ -19282,6 +19362,24 @@
                                     "ask": {
                                       "description": "logos: Which mark for which context",
                                       "type": "boolean"
+                                    },
+                                    "size": {
+                                      "description": "logos: How much of its tile a mark fills",
+                                      "type": "string",
+                                      "enum": [
+                                        "medium",
+                                        "small",
+                                        "large"
+                                      ]
+                                    },
+                                    "backdrop": {
+                                      "description": "logos",
+                                      "type": "string",
+                                      "enum": [
+                                        "checker",
+                                        "light",
+                                        "dark"
+                                      ]
                                     },
                                     "collection": {
                                       "description": "collection: A collection's id",
@@ -20473,6 +20571,14 @@
                               "description": "Every page opens on a band of the brand color",
                               "type": "boolean"
                             },
+                            "separation": {
+                              "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                              "type": "string",
+                              "enum": [
+                                "space",
+                                "hairline"
+                              ]
+                            },
                             "numbering": {
                               "description": "Number chapters and pages: 01, 01.2",
                               "type": "boolean"
@@ -21294,6 +21400,21 @@
                       }
                     ]
                   },
+                  "separation": {
+                    "anyOf": [
+                      {
+                        "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                        "type": "string",
+                        "enum": [
+                          "space",
+                          "hairline"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "numbering": {
                     "anyOf": [
                       {
@@ -21589,6 +21710,14 @@
                             "band": {
                               "description": "Every page opens on a band of the brand color",
                               "type": "boolean"
+                            },
+                            "separation": {
+                              "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                              "type": "string",
+                              "enum": [
+                                "space",
+                                "hairline"
+                              ]
                             },
                             "numbering": {
                               "description": "Number chapters and pages: 01, 01.2",
@@ -22864,6 +22993,14 @@
                                 "band": {
                                   "description": "Every page opens on a band of the brand color",
                                   "type": "boolean"
+                                },
+                                "separation": {
+                                  "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                  "type": "string",
+                                  "enum": [
+                                    "space",
+                                    "hairline"
+                                  ]
                                 },
                                 "numbering": {
                                   "description": "Number chapters and pages: 01, 01.2",
@@ -33984,6 +34121,14 @@
                                         "band": {
                                           "description": "Every page opens on a band of the brand color",
                                           "type": "boolean"
+                                        },
+                                        "separation": {
+                                          "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                          "type": "string",
+                                          "enum": [
+                                            "space",
+                                            "hairline"
+                                          ]
                                         },
                                         "numbering": {
                                           "description": "Number chapters and pages: 01, 01.2",

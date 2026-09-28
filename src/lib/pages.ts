@@ -500,10 +500,17 @@ export const TEMPLATE_PROPS = {
     align: z.enum(["start", "center", "end"]).optional(),
     height: z.enum(["auto", "tall", "screen"]).optional(),
     strip: z.boolean().optional().describe("The palette as a strip; true when left out"),
+    mark: z.enum(["home", "always", "never"]).optional().describe("The logo above the title; home: on the home page"),
   }),
   header: z.strictObject({ image: image.describe("A picture in the band") }),
   text: z.strictObject({}),
-  split: z.strictObject({ image: image.describe("Shown beside the words; else the first bound rule's picture"), flip: z.boolean().optional().describe("Image on the left") }),
+  split: z.strictObject({
+    image: image.describe("Shown beside the words; else the first bound rule's picture"),
+    flip: z.boolean().optional().describe("Image on the left"),
+    ratio: z.enum(["even", "words", "picture"]).optional().describe("The wider side"),
+    align: z.enum(["start", "center"]).optional(),
+    fit: z.enum(["auto", "fill", "whole"]).optional().describe("fill: crop to the frame; whole: all of it, with room"),
+  }),
   cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "checklist", "tree"]).optional() }),
   // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
   palette: z.strictObject({
@@ -530,6 +537,8 @@ export const TEMPLATE_PROPS = {
   logos: z.strictObject({
     kit: z.boolean().optional().describe("A zip of every mark; true when left out"),
     ask: z.boolean().optional().describe("Which mark for which context"),
+    size: z.enum(["medium", "small", "large"]).optional().describe("How much of its tile a mark fills"),
+    backdrop: z.enum(["checker", "light", "dark"]).optional(),
   }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
   gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),

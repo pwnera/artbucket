@@ -57,6 +57,7 @@ export const ThemeSettings = z.strictObject({
   scale: z.number().min(1.067).max(1.618).optional().describe("Heading size ratio; 1.25 when left out"),
   nav: z.enum(["sidebar", "top", "overlay"]).optional(),
   band: z.boolean().optional().describe("Every page opens on a band of the brand color"),
+  separation: z.enum(["space", "hairline"]).optional().describe("Between two sections on the page's own ground: space alone, or a hairline too"),
   numbering: z.boolean().optional().describe("Number chapters and pages: 01, 01.2"),
   motion: z.enum(["none", "subtle"]).optional().describe("subtle: sections reveal as they scroll in; never with reduced motion"),
   toc: z.enum(["side", "inline", "none"]).optional().describe("On this page: a side column, a list under the page header, or hidden"),
@@ -205,6 +206,7 @@ export type Theme = {
   logo: { key: string } | null;
   nav: "sidebar" | "top" | "overlay";
   band: boolean;
+  separation: "space" | "hairline";
   numbering: boolean;
   motion: "none" | "subtle";
   toc: "side" | "inline" | "none";
@@ -350,6 +352,7 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
       null,
     nav: s.nav ?? "sidebar",
     band: s.band ?? false,
+    separation: s.separation ?? "space",
     numbering: s.numbering ?? false,
     motion: s.motion ?? "none",
     toc: s.toc ?? "side",
