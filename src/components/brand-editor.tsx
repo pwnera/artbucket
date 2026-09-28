@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import {
   IconArrowDown,
@@ -40,6 +40,7 @@ import {
   IconX,
   type Icon,
 } from "@tabler/icons-react";
+import { IconEye } from "@tabler/icons-react";
 import { Can, useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
@@ -60,7 +61,7 @@ import {
   RichText,
   ValueEditor,
 } from "@/components/brand-values";
-import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
+import { FontStyles, FontThumb, ImportFamily, useAssetFont } from "@/components/font-preview";
 import { send } from "@/components/collections";
 import { Confirm } from "@/components/confirm";
 import { copyText, CopyButton } from "@/components/copy-button";
@@ -107,6 +108,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { brandTheme, stack } from "@/lib/brand-theme";
 import { contrast, grade, inkOn } from "@/lib/color";
 import { isFont, pickFace } from "@/lib/font";
 import { hasPreview } from "@/lib/preview";
@@ -861,6 +863,7 @@ export function BrandEditor({
       if (Date.now() - afterG.current < 1000) return;
       if (key === "h") setHistory(true);
       else if (key === "t") setTokens(true);
+      else if (key === "p" && canEdit) preview(!reading);
       else if (key === "j" || key === "k") {
         const i = active ? names.indexOf(active) : -1;
         const to = names[key === "j" ? i + 1 : Math.max(i - 1, 0)];
@@ -872,6 +875,15 @@ export function BrandEditor({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  // Reading: the page as a portal shows it, with nothing to edit (components/portal-view.tsx draws the same).
+  const [reading, setReading] = useState(false);
+  function preview(on: boolean) {
+    setReading(on);
+    if (on) setOpen(null);
+    window.scrollTo({ top: 0 });
+  }
+  const look = useBrandLook(rules);
 
   // What Details is open on: the page reflow, the Toc and the sidebar follow this.
   const group = open ? rules.filter((r) => r.key === open.key) : [];
@@ -980,7 +992,7 @@ export function BrandEditor({
 
   return (
     <>
-      {names.length > 1 && !current && <Toc names={names} active={active} />}
+      {names.length > 1 && !current && !reading && <Toc names={names} active={active} />}
 
       <AppHeader trail={<Trail brand={brand} context={context} names={names} active={active} />}>
         <span aria-live="polite">
@@ -1023,6 +1035,18 @@ export function BrandEditor({
         <IconButton variant="ghost" label="History" shortcut={["H"]} className="hidden sm:inline-flex" onClick={() => setHistory(true)}>
           <IconHistory />
         </IconButton>
+        {canEdit && (
+          <IconButton
+            variant={reading ? "secondary" : "ghost"}
+            label={reading ? "Back to editing" : "Preview as readers see it"}
+            shortcut={["P"]}
+            aria-pressed={reading}
+            className="hidden sm:inline-flex"
+            onClick={() => preview(!reading)}
+          >
+            <IconEye />
+          </IconButton>
+        )}
         <ForAgents
           about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
           reads={brandReads(brand, context)}
@@ -1047,6 +1071,14 @@ export function BrandEditor({
                 <Kbd keys={["H"]} />
               </DropdownMenuShortcut>
             </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onSelect={() => preview(!reading)}>
+                <IconEye /> {reading ? "Back to editing" : "Preview"}
+                <DropdownMenuShortcut>
+                  <Kbd keys={["P"]} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={() => void copy(window.location.href, "link")}>
               <IconCopy /> Copy link
             </DropdownMenuItem>
@@ -1055,7 +1087,9 @@ export function BrandEditor({
       </AppHeader>
 
       <div
+        style={look}
         className={cn(
+          LOOK,
           // sm:pl-16 is the gutter's room: the + and the handle sit left of each block.
           "mx-auto w-full max-w-4xl space-y-16 px-4 pt-10 pb-32 transition-[padding,max-width] duration-300 ease-out motion-reduce:transition-none sm:pt-14 sm:pr-8 sm:pl-16",
           // Room for Details: the page reflows beside it rather than under it.
@@ -1070,140 +1104,151 @@ export function BrandEditor({
           edits={edits}
           onRestored={() => void reload()}
         />
-        <ReadOnly.Provider value={!canEdit}>
-          <Hero
-            brand={brand}
-            rules={shown}
-            all={rules}
-            context={context}
-            updated={last && { at: last.updatedAt, who: byWhom(last.actor, me) }}
-            title={
-              canEdit ? (
-                <Editable
-                  key={titleResets}
-                  value={brand.name}
-                  label="Brand name"
-                  onSave={(v) => {
-                    if (!v) return false;
-                    void renameBrand(v);
-                  }}
-                />
-              ) : undefined
-            }
-            onAddLogo={canEdit ? addLogo : undefined}
-          />
+        {reading && (
+          <div className="bg-muted/60 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 font-sans text-sm">
+            <span className="text-muted-foreground">This is the page as portal visitors see it.</span>
+            <Button variant="outline" size="sm" onClick={() => preview(false)}>
+              Back to editing <Kbd keys={["P"]} />
+            </Button>
+          </div>
+        )}
+        {reading && <Guidelines name={brand.name} rules={shown} />}
+        {!reading && (
+          <ReadOnly.Provider value={!canEdit}>
+            <Hero
+              brand={brand}
+              rules={shown}
+              all={rules}
+              context={context}
+              updated={last && { at: last.updatedAt, who: byWhom(last.actor, me) }}
+              title={
+                canEdit ? (
+                  <Editable
+                    key={titleResets}
+                    value={brand.name}
+                    label="Brand name"
+                    onSave={(v) => {
+                      if (!v) return false;
+                      void renameBrand(v);
+                    }}
+                  />
+                ) : undefined
+              }
+              onAddLogo={canEdit ? addLogo : undefined}
+            />
 
-          {!rules.length && (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <IconBook />
-                </EmptyMedia>
-                <EmptyTitle>{canEdit ? "Start your guidelines" : "No guidelines yet"}</EmptyTitle>
-                <EmptyDescription>
-                  {canEdit ? (
-                    <>
-                      Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
-                      voice, words to avoid) and edit them into yours, or type / below to start blank.
-                    </>
-                  ) : (
-                    "Someone with edit access can start them."
-                  )}
-                </EmptyDescription>
-              </EmptyHeader>
-              {canEdit && (
-                <Button pending={adding} onClick={essentials}>
-                  <IconPlus /> {adding ? "Adding..." : "Add the essentials"}
-                </Button>
-              )}
-            </Empty>
-          )}
+            {!rules.length && (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconBook />
+                  </EmptyMedia>
+                  <EmptyTitle>{canEdit ? "Start your guidelines" : "No guidelines yet"}</EmptyTitle>
+                  <EmptyDescription>
+                    {canEdit ? (
+                      <>
+                        Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
+                        voice, words to avoid) and edit them into yours, or type / below to start blank.
+                      </>
+                    ) : (
+                      "Someone with edit access can start them."
+                    )}
+                  </EmptyDescription>
+                </EmptyHeader>
+                {canEdit && (
+                  <Button pending={adding} onClick={essentials}>
+                    <IconPlus /> {adding ? "Adding..." : "Add the essentials"}
+                  </Button>
+                )}
+              </Empty>
+            )}
 
-          {names.map((name) => {
-            const ks = keysIn(name);
-            // A palette reads as a grid of cards; editors keep one column, where a drop lands between rows.
-            const palette = !canEdit && sections.get(name)!.every((r) => r.type === "color");
-            return (
-              <section key={name} id={`section-${name}`} className="@container scroll-mt-20">
-                <SectionHeader name={name} />
-                <div className={palette ? PALETTE : "space-y-4"}>
-                  {ks.map((key) => {
-                    const view = sections.get(name)!.filter((r) => r.key === key);
-                    const first = rules.find((r) => r.key === key)!.id;
-                    return (
-                      // Keyed by the key's first rule, which a rename and a context's own version both leave in place.
-                      <Fragment key={first}>
-                        <RuleView
-                          rules={view}
-                          inherited={!!context && view[0].context === null}
-                          // A new key, not a new variant of one already on the page.
-                          entering={fresh.has(first)}
-                          selected={open?.key === key ? current?.id : undefined}
-                          line={lineFor(name, key, ks)}
-                          dragging={drag === key}
-                          stacked={palette}
-                          ed={canEdit ? edFor(key, name, ks) : undefined}
-                        />
-                        {canEdit && below === key && (
-                          <GhostLine
-                            at={name}
-                            initial="/"
-                            autoFocus
-                            placeholder={only || "Type / to add a rule"}
-                            onPick={(p) => pick(p, name, key)}
-                            onCreateText={(q) => void insertAfter(key, TEXT, name, q, true)}
-                            onClose={(back) => {
-                              setBelow(null);
-                              if (back) focusRule(key, "block");
-                            }}
+            {names.map((name) => {
+              const ks = keysIn(name);
+              // A palette reads as a grid of cards; editors keep one column, where a drop lands between rows.
+              const palette = !canEdit && sections.get(name)!.every((r) => r.type === "color");
+              return (
+                <section key={name} id={`section-${name}`} className="@container scroll-mt-20">
+                  <SectionHeader name={name} />
+                  <div className={palette ? PALETTE : "space-y-4"}>
+                    {ks.map((key) => {
+                      const view = sections.get(name)!.filter((r) => r.key === key);
+                      const first = rules.find((r) => r.key === key)!.id;
+                      return (
+                        // Keyed by the key's first rule, which a rename and a context's own version both leave in place.
+                        <Fragment key={first}>
+                          <RuleView
+                            rules={view}
+                            inherited={!!context && view[0].context === null}
+                            // A new key, not a new variant of one already on the page.
+                            entering={fresh.has(first)}
+                            selected={open?.key === key ? current?.id : undefined}
+                            line={lineFor(name, key, ks)}
+                            dragging={drag === key}
+                            stacked={palette}
+                            ed={canEdit ? edFor(key, name, ks) : undefined}
                           />
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                  {!palette && <Pairings colors={colorsIn(name)} />}
-                  {canEdit && (
-                    <GhostLine
-                      at={name}
-                      placeholder={only || "Type / to add a rule"}
-                      onPick={(p) => pick(p, name)}
-                      onCreateText={(q) => void insertAfter(null, TEXT, name, q, true)}
-                    />
-                  )}
-                </div>
-                {palette && <Pairings colors={colorsIn(name)} className="mt-8" />}
-              </section>
-            );
-          })}
+                          {canEdit && below === key && (
+                            <GhostLine
+                              at={name}
+                              initial="/"
+                              autoFocus
+                              placeholder={only || "Type / to add a rule"}
+                              onPick={(p) => pick(p, name, key)}
+                              onCreateText={(q) => void insertAfter(key, TEXT, name, q, true)}
+                              onClose={(back) => {
+                                setBelow(null);
+                                if (back) focusRule(key, "block");
+                              }}
+                            />
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                    {!palette && <Pairings colors={colorsIn(name)} />}
+                    {canEdit && (
+                      <GhostLine
+                        at={name}
+                        placeholder={only || "Type / to add a rule"}
+                        onPick={(p) => pick(p, name)}
+                        onCreateText={(q) => void insertAfter(null, TEXT, name, q, true)}
+                      />
+                    )}
+                  </div>
+                  {palette && <Pairings colors={colorsIn(name)} className="mt-8" />}
+                </section>
+              );
+            })}
 
-          {canEdit && (
-            <section className="space-y-1">
-              {draft && (
-                <DraftLine
-                  icon={IconBook}
-                  initial=""
-                  placeholder="Name the new section, e.g. Imagery"
-                  hint={(v) =>
-                    `A new section${camel(v) ? ` (${camel(v)})` : ""} for ${draft.name ? `"${draft.name}"` : `the ${draft.preset.label.toLowerCase()}`}. Enter to add, Esc to cancel.`
-                  }
-                  check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
-                  onCancel={() => setDraft(null)}
-                  onCommit={async (v) => {
-                    const p = draft.preset;
-                    await insertAfter(null, p, camel(v), draft.name ?? p.name ?? p.suggest ?? p.label, !!(draft.name ?? p.name));
-                    setDraft(null);
-                  }}
+            {canEdit && (
+              <section className="space-y-1">
+                {draft && (
+                  <DraftLine
+                    icon={IconBook}
+                    initial=""
+                    placeholder="Name the new section, e.g. Imagery"
+                    hint={(v) =>
+                      `A new section${camel(v) ? ` (${camel(v)})` : ""} for ${draft.name ? `"${draft.name}"` : `the ${draft.preset.label.toLowerCase()}`}. Enter to add, Esc to cancel.`
+                    }
+                    check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
+                    onCancel={() => setDraft(null)}
+                    onCommit={async (v) => {
+                      const p = draft.preset;
+                      await insertAfter(null, p, camel(v), draft.name ?? p.name ?? p.suggest ?? p.label, !!(draft.name ?? p.name));
+                      setDraft(null);
+                    }}
+                  />
+                )}
+                <GhostLine
+                  at={null}
+                  placeholder={only || (rules.length ? "Type / to add a rule or a section" : "Type / to add the first rule")}
+                  onPick={(p) => pick(p, null)}
+                  onCreateText={(q) => setDraft({ preset: TEXT, name: q })}
                 />
-              )}
-              <GhostLine
-                at={null}
-                placeholder={only || (rules.length ? "Type / to add a rule or a section" : "Type / to add the first rule")}
-                onPick={(p) => pick(p, null)}
-                onCreateText={(q) => setDraft({ preset: TEXT, name: q })}
-              />
-            </section>
-          )}
-        </ReadOnly.Provider>
+              </section>
+            )}
+          </ReadOnly.Provider>
+        )}
 
         <Sheet open={!!current} modal={false} onOpenChange={(o) => !o && setOpen(null)}>
           <SheetContent
@@ -1357,6 +1402,27 @@ const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 /** A palette section's cards, for readers. */
 const PALETTE = "grid gap-x-6 gap-y-8 @2xl:grid-cols-2";
 
+/**
+ * The page in the brand's own faces and accent (lib/brand-theme.ts), as CSS
+ * variables on the page only: the header, menus and panels stay the app's.
+ * Unset, each falls back to the app's own, so a brand with no fonts or colors
+ * reads as before.
+ */
+function useBrandLook(rules: Rule[]) {
+  const t = useMemo(() => brandTheme(rules), [rules]);
+  const head = useAssetFont(t.head?.file);
+  const body = useAssetFont(t.body?.file);
+  return {
+    ...(t.head && { "--brand-head": stack(t.head, head), "--brand-head-weight": String(t.head.weight ?? 600) }),
+    ...(t.body && { "--brand-body": stack(t.body, body) }),
+    ...(t.accent && { "--brand-accent-l": t.accent.light, "--brand-accent-d": t.accent.dark }),
+  } as React.CSSProperties;
+}
+/** On the page: body text in the brand's face, and the accent for the app's light or dark page. */
+const LOOK = "font-(family-name:--brand-body) [--brand-accent:var(--brand-accent-l)] dark:[--brand-accent:var(--brand-accent-d)]";
+/** Headings in the brand's heading face and weight. */
+const HEAD = "font-(family-name:--brand-head) [font-weight:var(--brand-head-weight,600)] tracking-tight";
+
 /** One color per key (its variants are a click away on the rule), valid hex only. */
 const colorsOf = (rs: Rule[]) =>
   rs.filter((r, i) => r.type === "color" && HEX.test(r.value as string) && rs.findIndex((x) => x.key === r.key) === i);
@@ -1374,10 +1440,11 @@ export function Guidelines({ name, rules }: { name: string; rules: Rule[] }) {
   const keysIn = (n: string) => [...new Set((sections.get(n) ?? []).map((r) => r.key))];
   const active = useActiveSection(names);
   useHashFlash();
+  const look = useBrandLook(rules);
   return (
     <ReadOnly.Provider value={true}>
       {names.length > 1 && <Toc names={names} active={active} />}
-      <div className="space-y-16">
+      <div style={look} className={cn(LOOK, "space-y-16")}>
         <Hero brand={{ slug: "", name, default: false, rules: rules.length }} rules={rules} portal />
         {!rules.length && <p className="text-muted-foreground text-sm">No guidelines here yet.</p>}
         {names.map((n) => {
@@ -1636,12 +1703,12 @@ function SectionHeader({ name }: { name: string }) {
   const { title, icon: I, blurb } = meta(name);
   return (
     <div className="group/section mb-6 flex items-start gap-3 border-b pb-5">
-      <span className="bg-primary/10 text-primary-ink flex size-10 shrink-0 items-center justify-center rounded-xl">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_14%,transparent)] text-[var(--brand-accent,var(--primary-ink))]">
         <I className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">
-          <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+          <h2 className={cn(HEAD, "text-2xl")}>{title}</h2>
           <AnchorLink id={`section-${name}`} label={`Copy a link to ${title}`} className="group-hover/section:opacity-100" />
         </div>
         {blurb && <p className="text-muted-foreground text-sm">{blurb}</p>}
@@ -1707,7 +1774,7 @@ function Hero({
       <div className="flex items-center gap-4">
         <BrandIcon brand={brand} rules={all} color={colors[0]?.value as string | undefined} onAdd={onAddLogo} />
         <div className="min-w-0 flex-1 space-y-2">
-          <H className="text-4xl font-semibold tracking-tight text-balance break-words sm:text-5xl">{title ?? brand.name}</H>
+          <H className={cn(HEAD, "text-4xl text-balance break-words sm:text-5xl")}>{title ?? brand.name}</H>
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
             <span>Brand guidelines</span>
             {brand.default && !portal && <Badge variant="secondary">Default</Badge>}
@@ -2180,7 +2247,7 @@ function RuleView({
       )}
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="max-w-full text-lg font-semibold tracking-tight">
+        <h3 className={cn(HEAD, "max-w-full text-lg")}>
           {ed ? (
             <Editable
               key={ed.resets}
@@ -2260,11 +2327,8 @@ function RuleView({
           </IconButton>
         )}
       </div>
-      {naming !== null && (
-        <p className={cn("text-2xs -mt-1", nameKey ? "text-muted-foreground" : "text-destructive")}>
-          {nameKey ? `Shows as ${label(nameKey)} · key ${nameKey}` : "A name needs a letter in it"}
-        </p>
-      )}
+      {/* The key a name becomes lives in Details and the rename prompt, not under every name you type. */}
+      {naming !== null && !nameKey && <p className="text-2xs text-destructive -mt-1">A name needs a letter in it</p>}
       <div
         key={r.id}
         data-field="value"
