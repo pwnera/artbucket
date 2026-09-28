@@ -12,7 +12,7 @@ import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/coll
 import { AssetError } from "@/lib/core/errors";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
-import { checkLimit } from "@/lib/core/usage";
+import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -27,10 +27,11 @@ import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { isReview, STATES, type State } from "@/lib/lifecycle";
+import { gate } from "@/lib/pool";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
-import { FITS, FORMATS, MAX_DIMENSION, PRESETS } from "@/lib/transform";
+import { FITS, FORMATS, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   BYTES_LOCK,
@@ -152,25 +153,35 @@ export async function createUploadTicket(
  *
  * ponytail: buffers the whole object to hash and probe it, bounded by
  * MAX_UPLOAD_BYTES (checked first). The probes, XMP, C2PA and previews all read
- * a Buffer; streaming means teaching them to read ranges.
+ * a Buffer; streaming means teaching them to read ranges. So uploads take
+ * turns by size (UPLOAD_MEMORY at once), with a short line behind them.
  */
-export async function finalizeUpload(
-  caller: Caller,
-  input: {
-    token: string;
-    filename: string;
-    mime: string;
-    fields?: Record<string, unknown>;
-    /** Collections to file it into. Their values count toward required fields. */
-    collections?: string[];
-    /** Added to any keywords read from the file. */
-    tags?: string[];
-    /** A new version of this asset: it joins its stack, collections, tags and fields (lib/core/versions.ts). */
-    versionOf?: string;
-    /** `draft` keeps it out of the library until it is submitted and approved. */
-    status?: "draft" | "active";
-  } & Provenance,
-): Promise<{ asset: Asset; deduped: boolean }> {
+export async function finalizeUpload(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
+  if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
+  const size = (await sizeOf(stagingKey(caller.workspace.id, input.token))) ?? 0;
+  return uploads.run(Math.min(size, MAX_UPLOAD_BYTES), () => promote(caller, input));
+}
+
+// ponytail: per process, and the bytes of the file only: probes and previews take more on top.
+const UPLOAD_MEMORY = 2 * MAX_UPLOAD_BYTES;
+const uploads = gate(UPLOAD_MEMORY, 32);
+
+type FinalizeInput = {
+  token: string;
+  filename: string;
+  mime: string;
+  fields?: Record<string, unknown>;
+  /** Collections to file it into. Their values count toward required fields. */
+  collections?: string[];
+  /** Added to any keywords read from the file. */
+  tags?: string[];
+  /** A new version of this asset: it joins its stack, collections, tags and fields (lib/core/versions.ts). */
+  versionOf?: string;
+  /** `draft` keeps it out of the library until it is submitted and approved. */
+  status?: "draft" | "active";
+} & Provenance;
+
+async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
   const ws = caller.workspace.id;
   const prior = input.versionOf ? await getAsset(caller, input.versionOf) : null;
   if (input.versionOf && (!prior || prior.deletedAt)) throw new AssetError("invalid", `versionOf: no asset ${input.versionOf}`);
@@ -212,8 +223,9 @@ export async function finalizeUpload(
     }
     return { asset: await fileInto(ws, into, existing.id), deduped: true };
   }
-  // The authoritative check: the size stored, not the size claimed for the ticket.
+  // The size stored, not the size claimed for the ticket; checked again under a lock as it lands.
   await checkLimit(caller.workspace.organizationId, "storage", { adding: size });
+  const limits = await limitsOf(caller.workspace.organizationId);
 
   const mime = fontMime(bytes) ?? input.mime;
   // Anything but a web image gets a look for what it can show as: a still, an
@@ -252,6 +264,7 @@ export async function finalizeUpload(
         .where(eq(assets.stackId, stack));
       version = next;
     }
+    await claimStorage(tx, caller.workspace.organizationId, size, limits);
     const [row] = await tx
       .insert(assets)
       .values({
@@ -337,23 +350,27 @@ export async function ingestFromUrl(
     const name = filename ?? (await linkTitle(url)) ?? `${kept.service === "Figma" ? "Figma" : `Google ${kept.service}`} link`;
     return stageAndFinalize(caller, rest, Buffer.from(`${url}\r\n`), "text/uri-list", name);
   }
-  let fetched;
-  try {
-    fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
-  } catch (err) {
-    if (err instanceof FetchError || (err as NodeJS.ErrnoException).code) {
-      throw new AssetError("invalid", `Couldn't fetch ${url}: ${(err as Error).message}`);
+  if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
+  // The size isn't known until it arrives: it takes turns as the largest there can be.
+  return uploads.run(MAX_UPLOAD_BYTES, async () => {
+    let fetched;
+    try {
+      fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
+    } catch (err) {
+      if (err instanceof FetchError || (err as NodeJS.ErrnoException).code) {
+        throw new AssetError("invalid", `Couldn't fetch ${url}: ${(err as Error).message}`);
+      }
+      throw err;
     }
-    throw err;
-  }
-  const name =
-    filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
-  return stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name);
+    const name =
+      filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
+    return stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name);
+  });
 }
 
 async function stageAndFinalize(
   caller: Caller,
-  rest: Omit<Parameters<typeof finalizeUpload>[1], "token" | "filename" | "mime">,
+  rest: Omit<FinalizeInput, "token" | "filename" | "mime">,
   bytes: Buffer,
   mime: string,
   name: string,
@@ -363,7 +380,8 @@ async function stageAndFinalize(
   await checkLimit(caller.workspace.organizationId, "storage", { adding: bytes.byteLength });
   await putObject(stagingKey(caller.workspace.id, token), bytes, mime);
   try {
-    return await finalizeUpload(caller, { ...rest, token, filename: name.slice(0, 512), mime });
+    // Not finalizeUpload: an ingest already has its turn (and a link is a few bytes).
+    return await promote(caller, { ...rest, token, filename: name.slice(0, 512), mime });
   } catch (err) {
     // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
     await deleteObject(stagingKey(caller.workspace.id, token)).catch(() => {});
@@ -911,6 +929,8 @@ export function describeAsset(asset: Asset) {
       ? {
           w: [1, MAX_DIMENSION] as [number, number],
           h: [1, MAX_DIMENSION] as [number, number],
+          // A side snaps up to the next of these, q to a multiple of 5 (lib/transform.ts).
+          sizes: [...SIZES],
           q: [1, 100] as [number, number],
           fit: [...FITS],
           f: [...FORMATS],

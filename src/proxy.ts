@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { portalAtHost } from "@/lib/core/domains";
 import { limiter } from "@/lib/rate";
@@ -37,14 +36,17 @@ const s3 = origin(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT);
 const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace("://", `://${process.env.S3_BUCKET}.`) : "";
 
 /**
- * Scripts: Next's inline bootstrap needs 'unsafe-inline' without nonces, which
- * would make every page dynamic; the Lottie player's WebAssembly, fetched from
- * jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
+ * Scripts: only those carrying this response's nonce, and what they load
+ * ('strict-dynamic'). Next puts the nonce on its own scripts when it sees it
+ * here (every page is rendered per request anyway: the root layout reads the
+ * brand), and app/layout.tsx hands it to next-themes. So text that got into a
+ * page some other way runs nothing. The Lottie player's WebAssembly, fetched
+ * from jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
  * (lib/preview.ts). Connections: browser uploads go straight to storage.
  */
-const CSP = [
+const csp = (nonce: string) => [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // The app's own address too: on an organization's domain, asset URLs from the API still point at APP_URL.
@@ -59,11 +61,8 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-const who = (req: NextRequest) => {
-  const auth = req.headers.get("authorization");
-  if (auth) return `k:${createHash("sha256").update(auth).digest("base64url").slice(0, 22)}`;
-  return `ip:${req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown"}`;
-};
+// Per address. Not per Authorization header: nothing here knows whether it holds a key, so a new made-up one each time would be a new count.
+const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
 
 /**
  * A request to a verified portal domain (lib/core/domains.ts) sees that
@@ -97,10 +96,14 @@ export async function proxy(req: NextRequest) {
   // A page learns its own address (lib/sidebar.ts whoami): someone signed out goes to sign in, then back to it.
   const init = page ? { request: { headers: new Headers(req.headers) } } : undefined;
   init?.request.headers.set("x-path", pathname + req.nextUrl.search);
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
+  const policy = csp(nonce);
+  init?.request.headers.set("x-nonce", nonce);
+  init?.request.headers.set("Content-Security-Policy", policy);
   const res = (await portalRewrite(req, init)) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own; pages get the app's.
-  if (page) res.headers.set("Content-Security-Policy", CSP);
+  if (page) res.headers.set("Content-Security-Policy", policy);
   return res;
 }
 

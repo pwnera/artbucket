@@ -3,10 +3,14 @@
  * forever and an agent can construct one without asking anything.
  *
  *   /a/{id}/w_800,f_webp
- *   /a/{id}/w_1200,h_630,fit_cover,q_82,f_jpeg
+ *   /a/{id}/w_1200,h_630,fit_cover,q_80,f_jpeg
  *
  * Parsing is a strict whitelist with hard caps: this is a trust boundary where
- * an unbounded value turns into unbounded CPU and memory in sharp.
+ * an unbounded value turns into unbounded CPU and memory in sharp. Each URL
+ * that parses is also a rendition made and stored, so values snap to a few
+ * steps: a side up to the next size in SIZES, quality to a multiple of 5, and
+ * fit only where it changes anything (both sides given). Every size the app
+ * asks for is a step, and so are the common screen, icon and social sizes.
  */
 
 export const FORMATS = ["jpeg", "png", "webp", "avif"] as const;
@@ -16,6 +20,16 @@ export const FITS = ["cover", "contain", "inside", "outside", "fill"] as const;
 export type Fit = (typeof FITS)[number];
 
 export const MAX_DIMENSION = 8000;
+
+/** The sizes a side snaps up to. */
+export const SIZES = [
+  16, 24, 32, 40, 48, 56, 64, 72, 80, 96, 112, 128, 144, 160, 180, 192, 200, 224, 240, 256, 260, 300, 320, 360, 384, 400, 480, 500,
+  512, 520, 540, 600, 630, 640, 720, 750, 768, 800, 828, 900, 960, 1000, 1024, 1080, 1200, 1280, 1350, 1440, 1500, 1600, 1920,
+  2000, 2048, 2400, 2560, 3000, 3200, 3840, 4000, 4096, 5000, 6000, 7680, MAX_DIMENSION,
+] as const;
+
+/** A side, up to the next step: never smaller than asked. */
+export const snapSize = (n: number) => SIZES.find((s) => s >= n) ?? MAX_DIMENSION;
 
 /** Common sizes, as rendition specs (lib/transform.ts). */
 export const PRESETS = [
@@ -71,13 +85,13 @@ export function parseTransform(spec: string): Transform | null {
       case "h": {
         const n = int(value, 1, MAX_DIMENSION);
         if (n === null) return null;
-        out[key] = n;
+        out[key] = snapSize(n);
         break;
       }
       case "q": {
         const n = int(value, 1, 100);
         if (n === null) return null;
-        out.q = n;
+        out.q = Math.max(5, Math.round(n / 5) * 5);
         break;
       }
       case "f": {
@@ -96,6 +110,8 @@ export function parseTransform(spec: string): Transform | null {
   }
 
   if (!out.w && !out.h && !out.f && !out.q) return null;
+  // One side keeps the aspect ratio whatever the fit.
+  if (!(out.w && out.h)) delete out.fit;
   return out;
 }
 

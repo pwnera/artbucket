@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { effective, MAX_DIMENSION, parseTransform, serializeTransform } from "./transform.ts";
+import { effective, MAX_DIMENSION, parseTransform, PRESETS, serializeTransform, SIZES } from "./transform.ts";
 
 test("parses a simple transform", () => {
   assert.deepEqual(parseTransform("w_800,f_webp"), { w: 800, f: "webp" });
 });
 
 test("parses every supported key", () => {
-  assert.deepEqual(parseTransform("w_1200,h_630,fit_cover,q_82,f_jpeg"), {
+  assert.deepEqual(parseTransform("w_1200,h_630,fit_cover,q_80,f_jpeg"), {
     w: 1200,
     h: 630,
     fit: "cover",
-    q: 82,
+    q: 80,
     f: "jpeg",
   });
 });
@@ -48,6 +48,22 @@ test("rejects malformed input", () => {
 
 test("caps dimensions at the boundary, inclusive", () => {
   assert.deepEqual(parseTransform(`w_${MAX_DIMENSION}`), { w: MAX_DIMENSION });
+});
+
+test("values snap to a few steps, so a URL can't ask for a new rendition every time", () => {
+  assert.deepEqual(parseTransform("w_801,h_1,q_82,f_webp"), { w: 828, h: 16, q: 80, f: "webp" });
+  assert.deepEqual(parseTransform("w_7681"), { w: MAX_DIMENSION });
+  assert.deepEqual(parseTransform("q_1"), { q: 5 });
+  // Fit only means something with both sides.
+  assert.deepEqual(parseTransform("w_800,fit_fill"), { w: 800 });
+  assert.equal(serializeTransform(parseTransform("w_799,fit_cover,q_84")!), serializeTransform(parseTransform("w_800,q_85")!));
+  const distinct = new Set<string>();
+  for (let w = 1; w <= MAX_DIMENSION; w++) distinct.add(serializeTransform(parseTransform(`w_${w}`)!));
+  assert.equal(distinct.size, SIZES.length);
+  // Every preset, and what the app asks for itself, is already a step.
+  for (const p of PRESETS) assert.equal(serializeTransform(parseTransform(p.spec)!), p.spec);
+  for (const w of [40, 56, 64, 80, 112, 160, 192, 240, 260, 320, 400, 480, 520, 640, 800, 1280, 1600, 1920, 2400, 3200, 3840])
+    assert.equal(parseTransform(`w_${w}`)!.w, w);
 });
 
 test("a side that can't bind drops, so equal pixels share a rendition", () => {
