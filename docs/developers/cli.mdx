@@ -28,4 +28,17 @@ artbucket share {collection-id} --upload
 artbucket audit
 ```
 
+A brand's pages, rules and theme, from JSON files in the shapes the API takes:
+
+```bash
+artbucket templates
+artbucket pages
+artbucket page logo > logo.md
+artbucket page save logo page.json
+artbucket page edit logo ops.json
+artbucket rules set rules.json
+artbucket theme set theme.json
+artbucket publish --note "New accent, and a page on logo use"
+```
+
 `--json` prints the raw API response. `artbucket --help` lists every command.

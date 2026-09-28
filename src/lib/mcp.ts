@@ -12,6 +12,7 @@ import {
 } from "@/lib/core/assets";
 import { listContexts, listRules, publishBrand, setRules, type BrandRule } from "@/lib/core/brand";
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
+import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
 import { listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
@@ -20,10 +21,10 @@ import { importGoogleFont } from "@/lib/core/fonts";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
-import { TOOL_INPUTS, type ToolName } from "@/lib/mcp-tools";
+import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
-import { TEMPLATE_INFO, TEMPLATE_PROPS, TEMPLATES } from "@/lib/pages";
+import { issues, templateCatalog } from "@/lib/pages";
 import { parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -38,7 +39,9 @@ import { parseTransform, serializeTransform } from "@/lib/transform";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. To build a brand's guidelines for people, write its rules with set_rules, read list_templates, lay out pages with save_page (generate_pages starts one from the rules), check them with get_page, and publish when they are right: a page's sections show rules by key, so change a value with set_rules and every page follows. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
+
+To build a brand's guidelines for people, write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Read list_templates, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -62,11 +65,13 @@ const summary = (a: Asset) => ({
 
 /** Rules as a model reads them: referenced assets come with URLs it can use as is. */
 const forAgent = (rules: BrandRule[]) =>
-  rules.map(({ key, context, type, value, usage, assets }) => ({
+  rules.map(({ key, label, context, type, value, spec, usage, assets }) => ({
     key,
+    label,
     context,
     type,
     value,
+    spec,
     usage,
     assets: assets.map(({ id, rendition, title, filename, mime, width, height }) => ({
       id,
@@ -89,6 +94,11 @@ const rulesFor = async (ws: string, context?: string, brand?: string) => ({
 const RULES_URI = "artbucket://brand/rules";
 const rulesUri = (brand: { slug: string; default: boolean }) =>
   brand.default ? RULES_URI : `artbucket://brands/${brand.slug}/rules`;
+/** A page as Markdown, what get_page returns in `markdown`. */
+const pageUri = (brand: string, page: string) => `artbucket://brands/${brand}/pages/${page}`;
+
+/** Computed once: the schemas are code, and the size guard (mcp-tools.test.ts) measures exactly these. */
+const SCHEMAS = toolSchemas();
 
 type Tool = {
   description: string | ((caller: Caller) => Promise<string>);
@@ -166,12 +176,14 @@ const TOOLS: Record<ToolName, Tool> = {
     input: TOOL_INPUTS.describe_asset,
     run: async ({ id }, caller) => ({
       ...describeAsset(await found(caller, id)),
-      brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, context, type, value, usage }) => ({
+      brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
         brand,
         key,
+        label,
         context,
         type,
         value,
+        spec,
         usage,
       })),
     }),
@@ -277,26 +289,20 @@ const TOOLS: Record<ToolName, Tool> = {
 
   list_templates: tool({
     description:
-      "The section templates a brand page is built from: what each is for, which rules it binds by key, its " +
-      "layout defaults, and its own props as JSON Schema. Read it before save_page or edit_page.",
+      "The section templates a brand page is built from: what each is for, which rules it binds by key, what its " +
+      "items are, its layout defaults, its own props as JSON Schema, and an example section. `common` says what " +
+      "every section takes. Read it before save_page or edit_page.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.list_templates,
-    run: async () => ({
-      templates: TEMPLATES.map((t) => {
-        const { name, use, binds, width, columns, tone } = TEMPLATE_INFO[t];
-        const props = z.toJSONSchema(TEMPLATE_PROPS[t], { io: "input" });
-        delete props.$schema;
-        return { template: t, name, use, binds, defaults: { width, columns, tone }, props };
-      }),
-      common:
-        "Every section also takes: id (kept across edits), title, body (Markdown), width (text, wide, full), " +
-        "columns (1-4), tone (plain, tint, brand), hidden, keys (the rules it shows, in order).",
-    }),
+    run: async () => templateCatalog(),
   }),
 
   list_pages: tool({
-    description: "A brand's pages, in order: slug, title, how many sections, whether hidden. get_page reads one.",
+    description:
+      "A brand's pages, in order, with their tree: slug, title, parent (the page each sits under), eyebrow, lede, " +
+      "cover, icon, audience, whether hidden, how many sections, and aliases (old slugs that still lead to it). " +
+      "get_page reads one.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.list_pages,
@@ -305,8 +311,10 @@ const TOOLS: Record<ToolName, Tool> = {
 
   get_page: tool({
     description:
-      "One brand page: its sections (template, layout, the keys of the rules each shows, props), the rules they " +
-      "show resolved for a context, and the page as Markdown. `missing` names keys whose rule has since gone.",
+      "One brand page: its fields and sections (template, layout, the keys of the rules each shows, items, props), " +
+      "the rules they show resolved for a context, and the page as Markdown. `missing` names keys whose rule has " +
+      "since gone; `warnings`, what a reader would trip on (a link to no page, a key with no rule); `url` opens it " +
+      "in the app as readers see it. An old slug finds the page too.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.get_page,
@@ -319,9 +327,11 @@ const TOOLS: Record<ToolName, Tool> = {
   set_rules: tool({
     description:
       "Make or change brand rules, many at once, as one version in the brand's history. A rule is { key, type, " +
-      "value, usage, context?, assets? }: type is color (#rrggbb), text (Markdown), number, list, or font " +
-      '({ family, weight?, size? }); keys are dotted camelCase (color.primary, logo.minSize, tone.avoid). Name ' +
-      "lists like always, do or prefer for do's, never, avoid or dont for don'ts: pages show them that way. " +
+      "value, label?, usage?, spec?, context?, assets? }: type is color (#rrggbb), text (Markdown), number, list, or font " +
+      '({ family, weight?, size? }); keys are dotted camelCase (color.primary, logo.minSize, tone.avoid) and never ' +
+      "change: `label` is the heading readers see. `spec` holds what the value can't: a color's print values, tints, " +
+      "pair or gradient (its stops name color rules), a number's unit, a face's role, tracking and case; null clears it. " +
+      "Name lists like always, do or prefer for do's, never, avoid or dont for don'ts: pages show them that way. " +
       "An existing key and context is changed; its type can't change. `remove` deletes. All or nothing.",
     action: "brand.edit",
     readOnly: false,
@@ -331,12 +341,14 @@ const TOOLS: Record<ToolName, Tool> = {
 
   save_page: tool({
     description:
-      "Make a brand page, or replace one, whole: title, place among the pages, and every section top to bottom. " +
-      "A section is { template, title?, body?, keys?, width?, columns?, tone?, props? }; list_templates says what each " +
-      "template shows and binds. Keys must name rules the template can show (set_rules makes them). Every problem " +
-      'comes back at once with its path. Example: { page: "color", title: "Color", sections: [{ template: "palette", ' +
-      'title: "Palette", keys: ["color.primary", "color.ink"] }, { template: "collection", title: "In use", props: ' +
-      '{ query: "tag=campaign&type=image", limit: 12 } }] }. Changes are drafts until publish.',
+      "Make a brand page, or replace one, whole: its title, its place (parent nests it, three levels at most), its " +
+      "own fields and every section top to bottom. A section is a template with its keys, items, tone and words; " +
+      "list_templates says what each shows, binds and lists. Keys must name rules the template can show (set_rules " +
+      "makes them). A page field left out keeps its value; null clears it. Every problem comes back at once with its " +
+      "path; `warnings` name what a reader would trip on, and `url` opens the page. Example: " +
+      '{ page: "color", title: "Color", parent: "identity", sections: [{ template: "palette", title: "Palette", ' +
+      'keys: ["color.primary", "color.ink"] }, { template: "dodont", title: "Contrast", tone: "panel", items: ' +
+      '[{ verdict: "dont", title: "Ink on primary" }] }] }. Changes are drafts until publish.',
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.save_page,
@@ -345,9 +357,11 @@ const TOOLS: Record<ToolName, Tool> = {
 
   edit_page: tool({
     description:
-      "Change a page's sections without resending the page: add (after a section id, null for the top, or at the " +
-      "end), update (the fields in `set`), move (after an id, null for the top), remove. Applied in order; all or " +
-      "none. Section ids come from get_page.",
+      "Change a page without resending it: add a section (after a section id, null for the top, or at the end), " +
+      "update one (the fields in `set`; null clears one), move one (after an id, null for the top), remove one, and " +
+      "page for the page's own fields (title, parent, audience...; a new slug renames it, and the old one keeps " +
+      "working). Applied in order; all or none, and every problem comes back with its path. Section ids come from " +
+      "get_page. Returns the page, its warnings and its url.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.edit_page,
@@ -373,14 +387,38 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async ({ brand }, caller) => generatePages(caller, brand),
   }),
 
+  get_theme: tool({
+    description:
+      "How a brand's pages look: its theme settings (which rules are the accent, grounds, ink and faces; the logo " +
+      "and device; radius, width, density, type scale, nav, band, numbering, motion), the look they give, and " +
+      "warnings for settings whose rule has gone. What isn't set is read from the rules.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_theme,
+    run: async ({ brand }, caller) => getTheme(caller.workspace.id, brand),
+  }),
+
+  set_theme: tool({
+    description:
+      "Change how a brand's pages look, a setting at a time: what you pass merges into the settings, and null " +
+      "clears one back to what the rules give. Color settings name color rules, face settings font rules, logo a " +
+      "rule with a picture, device an image asset. Every problem comes back at once with its path. A draft in " +
+      "the brand's history until publish.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.set_theme,
+    run: async ({ brand, ...patch }, caller) => setTheme(caller, brand, patch),
+  }),
+
   publish: tool({
     description:
-      "Publish a brand's pages and rules as they stand: portals show this version, and later edits wait for the " +
-      "next publish. Check the pages with get_page first. Publishing with nothing changed does nothing.",
+      "Publish a brand's pages, rules and theme as they stand: portals show this version, and later edits wait for " +
+      "the next publish. Only when the person asks; check the pages with get_page first. `note` tells readers what " +
+      "changed (What's new), with an `image` beside it. Publishing with nothing changed does nothing.",
     action: "brand.publish",
     readOnly: false,
     input: TOOL_INPUTS.publish,
-    run: async ({ brand, note }, caller) => publishBrand(caller, brand, note),
+    run: async ({ brand, note, image }, caller) => publishBrand(caller, brand, { note, image }),
   }),
 
   my_proposals: tool({
@@ -481,19 +519,15 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
           Object.entries(TOOLS)
             // Only what this caller may run: a read-only key sees read-only tools.
             .filter(([, t]) => can(caller, t.action))
-            .map(async ([name, t]) => {
-              const inputSchema = z.toJSONSchema(t.input, { io: "input" });
-              delete inputSchema.$schema;
-              return {
-                name,
-                description: typeof t.description === "string" ? t.description : await t.description(caller),
-                inputSchema,
-                annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
-              };
-            }),
+            .map(async ([name, t]) => ({
+              name,
+              description: typeof t.description === "string" ? t.description : await t.description(caller),
+              inputSchema: SCHEMAS[name],
+              annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
+            })),
         ),
       });
-    // Brand rules as resources, for clients that attach context by hand.
+    // Brand rules and pages as resources, for clients that attach context by hand.
     case "resources/list": {
       const resources = [];
       for (const b of await listBrands(caller.workspace.id)) {
@@ -502,6 +536,15 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
         resources.push({ ...all, description: `Every rule of ${b.name}${b.default ? ", the default brand" : ""}` });
         for (const c of await listContexts(caller.workspace.id, b.slug)) {
           resources.push({ ...all, uri: `${uri}/${c}`, name: `${all.name}-${c}`, title: `${b.name}: ${c}`, description: `One rule per key, for ${c}` });
+        }
+        for (const p of (await listPages(caller.workspace.id, b.slug)).pages) {
+          resources.push({
+            uri: pageUri(b.slug, p.slug),
+            name: `brand-page-${b.slug}-${p.slug}`,
+            title: `${b.name}: ${p.title}`,
+            description: `The ${p.title} page as Markdown${p.hidden ? " (hidden from readers)" : ""}`,
+            mimeType: "text/markdown",
+          });
         }
       }
       return result(id, { resources });
@@ -523,13 +566,25 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
             description: "One rule per key, for one brand and context",
             mimeType: "application/json",
           },
+          {
+            uriTemplate: pageUri("{brand}", "{page}"),
+            name: "brand-page",
+            title: "A brand page",
+            description: "The page as Markdown: what it says and the rules it shows",
+            mimeType: "text/markdown",
+          },
         ],
       });
     case "resources/read": {
       const uri = String(params.uri ?? "");
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
-      if (!m) return error(id, -32002, `Resource not found: ${uri}`);
+      const page = uri.match(/^artbucket:\/\/brands\/([^/?#]+)\/pages\/([^/?#]+)$/);
       try {
+        if (page) {
+          const { markdown } = await getPage(caller.workspace.id, decodeURIComponent(page[1]), decodeURIComponent(page[2]));
+          return result(id, { contents: [{ uri, mimeType: "text/markdown", text: markdown }] });
+        }
+        if (!m) return error(id, -32002, `Resource not found: ${uri}`);
         const data = await rulesFor(caller.workspace.id, m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
         return result(id, { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) }] });
       } catch (err) {
@@ -545,7 +600,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(params.arguments ?? {});
-      if (!args.success) return result(id, toolResult({ error: z.prettifyError(args.error) }, true));
+      // One line per problem with its path, as core's own refusals read: ops[1].section.props.chanel: Unrecognized key.
+      if (!args.success) return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
       try {
         return result(id, toolResult(await t.run(args.data as never, caller)));
       } catch (err) {

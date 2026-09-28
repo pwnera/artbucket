@@ -1,6 +1,7 @@
 import { body, ok, route } from "@/lib/api";
-import { createRule, listContexts, listRules } from "@/lib/core/brand";
-import { RuleInput } from "@/lib/schemas";
+import { createRule, listContexts, listRules, refuse, setRules } from "@/lib/core/brand";
+import { issues } from "@/lib/pages";
+import { RuleBatch, RuleInput } from "@/lib/schemas";
 
 const brandOf = (req: Request) => new URL(req.url).searchParams.get("brand") ?? undefined;
 
@@ -27,3 +28,14 @@ export const GET = route("brand.read", async (req, _p, caller) => {
 export const POST = route("brand.edit", async (req, _p, caller) =>
   ok({ data: await createRule(caller, brandOf(req), await body(req, RuleInput)) }, { status: 201 }),
 );
+
+/**
+ * PATCH /api/v1/brand/rules?brand=acme - set_rules: `set` makes or changes
+ * rules by key and context, `remove` deletes them. All or none, and every
+ * problem comes back at once as a 422 with its path.
+ */
+export const PATCH = route("brand.edit", async (req, _p, caller) => {
+  const batch = RuleBatch.safeParse(await req.json());
+  refuse(batch.success ? [] : issues(batch.error));
+  return ok({ data: await setRules(caller, brandOf(req), batch.data!) });
+});

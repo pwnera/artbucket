@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { fontValue, listStyle, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
+import { COLLECTION_ICONS, type CollectionIcon } from "./collection-icons.ts";
+import { fontValue, listStyle, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
 
 /**
  * Brand pages: how guidelines are laid out for people, over the rules agents
@@ -11,7 +12,7 @@ import { fontValue, listStyle, ruleKey, ruleLabel, section, type Rule, type Rule
  *
  * Pages are stored whole (brand_pages.sections), written whole by agents
  * (save_page) or an operation at a time (edit_page), and kept in the brand's
- * history beside its rules.
+ * history beside its rules. Pages nest by slug (`parent`), three levels deep.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
@@ -20,7 +21,15 @@ export const TEMPLATES = ["cover", "text", "split", "palette", "type", "logos", 
 export type Template = (typeof TEMPLATES)[number];
 
 export const WIDTHS = ["text", "wide", "full"] as const;
-export const TONES = ["plain", "tint", "brand"] as const;
+/** A section's ground. color and image take theirs from `background`; pattern is the theme's device. */
+export const TONES = ["plain", "tint", "brand", "panel", "dark", "color", "image", "pattern"] as const;
+export type Tone = (typeof TONES)[number];
+/** Who may read a page or section on a portal, ranked: members see what partners see, partners what everyone sees. */
+export const AUDIENCES = ["everyone", "partners", "members"] as const;
+export type Audience = (typeof AUDIENCES)[number];
+/** ponytail: hard-coded caps; add LIMIT_PAGES when an operator asks. */
+export const MAX_PAGES = 200;
+const MAX_SECTIONS = 60;
 
 type Bindable = Pick<Rule, "key" | "type" | "value" | "assets">;
 const scale = (r: Bindable) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
@@ -35,9 +44,15 @@ export const TEMPLATE_INFO: Record<
     /** What its keys may name, in words, and as a check. Null: it binds no rules. */
     binds: string | null;
     accepts: ((r: Bindable) => boolean) | null;
+    /** What its items are, in words. Null: it takes none. */
+    items: string | null;
+    /** The item fields it can't do without: each group needs one of its fields. */
+    needs?: (keyof Item)[][];
     width: (typeof WIDTHS)[number];
     columns: number;
-    tone: (typeof TONES)[number];
+    tone: Tone;
+    /** A section that shows the template off, for the catalog, the builder and the fixtures. */
+    example: SectionInput;
   }
 > = {
   cover: {
@@ -45,81 +60,117 @@ export const TEMPLATE_INFO: Record<
     use: "The opening: the brand's name big on its color, a line under it, the palette as a strip. First on a first page.",
     binds: null,
     accepts: null,
+    items: null,
     width: "full",
     columns: 1,
     tone: "brand",
+    example: { template: "cover", eyebrow: "Brand guidelines", title: "Blender", lede: "How Blender looks, sounds and is used." },
   },
   text: {
     name: "Text",
     use: "Prose in Markdown, and rules read as statements: a voice, a minimum size, a list of habits.",
     binds: "text, number and list rules",
     accepts: (r) => r.type === "text" || r.type === "number" || r.type === "list",
+    items: null,
     width: "text",
     columns: 1,
     tone: "plain",
+    example: {
+      template: "text",
+      eyebrow: "01",
+      title: "Voice",
+      lede: "Plain and warm, like a friend who knows the subject.",
+      body: "We write short sentences and name things the way our readers do.",
+      keys: ["tone.always", "tone.avoid"],
+      aside: "Unsure? Read it out loud, or see how [the mark](/logo) speaks.",
+    },
   },
   split: {
     name: "Split",
     use: "Words beside an image: a rule's picture, or props.image.",
     binds: "rules with assets",
     accepts: hasAssets,
+    items: null,
     width: "wide",
     columns: 1,
     tone: "plain",
+    example: { template: "split", title: "The mark", body: "Our mark is a blend of two shapes.", keys: ["logo.mark"], props: { flip: true } },
   },
   palette: {
     name: "Color palette",
     use: "Swatches with their values and contrast.",
     binds: "color rules",
     accepts: (r) => r.type === "color",
+    items: null,
     width: "wide",
     columns: 3,
     tone: "plain",
+    example: { template: "palette", title: "Palette", keys: ["color.primary", "color.secondary", "color.background"] },
   },
   type: {
     name: "Type specimen",
     use: "Faces set in themselves, and the type scale; readers can type their own text.",
     binds: "font rules and a type scale (a list of numbers)",
     accepts: (r) => r.type === "font" || scale(r),
+    items: null,
     width: "wide",
     columns: 1,
     tone: "plain",
+    example: { template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way" } },
   },
   logos: {
     name: "Logo showcase",
     use: "Marks on light and dark, ready to download.",
     binds: "rules with assets (the logo files)",
     accepts: hasAssets,
+    items: null,
     width: "wide",
     columns: 2,
     tone: "plain",
+    example: { template: "logos", title: "The marks", keys: ["logo.mark", "logo.wordmark"], tone: "panel" },
   },
   dodont: {
     name: "Do / Don't",
     use: "Side by side, green and red. A list named like always, do or prefer is a do; never, avoid or dont a don't.",
     binds: "list rules",
     accepts: (r) => r.type === "list" && !scale(r),
+    items: "a do or a don't with its picture: verdict (needed), asset, title, text, caption",
+    needs: [["verdict"]],
     width: "wide",
     columns: 2,
     tone: "plain",
+    example: {
+      template: "dodont",
+      title: "Do and don't",
+      keys: ["logo.always", "logo.neverDo"],
+      items: [
+        { verdict: "do", title: "Give it room", text: "Clear space on every side, as wide as the mark's dot." },
+        { verdict: "dont", title: "Stretch it", text: "Scale it evenly, never on one axis." },
+      ],
+    },
   },
   gallery: {
     name: "Gallery",
     use: "In-use examples: the pictures of the rules it binds.",
     binds: "rules with assets",
     accepts: hasAssets,
+    items: "a picture: asset (needed), caption, title, download",
+    needs: [["asset"]],
     width: "full",
     columns: 3,
     tone: "plain",
+    example: { template: "gallery", title: "In use", body: "Real work, on real surfaces.", keys: ["imagery.examples"], tone: "tint" },
   },
   collection: {
     name: "Collection",
     use: "Live assets from the library: a collection, a saved search, or a query. Only approved, current, unexpired assets show; new ones appear as they are approved.",
     binds: null,
     accepts: null,
+    items: null,
     width: "full",
     columns: 4,
     tone: "plain",
+    example: { template: "collection", title: "Posters", props: { query: "tag=poster&type=image", limit: 12, layout: "grid" } },
   },
 };
 
@@ -127,6 +178,34 @@ export const TEMPLATE_INFO: Record<
 
 export const pageSlug = z.string().max(60).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use a slug, e.g. logo or voice-and-tone");
 export const sectionId = z.string().regex(/^[a-z0-9_-]{1,40}$/i, "Letters, digits, - and _");
+
+const unique = (a: unknown[]) => new Set(a).size === a.length;
+
+/** A link inside the brand: a page (/logo), a section of one (/logo#clear-space), or of this page (#clear-space). */
+const SITE_PATH = /^(?:\/([a-z0-9]+(?:-[a-z0-9]+)*))?(?:#([a-z0-9_-]{1,40}))?$/i;
+
+/** https:, mailto:, or a link inside the brand (SITE_PATH). */
+export const siteLink = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2000)
+  .refine((s) => /^(https?:|mailto:)/i.test(s) || SITE_PATH.test(s), "A link: https://, mailto:, /page, /page#section or #section");
+
+/** A free thing a template lists: a don't with its picture, a card, a resource, a page to feature. */
+export const Item = z.strictObject({
+  key: ruleKey.optional().describe("A rule it shows, by key"),
+  asset: z.uuid().optional().describe("An image, video or file, from search_assets"),
+  title: z.string().trim().max(200).optional(),
+  text: z.string().trim().max(4000).optional().describe("Markdown"),
+  verdict: z.enum(["do", "dont"]).optional().describe("A do (green) or a don't (red)"),
+  caption: z.string().trim().max(500).optional().describe("Under the media; the asset's description when left out"),
+  link: siteLink.optional(),
+  label: z.string().trim().max(40).optional().describe("A small tag: Figma, PDF, Partners only"),
+  icon: z.enum(COLLECTION_ICONS).optional(),
+  download: z.boolean().optional().describe("false: for reference, never offered as a download"),
+});
+export type Item = z.output<typeof Item>;
 
 const image = z.uuid().optional().describe("An asset id, from search_assets");
 
@@ -157,38 +236,109 @@ export const TEMPLATE_PROPS = {
     .refine((p) => !(p.collection && p.search), "A collection or a saved search, not both"),
 } satisfies Record<Template, z.ZodType>;
 
+const Background = z.strictObject({
+  color: ruleKey.optional().describe("tone color: the color rule it is set on"),
+  image: z.uuid().optional().describe("tone image: the picture"),
+  scrim: z.number().min(0).max(0.9).optional().describe("tone image: how much to darken it; 0.45 when left out"),
+});
+
 const base = {
   id: sectionId.optional().describe("Kept across edits; made up when left out"),
   title: z.string().trim().max(300).optional(),
   body: z.string().trim().max(20000).optional().describe("Markdown (GFM), shown under the title"),
   width: z.enum(WIDTHS).optional().describe("text (a reading column), wide, or full bleed; the template's default when left out"),
   columns: z.number().int().min(1).max(4).optional(),
-  tone: z.enum(TONES).optional().describe("Background: plain, tint (a wash of the brand color) or brand (the brand color)"),
-  hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
-  keys: z
-    .array(ruleKey)
-    .max(100)
-    .refine((ks) => new Set(ks).size === ks.length, "Each key once")
+  tone: z
+    .enum(TONES)
     .optional()
-    .describe("The rules it shows, by key, in order"),
+    .describe("The ground. panel: the second surface; color and image: set in background; pattern: the theme's device"),
+  hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
+  keys: z.array(ruleKey).max(100).refine(unique, "Each key once").optional().describe("The rules it shows, by key, in order"),
+  eyebrow: z.string().trim().max(120).optional().describe("A small line above the title: a number, a chapter"),
+  lede: z.string().trim().max(1000).optional().describe("A line or two under the title, set large; plain text"),
+  aside: z.string().trim().max(4000).optional().describe("Markdown in a ruled column beside the body"),
+  tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
+  background: Background.optional().describe("For tone color and tone image"),
+  items: z.array(Item).max(60).optional().describe("What the template lists; list_templates says which take items"),
+  audience: z.enum(AUDIENCES).optional().describe("On portals: everyone let in, partners (by a password or an approved request) or members"),
+  contexts: z
+    .array(ruleContext)
+    .min(2)
+    .max(8)
+    .refine(unique, "Each context once")
+    .optional()
+    .describe('A tab per context, rules resolved for each: ["default", "dark-background"]; default: no context'),
+  only: ruleContext.optional().describe("Shown only in this context"),
 };
 
-const variant = <T extends Template>(t: T) => z.strictObject({ ...base, template: z.literal(t), props: TEMPLATE_PROPS[t].optional() });
+/** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
+const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "background", "items", "audience", "contexts", "only"] as const;
 
+// Props come in as their own type parameter: indexing TEMPLATE_PROPS by a generic template typed every prop as never.
+const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
+  z.strictObject({ ...base, template: z.literal(t), props: props.optional() });
+
+/** One section, checked strictly against its own template. Internal to parseSections; the tools advertise SectionWire. */
 export const SectionInput = z.discriminatedUnion("template", [
-  variant("cover"),
-  variant("text"),
-  variant("split"),
-  variant("palette"),
-  variant("type"),
-  variant("logos"),
-  variant("dodont"),
-  variant("gallery"),
-  variant("collection"),
+  variant("cover", TEMPLATE_PROPS.cover),
+  variant("text", TEMPLATE_PROPS.text),
+  variant("split", TEMPLATE_PROPS.split),
+  variant("palette", TEMPLATE_PROPS.palette),
+  variant("type", TEMPLATE_PROPS.type),
+  variant("logos", TEMPLATE_PROPS.logos),
+  variant("dodont", TEMPLATE_PROPS.dodont),
+  variant("gallery", TEMPLATE_PROPS.gallery),
+  variant("collection", TEMPLATE_PROPS.collection),
 ]);
 export type SectionInput = z.input<typeof SectionInput>;
 
-/** A section as stored: every setting filled in. */
+/** A zod schema as JSON Schema, without what doesn't change its meaning. */
+function shapeOf(s: z.ZodType) {
+  const j = z.toJSONSchema(s, { io: "input" }) as Record<string, unknown>;
+  delete j.$schema;
+  delete j.description;
+  return canon(j);
+}
+
+/**
+ * Every template's props in one strict object, for the advertised schema: one
+ * copy of each prop instead of one per template. A prop two templates share
+ * keeps one shape; enums merge their values. Anything else is a clash, and
+ * throws. Each prop's description names the templates that take it.
+ */
+export function mergedProps(props: Record<string, z.ZodObject> = TEMPLATE_PROPS) {
+  const merged = new Map<string, { schema: z.ZodType; from: { t: string; about?: string; values?: string[] }[] }>();
+  for (const [t, obj] of Object.entries(props)) {
+    for (const [name, raw] of Object.entries(obj.shape as Record<string, z.ZodType>)) {
+      const s = raw instanceof z.ZodOptional ? (raw.unwrap() as z.ZodType) : raw;
+      const from = { t, about: raw.description ?? s.description, values: s instanceof z.ZodEnum ? (s.options as string[]) : undefined };
+      const had = merged.get(name);
+      if (!had) {
+        merged.set(name, { schema: s, from: [from] });
+        continue;
+      }
+      if (had.schema instanceof z.ZodEnum && s instanceof z.ZodEnum) {
+        had.schema = z.enum([...new Set([...had.schema.options, ...s.options])] as [string, ...string[]]);
+      } else if (shapeOf(had.schema) !== shapeOf(s)) {
+        throw new Error(`props.${name} is one thing in ${had.from.map((f) => f.t).join(", ")} and another in ${t}: give one of them another name`);
+      }
+      had.from.push(from);
+    }
+  }
+  // A merged enum no longer says which template takes which value; its description does.
+  const note = ({ t, about, values }: { t: string; about?: string; values?: string[] }, shared: boolean) =>
+    about ? `${t}: ${about}` : shared && values ? `${t}: ${values.join(", ")}` : t;
+  return z.strictObject(
+    Object.fromEntries([...merged].map(([name, m]) => [name, m.schema.optional().describe(m.from.map((f) => note(f, m.from.length > 1)).join("; "))])),
+  );
+}
+
+/** What save_page, edit_page's add op, PUT and PATCH advertise. parseSections still checks each section against its own template. */
+export const SectionWire = z.strictObject({ ...base, template: z.enum(TEMPLATES), props: mergedProps().optional() });
+
+export type Background = z.output<typeof Background>;
+
+/** A section as stored: every setting filled in, and the optional ones only when set. */
 export type Section = {
   id: string;
   template: Template;
@@ -196,24 +346,47 @@ export type Section = {
   body: string;
   width: (typeof WIDTHS)[number];
   columns: number;
-  tone: (typeof TONES)[number];
+  tone: Tone;
   hidden: boolean;
   keys: string[];
   props: Record<string, unknown>;
+} & Partial<{
+  eyebrow: string;
+  lede: string;
+  aside: string;
+  tab: string;
+  background: Background;
+  items: Item[];
+  audience: Audience;
+  contexts: string[];
+  only: string;
+}>;
+
+/** A page's own fields beside its title and sections. On save, left out keeps a value and null clears it. */
+const PageMeta = {
+  parent: pageSlug.nullable().optional().describe("Its parent page; null for the top. Three levels at most"),
+  eyebrow: z.string().trim().max(120).nullable().optional(),
+  lede: z.string().trim().max(1000).nullable().optional(),
+  cover: z.uuid().nullable().optional().describe("Its header and card image"),
+  icon: z.enum(COLLECTION_ICONS).nullable().optional(),
+  audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
+  tabs: z.boolean().optional().describe("Its child pages as tabs across its top"),
 };
 
+/** What save_page and PUT take. Sections are advertised flat (SectionWire); parseSections checks each strictly. */
 export const PageInput = z.strictObject({
   title: z.string().trim().min(1).max(120),
   hidden: z.boolean().optional().describe("Kept, but not published"),
   position: z.number().int().min(0).optional().describe("Where among the brand's pages, from 0; the end for a new page"),
-  sections: z.array(SectionInput).max(60).describe("The whole page, top to bottom"),
+  sections: z.array(SectionWire).max(MAX_SECTIONS).describe("The whole page, top to bottom"),
+  ...PageMeta,
 });
 
-/** One change to a page's sections, for edit_page: applied in order, checked together. */
+/** One change to a page, for edit_page: applied in order, checked together. */
 export const PageOp = z.discriminatedUnion("op", [
   z.strictObject({
     op: z.literal("add"),
-    section: SectionInput,
+    section: SectionWire,
     after: sectionId.nullable().optional().describe("Add it after this section; null for the top; the end when left out"),
   }),
   z.strictObject({
@@ -221,19 +394,44 @@ export const PageOp = z.discriminatedUnion("op", [
     id: sectionId,
     set: z
       .record(z.string(), z.unknown())
-      .describe("What changes, e.g. { title, keys, width, props }. props replaces the section's props whole; template can change too"),
+      .describe("What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"),
   }),
   z.strictObject({ op: z.literal("move"), id: sectionId, after: sectionId.nullable().describe("After this section; null for the top") }),
   z.strictObject({ op: z.literal("remove"), id: sectionId }),
+  z.strictObject({
+    op: z.literal("page"),
+    set: z
+      .strictObject({
+        title: z.string().trim().min(1).max(120),
+        hidden: z.boolean(),
+        position: z.number().int().min(0),
+        slug: pageSlug.describe("Renames it; the old slug keeps working"),
+        ...PageMeta,
+      })
+      .partial(),
+  }),
 ]);
 export type PageOp = z.output<typeof PageOp>;
+/** The page's own fields an edit changes, folded from its `page` ops. */
+export type PagePatch = Extract<PageOp, { op: "page" }>["set"];
 
-/** A page as history and publishing keep it. */
-export type SnapPage = { slug: string; title: string; position: number; hidden: boolean; sections: Section[] };
+/** A page as history and publishing keep it. Optional fields are there only when set (D5). */
+export type SnapPage = { slug: string; title: string; position: number; hidden: boolean; sections: Section[] } & Partial<{
+  parent: string;
+  eyebrow: string;
+  lede: string;
+  cover: string;
+  icon: CollectionIcon;
+  audience: Audience;
+  tabs: true;
+  aliases: string[];
+  /** Last content change; left out of every comparison. */
+  updatedAt: string;
+}>;
 
 const newId = () => `s${Math.random().toString(36).slice(2, 10)}`;
 
-/** A parsed section with its template's defaults filled in, and an id. */
+/** A parsed section with its template's defaults filled in, and an id. New fields are copied only when set (D5). */
 export function normalize(s: z.output<typeof SectionInput>, taken: Set<string>): Section {
   const info = TEMPLATE_INFO[s.template];
   let id = s.id ?? newId();
@@ -250,15 +448,30 @@ export function normalize(s: z.output<typeof SectionInput>, taken: Set<string>):
     hidden: s.hidden ?? false,
     keys: s.keys ?? [],
     props: (s.props ?? {}) as Record<string, unknown>,
+    ...Object.fromEntries(OPTIONAL.filter((k) => s[k] !== undefined).map((k) => [k, s[k]])),
   };
 }
 
-/** A zod error as the lines an agent can act on: `sections[2].props.limit: Too big`. */
+/** A zod error as the lines an agent can act on: `sections[2].props.limit: Too big`, one per misspelled key. */
 export function issues(err: z.ZodError, prefix = ""): string[] {
-  return err.issues.map((i) => {
+  return err.issues.flatMap((i) => {
     const path = i.path.reduce<string>((p, k) => (typeof k === "number" ? `${p}[${k}]` : p ? `${p}.${String(k)}` : String(k)), prefix);
-    return `${path || "input"}: ${i.message}`;
+    if (i.code === "unrecognized_keys") return i.keys.map((k) => `${path ? `${path}.` : ""}${k}: Unrecognized key`);
+    return [`${path || "input"}: ${i.message}`];
   });
+}
+
+/** One section parsed, normalized and checked, its problems pushed onto `errors` under `at`. */
+function parseOne(raw: unknown, at: string, taken: Set<string>, errors: string[]): Section | undefined {
+  const got = SectionInput.safeParse(raw);
+  if (!got.success) {
+    errors.push(...issues(got.error, at));
+    return undefined;
+  }
+  const s = normalize(got.data, taken);
+  const bad = checkSection(s, at);
+  errors.push(...bad);
+  return bad.length ? undefined : s;
 }
 
 /**
@@ -273,19 +486,112 @@ export function parseSections(raw: unknown[], prefix = "sections"): { sections: 
   ids.forEach((x) => taken.add(x));
   const sections: Section[] = [];
   raw.forEach((s, i) => {
-    const got = SectionInput.safeParse(s);
-    if (!got.success) errors.push(...issues(got.error, `${prefix}[${i}]`));
-    else sections.push(normalize(got.data, taken));
+    const made = parseOne(s, `${prefix}[${i}]`, taken, errors);
+    if (made) sections.push(made);
   });
   return { sections, errors };
+}
+
+/** What zod can't state about a section: grounds that need their parameter, and items only where the template lists them. */
+export function checkSection(s: Section, at: string): string[] {
+  const info = TEMPLATE_INFO[s.template];
+  const bg = s.background ?? {};
+  const errors: string[] = [];
+  if (s.tone === "color" && !bg.color) errors.push(`${at}.background.color: tone color needs the color rule it is set on`);
+  if (s.tone !== "color" && bg.color) errors.push(`${at}.background.color: only for tone color`);
+  if (s.tone === "image" && !bg.image) errors.push(`${at}.background.image: tone image needs a picture`);
+  if (s.tone !== "image" && (bg.image || bg.scrim !== undefined)) errors.push(`${at}.background.${bg.image ? "image" : "scrim"}: only for tone image`);
+  if (s.contexts && !info.accepts) errors.push(`${at}.contexts: a ${info.name} section binds no rules, so it has no contexts to show`);
+  if (s.items?.length && !info.items) errors.push(`${at}.items: a ${info.name} section takes no items`);
+  else {
+    s.items?.forEach((it, k) => {
+      // W4: logos take verdicts too (a forbidden logo-on-color pair).
+      if (it.verdict && s.template !== "dodont") errors.push(`${at}.items[${k}].verdict: only do/don't items take a verdict`);
+      for (const group of info.needs ?? []) {
+        if (!group.some((f) => it[f] !== undefined)) errors.push(`${at}.items[${k}]: a ${info.name} item needs ${group.join(" or ")}`);
+      }
+    });
+  }
+  return errors;
+}
+
+// ---- what sections point at -------------------------------------------------
+
+/** Every key a section binds, with where: its keys, its items' keys, its background color. */
+function bindings(s: Section): { key: string; at: string }[] {
+  return [
+    ...s.keys.map((key, j) => ({ key, at: `keys[${j}]` })),
+    ...(s.items ?? []).flatMap((it, k) => (it.key ? [{ key: it.key, at: `items[${k}].key` }] : [])),
+    ...(s.background?.color ? [{ key: s.background.color, at: "background.color" }] : []),
+  ];
+}
+
+/** The keys a section binds: keys, then items' keys, then the background color; each once, in order. */
+export const boundKeys = (s: Section): string[] => [...new Set(bindings(s).map((b) => b.key))];
+
+/** A rule's key changed: sections show it under its new name, in all three places. Null when no section bound it. */
+export function renameKey(sections: Section[], from: string, to: string): Section[] | null {
+  if (!sections.some((s) => boundKeys(s).includes(from))) return null;
+  return sections.map((s) => {
+    if (!boundKeys(s).includes(from)) return s;
+    return {
+      ...s,
+      // A key the page kept after its rule went could already be `to`; a section binds each key once.
+      keys: [...new Set(s.keys.map((k) => (k === from ? to : k)))],
+      ...(s.items && { items: s.items.map((it) => (it.key === from ? { ...it, key: to } : it)) }),
+      ...(s.background?.color === from && { background: { ...s.background, color: to } }),
+    };
+  });
+}
+
+/** Every asset a page names, with where: its cover, props images and videos, backgrounds, items. */
+export function assetRefs(page: { cover?: string | null; sections: Section[] }): { id: string; at: string }[] {
+  const out = page.cover ? [{ id: page.cover, at: "cover" }] : [];
+  page.sections.forEach((s, i) => {
+    const at = `sections[${i}]`;
+    for (const k of ["image", "video"]) if (typeof s.props[k] === "string") out.push({ id: s.props[k], at: `${at}.props.${k}` });
+    if (s.background?.image) out.push({ id: s.background.image, at: `${at}.background.image` });
+    s.items?.forEach((it, k) => it.asset && out.push({ id: it.asset, at: `${at}.items[${k}].asset` }));
+  });
+  return out;
+}
+
+/** Link targets in Markdown: inline links and reference definitions. ponytail: a link inside a code span counts too. */
+const MD_LINK = /\]\(\s*<?([^\s)>]+)|^ {0,3}\[[^\]]+\]:\s*<?([^\s>]+)/gm;
+
+/** Where a site link goes; null for an outside link. `#id` is a section of `here`. */
+function target(href: string, here: string) {
+  const m = SITE_PATH.exec(href);
+  return m && (m[1] || m[2]) ? { slug: m[1] ?? here, ...(m[2] && { section: m[2] }) } : null;
+}
+
+/** The brand's own pages and sections a page links to, from bodies, asides and items. */
+export function siteLinks(page: { slug: string; sections: Section[] }): { at: string; slug: string; section?: string }[] {
+  const out: { at: string; slug: string; section?: string }[] = [];
+  const scan = (md: string | undefined, at: string) => {
+    for (const m of (md ?? "").matchAll(MD_LINK)) {
+      const t = target(m[1] ?? m[2], page.slug);
+      if (t) out.push({ at, ...t });
+    }
+  };
+  page.sections.forEach((s, i) => {
+    scan(s.body, `sections[${i}].body`);
+    scan(s.aside, `sections[${i}].aside`);
+    s.items?.forEach((it, k) => {
+      scan(it.text, `sections[${i}].items[${k}].text`);
+      const t = it.link && target(it.link, page.slug);
+      if (t) out.push({ at: `sections[${i}].items[${k}].link`, ...t });
+    });
+  });
+  return out;
 }
 
 const TYPE_WORD: Record<RuleType, string> = { color: "a color", text: "text", number: "a number", list: "a list", font: "a font" };
 
 /**
- * Whether each section's keys name rules it can show. `known`: keys a page
- * already bound, kept even if their rule has gone since (the page says so on
- * reading), so re-saving a page never fails on a key its writer didn't add.
+ * Whether each section's bound keys name rules it can show. `known`: keys a
+ * page already bound, kept even if their rule has gone since (the page says
+ * so on reading), so re-saving a page never fails on a key its writer didn't add.
  */
 export function checkBindings(sections: Section[], rules: Bindable[], known = new Set<string>(), prefix = "sections"): string[] {
   const byKey = new Map(rules.map((r) => [r.key, r]));
@@ -293,21 +599,146 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
   sections.forEach((s, i) => {
     const info = TEMPLATE_INFO[s.template];
     if (!info.accepts && s.keys.length) errors.push(`${prefix}[${i}].keys: a ${info.name} section binds no rules`);
-    s.keys.forEach((k, j) => {
+    for (const { key: k, at } of bindings(s)) {
       const r = byKey.get(k);
       if (!r) {
         if (!known.has(k)) {
           const near = [...byKey.keys()].filter((x) => section(x) === section(k));
-          errors.push(`${prefix}[${i}].keys[${j}]: no rule "${k}"${near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
+          errors.push(`${prefix}[${i}].${at}: no rule "${k}"${near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
         }
-        return;
+      } else if (at === "background.color") {
+        if (r.type !== "color") errors.push(`${prefix}[${i}].${at}: a background is a color rule; ${k} is ${TYPE_WORD[r.type]}`);
+      } else if (at.startsWith("keys[") && info.accepts && !info.accepts(r)) {
+        errors.push(`${prefix}[${i}].${at}: a ${info.name} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.accepts === hasAssets && !hasAssets(r) ? " with no assets" : ""}`);
       }
-      if (info.accepts && !info.accepts(r)) {
-        errors.push(`${prefix}[${i}].keys[${j}]: a ${info.name} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.accepts === hasAssets && !hasAssets(r) ? " with no assets" : ""}`);
-      }
-    });
+    }
   });
   return errors;
+}
+
+/** Whether the pages make a tree: every parent a page, no loops, three levels at most. */
+export function checkTree(pages: { slug: string; parent?: string | null }[]): string[] {
+  const parentOf = new Map(pages.map((p) => [p.slug, p.parent ?? null]));
+  const errors: string[] = [];
+  const looped = new Set<string>();
+  for (const p of pages) {
+    if (p.parent != null && !parentOf.has(p.parent)) {
+      errors.push(`page "${p.slug}": its parent "${p.parent}" is not a page`);
+      continue;
+    }
+    const chain = [p.slug];
+    let up = p.parent ?? null;
+    while (up !== null && parentOf.has(up) && !chain.includes(up)) {
+      chain.push(up);
+      up = parentOf.get(up) ?? null;
+    }
+    if (up === p.slug) {
+      if (!looped.has(p.slug)) errors.push(`page "${p.slug}": a loop, ${[...chain, p.slug].join(" > ")}`);
+      chain.forEach((s) => looped.add(s));
+    } else if (up === null && chain.length > 3) {
+      errors.push(`page "${p.slug}": ${chain.length} levels deep; three at most`);
+    }
+  }
+  return errors;
+}
+
+/**
+ * Apply edit_page's ops to a page's sections, in order: add, update, move,
+ * remove, and `page` ops folded into one patch of the page's own fields.
+ * Every problem comes back with its op's path; the caller writes nothing
+ * unless `errors` is empty.
+ */
+export function applyOps(stored: Section[], ops: PageOp[], slug: string): { sections: Section[]; page: PagePatch; errors: string[] } {
+  const sections = [...stored];
+  const taken = new Set(sections.map((s) => s.id));
+  const errors: string[] = [];
+  let page: PagePatch = {};
+  const at = (id: string, i: number) => {
+    const n = sections.findIndex((s) => s.id === id);
+    if (n < 0) errors.push(`ops[${i}]: no section "${id}" on ${slug}; its sections are ${sections.map((s) => s.id).join(", ") || "none"}`);
+    return n;
+  };
+  /** Where "after" puts a section: null the top, undefined the end. */
+  const slot = (after: string | null | undefined, i: number) => Math.max(after === null ? 0 : after === undefined ? sections.length : at(after, i) + 1, 0);
+  for (const [i, op] of ops.entries()) {
+    if (op.op === "add") {
+      if (op.section.id && taken.has(op.section.id)) {
+        errors.push(`ops[${i}].section.id: "${op.section.id}" is taken on ${slug}`);
+        continue;
+      }
+      const made = parseOne(op.section, `ops[${i}].section`, taken, errors);
+      if (made) sections.splice(slot(op.after, i), 0, made);
+    } else if (op.op === "update") {
+      const n = at(op.id, i);
+      if (n < 0) continue;
+      const set = Object.fromEntries(Object.entries({ ...sections[n], ...op.set, id: op.id }).filter(([, v]) => v !== null));
+      const made = parseOne(set, `ops[${i}].set`, taken, errors);
+      if (made) sections[n] = made;
+    } else if (op.op === "move") {
+      const n = at(op.id, i);
+      if (n < 0) continue;
+      const [s] = sections.splice(n, 1);
+      sections.splice(slot(op.after, i), 0, s);
+    } else if (op.op === "remove") {
+      const n = at(op.id, i);
+      if (n >= 0) sections.splice(n, 1);
+    } else {
+      page = { ...page, ...op.set };
+    }
+  }
+  if (sections.length > MAX_SECTIONS) errors.push(`ops: that makes ${sections.length} sections; a page holds ${MAX_SECTIONS} at most`);
+  return { sections, page, errors };
+}
+
+type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null };
+
+/**
+ * What a reader would trip on, though the page saves: links to a page or
+ * section that isn't there or is hidden, and bound keys with no rule.
+ */
+export function pageWarnings(page: Linked, pages: Linked[], rules: Pick<Rule, "key">[]): string[] {
+  const all = [page, ...pages.filter((p) => p.slug !== page.slug)];
+  const find = (slug: string) => all.find((p) => p.slug === slug) ?? all.find((p) => p.aliases?.includes(slug));
+  const out: string[] = [];
+  for (const l of siteLinks(page)) {
+    const href = `/${l.slug}${l.section ? `#${l.section}` : ""}`;
+    const to = find(l.slug);
+    const s = l.section === undefined ? undefined : to?.sections.find((x) => x.id === l.section);
+    if (!to) out.push(`${l.at}: links to ${href}, but there is no page "${l.slug}"`);
+    else if (to !== page && to.hidden) out.push(`${l.at}: links to ${href}, which is hidden`);
+    else if (l.section !== undefined && !s) out.push(`${l.at}: links to ${href}, but ${to.slug} has no section "${l.section}"`);
+    else if (s?.hidden) out.push(`${l.at}: links to ${href}, a hidden section`);
+  }
+  const keys = new Set(rules.map((r) => r.key));
+  page.sections.forEach((s, i) => {
+    for (const b of bindings(s)) if (!keys.has(b.key)) out.push(`sections[${i}].${b.at}: no rule "${b.key}"; readers see nothing for it`);
+  });
+  return out;
+}
+
+/** Query params a page never passes on: readers see approved, deliverable assets only, and the section sets its own limit. */
+const DROPPED = ["status", "review", "proposedBy", "limit", "offset"];
+
+/**
+ * The library query a collection section runs: its saved search's query,
+ * narrowed by `props.query`. Words in `q` join (every word must match), `tag`
+ * and `f.*` add to the saved ones, anything else in `props.query` replaces the
+ * saved value. `props.collection` replaces any collection the queries name.
+ */
+export function collectionQuery(saved: string | null, props: { collection?: string; query?: string }): URLSearchParams {
+  const out = new URLSearchParams((saved ?? "").replace(/^\?/, ""));
+  const own = new URLSearchParams((props.query ?? "").replace(/^\?/, ""));
+  for (const k of new Set(own.keys())) {
+    const values = own.getAll(k);
+    if (k === "q") out.set("q", [out.get("q"), ...values].filter(Boolean).join(" "));
+    else {
+      if (k !== "tag" && !k.startsWith("f.")) out.delete(k);
+      for (const v of values) out.append(k, v);
+    }
+  }
+  for (const k of DROPPED) out.delete(k);
+  if (props.collection) out.set("collection", props.collection);
+  return out;
 }
 
 // ---- comparing --------------------------------------------------------------
@@ -325,12 +756,15 @@ export function canon(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export const samePages = (a: SnapPage[] | null, b: SnapPage[] | null) => canon(a ?? []) === canon(b ?? []);
+/** Pages without their updatedAt, which a comparison leaves out: the time of a change is not a change. */
+const untimed = (ps: SnapPage[] | null) => (ps ?? []).map((p) => ({ ...p, updatedAt: undefined }));
+
+export const samePages = (a: SnapPage[] | null, b: SnapPage[] | null) => canon(untimed(a)) === canon(untimed(b));
 
 /** Which pages differ between two snapshots, by slug, for a version's summary: "page:logo". */
 export function changedPages(before: SnapPage[] | null, after: SnapPage[]): string[] {
-  const was = new Map((before ?? []).map((p) => [p.slug, canon(p)]));
-  const now = new Map(after.map((p) => [p.slug, canon(p)]));
+  const was = new Map(untimed(before).map((p) => [p.slug, canon(p)]));
+  const now = new Map(untimed(after).map((p) => [p.slug, canon(p)]));
   return [...new Set([...was.keys(), ...now.keys()])].filter((s) => was.get(s) !== now.get(s)).map((s) => `page:${s}`);
 }
 
@@ -388,6 +822,25 @@ export function initialPages(all: Bindable[], brand: string): Draft[] {
 
 // ---- for agents -------------------------------------------------------------
 
+/**
+ * What list_templates and GET /api/v1/brand/templates serve: each template
+ * with its props as JSON Schema and an example, and what every section takes,
+ * from the schema's own descriptions so the two never drift.
+ */
+export function templateCatalog() {
+  return {
+    templates: TEMPLATES.map((t) => {
+      const { name, use, binds, items, width, columns, tone, example } = TEMPLATE_INFO[t];
+      const props = z.toJSONSchema(TEMPLATE_PROPS[t], { io: "input" }) as Record<string, unknown>;
+      delete props.$schema;
+      return { template: t, name, use, binds, items, defaults: { width, columns, tone }, props, example };
+    }),
+    common: `Every section also takes: ${Object.entries(base)
+      .map(([k, s]) => (s.description ? `${k} (${s.description})` : k))
+      .join("; ")}.`,
+  };
+}
+
 type Readable = Pick<Rule, "key" | "type" | "value" | "usage">;
 
 function ruleLine(r: Readable) {
@@ -400,17 +853,38 @@ function ruleLine(r: Readable) {
   return `- **${ruleLabel(r.key)}** (\`${r.key}\`): ${v}${r.usage ? `. ${r.usage.replace(/\s+/g, " ")}` : ""}`;
 }
 
+function itemLine(it: Item) {
+  const words = [it.title && `**${it.title}**`, (it.text ?? it.caption)?.replace(/\s+/g, " "), it.link && `(${it.link})`].filter(Boolean).join(" ");
+  return `- ${it.verdict ? `${it.verdict === "do" ? "Do" : "Don't"}: ` : ""}${words}`.trimEnd();
+}
+
+type MarkdownPage = Pick<SnapPage, "title" | "sections"> & { eyebrow?: string | null; lede?: string | null; audience?: Audience | null };
+
 /** A page as Markdown: what it says and shows, for an agent to read or check its work against. */
-export function pageMarkdown(page: Pick<SnapPage, "title" | "sections">, rules: Readable[]): string {
+export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
   const byKey = new Map(rules.map((r) => [r.key, r]));
   const out = [`# ${page.title}`];
+  if (page.audience && page.audience !== "everyone") out.push(`<!-- audience=${page.audience} -->`);
+  if (page.eyebrow) out.push("", `_${page.eyebrow}_`);
+  if (page.lede) out.push("", page.lede);
   for (const s of page.sections) {
     if (s.hidden) continue;
-    const head = s.title || TEMPLATE_INFO[s.template].name;
-    out.push("", `## ${head}`, `<!-- ${s.template} ${s.id} -->`);
+    const info = TEMPLATE_INFO[s.template];
+    const flags = [
+      s.tone !== info.tone && `tone=${s.tone}`,
+      s.audience && s.audience !== "everyone" && `audience=${s.audience}`,
+      s.tab && `tab=${JSON.stringify(s.tab)}`,
+      s.contexts && `contexts=${s.contexts.join(",")}`,
+      s.only && `only=${s.only}`,
+    ].filter(Boolean);
+    out.push("", `## ${s.title || info.name}`, `<!-- ${[s.template, s.id, ...flags].join(" ")} -->`);
+    if (s.eyebrow) out.push("", `_${s.eyebrow}_`);
+    if (s.lede) out.push("", s.lede);
     if (s.body) out.push("", s.body);
     const lines = s.keys.map((k) => (byKey.has(k) ? ruleLine(byKey.get(k)!) : `- \`${k}\`: (no such rule)`));
     if (lines.length) out.push("", ...lines);
+    if (s.items?.length) out.push("", ...s.items.map(itemLine));
+    if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
     if (s.template === "collection") {
       const p = s.props as { collection?: string; search?: string; query?: string };
       const from = p.collection ? `collection ${p.collection}` : p.search ? `saved search ${p.search}` : "the library";

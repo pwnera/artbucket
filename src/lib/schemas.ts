@@ -5,13 +5,15 @@ import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
-import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, RuleInput, RuleOrder, RulePatch } from "./rules.ts";
+import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
 import { PORTAL_ACCESS, PORTAL_SLUG, PortalTheme, PRESET_IDS } from "./portal.ts";
+import { AUDIENCES, PageInput, PageOp, WIDTHS } from "./pages.ts";
+import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -21,7 +23,7 @@ import { PORTAL_ACCESS, PORTAL_SLUG, PortalTheme, PRESET_IDS } from "./portal.ts
  * Relative imports: `pnpm test` runs this under plain Node, which has no `@/`.
  */
 
-export { FieldDefInput, FieldDefPatch, RuleInput, RuleOrder, RulePatch };
+export { FieldDefInput, FieldDefPatch, PageInput, RuleInput, RuleOrder, RulePatch, ThemePatch, ThemeSettings };
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 const uuid = z.uuid();
@@ -123,6 +125,11 @@ export const AssetPatch = z.strictObject({
   supersededBy: uuid.nullable().optional().describe("The asset that replaces this one; /api/v1/check then refuses it and names that"),
   private: z.boolean().optional().describe("Only people with a grant on it, or on a collection it is in, and admins see it"),
   public: z.boolean().optional().describe("Serve it at /a/{id} to anyone, for embedding, while it may be used. Takes share on it"),
+  focus: z
+    .strictObject({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+    .nullable()
+    .optional()
+    .describe("The point crops keep in frame, from the top left, 0 to 1; null clears"),
 });
 
 export const CheckInput = Use.extend({
@@ -182,6 +189,20 @@ export const BrandPatch = z.strictObject({
 });
 export const VersionPatch = z.strictObject({
   name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
+});
+
+/** set_rules over REST: all of it or none. */
+export const RuleBatch = z.strictObject({
+  set: z.array(RuleInput).max(100).optional().describe("Rules to make, or change where the key and context exist"),
+  remove: z
+    .array(z.strictObject({ key: ruleKey, context: ruleContext.nullable().optional().describe("Only this context's version; the key and every version when left out") }))
+    .max(100)
+    .optional(),
+});
+export const PageEdit = z.strictObject({ ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none") });
+export const PublishInput = z.strictObject({
+  note: z.string().trim().max(2000).optional().describe("What changed, for readers of the history and What's new"),
+  image: uuid.optional().describe("An asset shown beside the note"),
 });
 
 export const CreateKey = z.strictObject({
@@ -330,6 +351,7 @@ export const Asset = z.object({
       camera: z.string(),
       lens: z.string(),
       gps: z.object({ lat: z.number(), lon: z.number() }),
+      focus: z.object({ x: z.number(), y: z.number() }).describe("The point crops keep in frame, 0 to 1 from the top left"),
     })
     .partial()
     .nullable(),
@@ -398,9 +420,11 @@ export const BrandRule = z.object({
   id: uuid,
   brand: z.string().describe("The brand's slug"),
   key: z.string().describe("Dotted, e.g. color.primary"),
+  label: z.string().nullable().describe("The heading readers see; null: the key, in words"),
   context: z.string().nullable().describe("null: the default"),
   type: z.enum(RULE_TYPES),
   value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()])), FONT_VALUE]),
+  spec: z.record(z.string(), z.unknown()).nullable().describe("Details beyond the value, by type: RuleInput's spec"),
   usage: z.string().nullable(),
   assets: z
     .array(
@@ -430,31 +454,173 @@ export const Brand = z.object({
   createdAt: date,
 });
 
+// ---- brand pages ------------------------------------------------------------
+// Open where later waves grow them: template and tone are strings, props a record, item fields optional.
+
+export const Item = z
+  .object({
+    key: z.string().describe("A rule it shows"),
+    asset: uuid,
+    title: z.string(),
+    text: z.string().describe("Markdown"),
+    verdict: z.enum(["do", "dont"]),
+    caption: z.string(),
+    link: z.string(),
+    label: z.string(),
+    icon: z.string(),
+    download: z.boolean().describe("false: for reference, never offered as a download"),
+  })
+  .partial()
+  .describe("A thing a template lists: a do or a don't with its picture, a picture in a gallery");
+
+export const Section = z.object({
+  id: z.string(),
+  template: z.string().describe("GET /api/v1/brand/templates lists them"),
+  title: z.string(),
+  body: z.string().describe("Markdown"),
+  width: z.enum(WIDTHS),
+  columns: z.number().int(),
+  tone: z.string().describe("Its ground: plain, tint, brand, panel, dark, color, image or pattern"),
+  hidden: z.boolean(),
+  keys: z.array(z.string()).describe("The rules it shows, by key, in order"),
+  props: z.record(z.string(), z.unknown()).describe("Its template's own settings"),
+  // Left out when not set.
+  eyebrow: z.string().optional(),
+  lede: z.string().optional(),
+  aside: z.string().optional().describe("Markdown"),
+  tab: z.string().optional().describe("Sections sharing a tab name show under one tab"),
+  background: z.object({ color: z.string(), image: uuid, scrim: z.number() }).partial().optional(),
+  items: z.array(Item).optional(),
+  audience: z.enum(AUDIENCES).optional(),
+  contexts: z.array(z.string()).optional().describe("A tab per context, its rules resolved for each"),
+  only: z.string().optional().describe("Shown only in this context"),
+});
+
+const pageFields = {
+  slug: z.string(),
+  title: z.string(),
+  position: z.number().int(),
+  hidden: z.boolean(),
+  parent: z.string().nullable().describe("The page it sits under; null at the top"),
+  eyebrow: z.string().nullable(),
+  lede: z.string().nullable(),
+  cover: uuid.nullable().describe("Its header and card image"),
+  icon: z.string().nullable(),
+  audience: z.enum(AUDIENCES).describe("On portals: who may read it"),
+  tabs: z.boolean().describe("Its child pages show as tabs across its top"),
+  aliases: z.array(z.string()).describe("Slugs it had before a rename: they still find it"),
+  updatedAt: date.describe("The last change to what it says"),
+};
+export const BrandPage = z.object({ ...pageFields, sections: z.array(Section) });
+export const PageSummary = z.object({ ...pageFields, sections: z.number().int().describe("How many") });
+
+const warnings = z.array(z.string()).describe("What a reader would trip on, though it saves: links that go nowhere, keys with no rule");
+const readerUrl = z.url().describe("Where a member reads it in the app");
+export const PageRead = z.object({
+  brand: z.string(),
+  context: z.string().nullable(),
+  page: BrandPage,
+  rules: z.array(BrandRule).describe("The rules its sections show, resolved for the context"),
+  missing: z.array(z.string()).describe("Keys a section shows whose rule has gone since"),
+  warnings,
+  markdown: z.string().describe("The page as Markdown, its rules' values filled in"),
+  url: readerUrl,
+});
+export const PageSaved = z.object({ brand: z.string(), created: z.boolean(), page: BrandPage, warnings, url: readerUrl });
+
+export const Templates = z.object({
+  templates: z.array(
+    z.object({
+      template: z.string(),
+      name: z.string(),
+      use: z.string().describe("What it is for"),
+      binds: z.string().nullable().describe("What its keys may name; null: it binds no rules"),
+      items: z.string().nullable().describe("What its items are; null: it takes none"),
+      defaults: z.object({ width: z.enum(WIDTHS), columns: z.number().int(), tone: z.string() }),
+      props: z.record(z.string(), z.unknown()).describe("Its own settings, as JSON Schema"),
+      example: z.record(z.string(), z.unknown()).describe("A section using it, as PUT takes it"),
+    }),
+  ),
+  common: z.string().describe("What every section takes besides its props"),
+});
+
+export const ThemeView = z.object({
+  brand: z.string(),
+  settings: ThemeSettings.describe("Which rule plays which part, and the page's measure, rhythm and chrome; left out: read from the rules"),
+  theme: z.record(z.string(), z.unknown()).describe("The look the settings and rules give: the accent, lifted for light and dark pages, and the faces"),
+  checks: z
+    .array(
+      z.object({
+        pair: z.string().describe("Which color on which, e.g. ink on surface"),
+        fg: z.string(),
+        bg: z.string(),
+        ratio: z.number(),
+        need: z.number().describe("The contrast it must reach: 4.5 for text, 3 for marks"),
+        ok: z.boolean(),
+        used: z.string().describe("The color used: fg when it passes, else its fallback"),
+      }),
+    )
+    .describe("Contrast of each pair in the look; empty for now"),
+  warnings: z.array(z.string()).describe("Settings naming a rule that has gone since: the default is used"),
+});
+
 const snapRule = z.object({
   key: z.string(),
+  label: z.string().optional(),
   context: z.string().nullable(),
   type: z.enum(RULE_TYPES),
   value: z.unknown(),
+  spec: z.record(z.string(), z.unknown()).optional(),
   usage: z.string().nullable(),
   position: z.number().int(),
   assets: z.array(z.object({ id: uuid, rendition: z.string().nullable() })),
+});
+/** A page as a version keeps it: a field that isn't set is left out. */
+const snapPage = z.object({
+  slug: z.string(),
+  title: z.string(),
+  position: z.number().int(),
+  hidden: z.boolean(),
+  sections: z.array(Section),
+  parent: z.string().optional(),
+  eyebrow: z.string().optional(),
+  lede: z.string().optional(),
+  cover: uuid.optional(),
+  icon: z.string().optional(),
+  audience: z.enum(AUDIENCES).optional(),
+  tabs: z.boolean().optional(),
+  aliases: z.array(z.string()).optional(),
+  updatedAt: z.string().optional(),
 });
 export const VersionMeta = z.object({
   number: z.number().int(),
   kind: z.enum(["baseline", "edit", "restore"]),
   name: z.string().nullable(),
   actor: z.string().describe("Who: a person's name, an API key's name, or \"web\" for the app without an account"),
-  changed: z.array(z.string()).describe("Keys touched"),
+  changed: z.array(z.string()).describe("Keys touched; a page as page:{slug}, and theme"),
   restoredFrom: z.number().int().nullable().describe("For a restore: the version it put back"),
   summary: z.string(),
   rules: z.number().int(),
+  pages: z.number().int().nullable().describe("How many pages; null for a version from before pages"),
+  publishedAt: date.nullable().describe("When it was published; null for a draft"),
+  publishedBy: z.string().nullable(),
+  note: z.string().nullable().describe("What changed, for readers, given when it was published"),
+  noteImage: uuid.nullable().describe("An asset shown beside the note"),
   createdAt: date,
   updatedAt: date.describe("Edits close together extend a version; this is its last"),
 });
 export const Version = VersionMeta.extend({
   rules: z.array(snapRule),
+  pages: z.array(snapPage).nullable().describe("null for a version from before pages"),
+  theme: ThemeSettings.nullable().describe("null for a version from before themes: a restore leaves the theme as it is"),
   against: z.union([z.number().int(), z.literal("current")]).nullable(),
   diff: z.array(z.record(z.string(), z.unknown())).describe("added, removed, changed (field by field) or moved, per rule"),
+  pageDiff: z.array(z.string()).describe("Pages that differ, as page:{slug}"),
+  themeChanged: z.boolean().describe("The theme differs; against current, whether a restore would change it"),
+});
+export const Published = VersionMeta.extend({
+  brand: z.string(),
+  unchanged: z.boolean().describe("Nothing changed since the last publish, which stands"),
 });
 export const Restored = z.object({
   restored: z.number().int(),
@@ -496,6 +662,7 @@ export const Description = z.object({
   description: z.string().nullable(),
   creator: z.string().nullable(),
   copyright: z.string().nullable(),
+  focus: z.object({ x: z.number(), y: z.number() }).nullable().describe("The point crops keep in frame, 0 to 1 from the top left; null: the center"),
   tags: z.array(z.string()),
   fields: fieldValues.describe("Effective values: own over inherited"),
   collections: z.array(uuid),

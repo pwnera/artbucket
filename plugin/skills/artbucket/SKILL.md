@@ -71,24 +71,38 @@ between them:
 ## Building the brand's guidelines
 
 A brand's guidelines are pages people read (and portals publish), laid out over its rules. You can build
-them end to end over MCP (the CLI doesn't have these yet). It takes a key with write on the workspace;
-publishing also takes the share ability.
+them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page save`, `page edit`,
+`theme set`, `publish`). It takes a key with write on the workspace; publishing also takes the share ability.
 
 1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
    with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists
-   `always`/`do` and `never`/`avoid`/`dont`: pages show them green and red.
-2. **Pages are the layout.** Read `list_templates`, then `save_page` a whole page: sections top to
-   bottom, each a template (cover, text, split, palette, type, logos, dodont, gallery, collection) with
-   the `keys` of the rules it shows. A `collection` section shows live assets from a collection, a saved
-   search or a `query` (`type=image&tag=campaign&f.channel=web`). For a brand with rules and no pages,
-   `generate_pages` lays out a start.
-3. **Never copy a value into a page.** A section binds rules by key: change a color with `set_rules` and
-   every page follows. Page text (`title`, `body`) is for what isn't a rule: an intro, the why.
-4. **Every problem comes back at once**, each with its path (`sections[2].keys[0]: no rule "color.primery"`).
+   `always`/`do` and `never`/`avoid`/`dont`: pages show them green and red. Give a rule a `label` for the
+   heading readers see (the key never changes), and a `spec` for what the value can't say: a color's
+   CMYK, Pantone and tints, a gradient (`spec.gradient` stops name color rules; `value` is its solid
+   fallback), a number's `unit`, a font's `role`, `tracking` and `case`.
+2. **Pages are the layout.** Read `list_templates` (each template comes with an example), then
+   `save_page` a whole page: sections top to bottom, each a template (cover, text, split, palette, type,
+   logos, dodont, gallery, collection) with the `keys` of the rules it shows. A `collection` section shows
+   live assets from a collection, a saved search or a `query` (`type=image&tag=campaign&f.channel=web`).
+   For a brand with rules and no pages, `generate_pages` lays out a start.
+3. **Build a tree.** `parent` puts a page under another, three levels at most: Overview, then Identity
+   with Color, Logo and Type under it. Renaming a page (`edit_page` with `{ "op": "page", "set": { "slug": ... } }`)
+   keeps the old slug working.
+4. **Items and tones.** `items` are what a template lists: on `dodont`, a do or a don't with its picture
+   (`{ "verdict": "dont", "asset": "<id>", "title": "Stretch it" }`); on `gallery`, a picture with its caption.
+   `tone` sets a section's ground: `plain`, `tint`, `brand`, `panel`, `dark`, `color` (with
+   `background.color`, a color rule), `image` (with `background.image`) or `pattern`.
+5. **Never copy a value into a page.** A section binds rules by key: change a color with `set_rules` and
+   every page follows. Page text (`title`, `body`, `lede`) is for what isn't a rule: an intro, the why.
+6. **The theme is the look.** `set_theme` maps rules to parts (`accent`, `surface`, `ink`, `head`,
+   `body`, `logo`) and sets `radius`, `width`, `density`, `nav`, `numbering`. It merges; `null` clears a
+   setting. `get_theme` shows what is set.
+7. **Every problem comes back at once**, each with its path (`sections[2].keys[0]: no rule "color.primery"`).
    Fix them all and save again. `edit_page` changes a few sections without resending the page.
-5. **Check, then publish.** `get_page` returns the page as Markdown: read it back. Edits are drafts;
-   `publish` puts them in front of portal visitors. Every change is in the brand's history, and a person
-   can restore any version.
+8. **Check, then publish when asked.** Every write returns `warnings` (a link to no page, a key with no
+   rule) and a `url` to open the page as readers see it; `get_page` returns the page as Markdown too. Edits
+   are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
+   `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 
 ## Fonts
 

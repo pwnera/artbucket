@@ -204,6 +204,13 @@
       "when": 1790588380879,
       "tag": "0028_brand_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790597588778,
+      "tag": "0029_brand_book",
+      "breakpoints": true
     }
   ]
 }

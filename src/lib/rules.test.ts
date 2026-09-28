@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  COLOR_SPEC,
   contextLabel,
   fontLabel,
   fontValue,
@@ -11,6 +12,11 @@ import {
   ruleContext,
   ruleKey,
   ruleLabel,
+  RulePatch,
+  ruleName,
+  renameInSpec,
+  specAssets,
+  specKeys,
 } from "./rules.ts";
 
 const r = (key: string, context: string | null, value: string) => ({ key, context, value });
@@ -98,4 +104,111 @@ test("a font is a family, sized and weighted or not; a bare name is the family",
   assert.ok(!RULE_VALUE.font.safeParse({ family: "Inter", size: -1 }).success);
   assert.equal(fontLabel(fontValue("Inter")), "Inter");
   assert.equal(fontLabel({ family: "Inter", size: 32, weight: 700 }), "Inter, 32px, 700");
+});
+
+test("each type takes its own spec; a misspelled or foreign field is refused", () => {
+  const parse = (v: object) => RuleInput.safeParse({ key: "color.primary", ...v });
+  const color = parse({
+    type: "color",
+    value: "#E6007E",
+    spec: {
+      token: "Pink-500",
+      group: "Primary",
+      weight: 40,
+      pair: "color.white",
+      tints: [80, 60],
+      cmyk: [0, 100, 0, 0],
+      pantone: ["Rhodamine Red C"],
+      rgb: [230, 0, 126],
+      print: "specified",
+      gradient: { kind: "linear", angle: 90, stops: [{ color: "color.primary" }, { color: "#FFFFFF", at: 100, opacity: 0.5 }] },
+    },
+  });
+  assert.ok(color.success);
+  assert.equal(color.data.type === "color" && color.data.spec?.gradient?.stops[1].color, "#ffffff", "a stop's hex is lowercased");
+  assert.ok(parse({ type: "number", value: 2, spec: { unit: "x", of: "the mark's height" } }).success);
+  assert.ok(
+    parse({
+      type: "font",
+      value: "Inter",
+      spec: {
+        role: "body",
+        tracking: [
+          [12, 0.01],
+          [48, -0.02],
+        ],
+        case: "upper",
+        script: "Latn",
+        features: ["ss01"],
+        download: false,
+      },
+    }).success,
+  );
+  assert.ok(parse({ type: "color", value: "#e6007e", spec: null }).success, "null clears");
+
+  assert.ok(!parse({ type: "color", value: "#e6007e", spec: { pantones: ["485 C"] } }).success, "misspelled");
+  assert.ok(!parse({ type: "number", value: 2, spec: { unit: "pixels" } }).success);
+  assert.ok(!parse({ type: "number", value: 2, spec: { pair: "color.white" } }).success, "a color's field on a number");
+  assert.ok(!parse({ type: "font", value: "Inter", spec: { font: "Inter" } }).success);
+  assert.ok(!parse({ type: "font", value: "Inter", spec: { script: "latin" } }).success);
+  assert.ok(parse({ type: "font", value: "Inter", spec: { url: "https://rsms.me/inter/" } }).success);
+  for (const url of ["javascript:alert(1)", "data:text/html,<script>x</script>", "ftp://example.com/inter.zip"]) {
+    assert.ok(!parse({ type: "font", value: "Inter", spec: { url } }).success, url);
+  }
+  assert.ok(!parse({ type: "text", value: "x", spec: {} }).success, "text has no spec yet");
+  assert.ok(!parse({ type: "list", value: ["x"], spec: {} }).success);
+  assert.ok(!parse({ type: "color", value: "#e6007e", spec: {}, extra: 1 }).success, "still strict with a spec");
+});
+
+test("a gradient needs two stops, each a color key or a hex", () => {
+  const stop = (color: string) => ({ color });
+  const g = (stops: object[]) => COLOR_SPEC.safeParse({ gradient: { stops } }).success;
+  assert.ok(g([stop("color.a"), stop("#000000")]));
+  assert.ok(!g([stop("color.a")]));
+  assert.ok(!g([stop("color.a"), stop("#fff")]), "a short hex, like a value");
+  assert.ok(!g([stop("color.a"), stop("Pink")]), "not a key");
+  assert.ok(!g([stop("color.a"), { color: "#000000", offset: 50 }]));
+});
+
+test("labels are headings: optional, clearable, never the key", () => {
+  const parse = (label: unknown) => RuleInput.safeParse({ key: "logo.minClearSpace", type: "number", value: 1, label });
+  assert.equal(parse("  Clear space ").data?.label, "Clear space");
+  assert.ok(parse(null).success);
+  assert.ok(!parse("  ").success);
+  assert.equal(ruleName({ key: "logo.minClearSpace", label: "Clear space" }), "Clear space");
+  assert.equal(ruleName({ key: "logo.minClearSpace", label: null }), "Min clear space");
+  assert.equal(ruleName({ key: "logo.minClearSpace" }), "Min clear space");
+  assert.deepEqual(RulePatch.parse({ label: "Clear space", spec: { unit: "x" } }), { label: "Clear space", spec: { unit: "x" } });
+});
+
+test("a spec names rules through its pair and gradient stops, and assets through its texture", () => {
+  const texture = "6f1c2a4e-1b7d-4c3e-9a2b-0d4e5f6a7b8c";
+  const spec = COLOR_SPEC.parse({
+    pair: "color.white",
+    texture,
+    gradient: { stops: [{ color: "color.pink" }, { color: "#000000" }, { color: "color.white" }] },
+  });
+  assert.deepEqual(specKeys(spec), ["color.white", "color.pink"], "once each, pair first, hexes left out");
+  assert.deepEqual(specAssets(spec), [texture]);
+  assert.deepEqual(specKeys(null), []);
+  assert.deepEqual(specKeys({ unit: "px" }), []);
+  assert.deepEqual(specAssets(undefined), []);
+});
+
+test("renaming a rule renames it in a spec; a spec that doesn't name it is left alone", () => {
+  const spec = COLOR_SPEC.parse({
+    pair: "color.white",
+    group: "Primary",
+    gradient: { angle: 45, stops: [{ color: "color.white", at: 0 }, { color: "#000000" }] },
+  });
+  assert.deepEqual(renameInSpec(spec, "color.white", "color.paper"), {
+    pair: "color.paper",
+    group: "Primary",
+    gradient: { angle: 45, stops: [{ color: "color.paper", at: 0 }, { color: "#000000" }] },
+  });
+  assert.equal(renameInSpec(spec, "color.pink", "color.rose"), null);
+  assert.equal(renameInSpec({ role: "body" }, "color.white", "color.paper"), null);
+  assert.deepEqual(renameInSpec({ gradient: { stops: [{ color: "color.a" }, { color: "color.b" }] } }, "color.b", "color.c"), {
+    gradient: { stops: [{ color: "color.a" }, { color: "color.c" }] },
+  });
 });

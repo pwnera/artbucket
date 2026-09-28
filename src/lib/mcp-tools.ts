@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ThemePatch } from "./brand-theme.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
@@ -114,7 +115,7 @@ export const TOOL_INPUTS = {
       .array(RuleInput)
       .max(100)
       .optional()
-      .describe("Rules to make, or change where the key and context exist: { key, type, value, usage?, context?, assets? }"),
+      .describe("Rules to make, or change where the key and context exist: { key, type, value, label?, usage?, spec?, context?, assets? }"),
     remove: z
       .array(z.object({ key: ruleKey, context: ruleContext.nullable().optional().describe("Only this context's version; the key and every version when left out") }))
       .max(100)
@@ -129,7 +130,16 @@ export const TOOL_INPUTS = {
 
   generate_pages: z.object({ brand }),
 
-  publish: z.object({ brand, note: z.string().trim().max(200).optional().describe("What changed, for the history and What's new") }),
+  get_theme: z.object({ brand }),
+
+  // Strict: a misspelled setting is refused, not dropped.
+  set_theme: z.strictObject({ brand, ...ThemePatch.shape }),
+
+  publish: z.object({
+    brand,
+    note: z.string().trim().max(2000).optional().describe("What changed, for the history and What's new"),
+    image: z.uuid().optional().describe("An asset shown beside the note, from search_assets"),
+  }),
 
   propose_fields: z.object({
     id,
@@ -141,11 +151,20 @@ export const TOOL_INPUTS = {
 
 export type ToolName = keyof typeof TOOL_INPUTS;
 
-/** The tools as JSON Schema, the way tools/list sends them. */
+/**
+ * The tools as JSON Schema, the way tools/list sends them. A uuid's `format`
+ * says it all: zod's 190-character pattern beside it would be most of a page
+ * tool's schema (the size guard in mcp-tools.test.ts).
+ */
 export function toolSchemas() {
   return Object.fromEntries(
     Object.entries(TOOL_INPUTS).map(([name, input]) => {
-      const s = z.toJSONSchema(input, { io: "input" });
+      const s = z.toJSONSchema(input, {
+        io: "input",
+        override: ({ jsonSchema: j }) => {
+          if (j.format === "uuid") delete j.pattern;
+        },
+      });
       delete s.$schema;
       return [name, s];
     }),

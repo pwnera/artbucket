@@ -2,33 +2,69 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, brandPages, savedSearches } from "@/lib/db/schema";
+import { env } from "@/lib/env";
 import type { Caller } from "@/lib/core/access";
 import { parseAssetQuery } from "@/lib/core/assets";
-import { listRules, tracked, type BrandRule, type Tx } from "@/lib/core/brand";
-import { resolveBrand } from "@/lib/core/brands";
+import { listRules, refuse, tracked, type BrandRule, type Tx } from "@/lib/core/brand";
+import { resolveBrand, type Brand } from "@/lib/core/brands";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { PAGE_ORDER } from "@/lib/core/page-store";
-import { checkBindings, initialPages, issues, pageMarkdown, parseSections, type PageInput, type PageOp, type Section } from "@/lib/pages";
+import { PAGE_ORDER, toSnap, type PageRow } from "@/lib/core/page-store";
+import {
+  applyOps,
+  assetRefs,
+  boundKeys,
+  canon,
+  checkBindings,
+  checkTree,
+  initialPages,
+  issues,
+  MAX_PAGES,
+  pageMarkdown,
+  pageSlug,
+  pageWarnings,
+  parseSections,
+  type PageInput,
+  type PageOp,
+  type PagePatch,
+  type Section,
+} from "@/lib/pages";
 import { resolve } from "@/lib/rules";
 
 /**
  * A brand's pages (lib/pages.ts): read, saved whole, edited an operation at a
- * time, laid out from the rules. Every write is checked all at once, so an
- * agent gets every problem with its path in one answer, and lands in the
- * brand's history like a rule change does. REST, MCP and the editor all come
- * through here.
+ * time, laid out from the rules. Pages nest by slug, and a renamed page keeps
+ * its old slug as an alias. Every write is checked all at once, so an agent
+ * gets every problem with its path in one answer, and lands in the brand's
+ * history like a rule change does. REST, MCP and the editor all come through here.
  */
 
-type Row = typeof brandPages.$inferSelect;
-
-const present = (p: Row) => ({ slug: p.slug, title: p.title, position: p.position, hidden: p.hidden, sections: p.sections, updatedAt: p.updatedAt });
+const present = (p: PageRow) => ({
+  slug: p.slug,
+  title: p.title,
+  position: p.position,
+  hidden: p.hidden,
+  parent: p.parent,
+  eyebrow: p.eyebrow,
+  lede: p.lede,
+  cover: p.cover,
+  icon: p.icon,
+  audience: p.audience,
+  tabs: p.tabs,
+  aliases: p.aliases,
+  sections: p.sections,
+  updatedAt: p.updatedAt,
+});
 export type BrandPage = ReturnType<typeof present>;
 
-/** A write's problems, all of them, as one error an agent can act on. */
-function refuse(errors: string[]) {
-  if (errors.length) throw new AssetError("invalid", errors.join("\n"));
-}
+/** Where a member reads the page in the app (D18): get_page and every write return it. */
+const readerUrl = (brand: string, page: string, context?: string) =>
+  `${env.APP_URL}/brand?${new URLSearchParams({ brand, page, ...(context && { context }), view: "read" })}`;
+
+const boundOf = (sections: Section[]) => new Set(sections.flatMap(boundKeys));
+
+/** Pages that name `slug` among their old slugs. */
+const aliasOf = (slug: string) => sql`${slug} = any(${brandPages.aliases})`;
 
 async function pageRow(tx: Tx | typeof db, brandId: string, slug: string) {
   const [p] = await tx
@@ -38,18 +74,25 @@ async function pageRow(tx: Tx | typeof db, brandId: string, slug: string) {
   return p;
 }
 
+/** No page `slug`; when it was renamed, the error says what it is called now, so an agent doesn't make it again. */
+async function noPage(brandId: string, brand: string, slug: string, then = "") {
+  const [now] = await db
+    .select({ slug: brandPages.slug })
+    .from(brandPages)
+    .where(and(eq(brandPages.brandId, brandId), aliasOf(slug)));
+  return new AssetError("not_found", now ? `No page "${slug}" in ${brand}: it is "${now.slug}" now` : `No page "${slug}" in ${brand}${then}`);
+}
+
 /**
- * What the library must have for these sections: the collections and saved
- * searches they draw from, their queries (parsed as the library parses them),
- * and the images they name.
+ * What the library must have for this page: the collections and saved
+ * searches its sections draw from, their queries (parsed as the library
+ * parses them), and every asset it names, cover to items.
  */
-async function checkRefs(caller: Caller, sections: Section[], prefix: string) {
+async function checkRefs(caller: Caller, page: { cover?: string | null; sections: Section[] }) {
   const errors: string[] = [];
-  const images = new Map<string, string>();
-  for (const [i, s] of sections.entries()) {
-    const at = `${prefix}[${i}].props`;
-    const p = s.props as { image?: string; collection?: string; search?: string; query?: string };
-    if (p.image) images.set(p.image, `${at}.image`);
+  for (const [i, s] of page.sections.entries()) {
+    const at = `sections[${i}].props`;
+    const p = s.props as { collection?: string; search?: string; query?: string };
     if (p.collection && !(await getCollection(caller, p.collection))) errors.push(`${at}.collection: no collection ${p.collection}`);
     if (p.search) {
       const [found] = await db
@@ -68,53 +111,96 @@ async function checkRefs(caller: Caller, sections: Section[], prefix: string) {
       }
     }
   }
-  if (images.size) {
+  const refs = assetRefs(page);
+  if (refs.length) {
     const found = await db
       .select({ id: assets.id })
       .from(assets)
-      .where(and(eq(assets.workspaceId, caller.workspace.id), isNull(assets.deletedAt), inArray(assets.id, [...images.keys()])));
-    for (const [id, at] of images) if (!found.some((f) => f.id === id)) errors.push(`${at}: no asset ${id}`);
+      .where(and(eq(assets.workspaceId, caller.workspace.id), isNull(assets.deletedAt), inArray(assets.id, [...new Set(refs.map((r) => r.id))])));
+    const live = new Set(found.map((f) => f.id));
+    for (const r of refs) if (!live.has(r.id)) errors.push(`${r.at}: no asset ${r.id}`);
   }
   return errors;
 }
 
-/** Every check a page's sections must pass before they are written. `had`: the keys the page bound before. */
-async function check(caller: Caller, brandSlug: string, sections: Section[], had: Set<string>, prefix = "sections") {
+/**
+ * Every check a page must pass before it is written. `had`: the keys the page
+ * bound before. Returns the brand's rules, for the page's warnings.
+ */
+async function check(caller: Caller, brandSlug: string, page: { cover?: string | null; sections: Section[] }, had: Set<string>) {
   const rules = await listRules(caller.workspace.id, { brand: brandSlug });
-  refuse([...checkBindings(sections, rules, had, prefix), ...(await checkRefs(caller, sections, prefix))]);
+  refuse([...checkBindings(page.sections, rules, had), ...(await checkRefs(caller, page))]);
+  return rules;
 }
 
-/** Put `slug` at `position` among the brand's pages, and number them all again from 0. */
-async function place(tx: Tx, brandId: string, slug: string, position: number | undefined) {
+/** What a reader would trip on in the page as written: links that go nowhere, keys with no rule. */
+async function warnings(tx: Tx, brandId: string, page: PageRow, rules: BrandRule[]) {
+  return pageWarnings(page, await tx.select().from(brandPages).where(eq(brandPages.brandId, brandId)), rules);
+}
+
+/** The page's own fields a save or a `page` op sets: left out keeps, null clears, and empty text is none. */
+const pageMeta = (m: Omit<PagePatch, "title" | "hidden" | "position" | "slug">) => ({
+  ...(m.parent !== undefined && { parent: m.parent }),
+  ...(m.eyebrow !== undefined && { eyebrow: m.eyebrow || null }),
+  ...(m.lede !== undefined && { lede: m.lede || null }),
+  ...(m.cover !== undefined && { cover: m.cover }),
+  ...(m.icon !== undefined && { icon: m.icon }),
+  ...(m.audience !== undefined && { audience: m.audience }),
+  ...(m.tabs !== undefined && { tabs: m.tabs }),
+});
+
+/** A slug a page takes is no longer another page's old name: links to it now reach the page that has it. */
+const takeSlug = (tx: Tx, brandId: string, slug: string) =>
+  tx
+    .update(brandPages)
+    .set({ aliases: sql`array_remove(${brandPages.aliases}, ${slug})` })
+    .where(and(eq(brandPages.brandId, brandId), aliasOf(slug)));
+
+/** Move `updatedAt` only when what the page says changed (1.2): saving it as it is, or moving it, is not a change. */
+async function touch(tx: Tx, before: PageRow, after: PageRow) {
+  const said = (p: PageRow) => canon({ ...toSnap(p), position: undefined, updatedAt: undefined });
+  if (said(before) !== said(after)) await tx.update(brandPages).set({ updatedAt: sql`now()` }).where(eq(brandPages.id, after.id));
+}
+
+/**
+ * Number the brand's pages again from 0, with `slug` put at `position`. No
+ * gaps, so saving a page as it is never moves the ones after it.
+ */
+async function place(tx: Tx, brandId: string, slug?: string, position?: number) {
   const rows = await tx.select({ id: brandPages.id, slug: brandPages.slug }).from(brandPages).where(eq(brandPages.brandId, brandId)).orderBy(...PAGE_ORDER);
-  const order = rows.filter((r) => r.slug !== slug);
-  const me = rows.find((r) => r.slug === slug)!;
-  order.splice(position === undefined ? rows.indexOf(me) : Math.min(position, order.length), 0, me);
+  const me = rows.find((r) => r.slug === slug);
+  const order = rows.filter((r) => r !== me);
+  if (me) order.splice(position === undefined ? rows.indexOf(me) : Math.min(position, order.length), 0, me);
   for (const [i, r] of order.entries()) await tx.update(brandPages).set({ position: i }).where(eq(brandPages.id, r.id));
 }
 
 // ---- reads ------------------------------------------------------------------
 
-/** A brand's pages in order, without their sections. */
+/** A brand's pages in order, with their tree fields and without their sections. */
 export async function listPages(ws: string, brandSlug?: string) {
   const brand = await resolveBrand(ws, brandSlug);
   const rows = await db.select().from(brandPages).where(eq(brandPages.brandId, brand.id)).orderBy(...PAGE_ORDER);
   return {
     brand: brand.slug,
-    pages: rows.map((p) => ({ slug: p.slug, title: p.title, position: p.position, hidden: p.hidden, sections: p.sections.length, updatedAt: p.updatedAt })),
+    pages: rows.map((p) => {
+      const { sections, ...rest } = present(p);
+      return { ...rest, sections: sections.length };
+    }),
   };
 }
 
 /**
  * One page with the rules its sections show, resolved for `context`, and as
- * Markdown. `missing`: keys a section binds whose rule has gone since.
+ * Markdown. A slug it had before a rename finds it too. `missing`: keys a
+ * section binds whose rule has gone since; `warnings`: what a reader would trip on.
  */
 export async function getPage(ws: string, brandSlug: string | undefined, slug: string, context?: string) {
   const brand = await resolveBrand(ws, brandSlug);
-  const p = await pageRow(db, brand.id, slug);
+  const pages = await db.select().from(brandPages).where(eq(brandPages.brandId, brand.id));
+  const p = pages.find((x) => x.slug === slug) ?? pages.find((x) => x.aliases.includes(slug));
   if (!p) throw new AssetError("not_found", `No page "${slug}" in ${brand.slug}`);
   const all = await listRules(ws, { brand: brand.slug });
-  const bound = new Set(p.sections.flatMap((s) => s.keys));
+  const bound = boundOf(p.sections);
   // listRules checks the context and resolves it; with none, the defaults.
   const rules = (context === undefined ? resolve(all, "") : await listRules(ws, { brand: brand.slug, context })).filter((r) => bound.has(r.key));
   return {
@@ -123,98 +209,132 @@ export async function getPage(ws: string, brandSlug: string | undefined, slug: s
     page: present(p),
     rules,
     missing: [...bound].filter((k) => !all.some((r) => r.key === k)),
+    warnings: pageWarnings(p, pages, all),
     markdown: pageMarkdown(p, rules),
+    url: readerUrl(brand.slug, p.slug, context),
   };
 }
 
 // ---- writes -----------------------------------------------------------------
 
 /**
- * Make a page, or replace one, whole: its title, place and every section, top
- * to bottom. Sections keep the ids they are given; new ones get one.
+ * Make a page, or replace one, whole: its title, place, page fields and every
+ * section, top to bottom. Sections keep the ids they are given; new ones get
+ * one. A page field left out keeps its value; null clears it.
  */
 export async function savePage(caller: Caller, brandSlug: string | undefined, slug: string, input: z.output<typeof PageInput>) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const named = pageSlug.safeParse(slug);
+  refuse(named.success ? [] : issues(named.error, "page"));
   const { sections, errors } = parseSections(input.sections);
   refuse(errors);
   const before = await pageRow(db, brand.id, slug);
-  await check(caller, brand.slug, sections, new Set(before?.sections.flatMap((s) => s.keys)));
+  const rules = await check(caller, brand.slug, { cover: input.cover, sections }, boundOf(before?.sections ?? []));
   return tracked(brand.id, caller.actor, [], async (tx) => {
     const now = await pageRow(tx, brand.id, slug);
-    const set = { title: input.title, sections, ...(input.hidden !== undefined && { hidden: input.hidden }) };
-    if (now) await tx.update(brandPages).set({ ...set, updatedAt: sql`now()` }).where(eq(brandPages.id, now.id));
-    else await tx.insert(brandPages).values({ brandId: brand.id, slug, position: 1e6, ...set });
+    const tree = await tx.select({ slug: brandPages.slug, parent: brandPages.parent }).from(brandPages).where(eq(brandPages.brandId, brand.id));
+    if (!now && tree.length >= MAX_PAGES) throw new AssetError("invalid", `${brand.slug} has ${MAX_PAGES} pages, the most a brand holds`);
+    const parent = input.parent !== undefined ? input.parent : (now?.parent ?? null);
+    refuse(checkTree([...tree.filter((p) => p.slug !== slug), { slug, parent }]));
+    const set = { title: input.title, sections, ...pageMeta(input), ...(input.hidden !== undefined && { hidden: input.hidden }) };
+    if (now) {
+      const [row] = await tx.update(brandPages).set(set).where(eq(brandPages.id, now.id)).returning();
+      await touch(tx, now, row);
+    } else {
+      await takeSlug(tx, brand.id, slug);
+      await tx.insert(brandPages).values({ brandId: brand.id, slug, position: 1e6, ...set });
+    }
     await place(tx, brand.id, slug, input.position);
-    return { brand: brand.slug, created: !now, page: present((await pageRow(tx, brand.id, slug))!) };
+    const page = (await pageRow(tx, brand.id, slug))!;
+    return { brand: brand.slug, created: !now, page: present(page), warnings: await warnings(tx, brand.id, page, rules), url: readerUrl(brand.slug, slug) };
   });
 }
 
-
 /**
- * Edit a page's sections an operation at a time, in order: add, update, move,
- * remove. All of them or none: the page is checked once, after the last.
+ * Edit a page an operation at a time, in order: add, update, move and remove
+ * sections, and `page` ops for its own fields. All of them or none: the page
+ * is checked once, after the last. A new slug renames it: the old one becomes
+ * an alias, and its child pages follow it.
  */
 export async function editPage(caller: Caller, brandSlug: string | undefined, slug: string, ops: PageOp[]) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
-  const before = await pageRow(db, brand.id, slug);
-  if (!before) throw new AssetError("not_found", `No page "${slug}" in ${brand.slug}; save_page makes one`);
-  const sections = [...before.sections];
-  const taken = new Set(sections.map((s) => s.id));
-  const errors: string[] = [];
-  const fresh = (ids: Set<string>) => {
-    let id = "";
-    do id = `s${Math.random().toString(36).slice(2, 10)}`;
-    while (ids.has(id));
-    return id;
-  };
-  const at = (id: string, i: number) => {
-    const n = sections.findIndex((s) => s.id === id);
-    if (n < 0) errors.push(`ops[${i}]: no section "${id}" on ${slug}; its sections are ${sections.map((s) => s.id).join(", ") || "none"}`);
-    return n;
-  };
-  /** Where "after" puts a section: null the top, undefined the end. */
-  const slot = (after: string | null | undefined, i: number) => (after === null ? 0 : after === undefined ? sections.length : at(after, i) + 1);
-  for (const [i, op] of ops.entries()) {
-    if (op.op === "add") {
-      if (op.section.id && taken.has(op.section.id)) errors.push(`ops[${i}].section.id: "${op.section.id}" is taken on ${slug}`);
-      // Parsed alone, so its new id is checked against the page's here.
-      const [made] = parseSections([op.section]).sections.map((x) => (op.section.id ? x : { ...x, id: fresh(taken) }));
-      const to = slot(op.after, i);
-      if (made) sections.splice(Math.max(to, 0), 0, made);
-      if (made) taken.add(made.id);
-    } else if (op.op === "update") {
-      const n = at(op.id, i);
-      if (n < 0) continue;
-      const { sections: made, errors: bad } = parseSections([{ ...sections[n], ...op.set, id: op.id }], `ops[${i}].set`);
-      errors.push(...bad.map((e) => e.replace(`ops[${i}].set[0]`, `ops[${i}].set`)));
-      if (made[0]) sections[n] = made[0];
-    } else if (op.op === "move") {
-      const n = at(op.id, i);
-      if (n < 0) continue;
-      const [s] = sections.splice(n, 1);
-      const to = slot(op.after, i);
-      sections.splice(Math.max(to, 0), 0, s);
-    } else {
-      const n = at(op.id, i);
-      if (n >= 0) sections.splice(n, 1);
-    }
+  // The checks read the library, so they run before the brand's lock is taken. An edit that lands
+  // in between would be written over: the ops are applied again to what it wrote instead.
+  for (let tries = 1; ; tries++) {
+    const out = await editOnce(caller, brand, slug, ops);
+    if (out) return out;
+    if (tries === 3) throw new AssetError("conflict", `${slug} kept changing while this edit was checked; send it again`);
   }
+}
+
+/** One try at editPage; null when the page's sections changed after they were read. */
+async function editOnce(caller: Caller, brand: Brand, slug: string, ops: PageOp[]) {
+  const before = await pageRow(db, brand.id, slug);
+  if (!before) throw await noPage(brand.id, brand.slug, slug, "; save_page makes one");
+  const { sections, page: patch, errors } = applyOps(before.sections, ops, slug);
   refuse(errors);
-  await check(caller, brand.slug, sections, new Set(before.sections.flatMap((s) => s.keys)));
+  const rules = await check(caller, brand.slug, { cover: patch.cover, sections }, boundOf(before.sections));
+  const to = patch.slug ?? slug;
   return tracked(brand.id, caller.actor, [], async (tx) => {
-    const [row] = await tx.update(brandPages).set({ sections, updatedAt: sql`now()` }).where(eq(brandPages.id, before.id)).returning();
-    return { brand: brand.slug, page: present(row) };
+    const now = await pageRow(tx, brand.id, slug);
+    // Gone or renamed since: the next try's read says which.
+    if (!now || canon(now.sections) !== canon(before.sections)) return null;
+    const tree = await tx.select({ slug: brandPages.slug, parent: brandPages.parent }).from(brandPages).where(eq(brandPages.brandId, brand.id));
+    if (to !== slug && tree.some((p) => p.slug === to)) throw new AssetError("conflict", `A page "${to}" exists in ${brand.slug}`);
+    // The tree as it will stand: this page renamed and moved, its children under its new slug.
+    refuse(
+      checkTree(
+        tree.map((p) =>
+          p.slug === slug ? { slug: to, parent: patch.parent !== undefined ? patch.parent : p.parent } : { slug: p.slug, parent: p.parent === slug ? to : p.parent },
+        ),
+      ),
+    );
+    if (to !== slug) {
+      await takeSlug(tx, brand.id, to);
+      await tx
+        .update(brandPages)
+        .set({ parent: to })
+        .where(and(eq(brandPages.brandId, brand.id), eq(brandPages.parent, slug)));
+    }
+    const [row] = await tx
+      .update(brandPages)
+      .set({
+        sections,
+        ...(patch.title !== undefined && { title: patch.title }),
+        ...(patch.hidden !== undefined && { hidden: patch.hidden }),
+        ...pageMeta(patch),
+        // The newest 20 old slugs keep working.
+        ...(to !== slug && { slug: to, aliases: [...new Set([...now.aliases, slug])].filter((a) => a !== to).slice(-20) }),
+      })
+      .where(eq(brandPages.id, now.id))
+      .returning();
+    await touch(tx, now, row);
+    if (patch.position !== undefined) await place(tx, brand.id, to, patch.position);
+    const page = (await pageRow(tx, brand.id, to))!;
+    return { brand: brand.slug, page: present(page), warnings: await warnings(tx, brand.id, page, rules), url: readerUrl(brand.slug, to) };
   });
 }
 
+/** Delete a page. One with pages under it stays until they are moved or deleted: a tree never loses a branch silently. */
 export async function deletePage(caller: Caller, brandSlug: string | undefined, slug: string) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
   return tracked(brand.id, caller.actor, [], async (tx) => {
+    const children = await tx
+      .select({ slug: brandPages.slug })
+      .from(brandPages)
+      .where(and(eq(brandPages.brandId, brand.id), eq(brandPages.parent, slug)))
+      .orderBy(...PAGE_ORDER);
+    if (children.length) {
+      const n = children.length === 1 ? "its page" : `its ${children.length} pages`;
+      throw new AssetError("conflict", `${slug} has pages under it (${children.map((c) => c.slug).join(", ")}): move or delete ${n} first`);
+    }
     const gone = await tx
       .delete(brandPages)
       .where(and(eq(brandPages.brandId, brand.id), eq(brandPages.slug, slug)))
       .returning();
-    if (!gone.length) throw new AssetError("not_found", `No page "${slug}" in ${brand.slug}`);
+    if (!gone.length) throw await noPage(brand.id, brand.slug, slug);
+    // Close the gap now, in this version, rather than in the next save's.
+    await place(tx, brand.id);
     return { brand: brand.slug, deleted: slug };
   });
 }

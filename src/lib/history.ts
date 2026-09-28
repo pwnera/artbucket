@@ -1,4 +1,4 @@
-import type { RuleAsset, RuleType, RuleValue } from "./rules.ts";
+import type { RuleAsset, RuleSpec, RuleType, RuleValue } from "./rules.ts";
 
 /**
  * A brand's history, Google Docs style: every change lands in a version that
@@ -18,6 +18,9 @@ export type SnapRule = {
   usage: string | null;
   position: number;
   assets: RuleAsset[];
+  /** Kept only when set, so versions from before labels and specs read the same. */
+  label?: string | null;
+  spec?: RuleSpec | null;
 };
 
 export type VersionKind = "baseline" | "edit" | "restore";
@@ -47,7 +50,7 @@ export function extendsLatest(
   );
 }
 
-export type FieldChange = { field: "type" | "value" | "usage" | "assets"; before: unknown; after: unknown };
+export type FieldChange = { field: "type" | "label" | "value" | "spec" | "usage" | "assets"; before: unknown; after: unknown };
 
 export type RuleChange =
   | { change: "added"; key: string; context: string | null; after: SnapRule }
@@ -85,9 +88,10 @@ export function diffRules(before: SnapRule[], after: SnapRule[]): RuleChange[] {
       out.push({ change: "added", ...where, after: r });
       continue;
     }
-    const fields = (["type", "value", "usage", "assets"] as const)
-      .filter((f) => !same(old[f], r[f]))
-      .map((f) => ({ field: f, before: old[f], after: r[f] }));
+    // Missing reads as null: a snapshot leaves out an unset label or spec.
+    const fields = (["type", "label", "value", "spec", "usage", "assets"] as const)
+      .filter((f) => !same(old[f] ?? null, r[f] ?? null))
+      .map((f) => ({ field: f, before: old[f] ?? null, after: r[f] ?? null }));
     const moved = rankBefore.get(r.key) !== rankAfter.get(r.key);
     if (fields.length) out.push({ change: "changed", ...where, fields, moved });
     else if (moved) out.push({ change: "moved", ...where });
@@ -100,7 +104,7 @@ export function diffRules(before: SnapRule[], after: SnapRule[]): RuleChange[] {
 export function summarize(changed: string[]) {
   if (!changed.length) return "No changes";
   const [first, ...rest] = changed;
-  // Pages are named "page:logo" (lib/pages.ts changedPages).
-  const name = first.startsWith("page:") ? `the ${first.slice(5)} page` : first;
+  // Pages are named "page:logo" (lib/pages.ts changedPages); the theme is "theme".
+  const name = first === "theme" ? "the theme" : first.startsWith("page:") ? `the ${first.slice(5)} page` : first;
   return `Edited ${name}${rest.length ? ` and ${rest.length} more` : ""}`;
 }

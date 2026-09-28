@@ -61,6 +61,9 @@ export type Rule = {
   usage: string | null;
   /** In order. */
   assets: RuleAsset[];
+  /** The heading readers see; `ruleName` falls back to the key in words. */
+  label?: string | null;
+  spec?: RuleSpec | null;
   updatedAt?: string;
 };
 
@@ -86,6 +89,80 @@ export const RULE_VALUE = {
   font: z.union([z.string().trim().min(1).max(120).transform((family) => ({ family })), FONT_VALUE]),
 } satisfies Record<RuleType, z.ZodType>;
 
+export const UNITS = ["px", "pt", "mm", "cm", "in", "%", "em", "rem", "x", "ms"] as const;
+const pct = z.number().min(0).max(100);
+const byte = z.number().int().min(0).max(255);
+const em = z.number().min(-0.2).max(1);
+
+/**
+ * What a book says about a rule beyond its value: a color's print values and
+ * gradient, a number's unit, a face's role and setting. A gradient is a color
+ * rule (D3): v1 readers keep its value as a usable solid.
+ */
+export const COLOR_SPEC = z.strictObject({
+  token: z.string().trim().max(60).optional().describe("A scale name beside the brand name: Pink-500"),
+  group: z.string().trim().max(60).optional().describe("Primary, Secondary, Neutrals: palettes group by it"),
+  weight: pct.optional().describe("Its share of the brand's color, for the proportion bar"),
+  pair: ruleKey.optional().describe("The color set on it: text on this ground, or its light partner"),
+  tints: z.array(z.number().int().min(1).max(99)).max(12).optional().describe("Tint steps in percent: [80, 60, 40, 20]"),
+  cmyk: z.tuple([pct, pct, pct, pct]).optional(),
+  pantone: z.array(z.string().trim().min(1).max(40)).max(4).optional().describe("Free codes, coated and uncoated: 485 C, 485 U"),
+  ral: z.string().trim().max(20).optional(),
+  rgb: z.tuple([byte, byte, byte]).optional().describe("When the book states it rather than deriving it from the hex"),
+  print: z.enum(["specified", "converted"]).optional().describe("Whether the print values were given or converted"),
+  texture: z.uuid().optional().describe("An image laid over the swatch"),
+  gradient: z
+    .strictObject({
+      kind: z.enum(["linear", "radial", "conic"]).optional(),
+      angle: z.number().min(0).max(360).optional(),
+      stops: z
+        .array(
+          z.strictObject({
+            color: z.union([ruleKey, RULE_VALUE.color]).describe("A color rule's key, or a hex"),
+            at: pct.optional(),
+            opacity: z.number().min(0).max(1).optional(),
+          }),
+        )
+        .min(2)
+        .max(8),
+    })
+    .optional()
+    .describe("Makes the rule a gradient; its value is the solid to use where a gradient can't go"),
+});
+export const NUMBER_SPEC = z.strictObject({
+  unit: z.enum(UNITS).optional(),
+  of: z.string().trim().max(80).optional().describe("What x or % is of: the mark's height"),
+  // A value per medium is a context version of the same key (context "print").
+});
+export const FONT_SPEC = z.strictObject({
+  role: z.enum(["display", "headline", "subhead", "body", "label", "button", "caption", "code"]).optional(),
+  lineHeight: z.number().min(0.5).max(3).optional(),
+  tracking: z
+    .union([em, z.array(z.tuple([z.number().positive(), em])).max(12)])
+    .optional()
+    .describe("In em, or [size, em] pairs by size"),
+  case: z.enum(["none", "upper", "lower", "title", "small-caps"]).optional(),
+  script: z.string().regex(/^[A-Z][a-z]{3}$/).optional().describe("ISO 15924: Latn, Arab"),
+  features: z.array(z.string().regex(/^[a-z0-9]{4}$/)).max(20).optional().describe("OpenType features on: ss01, tnum"),
+  source: z.enum(["files", "google", "adobe", "system", "other"]).optional(),
+  // Readers get it as a link: http(s) only, so no javascript: or data: reaches an href.
+  url: z.url({ protocol: /^https?$/ }).max(500).optional().describe("Where the family comes from, or its license"),
+  license: z.string().trim().max(300).optional(),
+  fallback: z.string().trim().max(200).optional().describe("A CSS stack: Georgia, serif"),
+  // Hides the buttons only: @font-face still serves the files, or readers would not see the face.
+  download: z.boolean().optional().describe("false: readers see the face but get no files"),
+});
+export const RULE_SPEC = { color: COLOR_SPEC, number: NUMBER_SPEC, font: FONT_SPEC } as const; // W7 adds text: { copy, max }
+export type RuleSpec = z.output<(typeof RULE_SPEC)[keyof typeof RULE_SPEC]>;
+
+const label = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .nullable()
+  .optional()
+  .describe("The heading readers see; from the key when left out");
 const usage = z.string().trim().max(10000).nullable().optional().describe("How and when to use it, in Markdown (GFM)");
 /** A rendition spec, stored in canonical order so the same size reads the same. */
 export const rendition = z
@@ -109,19 +186,22 @@ const assets = z
 const context = ruleContext.nullable().optional().describe("Only in this context; omit for the default");
 
 const rule = <T extends RuleType>(type: T) =>
-  z.strictObject({ key: ruleKey, context, type: z.literal(type), value: RULE_VALUE[type], usage, assets });
+  z.strictObject({ key: ruleKey, label, context, type: z.literal(type), value: RULE_VALUE[type], usage, assets });
+const spec = <S extends z.ZodType>(s: S) => s.nullable().optional().describe("Details beyond the value; null clears");
 export const RuleInput = z.discriminatedUnion("type", [
-  rule("color"),
+  rule("color").extend({ spec: spec(RULE_SPEC.color) }),
   rule("text"),
-  rule("number"),
+  rule("number").extend({ spec: spec(RULE_SPEC.number) }),
   rule("list"),
-  rule("font"),
+  rule("font").extend({ spec: spec(RULE_SPEC.font) }),
 ]);
 export type RuleInput = z.infer<typeof RuleInput>;
 
 export const RulePatch = z.strictObject({
   key: ruleKey.optional().describe("Renames the rule and its context versions, which share a key"),
+  label,
   value: z.unknown().optional().describe("Checked against the rule's type, which never changes"),
+  spec: z.unknown().optional().describe("Checked against the rule's type, like value; null clears"),
   usage,
   context,
   assets,
@@ -154,6 +234,38 @@ export const ruleLabel = (key: string) => {
   const words = rest.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
   return words[0].toUpperCase() + words.slice(1);
 };
+
+/** The heading a rule reads under: its label, else its key in words. */
+export const ruleName = (r: { key: string; label?: string | null }) => r.label ?? ruleLabel(r.key);
+
+// Only a color spec names rules or assets, and no other spec shares its fields, so any spec reads as one.
+const colorSpec = (spec: RuleSpec | null | undefined) => (spec ?? {}) as z.output<typeof COLOR_SPEC>;
+
+/** The rules a spec names, its pair then its gradient stops: each must be a color rule of the brand. */
+export function specKeys(spec: RuleSpec | null | undefined): string[] {
+  const { pair, gradient } = colorSpec(spec);
+  const stops = (gradient?.stops ?? []).map((s) => s.color).filter((c) => !c.startsWith("#"));
+  return [...new Set([...(pair ? [pair] : []), ...stops])];
+}
+
+/** The assets a spec names: a color's texture. */
+export function specAssets(spec: RuleSpec | null | undefined): string[] {
+  const { texture } = colorSpec(spec);
+  return texture ? [texture] : [];
+}
+
+/** The spec with rule `from` renamed `to`, so a rename never orphans a pair or a stop; null when it names no `from`. */
+export function renameInSpec(spec: RuleSpec, from: string, to: string): RuleSpec | null {
+  if (!specKeys(spec).includes(from)) return null;
+  const c = colorSpec(spec);
+  return {
+    ...c,
+    ...(c.pair === from && { pair: to }),
+    ...(c.gradient && {
+      gradient: { ...c.gradient, stops: c.gradient.stops.map((s) => (s.color === from ? { ...s, color: to } : s)) },
+    }),
+  };
+}
 
 /** `dark-background` as a person reads it: "Dark background". The slug stays in URLs and the API. */
 export const contextLabel = (context: string) => {

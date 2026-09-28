@@ -64,6 +64,28 @@ test("asset and rendition changes are changes", () => {
   assert.ok(d[0].change === "changed" && d[0].fields[0].field === "assets");
 });
 
+test("a label-only and a spec-only change are changes", () => {
+  const color = (over: Partial<SnapRule> = {}) => rule("color.primary", { type: "color", value: "#e6007e", ...over });
+  const label = diffRules([color()], [color({ label: "Pink" })]);
+  assert.deepEqual(label, [
+    {
+      change: "changed",
+      key: "color.primary",
+      context: null,
+      fields: [{ field: "label", before: null, after: "Pink" }],
+      moved: false,
+    },
+  ]);
+  const spec = diffRules([color({ spec: { token: "Pink-500" } })], [color({ spec: { token: "Pink-600" } })]);
+  assert.ok(spec[0].change === "changed");
+  assert.deepEqual(spec[0].fields, [{ field: "spec", before: { token: "Pink-500" }, after: { token: "Pink-600" } }]);
+});
+
+test("a null label or spec is the same as none", () => {
+  assert.deepEqual(diffRules([rule("a.b")], [rule("a.b", { label: null, spec: null })]), []);
+  assert.deepEqual(diffRules([rule("a.b", { spec: null })], [rule("a.b")]), []);
+});
+
 test("identical sets have no diff", () => {
   assert.deepEqual(diffRules([rule("a.b")], [rule("a.b")]), []);
 });
@@ -86,4 +108,6 @@ test("summaries", () => {
   assert.equal(summarize([]), "No changes");
   assert.equal(summarize(["color.primary"]), "Edited color.primary");
   assert.equal(summarize(["color.primary", "tone.voice", "logo.size"]), "Edited color.primary and 2 more");
+  assert.equal(summarize(["page:logo"]), "Edited the logo page");
+  assert.equal(summarize(["theme", "color.primary"]), "Edited the theme and 1 more");
 });

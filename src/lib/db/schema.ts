@@ -20,10 +20,12 @@ import {
 import type { C2pa } from "@/lib/c2pa";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
+import type { ThemeSettings } from "@/lib/brand-theme";
+import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
-import type { Section, SnapPage } from "@/lib/pages";
+import type { Audience, Section, SnapPage } from "@/lib/pages";
 import type { Origin, Rights } from "@/lib/rights";
-import type { RuleType, RuleValue } from "@/lib/rules";
+import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import type { Ability, Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
@@ -292,6 +294,8 @@ export const brands = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
+    /** How its pages look (lib/brand-theme.ts ThemeSettings): only what was set, the rest read from the rules. */
+    theme: jsonb("theme").$type<ThemeSettings>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -317,7 +321,11 @@ export const brandRules = pgTable(
     key: text("key").notNull(),
     context: text("context"),
     type: text("type").$type<RuleType>().notNull(),
+    /** The heading readers see; null reads the key in words. Keys never change with it. */
+    label: text("label"),
     value: jsonb("value").$type<RuleValue>().notNull(),
+    /** Details beyond the value, checked against `type` (lib/rules.ts RULE_SPEC). */
+    spec: jsonb("spec").$type<RuleSpec>(),
     usage: text("usage"),
     /** Order on the page. Shared by a key's context versions, so they move together. */
     position: integer("position").notNull().default(0),
@@ -380,9 +388,14 @@ export const brandVersions = pgTable(
     snapshot: jsonb("snapshot").$type<SnapRule[]>().notNull(),
     /** The brand's pages as they stood; null in versions from before pages, which a restore leaves alone. */
     pages: jsonb("pages").$type<SnapPage[]>(),
+    /** The brand's theme settings; null in versions from before themes, which a restore leaves alone. */
+    theme: jsonb("theme").$type<ThemeSettings>(),
     /** Set when this version was published: portals show it, and later edits start a new version. */
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by"),
+    /** What the publish said, for readers' "what's new", and a picture with it. */
+    note: text("note"),
+    noteImage: uuid("note_image"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -413,14 +426,29 @@ export const brandPages = pgTable(
     position: integer("position").notNull().default(0),
     hidden: boolean("hidden").notNull().default(false),
     sections: jsonb("sections").$type<Section[]>().notNull().default([]),
+    /** The page it sits under, by slug: ids change on every restore (core/page-store.ts writePages). */
+    parent: text("parent"),
+    eyebrow: text("eyebrow"),
+    lede: text("lede"),
+    /** No foreign key: a restored snapshot can name an asset purged since, and reads leave it out. */
+    cover: uuid("cover"),
+    icon: text("icon").$type<CollectionIcon>(),
+    audience: text("audience").$type<Audience>().notNull().default("everyone"),
+    tabs: boolean("tabs").notNull().default(false),
+    /** Slugs it had before a rename, so old links keep working. */
+    aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
+    /** The last change to what it says, not to where it sits. */
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
   },
-  (t) => [unique("brand_pages_brand_slug_unique").on(t.brandId, t.slug)],
+  (t) => [
+    unique("brand_pages_brand_slug_unique").on(t.brandId, t.slug),
+    check("brand_pages_audience_check", sql`${t.audience} in ('everyone', 'partners', 'members')`),
+  ],
 );
 
 export type ActivityVerb =

@@ -1,3 +1,4 @@
+import { fontRoles } from "./brand-theme.ts";
 import { inkOn, rgb } from "./color.ts";
 import { fontStyle, isFont } from "./font.ts";
 import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
@@ -15,7 +16,7 @@ import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets">;
+export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets" | "spec">;
 type Opts = { origin: string; title: string };
 
 /** `logo.minClearSpace` is `--logo-min-clear-space`. */
@@ -50,12 +51,10 @@ const js = (o: unknown) => JSON.stringify(o, null, 2).replace(/^(\s*)"([A-Za-z_$
 
 const fonts = (rules: TokenRule[]) => rules.filter((r) => r.type === "font");
 const last = (key: string) => key.split(".").pop()!;
-/** The brand's body and heading faces, by name where they say so; the first font otherwise. */
+/** The brand's body and heading faces as its pages set them (fontRoles), and a mono face by name. */
 function roles(rules: TokenRule[]) {
-  const fs = fonts(rules);
-  const body = fs.find((f) => /body|text|base|sans|copy|regular/i.test(last(f.key))) ?? fs[0];
-  const heading = fs.find((f) => f !== body && /head|display|title/i.test(last(f.key)));
-  const mono = fs.find((f) => /mono|code/i.test(last(f.key)));
+  const { head: heading, body } = fontRoles(rules);
+  const mono = fonts(rules).find((f) => /mono|code/i.test(last(f.key)));
   return { body, heading, mono };
 }
 

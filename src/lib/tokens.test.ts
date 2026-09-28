@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { brandTheme } from "./brand-theme.ts";
+import type { RuleSpec } from "./rules.ts";
 import { toCss, toDtcg, TOKEN_FORMATS, type TokenRule } from "./tokens.ts";
 
 const file = (id: string, filename: string) => ({ id, rendition: null, filename, mime: "font/ttf" });
@@ -106,4 +108,27 @@ test("Every format renders, and none carries guidance", () => {
     assert.ok(out.length > 0, id);
     assert.ok(!out.includes("Hype"), `${id} leaks a do/don't list`);
   }
+});
+
+test("Tokens name the faces the page is set in", () => {
+  const font = (key: string, family: string, spec?: RuleSpec) =>
+    ({ key, type: "font", value: { family }, usage: null, assets: [], context: null, spec }) as TokenRule & { context: null };
+  const fixtures = {
+    named: [font("type.primary", "Inter"), font("type.heading", "Space Grotesk")],
+    roles: [font("type.heading", "Inter", { role: "body" }), font("type.feature", "Canela", { role: "headline" }), font("type.code", "JetBrains Mono")],
+    first: [font("type.sans", "Inter"), font("type.heading", "Space Grotesk"), font("type.serif", "Tiempos")],
+    headFirst: [font("type.heading", "Space Grotesk"), font("type.sans", "Inter")],
+    unnamed: [font("type.heading", "Space Grotesk"), font("type.code", "JetBrains Mono"), font("type.mainText", "Inter")],
+  };
+  for (const [name, rules] of Object.entries(fixtures)) {
+    const page = brandTheme(rules);
+    const css = TOKEN_FORMATS.shadcn.render(rules, OPTS);
+    const mui = TOKEN_FORMATS.mui.render(rules, OPTS);
+    has(css, [`--font-sans: "${page.body?.family}";`, `--font-heading: "${page.head?.family}";`]);
+    has(mui, [`fontFamily: "\\"${page.body?.family}\\", sans-serif"`, `h1: {\n      fontFamily: "\\"${page.head?.family}\\", sans-serif"`]);
+    assert.notEqual(page.head?.family, page.body?.family, name);
+  }
+  // Heading listed first: text is the other face, and never a code face.
+  assert.equal(brandTheme(fixtures.headFirst).body?.family, "Inter");
+  assert.equal(brandTheme(fixtures.unnamed).body?.family, "Inter");
 });

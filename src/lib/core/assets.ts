@@ -680,6 +680,8 @@ export type AssetPatch = {
   private?: boolean;
   /** Served at /a/{id} to anyone while it may be used. Takes share on it. */
   public?: boolean;
+  /** Where crops keep, 0 to 1 from the top left; null clears it. */
+  focus?: { x: number; y: number } | null;
 } & Provenance & { [K in (typeof EDITABLE)[number]]?: string | null };
 
 /**
@@ -704,6 +706,7 @@ export async function updateAsset(
     supersededBy,
     private: hidden,
     public: open,
+    focus,
     ...fields
   }: AssetPatch,
 ): Promise<Asset | null> {
@@ -716,7 +719,7 @@ export async function updateAsset(
   const action = reviewing ? "asset.review" : "asset.edit";
   const publishing = open !== undefined && open !== current.public;
   // Making it public is sharing it; on its own, that is all it takes.
-  const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, ...fields });
+  const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, focus, ...fields });
   if (others.some(([, v]) => v !== undefined) && !can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
   if (publishing && !can(caller, "asset.share", current)) throw new AssetError("forbidden", `Making it public takes ${needs("asset.share")}`);
   const ws = caller.workspace.id;
@@ -762,10 +765,12 @@ export async function updateAsset(
       });
     }
   }
-  if (Object.keys(fields).length) {
-    const clean = Object.fromEntries(
-      Object.entries(fields).map(([k, v]) => [k, v?.trim() || null]),
-    );
+  // The focal point sits with the words a person wrote about it: metadata, merged the same way.
+  const clean = {
+    ...Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v?.trim() || null])),
+    ...(focus !== undefined && { focus }),
+  };
+  if (Object.keys(clean).length) {
     set.metadata = sql`jsonb_strip_nulls(coalesce(${assets.metadata}, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb)`;
   }
   if (!Object.keys(set).length) return current;
@@ -888,6 +893,8 @@ export function describeAsset(asset: Asset) {
     description: m.description ?? null,
     creator: m.creator ?? null,
     copyright: m.copyright ?? null,
+    /** Where crops keep, 0 to 1 from the top left; null for the center. */
+    focus: m.focus ?? null,
     tags: asset.tags,
     fields: { ...asset.inherited, ...asset.fields },
     collections: asset.collections,

@@ -11,7 +11,8 @@ insert into users (id, name, email, email_verified) values
 insert into organizations (id, slug, name) values ('00000000-0000-4000-8000-000000000001', 'fixture', 'Fixture');
 insert into workspaces (id, organization_id, slug, name) values
   ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'library', 'Library');
-insert into brands (workspace_id, slug, name, is_default) values ('00000000-0000-4000-8000-000000000002', 'default', 'Fixture', true);
+insert into brands (id, workspace_id, slug, name, is_default, theme) values
+  ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'default', 'Fixture', true, '{"accent": "color.primary", "body": "type.body", "radius": 8}');
 
 insert into grants (user_id, organization_id, workspace_id, resource, resource_id, scope) values
   ('fixture-ada', '00000000-0000-4000-8000-000000000001', null, 'organization', '00000000-0000-4000-8000-000000000001', 'admin'),
@@ -57,3 +58,22 @@ insert into domains (host, organization_id, portal_id, token, verified_at) value
   ('assets.fixture.test', '00000000-0000-4000-8000-000000000001', null, 'artbucket-fixture-app', now());
 
 insert into instance (id) values ('00000000-0000-4000-8000-000000000050');
+
+insert into brand_rules (brand_id, key, label, context, type, value, spec, usage, position) values
+  ('00000000-0000-4000-8000-000000000004', 'color.primary', 'Fixture orange', null, 'color', '"#ff7a00"', '{"pair": "color.ink", "cmyk": [0, 52, 100, 0], "pantone": ["1505 C"]}', 'Links and marks.', 0),
+  ('00000000-0000-4000-8000-000000000004', 'color.primary', null, 'dark-background', 'color', '"#ff9a40"', null, null, 0),
+  ('00000000-0000-4000-8000-000000000004', 'color.ink', null, null, 'color', '"#111111"', null, null, 1),
+  ('00000000-0000-4000-8000-000000000004', 'type.body', null, null, 'font', '{"family": "Inter", "weight": 400}', '{"role": "body", "lineHeight": 1.5}', null, 2);
+insert into brand_pages (brand_id, slug, title, position, hidden, sections, parent, eyebrow, lede, cover, icon, audience, tabs, aliases) values
+  ('00000000-0000-4000-8000-000000000004', 'color', 'Color', 0, false,
+   '[{"id": "palette", "template": "palette", "title": "Palette", "body": "", "width": "wide", "columns": 3, "tone": "plain", "hidden": false, "keys": ["color.primary", "color.ink"], "props": {}}]',
+   null, '01', 'Orange leads.', '00000000-0000-4000-8000-000000000011', 'palette', 'everyone', true, '{colours}'),
+  ('00000000-0000-4000-8000-000000000004', 'print', 'Print', 1, true, '[]', 'color', null, null, null, null, 'partners', false, '{}');
+-- Version 1 is from before pages and themes (both null); version 2 carries both, published with a note.
+insert into brand_versions (brand_id, number, kind, actor, changed, snapshot, pages, theme, published_at, published_by, note, note_image) values
+  ('00000000-0000-4000-8000-000000000004', 1, 'baseline', 'artbucket', '[]', '[]', null, null, null, null, null, null),
+  ('00000000-0000-4000-8000-000000000004', 2, 'edit', 'Ada', '["color.primary", "page:color", "theme"]',
+   '[{"key": "color.primary", "context": null, "type": "color", "value": "#ff7a00", "usage": "Links and marks.", "position": 0, "assets": [], "label": "Fixture orange", "spec": {"pair": "color.ink"}}, {"key": "color.ink", "context": null, "type": "color", "value": "#111111", "usage": null, "position": 1, "assets": []}]',
+   '[{"slug": "color", "title": "Color", "position": 0, "hidden": false, "sections": [], "eyebrow": "01", "tabs": true, "aliases": ["colours"], "updatedAt": "2026-09-01T10:00:00.000Z"}]',
+   '{"accent": "color.primary"}', now(), 'Ada', 'Orange leads now.', '00000000-0000-4000-8000-000000000011');
+insert into portal_brands (portal_id, brand_id, position) values ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000004', 0);
