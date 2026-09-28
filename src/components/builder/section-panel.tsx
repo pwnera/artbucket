@@ -19,7 +19,8 @@ import {
 import { starter } from "@/components/builder/seam";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import { Thumb } from "@/components/thumb";
-import type { BuilderApi } from "@/components/builder/use-builder";
+import type { BuilderApi, Dock } from "@/components/builder/use-builder";
+import { ThemeEditor } from "@/components/theme-panel";
 import { useSite } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,6 +43,8 @@ import { cn } from "@/lib/utils";
  * (every prop in TEMPLATE_PROPS, through lib/template-fields.ts), the
  * rules it shows, the item a right click asked for, and where it shows.
  * "Add" holds the blocks and the rules, to drag onto the canvas or click in.
+ * "Theme" is the brand's look (theme-panel.tsx ThemeEditor), beside the page
+ * so each change shows on it at once.
  * Every change is b.apply of a `page` op, tried first so a refusal shows by
  * its field instead of in a toast. The canvas draws it inside its
  * SiteProvider and EditContext, which the ground and rules pickers read.
@@ -59,7 +62,7 @@ export function SectionPanel({ b }: SectionPanelProps) {
   const tab = b.dock ?? "section";
   return (
     <aside
-      aria-label={tab === "section" ? "Section settings" : "Add to the page"}
+      aria-label={tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : "Theme"}
       className="app-tokens bg-background text-foreground sticky top-12 flex h-[calc(100dvh-3rem)] w-80 shrink-0 flex-col border-s font-sans"
     >
       <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2">
@@ -68,17 +71,28 @@ export function SectionPanel({ b }: SectionPanelProps) {
           size="sm"
           variant="outline"
           value={tab}
-          onValueChange={(v) => v && b.setDock(v as "section" | "insert")}
+          onValueChange={(v) => v && b.setDock(v as Dock)}
           aria-label="Panel"
         >
           <ToggleGroupItem value="section">Section</ToggleGroupItem>
           <ToggleGroupItem value="insert">Add</ToggleGroupItem>
+          <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
         </ToggleGroup>
         <Button variant="ghost" size="icon-sm" className="ms-auto" aria-label="Close the panel" title="Close" onClick={() => b.setDock(null)}>
           <IconX />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">{tab === "section" ? <Settings b={b} /> : <Insert b={b} />}</div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {tab === "section" ? (
+          <Settings b={b} />
+        ) : tab === "insert" ? (
+          <Insert b={b} />
+        ) : (
+          <div className="px-3 py-4">
+            <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

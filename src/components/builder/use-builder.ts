@@ -27,6 +27,8 @@ import {
   targetOf,
   travel,
 } from "@/lib/builder-ops";
+import { useStatus } from "@/components/builder/use-status";
+import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
@@ -49,10 +51,10 @@ export type Transport = (method: string, url: string, body?: unknown) => Promise
 const network: Transport = (method, url, body) => sendResult(method, url, body, { quiet: true });
 
 /** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
-export type Panel = "theme" | "rules" | "history" | "tokens" | "publish" | null;
+export type Panel = "rules" | "history" | "tokens" | "publish" | null;
 
-/** The panel docked beside the canvas, which never covers it: the picked section's settings, or blocks and rules to drag in. */
-export type Dock = "section" | "insert" | null;
+/** The panel docked beside the canvas, which never covers it: the picked section's settings, blocks and rules to drag in, or the theme, so the page re-themes in view. */
+export type Dock = "section" | "insert" | "theme" | null;
 
 /** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
 export const CLIP = "artbucket/section";
@@ -69,6 +71,8 @@ export function unclip(text: string): Record<string, unknown> | null {
 }
 
 const SAVE = "builder-save";
+/** Where the page list's open or closed is remembered. */
+const PAGES = "artbucket:builder-pages";
 
 /** The last section copied from a menu, for a paste the clipboard won't give back (permission refused). */
 let copied: string | null = null;
@@ -80,6 +84,11 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [dock, setDock] = useState<Dock>(null);
   // The item the section panel sets up, by its section and index: a right click's "Item settings".
   const [item, setItem] = useState<{ section: string; i: number } | null>(null);
+  // The page list beside the canvas: open unless the person closed it in this browser.
+  const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
+  // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
+  const [pageSettings, setPageSettings] = useState<string | null>(null);
+  const { status, refresh: refreshStatus } = useStatus(brand, transport);
   // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
   const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
   useEffect(() => {
@@ -372,6 +381,14 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     setDock,
     item,
     setItem,
+    /** Whether the page list shows beside the canvas. */
+    pagesOpen,
+    setPagesOpen,
+    pageSettings,
+    setPageSettings,
+    /** The launch checklist and whether readers see the latest (use-status.ts); null until read. */
+    status,
+    refreshStatus,
     /** The pages that show a rule, for a rule card's "Shown on". */
     shownOn: (key: string) => shownOn(state, key),
     /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. */

@@ -3,17 +3,20 @@
 import { useMemo, useRef, useState } from "react";
 import {
   IconAdjustmentsHorizontal,
-  IconChevronDown,
+  IconChevronRight,
   IconDots,
   IconEye,
   IconEyeOff,
   IconGripVertical,
-  IconListTree,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconPencil,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
 import { endDrag, payloadOf } from "@/components/builder/drag";
 import type { BuilderApi } from "@/components/builder/use-builder";
+import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -29,20 +32,23 @@ import { type NavNode, trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
- * Page tabs over the tree (build spec 3.5.3, W6.3), in the top bar: a
- * dropdown per chapter, b.state.nav with hidden pages marked; a click is
- * b.open; double-click renames the title; Details sets the slug (a `page`
- * op, which leaves an alias), layout (Book or Landing), audience and tabs.
- * The tree itself sits behind the first button: drag a row onto another to
- * nest it (its top or bottom edge to put it beside), or from the keyboard
- * pick it up by its handle, then Tab and Shift+Tab nest and lift, arrows
- * reorder. Add is an `add-page` op, hide a `page` op, delete b.deletePage;
- * each undoes.
+ * The book's pages, docked beside the canvas (b.pagesOpen): every page as a
+ * tree, the one on show marked. A click is b.open; double-click renames
+ * (in the language the canvas shows); the eye hides a page from readers;
+ * the menu renames, opens its settings (b.setPageSettings: address, layout,
+ * audience, tabs) and deletes. Drag a row onto another to nest it, onto its
+ * edge to put it beside, or from the keyboard pick it up by its handle, then
+ * Tab and Shift+Tab nest and lift, arrows reorder. A section dragged from the
+ * canvas onto a row moves to that page. Add is an `add-page` op, hide a
+ * `page` op, delete b.deletePage; each undoes.
+ *
+ * PageTrail is where the bar says which page is on show, and PageSettings
+ * the dialog b.pageSettings opens.
  *
  * Props:
  * - b: the builder.
  */
-export type PageTreeProps = {
+export type PagesPanelProps = {
   b: BuilderApi;
 };
 
@@ -88,158 +94,88 @@ const slugFor = (title: string) =>
     .slice(0, 56)
     .replace(/^-+|-+$/g, "") || "page";
 
-export function PageTree({ b }: PageTreeProps) {
+export function PagesPanel({ b }: PagesPanelProps) {
   const nav = b.state.nav;
-  const current = b.state.selection.page;
   const roots = useMemo(() => tree(b.view.nav, b.view.theme.numbering), [b.view.nav, b.view.theme.numbering]);
-  const bySlug = useMemo(() => new Map(nav.map((p) => [p.slug, p])), [nav]);
   const hidden = useMemo(() => hiddenSlugs(nav), [nav]);
-  const top = trail(roots, current)[0]?.slug;
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [details, setDetails] = useState<string | null>(null);
-  const [outline, setOutline] = useState(false);
-  // A section dragged over a page's tab: dropped, it moves to that page.
-  const [dropOn, setDropOn] = useState<string | null>(null);
-  const onto = (slug: string) => ({
-    onDragOver: (e: React.DragEvent) => {
-      const p = payloadOf(e);
-      if (p?.kind !== "section" || slug === current) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      setDropOn(slug);
-    },
-    onDragLeave: () => setDropOn((d) => (d === slug ? null : d)),
-    onDrop: (e: React.DragEvent) => {
-      const p = payloadOf(e);
-      setDropOn(null);
-      if (p?.kind !== "section") return;
-      e.preventDefault();
-      endDrag();
-      void b.moveToPage(p.id, slug);
-    },
-  });
-
-  /** The title, or in the language the canvas shows, its word there. */
-  const rename = (slug: string, title: string) => {
-    const p = bySlug.get(slug);
-    const lang = b.state.lang;
-    if (!p) return;
-    const set: PagePatch = lang ? { translations: { ...p.translations, [lang]: { ...p.translations?.[lang], title } } } : { title };
-    b.apply({ kind: "page", page: slug, op: { op: "page", set } });
-  };
   const move = (slug: string, to: Place) => {
     const op = moveOp(nav, slug, to);
     if (op) b.apply(op);
   };
   const siblings = (parent: string | null) => nav.filter((p) => p.parent === parent).sort(byPosition);
   const toggle = (p: NavEntry) => b.apply({ kind: "page", page: p.slug, op: { op: "page", set: { hidden: !p.hidden } } });
-  const open = (slug: string) => {
-    setOutline(false);
-    b.open(slug);
-  };
 
   return (
-    <nav aria-label="Pages" className="flex min-w-0 flex-1 items-center gap-0.5">
-      <Popover open={outline} onOpenChange={setOutline}>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Every page" title="Every page">
-            <IconListTree />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-80 p-1">
-          <Outline
-            b={b}
-            rows={rowsOf(roots)}
-            hidden={hidden}
-            onOpen={open}
-            onDetails={(slug) => (setOutline(false), setDetails(slug))}
-            onToggle={toggle}
-            onMove={move}
-            siblings={siblings}
-          />
-        </PopoverContent>
-      </Popover>
+    <aside
+      aria-label="Pages"
+      className="app-tokens bg-background text-foreground sticky top-12 flex h-[calc(100dvh-3rem)] w-60 shrink-0 flex-col border-e font-sans"
+    >
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b ps-3 pe-1.5">
+        <h2 className="text-sm font-medium">Pages</h2>
+        <span className="text-muted-foreground text-xs tabular-nums">{nav.length}</span>
+        <span className="ms-auto flex items-center">
+          <AddPage b={b} />
+          <IconButton variant="ghost" size="icon-sm" label="Hide the page list" onClick={() => b.setPagesOpen(false)}>
+            <IconLayoutSidebarLeftCollapse />
+          </IconButton>
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        <Outline b={b} rows={rowsOf(roots)} hidden={hidden} onToggle={toggle} onMove={move} siblings={siblings} />
+      </div>
+    </aside>
+  );
+}
 
-      <ul className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
-        {roots.map((n) => {
-          const on = top === n.slug;
-          const under = rowsOf(n.children);
-          const sub = on && current !== n.slug ? under.find((r) => r.n.slug === current)?.n : undefined;
-          return (
-            <li
-              key={n.slug}
-              {...onto(n.slug)}
-              title={dropOn === n.slug ? `Drop to move the section to ${n.title}` : undefined}
-              className={cn(
-                "flex shrink-0 items-center rounded-md",
-                on ? "bg-muted text-foreground" : "text-muted-foreground",
-                dropOn === n.slug && "ring-primary bg-primary/10 ring-2",
-              )}
-            >
-              {renaming === n.slug ? (
-                <RenameInput
-                  title={n.title}
-                  onDone={(title) => {
-                    setRenaming(null);
-                    if (title && title !== n.title) rename(n.slug, title);
-                  }}
-                />
-              ) : (
-                <button
-                  type="button"
-                  aria-current={current === n.slug ? "page" : undefined}
-                  title="Double-click to rename"
-                  onClick={() => b.open(n.slug)}
-                  onDoubleClick={() => setRenaming(n.slug)}
-                  className={cn(
-                    "hover:text-foreground focus-visible:ring-ring/50 flex h-7 items-center gap-1 rounded-md px-2.5 text-sm outline-none focus-visible:ring-2",
-                    hidden.has(n.slug) && "opacity-60",
-                  )}
-                >
-                  {n.number && <span className="text-muted-foreground font-mono text-xs tabular-nums">{n.number}</span>}
-                  {n.title}
-                  {bySlug.get(n.slug)?.hidden && <HiddenMark className="size-3.5" />}
-                </button>
-              )}
-              {under.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={`Pages under ${n.title}`}
-                      className="hover:text-foreground focus-visible:ring-ring/50 -ms-1 flex h-7 items-center gap-1 rounded-md px-1.5 text-sm outline-none focus-visible:ring-2"
-                    >
-                      {sub && <span className="text-foreground max-w-40 truncate">/ {sub.title}</span>}
-                      <IconChevronDown className="size-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="app-tokens max-h-96 min-w-48">
-                    {under.map(({ n: c, depth }) => (
-                      <DropdownMenuItem
-                        key={c.slug}
-                        onSelect={() => b.open(c.slug)}
-                        aria-current={current === c.slug ? "page" : undefined}
-                        className={cn(current === c.slug && "bg-muted font-medium", hidden.has(c.slug) && "text-muted-foreground")}
-                        style={{ paddingInlineStart: `${0.5 + depth * 0.875}rem` }}
-                      >
-                        {c.number && <span className="text-muted-foreground font-mono text-xs tabular-nums">{c.number}</span>}
-                        <span className="truncate">{c.title}</span>
-                        {bySlug.get(c.slug)?.hidden && <HiddenMark className="ms-auto" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <AddPage b={b} />
-
-      {details && bySlug.has(details) && <Details key={details} b={b} entry={bySlug.get(details)!} onClose={() => setDetails(null)} />}
+/**
+ * Which page is on show, in the bar: the brand, the pages above it, and its
+ * title, which opens its settings. With the page list closed, the brand's
+ * name opens it again.
+ */
+export function PageTrail({ b }: { b: BuilderApi }) {
+  const roots = useMemo(() => tree(b.view.nav, b.view.theme.numbering), [b.view.nav, b.view.theme.numbering]);
+  const current = b.state.selection.page;
+  const path = trail(roots, current);
+  const here = path.at(-1);
+  return (
+    <nav aria-label="Where you are" className="flex min-w-0 items-center gap-1 text-sm">
+      {!b.pagesOpen && (
+        <IconButton variant="ghost" size="icon-sm" label="Show the page list" onClick={() => b.setPagesOpen(true)}>
+          <IconLayoutSidebarLeftExpand />
+        </IconButton>
+      )}
+      <span className="text-muted-foreground hidden max-w-40 truncate @3xl/bar:inline">{b.view.brand.name}</span>
+      {path.slice(0, -1).map((n) => (
+        <span key={n.slug} className="text-muted-foreground hidden min-w-0 items-center gap-1 @3xl/bar:flex">
+          <IconChevronRight aria-hidden className="size-3.5 shrink-0" />
+          <button type="button" onClick={() => b.open(n.slug)} className="hover:text-foreground max-w-32 truncate rounded-sm outline-none focus-visible:ring-2">
+            {n.title}
+          </button>
+        </span>
+      ))}
+      {here && (
+        <>
+          <IconChevronRight aria-hidden className="text-muted-foreground hidden size-3.5 shrink-0 @3xl/bar:block" />
+          <button
+            type="button"
+            title="Page settings"
+            onClick={() => b.setPageSettings(here.slug)}
+            className="hover:bg-accent focus-visible:ring-ring/50 flex h-7 min-w-0 items-center gap-1 rounded-md px-1.5 font-medium outline-none focus-visible:ring-2"
+          >
+            <span className="truncate">{here.title}</span>
+            {b.state.nav.find((p) => p.slug === here.slug)?.hidden && <HiddenMark className="text-muted-foreground size-3.5" />}
+            <IconAdjustmentsHorizontal aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
+          </button>
+        </>
+      )}
     </nav>
   );
+}
+
+/** The settings of the page b.pageSettings names. */
+export function PageSettings({ b }: { b: BuilderApi }) {
+  const entry = b.pageSettings ? b.state.nav.find((p) => p.slug === b.pageSettings) : undefined;
+  return entry ? <Details key={entry.slug} b={b} entry={entry} onClose={() => b.setPageSettings(null)} /> : null;
 }
 
 /** A page kept from readers: the eye, and words for a screen reader. */
@@ -250,7 +186,7 @@ const HiddenMark = ({ className }: { className?: string }) => (
   </>
 );
 
-/** A tab's title, typed in place: Enter or leaving keeps it, Esc puts it back. */
+/** A page's title, typed in place: Enter or leaving keeps it, Esc puts it back. */
 function RenameInput({ title, onDone }: { title: string; onDone: (title: string) => void }) {
   const kept = useRef(true);
   return (
@@ -269,7 +205,7 @@ function RenameInput({ title, onDone }: { title: string; onDone: (title: string)
           e.currentTarget.blur();
         }
       }}
-      className="bg-background focus-visible:ring-ring/50 h-7 w-40 rounded-md px-2.5 text-sm outline-none focus-visible:ring-2"
+      className="bg-background focus-visible:ring-ring/50 h-7 w-40 min-w-0 flex-1 rounded-md px-2 text-sm outline-none focus-visible:ring-2"
     />
   );
 }
@@ -285,8 +221,6 @@ function Outline({
   b,
   rows,
   hidden,
-  onOpen,
-  onDetails,
   onToggle,
   onMove,
   siblings,
@@ -294,8 +228,6 @@ function Outline({
   b: BuilderApi;
   rows: Row[];
   hidden: Set<string>;
-  onOpen: (slug: string) => void;
-  onDetails: (slug: string) => void;
   onToggle: (p: NavEntry) => void;
   onMove: (slug: string, to: Place) => void;
   siblings: (parent: string | null) => NavEntry[];
@@ -305,6 +237,19 @@ function Outline({
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<{ slug: string; zone: "before" | "into" | "after" } | null>(null);
   const [held, setHeld] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  // A section dragged over a page's row: dropped, it moves to that page.
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const current = b.state.selection.page;
+
+  /** The title, or in the language the canvas shows, its word there. */
+  const rename = (slug: string, title: string) => {
+    const p = nav.find((x) => x.slug === slug);
+    const lang = b.state.lang;
+    if (!p) return;
+    const set: PagePatch = lang ? { translations: { ...p.translations, [lang]: { ...p.translations?.[lang], title } } } : { title };
+    b.apply({ kind: "page", page: slug, op: { op: "page", set } });
+  };
   // A row moved in the list can lose focus on the way: the handle takes it back, still holding the page.
   const moving = useRef(false);
   const hint = "page-tree-hint";
@@ -350,7 +295,7 @@ function Outline({
 
   return (
     <div className="grid gap-1">
-      <ul aria-label="Every page" aria-describedby={hint} className="grid max-h-[60vh] gap-px overflow-y-auto">
+      <ul aria-label="Every page" aria-describedby={hint} className="grid gap-px">
         {rows.map(({ n, depth }) => {
           const p = entry(n.slug);
           const kids = nav.some((q) => q.parent === n.slug);
@@ -369,6 +314,14 @@ function Outline({
                 setOver(null);
               }}
               onDragOver={(e) => {
+                const p = payloadOf(e);
+                if (p?.kind === "section") {
+                  if (n.slug === current) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dropOn !== n.slug) setDropOn(n.slug);
+                  return;
+                }
                 if (!drag || within(n.slug, drag)) return over && setOver(null);
                 e.preventDefault();
                 const r = e.currentTarget.getBoundingClientRect();
@@ -376,8 +329,15 @@ function Outline({
                 const z = y < 0.25 ? "before" : y > 0.75 ? "after" : "into";
                 if (zone !== z) setOver({ slug: n.slug, zone: z });
               }}
+              onDragLeave={() => setDropOn((d) => (d === n.slug ? null : d))}
               onDrop={(e) => {
                 e.preventDefault();
+                const p = payloadOf(e);
+                setDropOn(null);
+                if (p?.kind === "section") {
+                  endDrag();
+                  return void b.moveToPage(p.id, n.slug);
+                }
                 if (zone) drop(n.slug, zone);
                 setDrag(null);
                 setOver(null);
@@ -389,8 +349,10 @@ function Outline({
                 zone === "after" && "border-b-primary",
                 zone === "into" && "bg-primary/10",
                 drag === n.slug && "opacity-50",
-                n.slug === b.state.selection.page && zone !== "into" && "bg-muted",
+                n.slug === current && zone !== "into" && "bg-muted",
+                dropOn === n.slug && "ring-primary bg-primary/10 ring-2",
               )}
+              title={dropOn === n.slug ? `Drop to move the section to ${n.title}` : undefined}
             >
               <button
                 type="button"
@@ -402,24 +364,37 @@ function Outline({
                 data-move={n.slug}
                 onKeyDown={(e) => onKey(e, n.slug)}
                 className={cn(
-                  "text-muted-foreground focus-visible:ring-ring/50 flex size-5 shrink-0 cursor-grab items-center justify-center rounded-sm outline-none focus-visible:ring-2",
-                  held === n.slug && "bg-primary text-primary-foreground",
+                  "text-muted-foreground focus-visible:ring-ring/50 flex size-5 shrink-0 cursor-grab items-center justify-center rounded-sm opacity-0 outline-none group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2",
+                  held === n.slug && "bg-primary text-primary-foreground opacity-100",
                 )}
               >
                 <IconGripVertical aria-hidden className="size-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => onOpen(n.slug)}
-                aria-current={n.slug === b.state.selection.page ? "page" : undefined}
-                className={cn(
-                  "focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-1.5 rounded-sm py-1 text-start text-sm outline-none focus-visible:ring-2",
-                  hidden.has(n.slug) && "text-muted-foreground",
-                )}
-              >
-                {n.number && <span className="text-muted-foreground font-mono text-xs tabular-nums">{n.number}</span>}
-                <span className="truncate">{n.title}</span>
-              </button>
+              {renaming === n.slug ? (
+                <RenameInput
+                  title={n.title}
+                  onDone={(title) => {
+                    setRenaming(null);
+                    if (title && title !== n.title) rename(n.slug, title);
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => b.open(n.slug)}
+                  onDoubleClick={() => setRenaming(n.slug)}
+                  aria-current={n.slug === current ? "page" : undefined}
+                  title="Double-click to rename"
+                  className={cn(
+                    "focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-1.5 rounded-sm py-1 text-start text-sm outline-none focus-visible:ring-2",
+                    n.slug === current && "font-medium",
+                    hidden.has(n.slug) && "text-muted-foreground",
+                  )}
+                >
+                  {n.number && <span className="text-muted-foreground font-mono text-xs tabular-nums">{n.number}</span>}
+                  <span className="truncate">{n.title}</span>
+                </button>
+              )}
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -433,13 +408,19 @@ function Outline({
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" aria-label={`More for ${n.title}`}>
+                  <Button variant="ghost" size="icon-xs" aria-label={`More for ${n.title}`} className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100">
                     <IconDots />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="app-tokens">
-                  <DropdownMenuItem onSelect={() => onDetails(n.slug)}>
-                    <IconAdjustmentsHorizontal /> Details
+                  <DropdownMenuItem onSelect={() => setRenaming(n.slug)}>
+                    <IconPencil /> Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => b.setPageSettings(n.slug)}>
+                    <IconAdjustmentsHorizontal /> Page settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onToggle(p)}>
+                    {p.hidden ? <IconEye /> : <IconEyeOff />} {p.hidden ? "Show to readers" : "Hide from readers"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" disabled={kids} onSelect={() => void b.deletePage(n.slug)}>
@@ -451,7 +432,7 @@ function Outline({
           );
         })}
       </ul>
-      <p id={hint} className="text-muted-foreground border-t px-2 pt-1.5 pb-1 text-xs">
+      <p id={hint} className="text-muted-foreground px-2 pt-2 text-xs">
         Drag a page onto another to nest it. Or press Space on its handle, then Tab nests, Shift+Tab lifts out, arrows reorder, Space puts it down.
       </p>
     </div>
@@ -506,7 +487,7 @@ const AUDIENCE_WORDS: Record<Audience, string> = {
   members: "Members only",
 };
 
-/** A page's own settings: title, address (a rename keeps the old one working), layout, who reads it on portals, tabs. */
+/** A page's settings: title, address (a rename keeps the old one working), layout, who reads it on portals, tabs. */
 function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClose: () => void }) {
   const [title, setTitle] = useState(entry.title);
   const [slug, setSlug] = useState(entry.slug);
@@ -538,7 +519,7 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="app-tokens">
         <DialogHeader>
-          <DialogTitle>Page details</DialogTitle>
+          <DialogTitle>Page settings</DialogTitle>
           <DialogDescription>How {entry.title} sits in the book, and who reads it.</DialogDescription>
         </DialogHeader>
         <form id="page-details" onSubmit={save} className="grid gap-4">

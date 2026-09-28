@@ -327,6 +327,21 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
   return present(next);
 }
 
+/**
+ * Take a portal offline now: it closes as a portal past its date does, and
+ * visitors are told so. Reopening is a change of expiresAt to null (or a later
+ * day), so nothing about it is lost meanwhile.
+ */
+export async function closePortal(caller: Caller, id: string) {
+  mayManage(caller);
+  const p = await row(caller, id);
+  if (!p) return null;
+  const [next] = await db.update(portals).set({ expiresAt: new Date(), updatedAt: new Date() }).where(eq(portals.id, p.id)).returning();
+  forgetHosts();
+  await recordAudit(caller, "portal.updated", next.name, { changed: ["expiresAt"] });
+  return present(next);
+}
+
 export async function deletePortal(caller: Caller, id: string) {
   mayManage(caller);
   const p = await row(caller, id);

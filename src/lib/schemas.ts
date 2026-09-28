@@ -697,6 +697,30 @@ export const Published = VersionMeta.extend({
   unchanged: z.boolean().describe("Nothing changed since the last publish, which stands"),
   portals: z.array(z.object({ slug: z.string(), name: z.string(), url: z.url() })).optional().describe("The portals showing it, where visitors now read it"),
 });
+export const BrandStatus = z.object({
+  brand: z.object({ slug: z.string(), name: z.string(), default: z.boolean() }),
+  brands: z.array(z.object({ slug: z.string(), name: z.string(), default: z.boolean() })).describe("Every brand, the default first"),
+  steps: z
+    .array(
+      z.object({
+        id: z.enum(["colors", "type", "logo", "voice", "pages", "publish", "portal"]),
+        title: z.string(),
+        done: z.boolean().nullable().describe("null: the caller can't tell"),
+        detail: z.string(),
+        agent: z.string().describe("How an agent does it, with the tools by name"),
+      }),
+    )
+    .describe("In the order to take them"),
+  done: z.number().int(),
+  total: z.number().int(),
+  next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
+  publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
+  portals: z
+    .array(z.object({ slug: z.string(), name: z.string(), url: z.url() }))
+    .nullable()
+    .describe("The portals showing it; null without the right to manage portals"),
+  url: z.url().describe("The brand in the app"),
+});
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
 const keys = z.array(z.string());
 export const Update = z.object({

@@ -8,8 +8,10 @@ import {
   IconArrowUp,
   IconCheck,
   IconChevronDown,
+  IconClipboard,
   IconColumns,
   IconCopy,
+  IconDots,
   IconEye,
   IconEyeOff,
   IconGripVertical,
@@ -36,6 +38,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -51,11 +55,12 @@ import { fieldsOf, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
- * A section's toolbar on its top edge (build spec 3.5.2, W6.2): the template
- * switch (templates whose `accepts` fit its bound rules) and its variant
- * (layout or kind), width, columns, tone swatches, bound rules (a popover
- * filtered by `accepts`, and "New rule" from PRESETS), the settings panel
- * (section-panel.tsx, which has the rest); move, duplicate, hide, delete. Every
+ * A section's toolbar on its top edge (build spec 3.5.2, W6.2), the few
+ * things reached for most: the template switch (templates whose `accepts` fit
+ * its bound rules) and its variant (layout or kind), tone swatches, bound
+ * rules (a popover filtered by `accepts`, and "New rule" from PRESETS), move
+ * up and down, the settings panel (section-panel.tsx: width, columns and the
+ * rest), and a menu to duplicate, copy, hide and delete. Every
  * change is b.apply of a `page` op on b.state.selection.page; delete is
  * b.removeSection, duplicate b.duplicate, move b.nudge. It sits in the
  * canvas's EditContext, and draws in the app's colors (.app-tokens).
@@ -208,18 +213,8 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
       <TemplateMenu b={b} s={s} set={set} />
       <VariantMenu s={s} set={set} />
       <Sep />
-      {WIDTHS.map(([w, I, label]) => (
-        <Tool key={w} label={label} pressed={s.width === w} onClick={() => set({ width: w })}>
-          <I />
-        </Tool>
-      ))}
-      {COLUMNS[s.template] && <ColumnsPicker s={s} set={set} />}
-      <Sep />
       <TonePicker b={b} s={s} set={set} />
       {info.accepts && <RulesPicker b={b} s={s} set={set} />}
-      <Tool label="Section settings" pressed={b.dock === "section"} onClick={() => b.setDock(b.dock === "section" ? null : "section")}>
-        <IconAdjustmentsHorizontal />
-      </Tool>
       <Sep />
       <Tool label="Move up (Alt+Up)" disabled={at <= 0} onClick={() => b.nudge(s.id, -1)}>
         <IconArrowUp />
@@ -227,15 +222,32 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
       <Tool label="Move down (Alt+Down)" disabled={at < 0 || at >= list.length - 1} onClick={() => b.nudge(s.id, 1)}>
         <IconArrowDown />
       </Tool>
-      <Tool label="Duplicate (Cmd+D)" onClick={() => b.duplicate(s.id)}>
-        <IconCopy />
+      <Sep />
+      <Tool label="Section settings: width, columns, options" pressed={b.dock === "section"} onClick={() => b.setDock(b.dock === "section" ? null : "section")}>
+        <IconAdjustmentsHorizontal />
       </Tool>
-      <Tool label={s.hidden ? "Show to readers" : "Hide from readers"} pressed={s.hidden} onClick={() => set({ hidden: !s.hidden })}>
-        {s.hidden ? <IconEyeOff /> : <IconEye />}
-      </Tool>
-      <Tool label="Delete (Backspace)" className="hover:text-destructive" onClick={() => b.removeSection(s.id)}>
-        <IconTrash />
-      </Tool>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Tool label="More for this section">
+            <IconDots />
+          </Tool>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="app-tokens w-52">
+          <DropdownMenuItem onSelect={() => b.duplicate(s.id)}>
+            <IconCopy /> Duplicate <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => b.copy(s.id)}>
+            <IconClipboard /> Copy <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => set({ hidden: !s.hidden })}>
+            {s.hidden ? <IconEye /> : <IconEyeOff />} {s.hidden ? "Show to readers" : "Hide from readers"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => b.removeSection(s.id)}>
+            <IconTrash /> Delete <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

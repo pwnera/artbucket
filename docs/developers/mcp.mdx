@@ -33,6 +33,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
+| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, and every brand's slug |
 | `list_templates` | read | The section templates a brand page is built from: their props, what they list, and an example each |
 | `list_pages` | read | A brand's pages, in order, with their tree |
 | `get_page` | read | One page: its sections, the rules they show, its warnings, the page as Markdown, and its URL in the app |
@@ -41,10 +42,11 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `save_page` | write | Make or replace a page whole, placed in the tree; every problem comes back at once with its path |
 | `edit_page` | write | Add, update, move and remove sections, change the page's own fields or rename it; all or none |
 | `delete_page` | write | Delete a page that has no pages under it; the brand's history keeps it |
-| `generate_pages` | write | Lay out a brand with no pages from its rules |
+| `generate_pages` | write | Lay out a brand with no pages from its rules; with none, it makes a cover and warns |
 | `set_theme` | write | Change the look a setting at a time; `null` clears one |
 | `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
 | `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
+| `create_portal` | write, share | Make a portal for brands and collections, open to the workspace's members or to anyone; its address comes from the name when left out |
 | `update_portal` | write, share | Change the brands a portal shows, who gets in, when it closes, and its site: footer, quick grab, terms, listed |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
@@ -58,7 +60,11 @@ Markdown: `artbucket://brands/{slug}/pages/{page}`.
 ## Brand pages
 
 A brand's guidelines are pages laid out over its rules. An agent builds them
-with the same tools a person's edits go through:
+with the same tools a person's edits go through, and starts with
+`brand_status`: the same launch checklist the builder shows, in order (colors,
+typefaces, logo, voice, pages, published, shared), each step with whether it is
+done and how an agent does it. `next` is the step to take now. Ask again after a
+change.
 
 1. **Rules are the content.** `set_rules` writes many at once. A rule's `label`
    is the heading readers see; its key never changes. Its `spec` holds what the
@@ -84,7 +90,11 @@ with the same tools a person's edits go through:
 5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
    readers (up to 2000 characters) and an `image` beside it; portals show the
    publish, never the draft, and `portals` in its answer names where.
-6. **Put it in front of people.** `list_portals` says which portals show which
+6. **Put it in front of people.** `create_portal` makes a portal: `name`, the
+   `brands` (by slug) and `collections` (by id) it shows, and `access`, either
+   `members` or `public`; ask the person before a public one. Its `slug` comes
+   from the name when left out. A password, the portal's logo and colors and its
+   own domain are set in the app. `list_portals` says which portals show which
    brands, and whether each brand was ever published (`publishedAt: null`:
    visitors see nothing of it). `update_portal` takes the portal's slug and
    what changes: `brands` (the whole list, in order), `access`, `expiresAt`,

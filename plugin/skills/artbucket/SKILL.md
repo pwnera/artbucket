@@ -74,6 +74,10 @@ A brand's guidelines are pages people read (and portals publish), laid out over 
 them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page save`, `page edit`,
 `theme set`, `publish`). It takes a key with write on the workspace; publishing also takes the share ability.
 
+Start with `brand_status`: it names every brand and lists what the one you work on still lacks (colors,
+typefaces, logo, voice, pages, a publish, a portal), each step with the tools that do it. Take `next`
+first, and ask again after each change until every step is done or only the person's decisions are left.
+
 1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
    with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists
    `always`/`do` and `never`/`avoid`/`dont`: pages show them green and red. Give a rule a `label` for the
@@ -84,7 +88,7 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    `save_page` a whole page: sections top to bottom, each a template (cover, text, split, palette, type,
    logos, dodont, gallery, collection) with the `keys` of the rules it shows. A `collection` section shows
    live assets from a collection, a saved search or a `query` (`type=image&tag=campaign&f.channel=web`).
-   For a brand with rules and no pages, `generate_pages` lays out a start.
+   For a brand with rules and no pages, `generate_pages` lays out a start (write the rules first: with none, it makes a cover and warns).
 3. **Build a tree.** `parent` puts a page under another, three levels at most: Overview, then Identity
    with Color, Logo and Type under it. Renaming a page (`edit_page` with `{ "op": "page", "set": { "slug": ... } }`)
    keeps the old slug working. A home or campaign page takes `layout: "landing"` (no nav column,
@@ -105,7 +109,8 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
-   With a key that manages portals, `list_portals` says which brands each shows (`publishedAt: null`: never
+   With a key that manages portals, `create_portal` makes one for the brand (`access` members, or public once
+   the person says so; a password portal is made in the app), and `list_portals` says which brands each shows (`publishedAt: null`: never
    published, so visitors see nothing), and `update_portal` changes its brands, access, closing date and site
    (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
 

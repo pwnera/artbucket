@@ -42,3 +42,12 @@ test("set_theme merges: null clears any setting, and a misspelled one is refused
   assert.ok(!TOOL_INPUTS.set_theme.safeParse({ radious: 4 }).success);
   assert.ok(!TOOL_INPUTS.set_theme.safeParse({ radius: 41 }).success);
 });
+
+test("create_portal takes members or public, never a password, and refuses a misspelled field", () => {
+  const ok = { name: "Press kit", access: "members", brands: ["default"] };
+  assert.ok(TOOL_INPUTS.create_portal.safeParse(ok).success);
+  assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, slug: "press-kit", access: "public" }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "hunter22" }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, brand: ["default"] }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
+});
