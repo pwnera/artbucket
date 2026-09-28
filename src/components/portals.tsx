@@ -8,7 +8,6 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconCheck,
-  IconChevronRight,
   IconDots,
   IconExternalLink,
   IconLock,
@@ -28,6 +27,7 @@ import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";
 import { send } from "@/components/collections";
 import { Confirm } from "@/components/confirm";
+import { Fold } from "@/components/fold";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader, PageHeader } from "@/components/page";
@@ -465,24 +465,6 @@ const formOf = (p: Portal | null): Form => ({
   domain: p?.domain?.host ?? NO_DOMAIN,
   site: p?.site ?? {},
 });
-
-/**
- * A group of the portal's settings folded under its name, with what it is set
- * to beside the name: a new portal needs a name, its contents and who gets
- * in, and the rest has defaults worth reading at a glance before changing.
- */
-function Fold({ title, summary, open, children }: { title: string; summary: string; open?: boolean; children: React.ReactNode }) {
-  return (
-    <details open={open} className="group rounded-lg border">
-      <summary className="hover:bg-muted/50 focus-visible:ring-ring/50 flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-none focus-visible:ring-3 [&::-webkit-details-marker]:hidden">
-        <IconChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-90" />
-        <span className="font-medium">{title}</span>
-        <span className="text-muted-foreground ms-auto min-w-0 truncate text-xs">{summary}</span>
-      </summary>
-      <div className="grid gap-5 border-t p-3">{children}</div>
-    </details>
-  );
-}
 
 /** What surrounds the pages, in a few words: which of header links, footer and terms are set. */
 function siteSummary(site: PortalSite) {

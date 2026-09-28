@@ -51,10 +51,10 @@ export type Transport = (method: string, url: string, body?: unknown) => Promise
 const network: Transport = (method, url, body) => sendResult(method, url, body, { quiet: true });
 
 /** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
-export type Panel = "theme" | "rules" | "history" | "tokens" | "publish" | null;
+export type Panel = "rules" | "history" | "tokens" | "publish" | null;
 
-/** The panel docked beside the canvas, which never covers it: the picked section's settings, or blocks and rules to drag in. */
-export type Dock = "section" | "insert" | null;
+/** The panel docked beside the canvas, which never covers it: the picked section's settings, blocks and rules to drag in, or the theme, so the page re-themes in view. */
+export type Dock = "section" | "insert" | "theme" | null;
 
 /** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
 export const CLIP = "artbucket/section";

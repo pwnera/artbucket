@@ -12,7 +12,6 @@ import { TopBar } from "@/components/builder/top-bar";
 import { type Panel, type Transport, unclip, useBuilder } from "@/components/builder/use-builder";
 import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
-import { ThemePanel } from "@/components/theme-panel";
 import { TokensDialog } from "@/components/tokens-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Init } from "@/lib/builder-ops";
@@ -277,13 +276,6 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
     <div ref={root} className="flex min-w-0 flex-1 flex-col">
       <TopBar b={b} />
       <Canvas b={b} />
-      <ThemePanel
-        slug={brand}
-        theme={b.view.theme}
-        {...panel("theme")}
-        onPatch={(set) => b.apply({ kind: "theme", set })}
-        rules={b.state.rules}
-      />
       <RulesSheet b={b} {...panel("rules")} />
       {/* The sheet is modal: nothing is edited while it's open, so it keeps up by fetching on open. */}
       <History brand={b.view.brand} {...panel("history")} edits={0} onRestored={() => location.reload()} />

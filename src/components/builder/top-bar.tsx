@@ -41,8 +41,8 @@ import { cn } from "@/lib/utils";
  * title, which opens its settings), then SaveStatus, undo and redo
  * (b.undo, b.redo), the context and language switches (b.setContext,
  * b.setLang) when the brand has more than one, then the three things an
- * editor reaches for, named: Add (the blocks and rules panel, b.setDock),
- * Rules and Theme (b.setPanel). Then the launch checklist (b.status and the
+ * editor reaches for, named: Add and Theme (panels beside the canvas,
+ * b.setDock) and Rules (b.setPanel). Then the launch checklist (b.status and the
  * page's own checks), For agents, Preview (b.setPreview), More (the section
  * panel, History, Design tokens) and Publish, which says whether readers see
  * the latest (b.status.publish).
@@ -141,7 +141,7 @@ export function TopBar({ b }: TopBarProps) {
         <Sep />
         <Tool label="Add" icon={<IconPlus />} pressed={b.dock === "insert"} onClick={() => b.setDock(b.dock === "insert" ? null : "insert")} />
         <Tool label="Rules" icon={<IconListDetails />} aria-haspopup="dialog" onClick={() => b.setPanel("rules")} />
-        <Tool label="Theme" icon={<IconPalette />} aria-haspopup="dialog" onClick={() => b.setPanel("theme")} />
+        <Tool label="Theme" icon={<IconPalette />} pressed={b.dock === "theme"} onClick={() => b.setDock(b.dock === "theme" ? null : "theme")} />
         <Sep />
         <Checklist b={b} />
         <ForAgents

@@ -109,7 +109,8 @@ first, and ask again after each change until every step is done or only the pers
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
-   With a key that manages portals, `list_portals` says which brands each shows (`publishedAt: null`: never
+   With a key that manages portals, `create_portal` makes one for the brand (`access` members, or public once
+   the person says so; a password portal is made in the app), and `list_portals` says which brands each shows (`publishedAt: null`: never
    published, so visitors see nothing), and `update_portal` changes its brands, access, closing date and site
    (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
 

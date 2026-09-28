@@ -6,7 +6,7 @@ import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
-import { GeneratePagesInput, PortalPatch } from "./schemas.ts";
+import { GeneratePagesInput, PortalInput, PortalPatch } from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -149,6 +149,14 @@ export const TOOL_INPUTS = {
   // PATCH /portals/{id}'s own fields, so both doors take the same thing; strict, as there.
   update_portal: PortalPatch.pick({ brands: true, access: true, expiresAt: true, site: true }).extend({
     portal: z.string().min(1).max(64).describe("Its address (slug), as list_portals names it"),
+  }),
+
+  // POST /portals's own fields, less the password and the look, which a person sets in the app; strict, as there.
+  create_portal: PortalInput.pick({ name: true, intro: true, expiresAt: true, presets: true, collections: true, brands: true, site: true }).extend({
+    slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
+    access: z
+      .enum(["members", "public"])
+      .describe("members: people with access to the workspace; public: anyone with the address. A password portal is made in the app"),
   }),
 
   propose_fields: z.object({

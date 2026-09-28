@@ -14,12 +14,12 @@ import { listContexts, listRules, publishBrand, setRules, type BrandRule } from 
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
-import { listBrands, resolveBrand } from "@/lib/core/brands";
+import { listBrands, resolveBrand, slugify } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
-import { listPortals, portalsShowing, updatePortal } from "@/lib/core/portals";
+import { createPortal, listPortals, portalsShowing, updatePortal } from "@/lib/core/portals";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
@@ -43,7 +43,7 @@ const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
-To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Portals are where people outside the team read a brand: update_portal adds it to one (list_portals names them), and brand_status says when it is ready.`;
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
@@ -469,6 +469,31 @@ const TOOLS: Record<ToolName, Tool> = {
     readOnly: true,
     input: TOOL_INPUTS.list_portals,
     run: async (_input, caller) => ({ portals: await listPortals(caller) }),
+  }),
+
+  create_portal: tool({
+    description:
+      "Make a portal: an address of its own (/p/{slug}) where people read the brands it shows, and browse the " +
+      "collections it shows, as last published. `brands` by slug and `collections` by id, in order; at least one " +
+      "of the two. `access` is members (people with access to the workspace) or public (anyone with the address): " +
+      "ask the person before a public one. A password portal, the portal's logo and colors, and its own domain are " +
+      "set in the app. `slug` is made from the name when left out, with a number when that one is taken. Returns " +
+      "the portal and its url; a brand never published shows nothing there until publish.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_portal,
+    run: async ({ slug, ...input }, caller) => {
+      if (slug) return (await createPortal(caller, { ...input, slug })) as Record<string, unknown>;
+      const base = slugify(input.name).slice(0, 40).replace(/-+$/, "") || "portal";
+      for (const s of [base, ...[2, 3, 4, 5].map((n) => `${base}-${n}`)]) {
+        try {
+          return (await createPortal(caller, { ...input, slug: s })) as Record<string, unknown>;
+        } catch (e) {
+          if (!(e instanceof AssetError && e.code === "conflict")) throw e;
+        }
+      }
+      throw new AssetError("conflict", `/p/${base} and the next four are taken: pass a slug`);
+    },
   }),
 
   update_portal: tool({

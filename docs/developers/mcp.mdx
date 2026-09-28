@@ -46,6 +46,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `set_theme` | write | Change the look a setting at a time; `null` clears one |
 | `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
 | `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
+| `create_portal` | write, share | Make a portal for brands and collections, open to the workspace's members or to anyone; its address comes from the name when left out |
 | `update_portal` | write, share | Change the brands a portal shows, who gets in, when it closes, and its site: footer, quick grab, terms, listed |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
@@ -89,7 +90,11 @@ change.
 5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
    readers (up to 2000 characters) and an `image` beside it; portals show the
    publish, never the draft, and `portals` in its answer names where.
-6. **Put it in front of people.** `list_portals` says which portals show which
+6. **Put it in front of people.** `create_portal` makes a portal: `name`, the
+   `brands` (by slug) and `collections` (by id) it shows, and `access`, either
+   `members` or `public`; ask the person before a public one. Its `slug` comes
+   from the name when left out. A password, the portal's logo and colors and its
+   own domain are set in the app. `list_portals` says which portals show which
    brands, and whether each brand was ever published (`publishedAt: null`:
    visitors see nothing of it). `update_portal` takes the portal's slug and
    what changes: `brands` (the whole list, in order), `access`, `expiresAt`,

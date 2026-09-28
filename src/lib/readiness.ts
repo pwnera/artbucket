@@ -128,7 +128,7 @@ export function readiness({ rules, pages, versions, portals }: ReadinessInput): 
           : portals.length
             ? `On ${portals.map((p) => p.name).join(", ")}`
             : "No portal shows it yet: add it to one so people outside the team can read it.",
-      agent: "list_portals, then update_portal with the brand added to `brands`; a new portal is made in the app, under Portals.",
+      agent: "create_portal with the brand in `brands` (members, or public once the person says so), or list_portals, then update_portal with it added to one.",
     },
   ];
   const known = steps.filter((s) => s.done !== null);
