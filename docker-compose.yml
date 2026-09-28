@@ -6,6 +6,11 @@
 #
 # Production self-hosters can point S3_* at real S3, Cloudflare R2, Backblaze
 # B2, Garage, or MinIO - anything S3-compatible - and drop the s3 service.
+#
+# Postgres and storage listen on this machine only (127.0.0.1): reach storage
+# from outside through a reverse proxy. Their passwords come from .env
+# (POSTGRES_PASSWORD, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY); the defaults
+# are for development, so set your own on a server.
 services:
   app:
     profiles: ["app"]
@@ -14,7 +19,7 @@ services:
     ports: ["${APP_PORT:-3000}:3000"]
     env_file: .env
     environment:
-      DATABASE_URL: postgres://artbucket:artbucket@postgres:5432/artbucket
+      DATABASE_URL: postgres://artbucket:${POSTGRES_PASSWORD:-artbucket}@postgres:5432/artbucket
       # The app reaches storage inside this network; browsers upload to the published port.
       S3_ENDPOINT: http://s3:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
@@ -27,9 +32,9 @@ services:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: artbucket
-      POSTGRES_PASSWORD: artbucket
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-artbucket}
       POSTGRES_DB: artbucket
-    ports: ["5433:5432"]
+    ports: ["127.0.0.1:5433:5432"]
     volumes: [".pgdata:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U artbucket"]
@@ -41,14 +46,18 @@ services:
   # behind a registry login.
   s3:
     image: chrislusf/seaweedfs:latest
-    command: >
-      server -dir=/data -s3 -s3.port=9000
-      -s3.config=/etc/seaweedfs/s3.json
-      -master.volumeSizeLimitMB=1024
-    ports: ["9000:9000", "9333:9333"]
-    volumes:
-      - ".s3-data:/data"
-      - "./docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro"
+    # The one identity, with the app's keys from .env.
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-artbucket}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-artbucket}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        printf '{"identities":[{"name":"artbucket","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" > /tmp/s3.json &&
+        exec /entrypoint.sh server -dir=/data -s3 -s3.port=9000 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024
+    ports: ["127.0.0.1:9000:9000"]
+    volumes: [".s3-data:/data"]
     healthcheck:
       # 127.0.0.1, not localhost: localhost resolves to ::1 first and SeaweedFS
       # binds IPv4 only, so the probe fails while the service is perfectly fine.

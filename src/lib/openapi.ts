@@ -984,12 +984,12 @@ export function openapi(serverUrl: string) {
       "/a/{id}/{transform}": {
         parameters: [
           path("id", "Asset id"),
-          path("transform", "e.g. w_800,f_webp. Keys: w, h (1-8000), fit, q (1-100), f (jpeg, png, webp, avif)"),
+          path("transform", "e.g. w_800,f_webp. Keys: w, h (1-8000, each up to the next of a fixed ladder of sizes), fit (with both w and h), q (1-100, to a multiple of 5), f (jpeg, png, webp, avif)"),
         ],
         get: {
           summary: "A rendition, generated once and cached",
           security: [],
-          responses: { 200: { description: "Image bytes" }, default: { description: "An error", content: json(S.ErrorBody) } },
+          responses: { 200: { description: "Image bytes" }, 429: { description: "Busy making renditions: try again", content: json(S.ErrorBody) }, default: { description: "An error", content: json(S.ErrorBody) } },
         },
       },
     },

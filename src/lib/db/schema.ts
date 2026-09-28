@@ -848,3 +848,18 @@ export const instance = pgTable("instance", {
   singleton: boolean("singleton").primaryKey().default(true),
   id: uuid("id").notNull().defaultRandom(),
 }, (t) => [check("instance_singleton_check", sql`${t.singleton}`)]);
+
+/**
+ * Renditions stored (lib/core/renditions.ts), so their bytes count toward the
+ * organization's storage while the bucket keeps them (RENDITION_DAYS). The
+ * workspace whose asset made it first; a rendition of the same bytes elsewhere
+ * is the same object, counted once.
+ */
+export const renditions = pgTable("renditions", {
+  key: text("key").primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  bytes: bigint("bytes", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
