@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -7,9 +8,14 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconCheck,
+  IconChevronRight,
+  IconDots,
   IconExternalLink,
   IconLock,
+  IconPencil,
   IconPhoto,
+  IconPlayerPause,
+  IconPlayerPlay,
   IconPlus,
   IconTrash,
   IconUserQuestion,
@@ -31,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -139,7 +146,10 @@ export function Portals({ portals }: { portals: Portal[] }) {
     setSeen(portals);
     setRows(portals);
   }
-  const [editing, setEditing] = useState<Portal | "new" | null>(null);
+  // Arriving from a brand (publish, the launch checklist): a new portal showing it, named for it, open at once.
+  const fresh = params.get("new");
+  const freshBrand = fresh ? brands.find((b) => b.slug === fresh) : undefined;
+  const [editing, setEditing] = useState<Portal | "new" | null>(() => (freshBrand ? "new" : null));
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
@@ -200,7 +210,7 @@ export function Portals({ portals }: { portals: Portal[] }) {
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
                     {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5 shrink-0" aria-label="Members" />}
-                    {p.expired && <Badge variant="outline">Closed</Badge>}
+                    {p.expired && <Badge variant="outline">Offline</Badge>}
                     {p.domain && !p.domain.verified && <Badge variant="warning">Domain not verified</Badge>}
                     <Unpublished brands={p.brands} />
                   </p>
@@ -221,6 +231,12 @@ export function Portals({ portals }: { portals: Portal[] }) {
                       <IconExternalLink />
                     </a>
                   </IconButton>
+                  <RowMenu
+                    portal={p}
+                    onEdit={() => setEditing(p)}
+                    onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
+                    onDeleted={() => setRows((rs) => rs.filter((r) => r.id !== p.id))}
+                  />
                 </div>
               </li>
             ))}
@@ -232,12 +248,18 @@ export function Portals({ portals }: { portals: Portal[] }) {
           portal={editing === "new" ? null : editing}
           collections={collections}
           brands={brands}
-          onClose={() => setEditing(null)}
+          showing={editing === "new" && freshBrand ? freshBrand : undefined}
+          onClose={() => {
+            setEditing(null);
+            // Off the address, or a reload would open it again.
+            if (fresh) router.replace("/portals", { scroll: false });
+          }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
             if (said) {
               toast.success(said === "made" ? `${saved.name} is live` : `Saved ${saved.name}`, {
-                action: { label: "Copy link", onClick: () => void copy(saved.url, "the address") },
+                action: { label: "Open", onClick: () => window.open(saved.url, "_blank", "noopener") },
+                cancel: { label: "Copy link", onClick: () => void copy(saved.url, "the address") },
               });
             }
           }}
@@ -259,7 +281,63 @@ export function Portals({ portals }: { portals: Portal[] }) {
   );
 }
 
-function Color({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
+/**
+ * A portal's own menu, beside its row: edit it, take it offline now or bring
+ * it back (POST .../close, PATCH expiresAt: null), or delete it. Offline, its
+ * address says it is closed, and everything about it stays for its return.
+ */
+function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; onEdit: () => void; onChanged: (p: Portal) => void; onDeleted: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+  const toggle = async () => {
+    const saved: Portal | null = p.expired
+      ? await send("PATCH", `/api/v1/portals/${p.id}`, { expiresAt: null })
+      : await send("POST", `/api/v1/portals/${p.id}/close`);
+    if (!saved) return;
+    onChanged(saved);
+    toast.success(saved.expired ? `${saved.name} is offline` : `${saved.name} is back online`, {
+      description: saved.expired ? "Its address says it is closed. Nothing about it is lost." : undefined,
+    });
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <IconButton variant="ghost" label={`More for the ${p.name} portal`}>
+            <IconDots />
+          </IconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onSelect={onEdit}>
+            <IconPencil /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void toggle()}>
+            {p.expired ? <IconPlayerPlay /> : <IconPlayerPause />} {p.expired ? "Bring back online" : "Take offline"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+            <IconTrash /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Confirm
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={`Delete ${p.name}?`}
+        says="Its address stops working at once, for everyone who has it. To pause it instead, take it offline."
+        action="Delete"
+        run={async () => {
+          const r = await send("DELETE", `/api/v1/portals/${p.id}`);
+          if (!r) return null;
+          toast.success(`${p.name} is gone`);
+          onDeleted();
+          return r;
+        }}
+      />
+    </>
+  );
+}
+
+function Color({ label, unset, value, onChange }: { label: string; unset: string; value: string | null; onChange: (v: string | null) => void }) {
   const id = useId();
   return (
     <div className="grid gap-2">
@@ -271,7 +349,7 @@ function Color({ label, value, onChange }: { label: string; value: string | null
             <IconX />
           </IconButton>
         ) : (
-          <span className="text-muted-foreground text-xs">The brand&apos;s own</span>
+          <span className="text-muted-foreground text-xs">{unset}</span>
         )}
       </div>
     </div>
@@ -388,11 +466,38 @@ const formOf = (p: Portal | null): Form => ({
   site: p?.site ?? {},
 });
 
+/**
+ * A group of the portal's settings folded under its name, with what it is set
+ * to beside the name: a new portal needs a name, its contents and who gets
+ * in, and the rest has defaults worth reading at a glance before changing.
+ */
+function Fold({ title, summary, open, children }: { title: string; summary: string; open?: boolean; children: React.ReactNode }) {
+  return (
+    <details open={open} className="group rounded-lg border">
+      <summary className="hover:bg-muted/50 focus-visible:ring-ring/50 flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-none focus-visible:ring-3 [&::-webkit-details-marker]:hidden">
+        <IconChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-90" />
+        <span className="font-medium">{title}</span>
+        <span className="text-muted-foreground ms-auto min-w-0 truncate text-xs">{summary}</span>
+      </summary>
+      <div className="grid gap-5 border-t p-3">{children}</div>
+    </details>
+  );
+}
+
+/** What surrounds the pages, in a few words: which of header links, footer and terms are set. */
+function siteSummary(site: PortalSite) {
+  const quick = site.quick?.length ?? 0;
+  const footer = site.footer && (site.footer.text || site.footer.links?.length || site.footer.credit || site.footer.feedback);
+  const parts = [quick && `${quick} header ${quick === 1 ? "link" : "links"}`, footer && "a footer", site.terms && "terms"].filter(Boolean);
+  return parts.length ? parts.join(", ") : "None";
+}
+
 /** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
 function PortalDialog({
   portal,
   collections,
   brands,
+  showing,
   onClose,
   onSaved,
   onDeleted,
@@ -400,6 +505,8 @@ function PortalDialog({
   portal: Portal | null;
   collections: Pickable[];
   brands: { slug: string; name: string }[];
+  /** A new portal for this brand: it starts picked, and the portal named for it. */
+  showing?: { slug: string; name: string };
   onClose: () => void;
   /** `said`: made or saved here, to toast; without, it changed elsewhere (a domain verified). */
   onSaved: (saved: Portal, said?: "made" | "saved") => void;
@@ -407,7 +514,10 @@ function PortalDialog({
 }) {
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
-  const [start] = useState(() => formOf(portal));
+  const [start] = useState(() => {
+    const f = formOf(portal);
+    return showing ? { ...f, name: showing.name, slug: slugOf(showing.name), pickedBrands: [showing.slug] } : f;
+  });
   const [f, setF] = useState(start);
   const set = (patch: Partial<Form>) => setF((x) => ({ ...x, ...patch }));
   const [slugTouched, setSlugTouched] = useState(!!portal);
@@ -481,7 +591,14 @@ function PortalDialog({
             Only approved, unexpired assets show, in the collections and on the brands&apos; guidelines alike, and they leave the portal the moment that changes.
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} id={id} onSubmit={save} className="grid gap-5">
+        <form
+          ref={formRef}
+          id={id}
+          onSubmit={save}
+          // A field the browser refuses may sit in a folded section: unfold it, so it can be shown.
+          onInvalidCapture={(e) => (e.target as Element).closest("details")?.setAttribute("open", "")}
+          className="grid gap-5"
+        >
           <div className="grid gap-2">
             <Label htmlFor={`${id}-name`}>Name</Label>
             <Input
@@ -518,11 +635,6 @@ function PortalDialog({
               )}
             </div>
           </div>
-          {collections.length > 0 && (
-            <Picks legend="Collections, in its Assets view" items={collections} picked={f.picked} onChange={(picked) => set({ picked })}>
-              {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
-            </Picks>
-          )}
           {brands.length > 0 && (
             <Picks
               legend="Brands whose pages it shows"
@@ -540,6 +652,11 @@ function PortalDialog({
                   </ul>
                 </div>
               )}
+            </Picks>
+          )}
+          {collections.length > 0 && (
+            <Picks legend="Collections, in its Assets view" items={collections} picked={f.picked} onChange={(picked) => set({ picked })}>
+              {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
             </Picks>
           )}
           {current && current.brands.length > 0 && <PageViews portal={current} />}
@@ -584,63 +701,9 @@ function PortalDialog({
             </div>
           )}
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-until`}>Open until</Label>
-            <div className="flex items-center gap-2">
-              {/* A min only once changed: a closed portal's past date would otherwise block every save. */}
-              <Input
-                id={`${id}-until`}
-                type="date"
-                value={f.expires}
-                min={expiryChanged ? localDay(new Date()) : undefined}
-                onChange={(e) => set({ expires: e.target.value })}
-                className="w-44"
-              />
-              {current?.expired && !expiryChanged && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => set({ expires: "" })}>
-                  Reopen
-                </Button>
-              )}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              {current?.expired && !expiryChanged
-                ? `Closed on ${new Date(current.expiresAt!).toLocaleDateString()}. Pick a new date or clear it to reopen.`
-                : "Empty: until you close it."}
-            </p>
-          </div>
-          <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">Images download as</legend>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {PRESET_IDS.map((p) => (
-                <label key={p} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    aria-label={PORTAL_PRESETS[p].label}
-                    checked={f.presets.includes(p)}
-                    onCheckedChange={(on) => set({ presets: on ? PRESET_IDS.filter((x) => x === p || f.presets.includes(x)) : f.presets.filter((x) => x !== p) })}
-                  />
-                  {PORTAL_PRESETS[p].label}
-                  <span className="text-muted-foreground text-xs">{PORTAL_PRESETS[p].hint}</span>
-                </label>
-              ))}
-            </div>
-            <p className="text-muted-foreground text-xs">Anything that isn&apos;t an image (a PDF, a video, a font) downloads as itself.</p>
-          </fieldset>
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-intro`}>Introduction</Label>
-            <Textarea
-              id={`${id}-intro`}
-              rows={3}
-              maxLength={4000}
-              value={f.intro}
-              onChange={(e) => set({ intro: e.target.value })}
-              placeholder="Logos, product shots and executive portraits for press. Questions: press@example.com"
-              aria-describedby={`${id}-intro-hint`}
-            />
-            <p id={`${id}-intro-hint`} className="text-muted-foreground text-xs">
-              Markdown works: **bold**, [links](https://example.com), lists.
-            </p>
-          </div>
-          <div className="grid gap-4 rounded-md border p-3">
-            <p className="text-sm font-medium">Look</p>
+            <p className="text-sm font-medium">More options</p>
+            <Fold title="Look" summary={f.logo || f.accent || f.background ? "Its own" : "The organization's logo and color"}>
+          <div className="grid gap-4">
             <div className="grid gap-2">
               <span className="text-sm leading-none font-medium">Logo</span>
               <div className="flex items-center gap-2">
@@ -664,10 +727,48 @@ function PortalDialog({
               <p className="text-muted-foreground text-xs">An approved image. Without one, the organization&apos;s own.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Color label="Accent" value={f.accent} onChange={(accent) => set({ accent })} />
-              <Color label="Header background" value={f.background} onChange={(background) => set({ background })} />
+              <Color label="Accent" unset="The organization's" value={f.accent} onChange={(accent) => set({ accent })} />
+              <Color label="Header background" unset="None" value={f.background} onChange={(background) => set({ background })} />
             </div>
           </div>
+            </Fold>
+            <Fold title="Downloads" summary={f.presets.map((p) => PORTAL_PRESETS[p].label).join(", ") || "None picked"}>
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">Images download as</legend>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {PRESET_IDS.map((p) => (
+                <label key={p} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    aria-label={PORTAL_PRESETS[p].label}
+                    checked={f.presets.includes(p)}
+                    onCheckedChange={(on) => set({ presets: on ? PRESET_IDS.filter((x) => x === p || f.presets.includes(x)) : f.presets.filter((x) => x !== p) })}
+                  />
+                  {PORTAL_PRESETS[p].label}
+                  <span className="text-muted-foreground text-xs">{PORTAL_PRESETS[p].hint}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-muted-foreground text-xs">Anything that isn&apos;t an image (a PDF, a video, a font) downloads as itself.</p>
+          </fieldset>
+            </Fold>
+            <Fold title="Welcome text" summary={f.intro.trim() ? "Written" : "None"}>
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-intro`}>Introduction</Label>
+            <Textarea
+              id={`${id}-intro`}
+              rows={3}
+              maxLength={4000}
+              value={f.intro}
+              onChange={(e) => set({ intro: e.target.value })}
+              placeholder="Logos, product shots and executive portraits for press. Questions: press@example.com"
+              aria-describedby={`${id}-intro-hint`}
+            />
+            <p id={`${id}-intro-hint`} className="text-muted-foreground text-xs">
+              Markdown works: **bold**, [links](https://example.com), lists.
+            </p>
+          </div>
+            </Fold>
+            <Fold title="Header links, footer and terms" summary={siteSummary(f.site)}>
           <SiteFields
             site={f.site}
             onChange={(site) => set({ site })}
@@ -675,6 +776,38 @@ function PortalDialog({
             brands={f.pickedBrands.map((slug) => brands.find((b) => b.slug === slug) ?? { slug, name: slug })}
             onPickAsset={setPicking}
           />
+            </Fold>
+            <Fold title="Open until" summary={f.expires ? `Until ${new Date(`${f.expires}T12:00:00`).toLocaleDateString()}` : "Until you close it"} open={!!current?.expired}>
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-until`}>Open until</Label>
+            <div className="flex items-center gap-2">
+              {/* A min only once changed: a closed portal's past date would otherwise block every save. */}
+              <Input
+                id={`${id}-until`}
+                type="date"
+                value={f.expires}
+                min={expiryChanged ? localDay(new Date()) : undefined}
+                onChange={(e) => set({ expires: e.target.value })}
+                className="w-44"
+              />
+              {current?.expired && !expiryChanged && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => set({ expires: "" })}>
+                  Reopen
+                </Button>
+              )}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {current?.expired && !expiryChanged
+                ? `Closed on ${new Date(current.expiresAt!).toLocaleDateString()}. Pick a new date or clear it to reopen.`
+                : "Empty: until you close it."}
+            </p>
+          </div>
+            </Fold>
+            <Fold
+              title="Domain"
+              summary={f.domain === NO_DOMAIN ? `/p/${f.slug || "its-address"}` : f.domain}
+              open={!!current?.domain && !current.domain.verified}
+            >
           <div className="grid gap-2">
             <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
             <Select value={f.domain} onValueChange={(domain) => set({ domain })}>
@@ -732,6 +865,8 @@ function PortalDialog({
                 </div>
               )
             )}
+          </div>
+            </Fold>
           </div>
         </form>
         {/* Stuck to the bottom: Save is never below the fold, however long the form. */}
@@ -820,7 +955,14 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       <span className="min-w-0 truncate font-medium">{brand.name}</span>
-      {last === null && <Badge variant="warning">Not published: visitors see nothing</Badge>}
+      {last === null && (
+        <>
+          <Badge variant="warning">Not published: visitors see nothing</Badge>
+          <Link href={`/brand?${new URLSearchParams({ brand: brand.slug })}`} className="text-foreground underline underline-offset-2">
+            Open it to publish
+          </Link>
+        </>
+      )}
       {last && (
         <span className="text-muted-foreground" title={exact(last.publishedAt)}>
           Version {last.version}, published {new Date(last.publishedAt).toLocaleDateString()}
@@ -926,8 +1068,7 @@ function SiteFields({
   const setFooter = (patch: Partial<Footer>) => onChange({ ...site, footer: { ...footer, ...patch } });
   const setLink = (i: number, l: FooterLink | null) => setFooter({ links: at(links, i, l) });
   return (
-    <div className="grid gap-4 rounded-md border p-3">
-      <p className="text-sm font-medium">Around the pages</p>
+    <div className="grid gap-4">
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm leading-none font-medium">Quick grab</legend>
         {quick.map((q, i) => {

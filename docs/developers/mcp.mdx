@@ -33,6 +33,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
+| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, and every brand's slug |
 | `list_templates` | read | The section templates a brand page is built from: their props, what they list, and an example each |
 | `list_pages` | read | A brand's pages, in order, with their tree |
 | `get_page` | read | One page: its sections, the rules they show, its warnings, the page as Markdown, and its URL in the app |
@@ -41,7 +42,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `save_page` | write | Make or replace a page whole, placed in the tree; every problem comes back at once with its path |
 | `edit_page` | write | Add, update, move and remove sections, change the page's own fields or rename it; all or none |
 | `delete_page` | write | Delete a page that has no pages under it; the brand's history keeps it |
-| `generate_pages` | write | Lay out a brand with no pages from its rules |
+| `generate_pages` | write | Lay out a brand with no pages from its rules; with none, it makes a cover and warns |
 | `set_theme` | write | Change the look a setting at a time; `null` clears one |
 | `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
 | `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
@@ -58,7 +59,11 @@ Markdown: `artbucket://brands/{slug}/pages/{page}`.
 ## Brand pages
 
 A brand's guidelines are pages laid out over its rules. An agent builds them
-with the same tools a person's edits go through:
+with the same tools a person's edits go through, and starts with
+`brand_status`: the same launch checklist the builder shows, in order (colors,
+typefaces, logo, voice, pages, published, shared), each step with whether it is
+done and how an agent does it. `next` is the step to take now. Ask again after a
+change.
 
 1. **Rules are the content.** `set_rules` writes many at once. A rule's `label`
    is the heading readers see; its key never changes. Its `spec` holds what the

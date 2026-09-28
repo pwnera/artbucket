@@ -58,10 +58,10 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
       done: me.workspace.organization.name !== "Default",
       href: "/settings/organization/general",
     },
-    { id: "brand", label: "Add your logo and color", why: "The app, emails and portals wear them.", done: brand.custom, href: "/settings/organization/branding" },
+    { id: "brand", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: brand.custom, href: "/settings/organization/branding" },
     { id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: me.email, href: "/settings/organization/email" },
     { id: "upload", label: "Upload your first assets", why: "Logos, photos, fonts: anything the brand uses.", done: uploaded, run: onUpload },
-    { id: "guidelines", label: "Write your guidelines", why: "The rules people and agents read before using an asset.", done: visited.has("guidelines"), href: "/brand" },
+    { id: "guidelines", label: "Set up your brand", why: "Colors, type, logo and voice, as pages people and agents read.", done: visited.has("guidelines"), href: "/brand" },
     { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: visited.has("team"), href: "/team" },
     { id: "agent", label: "Connect an agent", why: "It searches, checks and suggests through the same API.", done: visited.has("agent"), href: "/agents" },
   ];

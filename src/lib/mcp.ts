@@ -15,6 +15,7 @@ import { deletePage, editPage, generatePages, getPage, listPages, savePage } fro
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
 import { listBrands, resolveBrand } from "@/lib/core/brands";
+import { brandStatus } from "@/lib/core/brand-status";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
@@ -42,11 +43,11 @@ const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
-To build a brand's guidelines for people, write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed.`;
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Portals are where people outside the team read a brand: update_portal adds it to one (list_portals names them), and brand_status says when it is ready.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
-  "\n\nThis key can't edit brands: set_rules, save_page, edit_page, generate_pages, set_theme and publish need write on the workspace, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
+  "\n\nThis key can't edit brands: set_rules, save_page, edit_page, delete_page, generate_pages and set_theme need write on the workspace, and publish needs write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -290,6 +291,18 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async ({ brand, context }, caller) => rulesFor(caller.workspace.id, context, brand),
   }),
 
+  brand_status: tool({
+    description:
+      "What a brand still lacks before it is worth sharing, as steps in order: colors, typefaces, logo and voice in " +
+      "the rules, pages worth reading, a publish readers see, and a portal. Each step says whether it is done, what " +
+      "it stands at, and `agent`: how to do it, with the tools by name. `next` is the step to take now; `brands` " +
+      "names every brand; `url` opens the brand in the app. Start here, and ask again after a change.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_status,
+    run: async ({ brand }, caller) => brandStatus(caller, brand),
+  }),
+
   // ---- brand pages: guidelines laid out for people, over the rules (lib/pages.ts)
 
   list_templates: tool({
@@ -385,13 +398,23 @@ const TOOLS: Record<ToolName, Tool> = {
   generate_pages: tool({
     description:
       "Lay out a brand that has no pages from its rules: an Overview (cover, palette), then a page per section of " +
-      "keys (color, logo, type, tone...) with the templates its rules fit. A start to edit from; a brand with pages is left alone. " +
+      "keys (color, logo, type, tone...) with the templates its rules fit. Write the rules first: with none it makes one cover, and " +
+      "warns. A start to edit from; a brand with pages is left alone. " +
       "With `set`, add one topic's pages beside the ones there are: Our X, Using X, In product, In marketing, Best practices " +
       "and Showcase, with starter sections, under `parent` (or a page named for the topic). Refused when a slug is taken.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.generate_pages,
-    run: async ({ brand, set }, caller) => generatePages(caller, brand, set),
+    run: async ({ brand, set }, caller) => {
+      const made = await generatePages(caller, brand, set);
+      if (set) return made;
+      // A brand with no rules gets a cover and nothing else: say so, and what makes it more.
+      const rules = await listRules(caller.workspace.id, { brand: made.brand });
+      const warnings = rules.length
+        ? []
+        : ["The brand has no rules, so its pages are one cover. set_rules adds colors, typefaces, a logo and a voice; then save_page lays them out, or delete the overview and generate_pages again."];
+      return { ...made, warnings, url: `${env.APP_URL}/brand?${new URLSearchParams({ brand: made.brand })}` };
+    },
   }),
 
   get_theme: tool({

@@ -100,6 +100,8 @@ export const TOOL_INPUTS = {
 
   list_fields: z.object({}),
 
+  brand_status: z.object({ brand }),
+
   list_templates: z.object({}),
 
   list_pages: z.object({ brand }),

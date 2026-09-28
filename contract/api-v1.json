@@ -14570,6 +14570,245 @@
       }
     }
   },
+  "/api/v1/brands/{slug}/status": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A brand's launch checklist",
+      "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The checklist",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "brand": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "default": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name",
+                          "default"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "default": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name",
+                            "default"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Every brand, the default first"
+                      },
+                      "steps": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "enum": [
+                                "colors",
+                                "type",
+                                "logo",
+                                "voice",
+                                "pages",
+                                "publish",
+                                "portal"
+                              ]
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "done": {
+                              "description": "null: the caller can't tell",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "detail": {
+                              "type": "string"
+                            },
+                            "agent": {
+                              "type": "string",
+                              "description": "How an agent does it, with the tools by name"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "done",
+                            "detail",
+                            "agent"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "In the order to take them"
+                      },
+                      "done": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "next": {
+                        "description": "The first step not done; null when the brand is ready",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "publish": {
+                        "type": "string",
+                        "enum": [
+                          "never",
+                          "behind",
+                          "current"
+                        ],
+                        "description": "never published, changes since the last publish, or up to date"
+                      },
+                      "portals": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "format": "uri"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "name",
+                                "url"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The portals showing it; null without the right to manage portals"
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The brand in the app"
+                      }
+                    },
+                    "required": [
+                      "brand",
+                      "brands",
+                      "steps",
+                      "done",
+                      "total",
+                      "next",
+                      "publish",
+                      "portals",
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/brands/{slug}/versions": {
     "parameters": [
       {
@@ -15529,8 +15768,25 @@
                                 ]
                               },
                               "band": {
-                                "description": "Every page opens on a band of the brand color",
+                                "description": "Every page opens on a band of the brand color; header band says the same",
                                 "type": "boolean"
+                              },
+                              "header": {
+                                "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                "type": "string",
+                                "enum": [
+                                  "plain",
+                                  "band",
+                                  "split"
+                                ]
+                              },
+                              "separation": {
+                                "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                "type": "string",
+                                "enum": [
+                                  "space",
+                                  "hairline"
+                                ]
                               },
                               "numbering": {
                                 "description": "Number chapters and pages: 01, 01.2",
@@ -17169,6 +17425,14 @@
                         "minLength": 1,
                         "maxLength": 40
                       },
+                      "space": {
+                        "description": "Room above it",
+                        "type": "string",
+                        "enum": [
+                          "tight",
+                          "loose"
+                        ]
+                      },
                       "background": {
                         "description": "For tone color and tone image",
                         "type": "object",
@@ -17423,7 +17687,7 @@
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
                           "align": {
-                            "description": "cover",
+                            "description": "cover: start, center, end; split: start, center",
                             "type": "string",
                             "enum": [
                               "start",
@@ -17444,9 +17708,36 @@
                             "description": "cover: The palette as a strip; true when left out",
                             "type": "boolean"
                           },
+                          "mark": {
+                            "description": "cover: Logo above the title",
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "always",
+                              "never"
+                            ]
+                          },
                           "flip": {
                             "description": "split: Image on the left",
                             "type": "boolean"
+                          },
+                          "ratio": {
+                            "description": "split: The wider side",
+                            "type": "string",
+                            "enum": [
+                              "even",
+                              "words",
+                              "picture"
+                            ]
+                          },
+                          "fit": {
+                            "description": "split",
+                            "type": "string",
+                            "enum": [
+                              "auto",
+                              "fill",
+                              "whole"
+                            ]
                           },
                           "layout": {
                             "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
@@ -17558,6 +17849,24 @@
                           "ask": {
                             "description": "logos: Which mark for which context",
                             "type": "boolean"
+                          },
+                          "size": {
+                            "description": "logos: How much of its tile a mark fills",
+                            "type": "string",
+                            "enum": [
+                              "medium",
+                              "small",
+                              "large"
+                            ]
+                          },
+                          "backdrop": {
+                            "description": "logos",
+                            "type": "string",
+                            "enum": [
+                              "checker",
+                              "light",
+                              "dark"
+                            ]
                           },
                           "collection": {
                             "description": "collection: A collection's id",
@@ -18857,6 +19166,14 @@
                                 "minLength": 1,
                                 "maxLength": 40
                               },
+                              "space": {
+                                "description": "Room above it",
+                                "type": "string",
+                                "enum": [
+                                  "tight",
+                                  "loose"
+                                ]
+                              },
                               "background": {
                                 "description": "For tone color and tone image",
                                 "type": "object",
@@ -19111,7 +19428,7 @@
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
                                   "align": {
-                                    "description": "cover",
+                                    "description": "cover: start, center, end; split: start, center",
                                     "type": "string",
                                     "enum": [
                                       "start",
@@ -19132,9 +19449,36 @@
                                     "description": "cover: The palette as a strip; true when left out",
                                     "type": "boolean"
                                   },
+                                  "mark": {
+                                    "description": "cover: Logo above the title",
+                                    "type": "string",
+                                    "enum": [
+                                      "home",
+                                      "always",
+                                      "never"
+                                    ]
+                                  },
                                   "flip": {
                                     "description": "split: Image on the left",
                                     "type": "boolean"
+                                  },
+                                  "ratio": {
+                                    "description": "split: The wider side",
+                                    "type": "string",
+                                    "enum": [
+                                      "even",
+                                      "words",
+                                      "picture"
+                                    ]
+                                  },
+                                  "fit": {
+                                    "description": "split",
+                                    "type": "string",
+                                    "enum": [
+                                      "auto",
+                                      "fill",
+                                      "whole"
+                                    ]
                                   },
                                   "layout": {
                                     "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
@@ -19246,6 +19590,24 @@
                                   "ask": {
                                     "description": "logos: Which mark for which context",
                                     "type": "boolean"
+                                  },
+                                  "size": {
+                                    "description": "logos: How much of its tile a mark fills",
+                                    "type": "string",
+                                    "enum": [
+                                      "medium",
+                                      "small",
+                                      "large"
+                                    ]
+                                  },
+                                  "backdrop": {
+                                    "description": "logos",
+                                    "type": "string",
+                                    "enum": [
+                                      "checker",
+                                      "light",
+                                      "dark"
+                                    ]
                                   },
                                   "collection": {
                                     "description": "collection: A collection's id",
@@ -20434,8 +20796,25 @@
                             ]
                           },
                           "band": {
-                            "description": "Every page opens on a band of the brand color",
+                            "description": "Every page opens on a band of the brand color; header band says the same",
                             "type": "boolean"
+                          },
+                          "header": {
+                            "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                            "type": "string",
+                            "enum": [
+                              "plain",
+                              "band",
+                              "split"
+                            ]
+                          },
+                          "separation": {
+                            "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "hairline"
+                            ]
                           },
                           "numbering": {
                             "description": "Number chapters and pages: 01, 01.2",
@@ -20807,7 +21186,23 @@
                             ]
                           },
                           "band": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "header is band"
+                          },
+                          "header": {
+                            "type": "string",
+                            "enum": [
+                              "plain",
+                              "band",
+                              "split"
+                            ]
+                          },
+                          "separation": {
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "hairline"
+                            ]
                           },
                           "numbering": {
                             "type": "boolean"
@@ -20895,6 +21290,8 @@
                           "logo",
                           "nav",
                           "band",
+                          "header",
+                          "separation",
                           "numbering",
                           "motion",
                           "toc",
@@ -21250,8 +21647,39 @@
                 "band": {
                   "anyOf": [
                     {
-                      "description": "Every page opens on a band of the brand color",
+                      "description": "Every page opens on a band of the brand color; header band says the same",
                       "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "header": {
+                  "anyOf": [
+                    {
+                      "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                      "type": "string",
+                      "enum": [
+                        "plain",
+                        "band",
+                        "split"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "separation": {
+                  "anyOf": [
+                    {
+                      "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                      "type": "string",
+                      "enum": [
+                        "space",
+                        "hairline"
+                      ]
                     },
                     {
                       "type": "null"
@@ -21551,8 +21979,25 @@
                             ]
                           },
                           "band": {
-                            "description": "Every page opens on a band of the brand color",
+                            "description": "Every page opens on a band of the brand color; header band says the same",
                             "type": "boolean"
+                          },
+                          "header": {
+                            "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                            "type": "string",
+                            "enum": [
+                              "plain",
+                              "band",
+                              "split"
+                            ]
+                          },
+                          "separation": {
+                            "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "hairline"
+                            ]
                           },
                           "numbering": {
                             "description": "Number chapters and pages: 01, 01.2",
@@ -21924,7 +22369,23 @@
                             ]
                           },
                           "band": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "header is band"
+                          },
+                          "header": {
+                            "type": "string",
+                            "enum": [
+                              "plain",
+                              "band",
+                              "split"
+                            ]
+                          },
+                          "separation": {
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "hairline"
+                            ]
                           },
                           "numbering": {
                             "type": "boolean"
@@ -22012,6 +22473,8 @@
                           "logo",
                           "nav",
                           "band",
+                          "header",
+                          "separation",
                           "numbering",
                           "motion",
                           "toc",
@@ -22571,7 +23034,23 @@
                             ]
                           },
                           "band": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "header is band"
+                          },
+                          "header": {
+                            "type": "string",
+                            "enum": [
+                              "plain",
+                              "band",
+                              "split"
+                            ]
+                          },
+                          "separation": {
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "hairline"
+                            ]
                           },
                           "numbering": {
                             "type": "boolean"
@@ -22826,8 +23305,25 @@
                                 ]
                               },
                               "band": {
-                                "description": "Every page opens on a band of the brand color",
+                                "description": "Every page opens on a band of the brand color; header band says the same",
                                 "type": "boolean"
+                              },
+                              "header": {
+                                "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                "type": "string",
+                                "enum": [
+                                  "plain",
+                                  "band",
+                                  "split"
+                                ]
+                              },
+                              "separation": {
+                                "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                "type": "string",
+                                "enum": [
+                                  "space",
+                                  "hairline"
+                                ]
                               },
                               "numbering": {
                                 "description": "Number chapters and pages: 01, 01.2",
@@ -22910,6 +23406,8 @@
                           "logo",
                           "nav",
                           "band",
+                          "header",
+                          "separation",
                           "numbering",
                           "motion",
                           "toc",
@@ -31054,6 +31552,461 @@
       }
     }
   },
+  "/api/v1/portals/{id}/close": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Portal id",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "Take a portal offline now",
+      "description": "It closes as a portal past its `expiresAt` does. PATCH `expiresAt: null` opens it again, as it was.\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "200": {
+          "description": "The portal",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "intro": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "access": {
+                        "type": "string",
+                        "enum": [
+                          "public",
+                          "password",
+                          "members"
+                        ]
+                      },
+                      "password": {
+                        "type": "boolean"
+                      },
+                      "expiresAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "expired": {
+                        "type": "boolean"
+                      },
+                      "presets": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "web",
+                            "social",
+                            "story",
+                            "print",
+                            "png",
+                            "original"
+                          ]
+                        }
+                      },
+                      "theme": {
+                        "type": "object",
+                        "properties": {
+                          "logo": {
+                            "default": null,
+                            "description": "An approved image asset, shown in the header",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "accent": {
+                            "default": null,
+                            "description": "Buttons and links",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "background": {
+                            "default": null,
+                            "description": "The page behind everything",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "logo",
+                          "accent",
+                          "background"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "collections": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "publishedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Its latest publish; null: never published, so visitors see nothing of it"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name",
+                            "publishedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brands whose guidelines it publishes, in tab order"
+                      },
+                      "site": {
+                        "type": "object",
+                        "properties": {
+                          "footer": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "description": "Markdown",
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              "links": {
+                                "maxItems": 8,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 60
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "credit": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "feedback": {
+                                "description": "A URL or mailto:",
+                                "type": "string",
+                                "maxLength": 2000
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "quick": {
+                            "description": "Quick grab: pinned links in the header",
+                            "maxItems": 6,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "brand": {
+                                  "description": "With page: a brand the portal carries; the first when left out",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "page": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                },
+                                "asset": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "terms": {
+                            "description": "Markdown readers accept once before their first download",
+                            "type": "string",
+                            "maxLength": 10000
+                          },
+                          "listed": {
+                            "description": "Search engines may index it; public portals only",
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "domain": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string"
+                              },
+                              "verified": {
+                                "type": "boolean"
+                              },
+                              "record": {
+                                "type": "object",
+                                "properties": {
+                                  "type": {
+                                    "type": "string",
+                                    "const": "TXT"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "type",
+                                  "name",
+                                  "value"
+                                ],
+                                "additionalProperties": false,
+                                "description": "What proves it: add this record at your DNS host"
+                              },
+                              "cname": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "const": "CNAME"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "type",
+                                      "name",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "verified",
+                              "record",
+                              "cname"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Access requests waiting"
+                      },
+                      "createdBy": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "slug",
+                      "name",
+                      "intro",
+                      "access",
+                      "password",
+                      "expiresAt",
+                      "expired",
+                      "presets",
+                      "theme",
+                      "collections",
+                      "brands",
+                      "site",
+                      "domain",
+                      "url",
+                      "pending",
+                      "createdBy",
+                      "createdAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/portals/{id}/domain": {
     "parameters": [
       {
@@ -33691,7 +34644,23 @@
                                     ]
                                   },
                                   "band": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "header is band"
+                                  },
+                                  "header": {
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "band",
+                                      "split"
+                                    ]
+                                  },
+                                  "separation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "space",
+                                      "hairline"
+                                    ]
                                   },
                                   "numbering": {
                                     "type": "boolean"
@@ -33946,8 +34915,25 @@
                                         ]
                                       },
                                       "band": {
-                                        "description": "Every page opens on a band of the brand color",
+                                        "description": "Every page opens on a band of the brand color; header band says the same",
                                         "type": "boolean"
+                                      },
+                                      "header": {
+                                        "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                        "type": "string",
+                                        "enum": [
+                                          "plain",
+                                          "band",
+                                          "split"
+                                        ]
+                                      },
+                                      "separation": {
+                                        "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                        "type": "string",
+                                        "enum": [
+                                          "space",
+                                          "hairline"
+                                        ]
                                       },
                                       "numbering": {
                                         "description": "Number chapters and pages: 01, 01.2",
@@ -34030,6 +35016,8 @@
                                   "logo",
                                   "nav",
                                   "band",
+                                  "header",
+                                  "separation",
                                   "numbering",
                                   "motion",
                                   "toc",
@@ -39310,7 +40298,7 @@
   "/api/v1/mcp": {
     "post": {
       "summary": "MCP (Streamable HTTP, stateless)",
-      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, brand_rules, my_proposals, propose_tags, list_fields, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, publish, list_portals, update_portal, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, brand_rules, my_proposals, propose_tags, list_fields, brand_status, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, publish, list_portals, update_portal, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
       "x-scope": "read",
       "requestBody": {
         "required": true,

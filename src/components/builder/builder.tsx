@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { History } from "@/components/brand-history";
+import { BrandSetup } from "@/components/builder/brand-setup";
 import { Canvas } from "@/components/builder/canvas";
+import { PageSettings } from "@/components/builder/page-tree";
 import { PublishDialog } from "@/components/builder/publish-dialog";
 import { RulesSheet } from "@/components/builder/rules-sheet";
 import { TopBar } from "@/components/builder/top-bar";
@@ -13,20 +14,17 @@ import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
 import { ThemePanel } from "@/components/theme-panel";
 import { TokensDialog } from "@/components/tokens-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Init } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
-import { sendResult } from "@/lib/send";
 import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
  * see it, in the brand's theme. /brand renders it keyed by brand slug, and
- * /design/builder on fixtures. It lays out TopBar over Canvas and draws the
- * panel b.panel names; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
+ * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
+ * beside it) and draws the panel b.panel names and the page settings
+ * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
  * and the address: the page on show is `?page=`, and a v1 link
  * (#rule-{key}, #section-{name}) lands where lib/site.ts legacyAnchor says.
  * A phone gets the reader, with "Edit on a larger screen".
@@ -48,8 +46,8 @@ export type BuilderProps = {
 };
 
 export function Builder(props: BuilderProps) {
-  // A brand from before pages has nothing to edit until they are laid out.
-  return props.init.nav.length ? <Editor {...props} /> : <NoPages {...props} />;
+  // A brand with no pages starts from its essentials, then the builder opens on the pages they make.
+  return props.init.nav.length ? <Editor {...props} /> : <BrandSetup {...props} />;
 }
 
 /** A field's own undo comes first (as lib/undo.ts has it). */
@@ -291,92 +289,7 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       <History brand={b.view.brand} {...panel("history")} edits={0} onRestored={() => location.reload()} />
       <TokensDialog brand={b.view.brand} context={b.state.context ?? undefined} {...panel("tokens")} />
       <PublishDialog b={b} {...panel("publish")} />
-    </div>
-  );
-}
-
-/** Starter topics for a template: generate_pages `set`, six pages on one topic. ponytail: four fixed topics, a gallery of real templates later. */
-const TOPICS = ["Logo", "Color", "Typography", "Voice"];
-
-type Start = "blank" | "guided" | "template";
-const STARTS: { id: Start; title: string; text: string }[] = [
-  { id: "blank", title: "Blank", text: "One empty page to build on, section by section." },
-  { id: "guided", title: "From your rules", text: "An overview, then a page per group of rules, each in the templates it fits." },
-  { id: "template", title: "Template", text: "Six pages on one topic: ours, using it, in product, in marketing, best practices, showcase." },
-];
-
-/** A brand with no pages yet: a dialog to start blank, from its rules, or from a template; then the builder opens on them. */
-function NoPages({ brand, transport = sendResult, header }: BuilderProps) {
-  const router = useRouter();
-  const [open, setOpen] = useState(true);
-  const [start, setStart] = useState<Start>("guided");
-  const [topic, setTopic] = useState(TOPICS[0]);
-  const [busy, setBusy] = useState(false);
-  const pages = `/api/v1/brands/${encodeURIComponent(brand)}/pages`;
-  const create = async () => {
-    setBusy(true);
-    const res =
-      start === "blank"
-        ? await transport("PUT", `${pages}/overview`, { title: "Overview", sections: [] })
-        : await transport("POST", pages, start === "template" ? { set: { topic } } : undefined);
-    setBusy(false);
-    if (res.ok) router.refresh();
-  };
-  return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      {header}
-      <div className="mx-auto grid max-w-md gap-3 px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">No pages yet</h1>
-        <p className="text-muted-foreground">Start the brand&apos;s pages: blank, from its rules, or from a template.</p>
-        <Button className="justify-self-center" onClick={() => setOpen(true)}>
-          Create pages
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create the brand&apos;s pages</DialogTitle>
-            <DialogDescription>Pick a start. Everything stays editable, and nothing shows to readers until you publish.</DialogDescription>
-          </DialogHeader>
-          <div role="radiogroup" aria-label="Start" className="grid gap-2">
-            {STARTS.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                role="radio"
-                aria-checked={start === o.id}
-                onClick={() => setStart(o.id)}
-                className="hover:bg-accent aria-checked:border-primary aria-checked:bg-primary/5 focus-visible:ring-ring/50 grid gap-0.5 rounded-lg border p-3 text-start outline-none focus-visible:ring-3"
-              >
-                <span className="text-sm font-medium">{o.title}</span>
-                <span className="text-muted-foreground text-sm">{o.text}</span>
-              </button>
-            ))}
-          </div>
-          {start === "template" && (
-            <Select value={topic} onValueChange={setTopic}>
-              <SelectTrigger aria-label="Topic" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TOPICS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={create} pending={busy}>
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PageSettings b={b} />
     </div>
   );
 }
