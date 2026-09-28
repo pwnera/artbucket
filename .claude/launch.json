@@ -1,6 +1,8 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev"], "port": 3000 }
+    { "name": "dev", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev"], "port": 3000, "autoPort": true },
+    { "name": "running", "url": "http://localhost:3000" },
+    { "name": "prod", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "BETTER_AUTH_SECRET=ci-only-secret-not-for-anything-real-0123456789 pnpm start"], "port": 3100, "autoPort": true }
   ]
 }
