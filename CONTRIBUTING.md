@@ -81,6 +81,21 @@ schema must match the migrations, a migration on `main` can't change, and the
 base branch's database, filled from `scripts/upgrade-fixture.sql`, must migrate
 to yours. A migration that changes a table changes that fixture too.
 
+## Contributor terms
+
+Artbucket is under the [AGPLv3](LICENSE), and Pwnera SAS, which holds its
+copyright, also licenses it commercially. For that to keep working, opening a
+pull request means you agree that:
+
+- You keep the copyright in your contribution.
+- You give Pwnera SAS a perpetual, irrevocable, worldwide, royalty-free,
+  non-exclusive license to use, copy, change and distribute your
+  contribution, and to license it to others under any terms, the AGPLv3 and
+  commercial licenses included, together with a license under any patent
+  claims of yours that your contribution would otherwise infringe.
+- You have the right to give these licenses: the work is yours, or whoever
+  owns it, such as your employer, has agreed.
+
 ## Commits
 
 Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Keep the
