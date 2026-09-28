@@ -9,7 +9,7 @@ import { BLOCK, Seam } from "@/components/builder/seam";
 import { HANDLE, SectionToolbar } from "@/components/builder/section-toolbar";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { PageHeader } from "@/components/site/page-header";
-import { type Edit, EditContext, SiteProvider, useSite } from "@/components/site/site-context";
+import { type Edit, EditContext, PickedContext, SiteProvider, useSite } from "@/components/site/site-context";
 import { PageTabs } from "@/components/site/tabs";
 import { boundKeys, TEMPLATE_INFO, type Section } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
@@ -59,16 +59,15 @@ export function Canvas({ b }: CanvasProps) {
   const [width, setWidth] = useState<number | null>(null);
   const [card, setCard] = useState<{ page: string; key: string; anchor: HTMLElement } | null>(null);
   const { apply, select, addMedia } = b;
-  const { page: slug, section, rule } = b.state.selection;
+  const slug = b.state.selection.page;
   const { lang, preview } = b.state;
 
-  // Stable while typing, so slots don't redraw for a keystroke elsewhere.
+  // Stable while typing and picking, so slots don't redraw for a keystroke or a pick elsewhere.
   const edit = useMemo<Edit>(
     () => ({
       update: (id, set) => void apply({ kind: "page", page: slug, op: { op: "update", id, set } }),
       setRule: (r) => void apply({ kind: "rules", set: [r], remove: [] }),
       addMedia,
-      selection: { section, rule },
       select,
       openRule: (key, anchor) => {
         setCard({ page: slug, key, anchor });
@@ -76,7 +75,7 @@ export function Canvas({ b }: CanvasProps) {
       },
       lang,
     }),
-    [apply, select, addMedia, slug, section, rule, lang],
+    [apply, select, addMedia, slug, lang],
   );
 
   return (
@@ -203,7 +202,9 @@ function Stage({ b }: { b: BuilderApi }) {
             <SectionToolbar b={b} section={stored.find((x) => x.id === s.id) ?? s} />
           </div>
         )}
-        <SectionView section={s} rules={rules} />
+        <PickedContext.Provider value={on}>
+          <SectionView section={s} rules={rules} />
+        </PickedContext.Provider>
         <div
           aria-hidden
           className={cn(

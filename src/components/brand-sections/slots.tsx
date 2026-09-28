@@ -8,7 +8,7 @@ import { onceDrawn, RuleView } from "@/components/brand-sections/rule-view";
 import { ReadOnly, ValueEditor } from "@/components/brand-values";
 import { copyText } from "@/components/copy-button";
 import type { Asset } from "@/components/gallery";
-import { useEdit, useMedia, useSite, type Edit, type Site } from "@/components/site/site-context";
+import { useEdit, useMedia, usePicked, useSite, type Edit, type Site } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
 import { renderMarkdown, SITE_PATH } from "@/lib/markdown";
 import { TEMPLATE_INFO, type Item, type Section, type Template } from "@/lib/pages";
@@ -149,12 +149,13 @@ export function ItemLabel({ i, as: L = "span", className }: { i: number; as?: "s
  */
 export function ItemMedia({ i, className }: { i: number; className?: string }) {
   const edit = useEdit();
+  const picked = usePicked();
   const s = useSection();
   const { url } = useSite();
   const [picking, setPicking] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const it = s.items?.[i];
-  if (!edit || edit.lang || edit.selection.section !== s.id || !it) return null;
+  if (!edit || edit.lang || !picked || !it) return null;
   const use = (a: Asset) => {
     edit.addMedia([asMedia(a, url)]);
     edit.update(s.id, { items: s.items!.map((x, k) => (k === i ? { ...x, asset: a.id } : x)) });
@@ -357,8 +358,8 @@ type Typing = {
 };
 
 /** Typing in a slot picks its section, so the canvas shows its toolbar and its empty slots. */
-const picker = (edit: Edit, s: Section) => () => {
-  if (edit.selection.section !== s.id) edit.select({ section: s.id });
+const picker = (edit: Edit, s: Section, picked: boolean) => () => {
+  if (!picked) edit.select({ section: s.id });
 };
 
 /**
@@ -370,14 +371,15 @@ const picker = (edit: Edit, s: Section) => () => {
  */
 function useWords(field: Word, value: string | undefined): Typing | null {
   const edit = useEdit();
+  const picked = usePicked();
   const s = useSection();
-  if (!edit || (!value && edit.selection.section !== s.id)) return null;
+  if (!edit || (!value && !picked)) return null;
   const { lang } = edit;
   return {
     value: value ?? "",
     // Cleared, an optional field goes (null); a title or body goes back to empty.
     onSave: (next) => edit.update(s.id, lang ? { translations: translated(s, lang, { [field]: next || undefined }) } : { [field]: next || null }),
-    onFocus: picker(edit, s),
+    onFocus: picker(edit, s, picked),
   };
 }
 
@@ -389,14 +391,15 @@ function useWords(field: Word, value: string | undefined): Typing | null {
  */
 function useItemWords(i: number, field: ItemWord, value: string | undefined): Typing | null {
   const edit = useEdit();
+  const picked = usePicked();
   const s = useSection();
   const it = s.items?.[i];
-  if (!edit || !it || (!value && edit.selection.section !== s.id)) return null;
+  if (!edit || !it || (!value && !picked)) return null;
   const { lang } = edit;
   if (lang && field === "label") return null;
   const items = s.items!;
   const typed = (next: string) => items.map((x, k) => (k === i ? word(s.template, x, field, next) : x));
-  const base = { value: value ?? "", onFocus: picker(edit, s), item: i, word: field };
+  const base = { value: value ?? "", onFocus: picker(edit, s, picked), item: i, word: field };
   if (lang) return { ...base, onSave: (next) => edit.update(s.id, { translations: translated(s, lang, { [field]: next || undefined }, i) }) };
   const bare = STUFF.every((f) => f === field || !it[f]);
   return {

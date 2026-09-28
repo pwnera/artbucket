@@ -115,8 +115,7 @@ export type Edit = {
   setRule(rule: ViewRule): void;
   /** Assets just picked or uploaded for an item, so the canvas draws them before the page is loaded again. */
   addMedia(media: Media[]): void;
-  /** What is picked on the canvas: a section by id, a rule by key. */
-  selection: { section: string | null; rule: string | null };
+  /** Pick a section by id, a rule by key. Whether a slot's own section is picked is PickedContext. */
   select(to: { section?: string | null; rule?: string | null }): void;
   /** A color, face, logo or number was clicked: its rule card opens, anchored there. */
   openRule(key: string, at: HTMLElement): void;
@@ -125,6 +124,14 @@ export type Edit = {
 };
 
 export const EditContext = createContext<Edit | null>(null);
+
+/**
+ * On the canvas, whether the section around is the one picked. Apart from
+ * Edit, so a pick redraws the two sections it moves between, not every slot
+ * on the page.
+ */
+export const PickedContext = createContext(false);
+export const usePicked = () => useContext(PickedContext);
 
 /** The canvas's edits, or null where the site is read. */
 export const useEdit = () => useContext(EditContext);
