@@ -11,7 +11,7 @@ import { assets } from "@/lib/db/schema";
 import { fetchPublic } from "@/lib/fetch-public";
 import { parseLink, RENDERABLE } from "@/lib/preview";
 import { getObject, originalKey, previewKey, putObject } from "@/lib/storage";
-import { unzip } from "@/lib/zip";
+import { INFLATE_LIMIT, unzip } from "@/lib/zip";
 
 /**
  * Stills for files sharp can't read, derived once at upload and stored by
@@ -149,7 +149,8 @@ async function psd(bytes: Buffer): Promise<Still | null> {
     },
     (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" }),
   );
-  const file = readPsd(bytes, { skipLayerImageData: true, skipThumbnail: true, useImageData: true });
+  // A header can claim any size: past 256 MB ag-psd refuses before allocating it.
+  const file = readPsd(bytes, { skipLayerImageData: true, skipThumbnail: true, useImageData: true, totalMemoryLimit: 256 * 1024 * 1024 });
   const d = file.imageData;
   if (!d?.data.length) return null;
   const size = { width: d.width, height: d.height };
@@ -165,7 +166,7 @@ async function heic(bytes: Buffer): Promise<Still> {
 /** The biggest preview or thumbnail image in the archive: Sketch, XD, Keynote, pptx, .fig, Procreate. */
 async function zipPreview(bytes: Buffer): Promise<Still | null> {
   const [best] = unzip(bytes)
-    .filter((e) => /(^|\/)[^/]*(preview|thumbnail)[^/]*\.(png|jpe?g|webp)$/i.test(e.name))
+    .filter((e) => e.size <= INFLATE_LIMIT && /(^|\/)[^/]*(preview|thumbnail)[^/]*\.(png|jpe?g|webp)$/i.test(e.name))
     .sort((a, b) => b.size - a.size);
   return best ? { image: sharp(await best.read(), LENIENT) } : null;
 }

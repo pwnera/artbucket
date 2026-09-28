@@ -15,8 +15,28 @@ import { Marked, type Tokens } from "marked";
 const escape = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** Relative, or http(s) or mailto; `javascript:` and `data:` are not. */
-export const safeUrl = (href: string) => !/^\s*[a-z][a-z0-9+.-]*:/i.test(href) || /^\s*(https?|mailto):/i.test(href);
+/**
+ * Relative, or http(s) or mailto; `javascript:` and `data:` are not. The URL
+ * parser decides, as the browser will: it strips the tabs, newlines and
+ * control characters a pattern would miss (`java\tscript:`).
+ */
+export const safeUrl = (href: string) => {
+  try {
+    return ["http:", "https:", "mailto:"].includes(new URL(href, "https://relative.invalid").protocol);
+  } catch {
+    return false;
+  }
+};
+
+/** A path on this site, to send someone on to: never another origin, `//evil.com`, `/\evil.com` or `/\t/evil.com` included. */
+export const localPath = (v: unknown): v is string => {
+  if (typeof v !== "string" || !v.startsWith("/")) return false;
+  try {
+    return new URL(v, "https://relative.invalid").origin === "https://relative.invalid";
+  } catch {
+    return false;
+  }
+};
 
 /**
  * What someone pastes into a link field, as a link: a scheme or a relative

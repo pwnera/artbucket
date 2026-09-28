@@ -333,7 +333,12 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
     .where(
       and(
         eq(invitations.organizationId, caller.workspace.organizationId),
-        can(caller, "organization.manage") && !here ? undefined : or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id)),
+        // Each comes with its live link: one into the whole organization (it can make an admin) is for organization admins only.
+        !can(caller, "organization.manage")
+          ? eq(invitations.workspaceId, caller.workspace.id)
+          : here
+            ? or(isNull(invitations.workspaceId), eq(invitations.workspaceId, caller.workspace.id))
+            : undefined,
         isNull(invitations.acceptedAt),
         gt(invitations.expiresAt, sql`now()`),
       ),

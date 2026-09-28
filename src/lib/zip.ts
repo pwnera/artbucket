@@ -99,12 +99,16 @@ export function zip(entries: Entry[]): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-export type ZipEntry = { name: string; size: number; read: () => Promise<Uint8Array<ArrayBuffer>> };
+export type ZipEntry = { name: string; size: number; read: (limit?: number) => Promise<Uint8Array<ArrayBuffer>> };
+
+/** The most an entry inflates to by default: a preview image is far less, a zip bomb far more. */
+export const INFLATE_LIMIT = 64 * 1024 * 1024;
 
 /**
  * A zip's entries, each read on demand. Stored and deflated entries, which is
  * every design file that is a zip (Sketch, XD, Keynote, pptx, .fig, dotLottie).
- * Corrupt input throws a RangeError.
+ * Corrupt input throws a RangeError, and so does an entry that inflates past
+ * `limit`: its declared size is the zip's say-so, so the bytes are counted.
  *
  * ponytail: no ZIP64, like the writer: previews sit in archives far under 4 GB.
  */
@@ -130,14 +134,21 @@ export function unzip(bytes: Uint8Array): ZipEntry[] {
     out.push({
       name,
       size,
-      read: async () => {
+      read: async (limit = INFLATE_LIMIT) => {
         // The local header's own name and extra lengths can differ from the central copy's.
         const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
         const data = new Uint8Array(bytes.subarray(start, start + packed));
         if (method === 0) return data;
         if (method !== 8) throw new Error(`${name}: unsupported zip compression ${method}`);
         const inflated = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-        return new Uint8Array(await new Response(inflated).arrayBuffer());
+        const parts: Uint8Array<ArrayBuffer>[] = [];
+        let total = 0;
+        for await (const c of inflated as unknown as AsyncIterable<Uint8Array<ArrayBuffer>>) {
+          total += c.length;
+          if (total > limit) throw new RangeError(`${name}: more than ${limit} bytes inflated`);
+          parts.push(c);
+        }
+        return new Uint8Array(await new Blob(parts).arrayBuffer());
       },
     });
   }
