@@ -91,11 +91,10 @@ export async function searchIconSets({ q, group, limit = 60 }: { q?: string; gro
   return { data: found.slice(0, limit), total: found.length };
 }
 
-/** A set, its categories, and a page of its icons (matching `q`), each drawn as the SVG an import would store. */
-export async function browseIconSet(
-  prefix: string,
-  { q, category, offset = 0, limit = 96 }: { q?: string; category?: string; offset?: number; limit?: number },
-) {
+type IconQuery = { q?: string; category?: string; offset?: number; limit?: number };
+
+/** A set, its categories, and a page of its icons' names (matching `q`): no icon data, so no second request. */
+export async function findIconNames(prefix: string, { q, category, offset = 0, limit = 96 }: IconQuery) {
   const [list, names] = await Promise.all([
     iconCatalog().catch(() => [] as IconSet[]),
     setNames(prefix).catch((err) => Promise.reject(reach(err, prefix))),
@@ -103,12 +102,15 @@ export async function browseIconSet(
   const set = list.find((s) => s.prefix === prefix) ?? names.info;
   if (!set) throw new AssetError("not_found", `Iconify has no icon set "${prefix}"`);
   const found = searchIcons(names.names, { q, category, categories: names.categories });
-  const page = found.slice(offset, offset + limit);
+  return { set, categories: Object.keys(names.categories), total: found.length, names: found.slice(offset, offset + limit) };
+}
+
+/** A set, its categories, and a page of its icons (matching `q`), each drawn as the SVG an import would store. */
+export async function browseIconSet(prefix: string, query: IconQuery) {
+  const { names: page, ...found } = await findIconNames(prefix, query);
   const data = page.length ? await iconData(prefix, page).catch((err) => Promise.reject(reach(err, prefix))) : null;
   return {
-    set,
-    categories: Object.keys(names.categories),
-    total: found.length,
+    ...found,
     data: page.flatMap((name) => {
       const svg = data && iconSvg(data, name);
       return svg ? [{ name, svg }] : [];

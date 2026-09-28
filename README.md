@@ -168,6 +168,8 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 | `brand_rules` | read | A brand's rules for a context, with the assets they point at |
 | `ingest_asset` | propose | Fetch a public URL into the library, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
+| `find_icons` | read | Open source icon sets through Iconify, or a set's icons by name, with license and author |
+| `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |

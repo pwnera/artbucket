@@ -113,3 +113,10 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
 
 A brand rule may name a Google font that isn't in the library yet: `import_google_font({"family": "IBM Plex Sans"})`
 adds every style, proposed like any upload.
+
+## Icons
+
+For icons the library doesn't have, `find_icons({"q": "outline"})` finds open source sets (with their license
+and author), and `find_icons({"prefix": "tabler", "q": "arrow"})` a set's icons by name. Keep to one set, and
+check its license suits the use. `import_icons({"prefix": "tabler", "icons": ["arrow-right", "search"]})` adds
+them, one SVG each, proposed like any upload.

@@ -6,7 +6,7 @@ import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
-import { GeneratePagesInput, PortalPatch } from "./schemas.ts";
+import { GeneratePagesInput, IconBrowseQuery, IconImport, IconSetQuery, PortalPatch } from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -82,6 +82,22 @@ export const TOOL_INPUTS = {
 
   import_google_font: z.object({
     family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
+    tags: z.array(text.max(64)).max(50).optional(),
+    collections: z.array(z.uuid()).max(50).optional(),
+  }),
+
+  find_icons: z.object({
+    q: z.string().max(80).optional().describe("Words in a set's name, author or license; with prefix, in an icon's name"),
+    prefix: IconBrowseQuery.shape.prefix.optional().describe("A set, e.g. tabler: search its icons instead of the sets"),
+    group: IconSetQuery.shape.group,
+    category: IconBrowseQuery.shape.category.describe("With prefix: one of the set's categories"),
+    offset: z.number().int().min(0).max(100000).default(0),
+    limit: z.number().int().min(1).max(200).optional().describe("20 sets or 100 icons when left out"),
+  }),
+
+  import_icons: z.object({
+    prefix: IconImport.shape.prefix,
+    icons: IconImport.shape.icons,
     tags: z.array(text.max(64)).max(50).optional(),
     collections: z.array(z.uuid()).max(50).optional(),
   }),
