@@ -9,7 +9,7 @@
 A brand knowledge graph with a blob store attached - not a blob store with tags.
 
 [![CI](https://github.com/pwnera/artbucket/actions/workflows/ci.yml/badge.svg)](https://github.com/pwnera/artbucket/actions/workflows/ci.yml)
-[![License: Elastic 2.0](https://img.shields.io/badge/license-Elastic--2.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](docs/developers/stability.mdx)
 [![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](docs/developers/mcp.mdx)
 
@@ -262,8 +262,8 @@ Tailwind 4. No monorepo, no job queue, no Redis, no search cluster.
 
 ## License
 
-[Elastic License 2.0](LICENSE). Artbucket is free to use, change and
-self-host, for any purpose, including at work and in commercial projects. The
-one thing you may not do is offer it to others as a hosted or managed service.
-Want to? [Open an issue](https://github.com/pwnera/artbucket/issues) and ask.
-See [decision 0011](docs/decisions/0011-elastic-license.mdx).
+[AGPL-3.0](LICENSE), copyright Pwnera SAS. Run it, change it, self-host it, for
+any purpose. If you offer a changed version as a network service, publish your
+changes. Can't take the AGPL? Pwnera SAS also licenses artbucket commercially:
+[open an issue](https://github.com/pwnera/artbucket/issues) and ask. `ee/` is
+reserved for commercial code. See [decision 0013](docs/decisions/0013-agpl-and-cla.mdx).
