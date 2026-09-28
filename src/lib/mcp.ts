@@ -10,7 +10,8 @@ import {
   searchAssets,
   type Asset,
 } from "@/lib/core/assets";
-import { listContexts, listRules, type BrandRule } from "@/lib/core/brand";
+import { listContexts, listRules, publishBrand, setRules, type BrandRule } from "@/lib/core/brand";
+import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { checkUse } from "@/lib/core/check";
 import { listBrands } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
@@ -22,6 +23,7 @@ import { env } from "@/lib/env";
 import { TOOL_INPUTS, type ToolName } from "@/lib/mcp-tools";
 import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
+import { TEMPLATE_INFO, TEMPLATE_PROPS, TEMPLATES } from "@/lib/pages";
 import { parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -36,7 +38,7 @@ import { parseTransform, serializeTransform } from "@/lib/transform";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. To build a brand's guidelines for people, write its rules with set_rules, read list_templates, lay out pages with save_page (generate_pages starts one from the rules), check them with get_page, and publish when they are right: a page's sections show rules by key, so change a value with set_rules and every page follows. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -94,6 +96,8 @@ type Tool = {
   action: Action;
   input: z.ZodObject;
   readOnly: boolean;
+  /** Takes away what can't be had back without the brand's history. */
+  destructive?: boolean;
   run: (args: never, caller: Caller) => Promise<Record<string, unknown>>;
 };
 
@@ -102,6 +106,7 @@ const tool = <S extends z.ZodObject>(t: {
   action: Action;
   input: S;
   readOnly: boolean;
+  destructive?: boolean;
   run: (args: z.infer<S>, caller: Caller) => Promise<Record<string, unknown>>;
 }) => t as unknown as Tool;
 
@@ -268,6 +273,116 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async ({ brand, context }, caller) => rulesFor(caller.workspace.id, context, brand),
   }),
 
+  // ---- brand pages: guidelines laid out for people, over the rules (lib/pages.ts)
+
+  list_templates: tool({
+    description:
+      "The section templates a brand page is built from: what each is for, which rules it binds by key, its " +
+      "layout defaults, and its own props as JSON Schema. Read it before save_page or edit_page.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_templates,
+    run: async () => ({
+      templates: TEMPLATES.map((t) => {
+        const { name, use, binds, width, columns, tone } = TEMPLATE_INFO[t];
+        const props = z.toJSONSchema(TEMPLATE_PROPS[t], { io: "input" });
+        delete props.$schema;
+        return { template: t, name, use, binds, defaults: { width, columns, tone }, props };
+      }),
+      common:
+        "Every section also takes: id (kept across edits), title, body (Markdown), width (text, wide, full), " +
+        "columns (1-4), tone (plain, tint, brand), hidden, keys (the rules it shows, in order).",
+    }),
+  }),
+
+  list_pages: tool({
+    description: "A brand's pages, in order: slug, title, how many sections, whether hidden. get_page reads one.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_pages,
+    run: async ({ brand }, caller) => listPages(caller.workspace.id, brand),
+  }),
+
+  get_page: tool({
+    description:
+      "One brand page: its sections (template, layout, the keys of the rules each shows, props), the rules they " +
+      "show resolved for a context, and the page as Markdown. `missing` names keys whose rule has since gone.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_page,
+    run: async ({ brand, page, context }, caller) => {
+      const p = await getPage(caller.workspace.id, brand, page, context);
+      return { ...p, rules: forAgent(p.rules) };
+    },
+  }),
+
+  set_rules: tool({
+    description:
+      "Make or change brand rules, many at once, as one version in the brand's history. A rule is { key, type, " +
+      "value, usage, context?, assets? }: type is color (#rrggbb), text (Markdown), number, list, or font " +
+      '({ family, weight?, size? }); keys are dotted camelCase (color.primary, logo.minSize, tone.avoid). Name ' +
+      "lists like always, do or prefer for do's, never, avoid or dont for don'ts: pages show them that way. " +
+      "An existing key and context is changed; its type can't change. `remove` deletes. All or nothing.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.set_rules,
+    run: async ({ brand, set, remove }, caller) => setRules(caller, brand, { set, remove }),
+  }),
+
+  save_page: tool({
+    description:
+      "Make a brand page, or replace one, whole: title, place among the pages, and every section top to bottom. " +
+      "A section is { template, title?, body?, keys?, width?, columns?, tone?, props? }; list_templates says what each " +
+      "template shows and binds. Keys must name rules the template can show (set_rules makes them). Every problem " +
+      'comes back at once with its path. Example: { page: "color", title: "Color", sections: [{ template: "palette", ' +
+      'title: "Palette", keys: ["color.primary", "color.ink"] }, { template: "collection", title: "In use", props: ' +
+      '{ query: "tag=campaign&type=image", limit: 12 } }] }. Changes are drafts until publish.',
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.save_page,
+    run: async ({ brand, page, ...input }, caller) => savePage(caller, brand, page, input),
+  }),
+
+  edit_page: tool({
+    description:
+      "Change a page's sections without resending the page: add (after a section id, null for the top, or at the " +
+      "end), update (the fields in `set`), move (after an id, null for the top), remove. Applied in order; all or " +
+      "none. Section ids come from get_page.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.edit_page,
+    run: async ({ brand, page, ops }, caller) => editPage(caller, brand, page, ops),
+  }),
+
+  delete_page: tool({
+    description: "Delete a brand page. The brand's history keeps it: restoring a version brings it back.",
+    action: "brand.edit",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_page,
+    run: async ({ brand, page }, caller) => deletePage(caller, brand, page),
+  }),
+
+  generate_pages: tool({
+    description:
+      "Lay out a brand that has no pages from its rules: an Overview (cover, palette), then a page per section of " +
+      "keys (color, logo, type, tone...) with the templates its rules fit. A start to edit from; a brand with pages is left alone.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.generate_pages,
+    run: async ({ brand }, caller) => generatePages(caller, brand),
+  }),
+
+  publish: tool({
+    description:
+      "Publish a brand's pages and rules as they stand: portals show this version, and later edits wait for the " +
+      "next publish. Check the pages with get_page first. Publishing with nothing changed does nothing.",
+    action: "brand.publish",
+    readOnly: false,
+    input: TOOL_INPUTS.publish,
+    run: async ({ brand, note }, caller) => publishBrand(caller, brand, note),
+  }),
+
   my_proposals: tool({
     description:
       "What you proposed and what became of it: `proposed` still waits for a person, `active` was " +
@@ -373,7 +488,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
                 name,
                 description: typeof t.description === "string" ? t.description : await t.description(caller),
                 inputSchema,
-                annotations: { readOnlyHint: t.readOnly, destructiveHint: false, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
+                annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
               };
             }),
         ),

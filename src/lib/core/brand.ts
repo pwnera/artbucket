@@ -8,10 +8,12 @@ import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { hasPreview } from "@/lib/preview";
 import { diffRules, extendsLatest, summarize, type SnapRule, type VersionKind } from "@/lib/history";
+import { changedPages, samePages, type SnapPage } from "@/lib/pages";
 import { resolve, RULE_VALUE, ruleContext, type RuleAsset, type RuleInput, type RuleType } from "@/lib/rules";
+import { pageSnapshot, renameKeyInPages, writePages } from "@/lib/core/page-store";
 
 type Row = typeof brandRules.$inferSelect;
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Db = Tx | typeof db;
 
 const toRule = (r: Row, brand: string, ruleAssets: RuleAsset[]) => ({
@@ -114,7 +116,7 @@ async function snapshot(tx: Db, brandId: string): Promise<SnapRule[]> {
   }));
 }
 
-async function latestVersion(tx: Db, brandId: string) {
+export async function latestVersion(tx: Db, brandId: string) {
   const [v] = await tx
     .select()
     .from(brandVersions)
@@ -127,38 +129,48 @@ async function latestVersion(tx: Db, brandId: string) {
 async function addVersion(
   tx: Tx,
   brandId: string,
-  v: { kind: VersionKind; actor: string; changed: string[]; snapshot: SnapRule[]; restoredFrom?: number },
+  v: { kind: VersionKind; actor: string; changed: string[]; snapshot: SnapRule[]; pages: SnapPage[]; restoredFrom?: number },
 ) {
   const latest = await latestVersion(tx, brandId);
   await tx.insert(brandVersions).values({ brandId, number: (latest?.number ?? 0) + 1, ...v });
 }
 
 /**
- * Run a change to a brand's rules and record it in the brand's history, in
- * one transaction. Changes to one brand take turns (an advisory lock), so
- * version numbers never collide and a snapshot is never of a half-made change.
+ * Run a change to a brand's rules or pages and record it in the brand's
+ * history, in one transaction. Changes to one brand take turns (an advisory
+ * lock), so version numbers never collide and a snapshot is never of a
+ * half-made change.
  *
  * The first change to a brand with no history records the state before it,
- * so even that change has something to diff against and restore to.
+ * so even that change has something to diff against and restore to. Pages
+ * changed are named in `changed` by themselves ("page:logo").
  */
-async function tracked<T>(brandId: string, actor: string, changed: string[], fn: (tx: Tx) => Promise<T>) {
+export async function tracked<T>(brandId: string, actor: string, changed: string[], fn: (tx: Tx) => Promise<T>) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brandId}))`);
     if (!(await latestVersion(tx, brandId))) {
-      await addVersion(tx, brandId, { kind: "baseline", actor: "artbucket", changed: [], snapshot: await snapshot(tx, brandId) });
+      await addVersion(tx, brandId, {
+        kind: "baseline",
+        actor: "artbucket",
+        changed: [],
+        snapshot: await snapshot(tx, brandId),
+        pages: await pageSnapshot(tx, brandId),
+      });
     }
     const out = await fn(tx);
     const after = await snapshot(tx, brandId);
+    const pages = await pageSnapshot(tx, brandId);
     const latest = (await latestVersion(tx, brandId))!;
-    // Compared as rules, not as JSON: jsonb gives keys back in its own order.
-    if (!diffRules(latest.snapshot, after).length) return out;
+    // Compared as rules and pages, not as JSON: jsonb gives keys back in its own order.
+    if (!diffRules(latest.snapshot, after).length && samePages(latest.pages, pages)) return out;
+    const all = [...new Set([...changed, ...changedPages(latest.pages, pages)])];
     if (extendsLatest(latest, actor, new Date())) {
       await tx
         .update(brandVersions)
-        .set({ snapshot: after, changed: [...new Set([...latest.changed, ...changed])], updatedAt: sql`now()` })
+        .set({ snapshot: after, pages, changed: [...new Set([...latest.changed, ...all])], updatedAt: sql`now()` })
         .where(eq(brandVersions.id, latest.id));
     } else {
-      await addVersion(tx, brandId, { kind: "edit", actor, changed, snapshot: after });
+      await addVersion(tx, brandId, { kind: "edit", actor, changed: all, snapshot: after, pages });
     }
     return out;
   });
@@ -302,6 +314,8 @@ export async function updateRule(
         .update(brandRules)
         .set({ key: patch.key, updatedAt: sql`now()` })
         .where(and(eq(brandRules.brandId, current.brandId), eq(brandRules.key, current.key), ne(brandRules.id, id)));
+      // Pages bind by key: they follow the rename.
+      await renameKeyInPages(tx, current.brandId, current.key, patch.key);
       set.key = patch.key;
     }
     const [row] =
@@ -323,6 +337,61 @@ export async function deleteRule(caller: Caller, id: string) {
     await tx.delete(brandRules).where(eq(brandRules.id, id));
     return true;
   });
+}
+
+/**
+ * Many rules at once, one version: each `set` rule is made, or changed if its
+ * key and context exist (its type can't change: remove it first), and each
+ * `remove` goes. A remove without a context takes the key with its context
+ * versions. All or nothing: one bad rule and none are written.
+ */
+export async function setRules(
+  caller: Caller,
+  slug: string | undefined,
+  input: { set?: RuleInput[]; remove?: { key: string; context?: string | null }[] },
+) {
+  const brand = await resolveBrand(caller.workspace.id, slug);
+  const set = input.set ?? [];
+  const remove = input.remove ?? [];
+  const values = set.map((r) => checkValue(r.type, r.value));
+  const out = { created: [] as string[], updated: [] as string[], removed: [] as string[] };
+  await tracked(brand.id, caller.actor, [...new Set([...set, ...remove].map((r) => r.key))], async (tx) => {
+    for (const r of remove) {
+      const gone = await tx
+        .delete(brandRules)
+        .where(r.context === undefined ? and(eq(brandRules.brandId, brand.id), eq(brandRules.key, r.key)) : where(brand.id, r.key, r.context))
+        .returning({ key: brandRules.key, context: brandRules.context });
+      if (!gone.length) throw new AssetError("not_found", `No rule ${label(r.key, r.context ?? null)}`);
+      out.removed.push(...gone.map((g) => label(g.key, g.context)));
+    }
+    for (const [i, r] of set.entries()) {
+      const context = r.context ?? null;
+      const [row] = await tx.select().from(brandRules).where(where(brand.id, r.key, context));
+      if (row && row.type !== r.type) {
+        throw new AssetError("invalid", `${label(r.key, context)} is a ${row.type} rule; its type can't change. Remove it first`);
+      }
+      let id = row?.id;
+      if (row) {
+        await tx
+          .update(brandRules)
+          .set({ value: values[i], ...(r.usage !== undefined && { usage: r.usage || null }), updatedAt: sql`now()` })
+          .where(eq(brandRules.id, row.id));
+        out.updated.push(label(r.key, context));
+      } else {
+        const inBrand = eq(brandRules.brandId, brand.id);
+        const [same] = await tx.select({ position: brandRules.position }).from(brandRules).where(and(inBrand, eq(brandRules.key, r.key))).limit(1);
+        const [last] = await tx.select({ n: max(brandRules.position) }).from(brandRules).where(inBrand);
+        const [made] = await tx
+          .insert(brandRules)
+          .values({ brandId: brand.id, key: r.key, context, type: r.type, value: values[i], usage: r.usage || null, position: same?.position ?? (last?.n ?? -1) + 1 })
+          .returning({ id: brandRules.id });
+        id = made.id;
+        out.created.push(label(r.key, context));
+      }
+      if (r.assets || !row) await setAssets(tx, caller.workspace.id, id!, r.assets ?? []);
+    }
+  });
+  return { brand: brand.slug, ...out };
 }
 
 /** Write a snapshot's rules into a brand, which has none. Assets deleted since are left out and counted. */
@@ -367,6 +436,9 @@ export async function createBrand(caller: Caller, input: { name: string; slug?: 
     if (!row) throw new AssetError("conflict", `A brand "${slug}" exists`);
     const rules = source ? await snapshot(tx, source.id) : [];
     await writeRules(tx, ws, row.id, rules);
+    // Its pages too: they bind by key, and the keys came along.
+    const pages = source ? await pageSnapshot(tx, source.id) : [];
+    await writePages(tx, row.id, pages);
     await tx.insert(brandVersions).values({
       brandId: row.id,
       number: 1,
@@ -374,6 +446,7 @@ export async function createBrand(caller: Caller, input: { name: string; slug?: 
       actor: caller.actor,
       changed: [],
       snapshot: await snapshot(tx, row.id),
+      pages,
     });
     return { ...present(row), rules: rules.length };
   });
@@ -395,6 +468,9 @@ const meta = (v: typeof brandVersions.$inferSelect) => ({
           : "Restored an earlier version"
         : summarize(v.changed),
   rules: v.snapshot.length,
+  pages: v.pages?.length ?? null,
+  publishedAt: v.publishedAt,
+  publishedBy: v.publishedBy,
   createdAt: v.createdAt,
   updatedAt: v.updatedAt,
 });
@@ -440,7 +516,7 @@ export async function getVersion(ws: string, slug: string, number: number, again
   }
   // "current" reads as how to get from this version to now; a number, how this version came about.
   const diff = against === "current" ? diffRules(v.snapshot, base) : diffRules(base, v.snapshot);
-  return { ...meta(v), rules: v.snapshot, against: baseLabel, diff };
+  return { ...meta(v), rules: v.snapshot, pages: v.pages, against: baseLabel, diff };
 }
 
 /** Name a version, to keep it as a checkpoint; null clears it. */
@@ -465,17 +541,44 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
     const before = await snapshot(tx, brand.id);
+    const pagesBefore = await pageSnapshot(tx, brand.id);
     await tx.delete(brandRules).where(eq(brandRules.brandId, brand.id));
     const dropped = await writeRules(tx, caller.workspace.id, brand.id, v.snapshot);
+    // A version from before pages says nothing about them: they stay as they are.
+    if (v.pages) await writePages(tx, brand.id, v.pages);
     const after = await snapshot(tx, brand.id);
+    const pages = await pageSnapshot(tx, brand.id);
     await addVersion(tx, brand.id, {
       kind: "restore",
       restoredFrom: number,
       actor: caller.actor,
-      changed: [...new Set(diffRules(before, after).map((c) => c.key))],
+      changed: [...new Set([...diffRules(before, after).map((c) => c.key), ...changedPages(pagesBefore, pages)])],
       snapshot: after,
+      pages,
     });
     const latest = (await latestVersion(tx, brand.id))!;
     return { restored: number, version: latest.number, droppedAssets: dropped };
+  });
+}
+
+/**
+ * Publish the brand as it stands: its latest version becomes what portals
+ * show, and the next edit starts a new version rather than changing it.
+ * Publishing twice with nothing changed is the same publish.
+ */
+export async function publishBrand(caller: Caller, slug: string | undefined, note?: string) {
+  const brand = await resolveBrand(caller.workspace.id, slug);
+  // An empty change through tracked: a brand with no history gets its baseline first.
+  await tracked(brand.id, caller.actor, [], async () => {});
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
+    const latest = (await latestVersion(tx, brand.id))!;
+    if (latest.publishedAt) return { brand: brand.slug, ...meta(latest), unchanged: true };
+    const [row] = await tx
+      .update(brandVersions)
+      .set({ publishedAt: sql`now()`, publishedBy: caller.actor, ...(note && !latest.name && { name: note }) })
+      .where(eq(brandVersions.id, latest.id))
+      .returning();
+    return { brand: brand.slug, ...meta(row), unchanged: false };
   });
 }

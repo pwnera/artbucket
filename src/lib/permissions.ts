@@ -60,6 +60,8 @@ export const ACTIONS = {
   // The brand
   "brand.read": { scope: "read", on: "anywhere" },
   "brand.edit": { scope: "write", on: "workspace", ability: "setup" },
+  /** Put the brand's pages and rules, as they stand, in front of portal visitors. */
+  "brand.publish": { scope: "write", on: "workspace", ability: "share" },
   // Sharing, keys, people, settings
   "share.manage": { scope: "write", on: "anywhere", ability: "share" },
   "share.collect_workspace": { scope: "write", on: "workspace", ability: "share" },

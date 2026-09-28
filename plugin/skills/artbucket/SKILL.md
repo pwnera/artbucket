@@ -68,6 +68,28 @@ between them:
 3. Ingest the result with `origin: "generated"`, the `generator`, and the prompt you used.
 4. `check_use` it for where it will run before you say it's ready.
 
+## Building the brand's guidelines
+
+A brand's guidelines are pages people read (and portals publish), laid out over its rules. You can build
+them end to end over MCP (the CLI doesn't have these yet). It takes a key with write on the workspace;
+publishing also takes the share ability.
+
+1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
+   with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists
+   `always`/`do` and `never`/`avoid`/`dont`: pages show them green and red.
+2. **Pages are the layout.** Read `list_templates`, then `save_page` a whole page: sections top to
+   bottom, each a template (cover, text, split, palette, type, logos, dodont, gallery, collection) with
+   the `keys` of the rules it shows. A `collection` section shows live assets from a collection, a saved
+   search or a `query` (`type=image&tag=campaign&f.channel=web`). For a brand with rules and no pages,
+   `generate_pages` lays out a start.
+3. **Never copy a value into a page.** A section binds rules by key: change a color with `set_rules` and
+   every page follows. Page text (`title`, `body`) is for what isn't a rule: an intro, the why.
+4. **Every problem comes back at once**, each with its path (`sections[2].keys[0]: no rule "color.primery"`).
+   Fix them all and save again. `edit_page` changes a few sections without resending the page.
+5. **Check, then publish.** `get_page` returns the page as Markdown: read it back. Edits are drafts;
+   `publish` puts them in front of portal visitors. Every change is in the brand's history, and a person
+   can restore any version.
+
 ## Fonts
 
 A brand rule may name a Google font that isn't in the library yet: `import_google_font({"family": "IBM Plex Sans"})`

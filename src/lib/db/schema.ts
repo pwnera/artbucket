@@ -21,6 +21,7 @@ import type { C2pa } from "@/lib/c2pa";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
 import type { SnapRule, VersionKind } from "@/lib/history";
+import type { Section, SnapPage } from "@/lib/pages";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
@@ -377,6 +378,11 @@ export const brandVersions = pgTable(
     /** Keys touched, in order, for the one-line summary. */
     changed: jsonb("changed").$type<string[]>().notNull().default([]),
     snapshot: jsonb("snapshot").$type<SnapRule[]>().notNull(),
+    /** The brand's pages as they stood; null in versions from before pages, which a restore leaves alone. */
+    pages: jsonb("pages").$type<SnapPage[]>(),
+    /** Set when this version was published: portals show it, and later edits start a new version. */
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -388,6 +394,33 @@ export const brandVersions = pgTable(
     unique("brand_versions_brand_number_unique").on(t.brandId, t.number),
     check("brand_versions_kind_check", sql`${t.kind} in ('baseline', 'edit', 'restore')`),
   ],
+);
+
+/**
+ * A brand's pages: guidelines laid out for people, over its rules
+ * (lib/pages.ts). Sections are stored whole, in order, since a page is always
+ * read and written whole; they bind rules by key, never by value.
+ */
+export const brandPages = pgTable(
+  "brand_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    position: integer("position").notNull().default(0),
+    hidden: boolean("hidden").notNull().default(false),
+    sections: jsonb("sections").$type<Section[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [unique("brand_pages_brand_slug_unique").on(t.brandId, t.slug)],
 );
 
 export type ActivityVerb =

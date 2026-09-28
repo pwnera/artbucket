@@ -2,7 +2,9 @@ import { z } from "zod";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
+import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
+import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -14,6 +16,8 @@ import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
+const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
+const page = pageSlug.describe("The page's slug, e.g. logo; list_pages names them");
 
 export const TOOL_INPUTS = {
   search_assets: z.object({
@@ -93,6 +97,39 @@ export const TOOL_INPUTS = {
   propose_tags: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
 
   list_fields: z.object({}),
+
+  list_templates: z.object({}),
+
+  list_pages: z.object({ brand }),
+
+  get_page: z.object({
+    brand,
+    page,
+    context: z.string().max(64).optional().describe("Resolve its rules for this context, e.g. dark-background"),
+  }),
+
+  set_rules: z.object({
+    brand,
+    set: z
+      .array(RuleInput)
+      .max(100)
+      .optional()
+      .describe("Rules to make, or change where the key and context exist: { key, type, value, usage?, context?, assets? }"),
+    remove: z
+      .array(z.object({ key: ruleKey, context: ruleContext.nullable().optional().describe("Only this context's version; the key and every version when left out") }))
+      .max(100)
+      .optional(),
+  }),
+
+  save_page: PageInput.extend({ brand, page }),
+
+  edit_page: z.object({ brand, page, ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none") }),
+
+  delete_page: z.object({ brand, page }),
+
+  generate_pages: z.object({ brand }),
+
+  publish: z.object({ brand, note: z.string().trim().max(200).optional().describe("What changed, for the history and What's new") }),
 
   propose_fields: z.object({
     id,

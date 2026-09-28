@@ -76,6 +76,7 @@ test("edits merge into the latest version only when it is a recent, unnamed edit
   assert.equal(extendsLatest(undefined, "web", now), false);
   assert.equal(extendsLatest({ ...edit, actor: "ci-bot" }, "web", now), false);
   assert.equal(extendsLatest({ ...edit, name: "Launch" }, "web", now), false);
+  assert.equal(extendsLatest({ ...edit, publishedAt: now }, "web", now), false);
   assert.equal(extendsLatest({ ...edit, kind: "restore" }, "web", now), false);
   assert.equal(extendsLatest({ ...edit, kind: "baseline" }, "web", now), false);
   assert.equal(extendsLatest({ ...edit, updatedAt: new Date(now.getTime() - MERGE_WINDOW_MS) }, "web", now), false);

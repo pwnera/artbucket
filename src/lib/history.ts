@@ -27,11 +27,12 @@ export const MERGE_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * Whether a change extends the latest version or starts a new one. Only a
- * plain, unnamed edit by the same actor, within the window, is extended: a
- * named version is a checkpoint, and a restore stands on its own.
+ * plain, unnamed, unpublished edit by the same actor, within the window, is
+ * extended: a named or published version is a checkpoint, and a restore
+ * stands on its own.
  */
 export function extendsLatest(
-  latest: { kind: VersionKind; name: string | null; actor: string; updatedAt: Date } | undefined,
+  latest: { kind: VersionKind; name: string | null; actor: string; updatedAt: Date; publishedAt?: Date | null } | undefined,
   actor: string,
   now: Date,
 ) {
@@ -39,6 +40,8 @@ export function extendsLatest(
     !!latest &&
     latest.kind === "edit" &&
     latest.name === null &&
+    // What was published stays as it was published: portals show it.
+    !latest.publishedAt &&
     latest.actor === actor &&
     now.getTime() - latest.updatedAt.getTime() < MERGE_WINDOW_MS
   );
@@ -97,5 +100,7 @@ export function diffRules(before: SnapRule[], after: SnapRule[]): RuleChange[] {
 export function summarize(changed: string[]) {
   if (!changed.length) return "No changes";
   const [first, ...rest] = changed;
-  return `Edited ${first}${rest.length ? ` and ${rest.length} more` : ""}`;
+  // Pages are named "page:logo" (lib/pages.ts changedPages).
+  const name = first.startsWith("page:") ? `the ${first.slice(5)} page` : first;
+  return `Edited ${name}${rest.length ? ` and ${rest.length} more` : ""}`;
 }

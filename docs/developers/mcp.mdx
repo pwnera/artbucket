@@ -33,6 +33,15 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
+| `list_templates` | read | The section templates a brand page is built from, and their props |
+| `list_pages` | read | A brand's pages, in order |
+| `get_page` | read | One page: its sections, the rules they show, and the page as Markdown |
+| `set_rules` | write | Make, change and remove many brand rules at once, as one version |
+| `save_page` | write | Make or replace a page whole; every problem comes back at once with its path |
+| `edit_page` | write | Add, update, move and remove sections; all or none |
+| `delete_page` | write | Delete a page; the brand's history keeps it |
+| `generate_pages` | write | Lay out a brand with no pages from its rules |
+| `publish` | write, share | Put the brand's pages and rules, as they stand, in front of portal visitors |
 
 Brand rules are also resources: `artbucket://brand/rules`, and
 `artbucket://brands/{slug}/rules/{context}`.
