@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { effective, MAX_DIMENSION, parseTransform, serializeTransform } from "./transform.ts";
+import { effective, MAX_DIMENSION, parseTransform, renditionLabel, serializeTransform } from "./transform.ts";
 
 test("parses a simple transform", () => {
   assert.deepEqual(parseTransform("w_800,f_webp"), { w: 800, f: "webp" });
@@ -71,4 +71,10 @@ test("outputSize says what a spec gives, never enlarged", async () => {
   // Orientation 6 turns it on its side before the width binds.
   assert.deepEqual(outputSize({ w: 1500 }, photo, 6), { width: 1500, height: 2000, capped: false });
   assert.equal(outputSize({ w: 100 }, { width: null, height: null }), null);
+});
+
+test("a rendition reads as its preset's name, else its spec", () => {
+  assert.equal(renditionLabel(null), "Original");
+  assert.equal(renditionLabel("w_1200,f_webp"), "Web");
+  assert.equal(renditionLabel("w_512,f_png"), "w_512,f_png");
 });

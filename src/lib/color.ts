@@ -7,6 +7,18 @@
 
 export type Rgb = [r: number, g: number, b: number];
 
+const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+/** "#6d4aff" or "#6d4aff80", as a color rule stores it. */
+export const isHex = (v: string) => HEX.test(v);
+
+/** "6D4AFF", "#abc" and "#6d4aff" are one color, saved as the last; null when it isn't a hex at all. */
+export function hexOf(typed: string) {
+  let v = typed.trim().toLowerCase();
+  if (!v.startsWith("#")) v = `#${v}`;
+  if (/^#[0-9a-f]{3,4}$/.test(v)) v = `#${[...v.slice(1)].map((c) => c + c).join("")}`;
+  return isHex(v) ? v : null;
+}
+
 /** "#34a853" or "#34a853ff" (alpha ignored) to [52, 168, 83]. */
 export function rgb(hex: string): Rgb {
   const n = parseInt(hex.slice(1, 7), 16);

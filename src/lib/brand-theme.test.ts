@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { brandTheme, fontRoles, renameThemeKey, stack, ThemeSettings } from "./brand-theme.ts";
+import { brandTheme, colorsOf, fontRoles, renameThemeKey, stack, ThemeSettings } from "./brand-theme.ts";
 import { contrast } from "./color.ts";
 import type { Rule } from "./rules.ts";
 
@@ -111,4 +111,15 @@ test("renameThemeKey renames every slot naming the rule, and says when none does
   assert.deepEqual(renameThemeKey(s, "logo.main", "logo.primary"), { ...s, logo: "logo.primary" });
   assert.equal(renameThemeKey(s, "color.other", "color.x"), null);
   assert.equal(renameThemeKey({ width: "normal" }, "normal", "wide"), null, "enum values are not keys");
+});
+
+test("colorsOf: one color per key, the first variant, valid hex only", () => {
+  const rules = [
+    r("color.primary", "color", "#6d4aff"),
+    r("type.body", "font", { family: "Inter" }),
+    r("color.primary", "color", "#ffffff", { context: "dark-background" }),
+    r("color.bad", "color", "blue"),
+    r("color.ink", "color", "#10101080"),
+  ];
+  assert.deepEqual(colorsOf(rules).map((x) => x.value), ["#6d4aff", "#10101080"]);
 });

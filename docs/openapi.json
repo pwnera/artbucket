@@ -16942,29 +16942,8 @@
                                 "maxLength": 40
                               },
                               "icon": {
-                                "type": "string",
-                                "enum": [
-                                  "folder",
-                                  "photo",
-                                  "palette",
-                                  "brush",
-                                  "camera",
-                                  "movie",
-                                  "music",
-                                  "star",
-                                  "heart",
-                                  "flag",
-                                  "bookmark",
-                                  "briefcase",
-                                  "building-store",
-                                  "speakerphone",
-                                  "rocket",
-                                  "sparkles",
-                                  "leaf",
-                                  "world",
-                                  "users",
-                                  "archive"
-                                ]
+                                "description": "One of the icons a page takes",
+                                "type": "string"
                               },
                               "download": {
                                 "description": "false: for reference, never offered as a download",
@@ -17004,28 +16983,72 @@
                           "type": "string",
                           "enum": [
                             "cover",
+                            "header",
                             "text",
                             "split",
+                            "cards",
                             "palette",
                             "type",
                             "logos",
                             "dodont",
                             "gallery",
-                            "collection"
+                            "collection",
+                            "links",
+                            "pages"
                           ]
                         },
                         "props": {
                           "type": "object",
                           "properties": {
                             "image": {
-                              "description": "cover: A background image instead of the brand color; split: Shown beside the words; else the first bound rule's picture",
+                              "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
+                            "video": {
+                              "description": "cover: A muted loop over the image, its poster",
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "align": {
+                              "description": "cover",
+                              "type": "string",
+                              "enum": [
+                                "start",
+                                "center",
+                                "end"
+                              ]
+                            },
+                            "height": {
+                              "description": "cover",
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "tall",
+                                "screen"
+                              ]
+                            },
+                            "strip": {
+                              "description": "cover: The palette as a strip; true when left out",
+                              "type": "boolean"
+                            },
                             "flip": {
                               "description": "split: Image on the left",
                               "type": "boolean"
+                            },
+                            "layout": {
+                              "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                              "type": "string",
+                              "enum": [
+                                "cards",
+                                "list",
+                                "pairs",
+                                "grid",
+                                "rows",
+                                "masonry"
+                              ]
                             },
                             "sample": {
                               "description": "type: The specimen's starting text",
@@ -17064,18 +17087,21 @@
                               "minimum": 1,
                               "maximum": 200
                             },
-                            "layout": {
-                              "description": "collection",
-                              "type": "string",
-                              "enum": [
-                                "grid",
-                                "masonry",
-                                "list"
-                              ]
-                            },
                             "downloads": {
                               "description": "collection: Offer downloads; true when left out",
                               "type": "boolean"
+                            },
+                            "from": {
+                              "description": "pages: The page whose children it shows; this page when left out",
+                              "type": "string",
+                              "maxLength": 60,
+                              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                            },
+                            "depth": {
+                              "description": "pages: How many levels a list goes down: a table of contents",
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 3
                             }
                           },
                           "additionalProperties": false
@@ -18040,29 +18066,8 @@
                                         "maxLength": 40
                                       },
                                       "icon": {
-                                        "type": "string",
-                                        "enum": [
-                                          "folder",
-                                          "photo",
-                                          "palette",
-                                          "brush",
-                                          "camera",
-                                          "movie",
-                                          "music",
-                                          "star",
-                                          "heart",
-                                          "flag",
-                                          "bookmark",
-                                          "briefcase",
-                                          "building-store",
-                                          "speakerphone",
-                                          "rocket",
-                                          "sparkles",
-                                          "leaf",
-                                          "world",
-                                          "users",
-                                          "archive"
-                                        ]
+                                        "description": "One of the icons a page takes",
+                                        "type": "string"
                                       },
                                       "download": {
                                         "description": "false: for reference, never offered as a download",
@@ -18102,28 +18107,72 @@
                                   "type": "string",
                                   "enum": [
                                     "cover",
+                                    "header",
                                     "text",
                                     "split",
+                                    "cards",
                                     "palette",
                                     "type",
                                     "logos",
                                     "dodont",
                                     "gallery",
-                                    "collection"
+                                    "collection",
+                                    "links",
+                                    "pages"
                                   ]
                                 },
                                 "props": {
                                   "type": "object",
                                   "properties": {
                                     "image": {
-                                      "description": "cover: A background image instead of the brand color; split: Shown beside the words; else the first bound rule's picture",
+                                      "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
+                                    "video": {
+                                      "description": "cover: A muted loop over the image, its poster",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "align": {
+                                      "description": "cover",
+                                      "type": "string",
+                                      "enum": [
+                                        "start",
+                                        "center",
+                                        "end"
+                                      ]
+                                    },
+                                    "height": {
+                                      "description": "cover",
+                                      "type": "string",
+                                      "enum": [
+                                        "auto",
+                                        "tall",
+                                        "screen"
+                                      ]
+                                    },
+                                    "strip": {
+                                      "description": "cover: The palette as a strip; true when left out",
+                                      "type": "boolean"
+                                    },
                                     "flip": {
                                       "description": "split: Image on the left",
                                       "type": "boolean"
+                                    },
+                                    "layout": {
+                                      "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                                      "type": "string",
+                                      "enum": [
+                                        "cards",
+                                        "list",
+                                        "pairs",
+                                        "grid",
+                                        "rows",
+                                        "masonry"
+                                      ]
                                     },
                                     "sample": {
                                       "description": "type: The specimen's starting text",
@@ -18162,18 +18211,21 @@
                                       "minimum": 1,
                                       "maximum": 200
                                     },
-                                    "layout": {
-                                      "description": "collection",
-                                      "type": "string",
-                                      "enum": [
-                                        "grid",
-                                        "masonry",
-                                        "list"
-                                      ]
-                                    },
                                     "downloads": {
                                       "description": "collection: Offer downloads; true when left out",
                                       "type": "boolean"
+                                    },
+                                    "from": {
+                                      "description": "pages: The page whose children it shows; this page when left out",
+                                      "type": "string",
+                                      "maxLength": 60,
+                                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                    },
+                                    "depth": {
+                                      "description": "pages: How many levels a list goes down: a table of contents",
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
                                     }
                                   },
                                   "additionalProperties": false
@@ -18186,14 +18238,9 @@
                             },
                             "after": {
                               "description": "Add it after this section; null for the top; the end when left out",
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[a-z0-9_-]{1,40}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             }
                           },
@@ -18211,8 +18258,7 @@
                               "const": "update"
                             },
                             "id": {
-                              "type": "string",
-                              "pattern": "^[a-z0-9_-]{1,40}$"
+                              "type": "string"
                             },
                             "set": {
                               "type": "object",
@@ -18238,20 +18284,14 @@
                               "const": "move"
                             },
                             "id": {
-                              "type": "string",
-                              "pattern": "^[a-z0-9_-]{1,40}$"
+                              "type": "string"
                             },
                             "after": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^[a-z0-9_-]{1,40}$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ],
-                              "description": "After this section; null for the top"
+                              "description": "After this section; null for the top",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -18269,8 +18309,7 @@
                               "const": "remove"
                             },
                             "id": {
-                              "type": "string",
-                              "pattern": "^[a-z0-9_-]{1,40}$"
+                              "type": "string"
                             }
                           },
                           "required": [
@@ -19766,6 +19805,1437 @@
                         "theme",
                         "checks",
                         "warnings"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brands/{slug}/view": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A brand page, ready to read",
+        "description": "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed with a lock), the page's sections, every context version of the rules they show, the assets they name that may be used, and each collection section's assets. No `page`: the first. A slug it had before a rename gives the page with `redirect` set. `edit=1` takes write, and adds hidden pages and sections, `warnings` and `missing`.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The page's slug; the first page when left out"
+          },
+          {
+            "name": "context",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The context the reader starts in, e.g. dark-background"
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The reader's language"
+          },
+          {
+            "name": "edit",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "1: as the builder sees it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "brand": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "number": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "publishedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "number",
+                                "publishedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The version it shows; null: the draft"
+                        },
+                        "context": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contexts": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Every context some rule is scoped to"
+                        },
+                        "lang": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "theme": {
+                          "type": "object",
+                          "properties": {
+                            "settings": {
+                              "type": "object",
+                              "properties": {
+                                "accent": {
+                                  "description": "Color rule for links, marks and brand grounds; color.primary, brand or accent when left out",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "accentUse": {
+                                  "description": "hairline: the accent draws rules and marks, never fills",
+                                  "type": "string",
+                                  "enum": [
+                                    "fill",
+                                    "hairline"
+                                  ]
+                                },
+                                "surface": {
+                                  "description": "The page ground; color.background, surface or paper when left out, else the app's",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "panel": {
+                                  "description": "Panels and alternate sections; a step off the surface when left out",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "dark": {
+                                  "description": "The dark ground",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "ink": {
+                                  "description": "Text; color.ink, text or foreground when left out, else black or white by contrast",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "muted": {
+                                  "description": "Quiet text; mixed from ink and surface when left out",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "head": {
+                                  "description": "Font rule for headings",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "body": {
+                                  "description": "Font rule for text",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "label": {
+                                  "description": "Font rule for eyebrows, labels and running heads; its spec.case and spec.tracking set them",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "logo": {
+                                  "description": "The rule whose picture is the site's mark; logo.primary, mark or wordmark when left out",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "device": {
+                                  "description": "An SVG asset: the brand's symbol or pattern for covers, dividers and pattern grounds",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "radius": {
+                                  "description": "Corner radius in px",
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 40
+                                },
+                                "width": {
+                                  "type": "string",
+                                  "enum": [
+                                    "narrow",
+                                    "normal",
+                                    "wide"
+                                  ]
+                                },
+                                "density": {
+                                  "type": "string",
+                                  "enum": [
+                                    "compact",
+                                    "normal",
+                                    "airy"
+                                  ]
+                                },
+                                "scale": {
+                                  "description": "Heading size ratio; 1.25 when left out",
+                                  "type": "number",
+                                  "minimum": 1.067,
+                                  "maximum": 1.618
+                                },
+                                "nav": {
+                                  "type": "string",
+                                  "enum": [
+                                    "sidebar",
+                                    "top",
+                                    "overlay"
+                                  ]
+                                },
+                                "band": {
+                                  "description": "Every page opens on a band of the brand color",
+                                  "type": "boolean"
+                                },
+                                "numbering": {
+                                  "description": "Number chapters and pages: 01, 01.2",
+                                  "type": "boolean"
+                                },
+                                "motion": {
+                                  "description": "subtle: sections reveal as they scroll in; never with reduced motion",
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "subtle"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "v1": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {},
+                              "description": "The accent and faces the rules give"
+                            }
+                          },
+                          "required": [
+                            "settings",
+                            "v1"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "nav": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "parent": {
+                                "description": "The page it sits under; null at the top",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "eyebrow": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lede": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "cover": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Its header and card image"
+                              },
+                              "icon": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "audience": {
+                                "type": "string",
+                                "enum": [
+                                  "everyone",
+                                  "partners",
+                                  "members"
+                                ],
+                                "description": "On portals: who may read it"
+                              },
+                              "tabs": {
+                                "type": "boolean",
+                                "description": "Its child pages show as tabs across its top"
+                              },
+                              "home": {
+                                "type": "boolean",
+                                "description": "The first page, opening on a cover: never numbered"
+                              },
+                              "locked": {
+                                "type": "boolean",
+                                "description": "Above the reader: listed by title with a lock, nothing more"
+                              },
+                              "updatedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "title",
+                              "parent",
+                              "position",
+                              "eyebrow",
+                              "lede",
+                              "cover",
+                              "icon",
+                              "audience",
+                              "tabs",
+                              "home",
+                              "locked",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Every page the reader is listed, in order"
+                        },
+                        "page": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "parent": {
+                                  "description": "The page it sits under; null at the top",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "eyebrow": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lede": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "cover": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Its header and card image"
+                                },
+                                "icon": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "audience": {
+                                  "type": "string",
+                                  "enum": [
+                                    "everyone",
+                                    "partners",
+                                    "members"
+                                  ],
+                                  "description": "On portals: who may read it"
+                                },
+                                "tabs": {
+                                  "type": "boolean",
+                                  "description": "Its child pages show as tabs across its top"
+                                },
+                                "home": {
+                                  "type": "boolean",
+                                  "description": "The first page, opening on a cover: never numbered"
+                                },
+                                "updatedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "sections": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "template": {
+                                        "type": "string",
+                                        "description": "GET /api/v1/brand/templates lists them"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "body": {
+                                        "type": "string",
+                                        "description": "Markdown"
+                                      },
+                                      "width": {
+                                        "type": "string",
+                                        "enum": [
+                                          "text",
+                                          "wide",
+                                          "full"
+                                        ]
+                                      },
+                                      "columns": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "description": "Its ground: plain, tint, brand, panel, dark, color, image or pattern"
+                                      },
+                                      "hidden": {
+                                        "type": "boolean"
+                                      },
+                                      "keys": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        },
+                                        "description": "The rules it shows, by key, in order"
+                                      },
+                                      "props": {
+                                        "type": "object",
+                                        "propertyNames": {
+                                          "type": "string"
+                                        },
+                                        "additionalProperties": {},
+                                        "description": "Its template's own settings"
+                                      },
+                                      "eyebrow": {
+                                        "type": "string"
+                                      },
+                                      "lede": {
+                                        "type": "string"
+                                      },
+                                      "aside": {
+                                        "description": "Markdown",
+                                        "type": "string"
+                                      },
+                                      "tab": {
+                                        "description": "Sections sharing a tab name show under one tab",
+                                        "type": "string"
+                                      },
+                                      "background": {
+                                        "type": "object",
+                                        "properties": {
+                                          "color": {
+                                            "type": "string"
+                                          },
+                                          "image": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "scrim": {
+                                            "type": "number"
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      },
+                                      "items": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "key": {
+                                              "type": "string",
+                                              "description": "A rule it shows"
+                                            },
+                                            "asset": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "title": {
+                                              "type": "string"
+                                            },
+                                            "text": {
+                                              "type": "string",
+                                              "description": "Markdown"
+                                            },
+                                            "verdict": {
+                                              "type": "string",
+                                              "enum": [
+                                                "do",
+                                                "dont"
+                                              ]
+                                            },
+                                            "caption": {
+                                              "type": "string"
+                                            },
+                                            "link": {
+                                              "type": "string"
+                                            },
+                                            "label": {
+                                              "type": "string"
+                                            },
+                                            "icon": {
+                                              "type": "string"
+                                            },
+                                            "download": {
+                                              "type": "boolean",
+                                              "description": "false: for reference, never offered as a download"
+                                            }
+                                          },
+                                          "additionalProperties": false,
+                                          "description": "A thing a template lists: a do or a don't with its picture, a picture in a gallery"
+                                        }
+                                      },
+                                      "audience": {
+                                        "type": "string",
+                                        "enum": [
+                                          "everyone",
+                                          "partners",
+                                          "members"
+                                        ]
+                                      },
+                                      "contexts": {
+                                        "description": "A tab per context, its rules resolved for each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "only": {
+                                        "description": "Shown only in this context",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "template",
+                                      "title",
+                                      "body",
+                                      "width",
+                                      "columns",
+                                      "tone",
+                                      "hidden",
+                                      "keys",
+                                      "props"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "What the reader gets: hidden ones for editors only"
+                                },
+                                "aliases": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "title",
+                                "parent",
+                                "position",
+                                "eyebrow",
+                                "lede",
+                                "cover",
+                                "icon",
+                                "audience",
+                                "tabs",
+                                "home",
+                                "updatedAt",
+                                "sections",
+                                "aliases"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "null: locked for this reader"
+                        },
+                        "locked": {
+                          "type": "boolean"
+                        },
+                        "redirect": {
+                          "description": "An old slug was asked for: the page's slug now",
+                          "type": "string"
+                        },
+                        "rules": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "description": "Dotted, e.g. color.primary"
+                              },
+                              "label": {
+                                "description": "The heading readers see; null: the key, in words",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "context": {
+                                "description": "null: the default",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "color",
+                                  "text",
+                                  "number",
+                                  "list",
+                                  "font"
+                                ]
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": [
+                                        "string",
+                                        "number"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 120
+                                      },
+                                      "size": {
+                                        "description": "Pixels",
+                                        "type": "number",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 1000
+                                      },
+                                      "weight": {
+                                        "description": "400 regular, 700 bold",
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 1000
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "spec": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {}
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Details beyond the value, by type: RuleInput's spec"
+                              },
+                              "usage": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "assets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "rendition": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "title": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "filename": {
+                                      "type": "string"
+                                    },
+                                    "mime": {
+                                      "type": "string"
+                                    },
+                                    "width": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "height": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "size": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "preview": {
+                                      "type": "boolean",
+                                      "description": "Has renditions: /a/{id}/{rendition} draws it"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "rendition",
+                                    "title",
+                                    "filename",
+                                    "mime",
+                                    "width",
+                                    "height",
+                                    "size",
+                                    "preview"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Its assets readers may see, in order; one that may not be used is left out"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "label",
+                              "context",
+                              "type",
+                              "value",
+                              "spec",
+                              "usage",
+                              "assets"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Every context version of the rules the page binds, the theme's, and those their specs name"
+                        },
+                        "media": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "filename": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "description": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "creator": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "copyright": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "mime": {
+                                "type": "string"
+                              },
+                              "size": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "width": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "thumbnail": {
+                                "description": "A URL on this host",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preview": {
+                                "description": "Larger, for a closer look",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "downloads": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "preset": {
+                                      "type": "string",
+                                      "enum": [
+                                        "web",
+                                        "social",
+                                        "story",
+                                        "print",
+                                        "png",
+                                        "original"
+                                      ]
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "hint": {
+                                      "type": "string"
+                                    },
+                                    "url": {
+                                      "type": "string"
+                                    },
+                                    "filename": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "preset",
+                                    "label",
+                                    "hint",
+                                    "url",
+                                    "filename"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "original": {
+                                "type": "string",
+                                "description": "The file as uploaded"
+                              },
+                              "focus": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Where a crop keeps its subject, from 0 to 1 across and down"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "filename",
+                              "title",
+                              "description",
+                              "creator",
+                              "copyright",
+                              "mime",
+                              "size",
+                              "width",
+                              "height",
+                              "thumbnail",
+                              "preview",
+                              "downloads",
+                              "original",
+                              "focus",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "The assets it names that may be used, by id"
+                        },
+                        "collections": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "filename": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "description": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "creator": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "copyright": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "mime": {
+                                      "type": "string"
+                                    },
+                                    "size": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "width": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "height": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "thumbnail": {
+                                      "description": "A URL on this host",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "preview": {
+                                      "description": "Larger, for a closer look",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "downloads": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "preset": {
+                                            "type": "string",
+                                            "enum": [
+                                              "web",
+                                              "social",
+                                              "story",
+                                              "print",
+                                              "png",
+                                              "original"
+                                            ]
+                                          },
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "hint": {
+                                            "type": "string"
+                                          },
+                                          "url": {
+                                            "type": "string"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "preset",
+                                          "label",
+                                          "hint",
+                                          "url",
+                                          "filename"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "original": {
+                                      "type": "string",
+                                      "description": "The file as uploaded"
+                                    },
+                                    "focus": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "x": {
+                                              "type": "number"
+                                            },
+                                            "y": {
+                                              "type": "number"
+                                            }
+                                          },
+                                          "required": [
+                                            "x",
+                                            "y"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Where a crop keeps its subject, from 0 to 1 across and down"
+                                    },
+                                    "updatedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "filename",
+                                    "title",
+                                    "description",
+                                    "creator",
+                                    "copyright",
+                                    "mime",
+                                    "size",
+                                    "width",
+                                    "height",
+                                    "thumbnail",
+                                    "preview",
+                                    "downloads",
+                                    "original",
+                                    "focus",
+                                    "updatedAt"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "total": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "error": {
+                                "description": "Why it shows nothing; editors only",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "items",
+                              "total",
+                              "error"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "A collection section's assets, by section id"
+                        },
+                        "signed": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Signatures by asset id, for visitors; empty for members"
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Editors only: what a reader would trip on, and assets they won't see"
+                        },
+                        "missing": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Editors only: keys a section binds with no rule"
+                        }
+                      },
+                      "required": [
+                        "brand",
+                        "version",
+                        "context",
+                        "contexts",
+                        "lang",
+                        "theme",
+                        "nav",
+                        "page",
+                        "locked",
+                        "rules",
+                        "media",
+                        "collections",
+                        "signed",
+                        "warnings",
+                        "missing"
                       ],
                       "additionalProperties": false
                     }

@@ -29,6 +29,10 @@ export const PRESETS = [
   { name: "AVIF", spec: "w_1600,f_avif" },
 ] as const;
 
+/** "Web" for a preset's spec, the spec itself otherwise, "Original" for none. */
+export const renditionLabel = (spec: string | null) =>
+  spec === null ? "Original" : (PRESETS.find((p) => p.spec === spec)?.name ?? spec);
+
 export type Transform = {
   w?: number;
   h?: number;

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { lift } from "./color.ts";
-import { isFont, pickFace } from "./font.ts";
+import { isHex, lift } from "./color.ts";
+import { fontFiles, pickFace } from "./font.ts";
 import { type FONT_SPEC, fontValue, type Rule, ruleKey } from "./rules.ts";
 
 /**
@@ -68,7 +68,6 @@ export function renameThemeKey(s: ThemeSettings, from: string, to: string): Them
 
 type R = Pick<Rule, "key" | "type" | "value" | "context" | "assets" | "spec">;
 
-const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 const last = (key: string) => key.split(".").pop()!;
 
 /** The app's page backgrounds (globals.css), which the accent must read on. */
@@ -79,7 +78,7 @@ const DARK = "#111111";
 function face(r: R | undefined): ThemeFace | undefined {
   if (!r) return undefined;
   const { family, weight } = fontValue(r.value);
-  const file = pickFace(r.assets.filter((a) => a.mime && isFont(a.mime, a.filename ?? "")), weight)?.id;
+  const file = pickFace(fontFiles(r), weight)?.id;
   return { family, ...(weight && { weight }), ...(file && { file }) };
 }
 
@@ -109,7 +108,7 @@ export function fontRoles<F extends Pick<Rule, "key" | "type" | "spec">>(rules: 
 /** Default-context rules only: the page's look doesn't change as you switch context. */
 export function brandTheme(rules: R[]): BrandTheme {
   const base = rules.filter((r) => r.context === null);
-  const colors = base.filter((r) => r.type === "color" && HEX.test(r.value as string));
+  const colors = base.filter((r) => r.type === "color" && isHex(r.value as string));
   // `color.primary` before `color.brand` before `color.accent`, then the first color: the order people name them.
   const named = (re: RegExp) => colors.find((r) => re.test(last(r.key)));
   const accent = named(/^primary/i) ?? named(/^brand/i) ?? named(/^accent/i) ?? colors[0];
@@ -121,6 +120,10 @@ export function brandTheme(rules: R[]): BrandTheme {
     ...(body && { body: face(body) }),
   };
 }
+
+/** One color per key (its variants are a click away on the rule), valid hex only. */
+export const colorsOf = <T extends Pick<Rule, "key" | "type" | "value">>(rs: T[]) =>
+  rs.filter((r, i) => r.type === "color" && isHex(r.value as string) && rs.findIndex((x) => x.key === r.key) === i);
 
 /** A font stack: the loaded file's family first, then the name as typed, then the app's own. */
 export const stack = (f: ThemeFace, loaded?: string | null) =>

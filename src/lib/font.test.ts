@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  fontFiles,
   fontFileName,
   fontMime,
   fontStyle,
   GOOGLE_FAMILY,
   googleFontsCss,
   isFont,
+  isFontAsset,
   parseCatalog,
   parseFontFaces,
   pickFace,
@@ -111,4 +113,15 @@ test("picks the upright file at a weight, else the Regular", () => {
   assert.equal(pickFace(files)?.filename, "X-Regular.ttf");
   assert.equal(pickFace([{ filename: "X-Italic.ttf" }])?.filename, "X-Italic.ttf");
   assert.equal(pickFace([]), undefined);
+});
+
+test("a rule's font files are its font assets, in order, stored mime or not", () => {
+  const assets = [
+    { id: "a", mime: "image/svg+xml", filename: "logo.svg" },
+    { id: "b", mime: "font/ttf", filename: "Inter-Bold.ttf" },
+    { id: "c", mime: "application/octet-stream", filename: "Inter-Regular.woff2" },
+    { id: "d", filename: "Inter-Italic.ttf" },
+  ];
+  assert.deepEqual(fontFiles({ assets }).map((a) => a.id), ["b", "c"]);
+  assert.equal(isFontAsset({ mime: null, filename: "x.ttf" }), false, "no mime yet: not known to be a font");
 });

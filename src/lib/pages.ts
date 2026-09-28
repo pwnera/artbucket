@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COLLECTION_ICONS, type CollectionIcon } from "./collection-icons.ts";
+import { SITE_PATH } from "./markdown.ts";
 import { fontValue, listStyle, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
 
 /**
@@ -17,7 +18,7 @@ import { fontValue, listStyle, ruleContext, ruleKey, ruleLabel, section, type Ru
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const TEMPLATES = ["cover", "text", "split", "palette", "type", "logos", "dodont", "gallery", "collection"] as const;
+export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const WIDTHS = ["text", "wide", "full"] as const;
@@ -30,6 +31,7 @@ export type Audience = (typeof AUDIENCES)[number];
 /** ponytail: hard-coded caps; add LIMIT_PAGES when an operator asks. */
 export const MAX_PAGES = 200;
 const MAX_SECTIONS = 60;
+const MAX_ITEMS = 60;
 
 type Bindable = Pick<Rule, "key" | "type" | "value" | "assets">;
 const scale = (r: Bindable) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
@@ -66,6 +68,17 @@ export const TEMPLATE_INFO: Record<
     tone: "brand",
     example: { template: "cover", eyebrow: "Brand guidelines", title: "Blender", lede: "How Blender looks, sounds and is used." },
   },
+  header: {
+    name: "Header",
+    use: "A band that opens a part of a long page: its number, eyebrow, title and lede, on its tone.",
+    binds: null,
+    accepts: null,
+    items: null,
+    width: "full",
+    columns: 1,
+    tone: "tint",
+    example: { template: "header", eyebrow: "Part two", title: "Using the logo", lede: "Where it goes, and where it never does." },
+  },
   text: {
     name: "Text",
     use: "Prose in Markdown, and rules read as statements: a voice, a minimum size, a list of habits.",
@@ -95,6 +108,26 @@ export const TEMPLATE_INFO: Record<
     columns: 1,
     tone: "plain",
     example: { template: "split", title: "The mark", body: "Our mark is a blend of two shapes.", keys: ["logo.mark"], props: { flip: true } },
+  },
+  cards: {
+    name: "Cards",
+    use: "A card per point: each entry of the lists it binds, each text rule, then each item.",
+    binds: "text and list rules",
+    accepts: (r) => r.type === "text" || r.type === "list",
+    items: "a card: title (needed), text, asset, icon, link, label",
+    needs: [["title"]],
+    width: "wide",
+    columns: 3,
+    tone: "plain",
+    example: {
+      template: "cards",
+      title: "What we stand for",
+      keys: ["tone.always"],
+      items: [
+        { title: "Free", text: "Free to use, for any purpose, forever.", icon: "heart" },
+        { title: "Open", text: "Made in the open by a community.", icon: "users", link: "https://www.blender.org/about/", label: "About" },
+      ],
+    },
   },
   palette: {
     name: "Color palette",
@@ -172,6 +205,38 @@ export const TEMPLATE_INFO: Record<
     tone: "plain",
     example: { template: "collection", title: "Posters", props: { query: "tag=poster&type=image", limit: 12, layout: "grid" } },
   },
+  links: {
+    name: "Links",
+    use: "Resources to open or download: the files of the rules it binds, then items that link out or hand over a file.",
+    binds: "rules with assets",
+    accepts: hasAssets,
+    items: "a resource: title or asset, link or asset, text, label",
+    needs: [
+      ["title", "asset"],
+      ["link", "asset"],
+    ],
+    width: "wide",
+    columns: 2,
+    tone: "plain",
+    example: {
+      template: "links",
+      title: "Downloads",
+      keys: ["logo.mark"],
+      items: [{ title: "Press kit", text: "Logos, screenshots and facts.", link: "https://www.blender.org/about/press/", label: "Web" }],
+    },
+  },
+  pages: {
+    name: "Pages",
+    use: "Where to go next: a page's children as cards with their cover and lede, or the pages its items pick. A list with depth reads as a table of contents.",
+    binds: null,
+    accepts: null,
+    items: "a page to feature: link /slug (needed), title, text, asset",
+    needs: [["link"]],
+    width: "wide",
+    columns: 3,
+    tone: "plain",
+    example: { template: "pages", title: "Using the logo", props: { from: "logo", layout: "cards" } },
+  },
 };
 
 // ---- schemas ----------------------------------------------------------------
@@ -180,9 +245,6 @@ export const pageSlug = z.string().max(60).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Us
 export const sectionId = z.string().regex(/^[a-z0-9_-]{1,40}$/i, "Letters, digits, - and _");
 
 const unique = (a: unknown[]) => new Set(a).size === a.length;
-
-/** A link inside the brand: a page (/logo), a section of one (/logo#clear-space), or of this page (#clear-space). */
-const SITE_PATH = /^(?:\/([a-z0-9]+(?:-[a-z0-9]+)*))?(?:#([a-z0-9_-]{1,40}))?$/i;
 
 /** https:, mailto:, or a link inside the brand (SITE_PATH). */
 export const siteLink = z
@@ -202,7 +264,12 @@ export const Item = z.strictObject({
   caption: z.string().trim().max(500).optional().describe("Under the media; the asset's description when left out"),
   link: siteLink.optional(),
   label: z.string().trim().max(40).optional().describe("A small tag: Figma, PDF, Partners only"),
-  icon: z.enum(COLLECTION_ICONS).optional(),
+  // Checked like a page's icon, but advertised as a string: the tool schemas list the icons once, on the page.
+  icon: z
+    .string()
+    .refine((v) => (COLLECTION_ICONS as readonly string[]).includes(v), "One of the icons a page takes")
+    .optional()
+    .describe("One of the icons a page takes"),
   download: z.boolean().optional().describe("false: for reference, never offered as a download"),
 });
 export type Item = z.output<typeof Item>;
@@ -211,13 +278,21 @@ const image = z.uuid().optional().describe("An asset id, from search_assets");
 
 /** Each template's own settings. Strict: a misspelled one is an error, not ignored. */
 export const TEMPLATE_PROPS = {
-  cover: z.strictObject({ image: image.describe("A background image instead of the brand color") }),
+  cover: z.strictObject({
+    image: image.describe("A background image instead of the brand color"),
+    video: z.uuid().optional().describe("A muted loop over the image, its poster"),
+    align: z.enum(["start", "center", "end"]).optional(),
+    height: z.enum(["auto", "tall", "screen"]).optional(),
+    strip: z.boolean().optional().describe("The palette as a strip; true when left out"),
+  }),
+  header: z.strictObject({ image: image.describe("A picture in the band") }),
   text: z.strictObject({}),
   split: z.strictObject({ image: image.describe("Shown beside the words; else the first bound rule's picture"), flip: z.boolean().optional().describe("Image on the left") }),
+  cards: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
   palette: z.strictObject({}),
   type: z.strictObject({ sample: z.string().max(200).optional().describe("The specimen's starting text") }),
   logos: z.strictObject({}),
-  dodont: z.strictObject({}),
+  dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
   gallery: z.strictObject({}),
   collection: z
     .strictObject({
@@ -234,6 +309,12 @@ export const TEMPLATE_PROPS = {
       downloads: z.boolean().optional().describe("Offer downloads; true when left out"),
     })
     .refine((p) => !(p.collection && p.search), "A collection or a saved search, not both"),
+  links: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
+  pages: z.strictObject({
+    from: pageSlug.optional().describe("The page whose children it shows; this page when left out"),
+    layout: z.enum(["cards", "list"]).optional(),
+    depth: z.number().int().min(1).max(3).optional().describe("How many levels a list goes down: a table of contents"),
+  }),
 } satisfies Record<Template, z.ZodType>;
 
 const Background = z.strictObject({
@@ -259,7 +340,7 @@ const base = {
   aside: z.string().trim().max(4000).optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
   background: Background.optional().describe("For tone color and tone image"),
-  items: z.array(Item).max(60).optional().describe("What the template lists; list_templates says which take items"),
+  items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
   audience: z.enum(AUDIENCES).optional().describe("On portals: everyone let in, partners (by a password or an approved request) or members"),
   contexts: z
     .array(ruleContext)
@@ -281,14 +362,18 @@ const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
 /** One section, checked strictly against its own template. Internal to parseSections; the tools advertise SectionWire. */
 export const SectionInput = z.discriminatedUnion("template", [
   variant("cover", TEMPLATE_PROPS.cover),
+  variant("header", TEMPLATE_PROPS.header),
   variant("text", TEMPLATE_PROPS.text),
   variant("split", TEMPLATE_PROPS.split),
+  variant("cards", TEMPLATE_PROPS.cards),
   variant("palette", TEMPLATE_PROPS.palette),
   variant("type", TEMPLATE_PROPS.type),
   variant("logos", TEMPLATE_PROPS.logos),
   variant("dodont", TEMPLATE_PROPS.dodont),
   variant("gallery", TEMPLATE_PROPS.gallery),
   variant("collection", TEMPLATE_PROPS.collection),
+  variant("links", TEMPLATE_PROPS.links),
+  variant("pages", TEMPLATE_PROPS.pages),
 ]);
 export type SectionInput = z.input<typeof SectionInput>;
 
@@ -382,22 +467,25 @@ export const PageInput = z.strictObject({
   ...PageMeta,
 });
 
+/** A section already on the page, by id. applyOps finds it or names the ones there are, so sectionId's pattern would only repeat in the schema. */
+const sectionRef = z.string();
+
 /** One change to a page, for edit_page: applied in order, checked together. */
 export const PageOp = z.discriminatedUnion("op", [
   z.strictObject({
     op: z.literal("add"),
     section: SectionWire,
-    after: sectionId.nullable().optional().describe("Add it after this section; null for the top; the end when left out"),
+    after: sectionRef.nullable().optional().describe("Add it after this section; null for the top; the end when left out"),
   }),
   z.strictObject({
     op: z.literal("update"),
-    id: sectionId,
+    id: sectionRef,
     set: z
       .record(z.string(), z.unknown())
       .describe("What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"),
   }),
-  z.strictObject({ op: z.literal("move"), id: sectionId, after: sectionId.nullable().describe("After this section; null for the top") }),
-  z.strictObject({ op: z.literal("remove"), id: sectionId }),
+  z.strictObject({ op: z.literal("move"), id: sectionRef, after: sectionRef.nullable().describe("After this section; null for the top") }),
+  z.strictObject({ op: z.literal("remove"), id: sectionRef }),
   z.strictObject({
     op: z.literal("page"),
     set: z
@@ -510,8 +598,10 @@ export function checkSection(s: Section, at: string): string[] {
       for (const group of info.needs ?? []) {
         if (!group.some((f) => it[f] !== undefined)) errors.push(`${at}.items[${k}]: a ${info.name} item needs ${group.join(" or ")}`);
       }
+      if (s.template === "pages" && it.link && !it.link.startsWith("/")) errors.push(`${at}.items[${k}].link: a page of this brand, as /slug`);
     });
   }
+  if (s.items?.length && s.props.from) errors.push(`${at}.props.from: items pick the pages, from shows a page's children; one or the other`);
   return errors;
 }
 
@@ -565,7 +655,7 @@ function target(href: string, here: string) {
   return m && (m[1] || m[2]) ? { slug: m[1] ?? here, ...(m[2] && { section: m[2] }) } : null;
 }
 
-/** The brand's own pages and sections a page links to, from bodies, asides and items. */
+/** The brand's own pages and sections a page links to, from bodies, asides, items and a pages section's `from`. */
 export function siteLinks(page: { slug: string; sections: Section[] }): { at: string; slug: string; section?: string }[] {
   const out: { at: string; slug: string; section?: string }[] = [];
   const scan = (md: string | undefined, at: string) => {
@@ -582,6 +672,7 @@ export function siteLinks(page: { slug: string; sections: Section[] }): { at: st
       const t = it.link && target(it.link, page.slug);
       if (t) out.push({ at: `sections[${i}].items[${k}].link`, ...t });
     });
+    if (typeof s.props.from === "string") out.push({ at: `sections[${i}].props.from`, slug: s.props.from });
   });
   return out;
 }
@@ -775,11 +866,17 @@ const titleOf = (s: string) => PAGE_TITLES[s] ?? s[0].toUpperCase() + s.slice(1)
 
 type Draft = { slug: string; title: string; sections: SectionInput[] };
 
+/** The page initialPages makes for a section of keys (typeScale: type-scale), which v1's #section- links still name. */
+export const slugOfSection = (name: string) => {
+  const slug = name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+  return slug === "overview" ? "overview-2" : slug;
+};
+
 /**
  * Pages laid out from a brand's rules, for a brand that has none: an Overview
- * (cover and palette), then a page per section of keys with the templates its
- * rules fit. Every rule lands somewhere; what fits no template goes in a Text
- * section. The same split the builder prototype showed.
+ * (cover, palette and contents), then a page per section of keys with the
+ * templates its rules fit. Every rule lands somewhere; what fits no template
+ * goes in a Text section. The same split the builder prototype showed.
  */
 export function initialPages(all: Bindable[], brand: string): Draft[] {
   // One per key: the page binds keys, and a key's context versions share a type.
@@ -814,9 +911,11 @@ export function initialPages(all: Bindable[], brand: string): Draft[] {
     add("dodont", take(TEMPLATE_INFO.dodont.accepts!), "Do and don't");
     // Fonts and colors outside their sections, and anything else: stated in words.
     add("text", take(() => true), "More");
-    const slug = s.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
-    pages.push({ slug: slug === "overview" ? "overview-2" : slug, title: titleOf(s), sections });
+    pages.push({ slug: slugOfSection(s), title: titleOf(s), sections });
   }
+  // The pages are side by side, not under the Overview, so its contents pick them.
+  const rest = pages.slice(1, 1 + MAX_ITEMS).map((p) => ({ link: `/${p.slug}` }));
+  if (rest.length) pages[0].sections.push({ template: "pages", title: "Contents", items: rest });
   return pages;
 }
 
@@ -885,6 +984,7 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
     if (lines.length) out.push("", ...lines);
     if (s.items?.length) out.push("", ...s.items.map(itemLine));
     if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
+    if (s.template === "pages" && !s.items?.length) out.push("", `The pages under ${typeof s.props.from === "string" ? `/${s.props.from}` : "this one"}.`);
     if (s.template === "collection") {
       const p = s.props as { collection?: string; search?: string; query?: string };
       const from = p.collection ? `collection ${p.collection}` : p.search ? `saved search ${p.search}` : "the library";

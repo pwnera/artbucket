@@ -16,13 +16,13 @@ import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, downloadsFor, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
-import { hasPreview } from "@/lib/preview";
+import { challengeName, DEFAULT_PRESETS, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
 import { longSig, pageSig } from "@/lib/core/signing";
+import { presentAsset } from "@/lib/core/section-assets";
 import { hashPassword, verifyPassword } from "@/lib/share";
 
 /**
@@ -387,27 +387,7 @@ async function open(slug: string, pass: Pass) {
 }
 
 /** Its URLs signed for the visitor (lib/core/signing.ts): a day at a time, never past the portal's end. */
-const shown = (a: typeof assets.$inferSelect, p: Row) => {
-  const m = a.metadata ?? {};
-  const still = hasPreview(a);
-  const s = pageSig(a.id, p.expiresAt);
-  return {
-    id: a.id,
-    filename: a.filename,
-    title: m.title ?? null,
-    description: m.description ?? null,
-    creator: m.creator ?? null,
-    copyright: m.copyright ?? null,
-    mime: a.mime,
-    size: a.size,
-    width: a.width,
-    height: a.height,
-    // On this host, not APP_URL: a portal on its own domain loads everything from there.
-    thumbnail: still ? withSignature(`/a/${a.id}/w_640,f_webp`, s) : null,
-    preview: still ? withSignature(`/a/${a.id}/w_1600,f_webp`, s) : null,
-    downloads: downloadsFor(a, p.presets, "", s),
-  };
-};
+const shown = (a: typeof assets.$inferSelect, p: Row) => presentAsset(a, { sign: (id) => pageSig(id, p.expiresAt), presets: p.presets });
 
 /**
  * What a portal shows: itself, themed, its collections with how many usable

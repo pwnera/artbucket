@@ -1,15 +1,16 @@
 import type { z } from "zod";
-import type { ThemeSettings } from "../brand-theme.ts";
-import type { PageInput } from "../pages.ts";
-import type { RuleInput } from "../rules.ts";
+import { brandTheme, type ThemeSettings } from "../brand-theme.ts";
+import { assetRefs, type PageInput, parseSections } from "../pages.ts";
+import { RuleInput } from "../rules.ts";
+import type { Media, NavPage, PageView, ViewAsset, ViewRule } from "../site.ts";
 
 /**
  * Brand books to build from, written as an agent would send them: rules for
  * set_rules, pages for save_page, settings for set_theme. scripts/mcp-eval.ts
- * builds them over MCP; dev pages and theme tests read them as data.
+ * builds them over MCP; theme tests read them as data; and fixtureView makes
+ * a page of one into the view the renderers draw, for /design/pages.
  *
- * Pure data, with nothing but type imports: plain Node, the tests and the
- * pages all load it as is.
+ * Pure: `pnpm test` runs it under plain Node, and the dev page loads it as is.
  */
 
 export type BrandBook = {
@@ -28,9 +29,10 @@ const PLACEHOLDERS: BookAssets = {
 
 /**
  * Blender: the seed's rules (scripts/seed-demo.ts) with labels, specs, an ink
- * and a gradient, and six pages that use every W1 template, items, tones, tabs
+ * and a gradient, and six pages that use every template, items, tones, tabs
  * and a tree (logo-use sits under logo). Every page links and binds only what
- * is there, so get_page answers it with no missing keys and no warnings.
+ * is there, so get_page answers it with no missing keys and no warnings. The
+ * eval edits the logo page and counts its sections, so new sections go elsewhere.
  */
 export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
   return {
@@ -182,6 +184,13 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             ],
           },
           { id: "library", template: "collection", title: "From the library", props: { query: "type=image", limit: 12 } },
+          {
+            id: "contents",
+            template: "pages",
+            title: "Contents",
+            items: [{ link: "/logo" }, { link: "/color" }, { link: "/typography" }, { link: "/voice" }],
+          },
+          { id: "more", template: "pages", title: "More on the logo", props: { from: "logo", layout: "list", depth: 2 } },
         ],
       },
       {
@@ -222,6 +231,13 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             tone: "color",
             background: { color: "color.secondary" },
             audience: "partners",
+          },
+          {
+            id: "downloads",
+            template: "links",
+            title: "Downloads",
+            keys: ["logo.mark", "logo.wordmark"],
+            items: [{ title: "The logo on blender.org", text: "The official files and terms.", link: "https://www.blender.org/about/logo/", label: "Web" }],
           },
         ],
       },
@@ -280,6 +296,14 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             tone: "dark",
             aside: "The long version is [the mission](/overview#mission).",
           },
+          { id: "writing", template: "header", eyebrow: "Part two", title: "Writing", lede: "How Blender sounds, in a few habits." },
+          {
+            id: "we-say",
+            template: "cards",
+            title: "What we say",
+            keys: ["tone.always"],
+            items: [{ title: "Free and open source", text: "Say both, every time.", icon: "heart" }],
+          },
         ],
       },
     ],
@@ -301,5 +325,166 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
       numbering: true,
       motion: "subtle",
     },
+  };
+}
+
+/**
+ * Blender and then some: 60 rules, and a last page of 30 sections (each of
+ * Blender's, then palettes and notes of made-up rules). A long page, for
+ * profiling the builder (W6).
+ */
+export function big(a: BookAssets = PLACEHOLDERS): BrandBook {
+  const book = blender(a);
+  const extra = Array.from({ length: 60 - book.rules.length }, (_, i): BrandBook["rules"][number] =>
+    i % 2
+      ? { key: `copy.note${i}`, label: `Note ${i}`, type: "text", value: `Note ${i}: a line of guidance, long enough to wrap once on a phone.` }
+      : { key: `color.extra${i}`, label: `Extra ${i}`, type: "color", value: `#${(0x1a2b3c + i * 0x0b1f37).toString(16).padStart(6, "0").slice(-6)}` },
+  );
+  const keys = (prefix: string) => extra.map((r) => r.key).filter((k) => k.startsWith(prefix));
+  const chunks = (ks: string[]) => [0, 1, 2, 3].map((j) => ks.filter((_, i) => i % 4 === j));
+  const sections = [
+    ...book.pages.flatMap((p) => p.sections),
+    ...chunks(keys("color.")).map((ks, j) => ({ id: `colors-${j}`, template: "palette" as const, title: `More colors ${j + 1}`, keys: ks })),
+    ...chunks(keys("copy.")).map((ks, j) => ({ id: `notes-${j}`, template: "text" as const, title: `More notes ${j + 1}`, keys: ks })),
+  ];
+  return { ...book, rules: [...book.rules, ...extra], pages: [...book.pages, { slug: "everything", title: "Everything", sections }] };
+}
+
+// ---- views --------------------------------------------------------------------
+
+/** Every book by name, for `/design/pages?fixture=`. W3 adds ugly and hairline, W5 rtl. */
+export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big };
+
+/** When a view says the fixtures changed: fixed, so the server and the browser draw the same page. */
+const AT = "2026-09-01T00:00:00.000Z";
+
+const svg = (w: number, h: number, body: string) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`)}`;
+const MARK = '<circle cx="48" cy="48" r="40" fill="#e87d0d"/><circle cx="48" cy="48" r="17" fill="#fff"/><circle cx="48" cy="48" r="11" fill="#265787"/>';
+
+/** The placeholder assets drawn as SVG, so the dev page needs no server and no upload. */
+const PICTURES: Record<string, { filename: string; title: string; description: string; width: number; height: number; src: string }> = {
+  [PLACEHOLDERS.mark]: {
+    filename: "blender-mark.svg",
+    title: "The mark",
+    description: "The orange circle and the blue dot.",
+    width: 96,
+    height: 96,
+    src: svg(96, 96, MARK),
+  },
+  [PLACEHOLDERS.wordmark]: {
+    filename: "blender-logo.svg",
+    title: "The logo",
+    description: "The mark beside the wordmark.",
+    width: 360,
+    height: 96,
+    src: svg(360, 96, `${MARK}<text x="104" y="64" font-family="sans-serif" font-size="44" font-weight="700" fill="#265787">blender</text>`),
+  },
+};
+/** Any other id: a grey tile, so a fixture naming an asset it doesn't draw still shows something. */
+const BLANK = svg(160, 120, '<rect width="160" height="120" fill="#d4d4d8"/>');
+
+/** Where a fixture's asset loads from, whatever rendition was asked: the `url` the dev page hands the site. */
+export const fixtureUrl = (id: string) => PICTURES[id]?.src ?? BLANK;
+
+function media(id: string): Media {
+  const p = PICTURES[id];
+  const src = p?.src ?? BLANK;
+  const filename = p?.filename ?? `${id}.svg`;
+  return {
+    id,
+    filename,
+    title: p?.title ?? null,
+    description: p?.description ?? null,
+    creator: null,
+    copyright: null,
+    mime: "image/svg+xml",
+    size: src.length,
+    width: p?.width ?? 160,
+    height: p?.height ?? 120,
+    thumbnail: src,
+    preview: src,
+    original: src,
+    downloads: [{ preset: "original", label: "Original", hint: "The file as uploaded", url: src, filename }],
+    focus: null,
+    updatedAt: AT,
+  };
+}
+
+const viewAsset = (id: string): ViewAsset => {
+  const m = media(id);
+  return { id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, preview: true, width: m.width, height: m.height };
+};
+
+/**
+ * A page of a book as a reader gets it, made here rather than by the server
+ * (lib/page-view.ts): every rule, the pictures above, a collection of them,
+ * and nothing locked, as an editor previewing sees it. The first page when
+ * `slug` is left out. Throws for a book or a page there isn't.
+ */
+export function fixtureView(name: string, slug?: string | null): PageView {
+  const make = Object.hasOwn(FIXTURES, name) ? FIXTURES[name] : undefined;
+  if (!make) throw new Error(`No fixture "${name}"; there are ${Object.keys(FIXTURES).join(", ")}`);
+  const book = make();
+  const rules = book.rules.map((raw): ViewRule => {
+    const r = RuleInput.parse(raw);
+    return {
+      key: r.key,
+      context: r.context ?? null,
+      type: r.type,
+      label: r.label ?? null,
+      value: r.value,
+      usage: r.usage ?? null,
+      spec: ("spec" in r && r.spec) || null,
+      assets: (r.assets ?? []).map((a) => viewAsset(a.id)),
+    };
+  });
+  const pages = book.pages.map(({ slug, sections, title, parent, icon, eyebrow, lede, cover, audience, tabs }, position) => {
+    const parsed = parseSections(sections);
+    if (parsed.errors.length) throw new Error(`${name}/${slug}: ${parsed.errors.join("; ")}`);
+    const home = position === 0 && parsed.sections[0]?.template === "cover";
+    const meta: Omit<NavPage, "locked"> = {
+      slug,
+      title,
+      parent: parent ?? null,
+      position,
+      icon: icon ?? null,
+      eyebrow: eyebrow ?? null,
+      lede: lede ?? null,
+      cover: cover ?? null,
+      audience: audience ?? "everyone",
+      tabs: tabs ?? false,
+      home,
+      updatedAt: AT,
+    };
+    return { meta, sections: parsed.sections };
+  });
+  const at = slug ? pages.find((p) => p.meta.slug === slug) : pages[0];
+  if (!at) throw new Error(`No page "${slug}" in ${name}; there are ${pages.map((p) => p.meta.slug).join(", ")}`);
+  const ids = new Set([
+    ...Object.keys(PICTURES),
+    ...rules.flatMap((r) => r.assets.map((a) => a.id)),
+    ...assetRefs({ cover: at.meta.cover, sections: at.sections }).map((r) => r.id),
+    ...(book.theme.device ? [book.theme.device] : []),
+  ]);
+  const shelf = Object.keys(PICTURES).map(media);
+  return {
+    brand: { slug: name, name: name[0].toUpperCase() + name.slice(1) },
+    version: null,
+    context: null,
+    contexts: [...new Set(rules.flatMap((r) => (r.context ? [r.context] : [])))],
+    lang: null,
+    theme: { settings: book.theme, v1: brandTheme(rules) },
+    nav: pages.map((p) => ({ ...p.meta, locked: false })),
+    page: { ...at.meta, sections: at.sections, aliases: [] },
+    locked: false,
+    rules,
+    media: Object.fromEntries([...ids].map((id) => [id, media(id)])),
+    collections: Object.fromEntries(
+      at.sections.filter((s) => s.template === "collection").map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
+    ),
+    signed: {},
+    warnings: [],
+    missing: [],
   };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { contrast, grade, hsl, inkOn, lift, rgb } from "./color.ts";
+import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, rgb } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -50,4 +50,15 @@ test("status colors read as text on the background in both themes", () => {
       assert.ok(contrast(value, bg) >= 4.5, `${sel} --${name} ${value}`);
     }
   }
+});
+
+test("a hex as typed is the color it means, or nothing", () => {
+  assert.equal(hexOf("6D4AFF"), "#6d4aff");
+  assert.equal(hexOf(" #abc "), "#aabbcc");
+  assert.equal(hexOf("#abcd"), "#aabbccdd");
+  assert.equal(hexOf("#6d4aff80"), "#6d4aff80");
+  assert.equal(hexOf("#6d4af"), null);
+  assert.equal(hexOf("red"), null);
+  assert.ok(isHex("#6D4AFF") && isHex("#6d4aff80"));
+  assert.ok(!isHex("#abc") && !isHex("6d4aff") && !isHex("#6d4aff8"));
 });

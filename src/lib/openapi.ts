@@ -585,6 +585,26 @@ export function openapi(serverUrl: string) {
           ok: [200, "The theme", data(S.ThemeView)],
         }),
       },
+      "/api/v1/brands/{slug}/view": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand page, ready to read",
+          scope: "read",
+          description:
+            "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed " +
+            "with a lock), the page's sections, every context version of the rules they show, the assets they name " +
+            "that may be used, and each collection section's assets. No `page`: the first. A slug it had before a " +
+            "rename gives the page with `redirect` set. `edit=1` takes write, and adds hidden pages and sections, " +
+            "`warnings` and `missing`.",
+          query: {
+            page: { schema: str, description: "The page's slug; the first page when left out" },
+            context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
+            lang: { schema: str, description: "The reader's language" },
+            edit: { schema: { type: "string", enum: ["1"] }, description: "1: as the builder sees it" },
+          },
+          ok: [200, "The page", data(S.PageView)],
+        }),
+      },
       "/api/v1/brands/{slug}/publish": {
         parameters: [path("slug", "Brand slug")],
         post: {

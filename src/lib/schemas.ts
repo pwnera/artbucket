@@ -990,6 +990,53 @@ export const PortalGate = z.object({
   }),
 });
 
+// ---- page views (lib/site.ts) -------------------------------------------------
+
+export const ViewRule = BrandRule.pick({ key: true, label: true, context: true, type: true, value: true, spec: true, usage: true }).extend({
+  assets: z
+    .array(
+      BrandRule.shape.assets.element.extend({
+        size: z.number().int(),
+        preview: z.boolean().describe("Has renditions: /a/{id}/{rendition} draws it"),
+      }),
+    )
+    .describe("Its assets readers may see, in order; one that may not be used is left out"),
+});
+export const Media = PortalView.shape.data.element.extend({
+  original: z.string().describe("The file as uploaded"),
+  focus: z.object({ x: z.number(), y: z.number() }).nullable().describe("Where a crop keeps its subject, from 0 to 1 across and down"),
+  updatedAt: date,
+});
+export const NavPage = z.object({
+  ...BrandPage.pick({ slug: true, title: true, parent: true, position: true, eyebrow: true, lede: true, cover: true, icon: true, audience: true, tabs: true }).shape,
+  home: z.boolean().describe("The first page, opening on a cover: never numbered"),
+  locked: z.boolean().describe("Above the reader: listed by title with a lock, nothing more"),
+  updatedAt: date.nullable(),
+});
+export const PageView = z.object({
+  brand: z.object({ slug: z.string(), name: z.string() }),
+  version: z.object({ number: z.number().int(), publishedAt: date.nullable() }).nullable().describe("The version it shows; null: the draft"),
+  context: z.string().nullable(),
+  contexts: z.array(z.string()).describe("Every context some rule is scoped to"),
+  lang: z.string().nullable(),
+  theme: z.object({ settings: ThemeSettings, v1: z.record(z.string(), z.unknown()).describe("The accent and faces the rules give") }),
+  nav: z.array(NavPage).describe("Every page the reader is listed, in order"),
+  page: NavPage.omit({ locked: true })
+    .extend({ sections: z.array(Section).describe("What the reader gets: hidden ones for editors only"), aliases: z.array(z.string()) })
+    .nullable()
+    .describe("null: locked for this reader"),
+  locked: z.boolean(),
+  redirect: z.string().optional().describe("An old slug was asked for: the page's slug now"),
+  rules: z.array(ViewRule).describe("Every context version of the rules the page binds, the theme's, and those their specs name"),
+  media: z.record(uuid, Media).describe("The assets it names that may be used, by id"),
+  collections: z
+    .record(z.string(), z.object({ items: z.array(Media), total: z.number().int(), error: z.string().nullable().describe("Why it shows nothing; editors only") }))
+    .describe("A collection section's assets, by section id"),
+  signed: z.record(uuid, z.string()).describe("Signatures by asset id, for visitors; empty for members"),
+  warnings: z.array(z.string()).describe("Editors only: what a reader would trip on, and assets they won't see"),
+  missing: z.array(z.string()).describe("Editors only: keys a section binds with no rule"),
+});
+
 export const AuditEntry = z.object({
   id: uuid,
   at: date,

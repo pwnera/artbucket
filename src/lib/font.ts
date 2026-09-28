@@ -24,6 +24,12 @@ export function fontMime(bytes: Uint8Array): string | null {
 export const isFont = (mime: string, filename: string) =>
   mime.startsWith("font/") || /\.(woff2?|[ot]tf)$/i.test(filename);
 
+type File = { mime?: string | null; filename?: string | null };
+/** One of a rule's assets that is a font file. */
+export const isFontAsset = (a: File) => !!a.mime && isFont(a.mime, a.filename ?? "");
+/** The rule's font files, in order. */
+export const fontFiles = <A extends File>(r: { assets: A[] }) => r.assets.filter(isFontAsset);
+
 /** "Playfair Display": letters, digits and spaces, as Google Fonts names families. */
 export const GOOGLE_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$/;
 

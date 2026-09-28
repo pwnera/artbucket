@@ -478,6 +478,42 @@ function filterSql(f: FieldFilter): SQL {
 }
 
 /**
+ * What a search matches, as SQL: what the caller may see, narrowed by the
+ * query. Collection sections (core/section-assets.ts) filter with it too.
+ * `except` leaves one field's filter out, `anyType` the types and `anyState`
+ * the states, for facets that count past their own filter.
+ */
+export function assetWhere(
+  caller: Caller,
+  { q, tags = [], types = [], status = [], collection, filters = [], review = false, proposedBy }: AssetQuery,
+  except?: string,
+  anyType = false,
+  anyState = false,
+) {
+  const tsq = q ? prefixQuery(q) : null;
+  const wanted = normalizeTags(tags);
+  return and(
+    visible(caller),
+    proposedBy !== undefined
+      ? eq(assets.proposedBy, proposedBy)
+      : review
+        ? sql`(${assets.deletedAt} is null and (${assets.status} = 'proposed' or (${assets.status} = 'active' and (${assets.proposedTags} <> '[]'::jsonb or ${assets.proposedFields} <> '{}'::jsonb))))`
+        : anyState
+          ? undefined
+          : inArray(stateSql, status.length ? status : ["active"]),
+    // Whoever proposed a version sees it whatever became of it; everyone else, the current one.
+    proposedBy !== undefined ? undefined : notSuperseded,
+    tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined,
+    wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
+    types.length && !anyType ? inArray(assetType, types) : undefined,
+    collection
+      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
+      : undefined,
+    ...filters.filter((f) => f.key !== except).map(filterSql),
+  );
+}
+
+/**
  * Search and browse are one call: no query means newest first.
  *
  * Facets are counted over the same filter, so every count is a click that
@@ -489,34 +525,10 @@ function filterSql(f: FieldFilter): SQL {
  * matching set. Fine at the v0.2 target (1,000 assets, <100ms); cache or
  * approximate past ~100k.
  */
-export async function searchAssets(
-  caller: Caller,
-  { q, tags = [], types = [], status = [], collection, filters = [], review = false, proposedBy, limit = 100, offset = 0 }: AssetQuery,
-) {
+export async function searchAssets(caller: Caller, query: AssetQuery) {
+  const { q, limit = 100, offset = 0 } = query;
   const tsq = q ? prefixQuery(q) : null;
-  const match = tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined;
-  const wanted = normalizeTags(tags);
-  const mine = visible(caller);
-  const where = (except?: string, anyType = false, anyState = false) =>
-    and(
-      mine,
-      proposedBy !== undefined
-        ? eq(assets.proposedBy, proposedBy)
-        : review
-          ? sql`(${assets.deletedAt} is null and (${assets.status} = 'proposed' or (${assets.status} = 'active' and (${assets.proposedTags} <> '[]'::jsonb or ${assets.proposedFields} <> '{}'::jsonb))))`
-          : anyState
-            ? undefined
-            : inArray(stateSql, status.length ? status : ["active"]),
-      // Whoever proposed a version sees it whatever became of it; everyone else, the current one.
-      proposedBy !== undefined ? undefined : notSuperseded,
-      match,
-      wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
-      types.length && !anyType ? inArray(assetType, types) : undefined,
-      collection
-        ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
-        : undefined,
-      ...filters.filter((f) => f.key !== except).map(filterSql),
-    );
+  const where = (except?: string, anyType = false, anyState = false) => assetWhere(caller, query, except, anyType, anyState);
 
   const facetable = (await listFields(caller.workspace.id)).filter(isFacetable);
   // ponytail: facets count over every match, about 100 ms at 93,000 (docs: developers/benchmarks).
@@ -527,7 +539,7 @@ export async function searchAssets(
       .from(assets)
       .where(where())
       .orderBy(
-        ...(match ? [desc(sql`ts_rank(${assets.search}, to_tsquery('simple', ${tsq}))`)] : []),
+        ...(tsq ? [desc(sql`ts_rank(${assets.search}, to_tsquery('simple', ${tsq}))`)] : []),
         desc(assets.createdAt),
       )
       .limit(Math.min(Math.max(limit, 1), 200))

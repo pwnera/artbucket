@@ -2,39 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import {
-  IconArrowDown,
-  IconArrowUp,
   IconBook,
   IconCheck,
   IconChevronDown,
   IconCode,
   IconCopy,
   IconDots,
-  IconDownload,
-  IconExternalLink,
-  IconGripVertical,
   IconHash,
   IconLetterCase,
   IconHistory,
-  IconLayoutSidebarRight,
-  IconLink,
   IconList,
   IconLoader2,
   IconMessage,
-  IconNote,
   IconPalette,
-  IconPencil,
   IconPlus,
   IconRefresh,
   IconSearch,
   IconSelector,
   IconShape,
-  IconSquares,
   IconStar,
-  IconTrash,
   IconTypography,
   IconVersions,
   IconX,
@@ -48,22 +37,14 @@ import { call, curl, ForAgents } from "@/components/agent-access";
 import { History, who } from "@/components/brand-history";
 import { useRemember } from "@/components/sidebar-prefs";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { RenditionMenu, renditionLabel } from "@/components/rendition-menu";
-import {
-  copy,
-  Editable,
-  fontFiles,
-  GRADE_STYLE,
-  isFontAsset,
-  Markdown,
-  MARKER,
-  ReadOnly,
-  RichText,
-  ValueEditor,
-} from "@/components/brand-values";
-import { FontStyles, FontThumb, ImportFamily, useAssetFont } from "@/components/font-preview";
+import { RenditionMenu } from "@/components/rendition-menu";
+import { copy, Editable, ReadOnly } from "@/components/brand-values";
+import { LOOK, useBrandLook } from "@/components/brand-sections/look";
+import { AssetTile, Hero, Pairings, SectionHeader } from "@/components/brand-sections/parts";
+import { blockOf, focusRule, onceDrawn, RuleView, Variants, type Dnd, type Ed, type Line, type Patch } from "@/components/brand-sections/rule-view";
+import { behavior, flashEl, goTo, linkTo, TYPING, useActiveSection, useHashFlash } from "@/components/site/anchors";
+import { FontStyles, FontThumb, ImportFamily } from "@/components/font-preview";
 import { send } from "@/components/collections";
-import { Confirm } from "@/components/confirm";
 import { copyText, CopyButton } from "@/components/copy-button";
 import { Thumb, type Asset } from "@/components/gallery";
 import { AppHeader } from "@/components/page";
@@ -80,7 +61,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import {
@@ -104,13 +84,11 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { brandTheme, stack } from "@/lib/brand-theme";
-import { contrast, grade, inkOn } from "@/lib/color";
-import { isFont, pickFace } from "@/lib/font";
+import { colorsOf } from "@/lib/brand-theme";
+import { fontFiles, isFont, isFontAsset, pickFace } from "@/lib/font";
 import { hasPreview } from "@/lib/preview";
 import { camel, ESSENTIALS, keyFor, PRESETS, type Preset } from "@/lib/presets";
 import {
@@ -125,25 +103,25 @@ import {
   type Rule,
   type RuleType,
 } from "@/lib/rules";
-import { ago, exact } from "@/lib/time";
 import { kebab } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 import { assetUrl } from "@/lib/asset-url";
 import { sendResult } from "@/lib/send";
+import { renditionLabel } from "@/lib/transform";
 import { undoable } from "@/lib/undo";
 
 const label = ruleLabel;
 
 /** The sections a brand usually has, in the order a reader wants them. Any other key prefix is a section too. */
-const SECTIONS: Record<string, { title: string; icon: Icon; blurb: string }> = {
-  color: { title: "Color", icon: IconPalette, blurb: "The palette, graded for contrast against white and black." },
-  logo: { title: "Logo", icon: IconShape, blurb: "How the mark is used, and how it never is." },
-  type: { title: "Typography", icon: IconTypography, blurb: "The faces, and the scale they are set in." },
-  tone: { title: "Voice and tone", icon: IconMessage, blurb: "How the brand sounds when it writes." },
+const SECTIONS: Record<string, { title: string; icon: Icon; lede: string }> = {
+  color: { title: "Color", icon: IconPalette, lede: "The palette, graded for contrast against white and black." },
+  logo: { title: "Logo", icon: IconShape, lede: "How the mark is used, and how it never is." },
+  type: { title: "Typography", icon: IconTypography, lede: "The faces, and the scale they are set in." },
+  tone: { title: "Voice and tone", icon: IconMessage, lede: "How the brand sounds when it writes." },
 };
 const ORDER = Object.keys(SECTIONS);
 const rank = (s: string) => (ORDER.includes(s) ? ORDER.indexOf(s) : ORDER.length);
-const meta = (name: string) => SECTIONS[name] ?? { title: label(name), icon: IconBook, blurb: "" };
+const meta = (name: string) => SECTIONS[name] ?? { title: label(name), icon: IconBook, lede: "" };
 
 const TYPE_ICON: Record<RuleType, Icon> = {
   color: IconPalette,
@@ -153,23 +131,10 @@ const TYPE_ICON: Record<RuleType, Icon> = {
   font: IconLetterCase,
 };
 
-/** What the note under a rule is for, by section: an empty note says what to write. */
-const USAGE_HINT: Record<string, string> = {
-  color: "Where it goes: buttons, links, backgrounds",
-  logo: "When this applies, and why",
-  type: "Where each is used",
-  tone: "An example, or why it matters",
-};
-
 const copyOf = ({ key, context, type, value, usage, assets }: Rule) => ({ key, context, type, value, usage, assets });
 
 /** The plain text rule: what "Create a text rule" makes. */
 const TEXT = PRESETS.find((p) => p.id === "text")!;
-
-type Line = "before" | "after";
-
-/** What an edit changes. */
-type Patch = Partial<Pick<Rule, "value" | "usage" | "assets">>;
 
 /** The rule in Details: its key, and which of its variants. `kb`: opened from the keyboard, so focus goes in. */
 type Open = { key: string; id: string; kb?: boolean };
@@ -256,129 +221,7 @@ async function latestVersion(slug: string): Promise<Version | null> {
 
 // ---- blocks in the DOM --------------------------------------------------------
 
-/** Runs `fn` on what `find` finds once React has drawn it, waiting a few frames at most. */
-function onceDrawn(find: () => HTMLElement | null | undefined, fn: (el: HTMLElement) => void, tries = 30) {
-  const el = find();
-  if (el) fn(el);
-  else if (tries > 0) requestAnimationFrame(() => onceDrawn(find, fn, tries - 1));
-}
-
-const FIELD = "input:not([type=hidden]), textarea, [contenteditable=true], button";
-/** Where a single key is typing, or a dialog's or menu's own: the page's keys stay out of it. */
-const TYPING =
-  "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=combobox]";
-
-/** The first place to type in a block's name, value or note. */
-function fieldIn(block: Element | null | undefined, where: "name" | "value" | "note") {
-  const f = block?.querySelector<HTMLElement>(`[data-field=${where}]`);
-  return f?.matches(FIELD) ? f : (f?.querySelector<HTMLElement>(FIELD) ?? null);
-}
-
-const blockOf = (key: string) => document.getElementById(`rule-${key}`);
-/** Every block on the page, top to bottom, across sections. */
-const blocks = () => [...document.querySelectorAll<HTMLElement>("[data-block]")];
-
-/** The caret in a rule's name (its text selected), value or note, or the block itself selected; then `then`, a frame later. */
-function focusRule(key: string, where: "block" | "name" | "value" | "note", then?: () => void) {
-  const done = () => then && requestAnimationFrame(then);
-  if (where === "block" || where === "note")
-    return onceDrawn(
-      () => blockOf(key),
-      (b) => {
-        b.focus();
-        if (where === "block") return done();
-        // An empty note shows only while its block holds focus: select the block, then step in once it shows.
-        requestAnimationFrame(() =>
-          onceDrawn(
-            () => fieldIn(b, "note"),
-            (f) => {
-              f.focus();
-              done();
-            },
-          ),
-        );
-      },
-    );
-  onceDrawn(
-    () => fieldIn(blockOf(key), where),
-    (f) => {
-      f.focus();
-      if (f instanceof HTMLTextAreaElement) f.select();
-      done();
-    },
-  );
-}
-
-/** It lights up and fades ([data-flash] in globals.css): where something just landed, or a link led. */
-function flashEl(el: HTMLElement) {
-  el.removeAttribute("data-flash");
-  // A reflow between the two restarts the animation.
-  void el.offsetWidth;
-  el.setAttribute("data-flash", "");
-  setTimeout(() => el.removeAttribute("data-flash"), 1600);
-}
 const flash = (key: string) => onceDrawn(() => blockOf(key), flashEl);
-
-/** Smooth, unless the reader asked for less motion. */
-const behavior = (): ScrollBehavior => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
-
-/** Scrolls to `id` and puts it in the address bar, with no jump and no history entry. */
-function goTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: behavior() });
-  window.history.replaceState(null, "", `#${id}`);
-}
-
-/** The link to `id` on this page, for someone else: the brand and context stay in it. */
-const linkTo = (id: string) => `${location.origin}${location.pathname}${location.search}#${id}`;
-
-/**
- * The section being read: the last whose top has passed 30% of the window,
- * the last one once the page is scrolled to its end (a short one never gets
- * that far up), and none above the first, on the cover.
- */
-function useActiveSection(names: string[]) {
-  const [active, setActive] = useState<string | null>(null);
-  const order = names.join();
-  useEffect(() => {
-    const ns = order ? order.split(",") : [];
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      let at: string | null = null;
-      for (const n of ns) {
-        const el = document.getElementById(`section-${n}`);
-        if (el && el.getBoundingClientRect().top < innerHeight * 0.3) at = n;
-      }
-      const end = scrollY > 0 && innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
-      setActive(end && at ? ns.at(-1)! : at);
-    };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [order]);
-  return active;
-}
-
-/** Arriving at a #rule or #section (a shared link, ⌘K, Back), it flashes once, then fades. */
-function useHashFlash() {
-  useEffect(() => {
-    const onHash = () => {
-      const el = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-      if (el) flashEl(el);
-    };
-    onHash();
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-}
 
 // Wide enough for Details beside the page and the sidebar both.
 const WIDE = "(min-width: 1536px)";
@@ -847,8 +690,12 @@ export function BrandEditor({
   }
 
   // The contents, the breadcrumb and j/k follow the section you are reading.
-  const active = useActiveSection(names);
+  const active = useActiveSection(names.map((n) => `section-${n}`))?.replace(/^section-/, "") ?? null;
   useHashFlash();
+
+  // Reading: the page as its readers see it, in the reader (?view=read), with nothing to edit.
+  const router = useRouter();
+  const readHref = `/brand?${new URLSearchParams({ brand: brand.slug, ...(context && { context }), view: "read" })}`;
 
   // The page's keys, away from fields and dialogs: h History, t Tokens, j and k the next and previous section.
   const afterG = useRef(0);
@@ -863,7 +710,7 @@ export function BrandEditor({
       if (Date.now() - afterG.current < 1000) return;
       if (key === "h") setHistory(true);
       else if (key === "t") setTokens(true);
-      else if (key === "p" && canEdit) preview(!reading);
+      else if (key === "p" && canEdit) router.push(readHref);
       else if (key === "j" || key === "k") {
         const i = active ? names.indexOf(active) : -1;
         const to = names[key === "j" ? i + 1 : Math.max(i - 1, 0)];
@@ -876,13 +723,6 @@ export function BrandEditor({
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  // Reading: the page as a portal shows it, with nothing to edit (components/portal-view.tsx draws the same).
-  const [reading, setReading] = useState(false);
-  function preview(on: boolean) {
-    setReading(on);
-    if (on) setOpen(null);
-    window.scrollTo({ top: 0 });
-  }
   const look = useBrandLook(rules);
 
   // What Details is open on: the page reflow, the Toc and the sidebar follow this.
@@ -952,7 +792,7 @@ export function BrandEditor({
       onInsert: () => setBelow(key),
       onDuplicate: () => void duplicate(key),
       onMove: (d) => step(key, d),
-      onCopyLink: () => void copy(`${location.origin}${location.pathname}${location.search}#rule-${key}`, "link"),
+      onCopyLink: () => void copy(linkTo(`rule-${key}`), "link"),
     };
   };
 
@@ -968,7 +808,6 @@ export function BrandEditor({
   if (picking && picking !== lastPick?.rule) setLastPick({ rule: picking, n: (lastPick?.n ?? 0) + 1 });
 
   // The title renames the brand, Notion style: saved when you leave it.
-  const router = useRouter();
   const [titleResets, setTitleResets] = useState(0);
   async function renameBrand(name: string) {
     if (name === brand.name) return;
@@ -992,7 +831,7 @@ export function BrandEditor({
 
   return (
     <>
-      {names.length > 1 && !current && !reading && <Toc names={names} active={active} />}
+      {names.length > 1 && !current && <Toc names={names} active={active} />}
 
       <AppHeader trail={<Trail brand={brand} context={context} names={names} active={active} />}>
         <span aria-live="polite">
@@ -1036,15 +875,10 @@ export function BrandEditor({
           <IconHistory />
         </IconButton>
         {canEdit && (
-          <IconButton
-            variant={reading ? "secondary" : "ghost"}
-            label={reading ? "Back to editing" : "Preview as readers see it"}
-            shortcut={["P"]}
-            aria-pressed={reading}
-            className="hidden sm:inline-flex"
-            onClick={() => preview(!reading)}
-          >
-            <IconEye />
+          <IconButton variant="ghost" label="Preview as readers see it" shortcut={["P"]} className="hidden sm:inline-flex" asChild>
+            <Link href={readHref}>
+              <IconEye />
+            </Link>
           </IconButton>
         )}
         <ForAgents
@@ -1072,11 +906,13 @@ export function BrandEditor({
               </DropdownMenuShortcut>
             </DropdownMenuItem>
             {canEdit && (
-              <DropdownMenuItem onSelect={() => preview(!reading)}>
-                <IconEye /> {reading ? "Back to editing" : "Preview"}
-                <DropdownMenuShortcut>
-                  <Kbd keys={["P"]} />
-                </DropdownMenuShortcut>
+              <DropdownMenuItem asChild>
+                <Link href={readHref}>
+                  <IconEye /> Preview
+                  <DropdownMenuShortcut>
+                    <Kbd keys={["P"]} />
+                  </DropdownMenuShortcut>
+                </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => void copy(window.location.href, "link")}>
@@ -1104,151 +940,141 @@ export function BrandEditor({
           edits={edits}
           onRestored={() => void reload()}
         />
-        {reading && (
-          <div className="bg-muted/60 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 font-sans text-sm">
-            <span className="text-muted-foreground">This is the page as portal visitors see it.</span>
-            <Button variant="outline" size="sm" onClick={() => preview(false)}>
-              Back to editing <Kbd keys={["P"]} />
-            </Button>
-          </div>
-        )}
-        {reading && <Guidelines name={brand.name} rules={shown} />}
-        {!reading && (
-          <ReadOnly.Provider value={!canEdit}>
-            <Hero
-              brand={brand}
-              rules={shown}
-              all={rules}
-              context={context}
-              updated={last && { at: last.updatedAt, who: byWhom(last.actor, me) }}
-              title={
-                canEdit ? (
-                  <Editable
-                    key={titleResets}
-                    value={brand.name}
-                    label="Brand name"
-                    onSave={(v) => {
-                      if (!v) return false;
-                      void renameBrand(v);
-                    }}
-                  />
-                ) : undefined
-              }
-              onAddLogo={canEdit ? addLogo : undefined}
-            />
-
-            {!rules.length && (
-              <Empty className="border border-dashed">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconBook />
-                  </EmptyMedia>
-                  <EmptyTitle>{canEdit ? "Start your guidelines" : "No guidelines yet"}</EmptyTitle>
-                  <EmptyDescription>
-                    {canEdit ? (
-                      <>
-                        Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
-                        voice, words to avoid) and edit them into yours, or type / below to start blank.
-                      </>
-                    ) : (
-                      "Someone with edit access can start them."
-                    )}
-                  </EmptyDescription>
-                </EmptyHeader>
-                {canEdit && (
-                  <Button pending={adding} onClick={essentials}>
-                    <IconPlus /> {adding ? "Adding..." : "Add the essentials"}
-                  </Button>
-                )}
-              </Empty>
-            )}
-
-            {names.map((name) => {
-              const ks = keysIn(name);
-              // A palette reads as a grid of cards; editors keep one column, where a drop lands between rows.
-              const palette = !canEdit && sections.get(name)!.every((r) => r.type === "color");
-              return (
-                <section key={name} id={`section-${name}`} className="@container scroll-mt-20">
-                  <SectionHeader name={name} />
-                  <div className={palette ? PALETTE : "space-y-4"}>
-                    {ks.map((key) => {
-                      const view = sections.get(name)!.filter((r) => r.key === key);
-                      const first = rules.find((r) => r.key === key)!.id;
-                      return (
-                        // Keyed by the key's first rule, which a rename and a context's own version both leave in place.
-                        <Fragment key={first}>
-                          <RuleView
-                            rules={view}
-                            inherited={!!context && view[0].context === null}
-                            // A new key, not a new variant of one already on the page.
-                            entering={fresh.has(first)}
-                            selected={open?.key === key ? current?.id : undefined}
-                            line={lineFor(name, key, ks)}
-                            dragging={drag === key}
-                            stacked={palette}
-                            ed={canEdit ? edFor(key, name, ks) : undefined}
-                          />
-                          {canEdit && below === key && (
-                            <GhostLine
-                              at={name}
-                              initial="/"
-                              autoFocus
-                              placeholder={only || "Type / to add a rule"}
-                              onPick={(p) => pick(p, name, key)}
-                              onCreateText={(q) => void insertAfter(key, TEXT, name, q, true)}
-                              onClose={(back) => {
-                                setBelow(null);
-                                if (back) focusRule(key, "block");
-                              }}
-                            />
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                    {!palette && <Pairings colors={colorsIn(name)} />}
-                    {canEdit && (
-                      <GhostLine
-                        at={name}
-                        placeholder={only || "Type / to add a rule"}
-                        onPick={(p) => pick(p, name)}
-                        onCreateText={(q) => void insertAfter(null, TEXT, name, q, true)}
-                      />
-                    )}
-                  </div>
-                  {palette && <Pairings colors={colorsIn(name)} className="mt-8" />}
-                </section>
-              );
-            })}
-
-            {canEdit && (
-              <section className="space-y-1">
-                {draft && (
-                  <DraftLine
-                    icon={IconBook}
-                    initial=""
-                    placeholder="Name the new section, e.g. Imagery"
-                    hint={(v) =>
-                      `A new section${camel(v) ? ` (${camel(v)})` : ""} for ${draft.name ? `"${draft.name}"` : `the ${draft.preset.label.toLowerCase()}`}. Enter to add, Esc to cancel.`
-                    }
-                    check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
-                    onCancel={() => setDraft(null)}
-                    onCommit={async (v) => {
-                      const p = draft.preset;
-                      await insertAfter(null, p, camel(v), draft.name ?? p.name ?? p.suggest ?? p.label, !!(draft.name ?? p.name));
-                      setDraft(null);
-                    }}
-                  />
-                )}
-                <GhostLine
-                  at={null}
-                  placeholder={only || (rules.length ? "Type / to add a rule or a section" : "Type / to add the first rule")}
-                  onPick={(p) => pick(p, null)}
-                  onCreateText={(q) => setDraft({ preset: TEXT, name: q })}
+        <ReadOnly.Provider value={!canEdit}>
+          <Hero
+            brand={brand}
+            rules={shown}
+            all={rules}
+            context={context}
+            updated={last && { at: last.updatedAt, who: byWhom(last.actor, me) }}
+            title={
+              canEdit ? (
+                <Editable
+                  key={titleResets}
+                  value={brand.name}
+                  label="Brand name"
+                  onSave={(v) => {
+                    if (!v) return false;
+                    void renameBrand(v);
+                  }}
                 />
+              ) : undefined
+            }
+            onAddLogo={canEdit ? addLogo : undefined}
+          />
+
+          {!rules.length && (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconBook />
+                </EmptyMedia>
+                <EmptyTitle>{canEdit ? "Start your guidelines" : "No guidelines yet"}</EmptyTitle>
+                <EmptyDescription>
+                  {canEdit ? (
+                    <>
+                      Add the rules most brands begin with (clear space, minimum size, logo don&apos;ts, a type scale,
+                      voice, words to avoid) and edit them into yours, or type / below to start blank.
+                    </>
+                  ) : (
+                    "Someone with edit access can start them."
+                  )}
+                </EmptyDescription>
+              </EmptyHeader>
+              {canEdit && (
+                <Button pending={adding} onClick={essentials}>
+                  <IconPlus /> {adding ? "Adding..." : "Add the essentials"}
+                </Button>
+              )}
+            </Empty>
+          )}
+
+          {names.map((name) => {
+            const ks = keysIn(name);
+            // A palette reads as a grid of cards; editors keep one column, where a drop lands between rows.
+            const palette = !canEdit && sections.get(name)!.every((r) => r.type === "color");
+            return (
+              <section key={name} id={`section-${name}`} className="@container scroll-mt-20">
+                <SectionHeader id={`section-${name}`} {...meta(name)} />
+                <div className={palette ? PALETTE : "space-y-4"}>
+                  {ks.map((key) => {
+                    const view = sections.get(name)!.filter((r) => r.key === key);
+                    const first = rules.find((r) => r.key === key)!.id;
+                    return (
+                      // Keyed by the key's first rule, which a rename and a context's own version both leave in place.
+                      <Fragment key={first}>
+                        <RuleView
+                          rules={view}
+                          anchor={`rule-${key}`}
+                          inherited={!!context && view[0].context === null}
+                          // A new key, not a new variant of one already on the page.
+                          entering={fresh.has(first)}
+                          selected={open?.key === key ? current?.id : undefined}
+                          line={lineFor(name, key, ks)}
+                          dragging={drag === key}
+                          stacked={palette}
+                          ed={canEdit ? edFor(key, name, ks) : undefined}
+                        />
+                        {canEdit && below === key && (
+                          <GhostLine
+                            at={name}
+                            initial="/"
+                            autoFocus
+                            placeholder={only || "Type / to add a rule"}
+                            onPick={(p) => pick(p, name, key)}
+                            onCreateText={(q) => void insertAfter(key, TEXT, name, q, true)}
+                            onClose={(back) => {
+                              setBelow(null);
+                              if (back) focusRule(key, "block");
+                            }}
+                          />
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                  {!palette && <Pairings colors={colorsIn(name)} />}
+                  {canEdit && (
+                    <GhostLine
+                      at={name}
+                      placeholder={only || "Type / to add a rule"}
+                      onPick={(p) => pick(p, name)}
+                      onCreateText={(q) => void insertAfter(null, TEXT, name, q, true)}
+                    />
+                  )}
+                </div>
+                {palette && <Pairings colors={colorsIn(name)} className="mt-8" />}
               </section>
-            )}
-          </ReadOnly.Provider>
-        )}
+            );
+          })}
+
+          {canEdit && (
+            <section className="space-y-1">
+              {draft && (
+                <DraftLine
+                  icon={IconBook}
+                  initial=""
+                  placeholder="Name the new section, e.g. Imagery"
+                  hint={(v) =>
+                    `A new section${camel(v) ? ` (${camel(v)})` : ""} for ${draft.name ? `"${draft.name}"` : `the ${draft.preset.label.toLowerCase()}`}. Enter to add, Esc to cancel.`
+                  }
+                  check={(v) => (camel(v) ? undefined : "Give it a name with a letter in it")}
+                  onCancel={() => setDraft(null)}
+                  onCommit={async (v) => {
+                    const p = draft.preset;
+                    await insertAfter(null, p, camel(v), draft.name ?? p.name ?? p.suggest ?? p.label, !!(draft.name ?? p.name));
+                    setDraft(null);
+                  }}
+                />
+              )}
+              <GhostLine
+                at={null}
+                placeholder={only || (rules.length ? "Type / to add a rule or a section" : "Type / to add the first rule")}
+                onPick={(p) => pick(p, null)}
+                onCreateText={(q) => setDraft({ preset: TEXT, name: q })}
+              />
+            </section>
+          )}
+        </ReadOnly.Provider>
 
         <Sheet open={!!current} modal={false} onOpenChange={(o) => !o && setOpen(null)}>
           <SheetContent
@@ -1398,34 +1224,8 @@ export function BrandEditor({
 
 // ---- page furniture ---------------------------------------------------------
 
-const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 /** A palette section's cards, for readers. */
 const PALETTE = "grid gap-x-6 gap-y-8 @2xl:grid-cols-2";
-
-/**
- * The page in the brand's own faces and accent (lib/brand-theme.ts), as CSS
- * variables on the page only: the header, menus and panels stay the app's.
- * Unset, each falls back to the app's own, so a brand with no fonts or colors
- * reads as before.
- */
-function useBrandLook(rules: Rule[]) {
-  const t = useMemo(() => brandTheme(rules), [rules]);
-  const head = useAssetFont(t.head?.file);
-  const body = useAssetFont(t.body?.file);
-  return {
-    ...(t.head && { "--brand-head": stack(t.head, head), "--brand-head-weight": String(t.head.weight ?? 600) }),
-    ...(t.body && { "--brand-body": stack(t.body, body) }),
-    ...(t.accent && { "--brand-accent-l": t.accent.light, "--brand-accent-d": t.accent.dark }),
-  } as React.CSSProperties;
-}
-/** On the page: body text in the brand's face, and the accent for the app's light or dark page. */
-const LOOK = "font-(family-name:--brand-body) [--brand-accent:var(--brand-accent-l)] dark:[--brand-accent:var(--brand-accent-d)]";
-/** Headings in the brand's heading face and weight. */
-const HEAD = "font-(family-name:--brand-head) [font-weight:var(--brand-head-weight,600)] tracking-tight";
-
-/** One color per key (its variants are a click away on the rule), valid hex only. */
-const colorsOf = (rs: Rule[]) =>
-  rs.filter((r, i) => r.type === "color" && HEX.test(r.value as string) && rs.findIndex((x) => x.key === r.key) === i);
 
 /**
  * A brand's guidelines as a reader sees them, with nothing to edit: a brand
@@ -1438,23 +1238,30 @@ export function Guidelines({ name, rules }: { name: string; rules: Rule[] }) {
   for (const r of rules) sections.set(section(r.key), [...(sections.get(section(r.key)) ?? []), r]);
   const names = sectionsOf(rules);
   const keysIn = (n: string) => [...new Set((sections.get(n) ?? []).map((r) => r.key))];
-  const active = useActiveSection(names);
+  const active = useActiveSection(names.map((n) => `section-${n}`))?.replace(/^section-/, "") ?? null;
   useHashFlash();
   const look = useBrandLook(rules);
   return (
     <ReadOnly.Provider value={true}>
       {names.length > 1 && <Toc names={names} active={active} />}
       <div style={look} className={cn(LOOK, "space-y-16")}>
-        <Hero brand={{ slug: "", name, default: false, rules: rules.length }} rules={rules} portal />
+        <Hero brand={{ name }} rules={rules} portal />
         {!rules.length && <p className="text-muted-foreground text-sm">No guidelines here yet.</p>}
         {names.map((n) => {
           const palette = sections.get(n)!.every((r) => r.type === "color");
           return (
             <section key={n} id={`section-${n}`} className="@container scroll-mt-20">
-              <SectionHeader name={n} />
+              <SectionHeader id={`section-${n}`} {...meta(n)} />
               <div className={palette ? PALETTE : "space-y-4"}>
                 {keysIn(n).map((key) => (
-                  <RuleView key={key} rules={sections.get(n)!.filter((r) => r.key === key)} line={null} dragging={false} stacked={palette} />
+                  <RuleView
+                    key={key}
+                    rules={sections.get(n)!.filter((r) => r.key === key)}
+                    anchor={`rule-${key}`}
+                    line={null}
+                    dragging={false}
+                    stacked={palette}
+                  />
                 ))}
               </div>
               <Pairings colors={colorsOf(sections.get(n)!)} className="mt-4" />
@@ -1625,268 +1432,6 @@ function Toc({ names, active }: { names: string[]; active: string | null }) {
   );
 }
 
-/** "#" beside a heading, for everyone: copies a link to it (the check where you clicked) and puts it in the address bar. */
-function AnchorLink({ id, label, className }: { id: string; label: string; className?: string }) {
-  return (
-    <CopyButton
-      icon={IconHash}
-      label={label}
-      what="link"
-      className={cn("opacity-0 transition-opacity focus-visible:opacity-100", className)}
-      text={async () => {
-        window.history.replaceState(null, "", `#${id}`);
-        return linkTo(id);
-      }}
-    />
-  );
-}
-
-/** The first image of a rule's assets. */
-const pictured = (a: RuleAsset) => a.preview ?? !a.mime;
-
-/**
- * The brand's face, as a Notion page's icon: its logo on a tile that shows
- * its edges in both themes (the dark-background variant in dark mode, by
- * CSS alone), a wide mark as wide as it is. Without one, its initial on its
- * first color; editors click that to add the logo.
- */
-function BrandIcon({ brand, rules, color, onAdd }: { brand: BrandInfo; rules: Rule[]; color?: string; onAdd?: () => void }) {
-  const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.some(pictured));
-  const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)/.test(r.key)) ?? logos[0];
-  const base = named && (logos.find((r) => r.key === named.key && r.context === null) ?? named);
-  const dark = named && logos.find((r) => r.key === named.key && r.context && /dark/.test(r.context));
-  const a = base?.assets.find(pictured);
-  const d = dark?.assets.find(pictured);
-  if (a) {
-    // As wide as the mark, from a square to three squares (h-16, at most max-w-48).
-    const ratio = a.width && a.height ? Math.min(Math.max(a.width / a.height, 1), 3) : 1;
-    return (
-      <span className="bg-checker relative h-16 shrink-0 overflow-hidden rounded-2xl border" style={{ aspectRatio: ratio }}>
-        <span className={cn("absolute inset-0", d && "dark:hidden")}>
-          <Thumb src={assetUrl(a.id, "/w_192,f_webp")} alt={`${brand.name} logo`} eager />
-        </span>
-        {d && (
-          <span className="absolute inset-0 hidden dark:block">
-            <Thumb src={assetUrl(d.id, "/w_192,f_webp")} alt={`${brand.name} logo`} eager />
-          </span>
-        )}
-      </span>
-    );
-  }
-  const tile = cn("flex size-16 shrink-0 items-center justify-center rounded-2xl border text-2xl font-semibold", !color && "bg-muted");
-  const style = color ? { backgroundColor: color, color: inkOn(color.slice(0, 7)) } : undefined;
-  if (!onAdd)
-    return (
-      <span className={tile} style={style}>
-        {brand.name[0]?.toUpperCase()}
-      </span>
-    );
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label="Add the logo"
-          onClick={onAdd}
-          className={cn(tile, "transition-[box-shadow,transform] duration-150 hover:shadow-md active:scale-95")}
-          style={style}
-        >
-          {brand.name[0]?.toUpperCase()}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>Add the logo</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function SectionHeader({ name }: { name: string }) {
-  const { title, icon: I, blurb } = meta(name);
-  return (
-    <div className="group/section mb-6 flex items-start gap-3 border-b pb-5">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_14%,transparent)] text-[var(--brand-accent,var(--primary-ink))]">
-        <I className="size-5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1">
-          <h2 className={cn(HEAD, "text-2xl")}>{title}</h2>
-          <AnchorLink id={`section-${name}`} label={`Copy a link to ${title}`} className="group-hover/section:opacity-100" />
-        </div>
-        {blurb && <p className="text-muted-foreground text-sm">{blurb}</p>}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The cover: the brand's icon and name, what the page is and covers, when it
- * last changed, and the palette as one strip. `title`: the name as an editor,
- * for someone who may rename the brand. `portal`: a portal's tab, whose page
- * has its own h1.
- */
-function Hero({
-  brand,
-  rules,
-  all = rules,
-  context,
-  updated,
-  title,
-  portal,
-  onAddLogo,
-}: {
-  brand: BrandInfo;
-  /** What the page shows: the context's view. */
-  rules: Rule[];
-  /** Every variant: the contexts covered, and the logo for dark mode. */
-  all?: Rule[];
-  context?: string;
-  updated?: { at: string; who: string | null } | null;
-  title?: React.ReactNode;
-  portal?: boolean;
-  onAddLogo?: () => void;
-}) {
-  const keys = new Set(rules.map((r) => r.key)).size;
-  const assets = new Set(rules.flatMap((r) => r.assets.map((a) => a.id))).size;
-  const sections = new Set(rules.map((r) => section(r.key))).size;
-  const contexts = [...new Set(all.flatMap((r) => (r.context ? [r.context] : [])))];
-  const colors = colorsOf(rules);
-  const at =
-    updated?.at ??
-    rules
-      .map((r) => r.updatedAt)
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-  // Only what there is: an empty brand doesn't read "0 rules · 0 assets".
-  const facts = (
-    portal
-      ? [sections && `${sections} ${sections === 1 ? "section" : "sections"}`]
-      : [
-          context && `as they apply to ${contextLabel(context)}`,
-          keys && `${keys} ${keys === 1 ? "rule" : "rules"}`,
-          assets && `${assets} ${assets === 1 ? "asset" : "assets"}`,
-          !context && contexts.length && `for ${contexts.map(contextLabel).join(", ")}`,
-        ]
-  ).filter(Boolean);
-  const H = portal ? "h2" : "h1";
-
-  return (
-    <div id="top" className="scroll-mt-20 space-y-8">
-      <div className="flex items-center gap-4">
-        <BrandIcon brand={brand} rules={all} color={colors[0]?.value as string | undefined} onAdd={onAddLogo} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <H className={cn(HEAD, "text-4xl text-balance break-words sm:text-5xl")}>{title ?? brand.name}</H>
-          <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-            <span>Brand guidelines</span>
-            {brand.default && !portal && <Badge variant="secondary">Default</Badge>}
-            {facts.map((f) => (
-              <span key={String(f)}>· {f}</span>
-            ))}
-            {at && (
-              <span suppressHydrationWarning title={exact(at)}>
-                · Updated {ago(at)}
-                {updated?.who && ` by ${updated.who}`}
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {colors.length > 0 && (
-        // The palette at a glance: a stripe per color, each a link to its rule. Hover widens one; the strip never moves.
-        <div className="ring-border flex h-12 overflow-hidden rounded-xl ring-1">
-          {colors.map((c) => (
-            <Tooltip key={c.id}>
-              <TooltipTrigger asChild>
-                <a
-                  href={`#rule-${c.key}`}
-                  aria-label={`${label(c.key)}, ${c.value}`}
-                  className="focus-visible:ring-ring min-w-3 flex-1 transition-[flex-grow] duration-200 ease-out outline-none hover:grow-[1.6] focus-visible:grow-[1.6] focus-visible:ring-2 focus-visible:ring-inset"
-                  style={{ backgroundColor: c.value as string }}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {label(c.key)} <span className="font-mono opacity-70">{c.value as string}</span>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Every color on every other, as text on a background: the ratio and its
- * WCAG grade, so "can white go on Secondary?" has its answer on the page.
- * The hovered cell's row and column light up. From two colors to ten; view only.
- */
-function Pairings({ colors, className }: { colors: Rule[]; className?: string }) {
-  const [at, setAt] = useState<[number, number] | null>(null);
-  if (colors.length < 2 || colors.length > 10) return null;
-  const hexes = colors.map((c) => (c.value as string).slice(0, 7));
-  const head = (c: Rule, i: number, on: boolean) => (
-    <span className={cn("flex items-center gap-1.5 transition-colors", on ? "text-foreground" : "text-muted-foreground")}>
-      <span className="size-3 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15" style={{ backgroundColor: hexes[i] }} />
-      <span className="truncate">{label(c.key)}</span>
-    </span>
-  );
-  return (
-    <div className={cn("space-y-3 py-3", className)}>
-      <div>
-        <h3 className="text-lg font-semibold tracking-tight">Contrast pairings</h3>
-        <p className="text-muted-foreground text-sm">
-          Text in each row&apos;s color on each column&apos;s, graded for WCAG 2 at full opacity.
-        </p>
-      </div>
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
-        <table className="border-separate border-spacing-1 text-xs" onMouseLeave={() => setAt(null)}>
-          <thead>
-            <tr>
-              <td />
-              {colors.map((c, j) => (
-                <th key={c.id} scope="col" className="max-w-24 px-1 pb-1 text-left font-medium">
-                  {head(c, j, at?.[1] === j)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {colors.map((fg, i) => (
-              <tr key={fg.id}>
-                <th scope="row" className="max-w-28 pr-2 text-left font-medium">
-                  {head(fg, i, at?.[0] === i)}
-                </th>
-                {colors.map((bg, j) => {
-                  if (i === j) return <td key={bg.id} />;
-                  const ratio = contrast(hexes[i], hexes[j]);
-                  const g = grade(ratio);
-                  return (
-                    <td
-                      key={bg.id}
-                      onMouseEnter={() => setAt([i, j])}
-                      className={cn(
-                        "h-16 min-w-20 rounded-lg p-2 align-top ring-1 ring-black/5 transition-opacity dark:ring-white/10",
-                        g === "fail" && "opacity-40",
-                      )}
-                      style={{ backgroundColor: hexes[j], color: hexes[i] }}
-                    >
-                      <span className="block text-lg leading-none font-semibold">Aa</span>
-                      <span className="bg-background text-foreground mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5">
-                        <span className="font-mono tabular-nums">{ratio.toFixed(1)}</span>
-                        <span className={cn("rounded px-1 text-2xs font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>{g}</span>
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /** Which context the page shows: every rule and variant, or what one context resolves to. */
 function ContextPicker({
   contexts,
@@ -1945,447 +1490,6 @@ function brandReads(brand: BrandInfo, context?: string) {
 }
 
 // ---- rules ------------------------------------------------------------------
-
-type Dnd = {
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  onDragOver: React.DragEventHandler<HTMLDivElement>;
-  onDrop: React.DragEventHandler<HTMLDivElement>;
-};
-
-/** What a block can do for someone who may edit: everything the page does to one rule. */
-type Ed = {
-  /** Every key on the page: what the name's preview counts up against. */
-  taken: Set<string>;
-  resets: number;
-  /** Every variant made on this visit: Backspace in its emptied name deletes it. */
-  fresh: boolean;
-  /** A context view's label: a rule shown from the default there belongs to every context. */
-  context?: string;
-  canMove: [boolean, boolean];
-  dnd: Dnd;
-  onPatch: (r: Rule, body: Patch) => void;
-  onRename: (r: Rule, name: string) => void;
-  /** The name field was left: whatever waited for the name can go. */
-  onNamed: (r: Rule) => void;
-  onDelete: (r: Rule) => Promise<boolean>;
-  onDetails: (id: string, kb: boolean) => void;
-  onInsert: () => void;
-  onDuplicate: () => void;
-  onMove: (step: -1 | 1) => void;
-  onCopyLink: () => void;
-};
-
-/** A rule's variants, one of them shown: Default, Dark background. Arrows move between them, as radios do. */
-function Variants({ rules, current, onPick }: { rules: Rule[]; current: Rule; onPick: (id: string) => void }) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Variants"
-      className="flex flex-wrap gap-1"
-      onKeyDown={(e) => {
-        const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-        if (!d) return;
-        // Not the block's arrows, which walk the page.
-        e.preventDefault();
-        e.stopPropagation();
-        const i = (rules.findIndex((x) => x.id === current.id) + d + rules.length) % rules.length;
-        onPick(rules[i].id);
-        e.currentTarget.querySelectorAll<HTMLElement>("[role=radio]")[i]?.focus();
-      }}
-    >
-      {rules.map((x) => {
-        const on = x.id === current.id;
-        return (
-          <Tooltip key={x.id}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={on}
-                tabIndex={on ? 0 : -1}
-                onClick={() => onPick(x.id)}
-                className={cn(
-                  "inline-flex h-6 items-center rounded-full px-2.5 text-xs transition-colors",
-                  on ? "bg-foreground text-background font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-              >
-                {x.context ? contextLabel(x.context) : "Default"}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{x.context ? `Only in ${contextLabel(x.context)}` : "Everywhere without its own variant"}</TooltipContent>
-          </Tooltip>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * A rule as the guidelines show it, and as it is edited: its name, its value
- * as a specimen, its note and assets, its variants a click apart. With `ed`,
- * each part is its own editor, a Notion block: the gutter holds + and the
- * handle that drags it and opens its menu, and the block takes the keyboard
- * when selected (Esc from a field). Without, it only reads (a portal).
- */
-function RuleView({
-  rules,
-  inherited,
-  entering,
-  selected,
-  line,
-  dragging,
-  stacked,
-  ed,
-}: {
-  /** One key's rules: the default first, then its context variants. */
-  rules: Rule[];
-  /** A context view showing the default: what every context shares. */
-  inherited?: boolean;
-  /** Made on this visit: it arrives rather than appears. */
-  entering?: boolean;
-  /** The variant open in Details. */
-  selected?: string;
-  line: Line | null;
-  dragging: boolean;
-  /** A color card in a palette grid. */
-  stacked?: boolean;
-  ed?: Ed;
-}) {
-  const [shown, setShown] = useState(rules[0].id);
-  // Picking a variant crossfades the specimen; the page's first paint doesn't.
-  const [swapped, setSwapped] = useState(false);
-  const r = rules.find((x) => x.id === (selected ?? shown)) ?? rules[0];
-  const block = useRef<HTMLDivElement>(null);
-  const grip = useRef<HTMLButtonElement>(null);
-  const dots = useRef<HTMLButtonElement>(null);
-  // The block menu; `kb`: opened from the keyboard, so Details takes the focus.
-  const [menu, setMenu] = useState<{ kb: boolean } | null>(null);
-  // Where focus goes as the menu closes: what the item chose, else back to the handle.
-  const then = useRef<(() => void) | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  // The name as typed, while its field has focus: the key it becomes shows under it.
-  const [naming, setNaming] = useState<string | null>(null);
-  const others = r.assets.filter((a) => !isFontAsset(a));
-  const pics = others.filter(pictured);
-  const look = r.type === "list" ? listStyle(r.key, r.value as (string | number)[]) : null;
-  // Shown from the default in a context view: deleting it deletes it for every context, so it asks.
-  const shared = !!ed?.context && r.context === null;
-  const nameKey = ed && naming !== null ? keyFor(section(r.key), naming, new Set([...ed.taken].filter((k) => k !== r.key))) : null;
-
-  /** Delete, with the undo toast. `move`: focus goes on to the next block, not down to the page. */
-  function del(move = !!block.current?.contains(document.activeElement)) {
-    if (!ed) return;
-    if (shared) return setConfirming(true);
-    const el = block.current;
-    const all = blocks();
-    const i = el ? all.indexOf(el) : -1;
-    const next = all[i + 1] ?? all[i - 1];
-    void ed.onDelete(r);
-    // remove() marks a block that is leaving at once.
-    if (move && el?.hasAttribute("data-leaving")) next?.focus();
-  }
-
-  // Notion's block selection: arrows walk the page; the rest act on the block.
-  function onKey(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget) return;
-    const mod = e.metaKey || e.ctrlKey;
-    const arrow = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
-    if (arrow && !mod && !e.shiftKey && !e.altKey) {
-      e.preventDefault();
-      const all = blocks();
-      return all[all.indexOf(e.currentTarget) + arrow]?.focus();
-    }
-    if (!ed) return;
-    if (arrow && mod && e.shiftKey) {
-      e.preventDefault();
-      ed.onMove(arrow);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      fieldIn(e.currentTarget, "name")?.focus();
-    } else if (mod && e.key.toLowerCase() === "d") {
-      e.preventDefault();
-      ed.onDuplicate();
-    } else if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      del(true);
-    } else if (e.key === "/") {
-      e.preventDefault();
-      ed.onInsert();
-    }
-  }
-
-  return (
-    <div
-      ref={block}
-      data-block
-      id={`rule-${r.key}`}
-      tabIndex={-1}
-      onKeyDown={onKey}
-      onDragOver={ed?.dnd.onDragOver}
-      onDrop={ed?.dnd.onDrop}
-      className={cn(
-        "group/block @container relative -mx-2 scroll-mt-20 space-y-3 rounded-lg px-2 py-3 transition-colors outline-none",
-        "focus-visible:bg-primary/5 focus-visible:ring-ring/40 focus-visible:ring-2",
-        entering && "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200",
-        // Set by remove() for the 150ms before the rule leaves the list.
-        "motion-safe:data-leaving:animate-out motion-safe:data-leaving:fade-out-0 motion-safe:data-leaving:zoom-out-95 data-leaving:fill-mode-forwards data-leaving:duration-150",
-        selected && "bg-muted/40 ring-border ring-1",
-        dragging && "opacity-40",
-      )}
-    >
-      {line && (
-        // Centered in the 16px gap between blocks.
-        <div
-          aria-hidden
-          className={cn("bg-primary pointer-events-none absolute inset-x-0 h-0.5 rounded-full", line === "before" ? "-top-[9px]" : "-bottom-[9px]")}
-        />
-      )}
-      {ed && (
-        // The gutter: on touch always there, with a mouse on hover or focus. Below sm the dots in the name row stand in.
-        <div className="absolute top-3.5 -left-12 hidden gap-0.5 transition-opacity sm:flex pointer-fine:opacity-0 pointer-fine:group-focus-within/block:opacity-100 pointer-fine:group-hover/block:opacity-100">
-          <IconButton variant="ghost" size="icon-xs" label="Add below" shortcut={["/"]} className="text-muted-foreground" onClick={ed.onInsert}>
-            <IconPlus className="size-4" />
-          </IconButton>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                ref={grip}
-                type="button"
-                draggable
-                aria-label="Drag to move, or click for options"
-                aria-haspopup="menu"
-                aria-expanded={!!menu}
-                // A click never follows a drag: click for the menu, drag to move.
-                onClick={(e) => setMenu({ kb: e.detail === 0 })}
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", r.key);
-                  if (block.current) e.dataTransfer.setDragImage(block.current, 16, 16);
-                  ed.dnd.onDragStart();
-                }}
-                onDragEnd={ed.dnd.onDragEnd}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 cursor-grab items-center justify-center rounded-md transition-colors active:cursor-grabbing"
-              >
-                <IconGripVertical className="size-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Drag to move · Click for options</TooltipContent>
-          </Tooltip>
-        </div>
-      )}
-      {ed && (
-        // Controlled, from the handle's click: a Radix trigger opens on pointerdown, which would open it at every drag.
-        <DropdownMenu open={!!menu} onOpenChange={(o) => !o && setMenu(null)}>
-          <DropdownMenuTrigger asChild>
-            <span aria-hidden className="pointer-events-none absolute top-10 left-2 size-0 sm:-left-6" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="w-60"
-            onCloseAutoFocus={(e) => {
-              e.preventDefault();
-              const f = then.current;
-              then.current = null;
-              if (f) f();
-              else (grip.current?.offsetParent ? grip.current : dots.current)?.focus();
-            }}
-          >
-            <DropdownMenuItem
-              onSelect={() => {
-                // Details takes the focus itself.
-                then.current = () => {};
-                ed.onDetails(r.id, !!menu?.kb);
-              }}
-            >
-              <IconLayoutSidebarRight /> Details...
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => (then.current = () => focusRule(r.key, "note"))}>
-              <IconNote /> {r.usage ? "Edit the note" : "Add a note"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => (then.current = ed.onDuplicate)}>
-              <IconSquares /> Duplicate
-              <DropdownMenuShortcut>
-                <Kbd keys={["mod", "D"]} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={ed.onCopyLink}>
-              <IconLink /> Copy link
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!ed.canMove[0]} onSelect={() => ed.onMove(-1)}>
-              <IconArrowUp /> Move up
-              <DropdownMenuShortcut>
-                <Kbd keys={["mod", "⇧", "↑"]} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!ed.canMove[1]} onSelect={() => ed.onMove(1)}>
-              <IconArrowDown /> Move down
-              <DropdownMenuShortcut>
-                <Kbd keys={["mod", "⇧", "↓"]} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => (then.current = () => del(true))}>
-              <IconTrash />
-              {shared ? "Delete for every context" : rules.length > 1 ? `Delete ${r.context ? contextLabel(r.context) : "default"}` : "Delete"}
-              <DropdownMenuShortcut>
-                <Kbd keys={["⌫"]} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      {ed && shared && (
-        <Confirm
-          open={confirming}
-          onOpenChange={setConfirming}
-          title={`Delete ${label(r.key)} for every context?`}
-          says={`${ed.context} shows the default, which every context shares. Deleting it takes it from all of them.`}
-          action="Delete for every context"
-          run={() => ed.onDelete(r)}
-        />
-      )}
-
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className={cn(HEAD, "max-w-full text-lg")}>
-          {ed ? (
-            <Editable
-              key={ed.resets}
-              field="name"
-              value={label(r.key)}
-              label="Name"
-              // The field's -mx-1 makes it 0.5rem wider than the h3 it sizes, so max-w-full would wrap its last letter.
-              className="w-auto max-w-[calc(100%+0.5rem)] min-w-8"
-              // Only on Enter or leaving, never as you type: a new name is a new key.
-              onSave={(v) => v && ed.onRename(r, v)}
-              onFocus={() => setNaming(label(r.key))}
-              onDraft={setNaming}
-              onBlur={() => {
-                setNaming(null);
-                ed.onNamed(r);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  // On to the value, which commits the name as it leaves it.
-                  const f = fieldIn(block.current, "value");
-                  if (!f) return;
-                  e.preventDefault();
-                  f.focus();
-                } else if (e.key === "Backspace" && !e.currentTarget.value && ed.fresh) {
-                  // Nothing knows a rule made this visit yet: an emptied name takes it away, as in Notion.
-                  e.preventDefault();
-                  del(true);
-                }
-              }}
-            />
-          ) : (
-            label(r.key)
-          )}
-        </h3>
-        <AnchorLink id={`rule-${r.key}`} label={`Copy a link to ${label(r.key)}`} className="self-center group-hover/block:opacity-100" />
-        {rules.length > 1 ? (
-          <Variants
-            rules={rules}
-            current={r}
-            onPick={(id) => {
-              setSwapped(true);
-              if (selected && ed) ed.onDetails(id, false);
-              else setShown(id);
-            }}
-          />
-        ) : r.context ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" tabIndex={0}>
-                {contextLabel(r.context)}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>Only in {contextLabel(r.context)}</TooltipContent>
-          </Tooltip>
-        ) : (
-          inherited && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="secondary" tabIndex={0}>
-                  From default
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>Shared by every context</TooltipContent>
-            </Tooltip>
-          )
-        )}
-        {ed && (
-          <IconButton
-            ref={dots}
-            variant="ghost"
-            size="icon-xs"
-            label="Options"
-            className="text-muted-foreground ml-auto self-center sm:hidden"
-            onClick={(e) => setMenu({ kb: e.detail === 0 })}
-          >
-            <IconDots className="size-4" />
-          </IconButton>
-        )}
-      </div>
-      {/* The key a name becomes lives in Details and the rename prompt, not under every name you type. */}
-      {naming !== null && !nameKey && <p className="text-2xs text-destructive -mt-1">A name needs a letter in it</p>}
-      <div
-        key={r.id}
-        data-field="value"
-        className={cn(swapped && "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150")}
-      >
-        <ValueEditor
-          key={`${r.id}:${ed?.resets}`}
-          rule={r}
-          stacked={stacked}
-          onSave={(value) => ed?.onPatch(r, { value })}
-          onEmpty={ed && (() => del(true))}
-        />
-      </div>
-      {ed ? (
-        // An empty note shows while the block has focus, so Tab runs name, value, note, and empty notes add nothing to read.
-        <div data-field="note" className={cn(!r.usage && "hidden group-focus-within/block:block")}>
-          <RichText
-            key={`${r.id}:${ed.resets}`}
-            value={r.usage ?? ""}
-            label="Note"
-            placeholder={USAGE_HINT[section(r.key)] ?? "When and how to use it"}
-            className="text-muted-foreground text-sm"
-            onSave={(usage) => ed.onPatch(r, { usage: usage || null })}
-          />
-        </div>
-      ) : (
-        r.usage && <Markdown text={r.usage} className="text-muted-foreground text-sm" demote />
-      )}
-      {r.type === "font" && fontFiles(r).length > 0 && <FontStyles files={fontFiles(r)} />}
-      {pics.length > 0 &&
-        (look === "do" || look === "dont" ? (
-          <DoCards assets={pics} look={look} />
-        ) : (
-          // Logos and imagery: big, on the backdrop of your choice, a download away.
-          <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-            {pics.map((a) => (
-              <LogoTile key={a.id} asset={a} dark={!!r.context && /dark/.test(r.context)} />
-            ))}
-          </div>
-        ))}
-      {(others.length > pics.length || (ed && others.length > 0)) && (
-        <div className="flex flex-wrap items-end gap-2 pt-1">
-          {others
-            .filter((a) => !pictured(a))
-            .map((a) => (
-              <AssetTile key={a.id} asset={a} />
-            ))}
-          {ed && (
-            <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={(e) => ed.onDetails(r.id, e.detail === 0)}>
-              <IconPencil /> Edit assets
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function Part({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -2580,170 +1684,6 @@ function SetIn({ rule: r, fonts, onPatch }: { rule: Rule; fonts: Rule[]; onPatch
         </SelectContent>
       </Select>
     </div>
-  );
-}
-
-type Backdrop = "checker" | "light" | "dark";
-const BACKDROPS: Record<Backdrop, { label: string; bg: string }> = {
-  checker: { label: "Transparent", bg: "bg-checker" },
-  light: { label: "On light", bg: "bg-white" },
-  dark: { label: "On dark", bg: "bg-neutral-950" },
-};
-
-/**
- * A logo or an image as a brand guide shows it: big, on a transparent, light
- * or dark backdrop (dark first for a dark-background variant), with its
- * download and its URL on the tile.
- */
-function LogoTile({ asset: a, dark }: { asset: RuleAsset; dark: boolean }) {
-  const [on, setOn] = useState<Backdrop>(dark ? "dark" : "checker");
-  const path = a.rendition ? assetUrl(a.id, `/${a.rendition}`) : assetUrl(a.id);
-  const name = a.title || a.filename || "Asset";
-  // With a mouse, on hover or focus; on touch, always.
-  const reveal =
-    "transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/tile:opacity-100 pointer-fine:group-focus-within/tile:opacity-100";
-  return (
-    <figure className="grid min-w-0 gap-1.5">
-      <div className={cn("group/tile relative aspect-[4/3] overflow-hidden rounded-xl border transition-colors", BACKDROPS[on].bg)}>
-        <Thumb src={assetUrl(a.id, "/w_480,f_webp")} alt={name} className="p-6" />
-        <div className={cn("absolute top-2 right-2 flex gap-1", reveal)}>
-          <IconButton variant="secondary" size="icon-xs" label={`Download ${name}`} asChild>
-            {/* The original with its metadata; a rendition under the name the server gives it. */}
-            <a href={a.rendition ? path : assetUrl(a.id, "?download")} download={a.rendition ? "" : (a.filename ?? name)}>
-              <IconDownload className="size-3.5" />
-            </a>
-          </IconButton>
-          <CopyButton variant="secondary" label="Copy the URL" what="URL" text={async () => new URL(path, location.origin).href} />
-        </div>
-        <div role="radiogroup" aria-label="Backdrop" className={cn("bg-background/80 absolute bottom-2 left-2 flex gap-1 rounded-full p-1 shadow-sm backdrop-blur", reveal)}>
-          {(Object.keys(BACKDROPS) as Backdrop[]).map((b) => (
-            <Tooltip key={b}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={on === b}
-                  aria-label={BACKDROPS[b].label}
-                  onClick={() => setOn(b)}
-                  className={cn("size-4 rounded-full ring-1 transition-shadow", BACKDROPS[b].bg, on === b ? "ring-primary ring-2" : "ring-border")}
-                />
-              </TooltipTrigger>
-              <TooltipContent>{BACKDROPS[b].label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      </div>
-      <figcaption className="flex min-w-0 items-baseline gap-2 text-xs">
-        <span className="truncate">{name}</span>
-        {a.rendition && <span className="text-muted-foreground truncate">{renditionLabel(a.rendition)}</span>}
-      </figcaption>
-    </figure>
-  );
-}
-
-/**
- * A do or don't list's example images as cards: a green or red bar, the
- * image on a checker, and the mark. Each is captioned by its own title, never
- * by the list item at its index, which may be about something else.
- */
-function DoCards({ assets, look }: { assets: RuleAsset[]; look: "do" | "dont" }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-      {assets.map((a) => {
-        const name = a.title || a.filename || (a.rendition ? renditionLabel(a.rendition) : "Example");
-        return (
-          <figure key={a.id} className="bg-card overflow-hidden rounded-xl border">
-            <div aria-hidden className={cn("h-1", look === "do" ? "bg-emerald-500" : "bg-red-500")} />
-            <div className="bg-checker relative aspect-[4/3]">
-              <Thumb src={assetUrl(a.id, "/w_480,f_webp")} alt={name} className="p-4" />
-            </div>
-            <figcaption className="flex min-w-0 items-center gap-2 border-t px-3 py-2 text-sm">
-              {MARKER[look]}
-              <span className="sr-only">{look === "do" ? "Do:" : "Don't:"}</span>
-              <span className="truncate">{name}</span>
-            </figcaption>
-          </figure>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * An asset on a rule: its thumbnail and the rendition the rule means. On the
- * page it opens the asset; in the panel, a menu changes the size, copies the
- * URL, or takes it off the rule.
- */
-function AssetTile({
-  asset: a,
-  onChange,
-  onRemove,
-}: {
-  asset: RuleAsset;
-  /** Both left out: read only. */
-  onChange?: (rendition: string | null) => void;
-  onRemove?: () => void;
-}) {
-  const path = a.rendition ? assetUrl(a.id, `/${a.rendition}`) : assetUrl(a.id);
-  const name = a.title || a.filename || "Asset";
-  const tile =
-    "bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative block size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2";
-  const face =
-    a.mime && isFont(a.mime, a.filename ?? "") ? (
-      <span className="absolute inset-0 flex items-center justify-center">
-        <FontThumb id={a.id} className="text-4xl" />
-      </span>
-    ) : (
-      <Thumb src={assetUrl(a.id, "/w_112,f_webp")} alt="" className="p-2" />
-    );
-  // What it is first; the size only when the rule means a particular one.
-  const caption = (
-    <>
-      <span className="truncate text-center text-xs" title={a.filename ?? name}>
-        {name}
-      </span>
-      {a.rendition && (
-        <span className="text-muted-foreground truncate text-center text-xs" title={a.rendition}>
-          {renditionLabel(a.rendition)}
-        </span>
-      )}
-    </>
-  );
-  if (!onChange || !onRemove)
-    return (
-      <a href={path} target="_blank" rel="noreferrer" className="grid w-28 gap-0.5" title={`Open ${name}`}>
-        <span className={tile}>{face}</span>
-        {caption}
-      </a>
-    );
-  return (
-    <Popover>
-      <div className="grid w-28 gap-0.5">
-        <PopoverTrigger asChild>
-          <button type="button" aria-label={`${name}, ${renditionLabel(a.rendition)}. Change the size`} className={tile}>
-            {face}
-          </button>
-        </PopoverTrigger>
-        {caption}
-      </div>
-      <PopoverContent align="start" className="w-80 p-0">
-        <RenditionMenu value={a.rendition} onChange={onChange} />
-        <Separator />
-        <div className="flex items-center gap-1 p-1">
-          <Button variant="ghost" size="sm" asChild>
-            <a href={path} target="_blank" rel="noreferrer">
-              <IconExternalLink /> Open
-            </a>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => copy(new URL(path, window.location.origin).href, "URL")}>
-            <IconCopy /> Copy URL
-          </Button>
-          <Button variant="ghost" size="sm" className="text-destructive ml-auto" onClick={onRemove}>
-            <IconTrash /> Remove
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 

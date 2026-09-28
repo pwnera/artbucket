@@ -16,6 +16,7 @@
     "start": "next start",
     "lint": "eslint .",
     "check:dashes": "! git grep -nP --untracked '\\xe2\\x80\\x94' -- . ':!AGENTS.md'",
+    "check:logical": "! (git grep -nE '(^|[^a-z-])(ml|mr|pl|pr|left|right|border-l|border-r|rounded-l|rounded-r)-|text-(left|right)\\b' -- src/components/brand-sections src/components/site src/components/builder | grep -v 'physical:')",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "docs:openapi": "node --experimental-strip-types --no-warnings -e \"import('./src/lib/openapi.ts').then((m) => process.stdout.write(JSON.stringify(m.openapi(m.DOCS_SERVER), null, 2) + '\\\\n'))\" > docs/openapi.json",

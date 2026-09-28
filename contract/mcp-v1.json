@@ -1576,29 +1576,8 @@
                     "maxLength": 40
                   },
                   "icon": {
-                    "type": "string",
-                    "enum": [
-                      "folder",
-                      "photo",
-                      "palette",
-                      "brush",
-                      "camera",
-                      "movie",
-                      "music",
-                      "star",
-                      "heart",
-                      "flag",
-                      "bookmark",
-                      "briefcase",
-                      "building-store",
-                      "speakerphone",
-                      "rocket",
-                      "sparkles",
-                      "leaf",
-                      "world",
-                      "users",
-                      "archive"
-                    ]
+                    "description": "One of the icons a page takes",
+                    "type": "string"
                   },
                   "download": {
                     "description": "false: for reference, never offered as a download",
@@ -1638,27 +1617,70 @@
               "type": "string",
               "enum": [
                 "cover",
+                "header",
                 "text",
                 "split",
+                "cards",
                 "palette",
                 "type",
                 "logos",
                 "dodont",
                 "gallery",
-                "collection"
+                "collection",
+                "links",
+                "pages"
               ]
             },
             "props": {
               "type": "object",
               "properties": {
                 "image": {
-                  "description": "cover: A background image instead of the brand color; split: Shown beside the words; else the first bound rule's picture",
+                  "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
                   "type": "string",
                   "format": "uuid"
+                },
+                "video": {
+                  "description": "cover: A muted loop over the image, its poster",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "align": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "start",
+                    "center",
+                    "end"
+                  ]
+                },
+                "height": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "tall",
+                    "screen"
+                  ]
+                },
+                "strip": {
+                  "description": "cover: The palette as a strip; true when left out",
+                  "type": "boolean"
                 },
                 "flip": {
                   "description": "split: Image on the left",
                   "type": "boolean"
+                },
+                "layout": {
+                  "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                  "type": "string",
+                  "enum": [
+                    "cards",
+                    "list",
+                    "pairs",
+                    "grid",
+                    "rows",
+                    "masonry"
+                  ]
                 },
                 "sample": {
                   "description": "type: The specimen's starting text",
@@ -1695,18 +1717,21 @@
                   "minimum": 1,
                   "maximum": 200
                 },
-                "layout": {
-                  "description": "collection",
-                  "type": "string",
-                  "enum": [
-                    "grid",
-                    "masonry",
-                    "list"
-                  ]
-                },
                 "downloads": {
                   "description": "collection: Offer downloads; true when left out",
                   "type": "boolean"
+                },
+                "from": {
+                  "description": "pages: The page whose children it shows; this page when left out",
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "depth": {
+                  "description": "pages: How many levels a list goes down: a table of contents",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
                 }
               },
               "additionalProperties": false
@@ -2012,29 +2037,8 @@
                             "maxLength": 40
                           },
                           "icon": {
-                            "type": "string",
-                            "enum": [
-                              "folder",
-                              "photo",
-                              "palette",
-                              "brush",
-                              "camera",
-                              "movie",
-                              "music",
-                              "star",
-                              "heart",
-                              "flag",
-                              "bookmark",
-                              "briefcase",
-                              "building-store",
-                              "speakerphone",
-                              "rocket",
-                              "sparkles",
-                              "leaf",
-                              "world",
-                              "users",
-                              "archive"
-                            ]
+                            "description": "One of the icons a page takes",
+                            "type": "string"
                           },
                           "download": {
                             "description": "false: for reference, never offered as a download",
@@ -2074,27 +2078,70 @@
                       "type": "string",
                       "enum": [
                         "cover",
+                        "header",
                         "text",
                         "split",
+                        "cards",
                         "palette",
                         "type",
                         "logos",
                         "dodont",
                         "gallery",
-                        "collection"
+                        "collection",
+                        "links",
+                        "pages"
                       ]
                     },
                     "props": {
                       "type": "object",
                       "properties": {
                         "image": {
-                          "description": "cover: A background image instead of the brand color; split: Shown beside the words; else the first bound rule's picture",
+                          "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "video": {
+                          "description": "cover: A muted loop over the image, its poster",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "align": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "start",
+                            "center",
+                            "end"
+                          ]
+                        },
+                        "height": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "tall",
+                            "screen"
+                          ]
+                        },
+                        "strip": {
+                          "description": "cover: The palette as a strip; true when left out",
+                          "type": "boolean"
                         },
                         "flip": {
                           "description": "split: Image on the left",
                           "type": "boolean"
+                        },
+                        "layout": {
+                          "description": "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                          "type": "string",
+                          "enum": [
+                            "cards",
+                            "list",
+                            "pairs",
+                            "grid",
+                            "rows",
+                            "masonry"
+                          ]
                         },
                         "sample": {
                           "description": "type: The specimen's starting text",
@@ -2131,18 +2178,21 @@
                           "minimum": 1,
                           "maximum": 200
                         },
-                        "layout": {
-                          "description": "collection",
-                          "type": "string",
-                          "enum": [
-                            "grid",
-                            "masonry",
-                            "list"
-                          ]
-                        },
                         "downloads": {
                           "description": "collection: Offer downloads; true when left out",
                           "type": "boolean"
+                        },
+                        "from": {
+                          "description": "pages: The page whose children it shows; this page when left out",
+                          "type": "string",
+                          "maxLength": 60,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                        },
+                        "depth": {
+                          "description": "pages: How many levels a list goes down: a table of contents",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3
                         }
                       },
                       "additionalProperties": false
@@ -2155,14 +2205,9 @@
                 },
                 "after": {
                   "description": "Add it after this section; null for the top; the end when left out",
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^[a-z0-9_-]{1,40}$"
-                    },
-                    {
-                      "type": "null"
-                    }
+                  "type": [
+                    "string",
+                    "null"
                   ]
                 }
               },
@@ -2180,8 +2225,7 @@
                   "const": "update"
                 },
                 "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9_-]{1,40}$"
+                  "type": "string"
                 },
                 "set": {
                   "type": "object",
@@ -2207,20 +2251,14 @@
                   "const": "move"
                 },
                 "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9_-]{1,40}$"
+                  "type": "string"
                 },
                 "after": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^[a-z0-9_-]{1,40}$"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "After this section; null for the top"
+                  "description": "After this section; null for the top",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -2238,8 +2276,7 @@
                   "const": "remove"
                 },
                 "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9_-]{1,40}$"
+                  "type": "string"
                 }
               },
               "required": [

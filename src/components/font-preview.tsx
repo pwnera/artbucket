@@ -19,25 +19,33 @@ import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAssetUrl } from "@/components/site/asset-url";
 import { FONT_CATEGORIES, fontStyle, weightName } from "@/lib/font";
 import { cn } from "@/lib/utils";
-import { assetUrl } from "@/lib/asset-url";
 
 /**
- * A font asset, loaded from /a/{id} under its own family name, once per page.
- * The weight range lets a variable font answer every weight; a static one
- * renders its own.
+ * A font asset, loaded from `url` (its /a/{id}, as this page builds it) under
+ * its own family name, once per page. The weight range lets a variable font
+ * answer every weight; a static one renders its own. A load that fails is
+ * forgotten, so the next use tries again (a network blip, a signature that
+ * came later).
  */
 const loading = new Map<string, Promise<string>>();
 
-function load(id: string) {
+function load(id: string, url: string) {
   let p = loading.get(id);
   if (!p) {
     const family = `asset-${id}`;
-    p = new FontFace(family, `url(${assetUrl(id)})`, { weight: "1 1000" }).load().then((face) => {
-      document.fonts.add(face);
-      return family;
-    });
+    p = new FontFace(family, `url(${url})`, { weight: "1 1000" }).load().then(
+      (face) => {
+        document.fonts.add(face);
+        return family;
+      },
+      (e) => {
+        loading.delete(id);
+        throw e;
+      },
+    );
     loading.set(id, p);
   }
   return p;
@@ -45,18 +53,20 @@ function load(id: string) {
 
 /** The family to set text in: undefined while loading, null when the browser can't read it or there is no file. */
 export function useAssetFont(id: string | undefined) {
+  const url = useAssetUrl();
+  const src = id && url(id);
   const [family, setFamily] = useState<string | null>();
   useEffect(() => {
-    if (!id) return;
+    if (!id || !src) return;
     let live = true;
-    load(id).then(
+    load(id, src).then(
       (f) => live && setFamily(f),
       () => live && setFamily(null),
     );
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, src]);
   return id ? family : null;
 }
 
@@ -98,22 +108,30 @@ function remember(k: Kept) {
   } catch {}
 }
 
-/** The asset dialog's preview: a playground over a size waterfall and the character set. */
-export function FontPlayground({ id }: { id: string }) {
+/**
+ * A playground over a size waterfall and the character set. It fills the
+ * asset dialog's preview; `flow`, it sits in the page like any block (a type
+ * section). `sample` is the page's own words to start from: then nothing is
+ * kept, and each visit starts from them again.
+ */
+export function FontPlayground({ id, sample, flow }: { id: string; sample?: string; flow?: boolean }) {
   const family = useAssetFont(id);
-  const [text, setText] = useState(() => recall().text);
-  const [size, setSize] = useState(() => recall().size);
+  const [text, setText] = useState(() => sample ?? recall().text);
+  const [size, setSize] = useState(() => (sample === undefined ? recall().size : 48));
   // The face answers every weight (load()): a variable font shows its range, a static one its own.
   const [weight, setWeight] = useState(400);
   const [italic, setItalic] = useState(false);
-  useEffect(() => remember({ text, size }), [text, size]);
+  useEffect(() => {
+    if (sample === undefined) remember({ text, size });
+  }, [text, size, sample]);
 
-  if (family === undefined) return <Skeleton className="absolute inset-0 rounded-none" />;
+  if (family === undefined) return <Skeleton className={flow ? "h-80 w-full" : "absolute inset-0 rounded-none"} />;
   if (family === null) return <p className="text-muted-foreground p-6 text-sm">This browser can&apos;t read this font file.</p>;
 
   const face = { fontFamily: family, fontWeight: weight, fontStyle: italic ? "italic" : "normal" };
+  const words = text || sample || SAMPLE;
   return (
-    <div className="absolute inset-0 flex flex-col gap-6 overflow-y-auto p-6">
+    <div className={cn("flex flex-col gap-6", !flow && "absolute inset-0 overflow-y-auto p-6")}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {/* No autofocus: opening a font on a phone shouldn't raise the keyboard. */}
         <Input
@@ -157,7 +175,7 @@ export function FontPlayground({ id }: { id: string }) {
       </div>
 
       <p className="break-words" style={{ ...face, fontSize: size, lineHeight: 1.15 }}>
-        {text || SAMPLE}
+        {words}
       </p>
 
       <div className="grid gap-3 border-t pt-4">
@@ -165,7 +183,7 @@ export function FontPlayground({ id }: { id: string }) {
           <div key={s} className="flex min-w-0 items-baseline gap-3">
             <span className="text-muted-foreground w-8 shrink-0 text-xs tabular-nums">{s}</span>
             <span className="min-w-0 truncate" style={{ ...face, fontSize: s }}>
-              {text || SAMPLE}
+              {words}
             </span>
           </div>
         ))}
@@ -418,6 +436,7 @@ export function FontStyleChip({
   onRemove?: () => void;
   download?: boolean;
 }) {
+  const url = useAssetUrl();
   const family = useAssetFont(id);
   const { label } = fontStyle(filename);
   const name = (
@@ -425,11 +444,11 @@ export function FontStyleChip({
       {label}
     </span>
   );
-  const chip = "group/chip bg-muted/50 inline-flex h-8 items-center gap-1 rounded-md border pr-1 pl-2.5";
+  const chip = "group/chip bg-muted/50 inline-flex h-8 items-center gap-1 rounded-md border pe-1 ps-2.5";
   if (download)
     return (
       <a
-        href={assetUrl(id, "?download")}
+        href={url(id, "?download")}
         download
         title={`Download ${filename || label}`}
         className={cn(chip, "hover:bg-muted transition-colors")}

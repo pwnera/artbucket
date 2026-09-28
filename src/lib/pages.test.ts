@@ -417,6 +417,73 @@ test("pageWarnings: links to missing or hidden pages and sections, bound keys wi
   ]);
 });
 
+// ---- W2 templates -------------------------------------------------------------
+
+test("W2 templates: cover's hero props, do/don't layouts, and cards, links and pages with their items", () => {
+  const ok = [
+    { template: "cover", props: { image: A, video: B, align: "center", height: "screen", strip: false } },
+    { template: "header", eyebrow: "02", title: "Using it", props: { image: A } },
+    { template: "dodont", keys: ["logo.neverDo"], props: { layout: "rows" } },
+    { template: "cards", keys: ["tone.always", "tone.voice"], items: [{ title: "Free", icon: "heart", link: "/logo" }], props: { layout: "list" } },
+    { template: "links", keys: ["logo.mark"], items: [{ asset: A }, { title: "Figma", link: "https://figma.com/x", label: "Figma" }] },
+    { template: "pages", props: { from: "logo", layout: "list", depth: 2 } },
+    { template: "pages", items: [{ link: "/logo" }, { link: "/logo#marks", title: "The marks", asset: A }] },
+  ];
+  const { sections, errors } = parseSections(ok);
+  assert.deepEqual([...errors, ...checkBindings(sections, RULES)], []);
+
+  assert.deepEqual(
+    parseSections([
+      { template: "cover", props: { height: "huge" } },
+      { template: "palette", props: { layout: "rows" } },
+      { template: "cards", items: [{ text: "no title" }] },
+      { template: "links", items: [{ title: "Nowhere" }, { link: "https://x.org" }] },
+      { template: "pages", items: [{ title: "which?" }, { link: "https://x.org" }, { link: "#top" }] },
+      { template: "pages", props: { from: "logo" }, items: [{ link: "/logo" }] },
+      { template: "cards", items: [{ title: "x", icon: "hearts" }] },
+      { template: "pages", props: { depth: 4 } },
+    ]).errors,
+    [
+      'sections[0].props.height: Invalid option: expected one of "auto"|"tall"|"screen"',
+      "sections[1].props.layout: Unrecognized key",
+      "sections[2].items[0]: a Cards item needs title",
+      "sections[3].items[0]: a Links item needs link or asset",
+      "sections[3].items[1]: a Links item needs title or asset",
+      "sections[4].items[0]: a Pages item needs link",
+      "sections[4].items[1].link: a page of this brand, as /slug",
+      "sections[4].items[2].link: a page of this brand, as /slug",
+      "sections[5].props.from: items pick the pages, from shows a page's children; one or the other",
+      "sections[6].items[0].icon: One of the icons a page takes",
+      "sections[7].props.depth: Too big: expected number to be <=3",
+    ],
+  );
+  // A header binds nothing, so it has no contexts; cards bind rules, so they do.
+  assert.deepEqual(parseSections([{ template: "header", contexts: ["default", "print"] }]).errors, [
+    "sections[0].contexts: a Header section binds no rules, so it has no contexts to show",
+  ]);
+  assert.deepEqual(checkBindings(parseSections([{ template: "cards", keys: ["color.primary"] }]).sections, RULES), [
+    "sections[0].keys[0]: a Cards section shows text and list rules; color.primary is a color",
+  ]);
+});
+
+test("W2 templates: layouts merge into one enum on the wire, each template's values named", () => {
+  const layout = mergedProps().shape.layout;
+  assert.deepEqual([...(layout.unwrap() as z.ZodEnum).options].sort(), ["cards", "grid", "list", "masonry", "pairs", "rows"]);
+  assert.equal(layout.description, "cards: cards, list; dodont: pairs, grid, rows; collection: grid, masonry, list; links: cards, list; pages: cards, list");
+});
+
+test("W2 templates: a pages section's from is a link, so a missing page warns and markdown says whose pages", () => {
+  const page = { slug: "home", sections: [stored({ id: "next", template: "pages", props: { from: "logos" } })] };
+  assert.deepEqual(siteLinks(page), [{ at: "sections[0].props.from", slug: "logos" }]);
+  assert.deepEqual(pageWarnings(page, [], RULES), ['sections[0].props.from: links to /logos, but there is no page "logos"']);
+  assert.match(pageMarkdown({ title: "Home", sections: page.sections }, []), /The pages under \/logos\./);
+  assert.match(pageMarkdown({ title: "Home", sections: [stored({ id: "n", template: "pages" })] }, []), /The pages under this one\./);
+});
+
+test("edit_page names a section by id with no pattern: the op finds it or lists the ones there are", () => {
+  assert.deepEqual(applyOps(PAGE, ops([{ op: "remove", id: "Not an id!" }]), "logo").errors, ['ops[0]: no section "Not an id!" on logo; its sections are a, b']);
+});
+
 // ---- the advertised shapes ------------------------------------------------------
 
 test("mergedProps: one copy of each prop; enums merge; any other clash throws", () => {
@@ -438,13 +505,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 9 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 13 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 9);
+  assert.equal(templates.length, 13);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -455,6 +522,8 @@ test("templateCatalog: the 9 templates, each with an example that parses as itse
   }
   assert.equal(templates.find((t) => t.template === "dodont")!.items, "a do or a don't with its picture: verdict (needed), asset, title, text, caption");
   assert.equal(templates.find((t) => t.template === "palette")!.items, null);
+  for (const t of ["cards", "links", "pages"]) assert.ok(templates.find((x) => x.template === t)!.items, t);
+  assert.equal(templates.find((t) => t.template === "header")!.items, null);
   for (const k of ["id", "tone", "keys", "items", "background", "audience", "contexts", "only"]) assert.ok(common.includes(k), k);
 });
 
@@ -475,11 +544,17 @@ test("a first layout: every rule on some page, each where it fits", () => {
       ["dodont", ["logo.neverDo"]],
     ],
   );
-  // What initialPages makes, save_page takes.
+  // The Overview's contents pick every other page, since none sits under it.
+  const contents = pages[0].sections.at(-1)!;
+  assert.equal(contents.template, "pages");
+  assert.deepEqual(contents.items, ["/color", "/type", "/logo", "/tone"].map((link) => ({ link })));
+  // What initialPages makes, save_page takes, and its links all land.
+  const saved = pages.map((p) => ({ slug: p.slug, sections: parseSections(p.sections).sections }));
   for (const p of pages) {
     const { sections, errors } = parseSections(p.sections);
     assert.deepEqual([...errors, ...checkBindings(sections, RULES)], [], p.slug);
   }
+  assert.deepEqual(pageWarnings(saved[0], saved, RULES), []);
 });
 
 test("comparing pages ignores key order, which jsonb doesn't keep, and when they were written", () => {

@@ -107,6 +107,8 @@ export function Downloads({ item, variant = "ghost", size = "default" }: { item:
   };
   const label = `Download ${item.filename}`;
 
+  // For reference only (a page's `download: false`): nothing to offer.
+  if (!item.downloads.length) return null;
   if (item.downloads.length === 1) {
     const d = item.downloads[0];
     const icon = started ? <IconCheck className="text-success animate-in zoom-in-50" /> : <IconDownload />;
@@ -153,7 +155,7 @@ export function Downloads({ item, variant = "ghost", size = "default" }: { item:
           <DropdownMenuItem key={d.url} asChild>
             <a href={d.url} download={d.filename} onClick={() => heard(d)}>
               <span className="font-medium">{d.label}</span>
-              <span className="text-muted-foreground ml-auto pl-4 text-xs">{d.hint}</span>
+              <span className="text-muted-foreground ms-auto ps-4 text-xs">{d.hint}</span>
             </a>
           </DropdownMenuItem>
         ))}
@@ -197,7 +199,7 @@ export function Stage({ item: a, className }: { item: PublicItem; className?: st
         </span>
       )}
       {a.mime === "application/pdf" && (
-        <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-2xs backdrop-blur">
+        <Badge variant="secondary" className="bg-background/80 absolute start-2 top-2 font-mono text-2xs backdrop-blur">
           PDF
         </Badge>
       )}
@@ -206,29 +208,29 @@ export function Stage({ item: a, className }: { item: PublicItem; className?: st
 }
 
 /**
- * The public grid, the same for a portal and a share link: tiles that open a
- * lightbox you can step through with ← and →, linkable as ?asset={id}.
- * `asset` opens that one on arrival. `busy` dims it while a search runs.
+ * The public grid, the same for a portal, a share link and a page's
+ * collection: tiles that open the lightbox. `asset` is the ?asset={id} the
+ * page arrived with, opened at once; a grid given one (even null) keeps
+ * ?asset= in step, so the open file can be linked. `busy` dims it while a
+ * search runs.
  */
-export function PublicGrid({ items, asset = null, busy = false }: { items: PublicItem[]; asset?: string | null; busy?: boolean }) {
-  const [openId, setOpenId] = useState<string | null>(asset);
-  const at = items.findIndex((a) => a.id === openId);
-  const open = at >= 0 ? items[at] : null;
+export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]; asset?: string | null; busy?: boolean }) {
+  const [openId, setOpenId] = useState<string | null>(asset ?? null);
+  const linked = asset !== undefined;
   const show = (id: string | null) => {
     setOpenId(id);
+    if (!linked) return;
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("asset", id);
     else url.searchParams.delete("asset");
     history.replaceState(null, "", url);
   };
-  const step = (by: number) => {
-    const next = items[at + by];
-    if (next) show(next.id);
-  };
 
   return (
-    <>
-      <ul aria-busy={busy || undefined} className={cn("grid grid-cols-2 gap-4 transition-opacity sm:grid-cols-3 lg:grid-cols-4", busy && "opacity-60")}>
+    // Columns follow the grid's own width, so a page section and a narrowed preview get as many as fit. In a
+    // portal's or a share's column (max-w-6xl, px-8) 36rem and 60rem fall where sm and lg did.
+    <div className="@container">
+      <ul aria-busy={busy || undefined} className={cn("grid grid-cols-2 gap-4 transition-opacity @xl:grid-cols-3 @min-[60rem]:grid-cols-4", busy && "opacity-60")}>
         {items.map((a) => {
           const name = a.title ?? a.filename;
           return (
@@ -238,6 +240,7 @@ export function PublicGrid({ items, asset = null, busy = false }: { items: Publi
                 onClick={() => show(a.id)}
                 className="bg-muted relative block aspect-square w-full outline-offset-[-2px] transition-opacity active:opacity-80"
                 aria-label={`Look at ${name}`}
+                aria-haspopup="dialog"
               >
                 {a.thumbnail ? (
                   // Tiles are ~270px: 320 for a 1x screen, and the API's own 640 for a 2x one.
@@ -248,7 +251,7 @@ export function PublicGrid({ items, asset = null, busy = false }: { items: Publi
                   </span>
                 )}
                 {(!a.thumbnail || !a.mime.startsWith("image/")) && (
-                  <Badge variant="secondary" className="bg-background/80 absolute top-2 left-2 font-mono text-2xs backdrop-blur">
+                  <Badge variant="secondary" className="bg-background/80 absolute start-2 top-2 font-mono text-2xs backdrop-blur">
                     {fileTypeBadge(a.filename, a.mime)}
                   </Badge>
                 )}
@@ -273,69 +276,97 @@ export function PublicGrid({ items, asset = null, busy = false }: { items: Publi
           );
         })}
       </ul>
-      <Dialog open={!!open} onOpenChange={(o) => !o && show(null)}>
-        {open && (
-          <DialogContent
-            className="sm:max-w-3xl max-sm:h-svh max-sm:max-h-none max-sm:max-w-none max-sm:content-start max-sm:rounded-none max-sm:border-0"
-            onKeyDown={(e) => {
-              if (e.target instanceof Element && e.target.closest("input, textarea, video")) return;
-              const by = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-              if (!by) return;
-              e.preventDefault();
-              step(by);
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle className="pr-8 leading-snug break-words">{open.title ?? open.filename}</DialogTitle>
-              <DialogDescription>{[meta(open), open.copyright].filter(Boolean).join(" · ")}</DialogDescription>
-            </DialogHeader>
-            <div className="relative">
-              <Stage key={open.id} item={open} className={isVideo(open) && open.original ? "max-h-[60vh] max-sm:max-h-[65svh]" : "h-[60vh] max-sm:h-[60svh]"} />
-              {/* aria-disabled, not disabled, at the ends: a disabled button drops focus to <body>, where ← and → no longer reach the dialog. */}
-              {items.length > 1 && (
-                <>
-                  <IconButton
-                    variant="secondary"
-                    label="Previous"
-                    shortcut={["←"]}
-                    className="bg-background/80 absolute top-1/2 left-2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur aria-disabled:opacity-50 aria-disabled:active:scale-100"
-                    aria-disabled={at === 0 || undefined}
-                    onClick={() => step(-1)}
-                  >
-                    <IconChevronLeft />
-                  </IconButton>
-                  <IconButton
-                    variant="secondary"
-                    label="Next"
-                    shortcut={["→"]}
-                    className="bg-background/80 absolute top-1/2 right-2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur aria-disabled:opacity-50 aria-disabled:active:scale-100"
-                    aria-disabled={at === items.length - 1 || undefined}
-                    onClick={() => step(1)}
-                  >
-                    <IconChevronRight />
-                  </IconButton>
-                </>
-              )}
-            </div>
-            {open.description && <p className="text-sm">{open.description}</p>}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {items.length > 1 && (
-                <span className="text-muted-foreground mr-auto text-xs tabular-nums">
-                  {at + 1} of {items.length}
-                </span>
-              )}
-              {open.original && (
-                <Button variant="outline" asChild>
-                  <a href={open.original} target="_blank" rel="noreferrer">
-                    <IconExternalLink /> Open original
-                  </a>
-                </Button>
-              )}
-              <Downloads item={open} variant="default" />
-            </div>
-          </DialogContent>
-        )}
-      </Dialog>
-    </>
+      <Lightbox items={items} openId={openId} onOpen={show} />
+    </div>
+  );
+}
+
+/**
+ * One file of `items` at a time, big, over the page: ← and → step through
+ * them, Esc closes, and focus goes back to the tile that opened it. Its
+ * downloads, and "Open original", only when it has downloads. `openId` null
+ * (or one not in `items`) is closed.
+ */
+export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openId: string | null; onOpen: (id: string | null) => void }) {
+  const at = items.findIndex((a) => a.id === openId);
+  const open = at >= 0 ? items[at] : null;
+  // With no DialogTrigger, Radix has nothing to give focus back to on close: remember what had it.
+  const opener = useRef<HTMLElement | null>(null);
+  const step = (by: number) => {
+    const next = items[at + by];
+    if (next) onOpen(next.id);
+  };
+
+  return (
+    <Dialog open={!!open} onOpenChange={(o) => !o && onOpen(null)}>
+      {open && (
+        <DialogContent
+          className="sm:max-w-3xl max-sm:h-svh max-sm:max-h-none max-sm:max-w-none max-sm:content-start max-sm:rounded-none max-sm:border-0"
+          onOpenAutoFocus={() => {
+            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          }}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            opener.current?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.target instanceof Element && e.target.closest("input, textarea, video")) return;
+            const by = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+            if (!by) return;
+            e.preventDefault();
+            step(by);
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="pr-8 leading-snug break-words">{open.title ?? open.filename}</DialogTitle>
+            <DialogDescription>{[meta(open), open.copyright].filter(Boolean).join(" · ")}</DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Stage key={open.id} item={open} className={isVideo(open) && open.original ? "max-h-[60vh] max-sm:max-h-[65svh]" : "h-[60vh] max-sm:h-[60svh]"} />
+            {/* aria-disabled, not disabled, at the ends: a disabled button drops focus to <body>, where ← and → no longer reach the dialog. */}
+            {items.length > 1 && (
+              <>
+                <IconButton
+                  variant="secondary"
+                  label="Previous"
+                  shortcut={["←"]}
+                  className="bg-background/80 absolute top-1/2 left-2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur aria-disabled:opacity-50 aria-disabled:active:scale-100"
+                  aria-disabled={at === 0 || undefined}
+                  onClick={() => step(-1)}
+                >
+                  <IconChevronLeft />
+                </IconButton>
+                <IconButton
+                  variant="secondary"
+                  label="Next"
+                  shortcut={["→"]}
+                  className="bg-background/80 absolute top-1/2 right-2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur aria-disabled:opacity-50 aria-disabled:active:scale-100"
+                  aria-disabled={at === items.length - 1 || undefined}
+                  onClick={() => step(1)}
+                >
+                  <IconChevronRight />
+                </IconButton>
+              </>
+            )}
+          </div>
+          {open.description && <p className="text-sm">{open.description}</p>}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {items.length > 1 && (
+              <span className="text-muted-foreground mr-auto text-xs tabular-nums">
+                {at + 1} of {items.length}
+              </span>
+            )}
+            {open.original && open.downloads.length > 0 && (
+              <Button variant="outline" asChild>
+                <a href={open.original} target="_blank" rel="noreferrer">
+                  <IconExternalLink /> Open original
+                </a>
+              </Button>
+            )}
+            <Downloads item={open} variant="default" />
+          </div>
+        </DialogContent>
+      )}
+    </Dialog>
   );
 }
