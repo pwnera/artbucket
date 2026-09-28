@@ -12,6 +12,7 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
+import { endDrag, payloadOf } from "@/components/builder/drag";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -97,6 +98,26 @@ export function PageTree({ b }: PageTreeProps) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [details, setDetails] = useState<string | null>(null);
   const [outline, setOutline] = useState(false);
+  // A section dragged over a page's tab: dropped, it moves to that page.
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const onto = (slug: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      const p = payloadOf(e);
+      if (p?.kind !== "section" || slug === current) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDropOn(slug);
+    },
+    onDragLeave: () => setDropOn((d) => (d === slug ? null : d)),
+    onDrop: (e: React.DragEvent) => {
+      const p = payloadOf(e);
+      setDropOn(null);
+      if (p?.kind !== "section") return;
+      e.preventDefault();
+      endDrag();
+      void b.moveToPage(p.id, slug);
+    },
+  });
 
   /** The title, or in the language the canvas shows, its word there. */
   const rename = (slug: string, title: string) => {
@@ -145,7 +166,16 @@ export function PageTree({ b }: PageTreeProps) {
           const under = rowsOf(n.children);
           const sub = on && current !== n.slug ? under.find((r) => r.n.slug === current)?.n : undefined;
           return (
-            <li key={n.slug} className={cn("flex shrink-0 items-center rounded-md", on ? "bg-muted text-foreground" : "text-muted-foreground")}>
+            <li
+              key={n.slug}
+              {...onto(n.slug)}
+              title={dropOn === n.slug ? `Drop to move the section to ${n.title}` : undefined}
+              className={cn(
+                "flex shrink-0 items-center rounded-md",
+                on ? "bg-muted text-foreground" : "text-muted-foreground",
+                dropOn === n.slug && "ring-primary bg-primary/10 ring-2",
+              )}
+            >
               {renaming === n.slug ? (
                 <RenameInput
                   title={n.title}

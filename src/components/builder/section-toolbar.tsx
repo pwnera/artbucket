@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  IconAdjustmentsHorizontal,
   IconArrowAutofitWidth,
   IconArrowDown,
   IconArrowUp,
@@ -9,7 +10,6 @@ import {
   IconChevronDown,
   IconColumns,
   IconCopy,
-  IconDots,
   IconEye,
   IconEyeOff,
   IconGripVertical,
@@ -47,13 +47,15 @@ import { AUDIENCES, type Section, TEMPLATE_INFO, TEMPLATES, type Template, type 
 import { camel, keyFor, PRESETS } from "@/lib/presets";
 import { contextLabel, resolve, ruleName, section as keySection } from "@/lib/rules";
 import type { Media, ViewAsset, ViewRule } from "@/lib/site";
+import { fieldsOf, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
  * A section's toolbar on its top edge (build spec 3.5.2, W6.2): the template
- * switch (templates whose `accepts` fit its bound rules), width, columns, tone
- * swatches, bound rules (a popover filtered by `accepts`, and "New rule" from
- * PRESETS), tab, contexts, audience; move, duplicate, hide, delete. Every
+ * switch (templates whose `accepts` fit its bound rules) and its variant
+ * (layout or kind), width, columns, tone swatches, bound rules (a popover
+ * filtered by `accepts`, and "New rule" from PRESETS), the settings panel
+ * (section-panel.tsx, which has the rest); move, duplicate, hide, delete. Every
  * change is b.apply of a `page` op on b.state.selection.page; delete is
  * b.removeSection, duplicate b.duplicate, move b.nudge. It sits in the
  * canvas's EditContext, and draws in the app's colors (.app-tokens).
@@ -71,15 +73,15 @@ export type SectionToolbarProps = {
 export const HANDLE = "data-drag-handle";
 
 /** Templates whose renderers read `columns`: type takes one or two. */
-const COLUMNS: Partial<Record<Template, number>> = { cards: 4, palette: 4, type: 2, logos: 4, dodont: 4, gallery: 4, links: 4, pages: 4 };
+export const COLUMNS: Partial<Record<Template, number>> = { cards: 4, palette: 4, type: 2, logos: 4, dodont: 4, gallery: 4, links: 4, pages: 4 };
 
-const WIDTHS = [
+export const WIDTHS = [
   ["text", IconViewportNarrow, "Text width"],
   ["wide", IconViewportWide, "Wide"],
   ["full", IconArrowAutofitWidth, "Full bleed"],
 ] as const;
 
-const GROUNDS: [Tone, string][] = [
+export const GROUNDS: [Tone, string][] = [
   ["plain", "Plain"],
   ["tint", "Tint"],
   ["brand", "Brand"],
@@ -104,6 +106,30 @@ function Tool({ label, pressed, className, ...p }: React.ComponentProps<typeof B
   );
 }
 
+/** Columns on a wide screen, one click each: 1 to the most its template draws. */
+export function ColumnsPicker({ s, set, className }: Pick<Part, "s" | "set"> & { className?: string }) {
+  const most = COLUMNS[s.template];
+  if (!most) return null;
+  return (
+    <span role="radiogroup" aria-label="Columns, on a wide screen" title="Columns" className={cn("flex items-center", className)}>
+      <IconColumns aria-hidden className="text-muted-foreground mx-1 size-4" />
+      {Array.from({ length: most }, (_, i) => (
+        <button
+          key={i}
+          type="button"
+          role="radio"
+          aria-checked={s.columns === i + 1}
+          aria-label={`${i + 1} ${i ? "columns" : "column"}`}
+          onClick={() => set({ columns: i + 1 })}
+          className="hover:bg-accent aria-checked:bg-accent aria-checked:text-accent-foreground focus-visible:ring-ring/50 text-muted-foreground flex size-7 items-center justify-center rounded-md text-xs font-medium tabular-nums outline-none focus-visible:ring-2 aria-checked:font-semibold"
+        >
+          {i + 1}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 const Sep = () => <span aria-hidden className="bg-border mx-0.5 h-5 w-px" />;
 
 /**
@@ -123,14 +149,14 @@ function switchTo(s: Section, t: Template, keepProps: boolean): Record<string, u
 }
 
 /** Each key's default version, else its first: what `accepts` and the lists read. */
-function byKey(rules: ViewRule[]): Map<string, ViewRule> {
+export function byKey(rules: ViewRule[]): Map<string, ViewRule> {
   const m = new Map<string, ViewRule>();
   for (const r of rules) if (!m.has(r.key) || r.context === null) m.set(r.key, r);
   return m;
 }
 
 /** A picked asset as a view's media, so the canvas draws it before the page is loaded again. */
-const asMedia = (a: ViewAsset, url: (id: string, rest?: string) => string): Media => ({
+export const asMedia = (a: ViewAsset, url: (id: string, rest?: string) => string): Media => ({
   id: a.id,
   filename: a.filename,
   title: a.title,
@@ -150,7 +176,7 @@ const asMedia = (a: ViewAsset, url: (id: string, rest?: string) => string): Medi
 });
 
 /** The asset picker picks a rule's assets; a picture for a ground or the theme's pattern goes through a stand-in rule. */
-function standIn(label: string, m: Media | undefined): ViewRule {
+export function standIn(label: string, m: Media | undefined): ViewRule {
   const assets: ViewAsset[] = m
     ? [{ id: m.id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, width: m.width, height: m.height, preview: !!m.preview, supersededBy: null }]
     : [];
@@ -180,36 +206,20 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
         <IconGripVertical className="size-4" />
       </span>
       <TemplateMenu b={b} s={s} set={set} />
+      <VariantMenu s={s} set={set} />
       <Sep />
       {WIDTHS.map(([w, I, label]) => (
         <Tool key={w} label={label} pressed={s.width === w} onClick={() => set({ width: w })}>
           <I />
         </Tool>
       ))}
-      {COLUMNS[s.template] && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="xs" className="h-7" aria-label={`Columns: ${s.columns}`} title="Columns">
-              <IconColumns aria-hidden />
-              {s.columns}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Columns, on a wide screen</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={String(s.columns)} onValueChange={(v) => set({ columns: Number(v) })}>
-              {Array.from({ length: COLUMNS[s.template]! }, (_, i) => (
-                <DropdownMenuRadioItem key={i} value={String(i + 1)}>
-                  {i + 1}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {COLUMNS[s.template] && <ColumnsPicker s={s} set={set} />}
       <Sep />
       <TonePicker b={b} s={s} set={set} />
       {info.accepts && <RulesPicker b={b} s={s} set={set} />}
-      <MoreSettings b={b} s={s} set={set} />
+      <Tool label="Section settings" pressed={b.dock === "section"} onClick={() => b.setDock(b.dock === "section" ? null : "section")}>
+        <IconAdjustmentsHorizontal />
+      </Tool>
       <Sep />
       <Tool label="Move up (Alt+Up)" disabled={at <= 0} onClick={() => b.nudge(s.id, -1)}>
         <IconArrowUp />
@@ -230,40 +240,47 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
   );
 }
 
-type Part = { b: BuilderApi; s: Section; set: (patch: Record<string, unknown>) => unknown };
+export type Part = { b: BuilderApi; s: Section; set: (patch: Record<string, unknown>) => unknown };
 
-/** The templates the section's rules fit, each checked as the server would apply it, so one that can't take its items says why. */
-function TemplateMenu({ b, s, set }: Part) {
-  const [open, setOpen] = useState(false);
+/**
+ * The templates the section's rules fit, each checked as the server would
+ * apply it: `set` is the patch that switches to it, `why` says why one
+ * can't take the section's items. The current one has neither.
+ */
+export function templateOptions(b: BuilderApi, s: Section): { t: Template; set: Record<string, unknown> | null; why: string | null }[] {
   const page = b.state.selection.page;
   const rules = byKey(b.state.rules);
   const fits = (t: Template) => {
     const accepts = TEMPLATE_INFO[t].accepts;
     return !s.keys.length || (!!accepts && s.keys.every((k) => !rules.has(k) || accepts(rules.get(k)!)));
   };
-  const options = open
-    ? TEMPLATES.filter(fits).map((t) => {
-        if (t === s.template) return { t, set: null, why: null };
-        let why = "";
-        for (const keep of [true, false]) {
-          const patch = switchTo(s, t, keep);
-          const r = apply(b.state, { kind: "page", page, op: { op: "update", id: s.id, set: patch } });
-          if (!r.errors.length) return { t, set: patch, why: null };
-          why = r.errors[0].replace(/^[^:]*: /, "");
-        }
-        return { t, set: null, why };
-      })
-    : [];
+  return TEMPLATES.filter(fits).map((t) => {
+    if (t === s.template) return { t, set: null, why: null };
+    let why = "";
+    for (const keep of [true, false]) {
+      const patch = switchTo(s, t, keep);
+      const r = apply(b.state, { kind: "page", page, op: { op: "update", id: s.id, set: patch } });
+      if (!r.errors.length) return { t, set: patch, why: null };
+      why = r.errors[0].replace(/^[^:]*: /, "");
+    }
+    return { t, set: null, why };
+  });
+}
+
+/** The template switch: its thumbnail and name, opening the templates it could be. */
+export function TemplateMenu({ b, s, set, className }: Part & { className?: string }) {
+  const [open, setOpen] = useState(false);
+  const options = open ? templateOptions(b, s) : [];
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="xs" className="h-7 gap-1.5" title="Switch template">
+        <Button type="button" variant="ghost" size="xs" className={cn("h-7 gap-1.5", className)} title="Switch template">
           <Thumbnail template={s.template} className="text-muted-foreground h-4 w-6" />
           {TEMPLATE_INFO[s.template].name}
-          <IconChevronDown aria-hidden className="opacity-60" />
+          <IconChevronDown aria-hidden className="ms-auto opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[min(28rem,60vh)] w-72 overflow-y-auto">
+      <DropdownMenuContent align="start" className="app-tokens max-h-[min(28rem,60vh)] w-72 overflow-y-auto">
         <DropdownMenuLabel>{s.keys.length ? "Templates its rules fit" : "Template"}</DropdownMenuLabel>
         {options.map((o) => (
           <DropdownMenuItem key={o.t} disabled={!!o.why} onSelect={() => o.set && set(o.set)} className="items-start">
@@ -275,6 +292,44 @@ function TemplateMenu({ b, s, set }: Part) {
             {o.t === s.template && <IconCheck aria-label="Current" className="mt-0.5" />}
           </DropdownMenuItem>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** A template's variant prop: `layout`, else `kind`, the one choice that changes how it reads the most. */
+export function variantOf(t: Template) {
+  const fields = fieldsOf(t);
+  const f = fields.find((x) => x.name === "layout") ?? fields.find((x) => x.name === "kind");
+  return f?.kind === "choice" ? f : null;
+}
+
+/** "bento" to "Bento", "clearspace" to "Clear space". */
+export const choiceLabel = (v: string) => CHOICE_LABELS[v] ?? v.charAt(0).toUpperCase() + v.slice(1);
+const CHOICE_LABELS: Record<string, string> = { clearspace: "Clear space", minsize: "Minimum size", cobrand: "Co-brand", dodont: "Do and don't" };
+
+/** The variant as a quick switch beside the template: Cards, List, Stats... */
+function VariantMenu({ s, set }: Pick<Part, "s" | "set">) {
+  const f = variantOf(s.template);
+  if (!f) return null;
+  const value = (s.props[f.name] as string | undefined) ?? f.fallback;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="xs" className="h-7" title={f.label}>
+          {choiceLabel(value)}
+          <IconChevronDown aria-hidden className="opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="app-tokens">
+        <DropdownMenuLabel>{f.label}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={value} onValueChange={(v) => set({ props: withProp(s.props, f, v) })}>
+          {f.options.map((o) => (
+            <DropdownMenuRadioItem key={o} value={o}>
+              {choiceLabel(o)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -298,7 +353,7 @@ function Swatch({ on, label, bg, onClick, children }: { on: boolean; label: stri
 }
 
 /** The ground: the theme's tones, the palette's colors, a picture, the theme's pattern. */
-function TonePicker({ b, s, set }: Part) {
+export function TonePicker({ b, s, set }: Part) {
   const { view, context, url } = useSite();
   const [picking, setPicking] = useState<"image" | "pattern" | null>(null);
   const colorOf = (key: string) => resolve(view.rules.filter((r) => r.key === key), context ?? "")[0];
@@ -381,7 +436,7 @@ function TonePicker({ b, s, set }: Part) {
 }
 
 /** The rules the section shows, in order: remove one, add one its template takes, or make one from a preset. */
-function RulesPicker({ b, s, set }: Part) {
+export function RulesPicker({ b, s, set }: Part) {
   const edit = useEdit();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -486,8 +541,8 @@ function RulesPicker({ b, s, set }: Part) {
   );
 }
 
-/** The rest: the page tab it sits under, a tab per context, and who may read it on a portal. */
-function MoreSettings({ b, s, set }: Part) {
+/** Where it shows: the page tab it sits under, a tab per context, and who may read it on a portal. */
+export function Visibility({ b, s, set }: Part) {
   const { view } = useSite();
   const tabs = [...new Set((b.state.pages.get(b.state.selection.page) ?? []).flatMap((x) => x.tab ?? []))];
   const contexts = ["default", ...view.contexts];
@@ -499,65 +554,58 @@ function MoreSettings({ b, s, set }: Part) {
   const id = `more-${s.id}`;
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Tool label="More settings">
-          <IconDots />
-        </Tool>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="grid w-72 gap-4 p-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${id}-tab`}>Tab</Label>
-          <Input
-            // A new value from elsewhere (undo) shows: the input starts again from it.
-            key={s.tab ?? ""}
-            id={`${id}-tab`}
-            list={`${id}-tabs`}
-            defaultValue={s.tab ?? ""}
-            placeholder="None: on the page itself"
-            className="h-8"
-            maxLength={40}
-            onBlur={(e) => {
-              const v = e.currentTarget.value.trim();
-              if (v !== (s.tab ?? "")) set({ tab: v || null });
-            }}
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          />
-          <datalist id={`${id}-tabs`}>
-            {tabs.map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
-          <p className="text-muted-foreground text-xs">Sections with the same tab show under one tab.</p>
-        </div>
-        {TEMPLATE_INFO[s.template].accepts && view.contexts.length > 0 && (
-          <fieldset className="grid gap-1.5">
-            <legend className="mb-1.5 text-sm font-medium">A tab per context</legend>
-            {contexts.map((c) => (
-              <Label key={c} className="font-normal">
-                <Checkbox checked={picked.includes(c)} onCheckedChange={(v) => toggle(c, v === true)} />
-                {contextLabel(c)}
-              </Label>
-            ))}
-            <p className="text-muted-foreground text-xs">Pick two or more: each shows the rules as that context has them.</p>
-          </fieldset>
-        )}
+    <>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`${id}-tab`}>Tab</Label>
+        <Input
+          // A new value from elsewhere (undo) shows: the input starts again from it.
+          key={s.tab ?? ""}
+          id={`${id}-tab`}
+          list={`${id}-tabs`}
+          defaultValue={s.tab ?? ""}
+          placeholder="None: on the page itself"
+          className="h-8"
+          maxLength={40}
+          onBlur={(e) => {
+            const v = e.currentTarget.value.trim();
+            if (v !== (s.tab ?? "")) set({ tab: v || null });
+          }}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+        <datalist id={`${id}-tabs`}>
+          {tabs.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+        <p className="text-muted-foreground text-xs">Sections with the same tab show under one tab.</p>
+      </div>
+      {TEMPLATE_INFO[s.template].accepts && view.contexts.length > 0 && (
         <fieldset className="grid gap-1.5">
-          <legend className="mb-1.5 text-sm font-medium">Who reads it on a portal</legend>
-          {AUDIENCES.map((a) => (
-            <Label key={a} className="font-normal">
-              <input
-                type="radio"
-                name={`${id}-audience`}
-                checked={(s.audience ?? "everyone") === a}
-                onChange={() => set({ audience: a === "everyone" ? null : a })}
-                className="accent-primary size-4"
-              />
-              {a === "everyone" ? "Everyone let in" : a === "partners" ? "Partners and members" : "Members only"}
+          <legend className="mb-1.5 text-sm font-medium">A tab per context</legend>
+          {contexts.map((c) => (
+            <Label key={c} className="font-normal">
+              <Checkbox checked={picked.includes(c)} onCheckedChange={(v) => toggle(c, v === true)} />
+              {contextLabel(c)}
             </Label>
           ))}
+          <p className="text-muted-foreground text-xs">Pick two or more: each shows the rules as that context has them.</p>
         </fieldset>
-      </PopoverContent>
-    </Popover>
+      )}
+      <fieldset className="grid gap-1.5">
+        <legend className="mb-1.5 text-sm font-medium">Who reads it on a portal</legend>
+        {AUDIENCES.map((a) => (
+          <Label key={a} className="font-normal">
+            <input
+              type="radio"
+              name={`${id}-audience`}
+              checked={(s.audience ?? "everyone") === a}
+              onChange={() => set({ audience: a === "everyone" ? null : a })}
+              className="accent-primary size-4"
+            />
+            {a === "everyone" ? "Everyone let in" : a === "partners" ? "Partners and members" : "Members only"}
+          </Label>
+        ))}
+      </fieldset>
+    </>
   );
 }

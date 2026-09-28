@@ -5,7 +5,7 @@ import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { AssetTile, LogoTile, pictured } from "@/components/brand-sections/parts";
-import { Body, ItemCaption, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, ItemCaption, itemRoot, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { Markdown, MARKER } from "@/components/brand-values";
 import { saveZip } from "@/components/save-zip";
@@ -269,7 +269,7 @@ function OnColor({
       {donts.length > 0 && (
         <ol className="grid gap-x-8 gap-y-4 @xl:grid-cols-2">
           {donts.map((d) => (
-            <li key={d.i} className="flex min-w-0 gap-2">
+            <li key={d.i} {...itemRoot(d.i)} className="flex min-w-0 gap-2">
               <Num n={d.i + 1} />
               {MARKER.dont}
               <div className="min-w-0 space-y-0.5">

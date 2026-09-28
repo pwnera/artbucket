@@ -10,6 +10,7 @@ import { copyText } from "@/components/copy-button";
 import type { Asset } from "@/components/gallery";
 import { useEdit, useMedia, usePicked, useSite, type Edit, type Site } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
+import { insertItems, removeItem } from "@/lib/builder-ops";
 import { renderMarkdown, SITE_PATH } from "@/lib/markdown";
 import { TEMPLATE_INFO, type Item, type Section, type Template } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
@@ -96,6 +97,9 @@ export function Aside({ className }: { className?: string }) {
 
 // ---- its items ----------------------------------------------------------------
 
+/** Marks an item's root element, so the builder's canvas finds it to drag and right click: by index, as the slots are. */
+export const itemRoot = (i: number | undefined) => (i === undefined ? {} : { "data-item-root": i });
+
 /** Item `i` of the section. By index, so the builder knows which one an edit is for. */
 const useItem = (i: number) => useSection().items?.[i];
 
@@ -133,10 +137,10 @@ export function ItemCaption({ i, as: C = "p", className }: { i: number; as?: "p"
 }
 
 /** A fold readers open, one at a time in `name` (a question's answer). On the canvas it stays open, so the words in it can be typed. */
-export function ItemFold({ name, className, children }: { name?: string; className?: string; children: React.ReactNode }) {
+export function ItemFold({ i, name, className, children }: { i?: number; name?: string; className?: string; children: React.ReactNode }) {
   const edit = useEdit();
   return (
-    <details name={edit ? undefined : name} open={edit ? true : undefined} className={className}>
+    <details {...itemRoot(i)} name={edit ? undefined : name} open={edit ? true : undefined} className={className}>
       {children}
     </details>
   );
@@ -418,10 +422,8 @@ function useItemWords(i: number, field: ItemWord, value: string | undefined): Ty
     onEnter: fits(s.template, BLANK)
       ? (next, el) => {
           const find = finder(el);
-          const list = typed(next);
-          // At the same depth as the one it follows (a cards tree).
-          list.splice(i + 1, 0, { ...BLANK, ...(it.level !== undefined && { level: it.level }) });
-          edit.update(s.id, { items: list });
+          // At the same depth as the one it follows (a cards tree); translations keep lining up by position.
+          edit.update(s.id, insertItems({ ...s, items: typed(next) }, i + 1, [{ ...BLANK, ...(it.level !== undefined && { level: it.level }) }]));
           // Once React has drawn the new item.
           requestAnimationFrame(() => onceDrawn(() => find(i + 1, "title"), focusEnd));
         }
@@ -429,8 +431,7 @@ function useItemWords(i: number, field: ItemWord, value: string | undefined): Ty
     onClear: bare
       ? (el) => {
           const find = finder(el);
-          const list = items.filter((_, k) => k !== i);
-          edit.update(s.id, { items: list.length ? list : null });
+          edit.update(s.id, removeItem(s, i));
           const prev = find(i - 1, field) ?? find(i - 1, "title");
           if (prev) focusEnd(prev);
         }
@@ -584,7 +585,7 @@ function Rich({ value, onSave, onFocus, label, as, className }: Typing & { label
 const LibraryPicker = lazy(() => import("@/components/asset-picker").then((m) => ({ default: m.LibraryPicker })));
 
 /** A file into the library, as the gallery sends one: a ticket, the bytes straight to storage, then the asset. */
-async function upload(file: File): Promise<Asset> {
+export async function upload(file: File): Promise<Asset> {
   const mime = file.type || "application/octet-stream";
   const post = (path: string, body: object) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const ticket = await post("/api/v1/uploads", { filename: file.name, mime, size: file.size });
@@ -599,7 +600,7 @@ async function upload(file: File): Promise<Asset> {
 }
 
 /** A library asset as a page's media, so the canvas draws it before the page is loaded again. */
-function asMedia(a: Asset, url: Site["url"]): Media {
+export function asMedia(a: Asset, url: Site["url"]): Media {
   const m = a.metadata ?? {};
   const still = hasPreview(a);
   return {

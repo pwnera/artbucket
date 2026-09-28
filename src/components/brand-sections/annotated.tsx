@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { LABEL } from "@/components/brand-sections/look";
-import { Body, ItemText, ItemTitle, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, ItemText, ItemTitle, itemRoot, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
@@ -36,7 +36,7 @@ export function AnnotatedSection({ section: s, rules }: SectionProps) {
   const list = items.length > 0 && (
     <ol className="min-w-0 space-y-6">
       {items.map((it, i) => (
-        <li key={i} className="flex items-start gap-3">
+        <li key={i} {...itemRoot(i)} className="flex items-start gap-3">
           <span aria-hidden className={BADGE}>
             {i + 1}
           </span>

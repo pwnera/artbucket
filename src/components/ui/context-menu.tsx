@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { IconChevronRight as ChevronRightIcon } from "@tabler/icons-react"
+import { IconChevronRight as ChevronRightIcon, IconCircleFilled as CircleIcon } from "@tabler/icons-react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 // The same look as dropdown-menu.tsx: a right click opens what a "..." would.
@@ -15,6 +15,7 @@ const ITEM =
 const ContextMenu = ContextMenuPrimitive.Root
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger
 const ContextMenuSub = ContextMenuPrimitive.Sub
+const ContextMenuRadioGroup = ContextMenuPrimitive.RadioGroup
 
 function ContextMenuContent({ className, ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
   return (
@@ -60,6 +61,19 @@ function ContextMenuSubContent({ className, ...props }: React.ComponentProps<typ
   )
 }
 
+function ContextMenuRadioItem({ className, children, ...props }: React.ComponentProps<typeof ContextMenuPrimitive.RadioItem>) {
+  return (
+    <ContextMenuPrimitive.RadioItem data-slot="context-menu-radio-item" className={cn(ITEM, "pl-8", className)} {...props}>
+      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+        <ContextMenuPrimitive.ItemIndicator>
+          <CircleIcon className="size-2 fill-current" />
+        </ContextMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </ContextMenuPrimitive.RadioItem>
+  )
+}
+
 function ContextMenuSeparator({ className, ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Separator>) {
   return <ContextMenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />
 }
@@ -77,6 +91,8 @@ export {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuSub,

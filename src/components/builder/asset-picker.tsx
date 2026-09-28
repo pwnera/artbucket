@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
  * - onClose: Esc, Cancel, or after a save.
  * - onSave: the picked assets, described as a view describes them, so the
  *   canvas draws them at once (the caller sets the rule with them).
+ * - title, description: its heading, when it picks for something other
+ *   than a rule (a section's items); left out, the rule's.
  * - transport: how it searches; the builder's (b.transport), so the dev page
  *   answers too. Left out, fetch.
  */
@@ -41,6 +43,8 @@ export type AssetPickerProps = {
   rule: ViewRule;
   onClose(): void;
   onSave(assets: ViewAsset[]): void;
+  title?: string;
+  description?: string;
   transport?: Transport;
 };
 
@@ -63,7 +67,7 @@ const described = (a: Asset): ViewAsset => ({
 // A font rule's files are named after the family, without its spaces: DMSans-Bold.ttf.
 const firstQuery = (rule: ViewRule) => (rule.type === "font" ? fontValue(rule.value).family.replace(/ +/g, "") : "");
 
-export function AssetPicker({ open, rule, onClose, onSave, transport = network }: AssetPickerProps) {
+export function AssetPicker({ open, rule, onClose, onSave, title, description, transport = network }: AssetPickerProps) {
   const url = useAssetUrl();
   const [q, setQ] = useState(() => firstQuery(rule));
   const [results, setResults] = useState<Asset[] | null>(null);
@@ -113,13 +117,12 @@ export function AssetPicker({ open, rule, onClose, onSave, transport = network }
       {/* Outside the canvas, so no container to query: the dialog's own breakpoint is widened. */}
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {rule.type === "font" ? "Files" : "Assets"} for {ruleName(rule)}
-          </DialogTitle>
+          <DialogTitle>{title ?? `${rule.type === "font" ? "Files" : "Assets"} for ${ruleName(rule)}`}</DialogTitle>
           <DialogDescription>
-            {rule.type === "font"
+            {description ??
+              (rule.type === "font"
               ? "The family's font files, one per style. Agents get each file's URL."
-              : "The logo it governs, examples of it done right. Pick a size under each to say which one the rule means; agents get that exact URL."}
+                : "The logo it governs, examples of it done right. Pick a size under each to say which one the rule means; agents get that exact URL.")}
           </DialogDescription>
         </DialogHeader>
         <div className="relative">

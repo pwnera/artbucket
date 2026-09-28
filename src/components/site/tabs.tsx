@@ -111,7 +111,8 @@ export function PageTabs({ tabs, render }: PageTabsProps) {
       <div data-chrome className="mx-auto w-full max-w-280 px-6 pt-6 @3xl:px-10 print:hidden">
         <TabsList variant="line" aria-label="Parts of this page" className="h-auto w-full justify-start overflow-x-auto overflow-y-hidden border-b pb-[5px]">
           {tabs.map((t) => (
-            <TabsTrigger key={t.name} value={tabAnchor(t.name)} className="flex-none">
+            // The builder's canvas takes a section dropped on a tab by its name.
+            <TabsTrigger key={t.name} value={tabAnchor(t.name)} data-tab-name={t.name} className="flex-none">
               {t.name}
             </TabsTrigger>
           ))}

@@ -3,7 +3,7 @@
 import { useId, useSyncExternalStore } from "react";
 import { IconArrowRight, IconCheck, IconX } from "@tabler/icons-react";
 import { HEAD } from "@/components/brand-sections/look";
-import { ItemText, ItemTitle, RuleValue, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
+import { ItemText, ItemTitle, itemRoot, RuleValue, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { CollectionIcon } from "@/components/collections";
 import { useMedia, useSite } from "@/components/site/site-context";
@@ -120,7 +120,7 @@ function ItemCard({ i, className, list }: { i: number; className: string; list: 
   const m = it.link ? SITE_PATH.exec(it.link) : null;
   const to = m ? href(m[1] ?? view.page?.slug ?? "", m[2]) : it.link;
   return (
-    <li className={className}>
+    <li {...itemRoot(i)} className={className}>
       {it.asset && (
         <div className={cn("bg-muted relative shrink-0 overflow-hidden rounded-lg", list ? "size-16" : "aspect-video")}>
           <Thumb src={url(it.asset, list ? "/w_128,f_webp" : "/w_640,f_webp")} alt={media?.title ?? it.caption ?? media?.filename ?? ""} />
@@ -159,7 +159,7 @@ function Stats({ n, columns }: { n: number; columns: number }) {
   return (
     <ul role="list" className={cn("grid gap-x-8 gap-y-6", GRID[columns])}>
       {Array.from({ length: n }, (_, i) => (
-        <li key={i} className="space-y-2 border-s-2 border-(--brand-accent) ps-4">
+        <li key={i} {...itemRoot(i)} className="space-y-2 border-s-2 border-(--brand-accent) ps-4">
           <ItemTitle i={i} as="p" className="text-5xl leading-none tabular-nums @3xl:text-6xl" />
           <ItemText i={i} className="text-muted-foreground text-base" />
         </li>
@@ -225,7 +225,7 @@ function Checklist({ items, section }: { items: Item[]; section: string }) {
   return (
     <ul role="list" className="space-y-4">
       {items.map((it, i) => (
-        <li key={i} className="flex items-start gap-3">
+        <li key={i} {...itemRoot(i)} className="flex items-start gap-3">
           <input
             type="checkbox"
             aria-labelledby={`${id}-${i}`}
@@ -280,7 +280,7 @@ function Branch({ nodes, sub }: { nodes: Node[]; sub?: boolean }) {
     <ul role="list" className={sub ? "ms-5" : "space-y-3"}>
       {nodes.map((node) => (
         <li key={node.i} className={cn(sub && JOINED)}>
-          <div className="bg-card text-card-foreground inline-block max-w-full min-w-0 space-y-1 rounded-lg border px-4 py-3">
+          <div {...itemRoot(node.i)} className="bg-card text-card-foreground inline-block max-w-full min-w-0 space-y-1 rounded-lg border px-4 py-3">
             <ItemTitle i={node.i} />
             <ItemText i={node.i} className="text-muted-foreground" />
           </div>

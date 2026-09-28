@@ -1,6 +1,6 @@
 "use client";
 
-import { Body, ItemCaption, ItemText, ItemTitle, RuleSlot } from "@/components/brand-sections/slots";
+import { Body, ItemCaption, ItemText, ItemTitle, itemRoot, RuleSlot } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { MARKER } from "@/components/brand-values";
 import { useSite } from "@/components/site/site-context";
@@ -74,7 +74,7 @@ export function DoDontSection({ section: s, rules: bound }: SectionProps) {
           {s.props.layout === "rows" ? (
             <ol className="divide-y">
               {examples.map((x) => (
-                <li key={x.i} className={cn("grid gap-4 py-6 first:pt-0 last:pb-0", x.pic && "@xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]")}>
+                <li key={x.i} {...itemRoot(x.i)} className={cn("grid gap-4 py-6 first:pt-0 last:pb-0", x.pic && "@xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]")}>
                   <Picture example={x} />
                   <Entry example={x} />
                 </li>
@@ -97,7 +97,7 @@ export function DoDontSection({ section: s, rules: bound }: SectionProps) {
               {legend.length > 0 && (
                 <ol className="grid gap-x-8 gap-y-5 @xl:grid-cols-2">
                   {legend.map((x) => (
-                    <li key={x.i}>
+                    <li key={x.i} {...itemRoot(x.i)}>
                       <Entry example={x} />
                     </li>
                   ))}
@@ -134,7 +134,7 @@ function Num({ n }: { n: number }) {
 function Picture({ example: x, numbered, className }: { example: Example; numbered?: boolean; className?: string }) {
   if (!x.pic) return null;
   return (
-    <figure className={cn("bg-card min-w-0 self-start overflow-hidden rounded-xl border", className)}>
+    <figure {...itemRoot(x.i)} className={cn("bg-card min-w-0 self-start overflow-hidden rounded-xl border", className)}>
       <div aria-hidden className={cn("h-1", x.verdict === "do" ? "bg-success" : "bg-destructive")} />
       <div className="bg-checker relative aspect-[4/3]">
         <Thumb src={x.pic.src} alt={x.pic.alt} className="p-4" />

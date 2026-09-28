@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { IconLock } from "@tabler/icons-react";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
-import { Body, ItemText, ItemTitle, useSection } from "@/components/brand-sections/slots";
+import { Body, ItemText, ItemTitle, itemRoot, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { SITE_PATH } from "@/lib/markdown";
@@ -112,7 +112,7 @@ function Card(p: Pick) {
   const link = useLink(p);
   const name = it?.title ?? p.node.title;
   return (
-    <li className="bg-card text-card-foreground hover:border-foreground/30 relative flex flex-col overflow-hidden rounded-xl border transition-colors">
+    <li {...itemRoot(p.k)} className="bg-card text-card-foreground hover:border-foreground/30 relative flex flex-col overflow-hidden rounded-xl border transition-colors">
       {cover?.thumbnail && (
         <div className="bg-muted relative aspect-[16/9] overflow-hidden border-b">
           {/* The card's title names the page, so its cover says nothing more. */}
@@ -150,7 +150,7 @@ function Card(p: Pick) {
 function Row({ left, ledes, nested, ...p }: Pick & { left: number; ledes: boolean; nested?: boolean }) {
   const link = useLink(p);
   return (
-    <li className={nested ? "pt-1.5" : "py-3"}>
+    <li {...itemRoot(p.k)} className={nested ? "pt-1.5" : "py-3"}>
       <a
         href={link.url}
         aria-current={link.current ? "page" : undefined}

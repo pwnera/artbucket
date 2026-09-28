@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconFile, IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react";
 import { HEAD } from "@/components/brand-sections/look";
-import { Body, ItemCaption, ItemTitle, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, ItemCaption, ItemTitle, itemRoot, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { IconButton } from "@/components/icon-button";
 import { Lightbox, type PublicItem } from "@/components/public-grid";
@@ -182,6 +182,7 @@ export function GallerySection({ section: s, rules }: SectionProps) {
               {pictures.map((p, n) => (
                 <li
                   key={p.m.id}
+                  {...itemRoot(p.i)}
                   id={p.anchor}
                   // Two cells where the grid has two; a single column has nothing to span.
                   className={cn("min-w-0 scroll-mt-20", layout === "bento" && s.columns > 1 && p.it?.span === 2 && "@md:col-span-2")}

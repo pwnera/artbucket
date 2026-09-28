@@ -7,6 +7,7 @@ import {
   canon,
   checkTree,
   issues,
+  type Item,
   MAX_PAGES,
   PageOp,
   type PageLayout,
@@ -392,8 +393,85 @@ export function push(h: History, op: Op, inverse: Op, field: string | null, at: 
   if (field && top?.field === field && at - top.at < 1000) {
     return { past: [...h.past.slice(0, -1), { ...top, redo: [...top.redo, op], undo: [inverse, ...top.undo], at }], future: [] };
   }
+  return pushStep(h, { redo: [op], undo: [inverse], field, at });
+}
+
+/** Record a step as it is: several ops that undo as one (a section moved to another page). */
+export function pushStep(h: History, step: Step): History {
   // ponytail: 200 steps; a byte budget if steps grow large.
-  return { past: [...h.past, { redo: [op], undo: [inverse], field, at }].slice(-200), future: [] };
+  return { past: [...h.past, step].slice(-200), future: [] };
+}
+
+/**
+ * Apply ops in turn as one change: the state after the last, the ops as
+ * applied, and what takes them all back (last first). With errors, nothing
+ * changed.
+ */
+export function applyAll(s: BuilderState, ops: Op[]): { state: BuilderState; done: Op[]; undo: Op[]; errors: string[] } {
+  let state = s;
+  const done: Op[] = [];
+  const undo: Op[] = [];
+  for (const op of ops) {
+    const r = apply(state, op);
+    if (r.errors.length) return { state: s, done: [], undo: [], errors: r.errors };
+    undo.unshift(invert(r.op, state));
+    done.push(r.op);
+    state = r.state;
+  }
+  return { state, done, undo, errors: [] };
+}
+
+// ---- items ------------------------------------------------------------------
+
+/**
+ * A section's items put in a new order, as the `set` of an update op: each
+ * entry an old item's index (moved, or copied when it comes twice) or a new
+ * item. Translations list items by position, so theirs follow the same
+ * order, a new item having none.
+ */
+export function reorderItems(s: Pick<Section, "items" | "translations">, order: (number | Item)[]): Record<string, unknown> {
+  const items = order.map((x) => (typeof x === "number" ? s.items![x] : x));
+  const set: Record<string, unknown> = { items: items.length ? items : null };
+  if (s.translations) {
+    set.translations = Object.fromEntries(
+      Object.entries(s.translations).map(([lang, t]) => {
+        if (!t.items) return [lang, t];
+        const words = order.map((x) => (typeof x === "number" ? (t.items![x] ?? null) : null));
+        while (words.length && words.at(-1) === null) words.pop();
+        const rest = { ...t };
+        delete rest.items;
+        return [lang, words.length ? { ...rest, items: words } : rest];
+      }),
+    );
+  }
+  return set;
+}
+
+const indices = (s: Pick<Section, "items">) => (s.items ?? []).map((_, i) => i as number | Item);
+
+/** Item `from` put at index `to` (among the items after it is taken out). */
+export function moveItem(s: Pick<Section, "items" | "translations">, from: number, to: number) {
+  const order = indices(s);
+  const [x] = order.splice(from, 1);
+  order.splice(Math.max(0, Math.min(to, order.length)), 0, x);
+  return reorderItems(s, order);
+}
+
+/** New items at index `at`. */
+export function insertItems(s: Pick<Section, "items" | "translations">, at: number, items: Item[]) {
+  const order = indices(s);
+  order.splice(at, 0, ...items);
+  return reorderItems(s, order);
+}
+
+/** Item `i` taken out. */
+export const removeItem = (s: Pick<Section, "items" | "translations">, i: number) => reorderItems(s, indices(s).filter((x) => x !== i));
+
+/** A copy of item `i`, just after it, its translations with it. */
+export function duplicateItem(s: Pick<Section, "items" | "translations">, i: number) {
+  const order = indices(s);
+  order.splice(i + 1, 0, i);
+  return reorderItems(s, order);
 }
 
 /**

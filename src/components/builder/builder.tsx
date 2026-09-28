@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { History } from "@/components/brand-history";
 import { Canvas } from "@/components/builder/canvas";
 import { PublishDialog } from "@/components/builder/publish-dialog";
 import { RulesSheet } from "@/components/builder/rules-sheet";
 import { TopBar } from "@/components/builder/top-bar";
-import { type Panel, type Transport, useBuilder } from "@/components/builder/use-builder";
+import { type Panel, type Transport, unclip, useBuilder } from "@/components/builder/use-builder";
 import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
 import { ThemePanel } from "@/components/theme-panel";
@@ -205,6 +206,43 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [mobile, show]);
+
+  // ⌘C, ⌘X and ⌘V on the picked section, never on text: a selection or a field keeps the browser's own.
+  useEffect(() => {
+    if (mobile) return;
+    const mine = (e: ClipboardEvent) => {
+      const b = live.current;
+      const t = e.target instanceof Element ? e.target : null;
+      return !b.state.preview && !t?.closest(TYPING) && !t?.closest(FIELD) && !getSelection()?.toString();
+    };
+    const onCopy = (e: ClipboardEvent) => {
+      const b = live.current;
+      const id = b.state.selection.section;
+      const text = id && mine(e) ? b.clipOf(id) : null;
+      if (!text || !e.clipboardData) return;
+      e.preventDefault();
+      e.clipboardData.setData("text/plain", text);
+      if (e.type === "cut") b.removeSection(id!);
+      else toast.success("Section copied", { description: "Paste it on any page of any brand." });
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      const b = live.current;
+      const x = mine(e) ? unclip(e.clipboardData?.getData("text/plain") ?? "") : null;
+      if (!x) return;
+      e.preventDefault();
+      const list = b.state.pages.get(b.state.selection.page) ?? [];
+      const id = b.insert(x, b.state.selection.section ?? list.at(-1)?.id ?? null);
+      if (id) requestAnimationFrame(() => show(id));
+    };
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCopy);
+    document.addEventListener("paste", onPaste);
+    return () => {
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCopy);
+      document.removeEventListener("paste", onPaste);
+    };
   }, [mobile, show]);
 
   // A phone reads: what readers get, hidden pages and sections left out.

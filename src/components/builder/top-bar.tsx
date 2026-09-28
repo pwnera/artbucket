@@ -1,6 +1,18 @@
 "use client";
 
-import { IconArrowBackUp, IconArrowForwardUp, IconCode, IconEye, IconEyeOff, IconHistory, IconListDetails, IconPalette, IconWorldUpload } from "@tabler/icons-react";
+import {
+  IconArrowBackUp,
+  IconArrowForwardUp,
+  IconCode,
+  IconEye,
+  IconEyeOff,
+  IconHistory,
+  IconLayoutGridAdd,
+  IconLayoutSidebarRight,
+  IconListDetails,
+  IconPalette,
+  IconWorldUpload,
+} from "@tabler/icons-react";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { IconButton } from "@/components/icon-button";
 import { PageTree } from "@/components/builder/page-tree";
@@ -15,7 +27,8 @@ import { contextLabel } from "@/lib/rules";
 /**
  * The bar over the canvas (build spec 3.5.3, W6.3): the page tabs
  * (PageTree), add page, undo and redo (b.undo, b.redo, b.canUndo,
- * b.canRedo), the context switch (b.setContext) and the language switch
+ * b.canRedo), the panel beside the canvas (b.setDock: blocks and rules to
+ * add, the picked section's settings), the context switch (b.setContext) and the language switch
  * (b.setLang, from b.view.theme.settings.languages), Theme, Rules and
  * History and Tokens (b.setPanel), For agents, Preview (b.setPreview),
  * Publish (b.setPanel "publish"), and SaveStatus.
@@ -97,6 +110,24 @@ export function TopBar({ b }: TopBarProps) {
           </Select>
         )}
 
+        <IconButton
+          variant="ghost"
+          label="Add blocks and rules"
+          aria-pressed={b.dock === "insert"}
+          className="aria-pressed:bg-accent"
+          onClick={() => b.setDock(b.dock === "insert" ? null : "insert")}
+        >
+          <IconLayoutGridAdd />
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          label="Section settings"
+          aria-pressed={b.dock === "section"}
+          className="aria-pressed:bg-accent"
+          onClick={() => b.setDock(b.dock === "section" ? null : "section")}
+        >
+          <IconLayoutSidebarRight />
+        </IconButton>
         {panel("theme", "Theme", <IconPalette />)}
         {panel("rules", "Rules", <IconListDetails />)}
         {panel("history", "History", <IconHistory />, ["H"])}
