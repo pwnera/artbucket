@@ -12,6 +12,7 @@ import {
   checkSection,
   checkTree,
   collectionQuery,
+  designWarnings,
   EMBED_HOSTS,
   fillSlots,
   framed,
@@ -399,6 +400,25 @@ test("collectionQuery: the saved search narrowed by the section's query, with wh
   assert.deepEqual(collectionQuery(saved, { collection: "c2" }).getAll("collection"), ["c2"]);
   assert.equal(collectionQuery(null, { query: "tag=poster&status=draft" }).toString(), "tag=poster");
   assert.equal(collectionQuery(null, {}).toString(), "");
+});
+
+test("designWarnings: an empty page, grounds that run together, a second cover, long capitals, starter text", () => {
+  assert.deepEqual(designWarnings([stored({ id: "s1", template: "text", hidden: true })]), [{ at: null, text: "nothing shows on this page; readers see only its title" }]);
+  const texts = designWarnings([
+    stored({ id: "s2", template: "cover" }),
+    stored({ id: "s3", template: "text", tone: "panel", title: "THE WHOLE SIGNATURE, IN CAPITALS" }),
+    stored({ id: "s4", template: "text", tone: "panel", body: "_What our logo is._" }),
+    stored({ id: "s5", template: "text", tone: "panel", hidden: true }),
+    stored({ id: "s6", template: "cover", tone: "brand" }),
+    stored({ id: "s7", template: "text", tone: "color", background: { color: "color.a" } }),
+    stored({ id: "s8", template: "text", tone: "color", background: { color: "color.b" }, title: "SHORT CAPS" }),
+  ]).map((w) => `${w.at}: ${w.text.split(";")[0].split(",")[0]}`);
+  assert.deepEqual(texts, [
+    "4: a second cover",
+    "1: the title is typed in capitals",
+    "2: a second panel ground in a row runs into the one before",
+    "2: still has its starter text",
+  ]);
 });
 
 test("pageWarnings: links to missing or hidden pages and sections, bound keys with no rule", () => {

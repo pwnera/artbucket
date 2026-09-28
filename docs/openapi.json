@@ -15565,8 +15565,17 @@
                                   ]
                                 },
                                 "band": {
-                                  "description": "Every page opens on a band of the brand color",
+                                  "description": "Every page opens on a band of the brand color; header band says the same",
                                   "type": "boolean"
+                                },
+                                "header": {
+                                  "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                  "type": "string",
+                                  "enum": [
+                                    "plain",
+                                    "band",
+                                    "split"
+                                  ]
                                 },
                                 "separation": {
                                   "description": "Between two sections on the page's own ground: space alone, or a hairline too",
@@ -17213,6 +17222,14 @@
                           "minLength": 1,
                           "maxLength": 40
                         },
+                        "space": {
+                          "description": "Room above it",
+                          "type": "string",
+                          "enum": [
+                            "tight",
+                            "loose"
+                          ]
+                        },
                         "background": {
                           "description": "For tone color and tone image",
                           "type": "object",
@@ -17489,7 +17506,7 @@
                               "type": "boolean"
                             },
                             "mark": {
-                              "description": "cover: The logo above the title; home: on the home page",
+                              "description": "cover: Logo above the title",
                               "type": "string",
                               "enum": [
                                 "home",
@@ -17511,7 +17528,7 @@
                               ]
                             },
                             "fit": {
-                              "description": "split: fill: crop to the frame; whole: all of it, with room",
+                              "description": "split",
                               "type": "string",
                               "enum": [
                                 "auto",
@@ -18946,6 +18963,14 @@
                                   "minLength": 1,
                                   "maxLength": 40
                                 },
+                                "space": {
+                                  "description": "Room above it",
+                                  "type": "string",
+                                  "enum": [
+                                    "tight",
+                                    "loose"
+                                  ]
+                                },
                                 "background": {
                                   "description": "For tone color and tone image",
                                   "type": "object",
@@ -19222,7 +19247,7 @@
                                       "type": "boolean"
                                     },
                                     "mark": {
-                                      "description": "cover: The logo above the title; home: on the home page",
+                                      "description": "cover: Logo above the title",
                                       "type": "string",
                                       "enum": [
                                         "home",
@@ -19244,7 +19269,7 @@
                                       ]
                                     },
                                     "fit": {
-                                      "description": "split: fill: crop to the frame; whole: all of it, with room",
+                                      "description": "split",
                                       "type": "string",
                                       "enum": [
                                         "auto",
@@ -20568,8 +20593,17 @@
                               ]
                             },
                             "band": {
-                              "description": "Every page opens on a band of the brand color",
+                              "description": "Every page opens on a band of the brand color; header band says the same",
                               "type": "boolean"
+                            },
+                            "header": {
+                              "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "band",
+                                "split"
+                              ]
                             },
                             "separation": {
                               "description": "Between two sections on the page's own ground: space alone, or a hairline too",
@@ -20949,7 +20983,23 @@
                               ]
                             },
                             "band": {
-                              "type": "boolean"
+                              "type": "boolean",
+                              "description": "header is band"
+                            },
+                            "header": {
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "band",
+                                "split"
+                              ]
+                            },
+                            "separation": {
+                              "type": "string",
+                              "enum": [
+                                "space",
+                                "hairline"
+                              ]
                             },
                             "numbering": {
                               "type": "boolean"
@@ -21037,6 +21087,8 @@
                             "logo",
                             "nav",
                             "band",
+                            "header",
+                            "separation",
                             "numbering",
                             "motion",
                             "toc",
@@ -21392,8 +21444,24 @@
                   "band": {
                     "anyOf": [
                       {
-                        "description": "Every page opens on a band of the brand color",
+                        "description": "Every page opens on a band of the brand color; header band says the same",
                         "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "header": {
+                    "anyOf": [
+                      {
+                        "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                        "type": "string",
+                        "enum": [
+                          "plain",
+                          "band",
+                          "split"
+                        ]
                       },
                       {
                         "type": "null"
@@ -21708,8 +21776,17 @@
                               ]
                             },
                             "band": {
-                              "description": "Every page opens on a band of the brand color",
+                              "description": "Every page opens on a band of the brand color; header band says the same",
                               "type": "boolean"
+                            },
+                            "header": {
+                              "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "band",
+                                "split"
+                              ]
                             },
                             "separation": {
                               "description": "Between two sections on the page's own ground: space alone, or a hairline too",
@@ -22089,7 +22166,23 @@
                               ]
                             },
                             "band": {
-                              "type": "boolean"
+                              "type": "boolean",
+                              "description": "header is band"
+                            },
+                            "header": {
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "band",
+                                "split"
+                              ]
+                            },
+                            "separation": {
+                              "type": "string",
+                              "enum": [
+                                "space",
+                                "hairline"
+                              ]
                             },
                             "numbering": {
                               "type": "boolean"
@@ -22177,6 +22270,8 @@
                             "logo",
                             "nav",
                             "band",
+                            "header",
+                            "separation",
                             "numbering",
                             "motion",
                             "toc",
@@ -22736,7 +22831,23 @@
                               ]
                             },
                             "band": {
-                              "type": "boolean"
+                              "type": "boolean",
+                              "description": "header is band"
+                            },
+                            "header": {
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "band",
+                                "split"
+                              ]
+                            },
+                            "separation": {
+                              "type": "string",
+                              "enum": [
+                                "space",
+                                "hairline"
+                              ]
                             },
                             "numbering": {
                               "type": "boolean"
@@ -22991,8 +23102,17 @@
                                   ]
                                 },
                                 "band": {
-                                  "description": "Every page opens on a band of the brand color",
+                                  "description": "Every page opens on a band of the brand color; header band says the same",
                                   "type": "boolean"
+                                },
+                                "header": {
+                                  "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                  "type": "string",
+                                  "enum": [
+                                    "plain",
+                                    "band",
+                                    "split"
+                                  ]
                                 },
                                 "separation": {
                                   "description": "Between two sections on the page's own ground: space alone, or a hairline too",
@@ -23083,6 +23203,8 @@
                             "logo",
                             "nav",
                             "band",
+                            "header",
+                            "separation",
                             "numbering",
                             "motion",
                             "toc",
@@ -33864,7 +33986,23 @@
                                       ]
                                     },
                                     "band": {
-                                      "type": "boolean"
+                                      "type": "boolean",
+                                      "description": "header is band"
+                                    },
+                                    "header": {
+                                      "type": "string",
+                                      "enum": [
+                                        "plain",
+                                        "band",
+                                        "split"
+                                      ]
+                                    },
+                                    "separation": {
+                                      "type": "string",
+                                      "enum": [
+                                        "space",
+                                        "hairline"
+                                      ]
                                     },
                                     "numbering": {
                                       "type": "boolean"
@@ -34119,8 +34257,17 @@
                                           ]
                                         },
                                         "band": {
-                                          "description": "Every page opens on a band of the brand color",
+                                          "description": "Every page opens on a band of the brand color; header band says the same",
                                           "type": "boolean"
+                                        },
+                                        "header": {
+                                          "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                          "type": "string",
+                                          "enum": [
+                                            "plain",
+                                            "band",
+                                            "split"
+                                          ]
                                         },
                                         "separation": {
                                           "description": "Between two sections on the page's own ground: space alone, or a hairline too",
@@ -34211,6 +34358,8 @@
                                     "logo",
                                     "nav",
                                     "band",
+                                    "header",
+                                    "separation",
                                     "numbering",
                                     "motion",
                                     "toc",

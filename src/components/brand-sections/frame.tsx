@@ -64,9 +64,14 @@ export function useGround({ tone, background }: Pick<Section, "tone" | "backgrou
   }, [view.theme, view.rules, context, url, image, tone, background]);
 }
 
-/** Padding above and below a section, and below alone for one joined to the one before. */
-const PAD = "py-[calc(var(--brand-gap)*2)] @3xl:py-[calc(var(--brand-gap)*8/3)]";
+/** Padding below a section, and above it: none when joined to the one before, less when tight, more when loose. */
 const PAD_END = "pb-[calc(var(--brand-gap)*2)] @3xl:pb-[calc(var(--brand-gap)*8/3)]";
+const PAD_TOP = {
+  joined: "pt-0",
+  tight: "pt-[calc(var(--brand-gap)*2/3)]",
+  normal: "pt-[calc(var(--brand-gap)*2)] @3xl:pt-[calc(var(--brand-gap)*8/3)]",
+  loose: "pt-[calc(var(--brand-gap)*4)] @3xl:pt-[calc(var(--brand-gap)*16/3)]",
+};
 
 /** Templates that draw their own ground (cover, header): what follows one starts afresh. */
 const OWN_GROUND = new Set<Section["template"]>(["cover", "header"]);
@@ -79,7 +84,8 @@ const OWN_GROUND = new Set<Section["template"]>(["cover", "header"]);
  */
 function useJoined(s: Section): "space" | "hairline" | null {
   const { view, context } = useSite();
-  if (s.tone !== "plain") return null;
+  // Loose sets it apart: its own room, never a seam.
+  if (s.tone !== "plain" || s.space === "loose") return null;
   const drawn = view.page?.sections.filter((x) => !x.hidden && (!x.only || (x.only === "default" ? null : x.only) === context)) ?? [];
   const prev = drawn[drawn.findIndex((x) => x.id === s.id) - 1];
   if (!prev || prev.tone !== "plain" || OWN_GROUND.has(prev.template) || (prev.tab ?? null) !== (s.tab ?? null)) return null;
@@ -161,7 +167,15 @@ export function SectionFrame({
   return (
     <section {...landmark} className={cn("@container scroll-mt-20", ground.className)} style={ground.style}>
       <SectionScope.Provider value={scope}>
-        <div className={cn("mx-auto px-6 @3xl:px-10", joined === "space" ? PAD_END : PAD, joined === "hairline" && "border-t", WIDTH[s.width])}>
+        <div
+          className={cn(
+            "mx-auto px-6 @3xl:px-10",
+            PAD_END,
+            PAD_TOP[joined === "space" ? "joined" : (s.space ?? "normal")],
+            joined === "hairline" && "border-t",
+            WIDTH[s.width],
+          )}
+        >
           {(s.eyebrow || s.title || s.lede) && (
             <header className="group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3">
               <Eyebrow />

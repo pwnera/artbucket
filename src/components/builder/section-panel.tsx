@@ -156,6 +156,20 @@ function Settings({ b }: { b: BuilderApi }) {
             <ColumnsPicker s={s} set={set} className="-ms-1" />
           </Row>
         )}
+        <Row label="Space above" about="Tight holds it to the section before; loose sets it apart.">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={s.space ?? "normal"}
+            onValueChange={(v) => v && set({ space: v === "normal" ? null : v })}
+            aria-label="Space above"
+          >
+            <ToggleGroupItem value="tight">Tight</ToggleGroupItem>
+            <ToggleGroupItem value="normal">Normal</ToggleGroupItem>
+            <ToggleGroupItem value="loose">Loose</ToggleGroupItem>
+          </ToggleGroup>
+        </Row>
         <Row label="Ground">
           <span className="flex items-center gap-2">
             <TonePicker b={b} s={s} set={set} />

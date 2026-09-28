@@ -59,17 +59,17 @@ const STYLES: { name: string; about: string; patch: Patch }[] = [
   {
     name: "Documentation",
     about: "Dense, quiet, easy to scan",
-    patch: { width: "normal", density: "compact", scale: 1.2, radius: 8, nav: "sidebar", toc: "side", band: false, numbering: false, separation: "hairline" },
+    patch: { width: "normal", density: "compact", scale: 1.2, radius: 8, nav: "sidebar", toc: "side", header: "plain", band: null, numbering: false, separation: "hairline" },
   },
   {
     name: "Editorial",
     about: "A book: airy, numbered, big titles",
-    patch: { width: "narrow", density: "airy", scale: 1.333, radius: 0, nav: "top", toc: "inline", band: false, numbering: true, separation: "space" },
+    patch: { width: "narrow", density: "airy", scale: 1.333, radius: 0, nav: "top", toc: "inline", header: "split", band: null, numbering: true, separation: "space" },
   },
   {
     name: "Bold",
     about: "Every chapter opens on the brand color",
-    patch: { width: "wide", density: "normal", scale: 1.414, radius: 16, nav: "sidebar", toc: "side", band: true, numbering: true, separation: "space" },
+    patch: { width: "wide", density: "normal", scale: 1.414, radius: 16, nav: "sidebar", toc: "side", header: "band", band: null, numbering: true, separation: "space" },
   },
 ];
 
@@ -174,7 +174,7 @@ export function ThemePanel({
           <Group title="Style">
             <div className="grid grid-cols-3 gap-2">
               {STYLES.map((st) => {
-                const on = Object.entries(st.patch).every(([k, v]) => (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
+                const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
                 return (
                   <button
                     key={st.name}
@@ -308,7 +308,17 @@ export function ThemePanel({
               ]}
               onChange={(v) => save({ separation: v as ThemeSettings["separation"] })}
             />
-            <On label="Open every page on a band of the brand color" checked={s.band ?? theme.band} onChange={(band) => save({ band })} />
+            <Toggle
+              label="Page header"
+              value={theme.header}
+              options={[
+                ["plain", "Plain"],
+                ["band", "Band"],
+                ["split", "Beside cover"],
+              ]}
+              // header says it all: band, which says less, is cleared.
+              onChange={(v) => save({ header: v as ThemeSettings["header"], band: null })}
+            />
             <On label="Number chapters and pages" checked={s.numbering ?? theme.numbering} onChange={(numbering) => save({ numbering })} />
             <On
               label="Reveal sections as they scroll in"

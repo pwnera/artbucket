@@ -3,6 +3,7 @@
 import {
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconChecklist,
   IconCode,
   IconEye,
   IconEyeOff,
@@ -21,7 +22,9 @@ import { SaveStatus } from "@/components/save-status";
 import { tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { designWarnings } from "@/lib/pages";
 import { contextLabel } from "@/lib/rules";
 
 /**
@@ -128,6 +131,7 @@ export function TopBar({ b }: TopBarProps) {
         >
           <IconLayoutSidebarRight />
         </IconButton>
+        <Checks b={b} />
         {panel("theme", "Theme", <IconPalette />)}
         {panel("rules", "Rules", <IconListDetails />)}
         {panel("history", "History", <IconHistory />, ["H"])}
@@ -144,6 +148,58 @@ export function TopBar({ b }: TopBarProps) {
         </Button>
       </div>
     </header>
+  );
+}
+
+/**
+ * What keeps the page on show from looking designed (lib/pages.ts
+ * designWarnings), and theme pairs that fail contrast: a count on the bar,
+ * the list in a popover. Picking one selects its section and scrolls to it.
+ */
+function Checks({ b }: { b: BuilderApi }) {
+  const sections = b.view.page?.sections ?? [];
+  const found = [
+    ...designWarnings(sections).map((w) => ({ id: w.at === null ? null : sections[w.at].id, where: w.at === null ? "This page" : (sections[w.at].title ?? `Section ${w.at + 1}`), text: w.text })),
+    ...b.view.warnings.map((text) => ({ id: null, where: "Theme", text })),
+  ];
+  const label = found.length ? `${found.length} ${found.length === 1 ? "check" : "checks"} to look at` : "Checks: nothing to fix";
+  const go = (id: string) => {
+    b.select({ section: id, rule: null });
+    document.querySelector(`section[data-template][id$="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "start" });
+  };
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <IconButton variant="ghost" label={label} className="relative">
+          <IconChecklist />
+          {found.length > 0 && (
+            <span className="bg-warning text-background absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
+              {found.length}
+            </span>
+          )}
+        </IconButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="app-tokens w-80 p-0">
+        <p className="border-b px-3 py-2 text-sm font-medium">{found.length ? "Before you publish" : "Nothing to fix on this page"}</p>
+        {found.length > 0 && (
+          <ul className="max-h-80 overflow-y-auto py-1">
+            {found.map((f, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  disabled={!f.id}
+                  onClick={() => f.id && go(f.id)}
+                  className="hover:enabled:bg-accent focus-visible:bg-accent grid w-full gap-0.5 px-3 py-2 text-start outline-none"
+                >
+                  <span className="text-muted-foreground truncate text-xs">{f.where}</span>
+                  <span className="text-sm first-letter:uppercase">{f.text}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
