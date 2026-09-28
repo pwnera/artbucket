@@ -51,6 +51,9 @@ const present = (p: PageRow) => ({
   icon: p.icon,
   audience: p.audience,
   tabs: p.tabs,
+  layout: p.layout,
+  // Editors read back what they wrote in other languages; readers get theirs through the view.
+  ...(p.translations && { translations: p.translations }),
   aliases: p.aliases,
   sections: p.sections,
   updatedAt: p.updatedAt,
@@ -147,6 +150,9 @@ const pageMeta = (m: Omit<PagePatch, "title" | "hidden" | "position" | "slug">) 
   ...(m.icon !== undefined && { icon: m.icon }),
   ...(m.audience !== undefined && { audience: m.audience }),
   ...(m.tabs !== undefined && { tabs: m.tabs }),
+  ...(m.layout !== undefined && { layout: m.layout }),
+  // None set is none: an empty record would only change the page's canon.
+  ...(m.translations !== undefined && { translations: m.translations && Object.keys(m.translations).length ? m.translations : null }),
 });
 
 /** A slug a page takes is no longer another page's old name: links to it now reach the page that has it. */

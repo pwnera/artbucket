@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { checkWarnings, deriveTheme, type ThemeSettings } from "../brand-theme.ts";
-import { assetRefs, type PageInput, parseSections } from "../pages.ts";
+import type { Update } from "../history.ts";
+import { assetRefs, type PageInput, parseSections, pickText } from "../pages.ts";
 import { RuleInput } from "../rules.ts";
 import type { Media, NavPage, PageView, ViewAsset, ViewRule } from "../site.ts";
 
@@ -31,10 +32,10 @@ const PLACEHOLDERS: BookAssets = {
  * Blender: the seed's rules (scripts/seed-demo.ts) with labels, specs (print
  * values, tints, a gradient, font roles and metrics, units, a print size), an
  * ink, and six pages that use every template, items, tones, tabs and a tree
- * (logo-use, with a diagram of each kind, sits under logo). Every page links
- * and binds only what is there, so get_page answers it with no missing keys
- * and no warnings. The eval edits the logo page and counts its sections, so
- * new sections go elsewhere.
+ * (logo-use, with a diagram of each kind, sits under logo), and a landing
+ * home with What's new. Every page links and binds only what is there, so
+ * get_page answers it with no missing keys and no warnings. The eval edits
+ * the logo page and counts its sections, so new sections go elsewhere.
  */
 export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
   return {
@@ -194,6 +195,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
         eyebrow: "Brand guidelines",
         lede: "How Blender looks, sounds and is used.",
         icon: "bookmark",
+        layout: "landing",
         sections: [
           { id: "cover", template: "cover", eyebrow: "Brand guidelines", title: "Blender", lede: "The freedom to create." },
           {
@@ -223,6 +225,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             items: [{ link: "/logo" }, { link: "/color" }, { link: "/typography" }, { link: "/voice" }],
           },
           { id: "more", template: "pages", title: "More on the logo", props: { from: "logo", layout: "list", depth: 2 } },
+          { id: "news", template: "updates", title: "What's new", props: { limit: 3 } },
         ],
       },
       {
@@ -490,10 +493,132 @@ export function hairline(a: BookAssets = PLACEHOLDERS): BrandBook {
   return { ...book, theme: { ...book.theme, accentUse: "hairline" } };
 }
 
+/**
+ * Waha (واحة, an oasis), a made-up library brand written in Arabic and read
+ * in English too: its first language reads right to left, its faces are
+ * Arabic with one Latin face for English, and its pages and sections carry
+ * English words for some fields only, so the rest falls back to the Arabic,
+ * field by field, and an item by position.
+ */
+export function rtl(a: BookAssets = PLACEHOLDERS): BrandBook {
+  return {
+    rules: [
+      { key: "brand.mission", label: "المهمة", type: "text", value: "واحة مكتبة مفتوحة للجميع: **القراءة حق للكل.**", usage: "السطر الذي يقول ما هي واحة. ابدأ به." },
+      { key: "color.primary", label: "أخضر الواحة", type: "color", value: "#0f766e", usage: "لون الشعار والروابط.", spec: { pair: "color.background" } },
+      { key: "color.secondary", label: "كهرماني", type: "color", value: "#b45309", usage: "للتمييز فقط." },
+      { key: "color.background", label: "رملي", type: "color", value: "#fffbf2" },
+      { key: "color.ink", label: "حبر", type: "color", value: "#1c1917" },
+      {
+        key: "type.heading",
+        label: "العناوين",
+        type: "font",
+        value: { family: "Noto Kufi Arabic", weight: 700 },
+        spec: { role: "headline", script: "Arab", source: "google", lineHeight: 1.4 },
+      },
+      {
+        key: "type.primary",
+        label: "النص",
+        type: "font",
+        value: { family: "Noto Naskh Arabic", weight: 400 },
+        spec: { role: "body", script: "Arab", source: "google", lineHeight: 1.8 },
+      },
+      {
+        key: "type.latin",
+        label: "النص اللاتيني",
+        type: "font",
+        value: { family: "Inter", weight: 400 },
+        usage: "للنص الإنجليزي.",
+        spec: { role: "body", script: "Latn", source: "google" },
+      },
+      { key: "logo.mark", label: "الشعار", type: "text", value: "نخلة داخل دائرة.", assets: [a.mark] },
+    ],
+    pages: [
+      {
+        slug: "overview",
+        title: "نظرة عامة",
+        eyebrow: "دليل الهوية",
+        lede: "كيف تبدو واحة وكيف تتكلم.",
+        translations: { en: { title: "Overview", eyebrow: "Brand guidelines" } },
+        sections: [
+          {
+            id: "cover",
+            template: "cover",
+            eyebrow: "دليل الهوية",
+            title: "واحة",
+            lede: "القراءة حق للكل.",
+            translations: { en: { title: "Waha", lede: "Reading is everyone's right." } },
+          },
+          {
+            id: "mission",
+            template: "text",
+            title: "من نحن",
+            body: "مكتبات صغيرة في كل حي، مفتوحة من الصباح حتى المساء.",
+            keys: ["brand.mission"],
+            translations: { en: { title: "Who we are" } },
+          },
+          {
+            id: "values",
+            template: "cards",
+            title: "ما نؤمن به",
+            items: [
+              { title: "القراءة", text: "كتاب في كل يد." },
+              { title: "الكتابة", text: "لكل صوت مكان." },
+            ],
+            translations: { en: { title: "What we believe", items: [{ title: "Reading" }, null] } },
+          },
+        ],
+      },
+      {
+        slug: "color",
+        title: "الألوان",
+        lede: "أخضر الواحة على الرمل.",
+        translations: { en: { title: "Color", lede: "Oasis green on sand." } },
+        sections: [
+          {
+            id: "palette",
+            template: "palette",
+            title: "الألوان",
+            keys: ["color.primary", "color.secondary", "color.background", "color.ink"],
+            translations: { en: { title: "Palette" } },
+          },
+        ],
+      },
+      {
+        slug: "typography",
+        title: "الخطوط",
+        lede: "الكوفي للعناوين، والنسخ للنص، وإنتر للإنجليزية.",
+        translations: { en: { title: "Typography" } },
+        sections: [
+          {
+            id: "faces",
+            template: "type",
+            title: "الخطوط",
+            keys: ["type.heading", "type.primary", "type.latin"],
+            props: { roles: true, glyphs: true },
+            translations: { en: { title: "Typefaces" } },
+          },
+        ],
+      },
+    ],
+    theme: {
+      accent: "color.primary",
+      surface: "color.background",
+      ink: "color.ink",
+      head: "type.heading",
+      body: "type.primary",
+      logo: "logo.mark",
+      languages: [
+        { code: "ar", label: "العربية", dir: "rtl" },
+        { code: "en", label: "English" },
+      ],
+    },
+  };
+}
+
 // ---- views --------------------------------------------------------------------
 
-/** Every book by name, for `/design/pages?fixture=`. W5 adds rtl. */
-export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big, ugly, hairline };
+/** Every book by name, for `/design/pages?fixture=`. */
+export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big, ugly, hairline, rtl };
 
 /** When a view says the fixtures changed: fixed, so the server and the browser draw the same page. */
 const AT = "2026-09-01T00:00:00.000Z";
@@ -521,6 +646,32 @@ const PICTURES: Record<string, { filename: string; title: string; description: s
     src: svg(360, 96, `${MARK}<text x="104" y="64" font-family="sans-serif" font-size="44" font-weight="700" fill="#265787">blender</text>`),
   },
 };
+/** Two publishes, for a page with a What's new section to list. */
+const UPDATES: Update[] = [
+  {
+    version: 2,
+    publishedAt: AT,
+    publishedBy: "Brand team",
+    note: "Print values for the palette, and a page on using the logo.",
+    image: PLACEHOLDERS.mark,
+    changes: {
+      rules: { added: [], changed: ["color.primary", "color.secondary"], removed: [] },
+      pages: { added: [{ slug: "logo-use", title: "Using the logo" }], changed: [{ slug: "color", title: "Color" }], removed: [] },
+    },
+  },
+  {
+    version: 1,
+    publishedAt: "2026-08-01T00:00:00.000Z",
+    publishedBy: null,
+    note: "The first book.",
+    image: null,
+    changes: {
+      rules: { added: ["color.primary", "color.secondary", "logo.mark"], changed: [], removed: [] },
+      pages: { added: [{ slug: "overview", title: "Overview" }, { slug: "logo", title: "Logo" }], changed: [], removed: [] },
+    },
+  },
+];
+
 /** Any other id: a grey tile, so a fixture naming an asset it doesn't draw still shows something. */
 const BLANK = svg(160, 120, '<rect width="160" height="120" fill="#d4d4d8"/>');
 
@@ -560,9 +711,10 @@ const viewAsset = (id: string): ViewAsset => {
  * A page of a book as a reader gets it, made here rather than by the server
  * (lib/page-view.ts): every rule, the pictures above, a collection of them,
  * and nothing locked, as an editor previewing sees it. The first page when
- * `slug` is left out. Throws for a book or a page there isn't.
+ * `slug` is left out; in `lang`, else the book's first language, its words
+ * picked field by field as readers get them. Throws for a book or a page there isn't.
  */
-export function fixtureView(name: string, slug?: string | null): PageView {
+export function fixtureView(name: string, slug?: string | null, lang?: string | null): PageView {
   const make = Object.hasOwn(FIXTURES, name) ? FIXTURES[name] : undefined;
   if (!make) throw new Error(`No fixture "${name}"; there are ${Object.keys(FIXTURES).join(", ")}`);
   const book = make();
@@ -581,7 +733,15 @@ export function fixtureView(name: string, slug?: string | null): PageView {
       assets: (r.assets ?? []).map((a) => viewAsset(a.id)),
     };
   });
-  const pages = book.pages.map(({ slug, sections, title, parent, icon, eyebrow, lede, cover, audience, tabs }, position) => {
+  const reads = lang ?? book.theme.languages?.[0]?.code ?? null;
+  // As the planner gives readers: the words in their language, the other languages' left out.
+  const localize = <T extends { translations?: Record<string, object> | null }>(x: T): T => {
+    const out = { ...pickText(x, reads) };
+    delete out.translations;
+    return out;
+  };
+  const pages = book.pages.map((page, position) => {
+    const { slug, sections, title, parent, icon, eyebrow, lede, cover, audience, tabs, layout } = localize(page);
     const parsed = parseSections(sections);
     if (parsed.errors.length) throw new Error(`${name}/${slug}: ${parsed.errors.join("; ")}`);
     const home = position === 0 && parsed.sections[0]?.template === "cover";
@@ -599,7 +759,7 @@ export function fixtureView(name: string, slug?: string | null): PageView {
       home,
       updatedAt: AT,
     };
-    return { meta, sections: parsed.sections };
+    return { meta, layout: layout ?? "book", sections: parsed.sections.map(localize) };
   });
   const at = slug ? pages.find((p) => p.meta.slug === slug) : pages[0];
   if (!at) throw new Error(`No page "${slug}" in ${name}; there are ${pages.map((p) => p.meta.slug).join(", ")}`);
@@ -616,16 +776,17 @@ export function fixtureView(name: string, slug?: string | null): PageView {
     version: null,
     context: null,
     contexts: [...new Set(rules.flatMap((r) => (r.context ? [r.context] : [])))],
-    lang: null,
+    lang: reads,
     theme: { ...theme, settings: book.theme },
     nav: pages.map((p) => ({ ...p.meta, locked: false })),
-    page: { ...at.meta, sections: at.sections, aliases: [] },
+    page: { ...at.meta, sections: at.sections, aliases: [], layout: at.layout },
     locked: false,
     rules,
     media: Object.fromEntries([...ids].map((id) => [id, media(id)])),
     collections: Object.fromEntries(
       at.sections.filter((s) => s.template === "collection").map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
     ),
+    ...(at.sections.some((s) => s.template === "updates") && { updates: UPDATES }),
     signed: {},
     warnings: checkWarnings(theme.checks),
     missing: [],

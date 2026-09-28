@@ -17,6 +17,7 @@ import { Body } from "@/components/brand-sections/slots";
 import { SplitSection } from "@/components/brand-sections/split";
 import { TextSection } from "@/components/brand-sections/text";
 import { TypeSection } from "@/components/brand-sections/type";
+import { UpdatesSection } from "@/components/brand-sections/updates";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useSite } from "@/components/site/site-context";
 import { PageTabs } from "@/components/site/tabs";
@@ -51,6 +52,7 @@ export const RENDERERS: Record<Template, Renderer> = {
   links: { View: LinksSection },
   pages: { View: PagesSection },
   diagram: { View: DiagramSection },
+  updates: { View: UpdatesSection },
 };
 
 /** A template from a newer server than this page: the frame, its title and its body, at least. */

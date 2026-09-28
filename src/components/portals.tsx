@@ -37,8 +37,9 @@ import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { DEFAULT_PRESETS, PORTAL_PRESETS, PRESET_IDS, type PortalAccess, type PortalPreset } from "@/lib/portal";
+import { DEFAULT_PRESETS, PORTAL_PRESETS, PRESET_IDS, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 
 export type Portal = {
@@ -53,7 +54,9 @@ export type Portal = {
   presets: PortalPreset[];
   theme: { logo: string | null; accent: string | null; background: string | null };
   collections: { id: string; name: string }[];
-  brands: { slug: string; name: string }[];
+  /** `publishedAt` null: never published, so visitors see nothing of it. */
+  brands: { slug: string; name: string; publishedAt: string | null }[];
+  site: PortalSite;
   domain: {
     host: string;
     verified: boolean;
@@ -77,7 +80,7 @@ type Request = {
 };
 
 const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
-  public: { label: "Anyone with the address", hint: "Open to all; search engines are asked to stay out", icon: IconWorld },
+  public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it", icon: IconWorld },
   password: { label: "Whoever has the password", hint: "Anyone else can ask for access", icon: IconLock },
   members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
 };
@@ -192,6 +195,7 @@ export function Portals({ portals }: { portals: Portal[] }) {
                     {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5 shrink-0" aria-label="Members" />}
                     {p.expired && <Badge variant="outline">Closed</Badge>}
                     {p.domain && !p.domain.verified && <Badge variant="warning">Domain not verified</Badge>}
+                    <Unpublished brands={p.brands} />
                   </p>
                   <p className="text-muted-foreground truncate text-xs">
                     {p.url.replace(/^https?:\/\//, "")} · {[...p.collections, ...p.brands].map((c) => c.name).join(", ")}
@@ -269,7 +273,20 @@ function Color({ label, value, onChange }: { label: string; value: string | null
 type Pickable = { id: string; name: string; count?: number; private?: boolean };
 
 /** Checkboxes, and the picked ones in the order the portal shows them, to move up or down. */
-function Picks({ legend, items, picked, onChange }: { legend: string; items: Pickable[]; picked: string[]; onChange: (next: string[]) => void }) {
+function Picks({
+  legend,
+  items,
+  picked,
+  onChange,
+  children,
+}: {
+  legend: string;
+  items: Pickable[];
+  picked: string[];
+  onChange: (next: string[]) => void;
+  /** Below the list: a hint, or more about the picked ones. */
+  children?: React.ReactNode;
+}) {
   const [q, setQ] = useState("");
   const shown = q.trim() ? items.filter((i) => i.name.toLowerCase().includes(q.trim().toLowerCase())) : items;
   const move = (at: number, by: number) => {
@@ -323,6 +340,7 @@ function Picks({ legend, items, picked, onChange }: { legend: string; items: Pic
           })}
         </ol>
       )}
+      {children}
     </fieldset>
   );
 }
@@ -341,6 +359,7 @@ type Form = {
   accent: string | null;
   background: string | null;
   domain: string;
+  site: PortalSite;
 };
 
 const formOf = (p: Portal | null): Form => ({
@@ -358,6 +377,7 @@ const formOf = (p: Portal | null): Form => ({
   accent: p?.theme.accent ?? null,
   background: p?.theme.background ?? null,
   domain: p?.domain?.host ?? NO_DOMAIN,
+  site: p?.site ?? {},
 });
 
 /** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
@@ -387,7 +407,8 @@ function PortalDialog({
   const [current, setCurrent] = useState(portal);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [picking, setPicking] = useState(false);
+  /** The library picker, open for the logo or for a quick grab entry. */
+  const [picking, setPicking] = useState<"logo" | number | null>(null);
   useEffect(() => {
     fetch("/api/v1/portals/domains")
       .then((r) => (r.ok ? r.json() : { data: [] }))
@@ -413,6 +434,7 @@ function PortalDialog({
       collections: f.picked,
       brands: f.pickedBrands,
       domain: f.domain === NO_DOMAIN ? null : f.domain,
+      site: siteOut(f.site, f.access),
     };
     setBusy(true);
     const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
@@ -488,14 +510,29 @@ function PortalDialog({
               )}
             </div>
           </div>
-          {collections.length > 0 && <Picks legend="Collections" items={collections} picked={f.picked} onChange={(picked) => set({ picked })} />}
+          {collections.length > 0 && (
+            <Picks legend="Collections, in its Assets view" items={collections} picked={f.picked} onChange={(picked) => set({ picked })}>
+              {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
+            </Picks>
+          )}
           {brands.length > 0 && (
             <Picks
-              legend="Brands, each a tab of its guidelines"
+              legend="Brands whose pages it shows"
               items={brands.map((b) => ({ id: b.slug, name: b.name }))}
               picked={f.pickedBrands}
               onChange={(pickedBrands) => set({ pickedBrands })}
-            />
+            >
+              {f.pickedBrands.length > 0 && (
+                <div className="grid gap-1.5">
+                  <p className="text-muted-foreground text-xs">Visitors read each brand as last published, never the draft.</p>
+                  <ul aria-label="What visitors read" className="grid gap-1">
+                    {f.pickedBrands.map((slug) => (
+                      <PublishState key={slug} brand={brands.find((b) => b.slug === slug) ?? { slug, name: slug }} />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Picks>
           )}
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Who gets in</legend>
@@ -600,13 +637,13 @@ function PortalDialog({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setPicking(true)}
+                  onClick={() => setPicking("logo")}
                   aria-label={f.logo ? "Change the logo" : "Choose a logo"}
                   className="bg-checker text-muted-foreground relative flex h-14 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border"
                 >
                   {f.logo ? <Thumb key={f.logo} src={`/a/${f.logo}/w_160,f_webp`} alt="" /> : <IconPhoto className="size-5" />}
                 </button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setPicking(true)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPicking("logo")}>
                   {f.logo ? "Change" : "Choose from the library"}
                 </Button>
                 {f.logo && (
@@ -622,6 +659,13 @@ function PortalDialog({
               <Color label="Header background" value={f.background} onChange={(background) => set({ background })} />
             </div>
           </div>
+          <SiteFields
+            site={f.site}
+            onChange={(site) => set({ site })}
+            access={f.access}
+            brands={f.pickedBrands.map((slug) => brands.find((b) => b.slug === slug) ?? { slug, name: slug })}
+            onPickAsset={setPicking}
+          />
           <div className="grid gap-2">
             <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
             <Select value={f.domain} onValueChange={(domain) => set({ domain })}>
@@ -711,19 +755,310 @@ function PortalDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-      {picking && (
+      {picking === "logo" && (
         <LibraryPicker
           title="Pick the logo"
           description="An approved image from the library: it shows at the top of the portal and at its door."
           filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
-          onClose={() => setPicking(false)}
+          onClose={() => setPicking(null)}
           onPick={(a) => {
             set({ logo: a.id });
-            setPicking(false);
+            setPicking(null);
+          }}
+        />
+      )}
+      {typeof picking === "number" && (
+        <LibraryPicker
+          title="Pick the file"
+          description="An approved asset from the library: visitors download it from the header, signed for them."
+          filter={(a) => a.state === "active"}
+          onClose={() => setPicking(null)}
+          onPick={(a) => {
+            setF((x) => ({ ...x, site: { ...x.site, quick: x.site.quick?.map((q, i) => (i === picking ? { label: q.label, asset: a.id } : q)) } }));
+            setPicking(null);
           }}
         />
       )}
     </Dialog>
+  );
+}
+
+/** A row's warning: a brand it carries was never published, so visitors see nothing of it. */
+function Unpublished({ brands }: { brands: Portal["brands"] }) {
+  const none = brands.filter((b) => !b.publishedAt);
+  if (!none.length) return null;
+  return (
+    <Badge variant="warning" title={`Visitors see nothing of ${none.map((b) => b.name).join(", ")} until it is published`}>
+      {none.length === 1 ? `${none[0].name} not published` : `${none.length} brands not published`}
+    </Badge>
+  );
+}
+
+/** Where a carried brand's publish stands: its latest (GET /brands/{slug}/updates), which visitors read, or none. */
+function PublishState({ brand }: { brand: { slug: string; name: string } }) {
+  // undefined while it loads, or when it couldn't: nothing is said rather than something wrong.
+  const [last, setLast] = useState<{ version: number; publishedAt: string } | null>();
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/brands/${encodeURIComponent(brand.slug)}/updates`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((b: { data: { version: number; publishedAt: string }[] }) => live && setLast(b.data[0] ?? null))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [brand.slug]);
+  return (
+    <li className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <span className="min-w-0 truncate font-medium">{brand.name}</span>
+      {last === null && <Badge variant="warning">Not published: visitors see nothing</Badge>}
+      {last && (
+        <span className="text-muted-foreground" title={exact(last.publishedAt)}>
+          Version {last.version}, published {new Date(last.publishedAt).toLocaleDateString()}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/** Where a portal's own links may go, as the API checks them (lib/portal.ts): the web, mail, or a path on the portal. */
+const HREF = "(https?://|mailto:|/(?!/)).*";
+
+type Quick = NonNullable<PortalSite["quick"]>[number];
+type Footer = NonNullable<PortalSite["footer"]>;
+type FooterLink = NonNullable<Footer["links"]>[number];
+
+const QUICK_KINDS = { page: "A page", asset: "A file", href: "An address" } as const;
+type QuickKind = keyof typeof QUICK_KINDS;
+const kindOf = (q: Quick): QuickKind => (q.asset !== undefined ? "asset" : q.href !== undefined ? "href" : "page");
+const quickOf = (label: string, kind: QuickKind): Quick => (kind === "page" ? { label, page: "" } : kind === "asset" ? { label, asset: "" } : { label, href: "" });
+
+/** `list` with its `i`th replaced, or dropped for null. */
+const at = <T,>(list: T[], i: number, next: T | null) => (next ? list.map((x, j) => (j === i ? next : x)) : list.filter((_, j) => j !== i));
+
+/** The site as the API takes it: empty fields left out, a file entry not yet picked dropped, and listed only on a public portal (else it is refused). */
+function siteOut({ footer = {}, quick = [], terms, listed }: PortalSite, access: PortalAccess): PortalSite {
+  const text = footer.text?.trim();
+  const credit = footer.credit?.trim();
+  const feedback = footer.feedback?.trim();
+  const f: Footer = { ...(text && { text }), ...(footer.links?.length && { links: footer.links }), ...(credit && { credit }), ...(feedback && { feedback }) };
+  const q = quick.filter((x) => x.page || x.asset || x.href);
+  return {
+    ...(Object.keys(f).length > 0 && { footer: f }),
+    ...(q.length > 0 && { quick: q }),
+    ...(terms?.trim() && { terms: terms.trim() }),
+    ...(listed && access === "public" && { listed }),
+  };
+}
+
+/** The site around a portal's pages (lib/portal.ts PortalSite): quick grab in the header, the footer, terms, and whether search engines may list it. */
+function SiteFields({
+  site,
+  onChange,
+  access,
+  brands,
+  onPickAsset,
+}: {
+  site: PortalSite;
+  onChange: (next: PortalSite) => void;
+  access: PortalAccess;
+  /** The brands it carries, in order: a quick grab page is one of theirs. */
+  brands: { slug: string; name: string }[];
+  onPickAsset: (i: number) => void;
+}) {
+  const id = useId();
+  const footer = site.footer ?? {};
+  const quick = site.quick ?? [];
+  const links = footer.links ?? [];
+  const setQuick = (i: number, q: Quick | null) => onChange({ ...site, quick: at(quick, i, q) });
+  const setFooter = (patch: Partial<Footer>) => onChange({ ...site, footer: { ...footer, ...patch } });
+  const setLink = (i: number, l: FooterLink | null) => setFooter({ links: at(links, i, l) });
+  return (
+    <div className="grid gap-4 rounded-md border p-3">
+      <p className="text-sm font-medium">Around the pages</p>
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-sm leading-none font-medium">Quick grab</legend>
+        {quick.map((q, i) => {
+          const kind = kindOf(q);
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <Input
+                aria-label="Label"
+                value={q.label}
+                required
+                maxLength={40}
+                placeholder="Logo pack"
+                onChange={(e) => setQuick(i, { ...q, label: e.target.value })}
+                className="h-8 w-32"
+              />
+              <Select value={kind} onValueChange={(k) => setQuick(i, quickOf(q.label, k as QuickKind))}>
+                <SelectTrigger size="sm" aria-label="What it opens" className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(QUICK_KINDS) as QuickKind[]).map((k) => (
+                    <SelectItem key={k} value={k} disabled={k === "page" && !brands.length}>
+                      {QUICK_KINDS[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {kind === "page" && brands.length > 1 && (
+                <Select value={q.brand ?? brands[0].slug} onValueChange={(brand) => setQuick(i, { ...q, brand })}>
+                  <SelectTrigger size="sm" aria-label="Of the brand" className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((b) => (
+                      <SelectItem key={b.slug} value={b.slug}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {/* ponytail: the page's slug typed; a picker of the brand's pages when admins mistype them. */}
+              {kind === "page" && (
+                <Input
+                  aria-label="The page's slug"
+                  value={q.page ?? ""}
+                  required
+                  maxLength={60}
+                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  title="The page's slug, as in its address: logo, voice-and-tone"
+                  placeholder="logo"
+                  onChange={(e) => setQuick(i, { ...q, page: e.target.value.trim().toLowerCase() })}
+                  className="h-8 min-w-24 flex-1"
+                />
+              )}
+              {kind === "asset" && (
+                <span className="flex flex-1 items-center gap-2">
+                  {q.asset && (
+                    <span className="bg-checker relative size-8 shrink-0 overflow-hidden rounded border">
+                      <Thumb key={q.asset} src={`/a/${q.asset}/w_64,f_webp`} alt="" />
+                    </span>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={() => onPickAsset(i)}>
+                    {q.asset ? "Change the file" : "Choose a file"}
+                  </Button>
+                </span>
+              )}
+              {kind === "href" && (
+                <Input
+                  aria-label="Address"
+                  value={q.href ?? ""}
+                  required
+                  maxLength={2000}
+                  pattern={HREF}
+                  title="https://, mailto: or a /path"
+                  placeholder="https://example.com/press"
+                  onChange={(e) => setQuick(i, { ...q, href: e.target.value })}
+                  className="h-8 min-w-24 flex-1"
+                />
+              )}
+              <IconButton variant="ghost" label={`Remove ${q.label || "this link"}`} onClick={() => setQuick(i, null)}>
+                <IconX />
+              </IconButton>
+            </div>
+          );
+        })}
+        {quick.length < 6 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="justify-self-start"
+            onClick={() => onChange({ ...site, quick: [...quick, quickOf("", brands.length ? "page" : "href")] })}
+          >
+            <IconPlus /> Add a link
+          </Button>
+        )}
+        <p className="text-muted-foreground text-xs">Up to six, pinned in the header: a page, a file to download, or an address.</p>
+      </fieldset>
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-sm leading-none font-medium">Footer</legend>
+        <Textarea
+          aria-label="Footer text"
+          aria-describedby={`${id}-footer-hint`}
+          rows={2}
+          maxLength={2000}
+          value={footer.text ?? ""}
+          onChange={(e) => setFooter({ text: e.target.value })}
+          placeholder="Questions about the brand: brand@example.com"
+        />
+        <p id={`${id}-footer-hint`} className="text-muted-foreground text-xs">
+          Markdown works.
+        </p>
+        {links.map((l, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input aria-label="Link label" value={l.label} required maxLength={60} placeholder="Press" onChange={(e) => setLink(i, { ...l, label: e.target.value })} className="h-8 w-32" />
+            <Input
+              aria-label="Link address"
+              value={l.href}
+              required
+              maxLength={2000}
+              pattern={HREF}
+              title="https://, mailto: or a /path"
+              placeholder="https://example.com/press"
+              onChange={(e) => setLink(i, { ...l, href: e.target.value })}
+              className="h-8 min-w-0 flex-1"
+            />
+            <IconButton variant="ghost" label={`Remove ${l.label || "this link"}`} onClick={() => setLink(i, null)}>
+              <IconX />
+            </IconButton>
+          </div>
+        ))}
+        {links.length < 8 && (
+          <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => setFooter({ links: [...links, { label: "", href: "" }] })}>
+            <IconPlus /> Add a footer link
+          </Button>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-credit`}>Credit</Label>
+            <Input id={`${id}-credit`} value={footer.credit ?? ""} maxLength={120} placeholder="Design by Studio North" onChange={(e) => setFooter({ credit: e.target.value })} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-feedback`}>Feedback goes to</Label>
+            <Input
+              id={`${id}-feedback`}
+              value={footer.feedback ?? ""}
+              maxLength={2000}
+              pattern={HREF}
+              title="https://, mailto: or a /path"
+              placeholder="mailto:brand@example.com"
+              onChange={(e) => setFooter({ feedback: e.target.value })}
+            />
+          </div>
+        </div>
+      </fieldset>
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-terms`}>Terms of use</Label>
+        <Textarea
+          id={`${id}-terms`}
+          rows={3}
+          maxLength={10000}
+          value={site.terms ?? ""}
+          onChange={(e) => onChange({ ...site, terms: e.target.value })}
+          placeholder="For editorial use about Example only. Don't alter the logos."
+          aria-describedby={`${id}-terms-hint`}
+        />
+        <p id={`${id}-terms-hint`} className="text-muted-foreground text-xs">
+          Markdown. Visitors accept them once, before their first download. Empty: no terms.
+        </p>
+      </div>
+      {access === "public" && (
+        <div className="flex items-start gap-3">
+          <Switch id={`${id}-listed`} checked={!!site.listed} onCheckedChange={(listed) => onChange({ ...site, listed })} aria-describedby={`${id}-listed-hint`} />
+          <div className="grid gap-1">
+            <Label htmlFor={`${id}-listed`}>Let search engines list it</Label>
+            <p id={`${id}-listed-hint`} className="text-muted-foreground text-xs">
+              Off, they are asked to stay out. Only a public portal can be listed.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

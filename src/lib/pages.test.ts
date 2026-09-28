@@ -11,12 +11,15 @@ import {
   checkSection,
   checkTree,
   collectionQuery,
+  hiddenSlugs,
   initialPages,
   issues,
   mergedProps,
   pageMarkdown,
   pageWarnings,
+  PageInput,
   parseSections,
+  pickText,
   renameKey,
   samePages,
   SectionInput,
@@ -617,13 +620,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 14 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 15 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 14);
+  assert.equal(templates.length, 15);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -734,4 +737,71 @@ test("markdown: eyebrow, lede, aside, items, tone and audience, so agents read t
       "> See [the marks](/logo#marks).",
     ].join("\n"),
   );
+});
+
+// ---- W5: updates, languages, layout ---------------------------------------------
+
+test("updates: its limit is collection's on the wire, 20 at most on the page, and markdown says how many", () => {
+  assert.match(mergedProps().shape.limit.description!, /^collection: .+; updates: .+/);
+  const { sections, errors } = parseSections([{ id: "new", template: "updates", title: "What's new" }]);
+  assert.deepEqual(errors, []);
+  assert.equal(pageMarkdown({ title: "Home", sections }, RULES).split("\n").at(-1), "The latest 5 publishes.");
+  assert.deepEqual(parseSections([{ template: "updates", props: { limit: 21 } }]).errors, ["sections[0].props.limit: an updates section lists 20 publishes at most"]);
+  assert.deepEqual(parseSections([{ template: "updates", keys: ["tone.voice"] }]).errors, []);
+  assert.deepEqual(checkBindings(parseSections([{ template: "updates", keys: ["tone.voice"] }]).sections, RULES), ["sections[0].keys: a What's new section binds no rules"]);
+});
+
+test("translations: stored when given, a stored section parses again as itself; tags are lowercase", () => {
+  const translations = { ar: { title: "\u0627\u0644\u0634\u0639\u0627\u0631", items: [null, { caption: "\u0645\u0633\u0627\u062d\u0629" }] }, "en-gb": { body: "Colour" } };
+  const { sections, errors } = parseSections([{ ...FULL, translations }]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(sections[0].translations, translations);
+  assert.ok(SectionInput.safeParse(JSON.parse(JSON.stringify(sections[0]))).success);
+  assert.equal("translations" in parseSections([{ template: "text" }]).sections[0], false);
+  assert.match(parseSections([{ template: "text", translations: { AR: { title: "x" } } }]).errors.join(), /translations/);
+  assert.match(parseSections([{ template: "text", translations: { ar: { template: "cover" } } }]).errors.join(), /translations\.ar\.template: Unrecognized key/);
+});
+
+test("pickText: the language's words, then its base language's, then as written, field by field; items by position", () => {
+  const s = {
+    title: "Logo",
+    lede: "The mark",
+    body: "Give it room.",
+    items: [{ title: "Stretch", text: "Never" }, { title: "Room" }],
+    translations: { ar: { title: "AR title", lede: "AR lede", items: [null, { title: "AR room" }] }, "ar-eg": { lede: "EG lede", body: "  ", items: [{ text: "EG never" }] } },
+  };
+  const eg = pickText(s, "ar-eg");
+  assert.deepEqual([eg.title, eg.lede, eg.body], ["AR title", "EG lede", "Give it room."]);
+  assert.deepEqual(eg.items, [{ title: "Stretch", text: "EG never" }, { title: "AR room" }]);
+  assert.equal(pickText(s, "fr"), s);
+  assert.equal(pickText(s, null), s);
+  assert.deepEqual(pickText({ title: "Logo", translations: { ar: {} } }, "ar"), { title: "Logo", translations: { ar: {} } });
+  // A page's own words too, with no items.
+  assert.equal(pickText({ title: "Color", translations: { de: { title: "Farbe" } } }, "de").title, "Farbe");
+});
+
+test("layout round-trips through PageInput and the page op; book never enters a snapshot", () => {
+  assert.equal(PageInput.parse({ title: "Home", sections: [], layout: "landing" }).layout, "landing");
+  assert.equal(PageInput.parse({ title: "Home", sections: [] }).layout, undefined);
+  assert.ok(!PageInput.safeParse({ title: "Home", sections: [], layout: "wide" }).success);
+  assert.deepEqual(applyOps(PAGE, ops([{ op: "page", set: { layout: "book" } }]), "logo").page, { layout: "book" });
+  const translated = PageInput.parse({ title: "Home", sections: [], translations: { ar: { title: "x", lede: "y" } } });
+  assert.deepEqual(translated.translations, { ar: { title: "x", lede: "y" } });
+  assert.ok(PageInput.safeParse({ title: "Home", sections: [], translations: null }).success);
+  const landing: SnapPage = { slug: "home", title: "Home", position: 0, hidden: false, sections: [], layout: "landing" };
+  // @ts-expect-error A book page leaves layout out (D5): a snapshot never says book.
+  const book: SnapPage = { ...landing, layout: "book" };
+  assert.ok(landing && book);
+});
+
+test("markdown: a landing page says so beside its audience", () => {
+  assert.equal(pageMarkdown({ title: "Home", layout: "landing", sections: [] }, RULES), "# Home\n<!-- layout=landing -->");
+  assert.equal(pageMarkdown({ title: "Home", layout: "landing", audience: "partners", sections: [] }, RULES), "# Home\n<!-- audience=partners layout=landing -->");
+  assert.equal(pageMarkdown({ title: "Home", layout: "book", sections: [] }, RULES), "# Home");
+});
+
+test("hiddenSlugs: a hidden page and every page under it; a loop ends", () => {
+  const page = (slug: string, parent: string | null, hidden = false) => ({ slug, parent, hidden });
+  const pages = [page("a", null, true), page("b", "a"), page("c", "b"), page("d", null), page("e", "d"), page("x", "y"), page("y", "x")];
+  assert.deepEqual([...hiddenSlugs(pages)].sort(), ["a", "b", "c"]);
 });

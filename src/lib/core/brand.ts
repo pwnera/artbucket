@@ -1,15 +1,17 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { assets, brandRuleAssets, brandRules, brands, brandVersions } from "@/lib/db/schema";
+import { assets, brandRuleAssets, brandRules, brands, brandVersions, portalBrands } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { present, resolveBrand, slugify } from "@/lib/core/brands";
+import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { hasPreview } from "@/lib/preview";
 import { renameThemeKey, type ThemeSettings } from "@/lib/brand-theme";
-import { diffRules, extendsLatest, summarize, type SnapRule, type VersionKind } from "@/lib/history";
+import { diffRules, extendsLatest, summarize, updatesOf, type SnapRule, type VersionKind } from "@/lib/history";
 import { canon, changedPages, samePages, type SnapPage } from "@/lib/pages";
+import { can, needs } from "@/lib/permissions";
 import {
   renameInSpec,
   resolve,
@@ -190,10 +192,56 @@ export async function latestVersion(tx: Db, brandId: string) {
   return v;
 }
 
+/** What portals show (D15): the brand's latest publish. */
+export async function publishedVersion(tx: Db, brandId: string) {
+  const [v] = await tx
+    .select()
+    .from(brandVersions)
+    .where(and(eq(brandVersions.brandId, brandId), isNotNull(brandVersions.publishedAt)))
+    .orderBy(desc(brandVersions.number))
+    .limit(1);
+  return v;
+}
+
+/** Who publishes for nobody in particular: the migration, and a carried brand's first baseline. */
+const SYSTEM = "artbucket";
+
+/**
+ * The latest `limit` publishes, newest first, each with what it changed
+ * since the publish before it (lib/history.ts updatesOf): What's new.
+ */
+export async function listUpdates(brandId: string, limit = 20) {
+  const rows = await db
+    .select({
+      number: brandVersions.number,
+      rules: brandVersions.snapshot,
+      pages: brandVersions.pages,
+      publishedAt: brandVersions.publishedAt,
+      publishedBy: brandVersions.publishedBy,
+      note: brandVersions.note,
+      noteImage: brandVersions.noteImage,
+    })
+    .from(brandVersions)
+    .where(and(eq(brandVersions.brandId, brandId), isNotNull(brandVersions.publishedAt)))
+    .orderBy(desc(brandVersions.number))
+    .limit(limit + 1);
+  return updatesOf(rows, limit);
+}
+
 async function addVersion(
   tx: Tx,
   brandId: string,
-  v: { kind: VersionKind; actor: string; changed: string[]; snapshot: SnapRule[]; pages: SnapPage[]; theme: ThemeSettings; restoredFrom?: number },
+  v: {
+    kind: VersionKind;
+    actor: string;
+    changed: string[];
+    snapshot: SnapRule[];
+    pages: SnapPage[];
+    theme: ThemeSettings;
+    restoredFrom?: number;
+    publishedAt?: SQL;
+    publishedBy?: string;
+  },
 ) {
   const latest = await latestVersion(tx, brandId);
   await tx.insert(brandVersions).values({ brandId, number: (latest?.number ?? 0) + 1, ...v });
@@ -206,20 +254,24 @@ async function addVersion(
  * half-made change.
  *
  * The first change to a brand with no history records the state before it,
- * so even that change has something to diff against and restore to. Pages
+ * so even that change has something to diff against and restore to. When a
+ * portal carries the brand, that baseline is written as published: it is what
+ * visitors saw, live, and they keep seeing it rather than the edit (D15). Pages
  * changed are named in `changed` by themselves ("page:logo"), and so is the theme.
  */
 export async function tracked<T>(brandId: string, actor: string, changed: string[], fn: (tx: Tx) => Promise<T>) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brandId}))`);
     if (!(await latestVersion(tx, brandId))) {
+      const [carried] = await tx.select({ id: portalBrands.portalId }).from(portalBrands).where(eq(portalBrands.brandId, brandId)).limit(1);
       await addVersion(tx, brandId, {
         kind: "baseline",
-        actor: "artbucket",
+        actor: SYSTEM,
         changed: [],
         snapshot: await snapshot(tx, brandId),
         pages: await pageSnapshot(tx, brandId),
         theme: await themeOf(tx, brandId),
+        ...(carried && { publishedAt: sql`now()`, publishedBy: SYSTEM }),
       });
     }
     const out = await fn(tx);
@@ -718,8 +770,12 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
 /**
  * Publish the brand as it stands: its latest version becomes what portals
  * show, and the next edit starts a new version rather than changing it.
- * Publishing twice with nothing changed is the same publish. `note` says what
- * changed, for readers, with `image` (an asset) beside it.
+ * Publishing twice with nothing changed is the same publish, unless the first
+ * was the system's (the migration, a carried brand's baseline): a person's
+ * publish then takes it over, with its note. `note` says what changed, for
+ * readers, with `image` (an asset) beside it. Every collection a section
+ * shows must be one the publisher could share: publishing puts it in front
+ * of portal visitors.
  */
 export async function publishBrand(caller: Caller, slug: string | undefined, { note, image }: { note?: string; image?: string | null } = {}) {
   const brand = await resolveBrand(caller.workspace.id, slug);
@@ -732,10 +788,18 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
   }
   // An empty change through tracked: a brand with no history gets its baseline first.
   await tracked(brand.id, caller.actor, [], async () => {});
-  return db.transaction(async (tx) => {
+  const out = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
     const latest = (await latestVersion(tx, brand.id))!;
-    if (latest.publishedAt) return { brand: brand.slug, ...meta(latest), unchanged: true };
+    if (latest.publishedAt && latest.publishedBy !== SYSTEM) return { brand: brand.slug, ...meta(latest), unchanged: true };
+    const errors = (latest.pages ?? []).flatMap((p) =>
+      p.sections.flatMap((s, i) => {
+        const id = s.template === "collection" && (s.props as { collection?: string }).collection;
+        if (!id || can(caller, "collection.share", { id })) return [];
+        return [`pages.${p.slug}.sections[${i}].props.collection: collection ${id} goes to portal visitors, which takes ${needs("collection.share")}`];
+      }),
+    );
+    if (errors.length) throw new AssetError("forbidden", errors.join("\n"), { errors });
     const [row] = await tx
       .update(brandVersions)
       .set({
@@ -750,4 +814,6 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
       .returning();
     return { brand: brand.slug, ...meta(row), unchanged: false };
   });
+  if (!out.unchanged) await recordAudit(caller, "brand.published", brand.name, { brand: brand.slug, version: out.number, ...(note && { note }) });
+  return out;
 }

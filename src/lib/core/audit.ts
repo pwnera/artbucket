@@ -6,7 +6,8 @@ import { AssetError } from "@/lib/core/errors";
 /**
  * The audit log: who changed who may do what. Asset events are `activity`;
  * this is sign-ins, members, grants, invitations, keys, share links,
- * workspaces and settings. Free, like OIDC: trust shouldn't be a paid tier.
+ * workspaces, settings, and what portals publish. Free, like OIDC: trust
+ * shouldn't be a paid tier.
  */
 
 export type AuditAction =
@@ -38,6 +39,7 @@ export type AuditAction =
   | "portal.request_approved"
   | "portal.request_denied"
   | "portal.request_removed"
+  | "brand.published"
   | "domain.added"
   | "domain.verified"
   | "domain.removed"

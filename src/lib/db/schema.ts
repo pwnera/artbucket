@@ -23,13 +23,13 @@ import type { Metadata } from "@/lib/metadata";
 import type { ThemeSettings } from "@/lib/brand-theme";
 import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
-import type { Audience, Section, SnapPage } from "@/lib/pages";
+import type { Audience, PageLayout, PageText, Section, SnapPage } from "@/lib/pages";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import type { Ability, Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
-import type { PortalAccess, PortalPreset, PortalTheme } from "@/lib/portal";
+import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
 
 export type AssetStatus = Status;
 
@@ -437,6 +437,9 @@ export const brandPages = pgTable(
     tabs: boolean("tabs").notNull().default(false),
     /** Slugs it had before a rename, so old links keep working. */
     aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+    /** Its title, eyebrow and lede in other languages, by language tag; null for none. */
+    translations: jsonb("translations").$type<Record<string, PageText>>(),
+    layout: text("layout").$type<PageLayout>().notNull().default("book"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -448,6 +451,7 @@ export const brandPages = pgTable(
   (t) => [
     unique("brand_pages_brand_slug_unique").on(t.brandId, t.slug),
     check("brand_pages_audience_check", sql`${t.audience} in ('everyone', 'partners', 'members')`),
+    check("brand_pages_layout_check", sql`${t.layout} in ('book', 'landing')`),
   ],
 );
 
@@ -802,6 +806,8 @@ export const portals = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     presets: jsonb("presets").$type<PortalPreset[]>().notNull().default(["web", "print", "social"]),
     theme: jsonb("theme").$type<PortalTheme>().notNull().default({ logo: null, accent: null, background: null }),
+    /** The site around its pages: footer, quick grab, terms, and whether search engines may list it (lib/portal.ts PortalSite). */
+    site: jsonb("site").$type<PortalSite>().notNull().default({}),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

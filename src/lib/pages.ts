@@ -18,7 +18,7 @@ import { fontValue, listStyle, resolve, ruleContext, ruleKey, ruleLabel, section
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages", "diagram"] as const;
+export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages", "diagram", "updates"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const WIDTHS = ["text", "wide", "full"] as const;
@@ -250,6 +250,17 @@ export const TEMPLATE_INFO: Record<
     tone: "plain",
     example: { template: "diagram", title: "Clear space", keys: ["logo.mark", "logo.clearSpace"], props: { kind: "clearspace" } },
   },
+  updates: {
+    name: "What's new",
+    use: "The latest publishes, newest first: their notes, and the pages and rules each one changed.",
+    binds: null,
+    accepts: null,
+    items: null,
+    width: "text",
+    columns: 1,
+    tone: "plain",
+    example: { template: "updates", title: "What's new", props: { limit: 5 } },
+  },
 };
 
 // ---- schemas ----------------------------------------------------------------
@@ -352,6 +363,8 @@ export const TEMPLATE_PROPS = {
     partner: z.string().trim().max(60).optional().describe("cobrand: their name"),
     separator: z.enum(["line", "x", "none"]).optional().describe("cobrand: line when left out"),
   }),
+  // collection's limit, so the prop keeps one kind (mergedProps); checkSection holds it to 20 here.
+  updates: z.strictObject({ limit: z.number().int().min(1).max(200).optional().describe("How many publishes; 5 when left out, 20 at most") }),
 } satisfies Record<Template, z.ZodType>;
 
 const Background = z.strictObject({
@@ -360,10 +373,31 @@ const Background = z.strictObject({
   scrim: z.number().min(0).max(0.9).optional().describe("tone image: how much to darken it; 0.45 when left out"),
 });
 
+/** A section's words, bounded once for the section and for its translations. */
+const TEXT = {
+  title: z.string().trim().max(300),
+  eyebrow: z.string().trim().max(120),
+  lede: z.string().trim().max(1000),
+  body: z.string().trim().max(20000),
+  aside: z.string().trim().max(4000),
+};
+
+/** A language as a lowercase tag: ar, en-gb. */
+export const LANG = z.string().max(20).regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/, "A language tag in lowercase: ar, en-gb");
+
+/** A section's words in another language. Items line up with the section's by position; null keeps one as written. */
+export const SectionText = z
+  .strictObject({
+    ...TEXT,
+    items: z.array(z.strictObject({ title: z.string().trim().max(200), text: z.string().trim().max(4000), caption: z.string().trim().max(500) }).partial().nullable()).max(MAX_ITEMS),
+  })
+  .partial();
+export type SectionText = z.output<typeof SectionText>;
+
 const base = {
   id: sectionId.optional().describe("Kept across edits; made up when left out"),
-  title: z.string().trim().max(300).optional(),
-  body: z.string().trim().max(20000).optional().describe("Markdown (GFM), shown under the title"),
+  title: TEXT.title.optional(),
+  body: TEXT.body.optional().describe("Markdown (GFM), shown under the title"),
   width: z.enum(WIDTHS).optional().describe("text (a reading column), wide, or full bleed; the template's default when left out"),
   columns: z.number().int().min(1).max(4).optional(),
   tone: z
@@ -372,9 +406,9 @@ const base = {
     .describe("The ground. panel: the second surface; color and image: set in background; pattern: the theme's device"),
   hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
   keys: z.array(ruleKey).max(100).refine(unique, "Each key once").optional().describe("The rules it shows, by key, in order"),
-  eyebrow: z.string().trim().max(120).optional().describe("A small line above the title: a number, a chapter"),
-  lede: z.string().trim().max(1000).optional().describe("A line or two under the title, set large; plain text"),
-  aside: z.string().trim().max(4000).optional().describe("Markdown in a ruled column beside the body"),
+  eyebrow: TEXT.eyebrow.optional().describe("A small line above the title: a number, a chapter"),
+  lede: TEXT.lede.optional().describe("A line or two under the title, set large; plain text"),
+  aside: TEXT.aside.optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
   background: Background.optional().describe("For tone color and tone image"),
   items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
@@ -387,10 +421,11 @@ const base = {
     .optional()
     .describe('A tab per context, rules resolved for each: ["default", "dark-background"]; default: no context'),
   only: ruleContext.optional().describe("Shown only in this context"),
+  translations: z.record(LANG, SectionText).optional().describe("Its words by language tag; what is left out falls back"),
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
-const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "background", "items", "audience", "contexts", "only"] as const;
+const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "background", "items", "audience", "contexts", "only", "translations"] as const;
 
 // Props come in as their own type parameter: indexing TEMPLATE_PROPS by a generic template typed every prop as never.
 const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
@@ -412,6 +447,7 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("links", TEMPLATE_PROPS.links),
   variant("pages", TEMPLATE_PROPS.pages),
   variant("diagram", TEMPLATE_PROPS.diagram),
+  variant("updates", TEMPLATE_PROPS.updates),
 ]);
 export type SectionInput = z.input<typeof SectionInput>;
 
@@ -483,7 +519,16 @@ export type Section = {
   audience: Audience;
   contexts: string[];
   only: string;
+  translations: Record<string, SectionText>;
 }>;
+
+/** How a page sits in the site: a chapter of the book, or a front with no nav column, on-this-page or pager (D28). */
+export const PAGE_LAYOUTS = ["book", "landing"] as const;
+export type PageLayout = (typeof PAGE_LAYOUTS)[number];
+
+/** A page's words in another language. */
+const PageText = z.strictObject({ title: z.string().trim().max(120), eyebrow: TEXT.eyebrow, lede: TEXT.lede }).partial();
+export type PageText = z.output<typeof PageText>;
 
 /** A page's own fields beside its title and sections. On save, left out keeps a value and null clears it. */
 const PageMeta = {
@@ -494,6 +539,8 @@ const PageMeta = {
   icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   tabs: z.boolean().optional().describe("Its child pages as tabs across its top"),
+  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out"),
+  translations: z.record(LANG, PageText).nullable().optional().describe("Its words by language tag"),
 };
 
 /** What save_page and PUT take. Sections are advertised flat (SectionWire); parseSections checks each strictly. */
@@ -553,7 +600,38 @@ export type SnapPage = { slug: string; title: string; position: number; hidden: 
   aliases: string[];
   /** Last content change; left out of every comparison. */
   updatedAt: string;
+  /** Only landing: a book page, the default, leaves it out (D5). */
+  layout: "landing";
+  translations: Record<string, PageText>;
 }>;
+
+/**
+ * Its words in `lang`, field by field: the language's own, then its base
+ * language's (ar for ar-eg), then as written. Empty is missing. Items go by
+ * position, each field by itself; `translations` stays for the caller to keep or drop.
+ */
+export function pickText<T extends { translations?: Record<string, object> | null }>(x: T, lang: string | null): T {
+  type Words = Record<string, unknown>;
+  const found = (lang ? [x.translations?.[lang.split("-")[0]], x.translations?.[lang]] : []).filter((t): t is Words => !!t);
+  if (!found.length) return x;
+  // The base language first, then the language itself over it. Only words: items is an array, never a string.
+  const over = (into: object, from: Words[]) => {
+    const out: Words = { ...into };
+    for (const t of from) for (const [k, v] of Object.entries(t)) if (typeof v === "string" && v.trim()) out[k] = v;
+    return out;
+  };
+  const out = over(x, found);
+  if (Array.isArray(out.items)) out.items = out.items.map((it: object, i) => over(it, found.flatMap((t) => (Array.isArray(t.items) && t.items[i]) || [])));
+  return out as T;
+}
+
+/** Pages readers never reach: the hidden ones, and every page under one, wherever it sits. */
+export function hiddenSlugs(pages: { slug: string; parent?: string | null; hidden: boolean }[]): Set<string> {
+  const bySlug = new Map(pages.map((p) => [p.slug, p]));
+  const hidden = (p: (typeof pages)[number] | undefined, seen: Set<string>): boolean =>
+    !!p && !seen.has(p.slug) && (p.hidden || hidden(bySlug.get(p.parent ?? ""), seen.add(p.slug)));
+  return new Set(pages.filter((p) => hidden(p, new Set())).map((p) => p.slug));
+}
 
 const newId = () => `s${Math.random().toString(36).slice(2, 10)}`;
 
@@ -643,6 +721,7 @@ export function checkSection(s: Section, at: string): string[] {
     });
   }
   if (s.items?.length && s.props.from) errors.push(`${at}.props.from: items pick the pages, from shows a page's children; one or the other`);
+  if (s.template === "updates" && (s.props.limit as number) > 20) errors.push(`${at}.props.limit: an updates section lists 20 publishes at most`);
   return errors;
 }
 
@@ -1032,13 +1111,19 @@ function itemLine(it: Item) {
   return `- ${it.verdict ? `${it.verdict === "do" ? "Do" : "Don't"}: ` : ""}${words}`.trimEnd();
 }
 
-type MarkdownPage = Pick<SnapPage, "title" | "sections"> & { eyebrow?: string | null; lede?: string | null; audience?: Audience | null };
+type MarkdownPage = Pick<SnapPage, "title" | "sections"> & {
+  eyebrow?: string | null;
+  lede?: string | null;
+  audience?: Audience | null;
+  layout?: PageLayout | null;
+};
 
 /** A page as Markdown: what it says and shows, for an agent to read or check its work against. */
 export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
   const byKey = new Map(rules.map((r) => [r.key, r]));
   const out = [`# ${page.title}`];
-  if (page.audience && page.audience !== "everyone") out.push(`<!-- audience=${page.audience} -->`);
+  const flags = [page.audience && page.audience !== "everyone" && `audience=${page.audience}`, page.layout === "landing" && "layout=landing"].filter(Boolean);
+  if (flags.length) out.push(`<!-- ${flags.join(" ")} -->`);
   if (page.eyebrow) out.push("", `_${page.eyebrow}_`);
   if (page.lede) out.push("", page.lede);
   for (const s of page.sections) {
@@ -1070,6 +1155,7 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
       const from = p.collection ? `collection ${p.collection}` : p.search ? `saved search ${p.search}` : "the library";
       out.push("", `Assets from ${from}${p.query ? `, filtered by ${p.query}` : ""}.`);
     }
+    if (s.template === "updates") out.push("", `The latest ${(s.props.limit as number | undefined) ?? 5} publishes.`);
   }
   return out.join("\n");
 }

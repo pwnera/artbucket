@@ -1619,6 +1619,70 @@
               "maxLength": 64,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
             },
+            "translations": {
+              "description": "Its words by language tag; what is left out falls back",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "eyebrow": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "lede": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 20000
+                  },
+                  "aside": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "items": {
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "text": {
+                              "type": "string",
+                              "maxLength": 4000
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
             "template": {
               "type": "string",
               "enum": [
@@ -1635,7 +1699,8 @@
                 "collection",
                 "links",
                 "pages",
-                "diagram"
+                "diagram",
+                "updates"
               ]
             },
             "props": {
@@ -1771,7 +1836,7 @@
                   ]
                 },
                 "limit": {
-                  "description": "collection: At most this many; 24 when left out",
+                  "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 200
@@ -1937,6 +2002,48 @@
       "tabs": {
         "description": "Its child pages as tabs across its top",
         "type": "boolean"
+      },
+      "layout": {
+        "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+        "type": "string",
+        "enum": [
+          "book",
+          "landing"
+        ]
+      },
+      "translations": {
+        "description": "Its words by language tag",
+        "anyOf": [
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 20,
+              "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "eyebrow": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "lede": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "brand": {
         "description": "A brand's slug; the default brand when left out",
@@ -2182,6 +2289,70 @@
                       "maxLength": 64,
                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                     },
+                    "translations": {
+                      "description": "Its words by language tag; what is left out falls back",
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "maxLength": 20,
+                        "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "eyebrow": {
+                            "type": "string",
+                            "maxLength": 120
+                          },
+                          "lede": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "body": {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          "aside": {
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "items": {
+                            "maxItems": 60,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "title": {
+                                      "type": "string",
+                                      "maxLength": 200
+                                    },
+                                    "text": {
+                                      "type": "string",
+                                      "maxLength": 4000
+                                    },
+                                    "caption": {
+                                      "type": "string",
+                                      "maxLength": 500
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
                     "template": {
                       "type": "string",
                       "enum": [
@@ -2198,7 +2369,8 @@
                         "collection",
                         "links",
                         "pages",
-                        "diagram"
+                        "diagram",
+                        "updates"
                       ]
                     },
                     "props": {
@@ -2334,7 +2506,7 @@
                           ]
                         },
                         "limit": {
-                          "description": "collection: At most this many; 24 when left out",
+                          "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 200
@@ -2609,6 +2781,48 @@
                     "tabs": {
                       "description": "Its child pages as tabs across its top",
                       "type": "boolean"
+                    },
+                    "layout": {
+                      "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+                      "type": "string",
+                      "enum": [
+                        "book",
+                        "landing"
+                      ]
+                    },
+                    "translations": {
+                      "description": "Its words by language tag",
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "eyebrow": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "lede": {
+                                "type": "string",
+                                "maxLength": 1000
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "additionalProperties": false
@@ -2941,6 +3155,62 @@
             "type": "null"
           }
         ]
+      },
+      "toc": {
+        "anyOf": [
+          {
+            "description": "On this page: a side column, a list under the page header, or hidden",
+            "type": "string",
+            "enum": [
+              "side",
+              "inline",
+              "none"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "languages": {
+        "anyOf": [
+          {
+            "description": "The languages readers pick from; the first is the one the pages are written in",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 20,
+                  "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "dir": {
+                  "description": "From the language when left out",
+                  "type": "string",
+                  "enum": [
+                    "ltr",
+                    "rtl"
+                  ]
+                }
+              },
+              "required": [
+                "code",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "additionalProperties": false
@@ -2964,6 +3234,152 @@
         "format": "uuid"
       }
     }
+  },
+  "list_portals": {
+    "type": "object",
+    "properties": {}
+  },
+  "update_portal": {
+    "type": "object",
+    "properties": {
+      "brands": {
+        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "public",
+          "password",
+          "members"
+        ],
+        "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+      },
+      "expiresAt": {
+        "description": "It closes then",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "site": {
+        "description": "Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set",
+        "type": "object",
+        "properties": {
+          "footer": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "Markdown",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "links": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "href": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "href"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "credit": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "feedback": {
+                "description": "A URL or mailto:",
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "additionalProperties": false
+          },
+          "quick": {
+            "description": "Quick grab: pinned links in the header",
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "brand": {
+                  "description": "With page: a brand the portal carries; the first when left out",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "page": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "asset": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "href": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "terms": {
+            "description": "Markdown readers accept once before their first download",
+            "type": "string",
+            "maxLength": 10000
+          },
+          "listed": {
+            "description": "Search engines may index it; public portals only",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      }
+    },
+    "required": [
+      "portal"
+    ],
+    "additionalProperties": false
   },
   "propose_fields": {
     "type": "object",

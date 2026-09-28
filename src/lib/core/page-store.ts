@@ -33,6 +33,8 @@ export function toSnap(p: PageRow): SnapPage {
     ...(p.audience !== "everyone" && { audience: p.audience }),
     ...(p.tabs && { tabs: true as const }),
     ...(p.aliases.length > 0 && { aliases: p.aliases }),
+    ...(p.layout === "landing" && { layout: "landing" as const }),
+    ...(p.translations && { translations: p.translations }),
     updatedAt: p.updatedAt.toISOString(),
   };
 }
@@ -63,6 +65,8 @@ export async function writePages(tx: Tx, brandId: string, pages: SnapPage[]) {
       audience: p.audience ?? "everyone",
       tabs: p.tabs ?? false,
       aliases: p.aliases ?? [],
+      layout: p.layout ?? ("book" as const),
+      translations: p.translations ?? null,
       ...(p.updatedAt && { updatedAt: new Date(p.updatedAt) }),
     })),
   );

@@ -41,7 +41,7 @@ type Item = {
   actor: string;
   agent: boolean;
   // The schema's verbs, so a new one is a compile error in VERB below; the two rule verbs come from brand_versions.
-  verb: ActivityVerb | "edited_rules" | "restored_rules";
+  verb: ActivityVerb | "edited_rules" | "restored_rules" | "published";
   label: string;
   assetId: string | null;
   brand: { slug: string; name: string; version: number } | null;
@@ -63,6 +63,7 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   made_current: { icon: IconStack2, says: "made current" },
   edited_rules: { icon: IconBook, says: "edited the guidelines of" },
   restored_rules: { icon: IconBook, says: "restored an earlier version of" },
+  published: { icon: IconBook, says: "published the guidelines of" },
 };
 // What an unknown verb from a newer server reads as, rather than a crash.
 const SOMETHING = { icon: IconActivity, says: "changed" };

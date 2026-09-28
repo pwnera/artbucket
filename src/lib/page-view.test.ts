@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SnapRule } from "./history.ts";
-import { type Level, planView, type Plan, type Source } from "./page-view.ts";
+import { type Level, planView, type Plan, readablePages, type Source } from "./page-view.ts";
 import type { Section, SnapPage } from "./pages.ts";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -315,4 +315,117 @@ test("a context version without a label reads its default's; its own label wins"
   assert.deepEqual(labels({ ...SRC, rules }), ["Blender blue", "Blender blue"]);
   const own = rules.map((r) => (r.key === "color.accent" && r.context ? { ...r, label: "Blue on dark" } : r));
   assert.deepEqual(labels({ ...SRC, rules: own }), ["Blender blue", "Blue on dark"]);
+});
+
+// ---- W5: pages under hidden ones, languages, layout, updates, search ------------
+
+test("a page under a hidden page is hidden with it below editor, wherever it sits", () => {
+  const src = {
+    ...SRC,
+    pages: [
+      ...PAGES,
+      { slug: "wip-child", title: "Child", position: 5, hidden: false, parent: "wip", aliases: ["kid"], sections: [section("y")] },
+      { slug: "wip-grandchild", title: "Grandchild", position: 6, hidden: false, parent: "wip-child", sections: [] },
+    ],
+  };
+  for (const level of BELOW) {
+    const nav = page(null, level, src).view.nav.map((n) => n.slug);
+    assert.ok(!nav.includes("wip-child") && !nav.includes("wip-grandchild"), level);
+    assert.deepEqual(plan("wip-child", level, src), { kind: "missing" }, level);
+    assert.deepEqual(plan("kid", level, src), { kind: "missing" }, level);
+  }
+  assert.equal(page("wip-grandchild", "editor", src).view.page?.slug, "wip-grandchild");
+});
+
+const AR = {
+  ...SRC,
+  rules: [...RULES, rule("color.accent", "color", "#123456", { context: "ar" })],
+  theme: { ...SRC.theme, languages: [{ code: "en", label: "English" }, { code: "ar", label: "\u0627\u0644\u0639\u0631\u0628\u064a\u0629" }] },
+  pages: PAGES.map((p) =>
+    p.slug === "overview"
+      ? {
+          ...p,
+          translations: { ar: { title: "AR overview", lede: "AR lede" } },
+          sections: p.sections.map((s) => (s.id === "intro" ? { ...s, body: "Hello", translations: { ar: { title: "AR intro" }, fr: { body: "Bonjour" } } } : s)),
+        }
+      : p,
+  ),
+};
+
+test("a language: the words in it, field by field; only editors carry the other languages", () => {
+  // No lang asked: the language the pages are written in, as written.
+  const en = page("overview", "everyone", AR).view;
+  assert.deepEqual([en.lang, en.page?.title], ["en", "Overview"]);
+  const got = planView(AR, "overview", { level: "everyone", lang: "ar" }) as Extract<Plan, { kind: "page" }>;
+  assert.equal(got.view.lang, "ar");
+  assert.equal(got.view.nav.find((n) => n.slug === "overview")?.title, "AR overview");
+  assert.deepEqual([got.view.page?.title, got.view.page?.lede], ["AR overview", "AR lede"]);
+  const intro = got.view.page!.sections.find((s) => s.id === "intro")!;
+  assert.deepEqual([intro.title, intro.body, "translations" in intro], ["AR intro", "Hello", false]);
+  const editor = planView(AR, "overview", { level: "editor", lang: "ar" }) as Extract<Plan, { kind: "page" }>;
+  assert.deepEqual(Object.keys(editor.view.page!.sections.find((s) => s.id === "intro")!.translations!), ["ar", "fr"]);
+});
+
+test("a language the brand has as a context sets the context, unless one is asked for", () => {
+  const ctx = (o: { lang?: string; context?: string }) => (planView(AR, "overview", { level: "everyone", ...o }) as Extract<Plan, { kind: "page" }>).view.context;
+  assert.equal(ctx({ lang: "ar" }), "ar");
+  assert.equal(ctx({ lang: "ar-eg" }), "ar");
+  assert.equal(ctx({ lang: "ar", context: "dark-background" }), "dark-background");
+  assert.equal(ctx({ lang: "fr" }), null);
+  assert.equal(ctx({}), null);
+});
+
+test("layout: book unless the page is a landing page", () => {
+  assert.equal(page("overview", "everyone").view.page?.layout, "book");
+  const src = { ...SRC, pages: PAGES.map((p) => (p.slug === "overview" ? { ...p, layout: "landing" as const } : p)) };
+  assert.equal(page("overview", "everyone", src).view.page?.layout, "landing");
+});
+
+test("updates: the most publishes the page's updates sections list; none without one, or when it is above the level", () => {
+  assert.equal(page("overview", "everyone").updates, 0);
+  const src = {
+    ...SRC,
+    pages: PAGES.map((p) =>
+      p.slug === "overview"
+        ? {
+            ...p,
+            sections: [
+              section("news", { template: "updates" as const }),
+              section("more", { template: "updates" as const, props: { limit: 12 }, audience: "members" as const }),
+            ],
+          }
+        : p,
+    ),
+  };
+  assert.equal(page("overview", "everyone", src).updates, 5);
+  assert.equal(page("overview", "members", src).updates, 12);
+});
+
+test("readablePages: what a level may open, in reading order, in its language; nothing hidden or locked", () => {
+  const slugs = (level: Level, src: Source = SRC) => readablePages(src, { level }).map((p) => p.slug);
+  assert.deepEqual(slugs("everyone"), ["overview", "logo", "partner-kit"]);
+  assert.deepEqual(slugs("partners"), ["overview", "logo", "partners", "partner-kit"]);
+  assert.deepEqual(slugs("editor"), ["overview", "logo", "wip", "partners", "partner-kit"]);
+  const overview = readablePages(SRC, { level: "partners" })[0];
+  assert.deepEqual(
+    overview.sections.map((s) => s.id),
+    ["intro", "dark", "swatches", "posters"],
+  );
+  const ar = readablePages(AR, { level: "everyone", lang: "ar" })[0];
+  assert.equal(ar.title, "AR overview");
+  assert.equal(ar.sections[0].title, "AR intro");
+  assert.equal("translations" in ar || "translations" in ar.sections[0], false);
+});
+
+test("a reader's script brings its faces along, bound or not", () => {
+  // A second Latin face takes the text role, so the Arabic face is only there when the reader reads Arabic.
+  const body = rule("type.body", "font", { family: "Inter" }, { spec: { role: "body", script: "Latn" } });
+  const arabic = rule("type.arabic", "font", { family: "Noto Kufi Arabic" }, { spec: { script: "Arab" } });
+  const src: Source = { ...SRC, rules: [...RULES, body, arabic] };
+  const has = (lang: string) => {
+    const p = planView(src, "overview", { level: "everyone", lang });
+    return p.kind === "page" && p.view.rules.some((r) => r.key === "type.arabic");
+  };
+  assert.equal(has("ar"), true);
+  assert.equal(has("en"), false);
 });

@@ -8,10 +8,12 @@
  *
  * It needs the server's database (DATABASE_URL, read from .env) for one
  * thing: a write key of its own in the first workspace, like `pnpm bench`.
- * Pass or fail, it then deletes the brand it made, trashes the logos it
- * ingested (not ones already in the library) and deletes the key, and it
- * touches nothing else. A run killed midway leaves a brand eval-blender-* and
- * a key eval-mcp-*: delete them by hand. Not part of `pnpm test`: it needs a server.
+ * Then it puts the brand on a public portal of its own, over REST, and reads
+ * the portal as an anonymous visitor would. Pass or fail, it then deletes the
+ * portal and the brand it made, trashes the logos it ingested (not ones
+ * already in the library) and deletes the key, and it touches nothing else. A
+ * run killed midway leaves a brand eval-blender-*, a portal eval-* and a key
+ * eval-mcp-*: delete them by hand. Not part of `pnpm test`: it needs a server.
  */
 
 import assert from "node:assert/strict";
@@ -33,6 +35,11 @@ const LOGOS: BookAssets = {
   mark: "https://upload.wikimedia.org/wikipedia/commons/0/0c/Blender_logo_no_text.svg",
   wordmark: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Logo_Blender.svg",
 };
+/** Stand-ins, uploaded when Wikimedia won't serve the real ones: the eval tests artbucket, not their rate limit. */
+const STAND_INS: BookAssets = {
+  mark: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#e87d0d"/><circle cx="50" cy="50" r="16" fill="#265787"/></svg>`,
+  wordmark: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100"><circle cx="50" cy="50" r="40" fill="#e87d0d"/><circle cx="50" cy="50" r="16" fill="#265787"/><text x="110" y="64" font-family="sans-serif" font-size="44" fill="#265787">blender</text></svg>`,
+};
 
 type Section = { id: string; title: string; tone: string } & Record<string, unknown>;
 /** What get_theme, set_theme and PATCH theme answer. */
@@ -41,6 +48,7 @@ type Page = { slug: string; title: string; parent: string | null; aliases: strin
 
 const run = randomBytes(4).toString("hex");
 const brand = `eval-blender-${run}`;
+const portalSlug = `eval-${run}`;
 const secret = `ab_${randomBytes(32).toString("base64url")}`;
 const hash = createHash("sha256").update(secret).digest("hex");
 
@@ -91,13 +99,35 @@ await sql`insert into api_keys (workspace_id, name, prefix, hash, scope)
   values (${ws.id}, ${`eval-mcp-${run}`}, ${secret.slice(0, 10)}, ${hash}, 'write')`;
 /** Logos this run added; one the library already had deduped to it, and stays. */
 const ingested: string[] = [];
+let portalId: string | undefined;
 
 try {
   await http("POST", "/api/v1/brands", { name: "Blender (eval)", slug: brand });
 
   const ids = {} as BookAssets;
   for (const [name, url] of Object.entries(LOGOS) as [keyof BookAssets, string][]) {
-    const { deduped, asset } = await call<{ deduped: boolean; asset: { id: string; mime: string } }>("ingest_asset", { url });
+    type Got = { deduped: boolean; asset: { id: string; mime: string } };
+    // Wikimedia rate-limits repeat fetches (429): a short wait, then the stand-in through the upload flow.
+    const upload = async (): Promise<Got> => {
+      const bytes = Buffer.from(STAND_INS[name]);
+      const filename = `eval-${name}.svg`;
+      const t = await http<{ token: string; uploadUrl: string }>("POST", "/api/v1/uploads", { filename, mime: "image/svg+xml", size: bytes.length });
+      const put = await fetch(t.uploadUrl, { method: "PUT", body: bytes, headers: { "Content-Type": "image/svg+xml" } });
+      if (!put.ok) throw new Error(`PUT ${filename}: ${put.status}`);
+      const done = await http<{ data: { id: string; mime: string }; deduped: boolean }>("POST", "/api/v1/assets", { token: t.token, filename, mime: "image/svg+xml" });
+      return { deduped: done.deduped, asset: done.data };
+    };
+    const ingest = async (wait = 5): Promise<Got> => {
+      try {
+        return await call("ingest_asset", { url });
+      } catch (err) {
+        if (!/returned 429/.test(String(err))) throw err;
+        if (wait > 10) return upload();
+        await new Promise((r) => setTimeout(r, wait * 1000));
+        return ingest(wait * 2);
+      }
+    };
+    const { deduped, asset } = await ingest();
     assert.equal(asset.mime, "image/svg+xml");
     ids[name] = asset.id;
     if (!deduped) ingested.push(asset.id);
@@ -356,10 +386,100 @@ try {
   assert.deepEqual(carousel!.props, { layout: "carousel" });
   ok("gallery: a bento with a span, and a carousel, as saved");
 
+  // W5: a portal serves the latest publish at its visitor's level, never the draft.
+  // A page for partners, some of the voice page's words in Arabic and the languages to read them in; then a portal, then a publish.
+  await call("save_page", {
+    brand,
+    page: "partners",
+    title: "Partners",
+    audience: "partners",
+    sections: [{ template: "text", title: "Launch kit", body: "The Kestrel launch kit, for partners under NDA." }],
+  });
+  await call("edit_page", {
+    brand,
+    page: "voice",
+    ops: [
+      { op: "page", set: { translations: { ar: { title: "الصوت" } } } },
+      { op: "update", id: "line", set: { translations: { ar: { title: "في سطر واحد" } } } },
+    ],
+  });
+  await call("set_theme", { brand, languages: [{ code: "en", label: "English" }, { code: "ar", label: "العربية", dir: "rtl" }] });
+  portalId = (await http<{ data: { id: string } }>("POST", "/api/v1/portals", { name: "Blender (eval)", slug: portalSlug, brands: [brand] })).data.id;
+  const news = "Partners, and the voice page in Arabic.";
+  const { data: pub } = await http<{ data: { number: number; portals: { slug: string }[] } }>("POST", `/api/v1/brands/${brand}/publish`, { note: news });
+  assert.deepEqual(pub.portals.map((p) => p.slug), [portalSlug]);
+  ok("a public portal carries the brand, and publish names it");
+
+  type Site = {
+    portal: { level: string; brands: { slug: string; publishedAt: string | null }[] };
+    canonical: string | null;
+    redirect: boolean;
+    view: {
+      version: { number: number } | null;
+      lang: string | null;
+      locked: boolean;
+      nav: { slug: string; title: string; locked: boolean }[];
+      page: (Page & { layout: string; lede: string | null }) | null;
+      updates?: { version: number; note: string | null }[];
+    };
+  };
+  type Found = { hits: { kind: string; title: string; page: string }[] };
+  /** The portal as anyone reads it: no key, no password, no session. */
+  const visit = async <T>(path: string): Promise<T> => {
+    const res = await fetch(`${URL_}/api/v1/portal/${portalSlug}/${path}`);
+    if (!res.ok) throw new Error(`GET portal ${path}: ${res.status} ${await res.text()}`);
+    return ((await res.json()) as { data: T }).data;
+  };
+
+  const home = await visit<Site>("site");
+  assert.equal(home.portal.level, "everyone");
+  assert.deepEqual(home.portal.brands.map((b) => [b.slug, !!b.publishedAt]), [[brand, true]]);
+  assert.deepEqual([home.canonical, home.redirect, home.view.version?.number], ["/overview", false, pub.number]);
+  assert.equal(home.view.page?.layout, "landing");
+  assert.deepEqual([home.view.updates?.[0]?.version, home.view.updates?.[0]?.note], [pub.number, news]);
+  ok("the portal, anonymous: the latest publish, its home a landing page with the publish in What's new");
+
+  await call("edit_page", { brand, page: "overview", ops: [{ op: "update", id: "glance", set: { title: "Quokka draft" } }] });
+  const later = await visit<Site>("site?path=overview");
+  assert.equal(later.view.version?.number, pub.number);
+  assert.equal(later.view.page?.sections.find((s) => s.id === "glance")?.title, "At a glance");
+  ok("a draft edit after the publish: the portal doesn't show it");
+
+  const locked = await visit<Site>("site?path=partners");
+  assert.deepEqual([locked.view.page, locked.view.locked], [null, true]);
+  assert.equal(locked.view.nav.find((p) => p.slug === "partners")?.locked, true);
+  // A section for partners, on a page for everyone, is left out.
+  const open = await visit<Site>("site?path=logo-use");
+  assert.ok(open.view.page, "logo-use is for everyone");
+  assert.ok(!open.view.page.sections.some((s) => s.id === "credits"), "logo-use#credits is for partners");
+  ok("for the public, a partners page is listed locked and carries nothing; a partners section is left out");
+
+  const orange = await visit<Found>("search?q=orange");
+  assert.ok(orange.hits.some((h) => h.kind === "rule" && h.title === "Blender orange"), JSON.stringify(orange.hits));
+  // The locked page's words and the draft's are nowhere.
+  for (const q of ["kestrel", "quokka"]) assert.deepEqual((await visit<Found>(`search?q=${q}`)).hits, [], q);
+  ok("portal search: a published rule is found; a locked page's words and a draft's never");
+
+  const moved = await visit<Site>("site?path=logo");
+  assert.deepEqual([moved.redirect, moved.canonical, moved.view.page?.slug], [true, "/logos", "logos"]);
+  ok("the portal: the logo page's old slug redirects to its path now");
+
+  const ar = await visit<Site>("site?path=voice&lang=ar");
+  assert.equal(ar.view.lang, "ar");
+  assert.equal(ar.view.nav.find((p) => p.slug === "voice")?.title, "الصوت");
+  assert.deepEqual([ar.view.page?.title, ar.view.page?.lede], ["الصوت", "Plain words, and credit where it is due."]);
+  const line = ar.view.page?.sections.find((s) => s.id === "line");
+  assert.deepEqual([line?.title, line?.lede], ["في سطر واحد", "Blender is free and open source, made by a community."]);
+  assert.equal(ar.view.page?.sections.find((s) => s.id === "habits")?.title, "How we write");
+  // Readers get their language's words, never the others'.
+  assert.ok(line && !("translations" in line) && !("translations" in ar.view.page!));
+  ok("?lang=ar: the Arabic there is, the rest as written, field by field");
+
   console.log(`\nThe Blender book builds over MCP: ${passed} steps passed.`);
 } finally {
   // Each on its own: one failing cleanup never keeps the others from running.
   const warn = (what: string) => (err: unknown) => console.error(`Cleanup: couldn't ${what}: ${(err as Error).message}`);
+  if (portalId) await http("DELETE", `/api/v1/portals/${portalId}`).catch(warn(`delete portal ${portalSlug}`));
   // SQL, not DELETE /brands: that refuses the default, which this brand is in an empty workspace.
   await sql`delete from brands where workspace_id = ${ws.id} and slug = ${brand}`.catch(warn(`delete brand ${brand}`));
   for (const a of ingested) await http("DELETE", `/api/v1/assets/${a}`).catch(warn(`trash asset ${a}`));

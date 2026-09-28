@@ -67,18 +67,19 @@ const who = (req: NextRequest) => {
 
 /**
  * A request to a verified portal domain (lib/core/domains.ts) sees that
- * portal and nothing else of the app: every page is the portal's, and only
- * what the portal page calls, /api and /a, passes through as is.
+ * portal and nothing else of the app: every path is one of the portal's
+ * (/logo is /p/{slug}/logo), and only what the portal page calls, /api and
+ * /a, and robots.txt, which answers per host (app/robots.ts), pass through as is.
  */
 async function portalRewrite(req: NextRequest, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   if (!host || host === appHost) return null;
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/api/") || pathname.startsWith("/a/")) return null;
+  if (pathname.startsWith("/api/") || pathname.startsWith("/a/") || pathname === "/robots.txt") return null;
   const slug = await portalAtHost(host).catch(() => null);
   if (!slug) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/p/${slug}`;
+  url.pathname = `/p/${slug}${pathname === "/" ? "" : pathname}`;
   return NextResponse.rewrite(url, init);
 }
 

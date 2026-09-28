@@ -607,6 +607,18 @@ export function openapi(serverUrl: string) {
           ok: [200, "The page", data(S.PageView)],
         }),
       },
+      "/api/v1/brands/{slug}/updates": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "What's new in a brand",
+          scope: "read",
+          description:
+            "Its latest publishes, newest first, up to 20: each one's note and picture, and what it changed for readers " +
+            "since the publish before it (edits between two publishes are passed over): rules by key, and pages readers " +
+            "can reach, a hidden one left out.",
+          ok: [200, "Its publishes", data(z.array(S.Update))],
+        }),
+      },
       "/api/v1/brands/{slug}/publish": {
         parameters: [path("slug", "Brand slug")],
         post: {
@@ -893,11 +905,63 @@ export function openapi(serverUrl: string) {
           summary: "A brand's guidelines, in a portal",
           scope: "public",
           description:
-            "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET " +
-            "/api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id} " +
-            "with the signature in `signed`; images in a rule's text come signed.",
+            "The rules of one of the portal's brands as its latest publish has them, read-only, behind the same door " +
+            "as the portal (see GET /api/v1/portal/{slug}); a brand never published is a 404. A rule's assets are listed " +
+            "only when they may be used, and load from /a/{id} with the signature in `signed`; images in a rule's text " +
+            "come signed. `updatedAt` is when it was published.",
           query: { context: { schema: str, description: "Resolve for one context, e.g. dark-background" } },
           ok: [200, "The guidelines", S.PortalBrand],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/site": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "A page of a portal's brand book",
+          scope: "public",
+          description:
+            "A page of one of the portal's brands, from its latest publish (never the draft), as this visitor may read " +
+            "it, behind the same door as the portal. `path` is what follows /p/{slug}: nothing for the first brand's " +
+            "first page, `{page}` for a page of the first brand (else another brand's first page), `{brand}/{page}`. " +
+            "Pages above the visitor (`portal.level`) are listed with a lock and carry nothing; sections above them and " +
+            "hidden ones are left out. Every asset URL comes signed. `redirect`: the path was an old slug or a long " +
+            "form, so send the reader to `canonical`. A portal showing no brand answers `view: null`.",
+          query: {
+            path: { schema: str, description: "The portal path, e.g. logo or other-brand/logo" },
+            context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
+            lang: { schema: str, description: "The reader's language, a lowercase tag: ar, en-gb" },
+          },
+          ok: [200, "The page", data(S.PortalSiteView)],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/search": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "Search a portal",
+          scope: "public",
+          description:
+            "The pages, sections and rules of every brand it shows, from their latest publish, as far as this visitor " +
+            "may read: nothing hidden or locked is found. Every word must match, each as a prefix; each brand's best " +
+            "first, 20 at most. Beside them, up to 12 of its collections' assets.",
+          query: {
+            q: { schema: str, description: "Words to find" },
+            lang: { schema: str, description: "Search the pages in this language" },
+          },
+          ok: [200, "Hits and assets", data(z.object({ hits: z.array(S.Hit), assets: z.array(S.Media) }))],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/updates": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "What's new in a portal's brand",
+          scope: "public",
+          description:
+            "One of its brands' latest publishes, newest first, up to 20, with what each changed for readers. A " +
+            "publish's picture is in `media`, signed, while it may be used.",
+          query: { brand: { schema: str, description: "One of its brands, by slug; the first when left out" } },
+          ok: [200, "Its publishes", z.object({ data: z.array(S.Update), media: z.record(z.string(), S.Media) })],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },

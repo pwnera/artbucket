@@ -1,4 +1,5 @@
-import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, desc, eq, isNotNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { activity, assets, brands, brandVersions, type ActivityVerb } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -35,7 +36,7 @@ export type ActivityItem = {
   actor: string;
   /** An API key did it. */
   agent: boolean;
-  verb: ActivityVerb | "edited_rules" | "restored_rules";
+  verb: ActivityVerb | "edited_rules" | "restored_rules" | "published";
   /** What it happened to: an asset's title, or a brand's name. */
   label: string;
   assetId: string | null;
@@ -44,9 +45,17 @@ export type ActivityItem = {
   detail: { tags?: string[]; fields?: string[]; note?: string; version?: number; rules?: string[]; summary?: string } | null;
 };
 
+/** A publish's own id, apart from its version's (which the edit's item has): the version's id hashed into a UUID. */
+const publishId = (id: string) =>
+  createHash("sha256")
+    .update(`published:${id}`)
+    .digest("hex")
+    .replace(/^(.{8})(.{4}).(.{3}).(.{3})(.{12}).*$/, "$1-$2-5$3-8$4-$5");
+
 /**
- * Everything that happened, newest first: asset events, and brand versions
- * (which already group rule edits the way a person would describe them).
+ * Everything that happened, newest first: asset events, brand versions
+ * (which already group rule edits the way a person would describe them),
+ * and publishes, when portals started showing a version.
  * Page with `before`, the `at` of the last item seen. An asset the caller
  * can't see (a private one) leaves its events out.
  */
@@ -55,7 +64,7 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
   const until = before ? new Date(before) : undefined;
   if (until && Number.isNaN(until.getTime())) throw new AssetError("invalid", `Not a time: "${before}"`);
   const n = Math.min(Math.max(limit, 1), 100);
-  const [events, versions] = await Promise.all([
+  const [events, versions, publishes] = await Promise.all([
     db
       .select({
         id: activity.id,
@@ -84,6 +93,13 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
       .where(and(eq(brands.workspaceId, ws), ne(brandVersions.kind, "baseline"), until ? lt(brandVersions.updatedAt, until) : undefined))
       .orderBy(desc(brandVersions.updatedAt))
       .limit(n),
+    db
+      .select({ id: brandVersions.id, number: brandVersions.number, at: brandVersions.publishedAt, by: brandVersions.publishedBy, note: brandVersions.note, slug: brands.slug, name: brands.name })
+      .from(brandVersions)
+      .innerJoin(brands, eq(brands.id, brandVersions.brandId))
+      .where(and(eq(brands.workspaceId, ws), isNotNull(brandVersions.publishedAt), until ? lt(brandVersions.publishedAt, until) : undefined))
+      .orderBy(desc(brandVersions.publishedAt))
+      .limit(n),
   ]);
   const items: ActivityItem[] = [
     ...events.map((e) => ({ ...e, brand: null })),
@@ -97,6 +113,17 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
       assetId: null,
       brand: { slug, name, version: v.number },
       detail: { rules: v.changed, summary: v.kind === "restore" ? `Restored version ${v.restoredFrom ?? ""}`.trim() : summarize(v.changed) },
+    })),
+    ...publishes.map((p) => ({
+      id: publishId(p.id),
+      at: p.at!,
+      actor: p.by ?? "artbucket",
+      agent: false,
+      verb: "published" as const,
+      label: p.name,
+      assetId: null,
+      brand: { slug: p.slug, name: p.name, version: p.number },
+      detail: { summary: `Published version ${p.number}`, ...(p.note && { note: p.note }) },
     })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())

@@ -6,6 +6,7 @@ import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
+import { PortalPatch } from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -141,6 +142,13 @@ export const TOOL_INPUTS = {
     image: z.uuid().optional().describe("An asset shown beside the note, from search_assets"),
   }),
 
+  list_portals: z.object({}),
+
+  // PATCH /portals/{id}'s own fields, so both doors take the same thing; strict, as there.
+  update_portal: PortalPatch.pick({ brands: true, access: true, expiresAt: true, site: true }).extend({
+    portal: z.string().min(1).max(64).describe("Its address (slug), as list_portals names it"),
+  }),
+
   propose_fields: z.object({
     id,
     fields: z
@@ -152,9 +160,10 @@ export const TOOL_INPUTS = {
 export type ToolName = keyof typeof TOOL_INPUTS;
 
 /**
- * The tools as JSON Schema, the way tools/list sends them. A uuid's `format`
- * says it all: zod's 190-character pattern beside it would be most of a page
- * tool's schema (the size guard in mcp-tools.test.ts).
+ * The tools as JSON Schema, the way tools/list sends them. A uuid's or a
+ * date-time's `format` says it all: zod's 190- and 400-character patterns
+ * beside them would be most of a page tool's schema (the size guard in
+ * mcp-tools.test.ts).
  */
 export function toolSchemas() {
   return Object.fromEntries(
@@ -162,7 +171,7 @@ export function toolSchemas() {
       const s = z.toJSONSchema(input, {
         io: "input",
         override: ({ jsonSchema: j }) => {
-          if (j.format === "uuid") delete j.pattern;
+          if (j.format === "uuid" || j.format === "date-time") delete j.pattern;
         },
       });
       delete s.$schema;

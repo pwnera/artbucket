@@ -8,19 +8,30 @@ import { TOOL_INPUTS, toolSchemas } from "./mcp-tools.ts";
 // 9000, still well under the 13 KB save_page advertised before the flat wire. W4's diagram template, its 13
 // props and Item.span took edit_page to 9885 (save_page 8689): about 1000 of that is their names, enums and
 // bounds before any description, so no trim of the new words fits 9000, and the W1 and W2 words stay. The
-// line moved to 10000. Raise it only after the same hunt.
-test("the page tools' schemas stay under 10000 characters", () => {
+// line moved to 10000. W5's languages and layout took edit_page to 11283 (save_page 10087): a section's
+// translations are its five text fields and three item fields again, keyed by a language tag, and a page's are
+// three more, plus layout and the updates template. Their descriptions are cut to a phrase, and the text fields
+// share one set of bounds; what is left is shape, so the line moved to 12000. Raise it only after the same hunt.
+test("the page tools' schemas stay under 12000 characters", () => {
   const s = toolSchemas();
   for (const name of ["save_page", "edit_page"]) {
     const size = JSON.stringify(s[name]).length;
-    assert.ok(size < 10000, `${name} is ${size} characters`);
+    assert.ok(size < 12000, `${name} is ${size} characters`);
   }
 });
 
-test("a uuid is advertised by its format alone", () => {
+test("a uuid and a date-time are advertised by their format alone", () => {
   const image = JSON.stringify(toolSchemas().publish);
   assert.match(image, /"format":"uuid"/);
   assert.doesNotMatch(image, /"pattern"/);
+  const closes = JSON.stringify(toolSchemas().update_portal.properties?.expiresAt);
+  assert.match(closes, /"format":"date-time"/);
+  assert.doesNotMatch(closes, /"pattern"/);
+});
+
+test("update_portal refuses a misspelled field, as PATCH /portals/{id} does", () => {
+  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", expiresAt: null, site: { listed: true } }).success);
+  assert.ok(!TOOL_INPUTS.update_portal.safeParse({ portal: "press", brand: ["default"] }).success);
 });
 
 test("set_theme merges: null clears any setting, and a misspelled one is refused", () => {

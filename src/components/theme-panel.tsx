@@ -232,6 +232,16 @@ export function ThemePanel({
               ]}
               onChange={(v) => save({ nav: v as ThemeSettings["nav"] })}
             />
+            <Toggle
+              label="On this page"
+              value={s.toc ?? theme.toc}
+              options={[
+                ["side", "Side"],
+                ["inline", "Inline"],
+                ["none", "Hidden"],
+              ]}
+              onChange={(v) => save({ toc: v as ThemeSettings["toc"] })}
+            />
             <On label="Open every page on a band of the brand color" checked={s.band ?? theme.band} onChange={(band) => save({ band })} />
             <On label="Number chapters and pages" checked={s.numbering ?? theme.numbering} onChange={(numbering) => save({ numbering })} />
             <On

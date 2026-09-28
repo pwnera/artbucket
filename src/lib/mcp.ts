@@ -14,10 +14,11 @@ import { listContexts, listRules, publishBrand, setRules, type BrandRule } from 
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
-import { listBrands } from "@/lib/core/brands";
+import { listBrands, resolveBrand } from "@/lib/core/brands";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
+import { listPortals, portalsShowing, updatePortal } from "@/lib/core/portals";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
@@ -416,11 +417,48 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "Publish a brand's pages, rules and theme as they stand: portals show this version, and later edits wait for " +
       "the next publish. Only when the person asks; check the pages with get_page first. `note` tells readers what " +
-      "changed (What's new), with an `image` beside it. Publishing with nothing changed does nothing.",
+      "changed (What's new), with an `image` beside it. Publishing with nothing changed does nothing. `portals` " +
+      "names the portals showing the brand, where visitors now read it.",
     action: "brand.publish",
     readOnly: false,
     input: TOOL_INPUTS.publish,
-    run: async ({ brand, note, image }, caller) => publishBrand(caller, brand, { note, image }),
+    run: async ({ brand, note, image }, caller) => {
+      const published = await publishBrand(caller, brand, { note, image });
+      const { id } = await resolveBrand(caller.workspace.id, published.brand);
+      return { ...published, portals: await portalsShowing(caller.workspace.id, id) };
+    },
+  }),
+
+  // ---- portals: where brand pages meet visitors outside the team (lib/core/portals.ts)
+
+  list_portals: tool({
+    description:
+      "The workspace's portals: each one's address (slug) and url, who gets in (access), when it closes, the " +
+      "collections and brands it shows, and its site (footer, quick grab, terms, listed). Visitors read a brand's " +
+      "latest publish, never the draft: a brand whose publishedAt is null was never published, and shows nothing.",
+    action: "portal.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_portals,
+    run: async (_input, caller) => ({ portals: await listPortals(caller) }),
+  }),
+
+  update_portal: tool({
+    description:
+      "Change a portal: the brands it shows (by slug, in order, the whole list), who gets in (a password is set in " +
+      "the app), when it closes (expiresAt; null keeps it open), and its site. `site` replaces the whole set, so " +
+      "send back what list_portals gave, changed: footer { text (Markdown), links [{ label, href }], credit, " +
+      "feedback (a URL or mailto:) }; quick, up to 6 links pinned in the header, each { label } with one of page " +
+      "(and brand, else the first), asset or href; terms (Markdown) readers accept before their first download; " +
+      "listed, which lets search engines index a public portal. An href is https://, mailto: or a /path. Returns the portal.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.update_portal,
+    run: async ({ portal, ...input }, caller) => {
+      // ponytail: finds it among every portal presented; a lookup by slug in core when a workspace has hundreds.
+      const p = (await listPortals(caller)).find((x) => x.slug === portal || x.id === portal);
+      if (!p) throw new AssetError("not_found", `No portal "${portal}": list_portals names them`);
+      return (await updatePortal(caller, p.id, input))!;
+    },
   }),
 
   my_proposals: tool({

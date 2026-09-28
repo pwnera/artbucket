@@ -87,7 +87,8 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    For a brand with rules and no pages, `generate_pages` lays out a start.
 3. **Build a tree.** `parent` puts a page under another, three levels at most: Overview, then Identity
    with Color, Logo and Type under it. Renaming a page (`edit_page` with `{ "op": "page", "set": { "slug": ... } }`)
-   keeps the old slug working.
+   keeps the old slug working. A home or campaign page takes `layout: "landing"` (no nav column,
+   on-this-page or pager); every other page reads as a chapter (`book`, the default).
 4. **Items and tones.** `items` are what a template lists: on `dodont`, a do or a don't with its picture
    (`{ "verdict": "dont", "asset": "<id>", "title": "Stretch it" }`); on `gallery`, a picture with its caption.
    `tone` sets a section's ground: `plain`, `tint`, `brand`, `panel`, `dark`, `color` (with
@@ -103,6 +104,10 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    rule) and a `url` to open the page as readers see it; `get_page` returns the page as Markdown too. Edits
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
+9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
+   With a key that manages portals, `list_portals` says which brands each shows (`publishedAt: null`: never
+   published, so visitors see nothing), and `update_portal` changes its brands, access, closing date and site
+   (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
 
 ## Fonts
 

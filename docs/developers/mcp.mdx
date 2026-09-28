@@ -43,7 +43,13 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `delete_page` | write | Delete a page that has no pages under it; the brand's history keeps it |
 | `generate_pages` | write | Lay out a brand with no pages from its rules |
 | `set_theme` | write | Change the look a setting at a time; `null` clears one |
-| `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers |
+| `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
+| `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
+| `update_portal` | write, share | Change the brands a portal shows, who gets in, when it closes, and its site: footer, quick grab, terms, listed |
+
+A tool shows up in `tools/list` only when the key may run it: the portal
+tools, only for a key that may manage portals (write on the workspace, with
+sharing not turned off).
 
 Brand rules are also resources: `artbucket://brand/rules`, and
 `artbucket://brands/{slug}/rules/{context}`. So is every brand page, as
@@ -65,6 +71,9 @@ with the same tools a person's edits go through:
    `items` hold what a template lists, like a do or a don't with its picture.
    `tone` picks a section's ground: `plain`, `tint`, `brand`, `panel`, `dark`,
    `color` and `image` (set in `background`), or `pattern` (the theme's device).
+   A page's `layout` is `book`, a chapter with the nav beside it (the default),
+   or `landing`, a front for a home or campaign page with no nav column,
+   on-this-page or pager.
 3. **The theme is the look.** `set_theme` says which rules play which part
    (accent, grounds, ink, faces, logo) and sets the measure and chrome: radius,
    width, density, type scale, navigation, numbering, motion. It merges, and
@@ -74,7 +83,13 @@ with the same tools a person's edits go through:
    app as readers will see it.
 5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
    readers (up to 2000 characters) and an `image` beside it; portals show the
-   publish, never the draft.
+   publish, never the draft, and `portals` in its answer names where.
+6. **Put it in front of people.** `list_portals` says which portals show which
+   brands, and whether each brand was ever published (`publishedAt: null`:
+   visitors see nothing of it). `update_portal` takes the portal's slug and
+   what changes: `brands` (the whole list, in order), `access`, `expiresAt`,
+   and `site`, which replaces the whole set, so send back what `list_portals`
+   gave, changed.
 
 `edit_page` changes a page an operation at a time. Its `page` operation sets
 the page's own fields; a new `slug` renames it, and the old slug stays an alias,

@@ -90,6 +90,17 @@ test("theme settings are strict, and name rules by key", () => {
   assert.ok(!ThemeSettings.safeParse({ device: "logo.svg" }).success);
 });
 
+test("W5 settings: on this page is side when left out; languages are tags, each once, the first the pages' own", () => {
+  assert.equal(deriveTheme([]).toc, "side");
+  assert.equal(deriveTheme([], { toc: "inline" }).toc, "inline");
+  assert.ok(!ThemeSettings.safeParse({ toc: "top" }).success);
+  const languages = [{ code: "en", label: "English" }, { code: "ar", label: "Arabic", dir: "rtl" }];
+  assert.deepEqual(ThemeSettings.parse({ languages }).languages, languages);
+  assert.ok(!ThemeSettings.safeParse({ languages: [...languages, { code: "en", label: "Again" }] }).success);
+  assert.ok(!ThemeSettings.safeParse({ languages: [{ code: "EN", label: "English" }] }).success);
+  assert.ok(!ThemeSettings.safeParse({ languages: [{ code: "en", label: "" }] }).success);
+});
+
 test("fontRoles: the setting, then the role, then the name, then the first font", () => {
   const spec = (role: string) => ({ spec: { role } }) as Partial<Rule>;
   const rules = [

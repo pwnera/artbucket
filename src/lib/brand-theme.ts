@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { contrast, inkOn, isHex, lift, luminance, mix, rgb } from "./color.ts";
 import { fontFace, fontFiles, googleFontsCss, pickFace } from "./font.ts";
-import type { Section } from "./pages.ts";
+import { LANG, type Section } from "./pages.ts";
 import { type COLOR_SPEC, type FONT_SPEC, fontValue, type Rule, type RuleAsset, ruleKey } from "./rules.ts";
 
 /**
@@ -59,6 +59,13 @@ export const ThemeSettings = z.strictObject({
   band: z.boolean().optional().describe("Every page opens on a band of the brand color"),
   numbering: z.boolean().optional().describe("Number chapters and pages: 01, 01.2"),
   motion: z.enum(["none", "subtle"]).optional().describe("subtle: sections reveal as they scroll in; never with reduced motion"),
+  toc: z.enum(["side", "inline", "none"]).optional().describe("On this page: a side column, a list under the page header, or hidden"),
+  languages: z
+    .array(z.strictObject({ code: LANG, label: z.string().trim().min(1).max(40), dir: z.enum(["ltr", "rtl"]).optional().describe("From the language when left out") }))
+    .max(12)
+    .refine((ls) => new Set(ls.map((l) => l.code)).size === ls.length, "Each language once")
+    .optional()
+    .describe("The languages readers pick from; the first is the one the pages are written in"),
 });
 export type ThemeSettings = z.output<typeof ThemeSettings>;
 
@@ -200,6 +207,7 @@ export type Theme = {
   band: boolean;
   numbering: boolean;
   motion: "none" | "subtle";
+  toc: "side" | "inline" | "none";
   /** Every pair graded: `used` is `fg` when it clears `need`, else its fallback. */
   checks: Check[];
 };
@@ -344,6 +352,7 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
     band: s.band ?? false,
     numbering: s.numbering ?? false,
     motion: s.motion ?? "none",
+    toc: s.toc ?? "side",
     checks: rows,
   };
 }

@@ -11,8 +11,8 @@ import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
-import { PORTAL_ACCESS, PORTAL_SLUG, PortalTheme, PRESET_IDS } from "./portal.ts";
-import { AUDIENCES, PageInput, PageOp, WIDTHS } from "./pages.ts";
+import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PRESET_IDS } from "./portal.ts";
+import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 
 /**
@@ -256,6 +256,7 @@ const portal = {
   theme: PortalTheme.partial().optional(),
   collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
   brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
+  site: PortalSite.optional().describe("Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set"),
   domain: z
     .string()
     .max(253)
@@ -494,6 +495,7 @@ export const Section = z.object({
   audience: z.enum(AUDIENCES).optional(),
   contexts: z.array(z.string()).optional().describe("A tab per context, its rules resolved for each"),
   only: z.string().optional().describe("Shown only in this context"),
+  translations: z.record(z.string(), SectionText).optional().describe("Its words by language tag; readers get them already in their language"),
 });
 
 const pageFields = {
@@ -509,9 +511,15 @@ const pageFields = {
   audience: z.enum(AUDIENCES).describe("On portals: who may read it"),
   tabs: z.boolean().describe("Its child pages show as tabs across its top"),
   aliases: z.array(z.string()).describe("Slugs it had before a rename: they still find it"),
+  layout: z.enum(PAGE_LAYOUTS).describe("landing: a front with no nav column, on-this-page or pager; book: a chapter"),
   updatedAt: date.describe("The last change to what it says"),
 };
-export const BrandPage = z.object({ ...pageFields, sections: z.array(Section) });
+const pageText = z.object({ title: z.string(), eyebrow: z.string(), lede: z.string() }).partial();
+export const BrandPage = z.object({
+  ...pageFields,
+  translations: z.record(z.string(), pageText).nullable().optional().describe("Its title, eyebrow and lede by language tag"),
+  sections: z.array(Section),
+});
 export const PageSummary = z.object({ ...pageFields, sections: z.number().int().describe("How many") });
 
 const warnings = z.array(z.string()).describe("What a reader would trip on, though it saves: links that go nowhere, keys with no rule");
@@ -596,6 +604,7 @@ const Theme = z.object({
   band: z.boolean(),
   numbering: z.boolean(),
   motion: z.enum(["none", "subtle"]),
+  toc: z.enum(["side", "inline", "none"]).describe("On this page: a side column, a list under the page header, or none"),
   checks: ThemeChecks,
 });
 
@@ -633,6 +642,8 @@ const snapPage = z.object({
   audience: z.enum(AUDIENCES).optional(),
   tabs: z.boolean().optional(),
   aliases: z.array(z.string()).optional(),
+  layout: z.literal("landing").optional().describe("Left out: book"),
+  translations: z.record(z.string(), pageText).optional(),
   updatedAt: z.string().optional(),
 });
 export const VersionMeta = z.object({
@@ -664,6 +675,22 @@ export const Version = VersionMeta.extend({
 export const Published = VersionMeta.extend({
   brand: z.string(),
   unchanged: z.boolean().describe("Nothing changed since the last publish, which stands"),
+  portals: z.array(z.object({ slug: z.string(), name: z.string(), url: z.url() })).optional().describe("The portals showing it, where visitors now read it"),
+});
+const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
+const keys = z.array(z.string());
+export const Update = z.object({
+  version: z.number().int(),
+  publishedAt: date,
+  publishedBy: z.string().nullable(),
+  note: z.string().nullable().describe("What changed, in the publisher's words"),
+  image: uuid.nullable().describe("An asset shown beside the note; null when it may no longer be used"),
+  changes: z
+    .object({
+      rules: z.object({ added: keys, changed: keys, removed: keys }).describe("By key"),
+      pages: z.object({ added: refs, changed: refs, removed: refs }).describe("Pages readers can reach: a hidden one is left out"),
+    })
+    .describe("What it changed for readers since the publish before it"),
 });
 export const Restored = z.object({
   restored: z.number().int(),
@@ -750,6 +777,7 @@ export const ActivityItem = z.object({
     "made_current",
     "edited_rules",
     "restored_rules",
+    "published",
   ]),
   label: z.string().describe("The asset's title or filename then, or the brand's name"),
   assetId: uuid.nullable(),
@@ -947,7 +975,10 @@ export const Portal = z.object({
   presets: z.array(z.enum(PRESET_IDS)),
   theme: PortalTheme,
   collections: z.array(z.object({ id: uuid, name: z.string() })),
-  brands: z.array(z.object({ slug: z.string(), name: z.string() })).describe("Brands whose guidelines it publishes, in tab order"),
+  brands: z
+    .array(z.object({ slug: z.string(), name: z.string(), publishedAt: date.nullable().describe("Its latest publish; null: never published, so visitors see nothing of it") }))
+    .describe("Brands whose guidelines it publishes, in tab order"),
+  site: PortalSite,
   domain: domainState.nullable(),
   url: z.url().describe("Where visitors go: its domain once verified, else /p/{slug}"),
   pending: z.number().int().describe("Access requests waiting"),
@@ -1065,7 +1096,11 @@ export const PageView = z.object({
   theme: Theme.extend({ settings: ThemeSettings }).describe("The look, derived and graded, and the settings it came from"),
   nav: z.array(NavPage).describe("Every page the reader is listed, in order"),
   page: NavPage.omit({ locked: true })
-    .extend({ sections: z.array(Section).describe("What the reader gets: hidden ones for editors only"), aliases: z.array(z.string()) })
+    .extend({
+      sections: z.array(Section).describe("What the reader gets: hidden ones for editors only"),
+      aliases: z.array(z.string()),
+      layout: BrandPage.shape.layout,
+    })
     .nullable()
     .describe("null: locked for this reader"),
   locked: z.boolean(),
@@ -1075,9 +1110,36 @@ export const PageView = z.object({
   collections: z
     .record(z.string(), z.object({ items: z.array(Media), total: z.number().int(), error: z.string().nullable().describe("Why it shows nothing; editors only") }))
     .describe("A collection section's assets, by section id"),
+  updates: z.array(Update).optional().describe("With an updates section: the latest publishes, newest first, as many as its largest limit"),
   signed: z.record(uuid, z.string()).describe("Signatures by asset id, for visitors; empty for members"),
   warnings: z.array(z.string()).describe("Editors only: what a reader would trip on, assets they won't see, and theme pairs that fell back"),
   missing: z.array(z.string()).describe("Editors only: keys a section binds with no rule"),
+});
+
+export const Hit = z.object({
+  kind: z.enum(["page", "section", "rule"]),
+  brand: z.string(),
+  page: z.string(),
+  section: z.string().optional().describe("The section's id: its anchor on the page"),
+  title: z.string(),
+  snippet: z.string().describe("Plain text around the first word found"),
+  path: z.string().describe("The page's path on the portal, e.g. /logo: the first brand's pages sit at the top, the others under their brand"),
+});
+export const PortalSiteView = z.object({
+  portal: z.object({
+    slug: z.string(),
+    name: z.string(),
+    theme: PortalView.shape.portal.shape.theme.describe("The portal's own look, for its header: pages wear their brand's"),
+    site: PortalSite.describe("Footer, quick grab and terms; an asset in quick grab comes with `href`, signed to download"),
+    brands: z.array(z.object({ slug: z.string(), name: z.string(), publishedAt: date.nullable().describe("null: shown as it stands, having no history") })).describe(
+      "The brands it shows, in order; one never published is left out",
+    ),
+    assets: z.boolean().describe("It shows collections: its Assets view"),
+    level: z.enum(AUDIENCES).describe("Who the visitor is to it: everyone, partners (its password or an approved request) or members"),
+  }),
+  canonical: z.string().nullable().describe("The page's path on the portal, what links use; null with no page"),
+  redirect: z.boolean().describe("The path asked was an old slug or a long form: send the reader to canonical"),
+  view: PageView.nullable().describe("null: it shows no brand, so its Assets view is the portal"),
 });
 
 export const AuditEntry = z.object({

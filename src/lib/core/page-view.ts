@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import { deliverableSql, stateSql } from "@/lib/core/assets";
-import { snapshot } from "@/lib/core/brand";
+import { latestVersion, listUpdates, publishedVersion, snapshot } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { pageSnapshot } from "@/lib/core/page-store";
@@ -26,11 +26,34 @@ import type { z } from "zod";
  * reader, the builder canvas and portals all come through here.
  */
 
+export type BrandSource = Source & { brandId: string; workspaceId: string };
+
 /** The brand as it stands now, unpublished: its rules, pages and theme. */
-export async function draftSource(ws: string, brandSlug?: string): Promise<Source & { brandId: string; workspaceId: string }> {
+export async function draftSource(ws: string, brandSlug?: string): Promise<BrandSource> {
   const b = await resolveBrand(ws, brandSlug);
   const [rules, pages] = await Promise.all([snapshot(db, b.id), pageSnapshot(db, b.id)]);
   return { brand: { slug: b.slug, name: b.name }, rules, pages, theme: b.theme, version: null, brandId: b.id, workspaceId: ws };
+}
+
+/**
+ * The brand as portals show it (D15): its latest publish. A brand with no
+ * history at all shows as it stands, which is what its baseline will be;
+ * one with history and no publish shows nothing (null).
+ */
+export async function publishedSource(ws: string, brandSlug?: string): Promise<BrandSource | null> {
+  const b = await resolveBrand(ws, brandSlug);
+  const v = await publishedVersion(db, b.id);
+  if (!v) return (await latestVersion(db, b.id)) ? null : draftSource(ws, b.slug);
+  return {
+    brand: { slug: b.slug, name: b.name },
+    rules: v.snapshot,
+    pages: v.pages,
+    // A version from before themes reads as the empty theme, as tracked reads it.
+    theme: v.theme ?? {},
+    version: { number: v.number, publishedAt: v.publishedAt!.toISOString() },
+    brandId: b.id,
+    workspaceId: ws,
+  };
 }
 
 /** Why a reader won't see an asset, for the editor's warning. */
@@ -43,7 +66,7 @@ const why = (state: string) => (state === "active" ? "under embargo" : state);
  */
 export async function viewPage(
   ws: string,
-  src: Source,
+  src: BrandSource,
   slug: string | null,
   o: { context?: string; lang?: string; level: Level; sign: Sign; presets: PortalPreset[]; as?: Caller },
 ): Promise<PageView> {
@@ -55,13 +78,15 @@ export async function viewPage(
   if (plan.kind === "redirect") return { ...(await viewPage(ws, src, plan.slug, o)), redirect: plan.slug };
   const { view } = plan;
   const editor = o.level === "editor";
+  const updates = plan.updates > 0 ? await listUpdates(src.brandId, plan.updates) : undefined;
 
-  // Every asset in one query. Preview equals portal: editors see what readers see, and are told what they don't.
-  const rows = plan.assets.length
+  // Every asset in one query, the publishes' pictures too. Preview equals portal: editors see what readers see, and are told what they don't.
+  const ids = [...new Set([...plan.assets, ...(updates ?? []).flatMap((u) => u.image ?? [])])];
+  const rows = ids.length
     ? await db
         .select({ asset: assets, ok: sql<boolean>`${deliverableSql}`, state: stateSql })
         .from(assets)
-        .where(and(inArray(assets.id, plan.assets), eq(assets.workspaceId, ws)))
+        .where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws)))
     : [];
   const usable = new Map(rows.filter((r) => r.ok).map((r) => [r.asset.id, r.asset]));
   const media = Object.fromEntries([...usable.values()].map((a) => [a.id, presentAsset(a, o)]));
@@ -119,6 +144,8 @@ export async function viewPage(
     rules: signIn(rules),
     media,
     collections,
+    // A publish's picture shows only while it may be used, like any other.
+    ...(updates && { updates: updates.map((u) => ({ ...u, image: u.image && usable.has(u.image) ? u.image : null })) }),
     signed,
     warnings: [...view.warnings, ...dropped],
   };

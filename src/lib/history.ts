@@ -1,3 +1,4 @@
+import { canon, hiddenSlugs, type SnapPage } from "./pages.ts";
 import type { RuleAsset, RuleSpec, RuleType, RuleValue } from "./rules.ts";
 
 /**
@@ -107,4 +108,73 @@ export function summarize(changed: string[]) {
   // Pages are named "page:logo" (lib/pages.ts changedPages); the theme is "theme".
   const name = first === "theme" ? "the theme" : first.startsWith("page:") ? `the ${first.slice(5)} page` : first;
   return `Edited ${name}${rest.length ? ` and ${rest.length} more` : ""}`;
+}
+
+// ---- what's new ---------------------------------------------------------------
+
+export type Ref = { slug: string; title: string };
+export type WhatsNew = {
+  rules: { added: string[]; changed: string[]; removed: string[] };
+  pages: { added: Ref[]; changed: Ref[]; removed: Ref[] };
+};
+type Published = { rules: SnapRule[]; pages: SnapPage[] | null };
+
+/** What a reader sees of a page: not where it sits in the tree, its old slugs, when it was written, or its hidden sections. */
+const said = (p: SnapPage) =>
+  canon({ ...p, slug: undefined, position: undefined, parent: undefined, aliases: undefined, updatedAt: undefined, sections: p.sections.filter((s) => !s.hidden) });
+
+/**
+ * What a publish changed for readers since the one before it (null: the
+ * first, where everything is new). Rules by key, whatever the context; a
+ * reorder is no news. Pages readers can't reach (hidden, or under a hidden
+ * page) are left out, so hiding one reads as removed and showing it as added;
+ * a renamed page is the same page, found by its old slug.
+ */
+export function whatsNew(before: Published | null, after: Published): WhatsNew {
+  const had = new Set((before?.rules ?? []).map((r) => r.key));
+  const has = new Set(after.rules.map((r) => r.key));
+  const touched = new Set(diffRules(before?.rules ?? [], after.rules).flatMap((c) => (c.change === "moved" ? [] : c.key)));
+  const shown = (ps: SnapPage[] | null) => {
+    const hidden = hiddenSlugs(ps ?? []);
+    return (ps ?? []).filter((p) => !hidden.has(p.slug));
+  };
+  const [was, is] = [shown(before?.pages ?? null), shown(after.pages)];
+  const now = (p: SnapPage) => is.find((q) => q.slug === p.slug) ?? is.find((q) => q.aliases?.includes(p.slug));
+  const kept = new Map(was.flatMap((p) => (now(p) ? [[now(p)!.slug, p] as const] : [])));
+  const ref = ({ slug, title }: SnapPage): Ref => ({ slug, title });
+  return {
+    rules: {
+      added: [...has].filter((k) => !had.has(k)),
+      changed: [...touched].filter((k) => had.has(k) && has.has(k)),
+      removed: [...had].filter((k) => !has.has(k)),
+    },
+    pages: {
+      added: is.filter((p) => !kept.has(p.slug)).map(ref),
+      changed: is.filter((p) => kept.has(p.slug) && said(kept.get(p.slug)!) !== said(p)).map(ref),
+      removed: was.filter((p) => !now(p)).map(ref),
+    },
+  };
+}
+
+/** A publish, as What's new lists it: `image` is the note's picture, an asset id. */
+export type Update = { version: number; publishedAt: string; publishedBy: string | null; note: string | null; image: string | null; changes: WhatsNew };
+
+type Version = Published & { number: number; publishedAt: Date | string | null; publishedBy: string | null; note: string | null; noteImage: string | null };
+
+/**
+ * The latest `limit` publishes, newest first, each beside the publish before
+ * it: edits and restores between two publishes are passed over, so readers
+ * see what changed from what they saw. Give it one publish more than `limit`,
+ * or the oldest listed reads as the first, everything new.
+ */
+export function updatesOf(versions: Version[], limit = 20): Update[] {
+  const published = versions.filter((v) => v.publishedAt).sort((a, b) => b.number - a.number);
+  return published.slice(0, limit).map((v, i) => ({
+    version: v.number,
+    publishedAt: new Date(v.publishedAt!).toISOString(),
+    publishedBy: v.publishedBy,
+    note: v.note,
+    image: v.noteImage,
+    changes: whatsNew(published[i + 1] ?? null, v),
+  }));
 }

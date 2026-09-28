@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, ThemeSettings } from "../brand-theme.ts";
 import { assetRefs, boundKeys, checkBindings, checkTree, PageInput, pageSlug, pageWarnings, parseSections, TEMPLATES } from "../pages.ts";
 import { RuleInput, specKeys } from "../rules.ts";
-import { big, blender, FIXTURES, fixtureUrl, fixtureView, hairline, ugly } from "./brand-book.ts";
+import { dirOf, scriptOf } from "../site.ts";
+import { big, blender, FIXTURES, fixtureUrl, fixtureView, hairline, rtl, ugly } from "./brand-book.ts";
 
 // scripts/mcp-eval.ts builds this book over MCP and expects no errors, no page
 // warnings and the theme's three contrast warnings (its orange on white is
@@ -48,6 +49,11 @@ test("fixtureView: each blender page, with its rules and pictures", () => {
   }
   const first = fixtureView("blender");
   assert.equal(first.page?.slug, "overview");
+  // The home is a landing page, with What's new; the rest read as a book.
+  assert.equal(first.page?.layout, "landing");
+  assert.equal(fixtureView("blender", "color").page?.layout, "book");
+  assert.ok(first.updates?.length && first.media[first.updates[0].image!]);
+  assert.equal(fixtureView("blender", "color").updates, undefined);
   assert.deepEqual(first.nav.filter((p) => p.home).map((p) => p.slug), ["overview"]);
   assert.equal(first.nav.find((p) => p.slug === "logo-use")?.parent, "logo");
   assert.deepEqual(first.contexts, ["dark-background", "print"]);
@@ -97,4 +103,40 @@ test("ugly and hairline parse, bind and warn about nothing but contrast", () => 
   const tones = new Set(ugly().pages.flatMap((p) => p.sections.map((s) => s.tone ?? "plain")));
   assert.deepEqual([...tones].sort(), ["color", "dark", "image", "panel", "pattern", "plain", "tint"], "every ground but brand, which the header and band draw");
   assert.equal(hairline().theme.accentUse, "hairline");
+});
+
+// W5: a book written right to left, read in English too, falling back to its Arabic field by field.
+test("rtl parses and binds, reads right to left, and falls back field by field", () => {
+  const book = rtl();
+  const rules = book.rules.map((r) => ({ context: null, assets: [], ...RuleInput.parse(r) }));
+  const pages = book.pages.map(({ slug, ...input }) => {
+    const { sections, errors } = parseSections(PageInput.parse(input).sections);
+    assert.deepEqual(errors, [], slug);
+    assert.deepEqual(checkBindings(sections, rules), [], slug);
+    return { slug, parent: null, sections };
+  });
+  for (const p of pages) assert.deepEqual(pageWarnings(p, pages, rules), [], p.slug);
+  const theme = ThemeSettings.parse(book.theme);
+  assert.deepEqual(theme.languages?.map((l) => [l.code, l.dir ?? dirOf(l.code)]), [["ar", "rtl"], ["en", "ltr"]]);
+  assert.equal(scriptOf("ar"), "Arab");
+  assert.deepEqual(rules.flatMap((r) => (r.type === "font" && "spec" in r && r.spec?.script) || []), ["Arab", "Arab", "Latn"]);
+  assert.deepEqual(checkWarnings(deriveTheme(rules, theme).checks), []);
+
+  // As written: the first language.
+  const ar = fixtureView("rtl");
+  assert.equal(ar.lang, "ar");
+  assert.equal(ar.page?.title, "نظرة عامة");
+  assert.equal(ar.page?.sections[0].title, "واحة");
+  // In English: what it has in English, the rest in Arabic, items by position.
+  const en = fixtureView("rtl", null, "en");
+  assert.equal(en.lang, "en");
+  assert.deepEqual([en.page?.title, en.page?.eyebrow, en.page?.lede], ["Overview", "Brand guidelines", "كيف تبدو واحة وكيف تتكلم."]);
+  const [cover, mission, values] = en.page!.sections;
+  assert.deepEqual([cover.title, cover.lede, cover.eyebrow], ["Waha", "Reading is everyone's right.", "دليل الهوية"]);
+  assert.deepEqual([mission.title, mission.body], ["Who we are", "مكتبات صغيرة في كل حي، مفتوحة من الصباح حتى المساء."]);
+  assert.deepEqual(values.items?.map((it) => [it.title, it.text]), [["Reading", "كتاب في كل يد."], ["الكتابة", "لكل صوت مكان."]]);
+  assert.deepEqual(en.nav.map((p) => p.title), ["Overview", "Color", "Typography"]);
+  // Readers carry their own language's words only.
+  assert.ok(en.page!.sections.every((s) => !("translations" in s)));
+  assert.equal(FIXTURES.rtl, rtl);
 });
