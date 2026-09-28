@@ -158,7 +158,7 @@ function Entry({ example: x }: { example: Example }) {
         <div className="flex items-center gap-2">
           {MARKER[x.verdict]}
           <span className="sr-only">{SAYS[x.verdict]}</span>
-          <ItemTitle i={x.i} className="text-base" />
+          <ItemTitle i={x.i} />
         </div>
         <ItemText i={x.i} className="text-muted-foreground" />
       </div>

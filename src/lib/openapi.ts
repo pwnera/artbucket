@@ -570,8 +570,9 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description:
             "How its pages look beyond what the rules say: which rule plays which part (accent, surface, ink, faces, " +
-            "logo) and the page's measure, rhythm and chrome, with the look they give. A setting whose rule has gone " +
-            "since is a warning, and the default is used.",
+            "logo) and the page's measure, rhythm and chrome, with the look they give. Every ink is graded on its " +
+            "ground in `checks`: a pair under its need (4.5:1 for text, 3:1 for marks) falls back to a color that " +
+            "reads and is a warning. So is a setting whose rule has gone since, and the default is used.",
           ok: [200, "The theme", data(S.ThemeView)],
         }),
         patch: op({
@@ -580,7 +581,7 @@ export function openapi(serverUrl: string) {
           description:
             "Merges: a key left out keeps its value, null clears it. A color setting names a color rule, a font setting " +
             "a font rule, `logo` a rule with a picture and `device` an image asset: a 422 names each that doesn't, with " +
-            "its path. A draft in the brand's history until it is published.",
+            "its path. Answers with the look and its `checks`, as GET does. A draft in the brand's history until it is published.",
           body: S.ThemePatch,
           ok: [200, "The theme", data(S.ThemeView)],
         }),
@@ -594,8 +595,9 @@ export function openapi(serverUrl: string) {
             "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed " +
             "with a lock), the page's sections, every context version of the rules they show, the assets they name " +
             "that may be used, and each collection section's assets. No `page`: the first. A slug it had before a " +
-            "rename gives the page with `redirect` set. `edit=1` takes write, and adds hidden pages and sections, " +
-            "`warnings` and `missing`.",
+            "rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. " +
+            "`edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among " +
+            "them) and `missing`.",
           query: {
             page: { schema: str, description: "The page's slug; the first page when left out" },
             context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },

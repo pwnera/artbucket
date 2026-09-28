@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { LOOK } from "@/components/brand-sections/look";
 import { Aside, Eyebrow, Lede, SectionScope, Title, titleOf } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { AnchorLink } from "@/components/site/anchors";
-import { ContextScope, useMedia, useRule, useSite } from "@/components/site/site-context";
+import { ContextScope, useMedia, useSite } from "@/components/site/site-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { inkOn, isHex } from "@/lib/color";
+import { sectionGround } from "@/lib/brand-theme";
 import { boundKeys, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { contextLabel, resolve } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
@@ -21,65 +22,46 @@ import { cn } from "@/lib/utils";
 
 /** A reading column, a wide frame, or the whole width. */
 const WIDTH: Record<Section["width"], string> = {
-  text: "max-w-[var(--brand-measure,42rem)]",
+  text: "max-w-(--brand-measure)",
   wide: "max-w-280",
   full: "max-w-none",
 };
 
-type Ground = { className?: string; style?: React.CSSProperties };
+/** Section titles on the theme's scale, held to the container on a phone. */
+const H2 = "text-[length:min(var(--brand-h2),8cqi)] @3xl:text-[length:min(var(--brand-h2),8cqi)] leading-tight";
+
+export type Ground = { className?: string; style?: React.CSSProperties };
 
 /**
- * A ground the section's own color sets: text in black or white, whichever
- * reads, and the app's quiet text and lines mixed from the two, so reused
- * parts follow it. A dark one also gets `dark`.
+ * A section's ground from its tone (lib/brand-theme.ts sectionGround): its
+ * color, its own ink, quiet text, links and lines, and the app's tokens over
+ * them (D13), so reused parts follow it; the scheme it reads as; a picture
+ * under its scrim; a hairline accent along its top; the device tiled over a
+ * pattern (globals.css). With no surface, a tint or a panel is mixed from
+ * the app's own light or dark. Plain is the page's own. Cover and header
+ * draw their grounds themselves, with this.
  */
-function on(hex: string | undefined): Ground {
-  if (!hex || !isHex(hex)) return { className: "dark bg-primary text-primary-foreground" };
-  const ink = inkOn(hex.slice(0, 7));
-  return {
-    className: cn(ink === "#ffffff" && "dark"),
-    style: {
-      backgroundColor: hex,
-      color: ink,
-      "--foreground": ink,
-      "--muted-foreground": `color-mix(in oklab, ${ink} 72%, ${hex})`,
-      "--border": `color-mix(in oklab, ${ink} 20%, ${hex})`,
-    } as React.CSSProperties,
-  };
-}
-
-/**
- * The section's ground, from its tone. W2 draws them from the app's tokens
- * and the brand's accent; W3 replaces this with the theme's sectionGround.
- * ponytail: pattern is a tint until the theme's device draws it (W3).
- */
-function useGround(s: Section): Ground {
-  const { view } = useSite();
-  const color = useRule(s.background?.color);
-  const image = useMedia(s.background?.image);
-  switch (s.tone) {
-    case "tint":
-    case "pattern":
-      return { className: "bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_7%,var(--background))]" };
-    case "panel":
-      return { className: "bg-muted" };
-    case "dark":
-      return { className: "dark bg-background text-foreground" };
-    case "brand":
-      return on(view.theme.v1.accent?.light);
-    case "color":
-      return on(typeof color?.value === "string" ? color.value : undefined);
-    case "image": {
-      if (!image?.preview) return { className: "dark bg-background text-foreground" };
-      const scrim = `rgb(0 0 0 / ${s.background?.scrim ?? 0.45})`;
-      return {
-        className: "dark bg-cover bg-center text-foreground",
-        style: { backgroundImage: `linear-gradient(${scrim}, ${scrim}), url("${image.preview}")` },
-      };
+export function useGround({ tone, background }: Pick<Section, "tone" | "background">): Ground {
+  const { view, context, url } = useSite();
+  const image = useMedia(background?.image);
+  return useMemo(() => {
+    // A color rule in the context being read; "" matches none, the default versions.
+    const colorOf = (key: string) => resolve(view.rules.filter((r) => r.key === key), context ?? "")[0];
+    const g = sectionGround(view.theme, { tone, background }, colorOf);
+    if (g.background === null) return {};
+    const style: Record<string, string> = { ...g.vars, backgroundColor: g.background, color: g.vars["--brand-ink"] };
+    if (g.rule) style.borderBlockStart = `2px solid ${g.rule}`;
+    if (g.scrim !== undefined && image?.preview) {
+      const scrim = `rgb(0 0 0 / ${g.scrim})`;
+      style.backgroundImage = `linear-gradient(${scrim}, ${scrim}), url(${JSON.stringify(url(image.id, "/w_2400,f_webp"))})`;
+      style.backgroundPosition = image.focus ? `${image.focus.x * 100}% ${image.focus.y * 100}%` : "center";
     }
-    default:
-      return {};
-  }
+    return {
+      // A ground following the app's scheme takes no class, and picks its accent as the page does.
+      className: cn(g.dark === null ? LOOK : g.dark ? "dark" : "light", g.scrim !== undefined && "bg-cover", tone === "pattern" && "ground-pattern"),
+      style: style as React.CSSProperties,
+    };
+  }, [view.theme, view.rules, context, url, image, tone, background]);
 }
 
 /** A section's bound rules for one context: its version there, else the default, in the section's order. */
@@ -153,13 +135,13 @@ export function SectionFrame({
   return (
     <section {...landmark} className={cn("@container scroll-mt-20", ground.className)} style={ground.style}>
       <SectionScope.Provider value={scope}>
-        <div className={cn("mx-auto px-6 py-12 @3xl:px-10 @3xl:py-16", WIDTH[s.width])}>
+        <div className={cn("mx-auto px-6 py-[calc(var(--brand-gap)*2)] @3xl:px-10 @3xl:py-[calc(var(--brand-gap)*8/3)]", WIDTH[s.width])}>
           {(s.eyebrow || s.title || s.lede) && (
-            <header className="group/section mb-8 space-y-3">
+            <header className="group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3">
               <Eyebrow />
               {s.title && (
                 <div className="flex items-center gap-1">
-                  <Title />
+                  <Title className={H2} />
                   <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
                 </div>
               )}

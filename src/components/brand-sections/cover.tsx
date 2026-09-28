@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react";
 import type { z } from "zod";
+import { useGround } from "@/components/brand-sections/frame";
 import { HEAD } from "@/components/brand-sections/look";
 import { BrandIcon } from "@/components/brand-sections/parts";
 import { Body, Eyebrow, Lede, Title } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { IconButton } from "@/components/icon-button";
-import { useMedia, useRule, useSite } from "@/components/site/site-context";
-import { colorsOf } from "@/lib/brand-theme";
-import { inkOn, isHex } from "@/lib/color";
+import { useMedia, useSite } from "@/components/site/site-context";
+import { colorsOf, sectionGround } from "@/lib/brand-theme";
 import type { Section, TEMPLATE_PROPS } from "@/lib/pages";
 import { resolve, ruleName } from "@/lib/rules";
 import { firstBinding, type Media } from "@/lib/site";
@@ -26,7 +26,7 @@ type Props = z.output<typeof TEMPLATE_PROPS.cover>;
 
 /** The words keep to a reading column, or the wide frame; the ground bleeds either way. */
 const WIDTH: Record<Section["width"], string> = {
-  text: "max-w-[var(--brand-measure,42rem)]",
+  text: "max-w-(--brand-measure)",
   wide: "max-w-280",
   full: "max-w-280",
 };
@@ -49,29 +49,24 @@ const altOf = (m: Media) => m.title ?? m.description ?? m.filename;
 export function CoverSection({ section: s }: SectionProps) {
   const { view, context, url, idOf } = useSite();
   const p = s.props as Props;
-  const ground = useGround(s);
   const picture = useMedia(p.image ?? (s.tone === "image" ? s.background?.image : undefined));
   const still = picture?.preview ? picture : undefined;
   const loop = useMedia(p.video);
   const video = loop?.mime.startsWith("video/") ? loop : undefined;
+  // Over a picture or a loop, the image ground: its text graded on the worst picture under the scrim, drawn here over the <img> or <video>.
+  const over = useMemo(() => ({ tone: "image" as const, background: { scrim: s.background?.scrim } }), [s.background?.scrim]);
+  const ground = useGround(still || video ? over : s);
+  const scrim = sectionGround(view.theme, over, () => undefined).scrim;
   const colors = useMemo(() => colorsOf(resolve(view.rules, context ?? "")), [view.rules, context]);
   const sections = view.page?.sections;
   // The page's h1 when it opens the page; the page header then leaves its own out.
   const H = sections?.[0]?.id === s.id ? "h1" : "h2";
-  const big = "text-4xl break-words @lg:text-5xl @3xl:text-6xl";
-  const scrim = s.background?.scrim ?? 0.45;
+  const big = "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] break-words";
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
 
   return (
-    <div
-      className={cn(
-        "relative isolate flex flex-col justify-end overflow-hidden",
-        HEIGHT[p.height ?? "auto"],
-        still || video ? "dark bg-background text-foreground" : ground.className,
-      )}
-      style={still || video ? undefined : ground.style}
-    >
+    <div className={cn("relative isolate flex flex-col justify-end overflow-hidden", HEIGHT[p.height ?? "auto"], ground.className)} style={ground.style}>
       {video ? (
         <Loop
           src={video.original}
@@ -94,7 +89,7 @@ export function CoverSection({ section: s }: SectionProps) {
           />
         )
       )}
-      {(still || video) && <div aria-hidden className="absolute inset-0 -z-10" style={{ backgroundColor: `rgb(0 0 0 / ${scrim})` }} />}
+      {(still || video) && <div aria-hidden className="absolute inset-0 -z-10 bg-black" style={{ opacity: scrim }} />}
 
       <div className={cn("mx-auto flex w-full flex-col gap-8 px-6 py-16 @3xl:px-10 @3xl:py-24", WIDTH[s.width], ALIGN[p.align ?? "start"])}>
         <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} />
@@ -122,7 +117,7 @@ export function CoverSection({ section: s }: SectionProps) {
                     <a
                       href={`#${idOf(`rule-${c.key}`)}`}
                       aria-label={name}
-                      className="focus-visible:ring-ring flex-1 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                      className="flex-1 outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent) focus-visible:ring-inset"
                     />
                   ) : (
                     <span className="sr-only">{name}</span>
@@ -179,56 +174,4 @@ function Loop({ src, poster, label, position }: { src: string; poster?: string; 
       </IconButton>
     </>
   );
-}
-
-type Ground = { className?: string; style?: React.CSSProperties };
-
-/**
- * The section's ground from its tone, as the frame draws it for every other
- * template (frame.tsx useGround).
- * ponytail: a copy until frame.tsx exports it; W3's sectionGround replaces both.
- */
-function useGround(s: Section): Ground {
-  const { view } = useSite();
-  const color = useRule(s.background?.color);
-  const image = useMedia(s.background?.image);
-  switch (s.tone) {
-    case "tint":
-    case "pattern":
-      return { className: "bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_7%,var(--background))]" };
-    case "panel":
-      return { className: "bg-muted" };
-    case "dark":
-      return { className: "dark bg-background text-foreground" };
-    case "brand":
-      return on(view.theme.v1.accent?.light);
-    case "color":
-      return on(typeof color?.value === "string" ? color.value : undefined);
-    case "image": {
-      if (!image?.preview) return { className: "dark bg-background text-foreground" };
-      const scrim = `rgb(0 0 0 / ${s.background?.scrim ?? 0.45})`;
-      return {
-        className: "dark bg-cover bg-center text-foreground",
-        style: { backgroundImage: `linear-gradient(${scrim}, ${scrim}), url("${image.preview}")` },
-      };
-    }
-    default:
-      return {};
-  }
-}
-
-/** A ground of the section's own color: black or white ink, whichever reads, and the app's quiet text and lines mixed from the two. */
-function on(hex: string | undefined): Ground {
-  if (!hex || !isHex(hex)) return { className: "dark bg-primary text-primary-foreground" };
-  const ink = inkOn(hex.slice(0, 7));
-  return {
-    className: cn(ink === "#ffffff" && "dark"),
-    style: {
-      backgroundColor: hex,
-      color: ink,
-      "--foreground": ink,
-      "--muted-foreground": `color-mix(in oklab, ${ink} 72%, ${hex})`,
-      "--border": `color-mix(in oklab, ${ink} 20%, ${hex})`,
-    } as React.CSSProperties,
-  };
 }

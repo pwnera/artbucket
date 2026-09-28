@@ -18895,7 +18895,7 @@
       ],
       "get": {
         "summary": "A brand's theme",
-        "description": "How its pages look beyond what the rules say: which rule plays which part (accent, surface, ink, faces, logo) and the page's measure, rhythm and chrome, with the look they give. A setting whose rule has gone since is a warning, and the default is used.\n\nScope: `read`.",
+        "description": "How its pages look beyond what the rules say: which rule plays which part (accent, surface, ink, faces, logo) and the page's measure, rhythm and chrome, with the look they give. Every ink is graded on its ground in `checks`: a pair under its need (4.5:1 for text, 3:1 for marks) falls back to a color that reads and is a warning. So is a setting whose rule has gone since, and the default is used.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -19123,11 +19123,401 @@
                         },
                         "theme": {
                           "type": "object",
-                          "propertyNames": {
-                            "type": "string"
+                          "properties": {
+                            "v1": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {},
+                              "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                            },
+                            "surface": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "A hex color"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                            },
+                            "panel": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "dark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "ink": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "muted": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "onDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "mutedOnDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accent": {
+                              "type": "string",
+                              "description": "The fill, as the brand has it: bands and buttons"
+                            },
+                            "accentText": {
+                              "type": "string",
+                              "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                            },
+                            "onAccent": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accentUse": {
+                              "type": "string",
+                              "enum": [
+                                "fill",
+                                "hairline"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "faces": {
+                              "type": "object",
+                              "properties": {
+                                "head": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "body": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    },
+                                    "case": {
+                                      "type": "string"
+                                    },
+                                    "tracking": {
+                                      "type": "number",
+                                      "description": "In em"
+                                    }
+                                  },
+                                  "required": [
+                                    "family",
+                                    "case",
+                                    "tracking"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "radius": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "string",
+                              "enum": [
+                                "narrow",
+                                "normal",
+                                "wide"
+                              ]
+                            },
+                            "density": {
+                              "type": "string",
+                              "enum": [
+                                "compact",
+                                "normal",
+                                "airy"
+                              ]
+                            },
+                            "scale": {
+                              "type": "number"
+                            },
+                            "device": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "logo": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "key"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nav": {
+                              "type": "string",
+                              "enum": [
+                                "sidebar",
+                                "top",
+                                "overlay"
+                              ]
+                            },
+                            "band": {
+                              "type": "boolean"
+                            },
+                            "numbering": {
+                              "type": "boolean"
+                            },
+                            "motion": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "subtle"
+                              ]
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "pair": {
+                                    "type": "string",
+                                    "description": "Which color on which, e.g. ink on surface"
+                                  },
+                                  "fg": {
+                                    "type": "string"
+                                  },
+                                  "bg": {
+                                    "type": "string"
+                                  },
+                                  "ratio": {
+                                    "type": "number"
+                                  },
+                                  "need": {
+                                    "type": "number",
+                                    "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                  },
+                                  "ok": {
+                                    "type": "boolean"
+                                  },
+                                  "used": {
+                                    "type": "string",
+                                    "description": "The color used: fg when it passes, else its fallback"
+                                  }
+                                },
+                                "required": [
+                                  "pair",
+                                  "fg",
+                                  "bg",
+                                  "ratio",
+                                  "need",
+                                  "ok",
+                                  "used"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                            }
                           },
-                          "additionalProperties": {},
-                          "description": "The look the settings and rules give: the accent, lifted for light and dark pages, and the faces"
+                          "required": [
+                            "v1",
+                            "surface",
+                            "panel",
+                            "dark",
+                            "ink",
+                            "muted",
+                            "onDark",
+                            "mutedOnDark",
+                            "accent",
+                            "accentText",
+                            "onAccent",
+                            "accentUse",
+                            "line",
+                            "faces",
+                            "radius",
+                            "width",
+                            "density",
+                            "scale",
+                            "device",
+                            "logo",
+                            "nav",
+                            "band",
+                            "numbering",
+                            "motion",
+                            "checks"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The look the settings and rules give: grounds, inks, accent, faces and chrome"
                         },
                         "checks": {
                           "type": "array",
@@ -19170,14 +19560,14 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Contrast of each pair in the look; empty for now"
+                          "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
                         },
                         "warnings": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           },
-                          "description": "Settings naming a rule that has gone since: the default is used"
+                          "description": "Settings naming a rule that has gone since (the default is used), and each pair that fell back"
                         }
                       },
                       "required": [
@@ -19235,7 +19625,7 @@
       },
       "patch": {
         "summary": "Change a brand's theme",
-        "description": "Merges: a key left out keeps its value, null clears it. A color setting names a color rule, a font setting a font rule, `logo` a rule with a picture and `device` an image asset: a 422 names each that doesn't, with its path. A draft in the brand's history until it is published.\n\nScope: `write`.",
+        "description": "Merges: a key left out keeps its value, null clears it. A color setting names a color rule, a font setting a font rule, `logo` a rule with a picture and `device` an image asset: a 422 names each that doesn't, with its path. Answers with the look and its `checks`, as GET does. A draft in the brand's history until it is published.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -19742,11 +20132,401 @@
                         },
                         "theme": {
                           "type": "object",
-                          "propertyNames": {
-                            "type": "string"
+                          "properties": {
+                            "v1": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {},
+                              "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                            },
+                            "surface": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "A hex color"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                            },
+                            "panel": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "dark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "ink": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "muted": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "onDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "mutedOnDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accent": {
+                              "type": "string",
+                              "description": "The fill, as the brand has it: bands and buttons"
+                            },
+                            "accentText": {
+                              "type": "string",
+                              "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                            },
+                            "onAccent": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accentUse": {
+                              "type": "string",
+                              "enum": [
+                                "fill",
+                                "hairline"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "faces": {
+                              "type": "object",
+                              "properties": {
+                                "head": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "body": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    },
+                                    "case": {
+                                      "type": "string"
+                                    },
+                                    "tracking": {
+                                      "type": "number",
+                                      "description": "In em"
+                                    }
+                                  },
+                                  "required": [
+                                    "family",
+                                    "case",
+                                    "tracking"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "radius": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "string",
+                              "enum": [
+                                "narrow",
+                                "normal",
+                                "wide"
+                              ]
+                            },
+                            "density": {
+                              "type": "string",
+                              "enum": [
+                                "compact",
+                                "normal",
+                                "airy"
+                              ]
+                            },
+                            "scale": {
+                              "type": "number"
+                            },
+                            "device": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "logo": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "key"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nav": {
+                              "type": "string",
+                              "enum": [
+                                "sidebar",
+                                "top",
+                                "overlay"
+                              ]
+                            },
+                            "band": {
+                              "type": "boolean"
+                            },
+                            "numbering": {
+                              "type": "boolean"
+                            },
+                            "motion": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "subtle"
+                              ]
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "pair": {
+                                    "type": "string",
+                                    "description": "Which color on which, e.g. ink on surface"
+                                  },
+                                  "fg": {
+                                    "type": "string"
+                                  },
+                                  "bg": {
+                                    "type": "string"
+                                  },
+                                  "ratio": {
+                                    "type": "number"
+                                  },
+                                  "need": {
+                                    "type": "number",
+                                    "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                  },
+                                  "ok": {
+                                    "type": "boolean"
+                                  },
+                                  "used": {
+                                    "type": "string",
+                                    "description": "The color used: fg when it passes, else its fallback"
+                                  }
+                                },
+                                "required": [
+                                  "pair",
+                                  "fg",
+                                  "bg",
+                                  "ratio",
+                                  "need",
+                                  "ok",
+                                  "used"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                            }
                           },
-                          "additionalProperties": {},
-                          "description": "The look the settings and rules give: the accent, lifted for light and dark pages, and the faces"
+                          "required": [
+                            "v1",
+                            "surface",
+                            "panel",
+                            "dark",
+                            "ink",
+                            "muted",
+                            "onDark",
+                            "mutedOnDark",
+                            "accent",
+                            "accentText",
+                            "onAccent",
+                            "accentUse",
+                            "line",
+                            "faces",
+                            "radius",
+                            "width",
+                            "density",
+                            "scale",
+                            "device",
+                            "logo",
+                            "nav",
+                            "band",
+                            "numbering",
+                            "motion",
+                            "checks"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The look the settings and rules give: grounds, inks, accent, faces and chrome"
                         },
                         "checks": {
                           "type": "array",
@@ -19789,14 +20569,14 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Contrast of each pair in the look; empty for now"
+                          "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
                         },
                         "warnings": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           },
-                          "description": "Settings naming a rule that has gone since: the default is used"
+                          "description": "Settings naming a rule that has gone since (the default is used), and each pair that fell back"
                         }
                       },
                       "required": [
@@ -19867,7 +20647,7 @@
       ],
       "get": {
         "summary": "A brand page, ready to read",
-        "description": "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed with a lock), the page's sections, every context version of the rules they show, the assets they name that may be used, and each collection section's assets. No `page`: the first. A slug it had before a rename gives the page with `redirect` set. `edit=1` takes write, and adds hidden pages and sections, `warnings` and `missing`.\n\nScope: `read`.",
+        "description": "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed with a lock), the page's sections, every context version of the rules they show, the assets they name that may be used, and each collection section's assets. No `page`: the first. A slug it had before a rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. `edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among them) and `missing`.\n\nScope: `read`.",
         "x-scope": "read",
         "parameters": [
           {
@@ -19990,6 +20770,370 @@
                         "theme": {
                           "type": "object",
                           "properties": {
+                            "v1": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {},
+                              "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                            },
+                            "surface": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "A hex color"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                            },
+                            "panel": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "dark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "ink": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "muted": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "onDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "mutedOnDark": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accent": {
+                              "type": "string",
+                              "description": "The fill, as the brand has it: bands and buttons"
+                            },
+                            "accentText": {
+                              "type": "string",
+                              "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                            },
+                            "onAccent": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "accentUse": {
+                              "type": "string",
+                              "enum": [
+                                "fill",
+                                "hairline"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "description": "A hex color"
+                            },
+                            "faces": {
+                              "type": "object",
+                              "properties": {
+                                "head": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "body": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    }
+                                  },
+                                  "required": [
+                                    "family"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "family": {
+                                      "type": "string"
+                                    },
+                                    "weight": {
+                                      "type": "number"
+                                    },
+                                    "file": {
+                                      "description": "The font file for its weight",
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "files": {
+                                      "description": "Every font file of the rule, one @font-face each",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "filename": {
+                                            "type": "string"
+                                          },
+                                          "mime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "filename",
+                                          "mime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "fallback": {
+                                      "type": "string"
+                                    },
+                                    "google": {
+                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "type": "boolean",
+                                      "const": true
+                                    },
+                                    "case": {
+                                      "type": "string"
+                                    },
+                                    "tracking": {
+                                      "type": "number",
+                                      "description": "In em"
+                                    }
+                                  },
+                                  "required": [
+                                    "family",
+                                    "case",
+                                    "tracking"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "radius": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "string",
+                              "enum": [
+                                "narrow",
+                                "normal",
+                                "wide"
+                              ]
+                            },
+                            "density": {
+                              "type": "string",
+                              "enum": [
+                                "compact",
+                                "normal",
+                                "airy"
+                              ]
+                            },
+                            "scale": {
+                              "type": "number"
+                            },
+                            "device": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "logo": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "key"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "nav": {
+                              "type": "string",
+                              "enum": [
+                                "sidebar",
+                                "top",
+                                "overlay"
+                              ]
+                            },
+                            "band": {
+                              "type": "boolean"
+                            },
+                            "numbering": {
+                              "type": "boolean"
+                            },
+                            "motion": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "subtle"
+                              ]
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "pair": {
+                                    "type": "string",
+                                    "description": "Which color on which, e.g. ink on surface"
+                                  },
+                                  "fg": {
+                                    "type": "string"
+                                  },
+                                  "bg": {
+                                    "type": "string"
+                                  },
+                                  "ratio": {
+                                    "type": "number"
+                                  },
+                                  "need": {
+                                    "type": "number",
+                                    "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                  },
+                                  "ok": {
+                                    "type": "boolean"
+                                  },
+                                  "used": {
+                                    "type": "string",
+                                    "description": "The color used: fg when it passes, else its fallback"
+                                  }
+                                },
+                                "required": [
+                                  "pair",
+                                  "fg",
+                                  "bg",
+                                  "ratio",
+                                  "need",
+                                  "ok",
+                                  "used"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                            },
                             "settings": {
                               "type": "object",
                               "properties": {
@@ -20198,21 +21342,38 @@
                                 }
                               },
                               "additionalProperties": false
-                            },
-                            "v1": {
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string"
-                              },
-                              "additionalProperties": {},
-                              "description": "The accent and faces the rules give"
                             }
                           },
                           "required": [
-                            "settings",
-                            "v1"
+                            "v1",
+                            "surface",
+                            "panel",
+                            "dark",
+                            "ink",
+                            "muted",
+                            "onDark",
+                            "mutedOnDark",
+                            "accent",
+                            "accentText",
+                            "onAccent",
+                            "accentUse",
+                            "line",
+                            "faces",
+                            "radius",
+                            "width",
+                            "density",
+                            "scale",
+                            "device",
+                            "logo",
+                            "nav",
+                            "band",
+                            "numbering",
+                            "motion",
+                            "checks",
+                            "settings"
                           ],
-                          "additionalProperties": false
+                          "additionalProperties": false,
+                          "description": "The look, derived and graded, and the settings it came from"
                         },
                         "nav": {
                           "type": "array",
@@ -21210,7 +22371,7 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Editors only: what a reader would trip on, and assets they won't see"
+                          "description": "Editors only: what a reader would trip on, assets they won't see, and theme pairs that fell back"
                         },
                         "missing": {
                           "type": "array",

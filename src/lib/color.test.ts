@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, rgb } from "./color.ts";
+import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -37,11 +37,21 @@ test("lift keeps a color that passes and moves one that does not", () => {
   assert.ok(contrast(lift("#111111", "#111111"), "#111111") >= 3, "black accent in dark");
   assert.ok(contrast(lift("#ffffff", "#ffffff"), "#ffffff") >= 3, "white accent in light");
   assert.ok(contrast(lift("#777777", "#111111", 4.5), "#111111") >= 4.5);
+  // A mid ground reads with black: white on orange never clears 4.5, so lifting toward white would stop short.
+  assert.ok(contrast(lift("#ffb070", "#e87d0d", 4.5), "#e87d0d") >= 4.5);
+});
+
+test("mix moves one color toward another", () => {
+  assert.equal(mix("#ffffff", "#000000", 0), "#ffffff");
+  assert.equal(mix("#ffffff", "#000000", 1), "#000000");
+  assert.equal(mix("#ffffff", "#000000", 0.5), "#808080");
+  assert.equal(mix("#FF0000", "#0000ff80", 0.25), "#bf0040", "alpha ignored, normalized");
 });
 
 test("status colors read as text on the background in both themes", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-  const block = (sel: string) => css.slice(css.indexOf(`${sel} {`)).split("}")[0];
+  // The theme blocks also carry the selectors that restore the app's tokens inside a brand site (.app-tokens, .light).
+  const block = (sel: string) => css.slice(css.search(new RegExp(`^\\${sel[0]}${sel.slice(1)}[ ,]`, "m"))).split("}")[0];
   for (const [sel, bg] of [[":root", "#ffffff"], [".dark", "#111111"]]) {
     assert.ok(block(sel).includes(`--background: ${bg};`), `${sel} background`);
     for (const name of ["success", "warning"]) {

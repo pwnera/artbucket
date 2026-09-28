@@ -117,7 +117,7 @@ function Tile({ m, alt, onOpen }: { m: Media; alt: string; onOpen: () => void })
       aria-label={`Look at ${alt}`}
       aria-haspopup="dialog"
       style={focus}
-      className="bg-muted focus-visible:ring-ring/50 relative block aspect-[4/3] w-full overflow-hidden rounded-lg outline-none focus-visible:ring-[3px]"
+      className="bg-muted relative block aspect-[4/3] w-full overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent)"
     >
       {m.thumbnail ? (
         <Thumb src={m.thumbnail} alt={alt} className={fill ? "object-cover p-0 [object-position:var(--focus,center)]" : "p-4"} />

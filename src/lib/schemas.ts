@@ -544,24 +544,67 @@ export const Templates = z.object({
   common: z.string().describe("What every section takes besides its props"),
 });
 
+const ThemeChecks = z
+  .array(
+    z.object({
+      pair: z.string().describe("Which color on which, e.g. ink on surface"),
+      fg: z.string(),
+      bg: z.string(),
+      ratio: z.number(),
+      need: z.number().describe("The contrast it must reach: 4.5 for text, 3 for marks"),
+      ok: z.boolean(),
+      used: z.string().describe("The color used: fg when it passes, else its fallback"),
+    }),
+  )
+  .describe("Contrast of each pair in the look: one that fails falls back to a color that reads, and says which");
+const ThemeFace = z.object({
+  family: z.string(),
+  weight: z.number().optional(),
+  file: uuid.optional().describe("The font file for its weight"),
+  files: z.array(z.object({ id: uuid, filename: z.string(), mime: z.string() })).optional().describe("Every font file of the rule, one @font-face each"),
+  fallback: z.string().optional(),
+  google: z.literal(true).optional().describe("From Google Fonts, with no files: its CSS is imported"),
+});
+const color = z.string().describe("A hex color");
+/** What deriveTheme gives (lib/brand-theme.ts): the settings over what the rules say, every ink graded on its ground. */
+const Theme = z.object({
+  v1: z.record(z.string(), z.unknown()).describe("The accent, lifted for light and dark pages, and the faces, as before W3"),
+  surface: color.nullable().describe("The page ground; null: none set or named, so the page keeps the app's, light or dark"),
+  panel: color,
+  dark: color,
+  ink: color,
+  muted: color,
+  onDark: color,
+  mutedOnDark: color,
+  accent: color.describe("The fill, as the brand has it: bands and buttons"),
+  accentText: color.describe("The accent where it is text (links), at 4.5:1 on the surface"),
+  onAccent: color,
+  accentUse: z.enum(["fill", "hairline"]),
+  line: color,
+  faces: z.object({
+    head: ThemeFace.optional(),
+    body: ThemeFace.optional(),
+    label: ThemeFace.extend({ case: z.string(), tracking: z.number().describe("In em") }).optional(),
+  }),
+  radius: z.number(),
+  width: z.enum(["narrow", "normal", "wide"]),
+  density: z.enum(["compact", "normal", "airy"]),
+  scale: z.number(),
+  device: uuid.nullable(),
+  logo: z.object({ key: z.string() }).nullable(),
+  nav: z.enum(["sidebar", "top", "overlay"]),
+  band: z.boolean(),
+  numbering: z.boolean(),
+  motion: z.enum(["none", "subtle"]),
+  checks: ThemeChecks,
+});
+
 export const ThemeView = z.object({
   brand: z.string(),
   settings: ThemeSettings.describe("Which rule plays which part, and the page's measure, rhythm and chrome; left out: read from the rules"),
-  theme: z.record(z.string(), z.unknown()).describe("The look the settings and rules give: the accent, lifted for light and dark pages, and the faces"),
-  checks: z
-    .array(
-      z.object({
-        pair: z.string().describe("Which color on which, e.g. ink on surface"),
-        fg: z.string(),
-        bg: z.string(),
-        ratio: z.number(),
-        need: z.number().describe("The contrast it must reach: 4.5 for text, 3 for marks"),
-        ok: z.boolean(),
-        used: z.string().describe("The color used: fg when it passes, else its fallback"),
-      }),
-    )
-    .describe("Contrast of each pair in the look; empty for now"),
-  warnings: z.array(z.string()).describe("Settings naming a rule that has gone since: the default is used"),
+  theme: Theme.describe("The look the settings and rules give: grounds, inks, accent, faces and chrome"),
+  checks: ThemeChecks,
+  warnings: z.array(z.string()).describe("Settings naming a rule that has gone since (the default is used), and each pair that fell back"),
 });
 
 const snapRule = z.object({
@@ -1019,7 +1062,7 @@ export const PageView = z.object({
   context: z.string().nullable(),
   contexts: z.array(z.string()).describe("Every context some rule is scoped to"),
   lang: z.string().nullable(),
-  theme: z.object({ settings: ThemeSettings, v1: z.record(z.string(), z.unknown()).describe("The accent and faces the rules give") }),
+  theme: Theme.extend({ settings: ThemeSettings }).describe("The look, derived and graded, and the settings it came from"),
   nav: z.array(NavPage).describe("Every page the reader is listed, in order"),
   page: NavPage.omit({ locked: true })
     .extend({ sections: z.array(Section).describe("What the reader gets: hidden ones for editors only"), aliases: z.array(z.string()) })
@@ -1033,7 +1076,7 @@ export const PageView = z.object({
     .record(z.string(), z.object({ items: z.array(Media), total: z.number().int(), error: z.string().nullable().describe("Why it shows nothing; editors only") }))
     .describe("A collection section's assets, by section id"),
   signed: z.record(uuid, z.string()).describe("Signatures by asset id, for visitors; empty for members"),
-  warnings: z.array(z.string()).describe("Editors only: what a reader would trip on, and assets they won't see"),
+  warnings: z.array(z.string()).describe("Editors only: what a reader would trip on, assets they won't see, and theme pairs that fell back"),
   missing: z.array(z.string()).describe("Editors only: keys a section binds with no rule"),
 });
 

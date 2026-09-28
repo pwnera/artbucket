@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import { AssetUrl } from "@/components/site/asset-url";
 import { withSignature } from "@/lib/asset-url";
+import { fontFaceCss } from "@/lib/brand-theme";
 import { resolve } from "@/lib/rules";
 import type { Media, PageView, ViewRule } from "@/lib/site";
 
@@ -61,12 +62,15 @@ export function SiteProvider({
       }),
     [url, signed],
   );
+  // The theme's faces as @font-face, so SSR and print show them. A family is the brand's words: no "<" ends the <style>.
+  const faces = useMemo(() => fontFaceCss(view.theme.faces, sign).replaceAll("<", "\\3c "), [view.theme.faces, sign]);
   const site = useMemo<Site>(
     () => ({ view, mode, context, setContext, href, url: sign, idOf: (id) => idPrefix + id }),
     [view, mode, context, href, sign, idPrefix],
   );
   return (
     <SiteContext.Provider value={site}>
+      {faces && <style>{faces}</style>}
       {/* Moved parts (logo tiles, fonts) build URLs through useAssetUrl, so they sign from the view too. */}
       <AssetUrl.Provider value={sign}>{children}</AssetUrl.Provider>
     </SiteContext.Provider>

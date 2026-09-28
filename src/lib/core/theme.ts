@@ -4,7 +4,7 @@ import { assets, brands } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { listRules, refuse, tracked, type BrandRule } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
-import { brandTheme, COLOR_SLOTS, FONT_SLOTS, ThemeSettings } from "@/lib/brand-theme";
+import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, ThemeSettings } from "@/lib/brand-theme";
 import { issues } from "@/lib/pages";
 
 /**
@@ -37,15 +37,18 @@ async function unmet(ws: string, s: ThemeSettings, rules: BrandRule[]): Promise<
   return out;
 }
 
-/** The settings, the look they give (W1: from the rules alone), and a warning for each mapping whose rule has gone since. */
+/**
+ * The settings, the look they give with every pair graded, and a warning for
+ * each mapping whose rule has gone since and each pair that fell back.
+ */
 async function view(ws: string, brand: string, settings: ThemeSettings, rules: BrandRule[]) {
+  const theme = deriveTheme(rules, settings);
   return {
     brand,
     settings,
-    theme: brandTheme(rules),
-    // W3: contrast checks on the derived theme, one row per pair.
-    checks: [],
-    warnings: (await unmet(ws, settings, rules)).map(([, problem]) => `${problem}; the default is used`),
+    theme,
+    checks: theme.checks,
+    warnings: [...(await unmet(ws, settings, rules)).map(([, problem]) => `${problem}; the default is used`), ...checkWarnings(theme.checks)],
   };
 }
 

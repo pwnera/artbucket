@@ -7,6 +7,7 @@ import { Can } from "@/components/can";
 import { AppHeader } from "@/components/page";
 import { useShell } from "@/components/shell";
 import { SiteView } from "@/components/site/site-view";
+import { ThemePanel } from "@/components/theme-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,9 +42,12 @@ export function BrandReader({ initial }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
   const { setSqueeze } = useShell();
+  const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
 
-  const want = ["page", "context", "lang"].map((k) => params.get(k) ?? "").join("\n");
+  // Bumped by a theme save: the same address is fetched again, in its new look.
+  const [rev, setRev] = useState(0);
+  const want = [...["page", "context", "lang"].map((k) => params.get(k) ?? ""), rev].join("\n");
   const [shown, setShown] = useState({ want, view: initial });
   // A new `initial` (router.refresh, a link here from elsewhere in the app) is the server's view of the address now.
   const [seen, setSeen] = useState(initial);
@@ -60,7 +64,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
 
   useEffect(() => {
     if (want === shown.want) return;
-    const [page, context, lang] = want.split("\n");
+    const [page, context, lang, n] = want.split("\n");
     const q = new URLSearchParams(Object.entries({ page, context, lang }).filter(([, v]) => v));
     const ac = new AbortController();
     fetch(`/api/v1/brands/${encodeURIComponent(slug)}/view${q.size ? `?${q}` : ""}`, { signal: ac.signal })
@@ -70,7 +74,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
         const { data } = (await res.json()) as { data: PageView };
         // A slug the page had before a rename: the page, at its address now, with no new history entry.
         if (data.redirect) window.history.replaceState(null, "", readerHref(slug, data.redirect, { context, lang }) + location.hash);
-        setShown({ want: data.redirect ? [data.redirect, context, lang].join("\n") : want, view: data });
+        setShown({ want: data.redirect ? [data.redirect, context, lang, n].join("\n") : want, view: data });
       })
       .catch(() => {
         if (!ac.signal.aborted) window.location.reload();
@@ -127,6 +131,9 @@ export function BrandReader({ initial }: BrandReaderProps) {
         </Select>
       )}
       <Can do="brand.edit">
+        <Button variant="outline" size="sm" onClick={() => setTheming(true)}>
+          Theme
+        </Button>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/brand?${new URLSearchParams({ brand: slug, ...(context && { context }) })}`}>Edit</Link>
         </Button>
@@ -134,5 +141,12 @@ export function BrandReader({ initial }: BrandReaderProps) {
     </AppHeader>
   );
 
-  return <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />;
+  return (
+    <>
+      <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
+      <Can do="brand.edit">
+        <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => setRev((r) => r + 1)} />
+      </Can>
+    </>
+  );
 }

@@ -62,6 +62,12 @@ export const inkOn = (hex: string) => (contrast(hex, "#ffffff") >= contrast(hex,
 
 const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
 
+/** `a` moved toward `b` by `t`, 0 to 1, in sRGB: mix(surface, ink, 0.04) is a step off the surface. Always "#rrggbb". */
+export function mix(a: string, b: string, t: number) {
+  const y = rgb(b);
+  return hex(rgb(a).map((v, i) => v + (y[i] - v) * t) as Rgb);
+}
+
 /**
  * The color, moved toward white on a dark background or black on a light
  * one, just until it clears `min` against it: an org accent that vanishes in
@@ -70,7 +76,8 @@ const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, 
  */
 export function lift(color: string, bg: string, min = 3) {
   const c = rgb(color);
-  const to = luminance(rgb(bg)) < 0.5 ? 255 : 0;
+  // Toward whichever of black and white reads on it: on a mid ground (an orange band) white never clears 4.5.
+  const to = inkOn(bg) === "#ffffff" ? 255 : 0;
   for (let t = 0; t < 1; t += 0.05) {
     const x = hex(c.map((v) => v + (to - v) * t) as Rgb);
     if (contrast(x, bg) >= min) return x;

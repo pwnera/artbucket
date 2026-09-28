@@ -1,7 +1,7 @@
-import { fontRoles } from "./brand-theme.ts";
+import { fontFace, fontRoles } from "./brand-theme.ts";
 import { inkOn, rgb } from "./color.ts";
 import { fontStyle, isFont } from "./font.ts";
-import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
+import { fontValue, listStyle, type Rule } from "./rules.ts";
 
 /**
  * Brand rules as design tokens, for code: plain stylesheets (CSS custom
@@ -23,7 +23,6 @@ type Opts = { origin: string; title: string };
 export const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
 const fontFiles = (r: TokenRule) => r.assets.filter((a) => a.mime && isFont(a.mime, a.filename ?? ""));
 const isScale = (r: TokenRule) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
-const FORMAT: Record<string, string> = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "truetype", "font/otf": "opentype" };
 
 /** A non-font rule set in a font: the font rule whose file it carries. */
 function setIn(r: TokenRule, rules: TokenRule[]) {
@@ -32,7 +31,8 @@ function setIn(r: TokenRule, rules: TokenRule[]) {
   return file && rules.find((f) => f.type === "font" && f.assets.some((a) => a.id === file.id));
 }
 
-const fileUrl = (a: RuleAsset, origin: string) => `${origin}/a/${a.id}`;
+/** Where a file loads from, at this origin. */
+const fileUrl = (origin: string) => (id: string) => `${origin}/a/${id}`;
 
 /** A key within a theme namespace: `color.brandDark` among colors is `brand-dark`; `logo.tile` keeps its section. */
 const local = (key: string, home: string) => kebab(key.startsWith(`${home}.`) ? key.slice(home.length + 1) : key);
@@ -61,27 +61,9 @@ function roles(rules: TokenRule[]) {
 // ---- stylesheets: CSS, Sass, Less ----------------------------------------------
 
 /** One @font-face per font file, however many rules carry it. */
-function fontFaces(rules: TokenRule[], origin: string) {
+function fontFaces(rules: TokenRule[], url: (id: string) => string) {
   const faces = new Map<string, string>();
-  for (const r of fonts(rules)) {
-    const { family } = fontValue(r.value);
-    for (const a of fontFiles(r)) {
-      const { weight, italic } = fontStyle(a.filename ?? "");
-      const format = FORMAT[a.mime!];
-      faces.set(
-        a.id,
-        [
-          "@font-face {",
-          `  font-family: ${str(family)};`,
-          `  src: url(${str(fileUrl(a, origin))})${format ? ` format(${str(format)})` : ""};`,
-          `  font-weight: ${weight};`,
-          `  font-style: ${italic ? "italic" : "normal"};`,
-          "  font-display: swap;",
-          "}",
-        ].join("\n"),
-      );
-    }
-  }
+  for (const r of fonts(rules)) for (const a of fontFiles(r)) faces.set(a.id, fontFace(fontValue(r.value).family, a, url));
   return [...faces.values()];
 }
 
@@ -119,14 +101,14 @@ function variables(rules: TokenRule[], sigil: string, ref: (name: string) => str
 }
 
 export function toCss(rules: TokenRule[], { origin, title }: Opts) {
-  return [comment(title), ...fontFaces(rules, origin), ":root {", ...variables(rules, "--", (n) => `var(--${n})`, "  "), "}", ""].join("\n");
+  return [comment(title), ...fontFaces(rules, fileUrl(origin)), ":root {", ...variables(rules, "--", (n) => `var(--${n})`, "  "), "}", ""].join("\n");
 }
 
 export const toScss = (rules: TokenRule[], { origin, title }: Opts) =>
-  [comment(title), ...fontFaces(rules, origin), ...variables(rules, "$", (n) => `$${n}`), ""].join("\n");
+  [comment(title), ...fontFaces(rules, fileUrl(origin)), ...variables(rules, "$", (n) => `$${n}`), ""].join("\n");
 
 export const toLess = (rules: TokenRule[], { origin, title }: Opts) =>
-  [comment(title), ...fontFaces(rules, origin), ...variables(rules, "@", (n) => `@${n}`), ""].join("\n");
+  [comment(title), ...fontFaces(rules, fileUrl(origin)), ...variables(rules, "@", (n) => `@${n}`), ""].join("\n");
 
 // ---- frameworks ------------------------------------------------------------------
 
@@ -155,7 +137,7 @@ export function toTailwind(rules: TokenRule[], { origin, title }: Opts) {
   return [
     comment(title),
     comment('In your main stylesheet, after @import "tailwindcss";'),
-    ...fontFaces(rules, origin),
+    ...fontFaces(rules, fileUrl(origin)),
     "@theme {",
     ...theme,
     "}",
@@ -204,7 +186,7 @@ export function toTs(rules: TokenRule[], { origin, title }: Opts) {
     else if (isScale(r)) put(r.key, (r.value as number[]).map((n) => `${n}px`));
     else if (r.type === "font") {
       const { family, size, weight } = fontValue(r.value);
-      const files = fontFiles(r).map((a) => ({ url: fileUrl(a, origin), ...fontStyle(a.filename ?? "") }));
+      const files = fontFiles(r).map((a) => ({ url: fileUrl(origin)(a.id), ...fontStyle(a.filename ?? "") }));
       put(r.key, {
         fontFamily: family,
         ...(size ? { fontSize: `${size}px` } : {}),
@@ -250,7 +232,7 @@ export function toShadcn(rules: TokenRule[], { origin, title }: Opts) {
   return [
     comment(title),
     comment("Over the matching variables in globals.css; .dark keeps its own."),
-    ...fontFaces(rules, origin),
+    ...fontFaces(rules, fileUrl(origin)),
     ":root {",
     ...root,
     "}",
@@ -353,7 +335,7 @@ export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
       const { family, size, weight } = fontValue(r.value);
       const files = fontFiles(r).map((a) => {
         const s = fontStyle(a.filename ?? "");
-        return { url: fileUrl(a, origin), weight: s.weight, style: s.italic ? "italic" : "normal", mime: a.mime };
+        return { url: fileUrl(origin)(a.id), weight: s.weight, style: s.italic ? "italic" : "normal", mime: a.mime };
       });
       Object.assign(at(root, r.key), {
         fontFamily: { $type: "fontFamily", $value: family },

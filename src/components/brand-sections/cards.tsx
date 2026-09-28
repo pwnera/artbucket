@@ -40,7 +40,7 @@ export function CardsSection({ section: s, rules }: SectionProps) {
         return (
           <li key={r.key} id={anchor(r.key)} className={cn(card, "scroll-mt-20")}>
             <div className="min-w-0 flex-1 space-y-1.5">
-              <h3 className={cn(HEAD, "text-lg text-balance")}>{ruleName(r)}</h3>
+              <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug text-balance")}>{ruleName(r)}</h3>
               <div className="text-muted-foreground [&_.rich]:text-sm">
                 <RuleValue rule={r} />
               </div>
@@ -103,16 +103,16 @@ function ItemCard({ i, className, list }: { i: number; className: string; list: 
       {it.icon && (
         <span
           aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_14%,transparent)] text-[var(--brand-accent,var(--primary-ink))]"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-(--brand-accent)/14 text-(--brand-accent)"
         >
           <CollectionIcon icon={it.icon as IconName} className="size-5" />
         </span>
       )}
       <div className="min-w-0 flex-1 space-y-1.5">
         {to ? (
-          <a href={to} className="group/link focus-visible:ring-ring/50 flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-[3px]">
+          <a href={to} className="group/link flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent)">
             <ItemTitle i={i} className="group-hover/link:underline group-hover/link:underline-offset-4" />
-            <IconArrowRight aria-hidden className="size-4 shrink-0 rtl:-scale-x-100" />
+            <IconArrowRight aria-hidden className="size-4 shrink-0 text-(--brand-accent-text) rtl:-scale-x-100" />
           </a>
         ) : (
           <ItemTitle i={i} />

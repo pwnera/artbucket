@@ -18,7 +18,7 @@ const statement = (r: ViewRule) => r.type === "text" && plainText(String(r.value
 
 // Only the value grows, in the heading face; the name, the note and the anchor stay as the block draws them.
 const STATEMENT =
-  "border-s-2 border-[var(--brand-accent,var(--primary))] ps-4 [&_[data-field=value]_.rich]:font-(family-name:--brand-head) [&_[data-field=value]_.rich]:text-2xl [&_[data-field=value]_.rich]:leading-snug [&_[data-field=value]_.rich]:text-pretty @3xl:[&_[data-field=value]_.rich]:text-3xl";
+  "border-s-2 border-(--brand-accent) ps-4 [&_[data-field=value]_.rich]:font-(family-name:--brand-head) [&_[data-field=value]_.rich]:text-2xl [&_[data-field=value]_.rich]:leading-snug [&_[data-field=value]_.rich]:text-pretty @3xl:[&_[data-field=value]_.rich]:text-3xl";
 
 export function TextSection({ section, rules }: SectionProps) {
   // Only its keys: `rules` also carries a background color and items' keys.

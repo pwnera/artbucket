@@ -264,6 +264,22 @@ test("warnings and missing keys are for editors only", () => {
   assert.ok(p.view.warnings.some((w) => w.includes('no rule "logo.gone"')));
 });
 
+test("the theme is derived and graded; a pair that fell back warns editors only", () => {
+  // The orange accent on the app's white is 2.84:1: links and marks lift. Its pair, the ink, reads on it.
+  const { theme, warnings } = page("logo", "editor").view;
+  assert.equal(theme.accent, "#e87d0d");
+  assert.equal(theme.settings.accent, "color.primary");
+  assert.equal(theme.device, DEVICE);
+  const failed = theme.checks.filter((c) => !c.ok);
+  assert.deepEqual(failed.map((c) => c.pair), ["accent text on surface", "accent on surface"]);
+  for (const c of failed) assert.ok(warnings.some((w) => w.startsWith(`${c.pair}: ${c.fg} on ${c.bg}`) && w.endsWith(`${c.used} is used`)), c.pair);
+  for (const level of BELOW) {
+    const v = page("logo", level).view;
+    assert.deepEqual(v.theme.checks, theme.checks, level);
+    assert.deepEqual(v.warnings, [], level);
+  }
+});
+
 test("contexts, version, context and lang pass through", () => {
   const p = planView({ ...SRC, version: { number: 3, publishedAt: "2026-09-01T00:00:00.000Z" } }, "logo", {
     level: "members",

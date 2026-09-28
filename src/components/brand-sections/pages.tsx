@@ -30,7 +30,7 @@ type Pick = { node: NavNode; k?: number; section?: string };
 
 export function PagesSection({ section: s }: SectionProps) {
   const { view } = useSite();
-  const numbering = view.theme.settings.numbering ?? false;
+  const numbering = view.theme.numbering;
   const roots = useMemo(() => tree(view.nav, numbering), [view.nav, numbering]);
   const find = (slug: string) => trail(roots, slug).at(-1);
   const from = typeof s.props.from === "string" ? s.props.from : view.page?.slug;
@@ -82,7 +82,7 @@ function PageTitle({ node, k, as, className }: Pick & { as: "h3" | "p"; classNam
   const it = useItem(k);
   if (k !== undefined && it?.title) return <ItemTitle i={k} as={as} className={className} />;
   const H = as;
-  return <H className={cn(HEAD, "text-lg text-balance", className)}>{node.title}</H>;
+  return <H className={cn(HEAD, "text-(length:--brand-h3) leading-snug text-balance", className)}>{node.title}</H>;
 }
 
 /** The item's own words, else the page's lede. */
@@ -137,7 +137,7 @@ function Card(p: Pick) {
         href={link.url}
         aria-current={link.current ? "page" : undefined}
         aria-label={p.node.locked ? `${name}, locked` : name}
-        className="focus-visible:ring-ring/50 absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-inset"
+        className="absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent) focus-visible:ring-inset"
       />
     </li>
   );
@@ -154,7 +154,7 @@ function Row({ left, ledes, nested, ...p }: Pick & { left: number; ledes: boolea
       <a
         href={link.url}
         aria-current={link.current ? "page" : undefined}
-        className="focus-visible:ring-ring/50 group flex items-baseline gap-3 rounded-sm outline-none focus-visible:ring-[3px]"
+        className="group flex items-baseline gap-3 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent)"
       >
         {p.node.number && <span className={cn(LABEL, "text-muted-foreground w-10 shrink-0 tabular-nums")}>{p.node.number}</span>}
         <PageTitle {...p} as="p" className={cn("group-hover:underline", nested ? "text-sm" : "text-base")} />

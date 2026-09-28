@@ -391,7 +391,8 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "How a brand's pages look: its theme settings (which rules are the accent, grounds, ink and faces; the logo " +
       "and device; radius, width, density, type scale, nav, band, numbering, motion), the look they give, and " +
-      "warnings for settings whose rule has gone. What isn't set is read from the rules.",
+      "checks: every ink graded on its ground, a failing pair with the color used instead. Warnings name each " +
+      "pair that fell back and each setting whose rule has gone. What isn't set is read from the rules.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.get_theme,
@@ -402,8 +403,9 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "Change how a brand's pages look, a setting at a time: what you pass merges into the settings, and null " +
       "clears one back to what the rules give. Color settings name color rules, face settings font rules, logo a " +
-      "rule with a picture, device an image asset. Every problem comes back at once with its path. A draft in " +
-      "the brand's history until publish.",
+      "rule with a picture, device an image asset. Every problem comes back at once with its path. Returns the " +
+      "look and its contrast checks, as get_theme does: a pair that fails falls back and warns, so pick another " +
+      "rule or accept the fallback. A draft in the brand's history until publish.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.set_theme,

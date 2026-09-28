@@ -105,3 +105,40 @@ function Row({ node: n, at, current, onNavigate }: Omit<RowsProps, "nodes"> & { 
     </li>
   );
 }
+
+/**
+ * The top pages in a row, for a theme whose nav is `top`: the one being read,
+ * or holding it, is marked. Deeper pages stay a click away in the sheet.
+ */
+export function NavBar({ roots, current, onNavigate }: NavTreeProps) {
+  const { href } = useSite();
+  const chapter = useMemo(() => (current ? trail(roots, current)[0]?.slug : undefined), [roots, current]);
+  return (
+    <nav aria-label="Guidelines" className="overflow-x-auto">
+      <ul className="flex gap-1 text-sm">
+        {roots.map((n) => (
+          <li key={n.slug} className="shrink-0">
+            <SiteLink
+              href={href(n.slug)}
+              onNavigate={onNavigate}
+              aria-current={n.slug === current ? "page" : n.slug === chapter ? "true" : undefined}
+              className={cn(
+                "focus-visible:ring-ring/50 flex items-baseline gap-2 rounded-md px-2 py-1 outline-none focus-visible:ring-2",
+                n.slug === chapter ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {n.number && <span className={cn(LABEL, "tabular-nums")}>{n.number}</span>}
+              {n.title}
+              {n.locked && (
+                <>
+                  <IconLock aria-hidden className="size-3.5 self-center" />
+                  <span className="sr-only">(locked)</span>
+                </>
+              )}
+            </SiteLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}

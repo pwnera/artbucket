@@ -1,4 +1,4 @@
-import type { BrandTheme, ThemeSettings } from "./brand-theme.ts";
+import type { Theme, ThemeSettings } from "./brand-theme.ts";
 import { type Audience, boundKeys, type Section, slugOfSection } from "./pages.ts";
 import type { Download } from "./portal.ts";
 import type { RuleAsset, RuleSpec, RuleType, RuleValue } from "./rules.ts";
@@ -80,7 +80,8 @@ export type PageView = {
   context: string | null;
   contexts: string[];
   lang: string | null;
-  theme: { settings: ThemeSettings; v1: BrandTheme };
+  /** The look, derived from the rules and graded (brand-theme.ts deriveTheme), and the settings it came from. */
+  theme: Theme & { settings: ThemeSettings };
   nav: NavPage[];
   /** Null when the page is locked for this reader. */
   page: ViewPage | null;

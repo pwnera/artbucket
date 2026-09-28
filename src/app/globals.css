@@ -3,7 +3,13 @@
 
 /* shadcn/ui, new-york, neutral base, brand violet #6D4AFF as primary. Stock tokens: restyle through these, not per component. */
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Dark under the nearest .dark, unless a .light comes after it: a brand
+ * ground (brand-sections/frame.tsx) says which it reads as, whatever the
+ * app's mode. ponytail: exact to three levels (app, site, ground); a light
+ * ground inside a dark one inside a light site in a dark app reads as dark.
+ */
+@custom-variant dark (&:is(:is(.dark *):not(:where(.dark .light *)), :where(.dark .light .dark *)));
 
 @theme inline {
   --font-sans: var(--font-dm-sans);
@@ -57,7 +63,8 @@
   --text-2xs--line-height: 1rem;
 }
 
-:root {
+/* .app-tokens keeps the app's own colors inside a brand's site (editor chrome); .light is a light brand ground in a dark app. */
+:root, .app-tokens, .light {
   /* Brand canvas 02 · Colour and type: black #111111 and the cool neutral scale. Violet is primary only: accent also paints skeletons, toggles and menus. */
   --radius: 0.625rem;
   --background: #ffffff;
@@ -93,7 +100,7 @@
   --primary-ink: var(--primary);
 }
 
-.dark {
+.dark, .dark .app-tokens {
   /* Brand black, then plain greys: the cool light-mode neutrals turn muddy on black. */
   --background: #111111;
   --foreground: #fafafa;
@@ -238,6 +245,45 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
 }
 [data-sidebar="menu-button"][data-active="true"] > svg:not([class*="text-"]) {
   color: var(--primary);
+}
+
+/*
+ * The pattern ground (brand-sections/frame.tsx): the brand's device, tiled
+ * faintly over the panel. The theme sets --brand-device, or none.
+ */
+@utility ground-pattern {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--brand-device, none) 0 0 / 6rem repeat;
+    opacity: 0.08;
+  }
+}
+
+/*
+ * A theme's motion: subtle (site/site-view.tsx): sections rise into place as
+ * they scroll in, driven by the scroll, with no script. Never with reduced
+ * motion, and never on paper.
+ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @keyframes brand-reveal {
+      from {
+        opacity: 0;
+        translate: 0 1.5rem;
+      }
+    }
+    [data-motion="subtle"] section[data-template] {
+      animation: brand-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
 }
 
 /* A transparency checkerboard: logos and cut-outs show their true edges on it. */

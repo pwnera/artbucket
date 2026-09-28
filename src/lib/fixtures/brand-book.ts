@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { brandTheme, type ThemeSettings } from "../brand-theme.ts";
+import { checkWarnings, deriveTheme, type ThemeSettings } from "../brand-theme.ts";
 import { assetRefs, type PageInput, parseSections } from "../pages.ts";
 import { RuleInput } from "../rules.ts";
 import type { Media, NavPage, PageView, ViewAsset, ViewRule } from "../site.ts";
@@ -350,10 +350,61 @@ export function big(a: BookAssets = PLACEHOLDERS): BrandBook {
   return { ...book, rules: [...book.rules, ...extra], pages: [...book.pages, { slug: "everything", title: "Everything", sections }] };
 }
 
+/**
+ * Ugly: what the guardrails are for. A yellow primary paired with the paper,
+ * a display face set as the text face over a text face that says it is one,
+ * a near-white surface and no ink, and a page of every ground. The theme
+ * warns, and still reads: every pair it uses passes.
+ */
+export function ugly(a: BookAssets = PLACEHOLDERS): BrandBook {
+  const text = (id: string, title: string, extra: Partial<BrandBook["pages"][number]["sections"][number]> = {}) => ({
+    id,
+    template: "text" as const,
+    title,
+    body: `Text on the ${title.toLowerCase()} ground, with [a link](/grounds#band) and a line of quiet text.`,
+    ...extra,
+  });
+  return {
+    rules: [
+      { key: "color.primary", label: "Yellow", type: "color", value: "#ffd400", usage: "Everything.", spec: { pair: "color.background" } },
+      { key: "color.secondary", label: "Sky", type: "color", value: "#7dd3fc", usage: "Everything else.", spec: { pair: "color.background" } },
+      { key: "color.background", label: "Paper", type: "color", value: "#fbfaf4" },
+      { key: "type.display", label: "Display", type: "font", value: "Bungee", spec: { role: "display", source: "google" } },
+      { key: "type.text", label: "Text", type: "font", value: { family: "Inter", weight: 400 }, spec: { role: "body", source: "google" } },
+      { key: "logo.mark", label: "The mark", type: "text", value: "A circle.", assets: [a.mark] },
+    ],
+    pages: [
+      {
+        slug: "grounds",
+        title: "Grounds",
+        lede: "Every tone a section takes.",
+        sections: [
+          { id: "band", template: "header", eyebrow: "Part one", title: "Every ground", lede: "The brand ground opens it." },
+          text("tint", "Tint", { tone: "tint" }),
+          text("panel", "Panel", { tone: "panel" }),
+          text("dark", "Dark", { tone: "dark" }),
+          text("sky", "Sky", { tone: "color", background: { color: "color.secondary" } }),
+          text("photo", "Image", { tone: "image", background: { image: a.mark, scrim: 0.1 } }),
+          text("pattern", "Pattern", { tone: "pattern" }),
+          { id: "palette", template: "palette", title: "Palette", keys: ["color.primary", "color.secondary", "color.background"] },
+          { id: "faces", template: "type", title: "Faces", keys: ["type.display", "type.text"] },
+        ],
+      },
+    ],
+    theme: { body: "type.display", band: true },
+  };
+}
+
+/** Blender with a hairline accent: its orange draws rules and marks and never fills. */
+export function hairline(a: BookAssets = PLACEHOLDERS): BrandBook {
+  const book = blender(a);
+  return { ...book, theme: { ...book.theme, accentUse: "hairline" } };
+}
+
 // ---- views --------------------------------------------------------------------
 
-/** Every book by name, for `/design/pages?fixture=`. W3 adds ugly and hairline, W5 rtl. */
-export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big };
+/** Every book by name, for `/design/pages?fixture=`. W5 adds rtl. */
+export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big, ugly, hairline };
 
 /** When a view says the fixtures changed: fixed, so the server and the browser draw the same page. */
 const AT = "2026-09-01T00:00:00.000Z";
@@ -468,13 +519,14 @@ export function fixtureView(name: string, slug?: string | null): PageView {
     ...(book.theme.device ? [book.theme.device] : []),
   ]);
   const shelf = Object.keys(PICTURES).map(media);
+  const theme = deriveTheme(rules, book.theme);
   return {
     brand: { slug: name, name: name[0].toUpperCase() + name.slice(1) },
     version: null,
     context: null,
     contexts: [...new Set(rules.flatMap((r) => (r.context ? [r.context] : [])))],
     lang: null,
-    theme: { settings: book.theme, v1: brandTheme(rules) },
+    theme: { ...theme, settings: book.theme },
     nav: pages.map((p) => ({ ...p.meta, locked: false })),
     page: { ...at.meta, sections: at.sections, aliases: [] },
     locked: false,
@@ -484,7 +536,7 @@ export function fixtureView(name: string, slug?: string | null): PageView {
       at.sections.filter((s) => s.template === "collection").map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
     ),
     signed: {},
-    warnings: [],
+    warnings: checkWarnings(theme.checks),
     missing: [],
   };
 }

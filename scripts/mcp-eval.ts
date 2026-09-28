@@ -17,6 +17,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import postgres from "postgres";
+import { checkWarnings, type Theme } from "../src/lib/brand-theme.ts";
 import { blender, type BookAssets } from "../src/lib/fixtures/brand-book.ts";
 
 const URL_ = process.env.ARTBUCKET_URL ?? "http://localhost:3000";
@@ -33,6 +34,8 @@ const LOGOS: BookAssets = {
 };
 
 type Section = { id: string; title: string; tone: string } & Record<string, unknown>;
+/** What get_theme, set_theme and PATCH theme answer. */
+type ThemeView = { settings: unknown; theme: Theme; checks: Theme["checks"]; warnings: string[] };
 type Page = { slug: string; title: string; parent: string | null; aliases: string[]; sections: Section[] } & Record<string, unknown>;
 
 const run = randomBytes(4).toString("hex");
@@ -108,11 +111,17 @@ try {
   }
   ok(`set_rules: ${book.rules.length} rules with labels, specs, a gradient, fonts and logos`);
 
-  const theme = await call<{ settings: unknown; warnings: string[] }>("set_theme", { brand, ...book.theme });
+  const theme = await call<ThemeView>("set_theme", { brand, ...book.theme });
   assert.deepEqual(theme.settings, book.theme);
-  assert.deepEqual(theme.warnings, []);
-  assert.deepEqual((await call<{ settings: unknown }>("get_theme", { brand })).settings, book.theme);
-  ok("set_theme, then get_theme");
+  // Its orange on white is 2.84:1: links, marks and text on it fall back, and those three warn. Nothing else does.
+  assert.deepEqual(
+    theme.checks.filter((c) => !c.ok).map((c) => c.pair),
+    ["accent text on surface", "accent on surface", "text on accent"],
+  );
+  assert.deepEqual(theme.warnings, checkWarnings(theme.checks));
+  const got = await call<ThemeView>("get_theme", { brand });
+  assert.deepEqual([got.settings, got.checks, got.warnings], [book.theme, theme.checks, theme.warnings]);
+  ok("set_theme, then get_theme: the settings, and the orange's three contrast warnings");
 
   for (const { slug, ...page } of book.pages) {
     const saved = await call<{ created: boolean; url: string }>("save_page", { brand, page: slug, ...page });
@@ -227,6 +236,41 @@ try {
   );
   assert.deepEqual([then.diff, then.pageDiff, then.themeChanged], [[], [], true]);
   ok("a version compared with now: only the theme differs");
+
+  // W3: a yellow accent on white fails as text and as marks; each pair comes back with the color used instead.
+  await call("set_rules", { brand, set: [{ key: "color.yellow", type: "color", value: "#ffd400" }] });
+  const yellow = await call<ThemeView>("set_theme", { brand, accent: "color.yellow" });
+  assert.equal(yellow.theme.accent, "#ffd400");
+  const failing = yellow.checks.filter((c) => !c.ok);
+  assert.deepEqual(failing.map((c) => c.pair).slice(0, 2), ["accent text on surface", "accent on surface"]);
+  for (const c of failing) {
+    assert.ok(c.ratio < c.need, c.pair);
+    assert.notEqual(c.used, c.fg, `${c.pair}: falls back`);
+  }
+  assert.equal(yellow.theme.accentText, failing[0].used);
+  assert.deepEqual(yellow.warnings, checkWarnings(yellow.checks));
+  ok("set_theme: a yellow accent comes back graded, each failing pair with its fallback");
+
+  // The editor's page lists them; a reader's never does, though it wears the same look.
+  const view = (edit: string) => http<{ data: { theme: Theme; warnings: string[] } }>("GET", `/api/v1/brands/${brand}/view?page=overview${edit}`);
+  const [{ data: editing }, { data: reading }] = await Promise.all([view("&edit=1"), view("")]);
+  for (const w of yellow.warnings) assert.ok(editing.warnings.includes(w), w);
+  assert.deepEqual(reading.warnings, []);
+  assert.deepEqual([editing.theme.checks, reading.theme.checks], [yellow.checks, yellow.checks]);
+  ok("the page view: contrast warnings for editors only");
+
+  // A mapping to a key with no rule is refused with its path, over MCP and REST, and writes nothing.
+  assert.match(await refused("set_theme", { brand, accent: "color.nope" }), /^accent: no color rule "color\.nope"/);
+  const res = await fetch(`${URL_}/api/v1/brands/${brand}/theme`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ink: "color.nope" }),
+  });
+  assert.equal(res.status, 422);
+  const { error } = (await res.json()) as { error: { detail: { errors: string[] } } };
+  assert.match(error.detail.errors[0], /^ink: no color rule "color\.nope"/);
+  assert.deepEqual((await call<ThemeView>("get_theme", { brand })).settings, { ...book.theme, radius: 12, accent: "color.yellow" });
+  ok("set_theme and PATCH theme: a missing key is refused with its path (422), and nothing is written");
 
   console.log(`\nThe Blender book builds over MCP: ${passed} steps passed.`);
 } finally {

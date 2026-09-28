@@ -47,13 +47,13 @@ export function Eyebrow({ className }: { className?: string }) {
   return eyebrow ? <p className={cn(LABEL, "text-muted-foreground", className)}>{eyebrow}</p> : null;
 }
 
-/** The section's heading: an h2 under the page's h1, unless a cover opening the page makes it the h1. */
+/** The section's heading: an h2 under the page's h1, unless a cover opening the page makes it the h1. On the theme's scale, held to the container on a phone. */
 export function Title({ as: H = "h2", className }: { as?: "h1" | "h2" | "h3"; className?: string }) {
   const s = useSection();
   const { idOf } = useSite();
   if (!s.title) return null;
   return (
-    <H id={titleOf(idOf(s.id))} className={cn(HEAD, "text-3xl text-balance @3xl:text-4xl", className)}>
+    <H id={titleOf(idOf(s.id))} className={cn(HEAD, "text-[length:min(var(--brand-h2),8cqi)] leading-tight text-balance", className)}>
       {s.title}
     </H>
   );
@@ -84,7 +84,7 @@ const useItem = (i: number) => useSection().items?.[i];
 
 export function ItemTitle({ i, as: H = "h3", className }: { i: number; as?: "h3" | "h4" | "p"; className?: string }) {
   const it = useItem(i);
-  return it?.title ? <H className={cn(HEAD, "text-lg text-balance", className)}>{it.title}</H> : null;
+  return it?.title ? <H className={cn(HEAD, "text-(length:--brand-h3) leading-snug text-balance", className)}>{it.title}</H> : null;
 }
 
 export function ItemText({ i, className }: { i: number; className?: string }) {

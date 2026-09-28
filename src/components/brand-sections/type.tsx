@@ -55,7 +55,7 @@ function Playground({ family, id, sample }: { family: string; id: string; sample
   const title = useId();
   return (
     <div role="group" aria-labelledby={title} className="space-y-4 border-t pt-8">
-      <h3 id={title} className={cn(HEAD, "text-lg")}>
+      <h3 id={title} className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
         Try {family}
       </h3>
       <FontPlayground id={id} sample={sample} flow />

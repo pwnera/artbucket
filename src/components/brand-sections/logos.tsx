@@ -49,7 +49,7 @@ function Mark({ rule: r, id }: { rule: ViewRule; id?: string }) {
   const files = r.assets.filter((a) => !pictured(a));
   return (
     <div id={id} className="@container min-w-0 scroll-mt-20 space-y-3">
-      <h3 className={cn(HEAD, "text-lg")}>{ruleName(r)}</h3>
+      <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>{ruleName(r)}</h3>
       {pics.length > 0 && (
         <div className={cn("grid gap-3", pics.length > 1 && "@lg:grid-cols-2")}>
           {pics.map((a) => (

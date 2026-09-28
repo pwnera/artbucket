@@ -30,7 +30,7 @@ export function Pager({ roots, current, onNavigate }: PagerProps) {
 function Step({ node: n, rel, onNavigate }: { node: NavNode; rel: "prev" | "next"; onNavigate?: (href: string) => void }) {
   const { href } = useSite();
   const next = rel === "next";
-  // Arrows point along the line, so they turn round in a right-to-left book.
+  // Arrows point along the line, so they turn round in an RTL book.
   const Arrow = next ? IconArrowRight : IconArrowLeft;
   return (
     <SiteLink

@@ -8,7 +8,7 @@ import { AssetError } from "@/lib/core/errors";
 import { pageSnapshot } from "@/lib/core/page-store";
 import type { Caller } from "@/lib/core/access";
 import { collectionItems, presentAsset, type Sign } from "@/lib/core/section-assets";
-import { brandTheme } from "@/lib/brand-theme";
+import { deriveTheme } from "@/lib/brand-theme";
 import { planView, type Level, type Source } from "@/lib/page-view";
 import { assetRefs, type TEMPLATE_PROPS } from "@/lib/pages";
 import type { PortalPreset } from "@/lib/portal";
@@ -107,11 +107,14 @@ export async function viewPage(
 
   // The planner can't tell a font file by its id; described, the theme's faces name the files readers may load.
   const described = new Map(rules.flatMap((r) => r.assets.map((a) => [a.id, a] as const)));
-  const v1 = brandTheme(src.rules.map((r) => ({ ...r, assets: r.assets.flatMap((a) => described.get(a.id) ?? []) })));
+  const theme = deriveTheme(
+    src.rules.map((r) => ({ ...r, assets: r.assets.flatMap((a) => described.get(a.id) ?? []) })),
+    src.theme,
+  );
 
   return {
     ...view,
-    theme: { ...view.theme, v1 },
+    theme: { ...theme, settings: src.theme },
     page: view.page && { ...view.page, sections: signIn(view.page.sections) },
     rules: signIn(rules),
     media,

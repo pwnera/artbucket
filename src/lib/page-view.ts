@@ -1,4 +1,4 @@
-import { brandTheme, COLOR_SLOTS, FONT_SLOTS, fontRoles, type ThemeSettings } from "./brand-theme.ts";
+import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, fontRoles, type ThemeSettings } from "./brand-theme.ts";
 import type { SnapRule } from "./history.ts";
 import { assetRefs, type Audience, boundKeys, initialPages, pageWarnings, parseSections, type Section, type SnapPage } from "./pages.ts";
 import { type RuleAsset, section as keySection, specAssets, specKeys } from "./rules.ts";
@@ -143,6 +143,8 @@ export function planView(src: Source, slug: string | null, o: { context?: string
   ];
 
   const bindsNothing = (k: string) => !src.rules.some((r) => r.key === k);
+  // Faces without their files: core names them once it knows which assets are fonts. The colors are final here.
+  const theme = deriveTheme(src.rules, src.theme);
   return {
     kind: "page",
     view: {
@@ -151,14 +153,13 @@ export function planView(src: Source, slug: string | null, o: { context?: string
       context: o.context ?? null,
       contexts: [...new Set(src.rules.flatMap((r) => r.context ?? []))].sort(),
       lang: o.lang ?? null,
-      // Faces without their files: core names them once it knows which assets are fonts.
-      theme: { settings: src.theme, v1: brandTheme(src.rules) },
+      theme: { ...theme, settings: src.theme },
       nav,
       page,
       locked,
       rules,
       // For editors only: a portal payload never carries them.
-      warnings: editor ? pageWarnings(target, pages, src.rules) : [],
+      warnings: editor ? [...pageWarnings(target, pages, src.rules), ...checkWarnings(theme.checks)] : [],
       missing: editor ? [...new Set(sections.flatMap(boundKeys))].filter(bindsNothing) : [],
     },
     assets,

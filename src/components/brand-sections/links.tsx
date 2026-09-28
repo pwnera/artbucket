@@ -111,7 +111,7 @@ function ItemEntry({ k, list }: { k: number; list: boolean }) {
 /** A title that isn't the section's own words: a file's name. */
 function Name({ list, children }: { list: boolean; children: string }) {
   const H = list ? "p" : "h3";
-  return <H className={cn(HEAD, "break-words", list ? "text-base" : "text-lg")}>{children}</H>;
+  return <H className={cn(HEAD, "break-words", list ? "text-base" : "text-(length:--brand-h3) leading-snug")}>{children}</H>;
 }
 
 /**
@@ -180,7 +180,7 @@ function Entry({
       href={link.url}
       {...(link.external && { target: "_blank", rel: "noreferrer" })}
       aria-label={link.external ? `${name} (opens in a new tab)` : name}
-      className="focus-visible:ring-ring/50 absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-inset"
+      className="absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent) focus-visible:ring-inset"
     />
   );
   // The text's own links stay clickable above the one over the whole.

@@ -1,12 +1,12 @@
 "use client";
 
+import { useGround } from "@/components/brand-sections/frame";
 import { HEAD } from "@/components/brand-sections/look";
 import { Body, Eyebrow, Lede, Title } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { AnchorLink } from "@/components/site/anchors";
-import { useMedia, useRule, useSite } from "@/components/site/site-context";
+import { useMedia, useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
-import { inkOn, isHex } from "@/lib/color";
 import type { Section } from "@/lib/pages";
 import { trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -18,17 +18,19 @@ import { cn } from "@/lib/utils";
 
 /** The words keep to a reading column, or the wide frame; the ground bleeds either way. */
 const WIDTH: Record<Section["width"], string> = {
-  text: "max-w-[var(--brand-measure,42rem)]",
+  text: "max-w-(--brand-measure)",
   wide: "max-w-280",
   full: "max-w-280",
 };
 
 export function HeaderSection({ section: s }: SectionProps) {
-  const { idOf, url } = useSite();
+  const { view, idOf, url } = useSite();
   const ground = useGround(s);
   const number = useNumber(s);
   const picture = useMedia(s.props.image as string | undefined);
   const id = idOf(s.id);
+  // Opening the page, its title is set at the h1's size; otherwise at Title's own, the h2's.
+  const opens = view.page?.sections[0]?.id === s.id;
   return (
     <div className={ground.className} style={ground.style}>
       <div
@@ -39,11 +41,11 @@ export function HeaderSection({ section: s }: SectionProps) {
         )}
       >
         <div className="group/section min-w-0 space-y-3">
-          {number && <p className={cn(HEAD, "text-muted-foreground text-5xl tabular-nums @3xl:text-6xl")}>{number}</p>}
+          {number && <p className={cn(HEAD, "text-muted-foreground text-[length:min(var(--brand-h1),10cqi)] leading-none tabular-nums")}>{number}</p>}
           <Eyebrow />
           {s.title && (
             <div className="flex items-center gap-1">
-              <Title className="text-4xl @3xl:text-5xl" />
+              <Title className={cn(opens && "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1]")} />
               <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
             </div>
           )}
@@ -68,60 +70,8 @@ export function HeaderSection({ section: s }: SectionProps) {
 function useNumber(s: Section): string | null {
   const { view } = useSite();
   const page = view.page;
-  if (!view.theme.settings.numbering || !page) return null;
+  if (!view.theme.numbering || !page) return null;
   const at = trail(tree(view.nav, true), page.slug).at(-1)?.number;
   const n = page.sections.filter((x) => x.template === "header").findIndex((x) => x.id === s.id) + 1;
   return at && n ? `${at}.${n}` : null;
-}
-
-type Ground = { className?: string; style?: React.CSSProperties };
-
-/**
- * The section's ground from its tone, as the frame draws it for every other
- * template (frame.tsx useGround).
- * ponytail: a copy until frame.tsx exports it; W3's sectionGround replaces both.
- */
-function useGround(s: Section): Ground {
-  const { view } = useSite();
-  const color = useRule(s.background?.color);
-  const image = useMedia(s.background?.image);
-  switch (s.tone) {
-    case "tint":
-    case "pattern":
-      return { className: "bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_7%,var(--background))]" };
-    case "panel":
-      return { className: "bg-muted" };
-    case "dark":
-      return { className: "dark bg-background text-foreground" };
-    case "brand":
-      return on(view.theme.v1.accent?.light);
-    case "color":
-      return on(typeof color?.value === "string" ? color.value : undefined);
-    case "image": {
-      if (!image?.preview) return { className: "dark bg-background text-foreground" };
-      const scrim = `rgb(0 0 0 / ${s.background?.scrim ?? 0.45})`;
-      return {
-        className: "dark bg-cover bg-center text-foreground",
-        style: { backgroundImage: `linear-gradient(${scrim}, ${scrim}), url("${image.preview}")` },
-      };
-    }
-    default:
-      return {};
-  }
-}
-
-/** A ground of the section's own color: black or white ink, whichever reads, and the app's quiet text and lines mixed from the two. */
-function on(hex: string | undefined): Ground {
-  if (!hex || !isHex(hex)) return { className: "dark bg-primary text-primary-foreground" };
-  const ink = inkOn(hex.slice(0, 7));
-  return {
-    className: cn(ink === "#ffffff" && "dark"),
-    style: {
-      backgroundColor: hex,
-      color: ink,
-      "--foreground": ink,
-      "--muted-foreground": `color-mix(in oklab, ${ink} 72%, ${hex})`,
-      "--border": `color-mix(in oklab, ${ink} 20%, ${hex})`,
-    } as React.CSSProperties,
-  };
 }
