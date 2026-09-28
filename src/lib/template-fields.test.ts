@@ -17,6 +17,18 @@ test("fieldsOf: a control for every prop of every template", () => {
     layout: "choice",
     downloads: "switch",
   });
+  assert.deepEqual(kinds("icons"), {
+    collection: "collection",
+    search: "search",
+    query: "text",
+    sort: "choice",
+    limit: "number",
+    size: "choice",
+    downloads: "switch",
+  });
+  // An icon set lists by name unless told otherwise: the panel says so.
+  const sort = fieldsOf("icons").find((f) => f.name === "sort");
+  assert.equal(sort?.kind === "choice" && sort.fallback, "name");
   assert.equal(kinds("embed").url, "text");
   assert.equal(kinds("pattern").scales, "numbers");
   assert.equal(kinds("split").image, "asset");

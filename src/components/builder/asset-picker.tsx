@@ -7,6 +7,7 @@ import { FontThumb } from "@/components/font-preview";
 import type { Asset } from "@/components/gallery";
 import { RenditionMenu } from "@/components/rendition-menu";
 import { useAssetUrl } from "@/components/site/asset-url";
+import { IconGlyph } from "@/components/icon-glyph";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFont } from "@/lib/font";
-import { hasPreview } from "@/lib/preview";
+import { hasPreview, isIcon, isMono } from "@/lib/preview";
 import { fontValue, ruleName } from "@/lib/rules";
 import { sendResult } from "@/lib/send";
 import type { ViewAsset, ViewRule } from "@/lib/site";
@@ -211,7 +212,12 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
                     onClick={() => toggle(a.id)}
                     className={cn("group bg-muted relative aspect-square overflow-hidden rounded-md border text-start", n >= 0 && "ring-primary ring-2")}
                   >
-                    {hasPreview(a) ? (
+                    {isIcon(a) ? (
+                      // The vector, at a glyph's size: a 24px icon's rendition would blur.
+                      <span className="text-foreground absolute inset-0 flex items-center justify-center">
+                        <IconGlyph src={url(a.id)} mono={isMono(a)} label={a.filename} className="size-10" />
+                      </span>
+                    ) : hasPreview(a) ? (
                       <Thumb src={url(a.id, "/w_160,f_webp")} alt={a.filename} />
                     ) : isFont(a.mime, a.filename) ? (
                       <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2">

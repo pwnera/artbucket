@@ -2,6 +2,7 @@ import { z } from "zod";
 import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
+import { ICON_GROUP_NAMES } from "./icons.ts";
 import { STATES } from "./lifecycle.ts";
 import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
@@ -214,6 +215,54 @@ export function openapi(serverUrl: string) {
             "The family's styles, lightest first, roman before italic",
             z.object({ family: z.string().describe("As Google names it"), data: z.array(S.Asset) }),
           ],
+        }),
+      },
+      "/api/v1/icons": {
+        get: op({
+          summary: "Search open source icon sets",
+          scope: "read",
+          description:
+            "Iconify's icon sets (Tabler, Lucide, Material Symbols, Simple Icons and some 200 more), the popular ones first, " +
+            "each with its author, license and a few sample names. Sets their authors no longer maintain are left out.",
+          query: {
+            q: { schema: str, description: "Words in the set's name, author or license" },
+            group: { schema: { type: "string", enum: [...ICON_GROUP_NAMES] }, description: "Only this kind of set" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 300, default: 60 }, description: "Page size" },
+          },
+          ok: [200, "Matching sets", S.IconSets],
+        }),
+        post: op({
+          summary: "Import icons from a set",
+          scope: "propose",
+          description:
+            "One SVG asset per icon, at the size it is drawn at, titled from its name, credited to the set's author, " +
+            "with the set's license in its rights and tagged `icon` and the set's name. Fetched once and served from " +
+            "/a/{id} after, so nobody's browser calls Iconify. Icons already here dedupe.",
+          body: S.IconImport,
+          ok: [
+            201,
+            "The icons, in the order asked",
+            z.object({
+              set: S.IconSets.shape.data.element,
+              data: z.array(S.Asset),
+              missing: z.array(z.string()).describe("Names the set doesn't have"),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/icons/{prefix}": {
+        parameters: [path("prefix", "The set, as Iconify names it: tabler, lucide, simple-icons")],
+        get: op({
+          summary: "Browse an icon set",
+          scope: "read",
+          description: "A page of the set's icons, each drawn as the SVG an import would store, and its categories to narrow by.",
+          query: {
+            q: { schema: str, description: "Words in the icon's name" },
+            category: { schema: str, description: "One of the set's categories" },
+            offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Icons to skip" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 96 }, description: "Page size" },
+          },
+          ok: [200, "The set and a page of its icons", S.IconBrowse],
         }),
       },
       "/api/v1/assets/{id}": {

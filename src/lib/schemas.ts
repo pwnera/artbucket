@@ -3,6 +3,7 @@ import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
+import { ICON_GROUP_NAMES, ICON_NAME, ICON_PREFIX } from "./icons.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
@@ -86,6 +87,33 @@ export const Finalize = z.union([
 
 export const GoogleFontImport = z.strictObject({
   family: z.string().trim().regex(GOOGLE_FAMILY, "A Google Fonts family, e.g. Playfair Display").describe("As Google Fonts names it"),
+  ...promote,
+});
+
+const iconPrefix = z.string().regex(ICON_PREFIX, "An Iconify set's prefix, e.g. tabler").max(60);
+
+export const IconSetQuery = z.object({
+  q: z.string().max(80).optional().describe("Words in the set's name, author or license"),
+  group: z.enum(ICON_GROUP_NAMES).optional().describe("Interface, Logos, Emoji, Flags or Other"),
+  limit: z.coerce.number().int().min(1).max(300).default(60),
+});
+
+export const IconBrowseQuery = z.object({
+  prefix: iconPrefix,
+  q: z.string().max(80).optional().describe("Words in the icon's name"),
+  category: z.string().max(80).optional().describe("One of the set's categories"),
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(96),
+});
+
+export const IconImport = z.strictObject({
+  prefix: iconPrefix.describe("The set, as Iconify names it: tabler, lucide, simple-icons"),
+  icons: z
+    .array(z.string().regex(ICON_NAME, "An icon's name, e.g. arrow-right").max(120))
+    .min(1)
+    .max(100)
+    .refine((a) => new Set(a).size === a.length, "Each icon once")
+    .describe("Its icons' names, 100 at a time"),
   ...promote,
 });
 
@@ -1214,4 +1242,23 @@ export const GoogleFamilies = z.object({
     }),
   ),
   total: z.number().int().describe("Matches before `limit`"),
+});
+
+const IconSetInfo = z.object({
+  prefix: z.string().describe("Iconify's name for it: tabler, lucide, simple-icons"),
+  name: z.string(),
+  total: z.number().int().describe("Icons in it"),
+  author: z.object({ name: z.string(), url: z.string().optional() }).nullable(),
+  license: z.object({ title: z.string(), spdx: z.string().optional(), url: z.string().optional() }).nullable(),
+  samples: z.array(z.string()).describe("A few of its icons' names"),
+  category: z.string().nullable(),
+  palette: z.boolean().describe("Its icons carry their own colors; false: drawn in one color"),
+  height: z.number().nullable().describe("The grid it is drawn on, in px"),
+});
+export const IconSets = z.object({ data: z.array(IconSetInfo), total: z.number().int().describe("Matches before `limit`") });
+export const IconBrowse = z.object({
+  set: IconSetInfo,
+  categories: z.array(z.string()).describe("The set's own categories, to narrow by"),
+  total: z.number().int().describe("Matching icons before `offset` and `limit`"),
+  data: z.array(z.object({ name: z.string(), svg: z.string().describe("The file an import stores") })),
 });

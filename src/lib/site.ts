@@ -52,6 +52,8 @@ export type Media = {
   downloads: Download[];
   /** Where a crop keeps its subject, from 0 to 1 across and down. */
   focus: { x: number; y: number } | null;
+  /** An SVG drawn in one ink: it can be shown in any color (lib/icons.ts isMonochromeSvg). */
+  mono?: boolean;
   updatedAt: string;
 };
 

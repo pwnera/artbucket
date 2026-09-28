@@ -15,6 +15,17 @@ export const isRenderable = (mime: string) => RENDERABLE.test(mime);
  */
 export const hasPreview = (a: Previewable) => isRenderable(a.mime) || typeof a.probe?.preview === "string";
 
+/**
+ * An icon: an SVG tagged `icon` (as an icon pack import tags them), or one
+ * drawn on a small grid. Shown at a glyph's size, crisp as the vector, never
+ * stretched to fill its tile.
+ */
+export const isIcon = (a: Previewable & { tags?: string[]; width?: number | null; height?: number | null }) =>
+  a.mime === "image/svg+xml" && (!!a.tags?.includes("icon") || (!!a.width && !!a.height && Math.max(a.width, a.height) <= 64));
+
+/** An SVG drawn in one ink (currentColor or black): it can be shown in any color, the theme's text by default. */
+export const isMono = (a: Previewable & { mono?: boolean }) => a.mono === true || a.probe?.mono === true;
+
 /** A Lottie animation, JSON or dotLottie: plays in the browser, has no still. */
 export const isLottie = (a: Previewable) => a.probe?.lottie === true;
 

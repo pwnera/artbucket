@@ -47,6 +47,7 @@ export function presentAsset(a: AssetRow, o: { sign: Sign; presets: PortalPreset
     original: at(),
     downloads: o.downloads === false ? [] : downloadsFor(a, o.presets, "", s),
     focus: m.focus ?? null,
+    ...(a.probe?.mono === true && { mono: true }),
     updatedAt: a.updatedAt.toISOString(),
   };
 }

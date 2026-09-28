@@ -135,6 +135,17 @@ const ART: Record<Template, React.ReactNode> = {
       ))}
     </>
   ),
+  icons: (
+    <>
+      <Head />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <g key={i}>
+          <circle cx={7.5 + i * 6.6} cy={17.5} r={2.2} fill="none" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1} />
+          <R x={5.5 + i * 6.6} y={22.5} w={4} h={1.2} o={0.3} />
+        </g>
+      ))}
+    </>
+  ),
   links: (
     <>
       <Head />

@@ -1525,6 +1525,14 @@
               "minLength": 1,
               "maxLength": 40
             },
+            "space": {
+              "description": "Room above it",
+              "type": "string",
+              "enum": [
+                "tight",
+                "loose"
+              ]
+            },
             "background": {
               "description": "For tone color and tone image",
               "type": "object",
@@ -1746,6 +1754,7 @@
                 "dodont",
                 "gallery",
                 "collection",
+                "icons",
                 "links",
                 "pages",
                 "diagram",
@@ -1775,7 +1784,7 @@
                   "format": "uuid"
                 },
                 "align": {
-                  "description": "cover",
+                  "description": "cover: start, center, end; split: start, center",
                   "type": "string",
                   "enum": [
                     "start",
@@ -1796,12 +1805,39 @@
                   "description": "cover: The palette as a strip; true when left out",
                   "type": "boolean"
                 },
+                "mark": {
+                  "description": "cover: Logo above the title",
+                  "type": "string",
+                  "enum": [
+                    "home",
+                    "always",
+                    "never"
+                  ]
+                },
                 "flip": {
                   "description": "split: Image on the left",
                   "type": "boolean"
                 },
+                "ratio": {
+                  "description": "split: The wider side",
+                  "type": "string",
+                  "enum": [
+                    "even",
+                    "words",
+                    "picture"
+                  ]
+                },
+                "fit": {
+                  "description": "split",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "fill",
+                    "whole"
+                  ]
+                },
                 "layout": {
-                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                   "type": "string",
                   "enum": [
                     "cards",
@@ -1911,23 +1947,41 @@
                   "description": "logos: Which mark for which context",
                   "type": "boolean"
                 },
+                "size": {
+                  "description": "logos, icons: How big each is drawn in its tile",
+                  "type": "string",
+                  "enum": [
+                    "medium",
+                    "small",
+                    "large"
+                  ]
+                },
+                "backdrop": {
+                  "description": "logos",
+                  "type": "string",
+                  "enum": [
+                    "checker",
+                    "light",
+                    "dark"
+                  ]
+                },
                 "collection": {
-                  "description": "collection: A collection's id",
+                  "description": "collection, icons: A collection's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "search": {
-                  "description": "collection: A saved search's id",
+                  "description": "collection, icons: A saved search's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "query": {
-                  "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                  "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                   "type": "string",
                   "maxLength": 2000
                 },
                 "sort": {
-                  "description": "collection",
+                  "description": "collection, icons: newest, oldest, name",
                   "type": "string",
                   "enum": [
                     "newest",
@@ -1936,13 +1990,13 @@
                   ]
                 },
                 "limit": {
-                  "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                  "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 200
                 },
                 "downloads": {
-                  "description": "collection: Offer downloads; true when left out",
+                  "description": "collection, icons: Offer downloads; true when left out",
                   "type": "boolean"
                 },
                 "from": {
@@ -2349,6 +2403,14 @@
                       "minLength": 1,
                       "maxLength": 40
                     },
+                    "space": {
+                      "description": "Room above it",
+                      "type": "string",
+                      "enum": [
+                        "tight",
+                        "loose"
+                      ]
+                    },
                     "background": {
                       "description": "For tone color and tone image",
                       "type": "object",
@@ -2570,6 +2632,7 @@
                         "dodont",
                         "gallery",
                         "collection",
+                        "icons",
                         "links",
                         "pages",
                         "diagram",
@@ -2599,7 +2662,7 @@
                           "format": "uuid"
                         },
                         "align": {
-                          "description": "cover",
+                          "description": "cover: start, center, end; split: start, center",
                           "type": "string",
                           "enum": [
                             "start",
@@ -2620,12 +2683,39 @@
                           "description": "cover: The palette as a strip; true when left out",
                           "type": "boolean"
                         },
+                        "mark": {
+                          "description": "cover: Logo above the title",
+                          "type": "string",
+                          "enum": [
+                            "home",
+                            "always",
+                            "never"
+                          ]
+                        },
                         "flip": {
                           "description": "split: Image on the left",
                           "type": "boolean"
                         },
+                        "ratio": {
+                          "description": "split: The wider side",
+                          "type": "string",
+                          "enum": [
+                            "even",
+                            "words",
+                            "picture"
+                          ]
+                        },
+                        "fit": {
+                          "description": "split",
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "fill",
+                            "whole"
+                          ]
+                        },
                         "layout": {
-                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                           "type": "string",
                           "enum": [
                             "cards",
@@ -2735,23 +2825,41 @@
                           "description": "logos: Which mark for which context",
                           "type": "boolean"
                         },
+                        "size": {
+                          "description": "logos, icons: How big each is drawn in its tile",
+                          "type": "string",
+                          "enum": [
+                            "medium",
+                            "small",
+                            "large"
+                          ]
+                        },
+                        "backdrop": {
+                          "description": "logos",
+                          "type": "string",
+                          "enum": [
+                            "checker",
+                            "light",
+                            "dark"
+                          ]
+                        },
                         "collection": {
-                          "description": "collection: A collection's id",
+                          "description": "collection, icons: A collection's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "search": {
-                          "description": "collection: A saved search's id",
+                          "description": "collection, icons: A saved search's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "query": {
-                          "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                          "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                           "type": "string",
                           "maxLength": 2000
                         },
                         "sort": {
-                          "description": "collection",
+                          "description": "collection, icons: newest, oldest, name",
                           "type": "string",
                           "enum": [
                             "newest",
@@ -2760,13 +2868,13 @@
                           ]
                         },
                         "limit": {
-                          "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                          "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 200
                         },
                         "downloads": {
-                          "description": "collection: Offer downloads; true when left out",
+                          "description": "collection, icons: Offer downloads; true when left out",
                           "type": "boolean"
                         },
                         "from": {
@@ -3476,8 +3584,39 @@
       "band": {
         "anyOf": [
           {
-            "description": "Every page opens on a band of the brand color",
+            "description": "Every page opens on a band of the brand color; header band says the same",
             "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "header": {
+        "anyOf": [
+          {
+            "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+            "type": "string",
+            "enum": [
+              "plain",
+              "band",
+              "split"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "separation": {
+        "anyOf": [
+          {
+            "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+            "type": "string",
+            "enum": [
+              "space",
+              "hairline"
+            ]
           },
           {
             "type": "null"
