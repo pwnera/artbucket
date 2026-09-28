@@ -2,7 +2,7 @@
 
 import { useContext, useId, useState } from "react";
 import { Combobox } from "@/components/combobox";
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight, IconPencil } from "@tabler/icons-react";
 import { ReadOnly } from "@/components/brand-values";
 import { usePref } from "@/components/sidebar-prefs";
 import { Badge } from "@/components/ui/badge";
@@ -72,11 +72,13 @@ export function Field({
 }
 
 /**
- * A ghost control: it reads as text until hovered or focused, as a Notion
- * property does. The focus ring stays, so the keyboard is never lost.
+ * A ghost control: it reads as text at rest, as a Notion property does, and
+ * shows it is a field when pointed at (its outline) or empty (what adding
+ * one takes, in the placeholder). The focus ring stays, so the keyboard is
+ * never lost.
  */
 export const ghost =
-  "border-transparent bg-transparent shadow-none dark:bg-transparent hover:bg-muted/60 focus-visible:bg-background placeholder:text-muted-foreground/70";
+  "border-transparent bg-transparent shadow-none dark:bg-transparent hover:border-input hover:bg-background focus-visible:bg-background placeholder:text-muted-foreground";
 
 /**
  * One property of a document: the label on the left, the value on the right,
@@ -104,9 +106,16 @@ export function Property({
   const readOnly = useContext(ReadOnly);
   if (readOnly && (text === undefined || text === null || text === "" || (Array.isArray(text) && !text.length))) return null;
   return (
-    <div data-slot="property" className={cn("grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-x-2", className)}>
+    <div data-slot="property" className={cn("group/prop grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-x-2", className)}>
       <Label htmlFor={readOnly ? undefined : htmlFor} className="text-muted-foreground flex min-h-9 w-28 items-center gap-1 text-sm font-normal">
         {label}
+        {/* Pointed at, the row says it can be changed; while it is being changed, it says nothing. */}
+        {!readOnly && (
+          <IconPencil
+            aria-hidden
+            className="ml-auto size-3 shrink-0 opacity-0 transition-opacity group-focus-within/prop:opacity-0! group-hover/prop:opacity-60 motion-reduce:transition-none"
+          />
+        )}
       </Label>
       <div className="grid min-w-0 gap-1">
         {readOnly ? <div className="flex min-h-9 items-center text-sm break-words">{text}</div> : children}
@@ -280,7 +289,7 @@ function FieldInput({
         name={name}
         options={d.options.map((o) => ({ value: o }))}
         defaultValue={fieldFormValue(d, v)}
-        placeholder={from ?? (rows ? "Empty" : d.required ? "Choose one" : "None")}
+        placeholder={from ?? (rows ? "Choose one" : d.required ? "Choose one" : "None")}
         required={d.required}
         onChange={() => setTimeout(() => onChange?.())}
         aria-describedby={note}
@@ -293,7 +302,7 @@ function FieldInput({
         type={d.type === "text" ? "text" : d.type}
         step={d.type === "number" ? "any" : undefined}
         defaultValue={fieldFormValue(d, v)}
-        placeholder={from ?? (rows ? "Empty" : undefined)}
+        placeholder={from ?? (rows ? `Add ${d.label.toLowerCase()}` : undefined)}
         required={d.required}
         maxLength={d.type === "text" ? 2000 : undefined}
         aria-describedby={note}
