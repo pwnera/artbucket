@@ -77,6 +77,9 @@ const ACCESS: Record<PortalAccess, { label: string; hint: string }> = {
   members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access" },
 };
 
+/** The Select's value for "no domain": /p/{slug} only. */
+const NO_DOMAIN = "none";
+
 const slugOf = (name: string) =>
   name
     .normalize("NFKD")
@@ -276,8 +279,14 @@ function PortalDialog({
   const [logo, setLogo] = useState(portal?.theme.logo ?? "");
   const [accent, setAccent] = useState(portal?.theme.accent ?? null);
   const [background, setBackground] = useState(portal?.theme.background ?? null);
-  const [domain, setDomain] = useState(portal?.domain?.host ?? "");
+  const [domain, setDomain] = useState(portal?.domain?.host ?? NO_DOMAIN);
+  const [hosts, setHosts] = useState<{ host: string; portal: string | null }[] | null>(null);
   const [current, setCurrent] = useState(portal);
+  useEffect(() => {
+    fetch("/api/v1/portals/domains")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((b) => setHosts(b.data), () => setHosts([]));
+  }, []);
   const [busy, setBusy] = useState(false);
 
   async function save(e: React.FormEvent) {
@@ -296,7 +305,7 @@ function PortalDialog({
       theme: { logo: logoId, accent, background },
       collections: picked,
       brands: pickedBrands,
-      domain: domain.trim() || null,
+      domain: domain === NO_DOMAIN ? null : domain,
     };
     setBusy(true);
     const saved = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
@@ -304,8 +313,6 @@ function PortalDialog({
     if (!saved) return;
     toast.success(current ? "Saved" : `${saved.name} is open at ${saved.url.replace(/^https?:\/\//, "")}`);
     onSaved();
-    // A new domain shows what to add to DNS: stay open for it.
-    if (saved.domain && !saved.domain.verified) return setCurrent(saved);
     onClose();
   }
 
@@ -440,8 +447,25 @@ function PortalDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
-            <Input id={`${id}-domain`} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="press.example.com" />
-            {current?.domain && current.domain.host === domain.trim().toLowerCase() && (
+            <Select value={domain} onValueChange={setDomain}>
+              <SelectTrigger id={`${id}-domain`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_DOMAIN}>None: /p/{slug || "its-address"}</SelectItem>
+                {current?.domain && !current.domain.verified && <SelectItem value={current.domain.host}>{current.domain.host} (not verified)</SelectItem>}
+                {hosts?.map((h) => (
+                  <SelectItem key={h.host} value={h.host} disabled={!!h.portal && h.portal !== current?.slug}>
+                    {h.host}
+                    {h.portal && h.portal !== current?.slug && <span className="text-muted-foreground">: /p/{h.portal}</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              The organization&apos;s verified domains, but its default. Add and verify one in Settings, Domains.
+            </p>
+            {current?.domain && current.domain.host === domain && (
               current.domain.verified ? (
                 <p className="flex items-center gap-1.5 text-xs text-emerald-600">
                   <IconCheck className="size-3.5" /> Verified: the portal answers at {current.domain.host}

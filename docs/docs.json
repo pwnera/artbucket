@@ -95,7 +95,8 @@
           "decisions/0008-migrations-on-start",
           "decisions/0009-agpl-and-ee",
           "decisions/0010-frozen-v1",
-          "decisions/0011-elastic-license"
+          "decisions/0011-elastic-license",
+          "decisions/0012-private-delivery"
         ]
       }
     ]

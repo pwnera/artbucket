@@ -6,6 +6,8 @@ import { callerFrom } from "@/lib/core/access";
 import { deliverableSql } from "@/lib/core/assets";
 import { appUrlFor, hostTarget } from "@/lib/core/domains";
 import { effective } from "@/lib/core/settings";
+import { longSig } from "@/lib/core/signing";
+import { withSignature } from "@/lib/asset-url";
 import { DEFAULT_BRANDING, type Brand, type BrandingSettings } from "@/lib/branding";
 import { resolve } from "@/lib/settings";
 
@@ -16,24 +18,28 @@ import { resolve } from "@/lib/settings";
  * when there is just one (a team's own server), else the server's (BRAND_*).
  */
 
-/** An image the brand points at, if it may be shown: approved, and the organization's own. */
-async function servable(organizationId: string, id: string | null, spec: string) {
+/**
+ * An image the brand points at, if it may be shown: approved, and the
+ * organization's own. Signed (lib/core/signing.ts): it shows to people
+ * signed out, at sign-in and on share links, and in email for `days`.
+ */
+async function servable(organizationId: string, id: string | null, spec: string, days: number) {
   if (!id) return null;
   const [a] = await db
     .select({ id: assets.id })
     .from(assets)
     .innerJoin(workspaces, eq(workspaces.id, assets.workspaceId))
     .where(and(eq(assets.id, id), eq(workspaces.organizationId, organizationId), deliverableSql));
-  return a ? `/a/${a.id}/${spec}` : null;
+  return a ? withSignature(`/a/${a.id}/${spec}`, longSig(a.id, days)) : null;
 }
 
 const differs = (v: BrandingSettings) => (Object.keys(DEFAULT_BRANDING) as (keyof BrandingSettings)[]).some((k) => v[k] !== DEFAULT_BRANDING[k]);
 
-/** An organization's brand, or with none the server's. Image URLs are host-relative. */
-export async function brandOf(organizationId: string | null): Promise<Brand> {
+/** An organization's brand, or with none the server's. Image URLs are host-relative, and work for `days`. */
+export async function brandOf(organizationId: string | null, days = 30): Promise<Brand> {
   const { value } = organizationId ? await effective("branding", { organizationId }) : resolve("branding", {}, process.env);
   const [logo, icon] = organizationId
-    ? await Promise.all([servable(organizationId, value.logo, "h_128,f_webp"), servable(organizationId, value.icon, "w_64,h_64,fit_cover,f_png")])
+    ? await Promise.all([servable(organizationId, value.logo, "h_128,f_webp", days), servable(organizationId, value.icon, "w_64,h_64,fit_cover,f_png", days)])
     : [null, null];
   return { name: value.name, tagline: value.tagline, logo, icon, accent: value.accent, emailFooter: value.emailFooter, custom: differs(value) };
 }
@@ -58,9 +64,9 @@ export async function organizationFor(req: Request): Promise<string | null> {
 /** GET /api/v1/branding */
 export const brandFor = async (req: Request) => brandOf(await organizationFor(req));
 
-/** For email: the organization's brand, with its logo as an absolute URL mail clients can load. */
+/** For email: the organization's brand, with its logo as an absolute URL mail clients can load, for a year. */
 export async function emailBrand(organizationId: string | null) {
-  const brand = await brandOf(organizationId);
+  const brand = await brandOf(organizationId, 365);
   const base = await appUrlFor(organizationId);
   return { ...brand, logo: brand.logo && `${base}${brand.logo}` };
 }

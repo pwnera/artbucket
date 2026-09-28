@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FONT_CATEGORIES, fontStyle, weightName } from "@/lib/font";
 import { cn } from "@/lib/utils";
+import { assetUrl } from "@/lib/asset-url";
 
 /**
  * A font asset, loaded from /a/{id} under its own family name, once per page.
@@ -22,7 +23,7 @@ function load(id: string) {
   let p = loading.get(id);
   if (!p) {
     const family = `asset-${id}`;
-    p = new FontFace(family, `url(/a/${id})`, { weight: "1 1000" }).load().then((face) => {
+    p = new FontFace(family, `url(${assetUrl(id)})`, { weight: "1 1000" }).load().then((face) => {
       document.fonts.add(face);
       return family;
     });

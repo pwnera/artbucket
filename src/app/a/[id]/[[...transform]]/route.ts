@@ -1,5 +1,6 @@
 import { fail, handle } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
+import { validUntil } from "@/lib/core/signing";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { renderAsset } from "@/lib/core/renditions";
 import { countTraffic } from "@/lib/core/usage";
@@ -16,16 +17,16 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  * GET /a/{id}?download         → the original with current metadata written in
  * GET /a/{id}/w_800,f_webp     → a rendition, generated once and cached
  *
- * The URL is the whole API. Nothing here needs a session, a download button, or
- * a prior round trip - an agent can build the URL it wants and fetch it. The
- * bytes of an approved asset are public to anyone holding the URL, so they can
- * be embedded. What the asset is and may be used for is API data, at
- * /api/v1/assets/{id}/description.
+ * The URL is the whole API: an agent builds the URL it wants and fetches it,
+ * with its key. The bytes are private: they go to whoever may see the asset
+ * in the library, by session or key, following its permissions. Anyone else
+ * needs a signed URL (?s=, lib/core/signing.ts), which share links and
+ * portals hand out, or the asset made public, for embedding.
  *
- * Only an approved, unexpired asset out of embargo is public (lib/lifecycle.ts).
- * Expired or archived, the URL answers 410 and every embed breaks on time;
- * a draft, a proposal or an embargoed asset is not there yet (404). Someone who
- * can see it in the library, by session or key, still gets it, uncached.
+ * Signed or public, only an approved, unexpired asset out of embargo leaves
+ * (lib/lifecycle.ts). Expired or archived, the URL answers 410 and every
+ * embed breaks on time; a draft, a proposal or an embargoed asset is not
+ * there yet (404). Someone who can see it in the library still gets it.
  */
 export async function GET(req: Request, { params }: Ctx) {
   try {
@@ -33,20 +34,28 @@ export async function GET(req: Request, { params }: Ctx) {
 
     const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
+    const s = new URL(req.url).searchParams.get("s");
     const open = deliverable(asset);
-    if (!open) {
-      const caller = await callerFrom(req);
+    const until = open && !asset.public ? validUntil(asset.id, s) : null;
+    let cache: string;
+    if (open && asset.public) cache = `public, max-age=${maxAge(asset)}`;
+    // Cached with its query, so for no longer than the signature lasts.
+    else if (until) cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
+    else {
+      // In the asset's workspace: someone in several sees each one's assets, whichever they have open.
+      const caller = await callerFrom(req, asset.workspaceId);
       if (!(caller && (await getAsset(caller, id)))) {
-        // Unarchived, renewed or approved later, it is back: no cache may remember the refusal.
+        // Made public, unarchived, renewed or approved later, it is back: no cache may remember the refusal.
         const again = { "Cache-Control": "no-cache" };
-        return retired(asset)
-          ? fail(410, "gone", `${STATE_LABEL[asset.state]}: this asset is no longer in use`, undefined, again)
-          : fail(404, "not_found", "No such asset", undefined, again);
+        if (retired(asset)) return fail(410, "gone", `${STATE_LABEL[asset.state]}: this asset is no longer in use`, undefined, again);
+        if (open && s && Number(s.split(".")[0]) * 1000 <= Date.now()) return fail(410, "gone", "This link has expired", undefined, again);
+        return fail(404, "not_found", "No such asset", undefined, again);
       }
+      // ponytail: a session lookup per request, thumbnails included; the browser keeps them for maxAge.
+      cache = open ? `private, max-age=${maxAge(asset)}` : "private, no-cache";
     }
     // The bytes behind a URL never change, so the hash names them; whether they may be served does.
     const etag = `"${asset.sha256}"`;
-    const cache = open ? `public, max-age=${maxAge(asset)}` : "private, no-cache";
 
     const served = (bytes: number) => countTraffic(asset.workspaceId, bytes);
 
@@ -119,7 +128,7 @@ function bytes(
       // Not immutable: an archive or an expiry has to reach caches (lib/lifecycle.ts maxAge).
       "Cache-Control": cache,
       ETag: etag,
-      // Public bytes: other sites may load them, which fonts (@font-face from brand/tokens) require.
+      // Other sites may load what they are allowed, which fonts (@font-face from brand/tokens) require. No credentials cross.
       "Access-Control-Allow-Origin": "*",
       // Anyone's upload, on this origin: an SVG or an HTML file opened here runs no script and reaches
       // nothing. Not on PDFs, which browsers show with a viewer that the sandbox would stop.

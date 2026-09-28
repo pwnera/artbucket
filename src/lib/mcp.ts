@@ -5,6 +5,7 @@ import {
   getAsset,
   ingestFromUrl,
   parseAssetQuery,
+  proposeFields,
   proposeTags,
   searchAssets,
   type Asset,
@@ -19,6 +20,7 @@ import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, type ToolName } from "@/lib/mcp-tools";
+import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
 import { parseTransform, serializeTransform } from "@/lib/transform";
 
@@ -34,7 +36,7 @@ import { parseTransform, serializeTransform } from "@/lib/transform";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.`;
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -174,22 +176,26 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
       "image is made on first request and cached. Renditions never upscale: asking for more pixels than the " +
-      "original has returns the original size.",
+      "original has returns the original size. The URL works for people who can see the asset; with expiresIn, " +
+      "it is signed and works for anyone until then.",
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.rendition_url,
-    run: async ({ id, width, height, fit, format, quality }, caller) => {
+    run: async ({ id, width, height, fit, format, quality, expiresIn }, caller) => {
       const a = await found(caller, id);
       if (!hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
       const spec = serializeTransform({ w: width, h: height, fit, f: format, q: quality });
-      if (!spec) return { url: base(a.id), transform: null, note: "No transform asked for: this is the original." };
-      if (!parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
+      if (spec && !parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
+      const signed = expiresIn ? await makeSignedUrl(caller, a.id, expiresIn, spec ? `/${spec}` : "") : null;
+      const url = signed?.url ?? (spec ? `${base(a.id)}/${spec}` : base(a.id));
+      const expiresAt = signed?.expiresAt ?? null;
+      if (!spec) return { url, expiresAt, transform: null, note: "No transform asked for: this is the original." };
       const notes = [
         width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
         height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
         fit && !(width && height) ? "fit only matters with both width and height." : null,
       ].filter(Boolean);
-      return { url: `${base(a.id)}/${spec}`, transform: spec, source: { width: a.width, height: a.height }, notes };
+      return { url, expiresAt, transform: spec, source: { width: a.width, height: a.height }, notes };
     },
   }),
 
@@ -275,7 +281,7 @@ const TOOLS: Record<ToolName, Tool> = {
       const { data } = await searchAssets(caller, { proposedBy: caller.actor, limit: 200 });
       const mine = data.filter((a) => !status || a.status === status).slice(0, limit);
       return {
-        proposals: mine.map((a) => ({ ...summary(a), reviewNote: a.reviewNote, proposedTags: a.proposedTags })),
+        proposals: mine.map((a) => ({ ...summary(a), reviewNote: a.reviewNote, proposedTags: a.proposedTags, proposedFields: a.proposedFields })),
       };
     },
   }),
@@ -291,6 +297,28 @@ const TOOLS: Record<ToolName, Tool> = {
       const a = await proposeTags(caller, id, tags);
       if (!a) throw new AssetError("not_found", `No asset ${id}`);
       return { id: a.id, tags: a.tags, proposedTags: a.proposedTags };
+    },
+  }),
+
+  list_fields: tool({
+    description: "The library's custom fields: each one's key, label, type, the options a choice takes, and whether it is required. For propose_fields.",
+    action: "field.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_fields,
+    run: async (_input, caller) => ({ fields: await listFields(caller.workspace.id) }),
+  }),
+
+  propose_fields: tool({
+    description:
+      "Suggest custom field values for an asset (a campaign, a product code, a usage note). They are not applied: a " +
+      "person accepts or dismisses each one. Each value is checked against its field now; one the asset already has is ignored.",
+    action: "asset.propose_fields",
+    readOnly: false,
+    input: TOOL_INPUTS.propose_fields,
+    run: async ({ id, fields }, caller) => {
+      const a = await proposeFields(caller, id, fields);
+      if (!a) throw new AssetError("not_found", `No asset ${id}`);
+      return { id: a.id, fields: { ...a.inherited, ...a.fields }, proposedFields: a.proposedFields };
     },
   }),
 };

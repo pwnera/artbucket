@@ -6,7 +6,8 @@ import { FontThumb } from "@/components/font-preview";
 import { Thumb, type Asset } from "@/components/gallery";
 import { stem } from "@/components/renditions";
 import { Can } from "@/components/can";
-import { approve, reject } from "@/components/review-actions";
+import { AssetMenu } from "@/components/asset-menu";
+import { approve, reject, suggestions } from "@/components/review-actions";
 import { RejectAction } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export function AssetTable({
   review,
   onOpen,
   onPick,
+  onShare,
   onChanged,
 }: {
   assets: Asset[];
@@ -38,6 +40,7 @@ export function AssetTable({
   review: boolean;
   onOpen: (a: Asset) => void;
   onPick: (i: number, range: boolean) => void;
+  onShare: (a: Asset) => void;
   onChanged: () => void;
 }) {
   async function decide(res: Promise<Response>, done: string) {
@@ -71,8 +74,8 @@ export function AssetTable({
           {assets.map((a, i) => {
             const title = a.metadata?.title || a.filename;
             return (
+              <AssetMenu key={a.id} asset={a} onOpen={() => onOpen(a)} onShare={() => onShare(a)} onPick={() => onPick(i, false)} selected={selected.has(a.id)} onChanged={onChanged}>
               <tr
-                key={a.id}
                 onClick={(e) => {
                   if ((e.target as Element).closest("button, a, [role=checkbox], [data-slot=popover-content]")) return;
                   if (selecting || e.metaKey || e.ctrlKey || e.shiftKey) onPick(i, e.shiftKey);
@@ -145,7 +148,7 @@ export function AssetTable({
                         {a.proposedBy ?? "an agent"}
                       </span>
                       <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>
-                        {a.status === "proposed" ? "New asset" : `${a.proposedTags.length} ${a.proposedTags.length === 1 ? "tag" : "tags"}`} ·{" "}
+                        {a.status === "proposed" ? "New asset" : suggestions(a)} ·{" "}
                         {ago(a.updatedAt)}
                       </span>
                     </div>
@@ -163,7 +166,7 @@ export function AssetTable({
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Approve ${title}`}
-                        title={a.status === "proposed" ? "Approve, with its suggested tags" : "Accept the suggested tags"}
+                        title={a.status === "proposed" ? "Approve, with what was suggested for it" : "Accept what was suggested"}
                         onClick={() => void decide(approve(a), `Approved ${title}`)}
                       >
                         <IconCheck />
@@ -178,6 +181,7 @@ export function AssetTable({
                   </td>
                 )}
               </tr>
+              </AssetMenu>
             );
           })}
         </tbody>

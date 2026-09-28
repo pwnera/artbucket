@@ -122,14 +122,17 @@ const ipOf = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]
  * anonymous: a revoked key should fail loudly, never quietly fall back to
  * whatever anonymous may do. In a read-only organization everyone reads, and
  * its admins still manage its people and settings, and can leave.
+ *
+ * `workspaceId` asks for that workspace over the cookie's, when they can open
+ * it: for what belongs to one workspace whichever is open, like /a/{id}.
  */
-export async function callerFrom(req: Request): Promise<Caller | undefined> {
-  const caller = await resolve(req);
+export async function callerFrom(req: Request, workspaceId?: string): Promise<Caller | undefined> {
+  const caller = await resolve(req, workspaceId);
   if (!caller || !(await limitsOf(caller.workspace.organizationId)).readOnly) return caller;
   return { ...caller, ...capAt(caller, "read"), readOnly: true };
 }
 
-async function resolve(req: Request): Promise<Caller | undefined> {
+async function resolve(req: Request, workspaceId?: string): Promise<Caller | undefined> {
   const ip = ipOf(req);
   const authorization = req.headers.get("authorization");
   if (authorization) {
@@ -153,7 +156,7 @@ async function resolve(req: Request): Promise<Caller | undefined> {
     return { workspace, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
-  const wanted = cookie(req, WORKSPACE_COOKIE);
+  const wanted = workspaceId ?? cookie(req, WORKSPACE_COOKIE);
   const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
   if (session) {
     const { id, name, email } = session.user;

@@ -25,11 +25,13 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `search_assets` | read | Full text, tags, collections, field filters, lifecycle `status` |
 | `describe_asset` | read | What it is, its rights, what replaced it, and the brand rules that point at it |
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
-| `rendition_url` | read | A URL for a width, height, fit, format and quality |
+| `rendition_url` | read | A URL for a width, height, fit, format and quality; with `expiresIn`, signed, for someone without access |
 | `brand_rules` | read | A brand's rules for a context |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
 | `propose_tags` | propose | Suggest tags for a person to accept |
+| `list_fields` | read | The library's custom fields: keys, types, options |
+| `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
 
 Brand rules are also resources: `artbucket://brand/rules`, and

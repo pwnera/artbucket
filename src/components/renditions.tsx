@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { IconCopy, IconDownload, IconPhotoScan } from "@tabler/icons-react";
 import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
+import { useCan } from "@/components/can";
+import { send } from "@/components/collections";
 import type { Asset } from "@/components/gallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { withSignature } from "@/lib/asset-url";
 import { FITS, FORMATS, MAX_DIMENSION, PRESETS, type Fit, type Format } from "@/lib/transform";
 
 export { PRESETS };
@@ -19,11 +22,37 @@ export { PRESETS };
 export const extOf = (spec: string) => spec.match(/f_(\w+)/)?.[1]?.replace("jpeg", "jpg");
 export const stem = (filename: string) => filename.replace(/\.[^.]+$/, "");
 
+/** Who a copied link works for: people with access, anyone for a while (signed), or anyone (a public asset). */
+const REACH = [
+  { value: "team", label: "People with access" },
+  { value: "86400", label: "Anyone, for a day" },
+  { value: "604800", label: "Anyone, for a week" },
+  { value: "2592000", label: "Anyone, for 30 days" },
+] as const;
+
 /**
- * Copy a link to, or download, the asset at a preset or a custom size. Links
- * are plain rendition URLs: no signing, anyone with the URL gets the image.
+ * Copy a link to, or download, the asset at a preset or a custom size. Files
+ * are private: a copied link works for people with access, unless it is
+ * signed for anyone for a while (one signature serves every size), or the
+ * asset is public. Downloads here go through the session.
  */
 export function Renditions({ asset }: { asset: Asset }) {
+  const can = useCan();
+  const signable = !asset.public && asset.status === "active" && can("asset.share", asset);
+  const [reach, setReach] = useState<string>("team");
+  const sigs = useRef(new Map<string, string>());
+  /** The URL to copy for this reach; null when it couldn't be signed. */
+  const linkFor = async (url: string) => {
+    if (asset.public || reach === "team") return url;
+    let s = sigs.current.get(reach);
+    if (!s) {
+      const made = await send("POST", `/api/v1/assets/${asset.id}/signed-url`, { expiresIn: Number(reach) });
+      s = made ? (new URL(made.url).searchParams.get("s") ?? undefined) : undefined;
+      if (!s) return null;
+      sigs.current.set(reach, s);
+    }
+    return withSignature(url, s);
+  };
   const [w, setW] = useState("");
   const [h, setH] = useState("");
   const [f, setF] = useState<Format>("webp");
@@ -41,8 +70,29 @@ export function Renditions({ asset }: { asset: Asset }) {
         </IconButton>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-96 p-0">
+        <div className="flex items-center gap-2 px-3 pt-3 pb-1 text-xs">
+          <span className="text-muted-foreground shrink-0">Copied links work for</span>
+          {asset.public ? (
+            <span className="font-medium">Anyone: it is public</span>
+          ) : signable ? (
+            <Select value={reach} onValueChange={setReach}>
+              <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REACH.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="font-medium">People with access</span>
+          )}
+        </div>
         <ul className="max-h-72 overflow-y-auto p-1">
-          <Row label="Original" hint="As stored, with edits written in" url={`/a/${asset.id}?download`} filename={asset.filename} />
+          <Row label="Original" hint="As stored, with edits written in" url={`/a/${asset.id}?download`} filename={asset.filename} link={linkFor} />
           {PRESETS.map((p) => (
             <Row
               key={p.name}
@@ -50,6 +100,7 @@ export function Renditions({ asset }: { asset: Asset }) {
               hint={p.spec}
               url={`/a/${asset.id}/${p.spec}`}
               filename={`${stem(asset.filename)}-${p.name.toLowerCase().replace(/\s+/g, "-")}.${extOf(p.spec)}`}
+              link={linkFor}
             />
           ))}
         </ul>
@@ -106,6 +157,7 @@ export function Renditions({ asset }: { asset: Asset }) {
                 label={custom}
                 url={`/a/${asset.id}/${custom}`}
                 filename={`${stem(asset.filename)}-${w || "auto"}x${h || "auto"}.${extOf(custom)}`}
+                link={linkFor}
                 mono
               />
             </ul>
@@ -123,16 +175,21 @@ function Row({
   hint,
   url,
   filename,
+  link,
   mono,
 }: {
   label: string;
   hint?: string;
   url: string;
   filename: string;
+  /** The URL to copy, signed when the link is for anyone. */
+  link: (url: string) => Promise<string | null>;
   mono?: boolean;
 }) {
   const copy = async () => {
-    const href = new URL(url, location.origin).href;
+    const shared = await link(url);
+    if (!shared) return;
+    const href = new URL(shared, location.origin).href;
     try {
       await navigator.clipboard.writeText(href);
       toast.success(`Copied ${label} link`);

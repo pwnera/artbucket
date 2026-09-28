@@ -42,6 +42,13 @@ export const TOOL_INPUTS = {
     fit: z.enum(FITS).optional().describe("With both width and height: cover crops, contain pads, inside fits (default)"),
     format: z.enum(FORMATS).optional().describe("Defaults to the original's format; webp suits the web"),
     quality: z.number().int().min(1).max(100).optional(),
+    expiresIn: z
+      .number()
+      .int()
+      .min(60)
+      .max(365 * 86400)
+      .optional()
+      .describe("For someone without access to the library: a signed URL that works this many seconds. Takes share on it"),
   }),
 
   check_use: Use.extend({
@@ -84,6 +91,15 @@ export const TOOL_INPUTS = {
   }),
 
   propose_tags: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
+
+  list_fields: z.object({}),
+
+  propose_fields: z.object({
+    id,
+    fields: z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]))
+      .describe("Custom field values by key, as list_fields names them: each is checked against its field"),
+  }),
 };
 
 export type ToolName = keyof typeof TOOL_INPUTS;

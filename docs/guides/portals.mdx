@@ -68,17 +68,26 @@ links, and a header background. Leave them empty for the app's own.
 
 ## A domain of its own
 
-Give the portal a host name, like `press.example.com`. It shows a TXT record
-to add at your DNS host, which proves the domain is yours:
+Domains are the organization's, added in Settings, Domains, like
+`press.example.com`. Each shows a TXT record to add at your DNS host, which
+proves the domain is yours:
 
 ```
 _artbucket-challenge.press.example.com  TXT  artbucket-3f2a...
 ```
 
 Point the domain itself at your server (a `CNAME` to its host name, or an `A`
-record), then **Check now**. With `DOMAIN_TARGET` set, the portal shows the
-exact `CNAME` to add. Once verified, the domain serves the portal and
-nothing else of the app.
+record), then **Check now**. With `DOMAIN_TARGET` set, the exact `CNAME` is
+shown, and checked along with the TXT record; at a zone's apex, where a CNAME
+can't go, an ALIAS or flattened record to the same target works.
+
+A verified domain serves the whole app until a portal picks it: in the
+portal, **Domain of its own** lists the organization's verified domains. It
+then serves that portal and nothing else of the app. The default domain,
+where links in email point, can't be picked; make another the default first.
+Removing a domain in Settings sends its portal back to `/p/{address}`.
+How many domains an organization may add is the operator's `domains`
+[limit](/configuration/limits).
 
 ### TLS
 

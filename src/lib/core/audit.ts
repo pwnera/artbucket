@@ -29,6 +29,9 @@ export type AuditAction =
   | "share.created"
   | "share.revoked"
   | "share.sent"
+  | "asset.signed_url"
+  | "asset.published"
+  | "asset.unpublished"
   | "portal.created"
   | "portal.updated"
   | "portal.deleted"
@@ -38,6 +41,7 @@ export type AuditAction =
   | "domain.added"
   | "domain.verified"
   | "domain.removed"
+  | "domain.primary"
   | "setting.changed"
   | "setting.reset"
   | "email.failed";

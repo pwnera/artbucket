@@ -9,6 +9,7 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
+import { pagePath } from "@/lib/core/signing";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
 import { NO_OFF, NONE } from "@/lib/access";
@@ -187,8 +188,9 @@ async function open(token: string, password: string | null) {
   return link;
 }
 
-const shared = (a: typeof assets.$inferSelect) => {
-  const base = `${env.APP_URL}/a/${a.id}`;
+/** Its URLs signed for the holder of the link (lib/core/signing.ts): a day at a time, never past the link. */
+const shared = (a: typeof assets.$inferSelect, until: Date | null) => {
+  const at = (rest = "") => `${env.APP_URL}${pagePath(a.id, rest, until)}`;
   const m = a.metadata ?? {};
   return {
     id: a.id,
@@ -201,9 +203,9 @@ const shared = (a: typeof assets.$inferSelect) => {
     size: a.size,
     width: a.width,
     height: a.height,
-    url: base,
-    download: `${base}?download`,
-    thumbnail: hasPreview(a) ? `${base}/w_640,f_webp` : null,
+    url: at(),
+    download: at("?download"),
+    thumbnail: hasPreview(a) ? at("/w_640,f_webp") : null,
   };
 };
 
@@ -246,7 +248,7 @@ export async function viewShare(token: string, password: string | null, { limit 
       .offset(Math.max(offset, 0)),
     db.select({ total: count() }).from(assets).where(where),
   ]);
-  return { share: meta, data: rows.map(shared), total };
+  return { share: meta, data: rows.map((a) => shared(a, link.expiresAt)), total };
 }
 
 /**

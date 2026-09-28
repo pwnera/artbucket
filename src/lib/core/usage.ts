@@ -1,6 +1,6 @@
 import { and, count, countDistinct, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, grants, invitations, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brands, domains, grants, invitations, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
@@ -58,12 +58,15 @@ const brandsOf = async (organizationId: string) =>
       .where(eq(workspaces.organizationId, organizationId))
   )[0].n;
 
+const domainsOf = async (organizationId: string) =>
+  (await db.select({ n: count() }).from(domains).where(eq(domains.organizationId, organizationId)))[0].n;
+
 const isEditor = async (organizationId: string, userId: string) =>
   !!(await db.select({ id: grants.id }).from(grants).where(and(eq(grants.organizationId, organizationId), eq(grants.userId, userId), EDITOR)).limit(1))[0];
 
 const n = (count: number, what: string) => `${count} ${what}${count === 1 ? "" : "s"}`;
 
-export type Limited = "storage" | "editors" | "workspaces" | "brands" | Feature;
+export type Limited = "storage" | "editors" | "workspaces" | "brands" | "domains" | Feature;
 
 const FEATURE_LABEL: Record<Feature, string> = { agents: "Connecting agents and making API keys", shares: "Share and upload links" };
 
@@ -99,6 +102,9 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
     case "brands":
       if (l.brands !== null && over(l.brands, await brandsOf(organizationId))) refuse(`This organization has room for ${n(l.brands, "brand")}`, l.brands);
       return;
+    case "domains":
+      if (l.domains !== null && over(l.domains, await domainsOf(organizationId))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
+      return;
     default:
       if (l.features && !l.features.includes(what)) throw new AssetError("limit_reached", `${FEATURE_LABEL[what]} is off for this organization`, { limit: what });
   }
@@ -129,12 +135,13 @@ export async function usageOf(caller: Caller) {
   if (!can(caller, "organization.manage")) throw new AssetError("forbidden", `Usage takes ${needs("organization.manage")}`);
   const org = caller.workspace.organizationId;
   const since = sql`(now() at time zone 'utc')::date - ${DAYS - 1}::int`;
-  const [limits, storage, editors, spaces, brandCount, byWorkspace, byDay] = await Promise.all([
+  const [limits, storage, editors, spaces, brandCount, domainCount, byWorkspace, byDay] = await Promise.all([
     limitsOf(org),
     storageOf(org),
     editorsOf(org),
     workspacesOf(org),
     brandsOf(org),
+    domainsOf(org),
     db
       .select({
         id: workspaces.id,
@@ -158,7 +165,7 @@ export async function usageOf(caller: Caller) {
   ]);
   return {
     limits,
-    used: { storage, editors, workspaces: spaces, brands: brandCount },
+    used: { storage, editors, workspaces: spaces, brands: brandCount, domains: domainCount },
     traffic: { days: DAYS, workspaces: byWorkspace, daily: byDay },
   };
 }
