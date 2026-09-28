@@ -42,12 +42,30 @@ export function Can({
 /**
  * A form part the person may only read unless they may do `do`: its controls
  * are disabled (a native fieldset), so what they can't change looks it.
+ * `when` false disables it too (a setting that waits on another); `why` says
+ * why above it while it is disabled, so a greyed form isn't a riddle.
  */
-export function Writable({ do: action, on, children }: { do: Action; on?: Target | null; children: React.ReactNode }) {
+export function Writable({
+  do: action,
+  on,
+  when = true,
+  why,
+  children,
+}: {
+  do: Action;
+  on?: Target | null;
+  when?: boolean;
+  why?: string;
+  children: React.ReactNode;
+}) {
+  const disabled = !useCan()(action, on) || !when;
   return (
-    <fieldset disabled={!useCan()(action, on)} className="contents">
-      {children}
-    </fieldset>
+    <>
+      {disabled && why && <p className="text-muted-foreground text-sm">{why}</p>}
+      <fieldset disabled={disabled} className="contents">
+        {children}
+      </fieldset>
+    </>
   );
 }
 

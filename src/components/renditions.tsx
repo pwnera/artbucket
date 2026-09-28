@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { IconCopy, IconDownload, IconPhotoScan } from "@tabler/icons-react";
+import { useId, useRef, useState } from "react";
+import { IconDownload, IconPhotoScan } from "@tabler/icons-react";
 import { IconButton } from "@/components/icon-button";
-import { toast } from "sonner";
 import { useCan } from "@/components/can";
 import { send } from "@/components/collections";
+import { CopyButton } from "@/components/copy-button";
 import type { Asset } from "@/components/gallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { withSignature } from "@/lib/asset-url";
-import { FITS, FORMATS, MAX_DIMENSION, PRESETS, type Fit, type Format } from "@/lib/transform";
+import { FITS, FORMATS, MAX_DIMENSION, outputSize, parseTransform, PRESETS, type Fit, type Format } from "@/lib/transform";
 
 export { PRESETS };
 
 export const extOf = (spec: string) => spec.match(/f_(\w+)/)?.[1]?.replace("jpeg", "jpg");
 export const stem = (filename: string) => filename.replace(/\.[^.]+$/, "");
+
+/** The presets by what they are for, so eight rows read as three choices. */
+const GROUPS: { label: string; names: string[] }[] = [
+  { label: "For screens", names: ["Thumbnail", "Web", "Large", "AVIF"] },
+  { label: "For social", names: ["Social square", "Open Graph", "Story"] },
+  { label: "Other formats", names: ["PNG"] },
+];
+
+/**
+ * "1200 × 630 JPEG", or "up to 1000 × 750 JPEG" when the image is smaller
+ * than asked, since nothing is enlarged. The spec itself when the size is unknown.
+ */
+export function describeSpec(
+  spec: string,
+  size: { width?: number | null; height?: number | null; probe?: Record<string, unknown> | null },
+) {
+  const t = parseTransform(spec);
+  if (!t) return spec;
+  // Renditions are turned upright first; a probe that recorded EXIF orientation says when that swaps the sides.
+  const o = outputSize(t, size, typeof size.probe?.orientation === "number" ? size.probe.orientation : undefined);
+  const format = t.f?.toUpperCase() ?? "";
+  if (!o) return [t.w && t.h ? `${t.w} × ${t.h}` : t.w ? `${t.w} wide` : t.h ? `${t.h} high` : "", format].filter(Boolean).join(" ");
+  return `${o.capped ? "up to " : ""}${o.width} × ${o.height}${format && ` ${format}`}`;
+}
 
 /** Who a copied link works for: people with access, anyone for a while (signed), or anyone (a public asset). */
 const REACH = [
@@ -57,6 +81,7 @@ export function Renditions({ asset }: { asset: Asset }) {
   const [h, setH] = useState("");
   const [f, setF] = useState<Format>("webp");
   const [fit, setFit] = useState<Fit>("inside");
+  const id = useId();
 
   const custom = [w && `w_${w}`, h && `h_${h}`, w && h && `fit_${fit}`, `f_${f}`].filter(Boolean).join(",");
   const dims = (n: string) => n === "" || (/^\d+$/.test(n) && +n >= 1 && +n <= MAX_DIMENSION);
@@ -69,7 +94,7 @@ export function Renditions({ asset }: { asset: Asset }) {
           <IconPhotoScan />
         </IconButton>
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="w-96 p-0">
+      <PopoverContent side="top" align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
         <div className="flex items-center gap-2 px-3 pt-3 pb-1 text-xs">
           <span className="text-muted-foreground shrink-0">Copied links work for</span>
           {asset.public ? (
@@ -93,15 +118,23 @@ export function Renditions({ asset }: { asset: Asset }) {
         </div>
         <ul className="max-h-72 overflow-y-auto p-1">
           <Row label="Original" hint="As stored, with edits written in" url={`/a/${asset.id}?download`} filename={asset.filename} link={linkFor} />
-          {PRESETS.map((p) => (
-            <Row
-              key={p.name}
-              label={p.name}
-              hint={p.spec}
-              url={`/a/${asset.id}/${p.spec}`}
-              filename={`${stem(asset.filename)}-${p.name.toLowerCase().replace(/\s+/g, "-")}.${extOf(p.spec)}`}
-              link={linkFor}
-            />
+          {GROUPS.map((g) => (
+            <li key={g.label}>
+              <p className="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium">{g.label}</p>
+              <ul>
+                {PRESETS.filter((p) => g.names.includes(p.name)).map((p) => (
+                  <Row
+                    key={p.name}
+                    label={p.name}
+                    hint={describeSpec(p.spec, asset)}
+                    title={p.spec}
+                    url={`/a/${asset.id}/${p.spec}`}
+                    filename={`${stem(asset.filename)}-${p.name.toLowerCase().replace(/\s+/g, "-")}.${extOf(p.spec)}`}
+                    link={linkFor}
+                  />
+                ))}
+              </ul>
+            </li>
           ))}
         </ul>
         <Separator />
@@ -109,21 +142,41 @@ export function Renditions({ asset }: { asset: Asset }) {
           <p className="text-sm font-medium">Custom</p>
           <div className="grid grid-cols-4 gap-2">
             <div className="grid gap-1">
-              <Label htmlFor="r-w" className="text-muted-foreground text-xs">
+              <Label htmlFor={`${id}-w`} className="text-muted-foreground text-xs">
                 Width
               </Label>
-              <Input id="r-w" inputMode="numeric" value={w} onChange={(e) => setW(e.target.value)} placeholder="auto" className="h-8" />
+              <Input
+                id={`${id}-w`}
+                inputMode="numeric"
+                value={w}
+                onChange={(e) => setW(e.target.value)}
+                placeholder="auto"
+                aria-invalid={!dims(w) || undefined}
+                aria-describedby={valid ? undefined : `${id}-error`}
+                className="h-8"
+              />
             </div>
             <div className="grid gap-1">
-              <Label htmlFor="r-h" className="text-muted-foreground text-xs">
+              <Label htmlFor={`${id}-h`} className="text-muted-foreground text-xs">
                 Height
               </Label>
-              <Input id="r-h" inputMode="numeric" value={h} onChange={(e) => setH(e.target.value)} placeholder="auto" className="h-8" />
+              <Input
+                id={`${id}-h`}
+                inputMode="numeric"
+                value={h}
+                onChange={(e) => setH(e.target.value)}
+                placeholder="auto"
+                aria-invalid={!dims(h) || undefined}
+                aria-describedby={valid ? undefined : `${id}-error`}
+                className="h-8"
+              />
             </div>
             <div className="grid gap-1">
-              <Label className="text-muted-foreground text-xs">Fit</Label>
+              <Label htmlFor={`${id}-fit`} className="text-muted-foreground text-xs">
+                Fit
+              </Label>
               <Select value={fit} onValueChange={(v) => setFit(v as Fit)} disabled={!(w && h)}>
-                <SelectTrigger size="sm" className="w-full">
+                <SelectTrigger id={`${id}-fit`} size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -136,9 +189,11 @@ export function Renditions({ asset }: { asset: Asset }) {
               </Select>
             </div>
             <div className="grid gap-1">
-              <Label className="text-muted-foreground text-xs">Format</Label>
+              <Label htmlFor={`${id}-format`} className="text-muted-foreground text-xs">
+                Format
+              </Label>
               <Select value={f} onValueChange={(v) => setF(v as Format)}>
-                <SelectTrigger size="sm" className="w-full">
+                <SelectTrigger id={`${id}-format`} size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,6 +210,7 @@ export function Renditions({ asset }: { asset: Asset }) {
             <ul className="-mx-2">
               <Row
                 label={custom}
+                hint={describeSpec(custom, asset)}
                 url={`/a/${asset.id}/${custom}`}
                 filename={`${stem(asset.filename)}-${w || "auto"}x${h || "auto"}.${extOf(custom)}`}
                 link={linkFor}
@@ -162,7 +218,9 @@ export function Renditions({ asset }: { asset: Asset }) {
               />
             </ul>
           ) : (
-            <p className="text-destructive text-xs">Sizes are whole numbers from 1 to {MAX_DIMENSION}.</p>
+            <p id={`${id}-error`} role="alert" className="text-destructive text-xs">
+              Sizes are whole numbers from 1 to {MAX_DIMENSION}.
+            </p>
           )}
         </div>
       </PopoverContent>
@@ -173,6 +231,7 @@ export function Renditions({ asset }: { asset: Asset }) {
 function Row({
   label,
   hint,
+  title,
   url,
   filename,
   link,
@@ -180,38 +239,27 @@ function Row({
 }: {
   label: string;
   hint?: string;
+  /** The raw spec, on hover, for whoever wants the URL grammar. */
+  title?: string;
   url: string;
   filename: string;
   /** The URL to copy, signed when the link is for anyone. */
   link: (url: string) => Promise<string | null>;
   mono?: boolean;
 }) {
-  const copy = async () => {
-    const shared = await link(url);
-    if (!shared) return;
-    const href = new URL(shared, location.origin).href;
-    try {
-      await navigator.clipboard.writeText(href);
-      toast.success(`Copied ${label} link`);
-    } catch {
-      // Clipboard can be denied (permissions, embedded frames): show the link instead.
-      toast.error("Couldn't copy the link", { description: href });
-    }
-  };
   return (
-    <li className="hover:bg-accent flex items-center gap-2 rounded-md px-2 py-1.5">
+    <li className="hover:bg-accent flex items-center gap-2 rounded-md px-2 py-1.5" title={title}>
       <div className="min-w-0 flex-1">
         <p className={mono ? "truncate font-mono text-xs" : "truncate text-sm"}>{label}</p>
-        {hint && <p className="text-muted-foreground truncate font-mono text-xs">{hint}</p>}
+        {hint && <p className="text-muted-foreground truncate text-xs tabular-nums">{hint}</p>}
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon-sm" onClick={copy} aria-label={`Copy ${label} link`}>
-            <IconCopy />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Copy link</TooltipContent>
-      </Tooltip>
+      {/* The link is signed inside the click: the promise goes to the clipboard as is (Safari). */}
+      <CopyButton
+        label={`Copy ${label} link`}
+        what="the link"
+        size="icon-sm"
+        text={() => link(url).then((shared) => shared && new URL(shared, location.origin).href)}
+      />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon-sm" asChild>

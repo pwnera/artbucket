@@ -1,20 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
-import { IconCheck, IconCopy, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { Fragment, useEffect, useId, useState, useTransition } from "react";
+import { IconCheck, IconPhoto, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { LibraryPicker } from "@/components/asset-picker";
 import { BrandMark } from "@/components/brand";
-import { copy } from "@/components/brand-values";
-import { send } from "@/components/collections";
+import { ColorField } from "@/components/color-field";
+import { Confirm } from "@/components/confirm";
+import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
-import { Group } from "@/components/settings/panels";
+import { Hint } from "@/components/settings/email";
+import { Group, useLeaveGuard } from "@/components/settings/panels";
+import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
+import { contrast, grade } from "@/lib/color";
+import { send } from "@/lib/send";
 
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
@@ -22,12 +28,15 @@ type Dns<T extends string> = { type: T; name: string; value: string };
 export type Domain = { host: string; verified: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
 
 const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
+/** The product's own accent, what the picker shows until one is set. */
+const OWN_ACCENT = "#6d4aff";
 
 /**
  * What the organization calls the product and how it looks: the app, sign-in,
  * share links, portals (unless a portal says otherwise) and email. Only what
  * changes here becomes the organization's own; the rest keeps coming from the
- * server's configuration (BRAND_*), or the product's own.
+ * server's configuration (BRAND_*), or the product's own. The page remounts
+ * it from what the server has after each save.
  */
 export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
   const id = useId();
@@ -39,106 +48,202 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
   const [icon, setIcon] = useState(v.icon ?? "");
   const [accent, setAccent] = useState(v.accent);
   const [footer, setFooter] = useState(v.emailFooter ?? "");
+  const [picking, setPicking] = useState<"logo" | "icon" | null>(null);
   const [busy, setBusy] = useState(false);
+  // router.refresh() re-renders the root layout (accent, title, icon): pending until it lands, not a reload.
+  const [refreshing, refresh] = useTransition();
+
+  const logoId = logo.trim() ? asAssetId(logo) : null;
+  const iconId = icon.trim() ? asAssetId(icon) : null;
+  const bad = { logo: !!logo.trim() && !logoId, icon: !!icon.trim() && !iconId };
+  const next: BrandingSettings = { name: name.trim(), tagline: tagline.trim() || null, logo: logoId, icon: iconId, accent, emailFooter: footer.trim() || null };
+  const patch = Object.fromEntries(Object.entries(next).filter(([k, x]) => x !== v[k as keyof BrandingSettings]));
+  const dirty = Object.keys(patch).length > 0 || bad.logo || bad.icon;
+  useLeaveGuard(dirty);
+  const env = (k: keyof BrandingSettings) => (setting.sources[k] === "environment" ? "from the server's configuration" : null);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const logoId = logo.trim() ? asAssetId(logo) : null;
-    const iconId = icon.trim() ? asAssetId(icon) : null;
-    if ((logo.trim() && !logoId) || (icon.trim() && !iconId)) return toast.error("Logo and icon are images of the library: paste an asset's link, or its id");
-    const next: BrandingSettings = { name: name.trim(), tagline: tagline.trim() || null, logo: logoId, icon: iconId, accent, emailFooter: footer.trim() || null };
-    const patch = Object.fromEntries(Object.entries(next).filter(([k, x]) => x !== v[k as keyof BrandingSettings]));
-    if (!Object.keys(patch).length) return toast("Nothing changed");
+    if (!dirty || bad.logo || bad.icon) return;
     setBusy(true);
     const saved = await send("PATCH", "/api/v1/settings/branding?context=organization", patch);
     setBusy(false);
     if (!saved) return;
     toast.success("Saved: everyone in the organization sees it now");
-    // The whole page is in the brand: the sidebar, the title, the accent.
-    window.location.reload();
+    refresh(() => router.refresh());
   }
 
-  const preview = { ...DEFAULT_BRAND, name: name || DEFAULT_BRAND.name, accent, custom: true };
+  const preview = { ...DEFAULT_BRAND, name: name || DEFAULT_BRAND.name, accent, custom: true, logo: logoId && `/a/${logoId}/h_64,f_webp` };
+  const image = (which: "logo" | "icon", label: string, placeholder: string) => {
+    const { raw, set, asset } = which === "logo" ? { raw: logo, set: setLogo, asset: logoId } : { raw: icon, set: setIcon, asset: iconId };
+    return (
+      <div className="grid max-w-md gap-2">
+        <Label htmlFor={`${id}-${which}`}>{label}</Label>
+        <div className="flex items-center gap-2">
+          <span className="bg-muted relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+            {asset ? <Thumb key={asset} src={`/a/${asset}/w_40,f_webp`} alt="" className="p-1" /> : <IconPhoto className="text-muted-foreground size-4" />}
+          </span>
+          <Input
+            id={`${id}-${which}`}
+            value={raw}
+            onChange={(e) => set(e.target.value)}
+            placeholder={placeholder}
+            aria-invalid={bad[which] || undefined}
+            aria-describedby={bad[which] ? `${id}-${which}-error` : undefined}
+            className="flex-1"
+          />
+          <Button type="button" variant="outline" onClick={() => setPicking(which)}>
+            Choose
+          </Button>
+        </div>
+        {bad[which] ? (
+          <p id={`${id}-${which}-error`} className="text-destructive text-xs">
+            That isn&apos;t an asset: paste an asset&apos;s link or id, or choose one.
+          </p>
+        ) : (
+          <Hint text={env(which)} />
+        )}
+      </div>
+    );
+  };
+
   return (
     <form onSubmit={save} className="space-y-6">
       <Group title="Name" description="What the product is called: page titles, the sign-in screen, email subjects.">
-        <div className="flex max-w-md items-center gap-3">
-          <BrandMark brand={preview} />
-          <Input id={`${id}-name`} aria-label="Product name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={60} />
+        <div className="grid max-w-md gap-2">
+          <div className="flex items-center gap-3">
+            <BrandMark brand={preview} />
+            <Input id={`${id}-name`} aria-label="Product name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={60} />
+          </div>
+          <Hint text={env("name")} />
         </div>
         <div className="grid max-w-md gap-2">
           <Label htmlFor={`${id}-tagline`}>Tagline</Label>
           <Input id={`${id}-tagline`} value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={160} placeholder="Under the name on the sign-in screen" />
+          <Hint text={env("tagline")} />
         </div>
       </Group>
-      <Group title="Look" description="Images come from the library, and show while they stay approved. Paste an asset's link, or its id.">
-        <div className="grid max-w-md gap-2">
-          <Label htmlFor={`${id}-logo`}>Logo</Label>
-          <Input id={`${id}-logo`} value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="The sidebar, sign-in, share links and email" />
-        </div>
-        <div className="grid max-w-md gap-2">
-          <Label htmlFor={`${id}-icon`}>Icon</Label>
-          <Input id={`${id}-icon`} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="Square: the browser tab" />
-        </div>
+      <Group title="Look" description="Images come from the library, and show while they stay approved.">
+        {image("logo", "Logo", "The sidebar, sign-in, share links and email")}
+        {image("icon", "Icon", "Square: the browser tab")}
         <div className="grid gap-2">
           <Label htmlFor={`${id}-accent`}>Accent</Label>
-          <div className="flex items-center gap-2">
-            <Input id={`${id}-accent`} type="color" value={accent ?? "#6d4aff"} onChange={(e) => setAccent(e.target.value)} className="h-9 w-14 p-1" />
-            <span className="text-muted-foreground font-mono text-xs">{accent ?? "The product's own"}</span>
-            {accent && (
-              <IconButton variant="ghost" label="Reset the accent" onClick={() => setAccent(null)}>
+          <div className="flex flex-wrap items-center gap-2">
+            <ColorField id={`${id}-accent`} label="Accent" value={accent ?? OWN_ACCENT} onChange={setAccent} />
+            {accent ? (
+              <IconButton variant="ghost" label="Back to the product's own accent" onClick={() => setAccent(null)}>
                 <IconX />
               </IconButton>
+            ) : (
+              <span className="text-muted-foreground text-xs">The product&apos;s own</span>
             )}
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Legibility color={accent ?? OWN_ACCENT} on="#ffffff" theme="light" />
+            <Legibility color={accent ?? OWN_ACCENT} on="#111111" theme="dark" />
+          </div>
+          <Hint text={env("accent")} />
         </div>
       </Group>
       <Group title="Email" description="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
         <div className="grid max-w-md gap-2">
           <Label htmlFor={`${id}-footer`}>Footer</Label>
           <Textarea id={`${id}-footer`} rows={2} maxLength={500} value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Acme Inc, 1 Main Street. Questions: brand@acme.com" />
+          <Hint text={env("emailFooter")} />
         </div>
       </Group>
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" pending={busy || refreshing} disabled={!dirty || bad.logo || bad.icon}>
           Save
         </Button>
         {setting.own && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={async () => {
-              if (!(await send("DELETE", "/api/v1/settings/branding?context=organization"))) return;
+          <Confirm
+            title="Reset the branding?"
+            says="Everyone goes back to the product's own name, look and email footer, or to the server's configuration where it sets them."
+            action="Reset"
+            run={async () => {
+              const ok = await send("DELETE", "/api/v1/settings/branding?context=organization");
+              if (!ok) return null;
               toast.success("Back to the default look");
-              router.refresh();
-              window.location.reload();
+              refresh(() => router.refresh());
+              return ok;
             }}
           >
-            Reset
-          </Button>
+            <Button type="button" variant="ghost">
+              Reset
+            </Button>
+          </Confirm>
         )}
       </div>
+      {picking && (
+        <LibraryPicker
+          title={picking === "logo" ? "Choose the logo" : "Choose the icon"}
+          description="An approved image from the library. It shows for as long as it stays approved."
+          filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
+          onClose={() => setPicking(null)}
+          onPick={(a) => {
+            (picking === "logo" ? setLogo : setIcon)(a.id);
+            setPicking(null);
+          }}
+        />
+      )}
     </form>
   );
 }
 
+/** How the accent reads as a button and focus ring in one theme: its contrast with that background, graded. */
+function Legibility({ color, on, theme }: { color: string; on: string; theme: string }) {
+  const ratio = contrast(color, on);
+  const g = grade(ratio);
+  return (
+    <Badge variant={g === "fail" ? "destructive" : g === "AA large" ? "warning" : "success"} title={`${ratio.toFixed(1)}:1 against ${on}`}>
+      {theme === "light" ? "Light" : "Dark"} theme: {g === "fail" ? "hard to see" : g} ({ratio.toFixed(1)}:1)
+    </Badge>
+  );
+}
+
+/** How long a pending domain is re-checked on its own, and how often. */
+const RECHECK = { every: 30_000, for: 10 * 60_000 };
+
 /**
  * The organization's own addresses. Each serves the whole app, the default
  * one being where links in email point, or one portal, which picks it in
- * Portals. Each is proved by a TXT record, and by pointing at the server.
+ * Portals. Each is proved by a TXT record, and by pointing at the server;
+ * while one isn't yet, it is checked again every 30s for 10 minutes, as DNS
+ * takes minutes to spread.
  */
 export function DomainsPanel({ domains }: { domains: Domain[] }) {
   const id = useId();
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const act = async (method: string, path: string, body: unknown, done: string) => {
-    setBusy(true);
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [adding, setAdding] = useState(false);
+  const act = async (host: string, method: string, path: string, body: unknown, done: string) => {
+    setBusy((b) => ({ ...b, [host]: true }));
     const ok = await send(method, path, body);
-    setBusy(false);
+    setBusy((b) => ({ ...b, [host]: false }));
     if (!ok) return;
     toast.success(done);
     router.refresh();
   };
+
+  const waiting = domains.filter((d) => !d.verified).map((d) => d.host).join(" ");
+  useEffect(() => {
+    if (!waiting) return;
+    const until = Date.now() + RECHECK.for;
+    const t = setInterval(async () => {
+      if (Date.now() > until) return clearInterval(t);
+      if (document.visibilityState !== "visible") return;
+      for (const host of waiting.split(" ")) {
+        // Not send(): a 422 only means "not yet", which is no error to toast, and no save to count.
+        const res = await fetch(`/api/v1/domains/${encodeURIComponent(host)}/verify`, { method: "POST" }).catch(() => null);
+        if (!res?.ok) continue;
+        toast.success(`${host} is verified`);
+        router.refresh();
+      }
+    }, RECHECK.every);
+    return () => clearInterval(t);
+  }, [waiting, router]);
+
   return (
     <div className="space-y-6">
       <Group
@@ -149,6 +254,11 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
           <ul className="divide-y rounded-md border">
             {domains.map((d) => {
               const at = `/api/v1/domains/${encodeURIComponent(d.host)}`;
+              const records: [string, string, string][] = [
+                ...(d.cname ? ([["CNAME", d.cname.name, "the name"], ["Points to", d.cname.value, "the target"]] as [string, string, string][]) : []),
+                ["TXT", d.record.name, "the TXT name"],
+                ["Value", d.record.value, "the TXT value"],
+              ];
               return (
                 <li key={d.host} className="grid gap-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
@@ -158,52 +268,52 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                     {d.primary && <Badge>Default</Badge>}
                     {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
                     {d.verified ? (
-                      <Badge variant="outline" className="text-emerald-600">
+                      <Badge variant="success">
                         <IconCheck /> Verified
                       </Badge>
                     ) : (
-                      <Button size="sm" variant="outline" disabled={busy} onClick={() => act("POST", `${at}/verify`, undefined, `${d.host} is verified`)}>
+                      <Button size="sm" variant="outline" pending={busy[d.host]} onClick={() => act(d.host, "POST", `${at}/verify`, undefined, `${d.host} is verified`)}>
                         Check now
                       </Button>
                     )}
                     {d.verified && !d.primary && !d.portal && (
-                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => act("PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
+                      <Button size="sm" variant="ghost" pending={busy[d.host]} onClick={() => act(d.host, "PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
                         Make default
                       </Button>
                     )}
-                    <IconButton
-                      variant="ghost"
-                      label={`Remove ${d.host}`}
-                      onClick={async () => {
-                        const then = d.portal ? `The portal goes back to /p/${d.portal}.` : `People using it will have to use another address.`;
-                        if (!confirm(`Stop answering at ${d.host}? ${then}`)) return;
-                        if (await send("DELETE", at)) router.refresh();
+                    <Confirm
+                      title={`Stop answering at ${d.host}?`}
+                      says={d.portal ? `The portal goes back to /p/${d.portal}.` : "People using it will have to use another address."}
+                      action="Remove"
+                      run={async () => {
+                        const ok = await send("DELETE", at);
+                        if (!ok) return null;
+                        toast.success(`Removed ${d.host}`);
+                        router.refresh();
+                        return ok;
                       }}
                     >
-                      <IconTrash />
-                    </IconButton>
+                      <IconButton variant="ghost" label={`Remove ${d.host}`} className="text-muted-foreground hover:text-destructive">
+                        <IconTrash />
+                      </IconButton>
+                    </Confirm>
                   </div>
                   {!d.verified && (
-                    <div className="bg-muted/50 grid gap-1 rounded-md p-2.5 font-mono text-xs">
-                      {d.cname && (
-                        <p className="flex items-center gap-2 break-all">
-                          <span className="text-muted-foreground w-10 shrink-0 font-sans">CNAME</span>
-                          {d.cname.name} → {d.cname.value}
-                          <IconButton variant="ghost" label="Copy the target" onClick={() => copy(d.cname!.value, "the target")}>
-                            <IconCopy />
-                          </IconButton>
-                        </p>
-                      )}
-                      {[d.record.name, d.record.value].map((x, i) => (
-                        <p key={x} className="flex items-center gap-2 break-all">
-                          <span className="text-muted-foreground w-10 shrink-0 font-sans">{i ? "Value" : "TXT"}</span>
-                          {x}
-                          <IconButton variant="ghost" label={i ? "Copy the value" : "Copy the name"} onClick={() => copy(x, i ? "the value" : "the name")}>
-                            <IconCopy />
-                          </IconButton>
-                        </p>
-                      ))}
-                      {d.cname && <p className="text-muted-foreground mt-1 font-sans">Both are checked. At a zone&apos;s apex, where a CNAME can&apos;t go, an ALIAS or flattened record to the same target works.</p>}
+                    <div className="bg-muted/50 grid gap-2 rounded-md p-2.5 text-xs">
+                      {/* One row per value, the copy button in its own column, so it doesn't move with the text. */}
+                      <dl className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                        {records.map(([label, value, what]) => (
+                          <Fragment key={label}>
+                            <dt className="text-muted-foreground">{label}</dt>
+                            <dd className="font-mono break-all">{value}</dd>
+                            <CopyButton text={value} label={`Copy ${what}`} what={what} />
+                          </Fragment>
+                        ))}
+                      </dl>
+                      <p className="text-muted-foreground">
+                        {d.cname && "Both are checked. At a zone's apex, where a CNAME can't go, an ALIAS or flattened record to the same target works. "}
+                        Checked again on its own every 30 seconds for a while.
+                      </p>
                     </div>
                   )}
                 </li>
@@ -218,16 +328,20 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
             const form = e.currentTarget;
             const host = String(new FormData(form).get("host") ?? "").trim();
             if (!host) return;
-            if (!(await send("POST", "/api/v1/domains", { host }))) return;
+            setAdding(true);
+            const ok = await send("POST", "/api/v1/domains", { host });
+            setAdding(false);
+            if (!ok) return;
+            toast.success(`Added ${host}`, { description: "Add its DNS records, then check it." });
             form.reset();
             router.refresh();
           }}
         >
           <div className="grid flex-1 gap-2">
             <Label htmlFor={id}>Add a domain</Label>
-            <Input id={id} name="host" placeholder="assets.example.com" />
+            <Input id={id} name="host" placeholder="assets.example.com" autoCapitalize="none" autoComplete="off" spellCheck={false} inputMode="url" />
           </div>
-          <Button type="submit" variant="outline">
+          <Button type="submit" variant="outline" pending={adding}>
             <IconPlus /> Add
           </Button>
         </form>

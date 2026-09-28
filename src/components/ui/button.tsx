@@ -2,9 +2,10 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
+import { IconLoader2 } from "@tabler/icons-react"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -17,7 +18,7 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-primary-ink underline-offset-4 hover:underline active:scale-100",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -37,15 +38,24 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * `pending` reads as working, not unavailable: disabled at full strength,
+ * with a spinner in the leading icon's place so the width holds. Keep it off
+ * buttons whose only icon trails the label, or that icon hides.
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
+  pending = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    pending?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
@@ -54,9 +64,15 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-pending={pending || undefined}
+      aria-busy={pending || undefined}
+      disabled={disabled || pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {/* Slot takes exactly one child, so asChild never gets the spinner. */}
+      {asChild ? children : <>{pending && <IconLoader2 data-spinner className="animate-spin" />}{children}</>}
+    </Comp>
   )
 }
 

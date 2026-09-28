@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots } from "@tabler/icons-react";
+import { Collapsible } from "radix-ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/components/can";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyOrder, moveTo } from "@/lib/order";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +97,22 @@ export function useRemember() {
 }
 
 export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.workspace.id), []);
+
+type Named = { id: string; name: string };
+
+/**
+ * Recents as the library is now: a deleted collection or saved search drops
+ * out, and a renamed one shows its new name. Assets and brands stay as
+ * noted; opening a missing asset already says so.
+ */
+export function liveRecents(recents: Recent[], collections: Named[], searches: Named[]) {
+  const names = { collection: new Map(collections.map((c) => [c.id, c.name])), search: new Map(searches.map((s) => [s.id, s.name])) };
+  return recents.flatMap((r) => {
+    if (r.kind !== "collection" && r.kind !== "search") return [r];
+    const name = names[r.kind].get(r.id);
+    return name === undefined ? [] : [{ ...r, label: name }];
+  });
+}
 
 // ---- ordering ----------------------------------------------------------------
 
@@ -230,9 +248,18 @@ export const useSections = () => useSortable("sections", [...SECTIONS], (s) => s
 export const useFolded = () => usePref<string[]>("artbucket:folded", []);
 
 /**
+ * A Collapsible.Content that slides open and shut instead of snapping
+ * (tw-animate-css keyframes). Clipped with a margin, as details folds are,
+ * so the rows' focus rings aren't cut at the sides.
+ */
+export const FOLD =
+  "overflow-clip [overflow-clip-margin:4px] data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down";
+
+/**
  * A sidebar section, PostHog style: a small-caps label that folds it, an add
  * action, and a menu to move the section or do something to all of it. The
- * label is also its drag handle.
+ * label is also its drag handle. Folded to the icon rail, sections leave
+ * altogether: the rail is places, Settings and the account, as in Linear.
  */
 export function SidebarSection({
   id,
@@ -254,61 +281,70 @@ export function SidebarSection({
   const [folded, setFolded] = useFolded();
   const closed = folded.includes(id);
   return (
-    <SidebarGroup {...s.target} className={cn("relative py-0.5", !closed && "pb-2", s.dragging && "opacity-50")}>
-      <DropLine line={s.line} />
-      <div className="group/section relative flex items-center">
-        <SidebarGroupLabel asChild className="h-7 flex-1 cursor-pointer pr-14 tracking-wide uppercase group-data-[collapsible=icon]:-mt-7">
-          <button
-            type="button"
-            {...s.handle}
-            onClick={() => setFolded(closed ? folded.filter((f) => f !== id) : [...folded, id])}
-            aria-expanded={!closed}
-            title="Click to fold, drag to move"
-          >
-            <IconChevronRight className={cn("mr-1 !size-3 transition-transform", !closed && "rotate-90")} />
-            {label}
-          </button>
-        </SidebarGroupLabel>
-        <div className="absolute right-2 flex items-center gap-0.5 group-data-[collapsible=icon]:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${label} section menu`}
-                className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-              >
-                <IconDots className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start">
-              <MoveItems s={s} />
-              {menu && (
-                <>
-                  <DropdownMenuSeparator />
-                  {menu}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {action}
+    <Collapsible.Root asChild open={!closed} onOpenChange={(o) => setFolded(o ? folded.filter((f) => f !== id) : [...folded, id])}>
+      <SidebarGroup {...s.target} className={cn("relative py-0.5 group-data-[collapsible=icon]:hidden", s.dragging && "opacity-50")}>
+        <DropLine line={s.line} />
+        <div className="group/section relative flex items-center">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SidebarGroupLabel asChild className="h-7 flex-1 cursor-pointer pr-14 tracking-wide uppercase">
+                <Collapsible.Trigger {...s.handle}>
+                  <IconChevronRight className={cn("mr-1 !size-3 transition-transform", !closed && "rotate-90")} />
+                  {label}
+                </Collapsible.Trigger>
+              </SidebarGroupLabel>
+            </TooltipTrigger>
+            <TooltipContent side="right">Click to fold, drag to move</TooltipContent>
+          </Tooltip>
+          <div className="absolute right-2 flex items-center gap-0.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`${label} section menu`}
+                  // On touch there is no hover to reveal it, so it stays.
+                  className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100"
+                >
+                  <IconDots className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start">
+                <MoveItems s={s} />
+                {menu && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {menu}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {action}
+          </div>
         </div>
-      </div>
-      {!closed && <SidebarGroupContent>{children}</SidebarGroupContent>}
-    </SidebarGroup>
+        <Collapsible.Content className={FOLD}>
+          {/* The gap below lives inside, so it folds with the rows instead of snapping. */}
+          <SidebarGroupContent className="pb-2">{children}</SidebarGroupContent>
+        </Collapsible.Content>
+      </SidebarGroup>
+    </Collapsible.Root>
   );
 }
 
 /** The add button in a section's header, e.g. "New collection". */
 export function SectionAdd({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md [&>svg]:size-4"
-    >
-      {icon}
-      <span className="sr-only">{label}</span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md [&>svg]:size-4"
+        >
+          {icon}
+          <span className="sr-only">{label}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }

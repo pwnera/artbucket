@@ -13,6 +13,8 @@ test("names become camelCase key segments", () => {
   assert.equal(camel("socialMedia"), "socialMedia", "a key segment passes through");
   assert.equal(camel("HTML colors"), "htmlColors");
   assert.equal(camel("Logo on iPhone"), "logoOnIPhone");
+  assert.equal(camel("2024 logo"), "logo", "leading digits go, not the first letter with them");
+  assert.equal(camel("iOS icon"), "iosIcon", "a mixed-case word that isn't camelCase is one lowercase word");
 });
 
 test("keys are made unique by counting up", () => {
@@ -27,6 +29,8 @@ test("keys are made unique by counting up", () => {
 
 test("a name survives the round trip to a key and back", () => {
   assert.equal(ruleLabel(keyFor("logo", "Min clear space", new Set())!), "Min clear space");
+  assert.equal(ruleLabel(keyFor("logo", "iOS icon", new Set())!), "Ios icon");
+  assert.equal(ruleLabel(keyFor("logo", "2024 logo", new Set())!), "Logo");
 });
 
 test("every preset makes a valid rule, and the essentials exist", () => {

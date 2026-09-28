@@ -11,6 +11,19 @@
 export const SCOPES = ["read", "propose", "write", "admin"] as const;
 export type Scope = (typeof SCOPES)[number];
 
+/**
+ * The same scopes as people's roles, one vocabulary for every picker and
+ * badge. Ordered read to admin, as the ladder is.
+ */
+export const ROLES: { scope: Scope; label: string; hint: string }[] = [
+  { scope: "read", label: "Viewer", hint: "Search, look, download" },
+  { scope: "propose", label: "Contributor", hint: "Also upload and suggest; it waits for review" },
+  { scope: "write", label: "Editor", hint: "Also edit, approve, delete, and share links" },
+  { scope: "admin", label: "Admin", hint: "Also manage people and keys" },
+];
+
+export const roleName = (s: Scope) => ROLES.find((r) => r.scope === s)?.label ?? s;
+
 export const allows = (have: Scope | null, need: Scope) =>
   have !== null && SCOPES.indexOf(have) >= SCOPES.indexOf(need);
 

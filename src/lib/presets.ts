@@ -3,8 +3,9 @@ import type { RuleType, RuleValue } from "./rules.ts";
 /**
  * What people add to brand guidelines, as ready-made rules: a name, where it
  * goes, what kind of value, and a starting value to overwrite. The editor's
- * "/" menu is this list, so nobody has to know that a clear-space rule is a
- * text rule keyed `logo.minClearSpace`.
+ * "/" menu is this list (the ghost line under each section, or under a rule
+ * from its + or "/"), so nobody has to know that a clear-space rule is a text
+ * rule keyed `logo.minClearSpace`.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
@@ -61,16 +62,18 @@ export function camel(words: string) {
     .normalize("NFKD")
     .replace(/['’]/g, "")
     .replace(/[^A-Za-z0-9]+/g, " ")
+    // A key starts with a letter: "2024 logo" is "logo", not "ogo".
+    .replace(/^[^A-Za-z]+/, "")
     .trim()
     .split(" ")
     .filter(Boolean);
-  // Capitals inside a word stay ("socialMedia" is already a key); an all-caps word is one word ("HTML").
-  const word = (p: string) => (p === p.toUpperCase() ? p.toLowerCase() : p);
-  const out = parts
+  // A word already in camelCase stays ("socialMedia", "iPhone"); any other is one lowercase word ("HTML", "iOS"),
+  // so the label read back from the key is what was typed, not "I osicon".
+  const word = (p: string) => (/^[a-z][a-z0-9]*([A-Z][a-z0-9]+)*$/.test(p) ? p : p.toLowerCase());
+  return parts
     .map(word)
-    .map((p, i) => (i ? p[0].toUpperCase() + p.slice(1) : p[0].toLowerCase() + p.slice(1)))
+    .map((p, i) => (i ? p[0].toUpperCase() + p.slice(1) : p))
     .join("");
-  return out.replace(/^[^a-z]+/, "");
 }
 
 /**

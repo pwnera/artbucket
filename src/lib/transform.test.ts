@@ -58,3 +58,17 @@ test("a side that can't bind drops, so equal pixels share a rendition", () => {
   assert.deepEqual(effective({ w: 8000, h: 8000, fit: "cover" }, photo), { w: 8000, h: 8000, fit: "cover" });
   assert.deepEqual(effective({ w: 8000 }, { width: null, height: null }), { w: 8000 });
 });
+
+test("outputSize says what a spec gives, never enlarged", async () => {
+  const { outputSize } = await import("./transform.ts");
+  const photo = { width: 4000, height: 3000 };
+  assert.deepEqual(outputSize({ w: 1200, f: "webp" }, photo), { width: 1200, height: 900, capped: false });
+  assert.deepEqual(outputSize({ w: 1200, h: 630, fit: "cover" }, photo), { width: 1200, height: 630, capped: false });
+  assert.deepEqual(outputSize({ f: "png" }, photo), { width: 4000, height: 3000, capped: false });
+  // Large on a small image: the image at its own size.
+  assert.deepEqual(outputSize({ w: 2400 }, { width: 1000, height: 500 }), { width: 1000, height: 500, capped: true });
+  assert.deepEqual(outputSize({ w: 1200, h: 630, fit: "cover" }, { width: 1000, height: 1000 }), { width: 1000, height: 630, capped: true });
+  // Orientation 6 turns it on its side before the width binds.
+  assert.deepEqual(outputSize({ w: 1500 }, photo, 6), { width: 1500, height: 2000, capped: false });
+  assert.equal(outputSize({ w: 100 }, { width: null, height: null }), null);
+});

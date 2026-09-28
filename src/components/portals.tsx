@@ -1,14 +1,15 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  IconArrowDown,
+  IconArrowUp,
   IconCheck,
-  IconCopy,
   IconExternalLink,
   IconLock,
-  IconPencil,
+  IconPhoto,
   IconPlus,
   IconTrash,
   IconUserQuestion,
@@ -16,25 +17,29 @@ import {
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/brand";
+import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
+import { ColorField } from "@/components/color-field";
 import { send } from "@/components/collections";
+import { Confirm } from "@/components/confirm";
+import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
-import { PageHeader } from "@/components/page";
+import { AppHeader, PageHeader } from "@/components/page";
+import { useShell } from "@/components/shell";
+import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PRESET_IDS, type PortalAccess, type PortalPreset } from "@/lib/portal";
-import type { SidebarData } from "@/lib/sidebar";
+import { ago, exact } from "@/lib/time";
 
 export type Portal = {
   id: string;
@@ -71,10 +76,10 @@ type Request = {
   url: string | null;
 };
 
-const ACCESS: Record<PortalAccess, { label: string; hint: string }> = {
-  public: { label: "Anyone with the address", hint: "Open to all; search engines are asked to stay out" },
-  password: { label: "Whoever has the password", hint: "Anyone else can ask for access" },
-  members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access" },
+const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
+  public: { label: "Anyone with the address", hint: "Open to all; search engines are asked to stay out", icon: IconWorld },
+  password: { label: "Whoever has the password", hint: "Anyone else can ask for access", icon: IconLock },
+  members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
 };
 
 /** The Select's value for "no domain": /p/{slug} only. */
@@ -86,8 +91,26 @@ const slugOf = (name: string) =>
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    // Cut first, then trim: a long name must not end its address in a dash.
+    .slice(0, 48)
+    .replace(/^-+|-+$/g, "");
+
+/** An address as it is typed: spaces become dashes, anything else not allowed drops, a dash may trail until the next letter. */
+const typedSlug = (raw: string) =>
+  raw
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+/, "")
     .slice(0, 48);
+
+/** A date as the date input holds it, in the owner's own day, not UTC's. */
+const localDay = (d: Date | string) => new Date(d).toLocaleDateString("en-CA");
+
+/** Newest names in their place: the list is alphabetical, as the API sends it. */
+const upsert = (rows: Portal[], p: Portal) =>
+  (rows.some((r) => r.id === p.id) ? rows.map((r) => (r.id === p.id ? p : r)) : [...rows, p]).sort((a, b) => a.name.localeCompare(b.name));
 
 /**
  * Brand portals: a front door for people outside the team onto chosen
@@ -95,260 +118,349 @@ const slugOf = (name: string) =>
  * purpose. Each from /api/v1/portals like any client's; `?open={id}` opens
  * one's requests.
  */
-export function Portals({ sidebar, portals }: { sidebar: SidebarData; portals: Portal[] }) {
+export function Portals({ portals }: { portals: Portal[] }) {
+  const { collections, brands, openCollection } = useShell();
   const router = useRouter();
   const params = useSearchParams();
+  // Rows follow the server's list, and take a save at once rather than after a refresh.
+  const [rows, setRows] = useState(portals);
+  const [seen, setSeen] = useState(portals);
+  if (portals !== seen) {
+    setSeen(portals);
+    setRows(portals);
+  }
   const [editing, setEditing] = useState<Portal | "new" | null>(null);
-  const [requests, setRequests] = useState<Portal | null>(null);
+  // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
-  useEffect(() => {
-    const p = opened && portals.find((x) => x.id === opened);
-    // Arriving from a request's email: its requests, open.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (p) setRequests(p);
-  }, [opened, portals]);
+  const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
+  const any = collections.length > 0 || brands.length > 0;
 
   return (
-    <SidebarProvider>
-      <AppSidebar me={sidebar.me} collections={sidebar.collections} brands={sidebar.brands} searches={sidebar.searches} reviewCount={sidebar.reviewCount} />
-      <SidebarInset className="min-w-0">
-        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <span className="text-sm font-semibold">Portals</span>
-          <ThemeToggle className="ml-auto" />
-        </header>
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-          <PageHeader
-            icon={<IconWorld />}
-            title="Portals"
-            description="A front door for press, partners and retailers onto the collections and brand guidelines you pick: your look, only approved assets, and downloads sized for the job."
-          >
-            <Button size="sm" onClick={() => setEditing("new")} disabled={!sidebar.collections.length && !sidebar.brands.length}>
-              <IconPlus /> New portal
-            </Button>
-          </PageHeader>
-          {portals.length === 0 ? (
-            <Empty className="border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <IconWorld />
-                </EmptyMedia>
-                <EmptyTitle>No portals yet</EmptyTitle>
-                <EmptyDescription>
-                  {sidebar.collections.length || sidebar.brands.length
-                    ? "Pick a few collections and brands, a logo and a color: a press kit or a partner hub, at an address of its own. Expired, archived and unapproved assets never show."
-                    : "A portal shows collections and brand guidelines: make a collection first."}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <ul className="divide-y rounded-lg border">
-              {portals.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-3 px-3 py-3 text-sm">
-                  <span
-                    className="size-8 shrink-0 rounded-md border"
-                    style={{ background: p.theme.background ?? p.theme.accent ?? "var(--muted)" }}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate font-medium">
+    <>
+      <AppHeader trail={[{ label: "Portals" }]} />
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+        <PageHeader
+          icon={<IconWorld />}
+          title="Portals"
+          description="A front door for press, partners and retailers onto the collections and brand guidelines you pick: your look, only approved assets, and downloads sized for the job."
+        >
+          <Button size="sm" onClick={() => setEditing("new")} disabled={!any}>
+            <IconPlus /> New portal
+          </Button>
+        </PageHeader>
+        {rows.length === 0 ? (
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconWorld />
+              </EmptyMedia>
+              <EmptyTitle>No portals yet</EmptyTitle>
+              <EmptyDescription>
+                {any
+                  ? "Pick a few collections and brands, a logo and a color: a press kit or a partner hub, at an address of its own. Expired, archived and unapproved assets never show."
+                  : "A portal shows collections and brand guidelines: make a collection or a brand first."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              {any ? (
+                <Button onClick={() => setEditing("new")}>
+                  <IconPlus /> New portal
+                </Button>
+              ) : (
+                <Button onClick={() => openCollection("new")}>
+                  <IconPlus /> New collection
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {rows.map((p) => (
+              <li key={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
+                <span
+                  className="size-8 shrink-0 rounded-md border"
+                  style={{ background: p.theme.background ?? p.theme.accent ?? "var(--muted)" }}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 truncate font-medium">
+                    {/* The whole row opens it: this button's box stretches over the row, under its actions. */}
+                    <button type="button" onClick={() => setEditing(p)} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
-                      {p.access === "password" && <IconLock className="text-muted-foreground size-3.5" aria-label="Password" />}
-                      {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5" aria-label="Members" />}
-                      {p.expired && <Badge variant="outline">Closed</Badge>}
-                      {p.domain && !p.domain.verified && <Badge variant="outline">Domain not verified</Badge>}
-                    </p>
-                    <p className="text-muted-foreground truncate text-xs">
-                      {p.url.replace(/^https?:\/\//, "")} · {[...p.collections, ...p.brands].map((c) => c.name).join(", ")}
-                    </p>
-                  </div>
+                    </button>
+                    {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
+                    {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5 shrink-0" aria-label="Members" />}
+                    {p.expired && <Badge variant="outline">Closed</Badge>}
+                    {p.domain && !p.domain.verified && <Badge variant="warning">Domain not verified</Badge>}
+                  </p>
+                  <p className="text-muted-foreground truncate text-xs">
+                    {p.url.replace(/^https?:\/\//, "")} · {[...p.collections, ...p.brands].map((c) => c.name).join(", ")}
+                  </p>
+                </div>
+                <div className="relative flex items-center gap-1">
                   {p.access !== "public" && (
                     <Button variant={p.pending ? "default" : "ghost"} size="sm" onClick={() => setRequests(p)}>
                       <IconUserQuestion /> {p.pending ? `${p.pending} waiting` : "Requests"}
                     </Button>
                   )}
-                  <IconButton variant="ghost" label="Copy the address" onClick={() => copy(p.url, "the address")}>
-                    <IconCopy />
-                  </IconButton>
+                  <CopyButton text={p.url} label="Copy the address" what="the address" size="icon-sm" />
                   <IconButton variant="ghost" label="Open it" asChild>
                     <a href={p.url} target="_blank" rel="noreferrer">
                       <IconExternalLink />
                     </a>
                   </IconButton>
-                  <IconButton variant="ghost" label={`Edit ${p.name}`} onClick={() => setEditing(p)}>
-                    <IconPencil />
-                  </IconButton>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </SidebarInset>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {editing && (
         <PortalDialog
           portal={editing === "new" ? null : editing}
-          collections={sidebar.collections}
-          brands={sidebar.brands}
+          collections={collections}
+          brands={brands}
           onClose={() => setEditing(null)}
-          onSaved={() => router.refresh()}
+          onSaved={(saved, said) => {
+            setRows((rs) => upsert(rs, saved));
+            if (said) {
+              toast.success(said === "made" ? `${saved.name} is live` : `Saved ${saved.name}`, {
+                action: { label: "Copy link", onClick: () => void copy(saved.url, "the address") },
+              });
+            }
+          }}
+          onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}
         />
       )}
-      {requests && <RequestsDialog portal={requests} onClose={() => (setRequests(null), router.refresh())} />}
-    </SidebarProvider>
+      {requests && (
+        <RequestsDialog
+          portal={requests}
+          onClose={(changed) => {
+            setRequests(null);
+            // Off the address, or the next render would open it again.
+            if (opened) router.replace("/portals", { scroll: false });
+            if (changed) router.refresh();
+          }}
+        />
+      )}
+    </>
   );
 }
 
-const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
-
-function ColorField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
+function Color({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
   const id = useId();
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-2">
-        <Input id={id} type="color" value={value ?? "#6d4aff"} onChange={(e) => onChange(e.target.value)} className="h-9 w-14 p-1" />
-        <span className="text-muted-foreground font-mono text-xs">{value ?? "The app's own"}</span>
-        {value && (
+        <ColorField id={id} label={label} value={value ?? "#6d4aff"} onChange={onChange} />
+        {value ? (
           <IconButton variant="ghost" label={`Reset ${label.toLowerCase()}`} onClick={() => onChange(null)}>
             <IconX />
           </IconButton>
+        ) : (
+          <span className="text-muted-foreground text-xs">The brand&apos;s own</span>
         )}
       </div>
     </div>
   );
 }
 
-/** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
-/** Checkboxes that remember the order things were picked in: the order the portal shows them. */
-function Picks({
-  legend,
-  items,
-  picked,
-  onChange,
-}: {
-  legend: string;
-  items: { id: string; name: string }[];
-  picked: string[];
-  onChange: (next: string[]) => void;
-}) {
+type Pickable = { id: string; name: string; count?: number; private?: boolean };
+
+/** Checkboxes, and the picked ones in the order the portal shows them, to move up or down. */
+function Picks({ legend, items, picked, onChange }: { legend: string; items: Pickable[]; picked: string[]; onChange: (next: string[]) => void }) {
+  const [q, setQ] = useState("");
+  const shown = q.trim() ? items.filter((i) => i.name.toLowerCase().includes(q.trim().toLowerCase())) : items;
+  const move = (at: number, by: number) => {
+    const next = [...picked];
+    [next[at], next[at + by]] = [next[at + by], next[at]];
+    onChange(next);
+  };
   return (
     <fieldset className="grid gap-2">
       <legend className="mb-2 text-sm font-medium">{legend}</legend>
+      {items.length > 8 && <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter" aria-label={`Filter ${legend.toLowerCase()}`} className="h-8" />}
       <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-md border p-2">
-        {items.map((c) => (
+        {shown.map((c) => (
           <label key={c.id} className="flex items-center gap-2 text-sm">
             <Checkbox
               aria-label={c.name}
               checked={picked.includes(c.id)}
               onCheckedChange={(on) => onChange(on ? [...picked, c.id] : picked.filter((x) => x !== c.id))}
             />
-            {c.name}
-            {picked.includes(c.id) && <span className="text-muted-foreground ml-auto text-xs">{picked.indexOf(c.id) + 1}</span>}
+            <span className="min-w-0 truncate">{c.name}</span>
+            {c.private && (
+              <IconLock
+                className="text-muted-foreground size-3.5 shrink-0"
+                aria-label="Private in the library: its approved assets still show in the portal"
+              />
+            )}
+            {/* The library's count: the portal shows only the approved, unexpired ones among them. */}
+            {c.count !== undefined && <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">{c.count} in the library</span>}
           </label>
         ))}
+        {!shown.length && <p className="text-muted-foreground p-1 text-sm">Nothing matches.</p>}
       </div>
+      {picked.length > 1 && (
+        <ol aria-label="Shown in this order" className="grid gap-1">
+          {picked.map((pid, i) => {
+            const it = items.find((x) => x.id === pid);
+            return (
+              it && (
+                <li key={pid} className="bg-muted/50 flex items-center gap-2 rounded-md py-0.5 pr-0.5 pl-2 text-sm">
+                  <span className="text-muted-foreground w-4 text-xs tabular-nums">{i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{it.name}</span>
+                  <IconButton variant="ghost" size="icon-xs" label={`Move ${it.name} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+                    <IconArrowUp />
+                  </IconButton>
+                  <IconButton variant="ghost" size="icon-xs" label={`Move ${it.name} down`} disabled={i === picked.length - 1} onClick={() => move(i, 1)}>
+                    <IconArrowDown />
+                  </IconButton>
+                </li>
+              )
+            );
+          })}
+        </ol>
+      )}
     </fieldset>
   );
 }
 
+type Form = {
+  name: string;
+  slug: string;
+  picked: string[];
+  pickedBrands: string[];
+  access: PortalAccess;
+  password: string;
+  expires: string;
+  presets: PortalPreset[];
+  intro: string;
+  logo: string | null;
+  accent: string | null;
+  background: string | null;
+  domain: string;
+};
+
+const formOf = (p: Portal | null): Form => ({
+  name: p?.name ?? "",
+  slug: p?.slug ?? "",
+  picked: p?.collections.map((c) => c.id) ?? [],
+  pickedBrands: p?.brands.map((b) => b.slug) ?? [],
+  access: p?.access ?? "public",
+  password: "",
+  // The owner's day, not UTC's: west of UTC, slicing the ISO string moved it a day on every save.
+  expires: p?.expiresAt ? localDay(p.expiresAt) : "",
+  presets: p?.presets ?? DEFAULT_PRESETS,
+  intro: p?.intro ?? "",
+  logo: p?.theme.logo ?? null,
+  accent: p?.theme.accent ?? null,
+  background: p?.theme.background ?? null,
+  domain: p?.domain?.host ?? NO_DOMAIN,
+});
+
+/** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
 function PortalDialog({
   portal,
   collections,
   brands,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   portal: Portal | null;
-  collections: { id: string; name: string }[];
+  collections: Pickable[];
   brands: { slug: string; name: string }[];
   onClose: () => void;
-  onSaved: () => void;
+  /** `said`: made or saved here, to toast; without, it changed elsewhere (a domain verified). */
+  onSaved: (saved: Portal, said?: "made" | "saved") => void;
+  onDeleted: (id: string) => void;
 }) {
   const id = useId();
-  const [name, setName] = useState(portal?.name ?? "");
-  const [slug, setSlug] = useState(portal?.slug ?? "");
+  const formRef = useRef<HTMLFormElement>(null);
+  const [start] = useState(() => formOf(portal));
+  const [f, setF] = useState(start);
+  const set = (patch: Partial<Form>) => setF((x) => ({ ...x, ...patch }));
   const [slugTouched, setSlugTouched] = useState(!!portal);
-  const [picked, setPicked] = useState<string[]>(portal?.collections.map((c) => c.id) ?? []);
-  const [pickedBrands, setPickedBrands] = useState<string[]>(portal?.brands.map((b) => b.slug) ?? []);
-  const [access, setAccess] = useState<PortalAccess>(portal?.access ?? "public");
-  const [password, setPassword] = useState("");
-  const [expires, setExpires] = useState(portal?.expiresAt?.slice(0, 10) ?? "");
-  const [presets, setPresets] = useState<PortalPreset[]>(portal?.presets ?? DEFAULT_PRESETS);
-  const [intro, setIntro] = useState(portal?.intro ?? "");
-  const [logo, setLogo] = useState(portal?.theme.logo ?? "");
-  const [accent, setAccent] = useState(portal?.theme.accent ?? null);
-  const [background, setBackground] = useState(portal?.theme.background ?? null);
-  const [domain, setDomain] = useState(portal?.domain?.host ?? NO_DOMAIN);
   const [hosts, setHosts] = useState<{ host: string; portal: string | null }[] | null>(null);
   const [current, setCurrent] = useState(portal);
+  const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [picking, setPicking] = useState(false);
   useEffect(() => {
     fetch("/api/v1/portals/domains")
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((b) => setHosts(b.data), () => setHosts([]));
   }, []);
-  const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify(f) !== JSON.stringify(start);
+  const expiryChanged = f.expires !== start.expires;
+  const ready = !!f.name.trim() && (f.picked.length > 0 || f.pickedBrands.length > 0);
+  const address = f.domain !== NO_DOMAIN ? `https://${f.domain}` : `${typeof window === "undefined" ? "" : window.location.origin}/p/${f.slug}`;
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    const logoId = logo.trim() ? asAssetId(logo) : null;
-    if (logo.trim() && !logoId) return toast.error("The logo is an asset: paste its link from the library, or its id");
-    if (!picked.length && !pickedBrands.length) return toast.error("Pick at least one collection or brand");
+  async function save(e?: React.FormEvent) {
+    e?.preventDefault();
     const payload = {
-      name: name.trim(),
-      slug,
-      intro: intro.trim() || null,
-      access,
-      ...(password && { password }),
-      expiresAt: expires ? new Date(`${expires}T23:59:59`).toISOString() : null,
-      presets,
-      theme: { logo: logoId, accent, background },
-      collections: picked,
-      brands: pickedBrands,
-      domain: domain === NO_DOMAIN ? null : domain,
+      name: f.name.trim(),
+      slug: f.slug,
+      intro: f.intro.trim() || null,
+      access: f.access,
+      ...(f.password && { password: f.password }),
+      // Only when it changed: a closed portal re-sending its past date could never be renamed.
+      ...((!current || expiryChanged) && { expiresAt: f.expires ? new Date(`${f.expires}T23:59:59`).toISOString() : null }),
+      presets: f.presets,
+      theme: { logo: f.logo, accent: f.accent, background: f.background },
+      collections: f.picked,
+      brands: f.pickedBrands,
+      domain: f.domain === NO_DOMAIN ? null : f.domain,
     };
     setBusy(true);
-    const saved = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
+    const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
     setBusy(false);
     if (!saved) return;
-    toast.success(current ? "Saved" : `${saved.name} is open at ${saved.url.replace(/^https?:\/\//, "")}`);
-    onSaved();
+    onSaved(saved, current ? "saved" : "made");
     onClose();
   }
 
   async function verify() {
     if (!current) return;
-    setBusy(true);
-    const p = await send("POST", `/api/v1/portals/${current.id}/domain`);
-    setBusy(false);
-    if (!p) return;
+    setChecking(true);
+    const p: Portal | null = await send("POST", `/api/v1/portals/${current.id}/domain`);
+    setChecking(false);
+    if (!p || !p.domain) return;
     setCurrent(p);
     toast.success(`${p.domain.host} is verified: the portal answers there`);
-    onSaved();
+    onSaved(p);
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
+      <DialogContent
+        className="pb-0 sm:max-w-xl"
+        guard={{ dirty, onDiscard: onClose, ...(ready && { onSave: () => formRef.current?.requestSubmit() }) }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready && !busy) {
+            e.preventDefault();
+            formRef.current?.requestSubmit();
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
+          <DialogTitle className="pr-6 leading-snug break-words">{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
           <DialogDescription>
             Only approved, unexpired assets show, in the collections and on the brands&apos; guidelines alike, and they leave the portal the moment that changes.
           </DialogDescription>
         </DialogHeader>
-        <form id={id} onSubmit={save} className="grid gap-5">
+        <form ref={formRef} id={id} onSubmit={save} className="grid gap-5">
           <div className="grid gap-2">
             <Label htmlFor={`${id}-name`}>Name</Label>
             <Input
               id={`${id}-name`}
-              value={name}
+              value={f.name}
               required
               maxLength={120}
               placeholder="Press kit"
-              onChange={(e) => {
-                setName(e.target.value);
-                if (!slugTouched) setSlug(slugOf(e.target.value));
-              }}
+              onChange={(e) => set({ name: e.target.value, ...(!slugTouched && { slug: slugOf(e.target.value) }) })}
             />
           </div>
           <div className="grid gap-2">
@@ -357,40 +469,59 @@ function PortalDialog({
               <span className="text-muted-foreground text-sm">/p/</span>
               <Input
                 id={`${id}-slug`}
-                value={slug}
+                value={f.slug}
                 required
                 pattern="[a-z0-9](?:[a-z0-9\-]{0,46}[a-z0-9])?"
-                title="Lowercase letters, digits and dashes"
-                onChange={(e) => (setSlugTouched(true), setSlug(e.target.value.toLowerCase()))}
+                title="Lowercase letters, digits and dashes, not ending in a dash"
+                aria-describedby={`${id}-slug-hint`}
+                onChange={(e) => (setSlugTouched(true), set({ slug: typedSlug(e.target.value) }))}
               />
             </div>
+            <div id={`${id}-slug-hint`} className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs">
+              {f.slug ? (
+                <>
+                  <span className="truncate font-mono">{address}</span>
+                  <CopyButton text={address} label="Copy the address" what="the address" />
+                </>
+              ) : (
+                "Letters, digits and dashes, e.g. press-kit"
+              )}
+            </div>
           </div>
-          {collections.length > 0 && <Picks legend="Collections, in this order" items={collections} picked={picked} onChange={setPicked} />}
+          {collections.length > 0 && <Picks legend="Collections" items={collections} picked={f.picked} onChange={(picked) => set({ picked })} />}
           {brands.length > 0 && (
             <Picks
               legend="Brands, each a tab of its guidelines"
               items={brands.map((b) => ({ id: b.slug, name: b.name }))}
-              picked={pickedBrands}
-              onChange={setPickedBrands}
+              picked={f.pickedBrands}
+              onChange={(pickedBrands) => set({ pickedBrands })}
             />
           )}
-          <div className="grid gap-2">
-            <Label>Who gets in</Label>
-            <Select value={access} onValueChange={(v) => setAccess(v as PortalAccess)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(ACCESS) as PortalAccess[]).map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {ACCESS[a].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-muted-foreground text-xs">{ACCESS[access].hint}</p>
-          </div>
-          {access === "password" && (
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">Who gets in</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(Object.keys(ACCESS) as PortalAccess[]).map((a) => {
+                const A = ACCESS[a];
+                return (
+                  <label
+                    key={a}
+                    className="has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:outline-ring flex cursor-pointer flex-col gap-1 rounded-lg border p-3 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+                  >
+                    <input type="radio" name="access" value={a} checked={f.access === a} onChange={() => set({ access: a })} className="sr-only" />
+                    <A.icon className="text-muted-foreground size-4" />
+                    <span className="font-medium">{A.label}</span>
+                    <span className="text-muted-foreground text-xs">{A.hint}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {f.access === "members" && f.domain !== NO_DOMAIN && (
+              <p className="text-muted-foreground text-xs">
+                On its own domain, only people you approve get in; members sign in at /p/{f.slug || "its-address"}.
+              </p>
+            )}
+          </fieldset>
+          {f.access === "password" && (
             <div className="grid gap-2">
               <Label htmlFor={`${id}-pw`}>Password</Label>
               <Input
@@ -398,24 +529,48 @@ function PortalDialog({
                 type="password"
                 minLength={4}
                 maxLength={200}
+                autoComplete="new-password"
                 required={!current?.password}
                 placeholder={current?.password ? "Unchanged" : ""}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={f.password}
+                onChange={(e) => set({ password: e.target.value })}
               />
             </div>
           )}
           <div className="grid gap-2">
             <Label htmlFor={`${id}-until`}>Open until</Label>
-            <Input id={`${id}-until`} type="date" value={expires} onChange={(e) => setExpires(e.target.value)} className="w-44" />
-            <p className="text-muted-foreground text-xs">Empty: until you close it.</p>
+            <div className="flex items-center gap-2">
+              {/* A min only once changed: a closed portal's past date would otherwise block every save. */}
+              <Input
+                id={`${id}-until`}
+                type="date"
+                value={f.expires}
+                min={expiryChanged ? localDay(new Date()) : undefined}
+                onChange={(e) => set({ expires: e.target.value })}
+                className="w-44"
+              />
+              {current?.expired && !expiryChanged && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => set({ expires: "" })}>
+                  Reopen
+                </Button>
+              )}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {current?.expired && !expiryChanged
+                ? `Closed on ${new Date(current.expiresAt!).toLocaleDateString()}. Pick a new date or clear it to reopen.`
+                : "Empty: until you close it."}
+            </p>
           </div>
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Images download as</legend>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {PRESET_IDS.map((p) => (
                 <label key={p} className="flex items-center gap-2 text-sm">
-                  <Checkbox aria-label={PORTAL_PRESETS[p].label} checked={presets.includes(p)} onCheckedChange={(on) => setPresets((xs) => (on ? PRESET_IDS.filter((x) => x === p || xs.includes(x)) : xs.filter((x) => x !== p)))} />
+                  <Checkbox
+                    aria-label={PORTAL_PRESETS[p].label}
+                    checked={f.presets.includes(p)}
+                    onCheckedChange={(on) => set({ presets: on ? PRESET_IDS.filter((x) => x === p || f.presets.includes(x)) : f.presets.filter((x) => x !== p) })}
+                  />
                   {PORTAL_PRESETS[p].label}
                   <span className="text-muted-foreground text-xs">{PORTAL_PRESETS[p].hint}</span>
                 </label>
@@ -429,30 +584,52 @@ function PortalDialog({
               id={`${id}-intro`}
               rows={3}
               maxLength={4000}
-              value={intro}
-              onChange={(e) => setIntro(e.target.value)}
+              value={f.intro}
+              onChange={(e) => set({ intro: e.target.value })}
               placeholder="Logos, product shots and executive portraits for press. Questions: press@example.com"
+              aria-describedby={`${id}-intro-hint`}
             />
+            <p id={`${id}-intro-hint`} className="text-muted-foreground text-xs">
+              Markdown works: **bold**, [links](https://example.com), lists.
+            </p>
           </div>
           <div className="grid gap-4 rounded-md border p-3">
             <p className="text-sm font-medium">Look</p>
             <div className="grid gap-2">
-              <Label htmlFor={`${id}-logo`}>Logo</Label>
-              <Input id={`${id}-logo`} value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="An approved image's link from the library, or its id" />
+              <span className="text-sm leading-none font-medium">Logo</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPicking(true)}
+                  aria-label={f.logo ? "Change the logo" : "Choose a logo"}
+                  className="bg-checker text-muted-foreground relative flex h-14 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border"
+                >
+                  {f.logo ? <Thumb key={f.logo} src={`/a/${f.logo}/w_160,f_webp`} alt="" /> : <IconPhoto className="size-5" />}
+                </button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPicking(true)}>
+                  {f.logo ? "Change" : "Choose from the library"}
+                </Button>
+                {f.logo && (
+                  <IconButton variant="ghost" label="Remove the logo" onClick={() => set({ logo: null })}>
+                    <IconX />
+                  </IconButton>
+                )}
+              </div>
+              <p className="text-muted-foreground text-xs">An approved image. Without one, the organization&apos;s own.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ColorField label="Accent" value={accent} onChange={setAccent} />
-              <ColorField label="Header background" value={background} onChange={setBackground} />
+              <Color label="Accent" value={f.accent} onChange={(accent) => set({ accent })} />
+              <Color label="Header background" value={f.background} onChange={(background) => set({ background })} />
             </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
-            <Select value={domain} onValueChange={setDomain}>
+            <Select value={f.domain} onValueChange={(domain) => set({ domain })}>
               <SelectTrigger id={`${id}-domain`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_DOMAIN}>None: /p/{slug || "its-address"}</SelectItem>
+                <SelectItem value={NO_DOMAIN}>None: /p/{f.slug || "its-address"}</SelectItem>
                 {current?.domain && !current.domain.verified && <SelectItem value={current.domain.host}>{current.domain.host} (not verified)</SelectItem>}
                 {hosts?.map((h) => (
                   <SelectItem key={h.host} value={h.host} disabled={!!h.portal && h.portal !== current?.slug}>
@@ -465,9 +642,9 @@ function PortalDialog({
             <p className="text-muted-foreground text-xs">
               The organization&apos;s verified domains, but its default. Add and verify one in Settings, Domains.
             </p>
-            {current?.domain && current.domain.host === domain && (
+            {current?.domain && current.domain.host === f.domain && (
               current.domain.verified ? (
-                <p className="flex items-center gap-1.5 text-xs text-emerald-600">
+                <p className="text-success flex items-center gap-1.5 text-xs">
                   <IconCheck className="size-3.5" /> Verified: the portal answers at {current.domain.host}
                 </p>
               ) : (
@@ -479,9 +656,7 @@ function PortalDialog({
                         <span className="font-mono break-all">
                           {current.domain.cname.name} → {current.domain.cname.value}
                         </span>
-                        <IconButton variant="ghost" label="Copy the target" onClick={() => copy(current.domain!.cname!.value, "the target")}>
-                          <IconCopy />
-                        </IconButton>
+                        <CopyButton text={current.domain.cname.value} label="Copy the target" what="the target" />
                       </p>
                       <p>And add a TXT record to prove it is yours:</p>
                     </>
@@ -492,17 +667,13 @@ function PortalDialog({
                   )}
                   <p className="flex items-center gap-2">
                     <span className="font-mono break-all">{current.domain.record.name}</span>
-                    <IconButton variant="ghost" label="Copy the name" onClick={() => copy(current.domain!.record.name, "the name")}>
-                      <IconCopy />
-                    </IconButton>
+                    <CopyButton text={current.domain.record.name} label="Copy the name" what="the name" />
                   </p>
                   <p className="flex items-center gap-2">
                     <span className="font-mono break-all">{current.domain.record.value}</span>
-                    <IconButton variant="ghost" label="Copy the value" onClick={() => copy(current.domain!.record.value, "the value")}>
-                      <IconCopy />
-                    </IconButton>
+                    <CopyButton text={current.domain.record.value} label="Copy the value" what="the value" />
                   </p>
-                  <Button type="button" size="sm" variant="outline" className="justify-self-start" onClick={verify} disabled={busy}>
+                  <Button type="button" size="sm" variant="outline" className="justify-self-start" onClick={verify} pending={checking}>
                     Check now
                   </Button>
                 </div>
@@ -510,106 +681,210 @@ function PortalDialog({
             )}
           </div>
         </form>
-        <DialogFooter className="sm:justify-between">
-          {current ? (
-            <Button
-              variant="ghost"
-              className="text-destructive"
-              onClick={async () => {
-                if (!confirm(`Delete ${current.name}? Its address stops working at once.`)) return;
-                if (!(await send("DELETE", `/api/v1/portals/${current.id}`))) return;
+        {/* Stuck to the bottom: Save is never below the fold, however long the form. */}
+        <DialogFooter className="bg-popover/95 sticky bottom-0 -mx-6 flex-row items-center border-t px-6 py-3 backdrop-blur">
+          {current && (
+            <Confirm
+              title={`Delete ${current.name}?`}
+              says="Its address stops working at once, for everyone who has it."
+              action="Delete"
+              run={async () => {
+                const r = await send("DELETE", `/api/v1/portals/${current.id}`);
+                if (!r) return null;
                 toast.success(`${current.name} is gone`);
-                onSaved();
+                onDeleted(current.id);
                 onClose();
+                return r;
               }}
             >
-              <IconTrash /> Delete
-            </Button>
-          ) : (
-            <span />
+              <Button variant="ghost" className="text-destructive mr-auto">
+                <IconTrash /> Delete
+              </Button>
+            </Confirm>
           )}
-          <Button type="submit" form={id} disabled={busy || !picked.length || !name.trim()}>
+          <Button type="button" variant="outline" className="ml-auto" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={id} pending={busy} disabled={!ready}>
             {current ? "Save" : "Make it"}
+            <Kbd keys={["mod", "Enter"]} className="bg-primary-foreground/15 text-primary-foreground hidden border-transparent sm:inline-flex" />
           </Button>
         </DialogFooter>
       </DialogContent>
+      {picking && (
+        <LibraryPicker
+          title="Pick the logo"
+          description="An approved image from the library: it shows at the top of the portal and at its door."
+          filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
+          onClose={() => setPicking(false)}
+          onPick={(a) => {
+            set({ logo: a.id });
+            setPicking(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
 
-/** Who asked in, and a yes or a no for each. */
-function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: () => void }) {
+/** Who asked in, and a yes or a no for each; a decision can be changed. */
+function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed: boolean) => void }) {
   const [rows, setRows] = useState<Request[] | null>(null);
-  const load = () =>
-    fetch(`/api/v1/portals/${portal.id}/requests`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((b) => setRows(b.data ?? []));
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  /** The request and the answer being sent, so a double click can't send two. */
+  const [busy, setBusy] = useState<string | null>(null);
+  const changed = useRef(false);
   useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portal.id]);
+    let live = true;
+    fetch(`/api/v1/portals/${portal.id}/requests`, { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        const b = await r.json();
+        if (live) setRows(b.data ?? []);
+      })
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [portal.id, attempt]);
 
   async function decide(r: Request, status: "approved" | "denied") {
-    const res = await fetch(`/api/v1/portals/${portal.id}/requests/${r.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) return toast.error(body.error?.message ?? "That didn't go through");
-    if (status === "approved") {
-      if (body.emailed) toast.success(`${r.email} has access, and a link by email`);
-      else toast.success(`${r.email} has access. Email is off: copy their link and send it`);
-    } else toast.success("Denied");
-    void load();
+    setBusy(`${r.id}:${status}`);
+    try {
+      const res = await fetch(`/api/v1/portals/${portal.id}/requests/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body.error?.message ?? "That didn't go through");
+        return false;
+      }
+      changed.current = true;
+      const next: Request = body.data;
+      setRows((rs) => rs?.map((x) => (x.id === r.id ? next : x)) ?? null);
+      if (status === "denied") toast.success(r.status === "approved" ? `${r.email} no longer has access` : "Denied");
+      else if (body.emailed) toast.success(`${r.email} has access, and a link by email`);
+      else {
+        // An action, not a copy after the await: Safari refuses a clipboard write that late.
+        toast.success(`${r.email} has access`, {
+          description: "Email is off: copy their link and send it.",
+          ...(next.url && { action: { label: "Copy link", onClick: () => void copy(next.url!, "their link") } }),
+        });
+      }
+      return true;
+    } catch {
+      toast.error("Couldn't reach the server. Check the connection and try again.");
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(r: Request) {
+    if (busy) return;
+    setBusy(`${r.id}:delete`);
+    const ok = await send("DELETE", `/api/v1/portals/${portal.id}/requests/${r.id}`);
+    setBusy(null);
+    if (!ok) return;
+    changed.current = true;
+    setRows((rs) => rs?.filter((x) => x.id !== r.id) ?? null);
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-xl">
+    <Dialog open onOpenChange={(o) => !o && onClose(changed.current)}>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Access requests · {portal.name}</DialogTitle>
-          <DialogDescription>A yes gives them a link of their own, good for 90 days or until the portal closes. Remove it to take it back.</DialogDescription>
+          <DialogTitle className="pr-6 leading-snug break-words">Access requests · {portal.name}</DialogTitle>
+          <DialogDescription>A yes gives them a link of their own, good for 90 days or until the portal closes. Revoke it to take it back.</DialogDescription>
         </DialogHeader>
-        {!rows ? (
-          <p className="text-muted-foreground text-sm">Loading…</p>
+        {failed ? (
+          <Empty size="sm">
+            <EmptyHeader>
+              <EmptyTitle>Couldn&apos;t load the requests</EmptyTitle>
+              <EmptyDescription>Check the connection and try again.</EmptyDescription>
+            </EmptyHeader>
+            <Button variant="outline" size="sm" onClick={() => (setFailed(false), setRows(null), setAttempt((n) => n + 1))}>
+              Retry
+            </Button>
+          </Empty>
+        ) : !rows ? (
+          <ul aria-busy className="divide-y rounded-md border">
+            {[0, 1].map((i) => (
+              <li key={i} className="grid gap-2 p-3">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-1/4" />
+              </li>
+            ))}
+          </ul>
         ) : rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Nobody has asked yet.</p>
+          <Empty size="sm">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconUserQuestion />
+              </EmptyMedia>
+              <EmptyTitle>Nobody has asked yet</EmptyTitle>
+              <EmptyDescription>Requests from the portal&apos;s door show here, and admins hear about each one by email.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className="divide-y rounded-md border">
             {rows.map((r) => (
               <li key={r.id} className="grid gap-1.5 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1 truncate font-medium">{r.name ? `${r.name} · ${r.email}` : r.email}</span>
-                  {r.status === "pending" ? (
+                  {r.status === "pending" && (
                     <>
-                      <Button size="sm" onClick={() => decide(r, "approved")}>
+                      <Button size="sm" pending={busy === `${r.id}:approved`} disabled={!!busy} onClick={() => decide(r, "approved")}>
                         <IconCheck /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => decide(r, "denied")}>
+                      <Button size="sm" variant="outline" pending={busy === `${r.id}:denied`} disabled={!!busy} onClick={() => decide(r, "denied")}>
                         Deny
                       </Button>
                     </>
-                  ) : (
-                    <Badge variant="outline">{r.status === "approved" ? `Approved${r.expiresAt ? ` until ${new Date(r.expiresAt).toLocaleDateString()}` : ""}` : "Denied"}</Badge>
                   )}
-                  {r.url && (
-                    <IconButton variant="ghost" label="Copy their link" onClick={() => copy(r.url!, "their link")}>
-                      <IconCopy />
+                  {r.status === "approved" && (
+                    <>
+                      <Badge variant="success">Approved{r.expiresAt ? ` until ${new Date(r.expiresAt).toLocaleDateString()}` : ""}</Badge>
+                      {r.url && <CopyButton text={r.url} label="Copy their link" what="their link" size="icon-sm" />}
+                      <Confirm
+                        title={`Revoke ${r.email}'s access?`}
+                        says="Their link stops working at once. They can ask again."
+                        action="Revoke"
+                        run={() => decide(r, "denied")}
+                      >
+                        <Button size="sm" variant="ghost" disabled={!!busy}>
+                          Revoke
+                        </Button>
+                      </Confirm>
+                    </>
+                  )}
+                  {r.status === "denied" && (
+                    <>
+                      <Badge variant="outline">Denied</Badge>
+                      <Button size="sm" variant="outline" pending={busy === `${r.id}:approved`} disabled={!!busy} onClick={() => decide(r, "approved")}>
+                        Approve instead
+                      </Button>
+                    </>
+                  )}
+                  {r.status !== "approved" && (
+                    <IconButton
+                      variant="ghost"
+                      label="Forget this request"
+                      pending={busy === `${r.id}:delete`}
+                      disabled={!!busy}
+                      onClick={() => remove(r)}
+                    >
+                      <IconTrash />
                     </IconButton>
                   )}
-                  <IconButton
-                    variant="ghost"
-                    label="Remove"
-                    onClick={async () => {
-                      if (await send("DELETE", `/api/v1/portals/${portal.id}/requests/${r.id}`)) void load();
-                    }}
-                  >
-                    <IconTrash />
-                  </IconButton>
                 </div>
                 {r.note && <p className="text-muted-foreground">{r.note}</p>}
-                <p className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs" title={exact(r.createdAt)}>
+                  Asked {ago(r.createdAt)}
+                </p>
               </li>
             ))}
           </ul>

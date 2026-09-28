@@ -71,9 +71,26 @@ export function AppIcon({ className }: { className?: string }) {
   );
 }
 
-/** Light, dark or the system's: the last item in every page's header. */
-export function ThemeToggle({ className }: { className?: string }) {
+/** Light, dark or the system's, as a menu's radio items: the toggle below and the account menu's Theme. */
+export function ThemeItems() {
   const { theme, setTheme } = useTheme();
+  return (
+    <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+      <DropdownMenuRadioItem value="light">
+        <IconSun /> Light
+      </DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="dark">
+        <IconMoon /> Dark
+      </DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="system">
+        <IconDeviceDesktop /> System
+      </DropdownMenuRadioItem>
+    </DropdownMenuRadioGroup>
+  );
+}
+
+/** The theme as a header button, where there is no account menu to hold it: signed out, shared links, portals. */
+export function ThemeToggle({ className }: { className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -83,17 +100,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-          <DropdownMenuRadioItem value="light">
-            <IconSun /> Light
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">
-            <IconMoon /> Dark
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="system">
-            <IconDeviceDesktop /> System
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+        <ThemeItems />
       </DropdownMenuContent>
     </DropdownMenu>
   );

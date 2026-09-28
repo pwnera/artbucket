@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { defaultFilter } from "cmdk";
 import { IconCheck, IconPlus, IconSelector, IconX } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,18 @@ import {
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export type Option = { value: string; label?: string; hint?: string | number };
+/** `locked`: shown as a chip that can't be removed, and never offered (a collection the person can't change). */
+export type Option = { value: string; label?: string; hint?: string | number; locked?: boolean };
+
+/** The ✓ and × inside chips: a 20px target with a ring you can see from the keyboard. */
+const chipButton = "grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+
+/**
+ * Inside a property row (fields.tsx) a control reads as text until it is
+ * hovered or focused; the ring still shows where the keyboard is.
+ */
+const ghost =
+  "in-data-[slot=property]:border-transparent in-data-[slot=property]:bg-transparent in-data-[slot=property]:shadow-none in-data-[slot=property]:hover:bg-muted/60 in-data-[slot=property]:dark:bg-transparent";
 
 const labelOf = (options: Option[], v: string) => options.find((o) => o.value === v)?.label ?? v;
 
@@ -34,6 +45,8 @@ export function Combobox({
   placeholder = "Select",
   required,
   className,
+  "aria-describedby": describedBy,
+  "aria-invalid": ariaInvalid,
 }: {
   id?: string;
   name?: string;
@@ -44,6 +57,8 @@ export function Combobox({
   placeholder?: string;
   required?: boolean;
   className?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 }) {
   const [inner, setInner] = useState(defaultValue);
   const [open, setOpen] = useState(false);
@@ -64,7 +79,9 @@ export function Combobox({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between px-3 font-normal"
+            aria-describedby={describedBy}
+            aria-invalid={ariaInvalid}
+            className={cn("w-full justify-between px-3 font-normal", ghost)}
           >
             <span className={cn("truncate", !current && "text-muted-foreground")}>
               {current ? labelOf(options, current) : placeholder}
@@ -74,7 +91,8 @@ export function Combobox({
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) min-w-48 p-0" align="start">
           <Command>
-            {options.length > 6 && <CommandInput placeholder="Search" />}
+            {/* Always there: without it nothing in the popover takes focus, and the arrows go nowhere. */}
+            <CommandInput placeholder="Search" className="text-base md:text-sm" />
             <CommandList>
               <CommandEmpty>No match.</CommandEmpty>
               <CommandGroup>
@@ -115,7 +133,10 @@ export function Combobox({
 /**
  * Many values as chips, with autocomplete. `creatable` lets free text in, for
  * tags; without it only listed options can be picked. Backspace in an empty
- * search removes the last chip.
+ * search removes the last chip; a pasted list ("logo, dark; print") adds
+ * every piece. `validate` normalizes what is typed ("de" to "DE"), or returns
+ * null to refuse it with `invalid` as the hint. `onSearch` hears the search,
+ * 150ms after typing stops, for options the list doesn't have yet.
  */
 export function MultiCombobox({
   id,
@@ -126,7 +147,13 @@ export function MultiCombobox({
   onChange,
   placeholder = "Select",
   creatable,
+  validate,
+  invalid = "Not a valid value.",
+  onSearch,
+  readOnly,
   className,
+  "aria-describedby": describedBy,
+  "aria-invalid": ariaInvalid,
 }: {
   id?: string;
   name?: string;
@@ -136,23 +163,68 @@ export function MultiCombobox({
   onChange?: (value: string[]) => void;
   placeholder?: string;
   creatable?: boolean;
+  validate?: (v: string) => string | null;
+  invalid?: string;
+  onSearch?: (q: string) => void;
+  /** Chips only, with nothing to remove or add. */
+  readOnly?: boolean;
   className?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 }) {
   const [inner, setInner] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const selected = value ?? inner;
+  const locked = new Set(options.filter((o) => o.locked).map((o) => o.value));
   const set = (next: string[]) => {
     setInner(next);
     onChange?.(next);
   };
   const toggle = (v: string) => {
+    if (locked.has(v)) return;
     set(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
     setSearch("");
   };
+  const normal = (raw: string) => {
+    const t = raw.trim();
+    return t && validate ? validate(t) : t || null;
+  };
   const q = search.trim();
+  const made = q ? normal(q) : null;
+  const refused = creatable && q !== "" && made === null;
   const canCreate =
-    creatable && q !== "" && !selected.includes(q) && !options.some((o) => o.value.toLowerCase() === q.toLowerCase());
+    creatable &&
+    made !== null &&
+    !selected.includes(made) &&
+    !options.some((o) => o.value.toLowerCase() === made.toLowerCase());
+  const add = (pieces: string[]) => {
+    const fresh = pieces.map(normal).filter((v): v is string => !!v && !selected.includes(v));
+    if (fresh.length) set([...selected, ...new Set(fresh)]);
+    setSearch("");
+  };
+
+  const hear = useRef(onSearch);
+  useEffect(() => {
+    hear.current = onSearch;
+  });
+  useEffect(() => {
+    if (!q || !hear.current) return;
+    const t = setTimeout(() => hear.current?.(q), 150);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  if (readOnly)
+    return (
+      <div className={cn("flex flex-wrap gap-1", className)}>
+        {selected.map((v) => (
+          <Badge key={v} variant="secondary">
+            {labelOf(options, v)}
+            {name && <input type="hidden" name={name} value={v} />}
+          </Badge>
+        ))}
+      </div>
+    );
 
   return (
     <Popover
@@ -166,21 +238,26 @@ export function MultiCombobox({
         <div
           className={cn(
             "border-input dark:bg-input/30 flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border bg-transparent px-1.5 py-1 shadow-xs",
+            ghost,
+            ariaInvalid && "border-destructive in-data-[slot=property]:border-destructive",
             "has-[button[aria-expanded=true]]:border-ring has-[button[aria-expanded=true]]:ring-ring/50 has-[button[aria-expanded=true]]:ring-[3px]",
+            "has-[button:focus-visible]:border-ring has-[button:focus-visible]:ring-ring/50 has-[button:focus-visible]:ring-[3px]",
             className,
           )}
         >
           {selected.map((v) => (
-            <Badge key={v} variant="secondary" className="gap-0.5 pr-0.5">
+            <Badge key={v} variant="secondary" className={cn("gap-0.5", !locked.has(v) && "pr-0.5")}>
               {labelOf(options, v)}
-              <button
-                type="button"
-                onClick={() => toggle(v)}
-                aria-label={`Remove ${labelOf(options, v)}`}
-                className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-              >
-                <IconX className="size-3" />
-              </button>
+              {!locked.has(v) && (
+                <button
+                  type="button"
+                  onClick={() => toggle(v)}
+                  aria-label={`Remove ${labelOf(options, v)}`}
+                  className={cn(chipButton, "hover:bg-muted-foreground/20")}
+                >
+                  <IconX className="size-3" />
+                </button>
+              )}
               {name && <input type="hidden" name={name} value={v} />}
             </Badge>
           ))}
@@ -188,6 +265,7 @@ export function MultiCombobox({
             <button
               id={id}
               type="button"
+              aria-describedby={describedBy}
               className="text-muted-foreground h-6 min-w-16 flex-1 px-1.5 text-left text-sm outline-none"
             >
               {selected.length ? "" : placeholder}
@@ -202,19 +280,28 @@ export function MultiCombobox({
             value={search}
             onValueChange={setSearch}
             placeholder={creatable ? "Search or add" : "Search"}
+            className="text-base md:text-sm"
             onKeyDown={(e) => {
-              if (e.key === "Backspace" && !search && selected.length) set(selected.slice(0, -1));
+              const last = selected.at(-1);
+              if (e.key === "Backspace" && !search && last !== undefined && !locked.has(last)) set(selected.slice(0, -1));
               // A comma finishes a tag, as in the old comma separated field.
               if (e.key === "," && canCreate) {
                 e.preventDefault();
-                toggle(q);
+                toggle(made!);
               }
+            }}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text");
+              if (!creatable || !/[,;\n]/.test(text)) return;
+              e.preventDefault();
+              add(text.split(/[,;\n]+/));
             }}
           />
           <CommandList>
-            {!canCreate && <CommandEmpty>{creatable ? "Type to add one." : "No match."}</CommandEmpty>}
+            {refused && <p className="text-muted-foreground px-3 py-2 text-xs">{invalid}</p>}
+            {!canCreate && !refused && <CommandEmpty>{creatable ? "Type to add one." : "No match."}</CommandEmpty>}
             <CommandGroup>
-              {options.map((o) => (
+              {options.filter((o) => !o.locked).map((o) => (
                 <CommandItem key={o.value} value={o.value} keywords={[o.label ?? ""]} onSelect={() => toggle(o.value)}>
                   <IconCheck className={cn(selected.includes(o.value) ? "opacity-100" : "opacity-0")} />
                   {o.label ?? o.value}
@@ -224,8 +311,8 @@ export function MultiCombobox({
             </CommandGroup>
             {canCreate && (
               <CommandGroup>
-                <CommandItem value={`__create ${q}`} onSelect={() => toggle(q)}>
-                  <IconPlus /> Add &ldquo;{q}&rdquo;
+                <CommandItem value={`__create ${made}`} onSelect={() => toggle(made!)}>
+                  <IconPlus /> Add &ldquo;{made}&rdquo;
                 </CommandItem>
               </CommandGroup>
             )}

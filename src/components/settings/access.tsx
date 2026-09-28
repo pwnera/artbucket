@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useId, useOptimistic, useState, useTransition } from "react";
 import {
   IconAdjustmentsHorizontal,
   IconBuilding,
-  IconCopy,
   IconFolder,
   IconFolderUp,
   IconHistory,
@@ -17,6 +16,7 @@ import {
   IconPhoto,
   IconPlus,
   IconRefresh,
+  IconSearch,
   IconSend,
   IconShare,
   IconTrash,
@@ -25,20 +25,17 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { Me } from "@/components/account";
-import { can } from "@/lib/permissions";
+import { DayGroups, Initials, useFeed } from "@/components/activity";
 import { Snippet } from "@/components/agent-access";
-import { copy } from "@/components/brand-values";
-import { send } from "@/components/collections";
-import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { useMe } from "@/components/can";
+import { Confirm } from "@/components/confirm";
+import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
+import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -46,10 +43,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { SidebarData } from "@/lib/sidebar";
-import { allows, type Scope } from "@/lib/scopes";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ABILITIES, type Ability } from "@/lib/access";
+import type { AuditAction } from "@/lib/core/audit";
+import { can } from "@/lib/permissions";
+import { allows, roleName, ROLES, SCOPES, type Scope } from "@/lib/scopes";
+import { send } from "@/lib/send";
+import type { SidebarData } from "@/lib/sidebar";
+import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
@@ -67,16 +72,11 @@ type Invitation = {
   /** Its link, to copy again; null when it can't be opened any more. */
   url: string | null;
 };
-export type Members = { data: { id: string; name: string; email: string; grants: Grant[] }[]; invitations: Invitation[] };
-type AuditEntry = { id: string; at: string; actor: string; action: string; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
+type Member = { id: string; name: string; email: string; grants: Grant[] };
+export type Members = { data: Member[]; invitations: Invitation[] };
+type AuditEntry = { id: string; at: string; actor: string; action: AuditAction; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
 export type AuditPage = { data: AuditEntry[]; next: string | null };
 
-const SCOPES: { scope: Scope; label: string; hint: string }[] = [
-  { scope: "read", label: "Viewer", hint: "Search, look, download" },
-  { scope: "propose", label: "Contributor", hint: "Also upload and suggest; it waits for review" },
-  { scope: "write", label: "Editor", hint: "Also edit, approve, delete, and share links" },
-  { scope: "admin", label: "Admin", hint: "Also manage people and keys" },
-];
 /** What an editor's or admin's grant can have off (lib/access.ts). */
 const ABILITY: Record<Ability, string> = {
   approve: "Approve uploads and tags",
@@ -86,11 +86,19 @@ const ABILITY: Record<Ability, string> = {
 };
 /** "Editor, no delete or share": the role with what it has off. */
 const NOT: Record<Ability, string> = { approve: "approving", delete: "deleting", share: "sharing", setup: "setup" };
-const roleName = (scope: Scope, limits: Ability[] = []) =>
-  limits.length && allows(scope, "write") ? `${scopeName(scope)}, no ${ABILITIES.filter((a) => limits.includes(a)).map((a) => NOT[a]).join(" or ")}` : scopeName(scope);
-const ORDER: Scope[] = ["read", "propose", "write", "admin"];
-const scopeName = (s: Scope) => SCOPES.find((x) => x.scope === s)?.label ?? s;
+const role = (scope: Scope, limits: Ability[] = []) =>
+  limits.length && allows(scope, "write") ? `${roleName(scope)}, no ${ABILITIES.filter((a) => limits.includes(a)).map((a) => NOT[a]).join(" or ")}` : roleName(scope);
 const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto };
+
+/** A role in a picker: its name, and what it may do under it, so the choice is made knowing. The trigger shows the name only. */
+function RoleOption({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="grid">
+      <span>{label}</span>
+      <span className="text-muted-foreground text-xs">{hint}</span>
+    </div>
+  );
+}
 
 // ---- people -----------------------------------------------------------------
 
@@ -121,6 +129,8 @@ export function People({
     inviting ? { kind: "invite" } : null,
   );
   const [resent, setResent] = useState<{ email: string; url: string; emailed: boolean } | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+  const [q, setQ] = useState("");
   const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
   // Where a grant can be: the organization (its admins, and not from a workspace's view), this workspace, or one of its collections.
   const places: Where[] = [
@@ -130,66 +140,111 @@ export function People({
   ];
   const refresh = () => router.refresh();
 
+  function close() {
+    setDialog(null);
+    // ⌘K's ?invite opened it; a reload shouldn't open it again.
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("invite")) return;
+    url.searchParams.delete("invite");
+    window.history.replaceState(null, "", url);
+  }
+
   async function change(g: Grant, userId: string, scope: Scope, limits?: Ability[]) {
     if (await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits })) {
-      toast.success(`Now ${roleName(scope, limits ?? g.limits).toLowerCase()} on ${g.label}`);
+      toast.success(`Now ${role(scope, limits ?? g.limits).toLowerCase()} on ${g.label}`);
       refresh();
     }
   }
-  async function remove(g: Grant) {
-    if (await send("DELETE", `/api/v1/grants/${g.id}`)) refresh();
+  async function remove(g: Grant, m: Member) {
+    if (!(await send("DELETE", `/api/v1/grants/${g.id}`))) return false;
+    refresh();
+    // Your own admin grant asked first instead: putting it back would take the admin just given up.
+    if (m.id !== me.user?.id || g.scope !== "admin") {
+      undoable(`Removed ${m.name}'s access to ${g.label}`, {
+        undo: async () => {
+          const back = await send("POST", "/api/v1/grants", { user: m.id, resource: g.resource, resourceId: g.resourceId, scope: g.scope, limits: g.limits });
+          // send() said why it failed; nothing more to say.
+          if (!back) return false;
+          refresh();
+        },
+      });
+    }
+    return true;
   }
+
+  const needle = q.trim().toLowerCase();
+  const matches = (...s: string[]) => !needle || s.some((x) => x.toLowerCase().includes(needle));
+  // You first: the row you most often come to change is your own.
+  const people = members.data.filter((m) => matches(m.name, m.email)).sort((a, b) => Number(b.id === me.user?.id) - Number(a.id === me.user?.id));
+  const invited = members.invitations.filter((i) => matches(i.email));
 
   return (
     <div className="space-y-8">
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="flex-1 text-sm font-semibold">
             {view === "workspace" ? `Who can open ${me.workspace.name}` : "People"}{" "}
             <span className="text-muted-foreground font-normal">{members.data.length}</span>
           </h2>
+          {members.data.length + members.invitations.length > 5 && (
+            <div className="relative w-full sm:w-56">
+              <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by name or email" aria-label="Filter people" className="h-8 pl-8" />
+            </div>
+          )}
           <Button size="sm" onClick={() => setDialog({ kind: "invite" })}>
             <IconMail /> Invite people
           </Button>
         </div>
-        <ul className="divide-y rounded-lg border">
-          {members.data.map((m) => (
-            <li key={m.id} className="flex flex-col gap-2 px-3 py-3 lg:flex-row lg:items-start">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {m.name}
-                  {m.id === me.user?.id && <span className="text-muted-foreground font-normal"> (you)</span>}
-                </p>
-                <p className="text-muted-foreground truncate text-xs">{m.email}</p>
-                {view === "workspace" && <p className="mt-1 text-xs">{roleHere(m.grants, me.workspace.id)}</p>}
-              </div>
-              <div className="flex flex-col gap-1.5 lg:items-end">
-                {m.grants.map((g) => (
-                  <GrantRow
-                    key={g.id}
-                    grant={g}
-                    editable={manages(g)}
-                    onScope={(s) => change(g, m.id, s)}
-                    onLimits={(l) => change(g, m.id, g.scope, l)}
-                    onRemove={() => remove(g)}
-                  />
-                ))}
-                <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setDialog({ kind: "grant", user: m })}>
-                  <IconPlus /> Access to more
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {needle && !people.length && !invited.length ? (
+          <p className="text-muted-foreground rounded-lg border px-3 py-6 text-center text-sm">No one matches &ldquo;{q.trim()}&rdquo;.</p>
+        ) : (
+          people.length > 0 && (
+            <ul className="divide-y rounded-lg border">
+              {people.map((m) => (
+                <li key={m.id} className="flex flex-col gap-2 px-3 py-3 lg:flex-row lg:items-start">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Initials name={m.name || m.email} className="size-8 text-xs" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {m.name}
+                        {m.id === me.user?.id && <span className="text-muted-foreground font-normal"> (you)</span>}
+                      </p>
+                      <p className="text-muted-foreground truncate text-xs">{m.email}</p>
+                      {view === "workspace" && <p className="mt-1 text-xs">{roleHere(m.grants, me.workspace.id)}</p>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 pl-11 lg:items-end lg:pl-0">
+                    {m.grants.map((g) => (
+                      <GrantRow
+                        key={g.id}
+                        grant={g}
+                        who={m.name}
+                        editable={manages(g)}
+                        mine={m.id === me.user?.id}
+                        onScope={(s) => change(g, m.id, s)}
+                        onLimits={(l) => change(g, m.id, g.scope, l)}
+                        onRemove={() => remove(g, m)}
+                      />
+                    ))}
+                    <Button variant="ghost" size="xs" className="text-muted-foreground w-fit" onClick={() => setDialog({ kind: "grant", user: m })}>
+                      <IconPlus /> Access to more
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
       </section>
 
-      {members.invitations.length > 0 && (
+      {invited.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold">
             Invited <span className="text-muted-foreground font-normal">{members.invitations.length}</span>
           </h2>
           <ul className="divide-y rounded-lg border">
-            {members.invitations.map((i) => {
+            {invited.map((i) => {
               const I = ICON[i.resource];
               return (
                 <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
@@ -198,34 +253,42 @@ export function People({
                     <p className="truncate font-medium">{i.email}</p>
                     <p className="text-muted-foreground truncate text-xs">
                       <I className="mr-1 inline size-3.5" />
-                      {roleName(i.scope, i.limits)} on {i.label} · by {i.invitedBy} · expires {ago(i.expiresAt)}
+                      {role(i.scope, i.limits)} on {i.label} · by {i.invitedBy} · expires {ago(i.expiresAt)}
                     </p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
-                  {i.url && (
-                    <IconButton variant="ghost" label="Copy link" onClick={() => copy(i.url!, "the invitation link")}>
-                      <IconCopy />
+                    {i.url && <CopyButton text={i.url} label={`Copy ${i.email}'s invitation link`} what="the invitation link" size="icon-sm" />}
+                    <IconButton
+                      variant="ghost"
+                      label="Send again: a new link and a new week"
+                      pending={resending === i.id}
+                      onClick={async () => {
+                        setResending(i.id);
+                        const r = await send("POST", `/api/v1/invitations/${i.id}/resend`);
+                        setResending(null);
+                        if (!r) return;
+                        setResent({ email: i.email, url: r.url, emailed: r.emailed });
+                        refresh();
+                      }}
+                    >
+                      <IconRefresh />
                     </IconButton>
-                  )}
-                  <IconButton
-                    variant="ghost"
-                    label="Send again: a new link and a new week"
-                    onClick={async () => {
-                      const r = await send("POST", `/api/v1/invitations/${i.id}/resend`);
-                      if (!r) return;
-                      setResent({ email: i.email, url: r.url, emailed: r.emailed });
-                      refresh();
-                    }}
-                  >
-                    <IconRefresh />
-                  </IconButton>
-                  <IconButton
-                    variant="ghost"
-                    label={`Withdraw the invitation to ${i.email}`}
-                    onClick={async () => (await send("DELETE", `/api/v1/invitations/${i.id}`)) && refresh()}
-                  >
-                    <IconX />
-                  </IconButton>
+                    <Confirm
+                      title={`Withdraw the invitation to ${i.email}?`}
+                      says="Its link stops working at once. You can invite them again later."
+                      action="Withdraw"
+                      run={async () => {
+                        const ok = await send("DELETE", `/api/v1/invitations/${i.id}`);
+                        if (!ok) return null;
+                        toast.success(`Withdrew the invitation to ${i.email}`);
+                        refresh();
+                        return ok;
+                      }}
+                    >
+                      <IconButton variant="ghost" label={`Withdraw the invitation to ${i.email}`} className="text-muted-foreground hover:text-destructive">
+                        <IconX />
+                      </IconButton>
+                    </Confirm>
                   </div>
                 </li>
               );
@@ -238,7 +301,7 @@ export function People({
         <p className="text-muted-foreground text-sm">No invitations waiting.</p>
       )}
 
-      {dialog && <GrantDialog me={me} dialog={dialog} places={places} onClose={() => setDialog(null)} onDone={refresh} />}
+      {dialog && <GrantDialog me={me} dialog={dialog} places={places} onClose={close} onDone={refresh} />}
       {resent && (
         <Dialog open onOpenChange={(o) => !o && setResent(null)}>
           <DialogContent className="sm:max-w-md">
@@ -261,11 +324,11 @@ export function People({
 function roleHere(grants: Grant[], workspaceId: string) {
   const org = grants.find((g) => g.resource === "organization");
   const ws = grants.find((g) => g.resource === "workspace" && g.resourceId === workspaceId);
-  const top = [org, ws].filter(Boolean).sort((a, b) => ORDER.indexOf(b!.scope) - ORDER.indexOf(a!.scope))[0];
+  const top = [org, ws].filter(Boolean).sort((a, b) => SCOPES.indexOf(b!.scope) - SCOPES.indexOf(a!.scope))[0];
   if (!top) return <span className="text-muted-foreground">Some collections or assets only</span>;
   return (
     <>
-      <Badge variant="outline">{scopeName(top.scope)}</Badge>{" "}
+      <Badge variant="outline">{roleName(top.scope)}</Badge>{" "}
       <span className="text-muted-foreground">{top.resource === "organization" ? "through the organization" : "in this workspace"}</span>
     </>
   );
@@ -278,16 +341,18 @@ function InviteLink({ me, url, emailed }: { me: Me; url: string; emailed: boolea
       <Snippet text={url} what="the invitation link" />
       <p className="text-muted-foreground text-sm">
         {emailed ? (
-          "We emailed it to them. The link is here too, this once, in case it lands in spam."
+          "We emailed it to them. It is here too in case it lands in spam, and under Invited until they join."
         ) : (
           <>
-            Send it to them yourself: it is shown this once.{" "}
+            Send it to them yourself. You can copy it again under Invited until it is used or expires.{" "}
             {can(me, "organization.manage") && (
-              <Link href="/settings/organization/email" className="underline underline-offset-2">
-                Turn on email
-              </Link>
+              <>
+                <Link href="/settings/organization/email" className="underline underline-offset-2">
+                  Turn on email
+                </Link>{" "}
+                to have invitations sent.
+              </>
             )}
-            {can(me, "organization.manage") && " to have invitations sent."}
           </>
         )}
       </p>
@@ -295,19 +360,42 @@ function InviteLink({ me, url, emailed }: { me: Me; url: string; emailed: boolea
   );
 }
 
+/**
+ * One grant: where, and as what. A change shows at once and rolls back only
+ * if the server refuses. Lowering or removing your own admin asks first.
+ */
 function GrantRow({
   grant: g,
+  who,
   editable,
+  mine,
   onScope,
   onLimits,
   onRemove,
 }: {
   grant: Grant;
+  /** Whose grant: every label names them, so ten rows don't all read "Remove access to Library". */
+  who: string;
   editable: boolean;
-  onScope: (s: Scope) => void;
-  onLimits: (l: Ability[]) => void;
-  onRemove: () => void;
+  mine: boolean;
+  onScope: (s: Scope) => Promise<unknown>;
+  onLimits: (l: Ability[]) => Promise<unknown>;
+  onRemove: () => Promise<boolean>;
 }) {
+  const [shown, setShown] = useOptimistic({ scope: g.scope, limits: g.limits });
+  const [, start] = useTransition();
+  const [asking, setAsking] = useState<{ scope: Scope } | "remove" | null>(null);
+  // The request runs inside the transition, and router.refresh() with it, so the new value holds until the new props land.
+  const scope = (s: Scope) => start(async () => {
+    setShown({ scope: s, limits: shown.limits });
+    await onScope(s);
+  });
+  const limits = (l: Ability[]) => start(async () => {
+    setShown({ scope: shown.scope, limits: l });
+    await onLimits(l);
+  });
+  const ownAdmin = mine && g.scope === "admin";
+
   const I = ICON[g.resource];
   const where = (
     <span className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" title={g.resource}>
@@ -319,44 +407,46 @@ function GrantRow({
     return (
       <div className="flex items-center gap-1.5" title="Changed by the organization's admins">
         {where}
-        <Badge variant="outline">{roleName(g.scope, g.limits)}</Badge>
+        <Badge variant="outline">{role(g.scope, g.limits)}</Badge>
       </div>
     );
   }
   return (
     <div className="flex items-center gap-1.5">
       {where}
-      <Select value={g.scope} onValueChange={(v) => onScope(v as Scope)}>
-        <SelectTrigger size="sm" className="h-7 w-32" aria-label={`Scope on ${g.label}`}>
-          <SelectValue />
+      <Select value={shown.scope} onValueChange={(v) => (ownAdmin && v !== "admin" ? setAsking({ scope: v as Scope }) : scope(v as Scope))}>
+        <SelectTrigger size="sm" className="h-7 w-32" aria-label={`${who}'s role on ${g.label}`}>
+          <SelectValue>{roleName(shown.scope)}</SelectValue>
         </SelectTrigger>
         <SelectContent align="end">
-          {SCOPES.map((s) => (
-            <SelectItem key={s.scope} value={s.scope}>
-              {s.label}
+          {ROLES.map((r) => (
+            <SelectItem key={r.scope} value={r.scope}>
+              <RoleOption label={r.label} hint={r.hint} />
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {allows(g.scope, "write") && (
+      {allows(shown.scope, "write") && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton
               variant="ghost"
               size="icon-xs"
-              label={g.limits.length ? roleName(g.scope, g.limits) : `What ${scopeName(g.scope).toLowerCase()} may do on ${g.label}`}
-              className={g.limits.length ? "text-primary" : undefined}
+              label={shown.limits.length ? `${who}: ${role(shown.scope, shown.limits)}` : `What ${who} may do on ${g.label}`}
+              className={shown.limits.length ? "text-primary-ink" : undefined}
             >
               <IconAdjustmentsHorizontal />
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>As {scopeName(g.scope).toLowerCase()}, may</DropdownMenuLabel>
+            <DropdownMenuLabel>As {roleName(shown.scope).toLowerCase()}, may</DropdownMenuLabel>
             {ABILITIES.map((a) => (
               <DropdownMenuCheckboxItem
                 key={a}
-                checked={!g.limits.includes(a)}
-                onCheckedChange={(on) => onLimits(on ? g.limits.filter((l) => l !== a) : [...g.limits, a])}
+                checked={!shown.limits.includes(a)}
+                // Stays open: switching off two abilities is one visit.
+                onSelect={(e) => e.preventDefault()}
+                onCheckedChange={(on) => limits(on ? shown.limits.filter((l) => l !== a) : [...shown.limits, a])}
               >
                 {ABILITY[a]}
               </DropdownMenuCheckboxItem>
@@ -364,9 +454,27 @@ function GrantRow({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <IconButton variant="ghost" size="icon-xs" label={`Remove access to ${g.label}`} onClick={onRemove}>
+      <IconButton
+        variant="ghost"
+        size="icon-xs"
+        label={`Remove ${who}'s access to ${g.label}`}
+        className="text-muted-foreground hover:text-destructive"
+        onClick={() => (ownAdmin ? setAsking("remove") : void onRemove())}
+      >
         <IconTrash />
       </IconButton>
+      <Confirm
+        open={!!asking}
+        onOpenChange={(o) => !o && setAsking(null)}
+        title={asking === "remove" ? `Remove your own admin access to ${g.label}?` : `Stop being an admin on ${g.label}?`}
+        says="You may no longer be able to manage people here, so you couldn't undo this yourself. Another admin could."
+        action={asking === "remove" ? "Remove my access" : "Lower my access"}
+        run={() => {
+          if (asking === "remove") return onRemove();
+          if (asking) scope(asking.scope);
+          return true;
+        }}
+      />
     </div>
   );
 }
@@ -459,12 +567,12 @@ function GrantDialog({
               <Label htmlFor={`${id}-scope`}>As</Label>
               <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
                 <SelectTrigger id={`${id}-scope`} className="w-full">
-                  <SelectValue />
+                  <SelectValue>{roleName(scope)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {SCOPES.map((s) => (
-                    <SelectItem key={s.scope} value={s.scope}>
-                      {s.label} <span className="text-muted-foreground">· {s.hint}</span>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r.scope} value={r.scope}>
+                      <RoleOption label={r.label} hint={r.hint} />
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -488,8 +596,8 @@ function GrantDialog({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                {dialog.kind === "invite" ? "Make the invitation" : "Give access"}
+              <Button type="submit" pending={busy}>
+                {dialog.kind === "grant" ? "Give access" : me.email ? "Send invitation" : "Create invite link"}
               </Button>
             </DialogFooter>
           </form>
@@ -538,41 +646,47 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
         </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {shares.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
-              {s.kind === "upload" ? <IconUpload className="text-muted-foreground size-4 shrink-0" /> : <IconLink className="text-muted-foreground size-4 shrink-0" />}
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 truncate font-medium">
-                  {s.name ?? s.target.label ?? "Untitled"}
-                  {s.password && <IconLock className="text-muted-foreground size-3.5" aria-label="Password" />}
-                  {s.expired && <Badge variant="outline">Expired</Badge>}
-                </p>
-                <p className="text-muted-foreground truncate text-xs">
-                  {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the workspace"} · by {s.createdBy} ·{" "}
-                  {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
-                </p>
-              </div>
-              <IconButton variant="ghost" label="Copy link" onClick={() => copy(s.url, "the link")}>
-                <IconCopy />
-              </IconButton>
-              {me?.email && !s.expired && (
-                <IconButton variant="ghost" label="Email it to people" onClick={() => setSending(s)}>
-                  <IconSend />
-                </IconButton>
-              )}
-              <IconButton
-                variant="ghost"
-                label={`Revoke ${s.name ?? "this link"}`}
-                onClick={async () => {
-                  if (!(await send("DELETE", `/api/v1/shares/${s.id}`))) return;
-                  toast.success("Revoked: the link no longer works");
-                  router.refresh();
-                }}
-              >
-                <IconTrash />
-              </IconButton>
-            </li>
-          ))}
+          {shares.map((s) => {
+            const name = s.name ?? s.target.label ?? "Untitled";
+            return (
+              <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
+                {s.kind === "upload" ? <IconUpload className="text-muted-foreground size-4 shrink-0" /> : <IconLink className="text-muted-foreground size-4 shrink-0" />}
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 truncate font-medium">
+                    {name}
+                    {s.password && <IconLock className="text-muted-foreground size-3.5" aria-label="Password" />}
+                    {s.expired && <Badge variant="outline">Expired</Badge>}
+                  </p>
+                  <p className="text-muted-foreground truncate text-xs">
+                    {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the workspace"} · by {s.createdBy} ·{" "}
+                    {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
+                  </p>
+                </div>
+                <CopyButton text={s.url} label={`Copy the link to ${name}`} what="the link" size="icon-sm" />
+                {me?.email && !s.expired && (
+                  <IconButton variant="ghost" label="Email it to people" onClick={() => setSending(s)}>
+                    <IconSend />
+                  </IconButton>
+                )}
+                <Confirm
+                  title="Revoke this link?"
+                  says="Anyone with it gets an error page. A revoked link can't be brought back; make a new one instead."
+                  action="Revoke"
+                  run={async () => {
+                    const ok = await send("DELETE", `/api/v1/shares/${s.id}`);
+                    if (!ok) return null;
+                    toast.success("Revoked: the link no longer works");
+                    router.refresh();
+                    return ok;
+                  }}
+                >
+                  <IconButton variant="ghost" label={`Revoke ${name}`} className="text-muted-foreground hover:text-destructive">
+                    <IconTrash />
+                  </IconButton>
+                </Confirm>
+              </li>
+            );
+          })}
         </ul>
       )}
       {making && <ShareDialog target={{ kind: making }} collections={collections} onClose={() => setMaking(null)} onMade={() => router.refresh()} />}
@@ -583,7 +697,8 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
 
 // ---- audit ------------------------------------------------------------------
 
-const SAYS: Record<string, string> = {
+// Every action the server records, so a new one is a compile error here, not a raw key in the log.
+const SAYS: Record<AuditAction, string> = {
   "user.signed_up": "made an account",
   "user.signed_in": "signed in",
   "organization.created": "made the organization",
@@ -595,12 +710,14 @@ const SAYS: Record<string, string> = {
   "grant.set": "gave access to",
   "grant.removed": "took access from",
   "invitation.created": "invited",
+  "invitation.resent": "sent a new invitation to",
   "invitation.revoked": "withdrew the invitation to",
   "invitation.accepted": "accepted an invitation as",
   "key.created": "made the API key",
   "key.revoked": "revoked the API key",
   "share.created": "made a share link to",
   "share.revoked": "revoked a share link to",
+  "share.sent": "emailed a link to",
   "asset.signed_url": "made a signed URL to",
   "asset.published": "made public",
   "asset.unpublished": "made private again",
@@ -610,7 +727,9 @@ const SAYS: Record<string, string> = {
   "portal.request_approved": "let into a portal",
   "portal.request_denied": "turned down for a portal",
   "portal.request_removed": "took portal access from",
+  "domain.added": "added the domain",
   "domain.verified": "verified the domain",
+  "domain.removed": "removed the domain",
   "domain.primary": "made the default domain",
   "setting.changed": "changed the setting",
   "setting.reset": "reset the setting",
@@ -621,8 +740,9 @@ const SAYS: Record<string, string> = {
 function detail(d: Record<string, unknown> | null) {
   if (!d) return null;
   const parts = [
-    typeof d.scope === "string" && (d.on ? `${scopeName(d.scope as Scope).toLowerCase()} on ${d.on}` : scopeName(d.scope as Scope).toLowerCase()),
+    typeof d.scope === "string" && (d.on ? `${roleName(d.scope as Scope).toLowerCase()} on ${d.on}` : roleName(d.scope as Scope).toLowerCase()),
     typeof d.kind === "string" && `${d.kind} link`,
+    typeof d.to === "number" && `to ${d.to} ${d.to === 1 ? "person" : "people"}`,
     d.password === true && "with a password",
     typeof d.from === "string" && `was ${d.from}`,
     Array.isArray(d.changed) && d.changed.length > 0 && `changed ${d.changed.join(", ")}`,
@@ -631,18 +751,29 @@ function detail(d: Record<string, unknown> | null) {
   return parts.length ? parts.join(", ") : null;
 }
 
-/** Who changed who may do what, newest first. */
+type Kind = "all" | "access" | "keys" | "links" | "signins";
+/** The log's filters, by action. Sign-ins are the noise under the changes, so All leaves them to their own tab. */
+const KINDS: { id: Kind; label: string; has: (a: string) => boolean }[] = [
+  { id: "all", label: "All", has: (a) => a !== "user.signed_in" },
+  { id: "access", label: "Access", has: (a) => a.startsWith("grant.") || a.startsWith("invitation.") },
+  { id: "keys", label: "Keys", has: (a) => a.startsWith("key.") },
+  { id: "links", label: "Links", has: (a) => a.startsWith("share.") || a === "asset.signed_url" },
+  { id: "signins", label: "Sign-ins", has: (a) => a.startsWith("user.") },
+];
+
+/** Who changed who may do what, newest first, by day. The filter is in the URL (`?audit=`). */
 export function Audit({ first }: { first: AuditPage }) {
-  const [items, setItems] = useState(first.data);
-  const [next, setNext] = useState(first.next);
-  async function more() {
-    if (!next) return;
-    const res = await fetch(`/api/v1/audit?before=${encodeURIComponent(next)}`);
-    if (!res.ok) return;
-    const page: AuditPage = await res.json();
-    setItems((xs) => [...xs, ...page.data.filter((p) => !xs.some((x) => x.id === p.id))]);
-    setNext(page.next);
+  const params = useSearchParams();
+  const { items, next, busy, more } = useFeed("/api/v1/audit", first);
+  const kind = KINDS.find((k) => k.id === params.get("audit")) ?? KINDS[0]!;
+
+  function filter(v: string) {
+    const q = new URLSearchParams(params);
+    if (v === "all") q.delete("audit");
+    else q.set("audit", v);
+    window.history.replaceState(null, "", q.size ? `?${q}` : window.location.pathname);
   }
+
   if (!items.length) {
     return (
       <Empty className="border">
@@ -656,33 +787,57 @@ export function Audit({ first }: { first: AuditPage }) {
       </Empty>
     );
   }
+  const shown = items.filter((e) => kind.has(e.action));
+  const older = (
+    <Button variant="outline" size="sm" pending={busy} onClick={more}>
+      Load older
+    </Button>
+  );
   return (
     <div className="space-y-4">
-      <ul className="divide-y rounded-lg border">
-        {items.map((e) => (
-          <li key={e.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
-            <div className="min-w-0 flex-1">
-              <p className="leading-6">
-                <span className="font-medium">{e.actor}</span> <span className="text-muted-foreground">{SAYS[e.action] ?? e.action}</span>{" "}
-                {e.target && <span className="font-medium">{e.target}</span>}
-              </p>
-              {(detail(e.detail) || e.ip) && (
-                <p className="text-muted-foreground text-xs">{[detail(e.detail), e.ip && `from ${e.ip}`].filter(Boolean).join(" · ")}</p>
-              )}
-            </div>
-            <time dateTime={e.at} title={exact(e.at)} className="text-muted-foreground shrink-0 text-xs" suppressHydrationWarning>
-              {ago(e.at)}
-            </time>
-          </li>
-        ))}
-      </ul>
-      {next && (
-        <div className="flex justify-center">
-          <Button variant="outline" size="sm" onClick={more}>
-            Load older
-          </Button>
-        </div>
+      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+        <ToggleGroup type="single" variant="outline" size="sm" value={kind.id} onValueChange={(v) => v && filter(v)} aria-label="Show">
+          {KINDS.map((k) => (
+            <ToggleGroupItem key={k.id} value={k.id} className="px-3">
+              {k.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+      {shown.length === 0 ? (
+        <Empty size="sm" className="border">
+          <EmptyHeader>
+            <EmptyTitle>
+              Nothing under {kind.label} in the latest {items.length} entries
+            </EmptyTitle>
+            <EmptyDescription>{next ? "There may be some further back." : "That's everything there is."}</EmptyDescription>
+          </EmptyHeader>
+          {next && older}
+        </Empty>
+      ) : (
+        <DayGroups items={shown}>
+          {(list) =>
+            list.map((e) => (
+              <li key={e.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
+                <Initials name={e.actor} className="mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="leading-6">
+                    <span className="font-medium">{e.actor}</span> <span className="text-muted-foreground">{SAYS[e.action] ?? e.action}</span>{" "}
+                    {e.target && <span className="font-medium">{e.target}</span>}
+                  </p>
+                  {(detail(e.detail) || e.ip) && (
+                    <p className="text-muted-foreground text-xs">{[detail(e.detail), e.ip && `from ${e.ip}`].filter(Boolean).join(" · ")}</p>
+                  )}
+                </div>
+                <time dateTime={e.at} title={exact(e.at)} className="text-muted-foreground shrink-0 text-xs leading-6" suppressHydrationWarning>
+                  {ago(e.at)}
+                </time>
+              </li>
+            ))
+          }
+        </DayGroups>
       )}
+      {shown.length > 0 && next && <div className="flex justify-center">{older}</div>}
     </div>
   );
 }

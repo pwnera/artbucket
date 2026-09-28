@@ -16,13 +16,18 @@ export const ago = (at: string | Date, now = Date.now()) => {
 export const exact = (at: string | Date) =>
   new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
-/** "Today", "Yesterday", or the date: how a history groups what happened. */
-export function day(at: string | Date, now = new Date()) {
+/**
+ * "Today", "Yesterday", or the date: how a history groups what happened.
+ * In `timeZone` when given ("UTC" on the server, whose zone isn't the
+ * reader's), else the runtime's own.
+ */
+export function day(at: string | Date, now = new Date(), timeZone?: string) {
   const d = new Date(at);
-  const yesterday = new Date(now.getTime() - 86_400_000);
-  if (d.toDateString() === now.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  // en-CA writes 2026-09-28: one calendar day, one string, in any zone.
+  const date = (x: Date) => x.toLocaleDateString("en-CA", { timeZone });
+  if (date(d) === date(now)) return "Today";
+  if (date(d) === date(new Date(now.getTime() - 86_400_000))) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone });
 }
 
 /** "now", "5m", "3h", "2d", "3w", "4mo", "1y": an age that fits beside a sidebar item. */

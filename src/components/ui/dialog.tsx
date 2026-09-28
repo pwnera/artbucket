@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils"
 import { IconX as XIcon } from "@tabler/icons-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 
 function Dialog({
@@ -47,34 +57,94 @@ function DialogOverlay({
   )
 }
 
+const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster]")
+
+/**
+ * A form dialog passes `guard` so typed edits are never lost by accident:
+ * Esc in a field only leaves the field, and while `dirty`, Esc, a click
+ * outside or the X ask "Discard changes?" before `onDiscard` closes it.
+ * A click on a toast (its Undo) never counts as outside.
+ */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  guard,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  guard?: { dirty: boolean; onDiscard: () => void; onSave?: () => void }
 }) {
+  const [asking, setAsking] = React.useState(false)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border bg-popover p-6 text-popover-foreground shadow-lg duration-200 ease-out outline-none data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:ease-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
+        onEscapeKeyDown={(e) => {
+          const field = document.activeElement
+          if (guard && field instanceof HTMLElement && field.matches("input, textarea, select, [contenteditable=true]")) {
+            e.preventDefault()
+            field.blur()
+          } else if (guard?.dirty) {
+            e.preventDefault()
+            setAsking(true)
+          }
+          onEscapeKeyDown?.(e)
+        }}
+        onPointerDownOutside={(e) => {
+          if (guard?.dirty && !inToaster(e.target)) setAsking(true)
+          onPointerDownOutside?.(e)
+        }}
+        onInteractOutside={(e) => {
+          if (inToaster(e.target) || guard?.dirty) e.preventDefault()
+          onInteractOutside?.(e)
+        }}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
+          <DialogPrimitive.Close data-slot="dialog-close" asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                // A prevented click stops Close from closing.
+                if (guard?.dirty) {
+                  e.preventDefault()
+                  setAsking(true)
+                }
+              }}
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
           </DialogPrimitive.Close>
+        )}
+        {guard && (
+          <AlertDialog open={asking} onOpenChange={setAsking}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                <AlertDialogDescription>What you changed here has not been saved.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={guard.onDiscard}>
+                  Discard
+                </AlertDialogAction>
+                {guard.onSave && <AlertDialogAction onClick={guard.onSave}>Save</AlertDialogAction>}
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>
@@ -125,7 +195,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("text-base leading-none font-semibold tracking-tight", className)}
       {...props}
     />
   )

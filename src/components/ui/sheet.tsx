@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils"
 import { IconX as XIcon } from "@tabler/icons-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
+import { Button } from "@/components/ui/button"
+
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
@@ -48,6 +50,7 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -59,7 +62,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
+          "fixed z-50 flex flex-col gap-4 bg-popover text-popover-foreground shadow-lg transition ease-out outline-none data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:duration-300",
           side === "right" &&
             "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
           side === "left" &&
@@ -70,13 +73,20 @@ function SheetContent({
             "inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
           className
         )}
+        onInteractOutside={(e) => {
+          // A click on a toast (its Undo) is not a click outside, as in DialogContent.
+          if ((e.target as Element | null)?.closest?.("[data-sonner-toaster]")) e.preventDefault()
+          onInteractOutside?.(e)
+        }}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
-            <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+          <SheetPrimitive.Close data-slot="sheet-close" asChild>
+            <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>
@@ -111,7 +121,7 @@ function SheetTitle({
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("font-semibold text-foreground", className)}
+      className={cn("text-base font-semibold tracking-tight text-foreground", className)}
       {...props}
     />
   )

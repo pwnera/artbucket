@@ -1,12 +1,14 @@
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
-function Empty({ className, ...props }: React.ComponentProps<"div">) {
+/** A dashed box that fades in, so it does not pop. `sm` for inside a dialog or a list. */
+function Empty({ className, size = "default", ...props }: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
   return (
     <div
       data-slot="empty"
+      data-size={size}
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12",
+        "flex min-w-0 flex-1 animate-in flex-col items-center justify-center gap-6 rounded-lg border border-dashed p-6 text-center text-balance duration-300 fade-in-0 md:p-12 data-[size=sm]:gap-3 data-[size=sm]:p-6 md:data-[size=sm]:p-6",
         className
       )}
       {...props}
@@ -72,7 +74,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
     <div
       data-slot="empty-description"
       className={cn(
-        "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary-ink",
         className
       )}
       {...props}

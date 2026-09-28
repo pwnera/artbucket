@@ -66,6 +66,8 @@ export const auth = betterAuth({
     "/email-otp/change-email",
   ],
   telemetry: { enabled: false },
+  // Single sign-on errors land on the sign-in page, which says so (app/(auth)/login), not on better-auth's own unbranded one.
+  onAPIError: { errorURL: "/login" },
   // A session and its person in one query (db/schema.ts relations): every request reads one.
   advanced: { database: { joins: true } },
   plugins: [

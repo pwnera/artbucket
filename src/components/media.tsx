@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { DotLottie } from "@lottiefiles/dotlottie-web";
+import { IconMovieOff } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { parseLink } from "@/lib/preview";
 import { cn } from "@/lib/utils";
@@ -21,15 +23,20 @@ export function Lottie({ src, playing = true, className }: { src: string; playin
   const canvas = useRef<HTMLCanvasElement>(null);
   const player = useRef<DotLottie | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // A broken file says so, instead of sitting there as an empty canvas.
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     let gone = false;
-    import("@lottiefiles/dotlottie-web").then(({ DotLottie }) => {
-      if (gone || !canvas.current) return;
-      const p = new DotLottie({ canvas: canvas.current, src, loop: true, renderConfig: { autoResize: true } });
-      p.addEventListener("load", () => setLoaded(true));
-      player.current = p;
-    });
+    import("@lottiefiles/dotlottie-web")
+      .then(({ DotLottie }) => {
+        if (gone || !canvas.current) return;
+        const p = new DotLottie({ canvas: canvas.current, src, loop: true, renderConfig: { autoResize: true } });
+        p.addEventListener("load", () => setLoaded(true));
+        p.addEventListener("loadError", () => !gone && setFailed(src));
+        player.current = p;
+      })
+      .catch(() => !gone && setFailed(src));
     return () => {
       gone = true;
       player.current?.destroy();
@@ -44,6 +51,17 @@ export function Lottie({ src, playing = true, className }: { src: string; playin
     else player.current?.pause();
   }, [playing, loaded]);
 
+  if (failed === src)
+    return (
+      <Empty size="sm" className="size-full border-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconMovieOff />
+          </EmptyMedia>
+          <EmptyDescription>This animation can&apos;t play</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   return <canvas ref={canvas} className={cn("size-full", className)} />;
 }
 
@@ -53,31 +71,37 @@ export function LinkImport({
   open,
   onOpenChange,
   onDone,
+  defaultValue = "",
 }: {
   into?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
+  /** A link to start from: one pasted onto the page. */
+  defaultValue?: string;
 }) {
-  const [busy, setBusy] = useState(false);
-  const add = async (form: FormData) => {
-    const url = String(form.get("url") ?? "").trim();
-    if (!parseLink(url)) return void toast.error("That isn't a Figma, Google Docs, Sheets, Slides or Drive link");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/v1/assets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, collections: into ? [into] : [] }),
-      });
-      const body = await res.json();
-      if (!res.ok) return void toast.error(body.error?.message ?? "Couldn't add it");
-      toast.success(body.deduped ? "Already in the library" : `Added ${body.data.filename}`);
-      onOpenChange(false);
-      onDone();
-    } finally {
-      setBusy(false);
-    }
+  const id = useId();
+  const [url, setUrl] = useState(defaultValue);
+  const [seen, setSeen] = useState({ open, defaultValue });
+  if (seen.open !== open || seen.defaultValue !== defaultValue) {
+    setSeen({ open, defaultValue });
+    if (open) setUrl(defaultValue);
+  }
+  // Checked as you type, beside the field, so a wrong link never costs a round trip.
+  const link = parseLink(url.trim());
+  const wrong = url.trim() !== "" && !link;
+  const add = async () => {
+    if (!link) return;
+    const res = await fetch("/api/v1/assets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim(), collections: into ? [into] : [] }),
+    }).catch(() => null);
+    const body = await res?.json().catch(() => null);
+    if (!res?.ok) return void toast.error(body?.error?.message ?? "Couldn't add it");
+    toast.success(body.deduped ? "Already in the library" : `Added ${body.data.filename}`);
+    onOpenChange(false);
+    onDone();
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,11 +113,25 @@ export function LinkImport({
             thumbnail; private ones show to people signed in with access.
           </DialogDescription>
         </DialogHeader>
-        <form action={add} className="flex gap-2">
-          <Input name="url" type="url" required autoFocus placeholder="https://docs.google.com/presentation/d/…" aria-label="Link" />
-          <Button type="submit" disabled={busy}>
-            Add
-          </Button>
+        <form action={add} className="grid gap-1.5">
+          <div className="flex gap-2">
+            <Input
+              name="url"
+              type="url"
+              required
+              autoFocus
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://docs.google.com/presentation/d/…"
+              aria-label="Link"
+              aria-invalid={wrong || undefined}
+              aria-describedby={`${id}-hint`}
+            />
+            <SubmitButton disabled={!link}>Add</SubmitButton>
+          </div>
+          <p id={`${id}-hint`} className={cn("min-h-4 text-xs", wrong ? "text-destructive" : "text-muted-foreground")} aria-live="polite">
+            {link ? `${link.service === "Figma" ? "Figma" : `Google ${link.service}`} file` : wrong ? "That isn't a Figma, Google Docs, Sheets, Slides or Drive link" : ""}
+          </p>
         </form>
       </DialogContent>
     </Dialog>

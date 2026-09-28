@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { IconPlugConnected, IconRobot } from "@tabler/icons-react";
 import { IconButton } from "@/components/icon-button";
-import { copy, CopyButton } from "@/components/brand-values";
+import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
@@ -32,7 +32,7 @@ export function Snippet({ text, what, multiline, prose }: { text: string; what: 
       >
         {text}
       </code>
-      <CopyButton onClick={() => copy(text, what)} label={`Copy ${what}`} />
+      <CopyButton text={text} what={what} label={`Copy ${what}`} />
     </div>
   );
 }
@@ -86,7 +86,7 @@ function Panel({ subject, about, reads, origin }: { subject: string; about: stri
     <>
       <div className="space-y-1">
         <p className="flex items-center gap-2 text-sm font-medium">
-          <IconRobot className="text-primary size-4" /> {subject}, for an agent
+          <IconRobot className="text-primary-ink size-4" /> {subject}, for an agent
         </p>
         <p className="text-muted-foreground text-xs">{about}</p>
       </div>

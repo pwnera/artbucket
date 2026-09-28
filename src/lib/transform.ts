@@ -128,3 +128,36 @@ export function effective(t: Transform, size: { width?: number | null; height?: 
   if (!out.w && !out.h) delete out.fit;
   return out;
 }
+
+/**
+ * What a spec gives for an image of `size`, for saying "1200 × 630" rather
+ * than a URL grammar. An estimate: the server never enlarges, so `capped`
+ * means the image is smaller than asked and it comes out up to that size,
+ * and EXIF orientation 5 to 8 (when known) turns the image on its side first.
+ */
+export function outputSize(
+  t: Transform,
+  size: { width?: number | null; height?: number | null },
+  orientation?: number,
+): { width: number; height: number; capped: boolean } | null {
+  let [W, H] = [size.width, size.height];
+  if (!W || !H) return null;
+  if (orientation && orientation >= 5 && orientation <= 8) [W, H] = [H, W];
+  if (!t.w && !t.h) return { width: W, height: H, capped: false };
+  const fit = t.fit ?? "inside";
+  let width: number;
+  let height: number;
+  if (t.w && t.h && (fit === "cover" || fit === "fill")) {
+    [width, height] = [t.w, t.h];
+  } else {
+    const sx = t.w ? t.w / W : Infinity;
+    const sy = t.h ? t.h / H : Infinity;
+    const s = t.w && t.h && fit === "outside" ? Math.max(sx, sy) : Math.min(sx, sy);
+    [width, height] = [Math.round(W * s), Math.round(H * s)];
+  }
+  if (width <= W && height <= H) return { width, height, capped: false };
+  const s = Math.min(1, W / width, H / height);
+  return fit === "cover" || fit === "fill"
+    ? { width: Math.min(width, W), height: Math.min(height, H), capped: true }
+    : { width: Math.round(width * s), height: Math.round(height * s), capped: true };
+}

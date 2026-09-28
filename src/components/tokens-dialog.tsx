@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconDownload, IconLink } from "@tabler/icons-react";
-import { copy } from "@/components/brand-values";
+import { IconCopy, IconDownload, IconLink, IconRefresh } from "@tabler/icons-react";
 import type { BrandInfo } from "@/components/brand-switcher";
+import { CopyButton } from "@/components/copy-button";
+import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { contextLabel } from "@/lib/rules";
 import { TOKEN_FORMAT_IDS, TOKEN_FORMATS, type TokenFormat, type TokenFormatId } from "@/lib/tokens";
@@ -129,31 +131,46 @@ function Preview({ path, file, hint }: { path: string; file: string; hint: strin
             {hint}
           </p>
         </div>
-        <Button variant="ghost" size="sm" disabled={!code} onClick={() => code && copy(code, file)}>
-          <IconCopy />
-          <span className="sr-only sm:not-sr-only">Copy</span>
-        </Button>
+        {code ? (
+          <CopyButton text={code} label={`Copy ${file}`} what={file} size="icon-sm" />
+        ) : (
+          // Held in place until there is something to copy, so the bar doesn't shift.
+          <IconButton variant="ghost" label={`Copy ${file}`} disabled>
+            <IconCopy />
+          </IconButton>
+        )}
+        <CopyButton
+          // Built in the click: `location` is the browser's.
+          text={async () => new URL(path, location.origin).href}
+          label="Copy a link to this file: a build or a <link> gets the brand as it is now"
+          what="the link"
+          size="icon-sm"
+          icon={IconLink}
+        />
         <Button variant="ghost" size="sm" asChild>
           <a href={path} download={file}>
             <IconDownload />
             <span className="sr-only sm:not-sr-only">Download</span>
           </a>
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Copy a link to this file"
-          title="Copy a link to this file: a build or a <link> gets the brand as it is now"
-          onClick={() => copy(new URL(path, location.origin).href, "link")}
-        >
-          <IconLink />
-        </Button>
       </div>
       <pre className="bg-muted/30 min-h-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
         {code === undefined ? (
-          <span className="text-muted-foreground">Loading…</span>
+          // Lines of code, not a word: the pane keeps its shape while the file comes.
+          <span role="status" aria-label="Loading" className="grid gap-2.5">
+            {[40, 65, 55, 80, 30, 70, 50, 60].map((w, i) => (
+              <Skeleton key={i} className="h-3" style={{ width: `${w}%` }} />
+            ))}
+          </span>
         ) : code === null ? (
-          <span className="text-destructive">Couldn&apos;t load this format. Try again in a moment.</span>
+          <span className="flex flex-wrap items-center gap-3 font-sans">
+            <span className="text-destructive">Couldn&apos;t load this format.</span>
+            {/* Forgetting the failure re-runs the fetch. */}
+            {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
+            <Button variant="outline" size="sm" onClick={() => setFiles(({ [path]: _, ...f }) => f)}>
+              <IconRefresh /> Retry
+            </Button>
+          </span>
         ) : (
           <code>
             <Highlight code={code} />

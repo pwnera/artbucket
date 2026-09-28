@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { renderMarkdown } from "./markdown.ts";
+import { linkHref, renderMarkdown, safeUrl } from "./markdown.ts";
 
 test("Markdown: GFM renders, tables included", () => {
   const html = renderMarkdown("## Voice\n\n**Plain**, *warm*.\n\n| Do | Don't |\n|---|---|\n| Say it | Hype it |\n\n---");
   for (const bit of ["<h2>Voice</h2>", "<strong>Plain</strong>", "<em>warm</em>", "<th>Do</th>", "<td>Hype it</td>", "<hr>"])
     assert.ok(html.includes(bit), `missing ${bit}\n${html}`);
+});
+
+test("Markdown: a rule's headings drop two levels, under its name's h3; a portal intro's keep theirs", () => {
+  assert.equal(renderMarkdown("## x", { demote: true }).trim(), "<h4>x</h4>");
+  assert.equal(renderMarkdown("#### deep", { demote: true }).trim(), "<h6>deep</h6>");
+  assert.equal(renderMarkdown("## x").trim(), "<h2>x</h2>");
 });
 
 test("Markdown: raw HTML is text, and only safe links go anywhere", () => {
@@ -18,4 +24,13 @@ test("Markdown: raw HTML is text, and only safe links go anywhere", () => {
   assert.ok(html.includes('href="java&amp;#115;cript:alert(1)"'), html);
   assert.ok(html.includes('<a href="https://acme.com" title="t" target="_blank" rel="noreferrer">ok</a>'), html);
   assert.ok(html.includes('<a href="/a/1">rel</a>'), html);
+});
+
+test("Links: what people paste becomes a link that goes where they meant", () => {
+  assert.equal(linkHref("acme.com/brand"), "https://acme.com/brand");
+  assert.equal(linkHref(" hi@acme.com "), "mailto:hi@acme.com");
+  assert.equal(linkHref("https://acme.com"), "https://acme.com");
+  assert.equal(linkHref("/a/1"), "/a/1");
+  assert.equal(linkHref("#rule-colors"), "#rule-colors");
+  assert.ok(!safeUrl(linkHref("javascript:alert(1)")));
 });

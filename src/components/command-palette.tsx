@@ -1,47 +1,99 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   IconActivity,
-  IconAdjustments,
   IconBook,
   IconBookmark,
+  IconDeviceDesktop,
+  IconFileSearch,
   IconFolderPlus,
+  IconHistory,
   IconInbox,
+  IconKeyboard,
+  IconLoader2,
+  IconMailPlus,
+  IconMoon,
   IconPhoto,
   IconRobot,
-  IconSunMoon,
-  IconUpload,
-  IconMailPlus,
+  IconSearch,
   IconSettings,
   IconShare,
+  IconSun,
+  IconUpload,
   IconUsers,
   IconWorld,
 } from "@tabler/icons-react";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { useTheme } from "next-themes";
-import type { SavedSearch } from "@/components/app-sidebar";
+import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { useCan } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import type { Asset } from "@/components/gallery";
+import { allowedFor, hrefOf } from "@/components/settings/sections";
+import { liveRecents, useRecents } from "@/components/sidebar-prefs";
+import { GoKeys } from "@/components/shortcuts";
 import {
   CommandDialog,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
+  CommandLoading,
   CommandShortcut,
 } from "@/components/ui/command";
+import { Kbd } from "@/components/ui/kbd";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSidebar } from "@/components/ui/sidebar";
 import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { hasPreview } from "@/lib/preview";
 
+type RuleHit = Rule & { brandInfo: BrandInfo };
+
+/**
+ * Every brand's rules, kept for a minute across openings: there are dozens,
+ * not thousands, and ⌘K opens often. One promise per workspace and brand
+ * list, so two quick openings share a fetch; a brand that fails is left out.
+ */
+let rulesCache: { key: string; at: number; rules: Promise<RuleHit[]> } | null = null;
+function allRules(workspace: string, brands: BrandInfo[]) {
+  const key = `${workspace} ${brands.map((b) => b.slug).join(" ")}`;
+  if (!rulesCache || rulesCache.key !== key || Date.now() - rulesCache.at > 60_000) {
+    const rules = Promise.all(
+      brands.map((b) =>
+        fetch(`/api/v1/brand/rules?brand=${encodeURIComponent(b.slug)}`)
+          .then((res) => (res.ok ? res.json() : { data: [] }))
+          .then((body: { data: Rule[] }) => body.data.map((r) => ({ ...r, brandInfo: b })))
+          .catch(() => []),
+      ),
+    ).then((all) => all.flat());
+    rulesCache = { key, at: Date.now(), rules };
+  }
+  return rulesCache.rules;
+}
+
+// Values carry ids so each stays unique to cmdk, but hex ids would fuzzy-match
+// short queries ("face", "bad"); they are taken out before scoring.
+const UUID = /[0-9a-f]{8}-[0-9a-f-]{27}/gi;
+// The library fallback always matches, and always last: a positive score
+// below any real match's.
+const LIBRARY = "search the library";
+const filter = (value: string, search: string, keywords?: string[]) =>
+  value === LIBRARY ? Number.MIN_VALUE : defaultFilter(value.replace(UUID, ""), search, keywords);
+
+const CONTEXT = { workspace: "Workspace", organization: "Organization", account: "Account", development: "Development" };
+const THEMES = [
+  { value: "light", label: "Light", icon: IconSun },
+  { value: "dark", label: "Dark", icon: IconMoon },
+  { value: "system", label: "System", icon: IconDeviceDesktop },
+];
+
 /**
  * ⌘K: find anything (assets, brand rules, collections, saved searches,
- * brands), go anywhere, or do the common things, from any page. Assets come
- * from the same search the library runs; rules are fetched once per opening.
+ * brands, settings), go anywhere, or do the common things, from any page.
+ * Empty, it opens on what you had lately; everything else waits for a query,
+ * so the list stays short. Assets come from the same search the library runs.
  */
 export function CommandPalette({
   open,
@@ -51,6 +103,7 @@ export function CommandPalette({
   searches,
   onUpload,
   onNewCollection,
+  onShortcuts,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,58 +112,71 @@ export function CommandPalette({
   searches: SavedSearch[];
   onUpload?: () => void;
   onNewCollection?: () => void;
+  onShortcuts: () => void;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
   const can = useCan();
-  const { resolvedTheme, setTheme } = useTheme();
+  const me = useMe();
+  const workspace = me?.workspace.id ?? "";
+  const { setOpenMobile } = useSidebar();
+  const { theme, setTheme } = useTheme();
+  const [stored] = useRecents();
+  const recents = liveRecents(stored, collections, searches).slice(0, 5);
   const [q, setQ] = useState("");
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [rules, setRules] = useState<(Rule & { brandInfo: BrandInfo })[]>([]);
+  const term = q.trim();
+  // Which query these answer: results for an older one are never shown as this one's.
+  const [assets, setAssets] = useState<{ q: string; data: Asset[] }>({ q: "", data: [] });
+  const pending = !!term && assets.q !== term;
+  const [rules, setRules] = useState<RuleHit[]>([]);
 
-  // Assets as you type, settled for a beat.
+  // However it opens (⌘K, a button in the phone's sheet), it opens over the page, not over the sheet.
   useEffect(() => {
-    if (!open || !q.trim()) return;
+    if (open) setOpenMobile(false);
+  }, [open, setOpenMobile]);
+
+  // Assets as you type, settled for a beat. A failure still answers the query, with nothing, so it never spins forever.
+  useEffect(() => {
+    if (!open || !term) return;
     let live = true;
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/v1/assets?limit=8&q=${encodeURIComponent(q.trim())}`);
-      if (live && res.ok) setAssets((await res.json()).data);
+      let data: Asset[] = [];
+      try {
+        const res = await fetch(`/api/v1/assets?limit=8&q=${encodeURIComponent(term)}`);
+        if (res.ok) data = (await res.json()).data;
+      } catch {}
+      if (live) setAssets({ q: term, data });
     }, 150);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [q, open]);
+  }, [term, open]);
 
-  // Every brand's rules, once per opening: there are dozens, not thousands.
   useEffect(() => {
     if (!open) return;
     let live = true;
-    Promise.all(
-      brands.map(async (b) => {
-        const res = await fetch(`/api/v1/brand/rules?brand=${encodeURIComponent(b.slug)}`);
-        const list: Rule[] = res.ok ? (await res.json()).data : [];
-        return list.map((r) => ({ ...r, brandInfo: b }));
-      }),
-    ).then((all) => live && setRules(all.flat()));
+    void allRules(workspace, brands).then((r) => live && setRules(r));
     return () => {
       live = false;
     };
-  }, [open, brands]);
+  }, [open, workspace, brands]);
 
-  /** Library views move within the page when you are in it; anything else navigates. */
-  const go = (href: string) => {
+  const close = () => {
     onOpenChange(false);
+    setOpenMobile(false);
     setQ("");
-    if (pathname === "/" && (href === "/" || href.startsWith("/?"))) window.history.pushState(null, "", href);
-    else router.push(href);
+  };
+  const go = (href: string) => {
+    close();
+    navigate(href);
   };
   const run = (fn: () => void) => () => {
-    onOpenChange(false);
-    setQ("");
+    close();
     fn();
   };
   const several = brands.length > 1;
+  const team = can("member.manage") || can("share.manage");
+  const sections = me ? allowedFor(me) : [];
 
   return (
     <CommandDialog
@@ -119,17 +185,43 @@ export function CommandPalette({
         onOpenChange(o);
         if (!o) setQ("");
       }}
-      title="Search or jump to"
-      description="Find assets, brand rules, collections and saved searches, or go anywhere."
+      title="Jump to"
+      description="Find assets, brand rules, collections, saved searches and settings, or go anywhere."
       className="sm:max-w-xl"
+      filter={filter}
+      loop
     >
-      <CommandInput value={q} onValueChange={setQ} placeholder="Search assets, rules, collections, or type a command" />
+      {/* CommandInput's row, with a spinner in place of the glass while assets load. */}
+      <div data-slot="command-input-wrapper" className="flex items-center gap-2 border-b px-3">
+        {pending ? (
+          <IconLoader2 className="size-4 shrink-0 animate-spin opacity-50" aria-hidden />
+        ) : (
+          <IconSearch className="size-4 shrink-0 opacity-50" aria-hidden />
+        )}
+        <CommandPrimitive.Input
+          value={q}
+          onValueChange={setQ}
+          placeholder="Search assets, rules, collections, or type a command"
+          className="placeholder:text-muted-foreground flex h-10 w-full bg-transparent py-3 text-base outline-hidden md:text-sm"
+        />
+      </div>
       <CommandList className="max-h-[min(60vh,28rem)]">
-        <CommandEmpty>Nothing like that. Try fewer words.</CommandEmpty>
+        {pending && (
+          <CommandLoading label="Searching assets">
+            <div className="grid gap-1 p-2" aria-hidden>
+              {[60, 45, 70].map((w) => (
+                <div key={w} className="flex h-10 items-center gap-2 px-2">
+                  <Skeleton className="size-8 shrink-0 rounded" />
+                  <Skeleton className="h-4" style={{ width: `${w}%` }} />
+                </div>
+              ))}
+            </div>
+          </CommandLoading>
+        )}
 
-        {q.trim() && assets.length > 0 && (
+        {term && assets.q === term && assets.data.length > 0 && (
           <CommandGroup heading="Assets">
-            {assets.map((a) => (
+            {assets.data.map((a) => (
               <CommandItem
                 key={a.id}
                 // The server already matched it (captions, fields); the query keeps it past cmdk's own filter.
@@ -154,7 +246,7 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
-        {q.trim() && rules.length > 0 && (
+        {term && rules.length > 0 && (
           <CommandGroup heading="Brand rules">
             {rules.map((r) => (
               <CommandItem
@@ -176,6 +268,16 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
+        {!term && recents.length > 0 && (
+          <CommandGroup heading="Recent">
+            {recents.map((r) => (
+              <CommandItem key={`${r.kind}-${r.id}`} value={`recent ${r.kind} ${r.id} ${r.label}`} onSelect={() => go(r.href)}>
+                {RECENT_ICON[r.kind]} <span className="truncate">{r.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
         <CommandGroup heading="Actions">
           {onUpload && (
             <CommandItem value="Upload files add" onSelect={run(onUpload)}>
@@ -190,36 +292,51 @@ export function CommandPalette({
           <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/agents")}>
             <IconRobot /> Agents: connect one, manage keys
           </CommandItem>
-          <CommandItem
-            value="Switch theme dark light mode"
-            onSelect={run(() => setTheme(resolvedTheme === "dark" ? "light" : "dark"))}
-          >
-            <IconSunMoon /> Switch to {resolvedTheme === "dark" ? "light" : "dark"} theme
+          <CommandItem value="Keyboard shortcuts keys help" onSelect={run(onShortcuts)}>
+            <IconKeyboard /> Keyboard shortcuts
+            <CommandShortcut className="tracking-normal">
+              <Kbd keys={["?"]} />
+            </CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
         <CommandGroup heading="Go to">
           <CommandItem value="Assets library all" onSelect={() => go("/")}>
             <IconPhoto /> Assets
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/" />
+            </CommandShortcut>
           </CommandItem>
           <CommandItem value="Guidelines brand rules" onSelect={() => go("/brand")}>
             <IconBook /> Guidelines
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/brand" />
+            </CommandShortcut>
           </CommandItem>
           <CommandItem value="Review suggested approve" onSelect={() => go("/?review")}>
             <IconInbox /> Review
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/?review" />
+            </CommandShortcut>
           </CommandItem>
           <CommandItem value="Activity history" onSelect={() => go("/activity")}>
             <IconActivity /> Activity
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/activity" />
+            </CommandShortcut>
           </CommandItem>
+          {team && (
+            <CommandItem value="Team people members organization" onSelect={() => go("/team")}>
+              <IconUsers /> Team
+              <CommandShortcut className="tracking-normal">
+                <GoKeys to="/team" />
+              </CommandShortcut>
+            </CommandItem>
+          )}
           {can("member.manage") && (
-            <>
-              <CommandItem value="Team people members organization" onSelect={() => go("/team")}>
-                <IconUsers /> Team
-              </CommandItem>
-              <CommandItem value="Invite people someone add member email" onSelect={() => go("/team?invite")}>
-                <IconMailPlus /> Invite people
-              </CommandItem>
-            </>
+            <CommandItem value="Invite people someone add member email" onSelect={() => go("/team?invite")}>
+              <IconMailPlus /> Invite people
+            </CommandItem>
           )}
           {can("portal.manage") && (
             <CommandItem value="Portals brand portal press kit partner hub retailer" onSelect={() => go("/portals")}>
@@ -231,15 +348,31 @@ export function CommandPalette({
               <IconShare /> Share and upload links
             </CommandItem>
           )}
-          <CommandItem value="Settings share links audit log email workspace organization fields" onSelect={() => go("/settings")}>
+          {can("audit.read") && (
+            <CommandItem value="Audit log who changed access sign-ins keys" onSelect={() => go("/team?tab=audit")}>
+              <IconHistory /> Audit log
+            </CommandItem>
+          )}
+          <CommandItem value="Settings workspace organization members fields domains branding email usage profile" onSelect={() => go("/settings")}>
             <IconSettings /> Settings
-          </CommandItem>
-          <CommandItem value="Custom fields schema" onSelect={() => go("/settings/workspace/fields")}>
-            <IconAdjustments /> Custom fields
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/settings" />
+            </CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
-        {collections.length > 0 && (
+        {term && sections.length > 0 && (
+          <CommandGroup heading="Settings">
+            {sections.map((s) => (
+              <CommandItem key={`${s.context}/${s.id}`} value={`settings ${s.context} ${s.label} ${s.description}`} onSelect={() => go(hrefOf(s))}>
+                <s.icon /> {s.label}
+                <CommandShortcut className="tracking-normal">{CONTEXT[s.context]}</CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {term && collections.length > 0 && (
           <CommandGroup heading="Collections">
             {collections.map((c) => (
               <CommandItem key={c.id} value={`collection ${c.id} ${c.name}`} onSelect={() => go(`/?collection=${c.id}`)}>
@@ -250,7 +383,7 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
-        {searches.length > 0 && (
+        {term && searches.length > 0 && (
           <CommandGroup heading="Saved searches">
             {searches.map((s) => (
               <CommandItem key={s.id} value={`search ${s.id} ${s.name}`} onSelect={() => go(`/?${canonical(s.query)}`)}>
@@ -260,7 +393,7 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
-        {several && (
+        {term && several && (
           <CommandGroup heading="Brands">
             {brands.map((b) => (
               <CommandItem key={b.slug} value={`brand ${b.slug} ${b.name}`} onSelect={() => go(brandHref(b))}>
@@ -270,7 +403,39 @@ export function CommandPalette({
             ))}
           </CommandGroup>
         )}
+
+        {term && (
+          <CommandGroup heading="Theme">
+            {THEMES.map((t) => (
+              <CommandItem key={t.value} value={`theme ${t.label} mode appearance`} onSelect={run(() => setTheme(t.value))}>
+                <t.icon /> {t.label} theme
+                {theme === t.value && <CommandShortcut className="tracking-normal">Current</CommandShortcut>}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {/* Always there, always last: the library's full search, when a quick match isn't enough. It is also the empty state. */}
+        {term && (
+          <CommandGroup>
+            <CommandItem value={LIBRARY} onSelect={() => go(`/?q=${encodeURIComponent(term)}`)}>
+              <IconFileSearch /> <span className="truncate">Search the library for &ldquo;{term}&rdquo;</span>
+            </CommandItem>
+          </CommandGroup>
+        )}
       </CommandList>
+      <div className="text-muted-foreground flex items-center gap-4 border-t px-3 py-2 text-xs max-sm:hidden" aria-hidden>
+        <span className="flex items-center gap-1">
+          <Kbd keys={["↑"]} />
+          <Kbd keys={["↓"]} /> to move
+        </span>
+        <span className="flex items-center gap-1">
+          <Kbd keys={["↵"]} /> to open
+        </span>
+        <span className="ml-auto flex items-center gap-1">
+          <Kbd keys={["esc"]} /> to close
+        </span>
+      </div>
     </CommandDialog>
   );
 }
