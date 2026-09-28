@@ -1,14 +1,15 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
-import { appOrigins } from "@/lib/core/domains";
+import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
+import { localPath } from "@/lib/markdown";
 import { lockedBy } from "@/lib/settings";
 
 /**
@@ -40,11 +41,27 @@ const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? nul
  */
 const verify = lockedBy("email", process.env);
 
+/**
+ * Where better-auth may send someone after a step (a reset link, single
+ * sign-on, a confirmed address): a path on this server, never another origin.
+ * A verified organization domain is not trusted for this: its owner could
+ * have a reset link carry someone else's token there.
+ */
+const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCallbackURL"];
+
 export const auth = betterAuth({
   baseURL: env.APP_URL,
-  // Organizations' own verified domains sign in too, each with its own cookie.
+  // An organization's verified domain signs in too, with its own cookie: trusted for requests sent to it, and only those.
   // ponytail: single sign-on and reset links still return to APP_URL; a per-host baseURL would fix that.
-  trustedOrigins: () => appOrigins().catch(() => []),
+  trustedOrigins: (req) => appOriginAt(req?.headers.get("x-forwarded-host") ?? req?.headers.get("host")),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      for (const k of REDIRECTS) {
+        const v = ctx.body?.[k] ?? ctx.query?.[k];
+        if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
+      }
+    }),
+  },
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema, usePlural: true }),
   emailAndPassword: {

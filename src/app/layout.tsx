@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { ThemeProvider } from "next-themes";
 import { BrandProvider } from "@/components/brand";
 import { Toaster } from "@/components/ui/sonner";
@@ -42,13 +43,14 @@ const accentCss = (accent: string | null) =>
   accent && `html:root{${vars(lift(accent, "#ffffff"))}}html.dark{${vars(lift(accent, "#111111"))}}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const b = await brand();
+  const [b, h] = await Promise.all([brand(), headers()]);
   const accent = accentCss(b.accent);
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>{accent && <style>{accent}</style>}</head>
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        {/* Its script sets the theme before the page paints: it runs under the policy's nonce (src/proxy.ts). */}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange nonce={h.get("x-nonce") ?? undefined}>
           <BrandProvider value={b}>
             <TooltipProvider delayDuration={400} skipDelayDuration={300}>
               {children}

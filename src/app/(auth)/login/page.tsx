@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { Me } from "@/components/account";
 import { SignInPage, Unreachable } from "@/components/sign-in";
+import { localPath } from "@/lib/markdown";
 import { getBody } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const asked = one(params.next);
   // Only paths here: never send someone on to another site after signing in.
-  const next = asked?.startsWith("/") && !asked.startsWith("//") && !asked.startsWith("/\\") ? asked : undefined;
+  const next = localPath(asked) ? asked : undefined;
   if (me.user) redirect(next ?? "/");
   return <SignInPage auth={me.auth} next={next} error={!!one(params.error)} />;
 }

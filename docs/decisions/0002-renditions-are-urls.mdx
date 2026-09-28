@@ -14,7 +14,13 @@ and scripts wait. Duplicate uploads are where they waste the most storage.
   many workspaces hold it. Uploading the same bytes twice is a no-op.
 - A rendition is named by its URL: `/a/{id}/w_800,f_webp`. It is made on the
   first request, with sharp, cached to the bucket, and served from there after.
-  The transform grammar is a strict whitelist with hard caps.
+  The transform grammar is a strict whitelist with hard caps, and values snap
+  to a few steps (a side up to the next of a fixed ladder of sizes, quality to
+  a multiple of 5), so URLs can't ask for a new rendition every time.
+- Renditions take turns: a few render at once per server, a short line waits,
+  and past that the request gets a 429. A stored rendition counts toward the
+  organization's storage for as long as the bucket keeps it; one that doesn't
+  fit is served but not kept.
 
 ## Consequences
 

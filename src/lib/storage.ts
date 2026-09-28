@@ -114,9 +114,12 @@ export const exists = async (key: string) => (await sizeOf(key)) !== null;
  * renditions pile up for every size ever asked for. Both are safe to expire:
  * a staged upload lives minutes, a rendition regenerates on its next request.
  */
+/** How long a rendition is kept: a request after that makes it again. Storage counts it for as long (lib/core/usage.ts). */
+export const RENDITION_DAYS = 30;
+
 const LIFECYCLE = [
   { ID: "artbucket-staging", Filter: { Prefix: "staging/" }, Status: "Enabled" as const, Expiration: { Days: 1 } },
-  { ID: "artbucket-renditions", Filter: { Prefix: "renditions/" }, Status: "Enabled" as const, Expiration: { Days: 30 } },
+  { ID: "artbucket-renditions", Filter: { Prefix: "renditions/" }, Status: "Enabled" as const, Expiration: { Days: RENDITION_DAYS } },
 ];
 
 /**

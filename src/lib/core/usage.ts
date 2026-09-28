@@ -1,11 +1,12 @@
 import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, domains, grants, invitations, pageViews, portals, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
 import { formatSize, over, type Feature, type Limits } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
+import { RENDITION_DAYS } from "@/lib/storage";
 
 /**
  * What an organization uses, and the limits its operator set on that
@@ -17,14 +18,71 @@ export const limitsOf = async (organizationId: string): Promise<Limits> => (awai
 
 const EDITOR = inArray(grants.scope, ["write", "admin"]);
 
-/** Bytes of the organization's assets. Deleted ones don't count: deleting frees room at once. */
-async function storageOf(organizationId: string) {
-  const [row] = await db
-    .select({ bytes: sql<number>`coalesce(sum(${assets.size}), 0)::float8` })
-    .from(assets)
-    .innerJoin(workspaces, eq(workspaces.id, assets.workspaceId))
-    .where(and(eq(workspaces.organizationId, organizationId), isNull(assets.deletedAt)));
-  return row.bytes;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Renditions the bucket still keeps (lib/storage.ts expires them). */
+const kept = gt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`);
+
+/**
+ * Bytes of the organization's assets, and of the renditions made of them.
+ * Deleted assets don't count: deleting frees room at once.
+ */
+async function storageOf(organizationId: string, q: Tx | typeof db = db) {
+  const [[a], [r]] = await Promise.all([
+    q
+      .select({ bytes: sql<number>`coalesce(sum(${assets.size}), 0)::float8` })
+      .from(assets)
+      .innerJoin(workspaces, eq(workspaces.id, assets.workspaceId))
+      .where(and(eq(workspaces.organizationId, organizationId), isNull(assets.deletedAt))),
+    q
+      .select({ bytes: sql<number>`coalesce(sum(${renditions.bytes}), 0)::float8` })
+      .from(renditions)
+      .innerJoin(workspaces, eq(workspaces.id, renditions.workspaceId))
+      .where(and(eq(workspaces.organizationId, organizationId), kept)),
+  ]);
+  return a.bytes + r.bytes;
+}
+
+/** Storage past the limit, said the one way. */
+const storageRefused = (l: Limits, used: number) =>
+  new AssetError("limit_reached", `That would pass this organization's storage of ${formatSize(l.storage!)} (${formatSize(used)} used)`, {
+    limit: "storage",
+    max: l.storage,
+  });
+
+/** The advisory lock class (with hashtext of the organization) an upload holds while it checks storage and lands. */
+const STORAGE_LOCK = 73;
+
+/**
+ * The storage check as bytes land, inside the transaction that adds them:
+ * one organization's uploads take turns here, so two can't both pass on the
+ * same room. `limits` read beforehand: the transaction holds a connection and
+ * must not wait on another from the pool.
+ */
+export async function claimStorage(tx: Tx, organizationId: string, adding: number, limits: Limits) {
+  await tx.execute(sql`select pg_advisory_xact_lock(${STORAGE_LOCK}, hashtext(${organizationId}))`);
+  if (limits.storage === null) return;
+  const used = await storageOf(organizationId, tx);
+  if (over(limits.storage, used, adding)) throw storageRefused(limits, used);
+}
+
+/**
+ * Whether a new rendition of `bytes` fits in its organization's storage. It
+ * is served either way; one that doesn't fit isn't kept.
+ */
+export async function roomFor(workspaceId: string, bytes: number) {
+  const [w] = await db.select({ org: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, workspaceId));
+  if (!w) return false;
+  const l = await limitsOf(w.org);
+  return l.storage === null || !over(l.storage, await storageOf(w.org), bytes);
+}
+
+/** A rendition stored: its bytes count from now until the bucket expires it. */
+export async function countRendition(key: string, workspaceId: string, bytes: number) {
+  await db
+    .insert(renditions)
+    .values({ key, workspaceId, bytes })
+    .onConflictDoUpdate({ target: renditions.key, set: { workspaceId, bytes, createdAt: sql`now()` } });
 }
 
 /** People with write or admin anywhere in it, and invitations that would make more: a seat is taken when it is offered. */
@@ -75,8 +133,9 @@ const FEATURE_LABEL: Record<Feature, string> = { agents: "Connecting agents and 
  * limit. `adding`: bytes for storage, else how many. `user`: for editors,
  * who would get write; already an editor, they take no new seat.
  *
- * ponytail: count, then act, without a lock: two uploads at once can both
- * pass and overshoot by one. Lock per organization if a hard ceiling matters.
+ * ponytail: count, then act, without a lock: two at once can both pass and
+ * overshoot by one. Storage, where one upload can be large, is checked again
+ * under a lock as the bytes land (claimStorage).
  */
 export async function checkLimit(organizationId: string, what: Limited, { adding = 1, user }: { adding?: number; user?: string } = {}) {
   const l = await limitsOf(organizationId);
@@ -88,7 +147,7 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
     case "storage":
       if (l.storage !== null) {
         const used = await storageOf(organizationId);
-        if (over(l.storage, used, adding)) refuse(`That would pass this organization's storage of ${formatSize(l.storage)} (${formatSize(used)} used)`, l.storage);
+        if (over(l.storage, used, adding)) throw storageRefused(l, used);
       }
       return;
     case "editors":
@@ -193,7 +252,8 @@ export async function usageOf(caller: Caller) {
       .select({
         id: workspaces.id,
         name: workspaces.name,
-        storage: sql<number>`coalesce((select sum(a.size) from ${assets} a where a.workspace_id = ${workspaces.id} and a.deleted_at is null), 0)::float8`,
+        storage: sql<number>`(coalesce((select sum(a.size) from ${assets} a where a.workspace_id = ${workspaces.id} and a.deleted_at is null), 0)
+          + coalesce((select sum(r.bytes) from ${renditions} r where r.workspace_id = ${workspaces.id} and r.created_at > now() - make_interval(days => ${RENDITION_DAYS})), 0))::float8`,
         requests: sql<number>`coalesce(sum(${traffic.requests}), 0)::int`,
         bytes: sql<number>`coalesce(sum(${traffic.bytes}), 0)::float8`,
       })

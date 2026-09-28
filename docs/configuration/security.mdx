@@ -5,23 +5,28 @@ description: Rate limits, headers, uploaded files, and telemetry.
 
 ## Rate limits
 
-`/api` allows `RATE_LIMIT` requests a minute (1200 by default) per client: per
-API key, or per address for everything else. Past it, a `429` with
+`/api` allows `RATE_LIMIT` requests a minute (1200 by default) per client
+address, API keys included. Past it, a `429` with
 `Retry-After`. Signing in has its own, stricter limits. A share link's password
 allows ten wrong guesses in ten minutes, then waits, whoever is guessing.
 
 The counts live in each process's memory. Behind several instances each counts
 on its own; for a hard limit, put one in your reverse proxy too. Asset URLs
 (`/a/`) are not limited: put a CDN in front of them on a public install, which
-also caches renditions.
+also caches renditions. What a rendition URL can cost is bounded instead: sizes
+and quality snap to a few steps, a few renditions are made at once per server
+with a short line behind them (past it, a `429`), and a stored rendition counts
+toward its organization's storage. Uploads being filed take turns too, by size,
+since each is read whole.
 
 The server takes the client's address from `X-Forwarded-For`. Run it behind a
 reverse proxy that sets that header, and don't expose its port directly.
 
 ## Headers
 
-Every page carries a Content-Security-Policy (scripts from the app only, frames
-from Figma and Google's embeds only, uploads to your storage only),
+Every page carries a Content-Security-Policy (only scripts carrying that
+response's nonce run, frames from Figma and Google's embeds only, uploads to
+your storage only),
 `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, a strict referrer
 policy, a Permissions-Policy that turns off camera, microphone and location,
 and `Cross-Origin-Opener-Policy: same-origin`. With an `https` `APP_URL`, HSTS

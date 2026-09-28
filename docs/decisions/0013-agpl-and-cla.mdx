@@ -1,0 +1,42 @@
+---
+title: "0013: AGPLv3 again, owned by Pwnera SAS"
+description: Accepted, v1.5. Replaces 0011.
+---
+
+## Context
+
+[0011](/decisions/0011-elastic-license) left the AGPLv3 of
+[0009](/decisions/0009-agpl-and-ee) for the Elastic License 2.0, so that
+nobody could resell the hosting. That guards against a threat artbucket
+doesn't have yet, and it costs now: self-hosted tools are found through open
+source channels (lists, searches, contributors) that leave source-available
+projects out. The AGPL still deters the large companies that would resell
+it. Elastic and Redis both added it back after their source-available
+licenses got them forked.
+
+The copyright also named a person, not Pwnera SAS, the company behind
+artbucket.
+
+## Decision
+
+Everything in this repository is under the
+[GNU AGPLv3](https://www.gnu.org/licenses/agpl-3.0.html), version 3 only,
+except `ee/`, which stays reserved for a commercial license, as in 0009.
+Pwnera SAS holds the copyright.
+
+A pull request comes with the contributor terms in
+[CONTRIBUTING.md](https://github.com/pwnera/artbucket/blob/main/CONTRIBUTING.md):
+the author keeps their copyright and gives Pwnera SAS the right to license the
+contribution under any terms. That keeps Pwnera SAS able to license artbucket
+commercially, to whoever cannot take the AGPL.
+
+## Consequences
+
+- Artbucket is open source again, by the OSI definition.
+- Anyone may run it as a paid service, as long as they give their users the
+  source of their changes: the cost 0011 avoided, accepted.
+- A company whose policy rules out the AGPL can buy a commercial license from
+  Pwnera SAS.
+- Releases published under the Elastic License 2.0 keep it.
+- `ee/` and the line drawn in [0006](/decisions/0006-grants-and-free-sso) are
+  unchanged.

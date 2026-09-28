@@ -1,5 +1,9 @@
+import { availableParallelism } from "node:os";
 import sharp from "sharp";
 import type { Asset } from "@/lib/core/assets";
+import { AssetError } from "@/lib/core/errors";
+import { countRendition, roomFor } from "@/lib/core/usage";
+import { gate } from "@/lib/pool";
 import { getObject, getStream, originalKey, previewKey, putObject, renditionKey } from "@/lib/storage";
 import {
   CONTENT_TYPE,
@@ -14,7 +18,15 @@ import {
  * generated on first request and cached to object storage (renditions/ expires
  * after 30 days, lib/storage.ts; a request makes it again). That removes the
  * entire job queue from v0.1 - add one when p99 on a cold request hurts.
+ *
+ * A stored rendition counts toward its organization's storage (lib/core/usage.ts);
+ * one that doesn't fit is served, not kept. Renders take turns: a few at once
+ * (sharp uses several threads for each), a short line behind them, and past
+ * that a 429 to try again. Asked for twice while it renders, it renders once.
  */
+const renders = gate(Math.max(1, Math.min(4, availableParallelism() - 1)), 32);
+const rendering = new Map<string, Promise<Buffer>>();
+
 export async function renderAsset(
   asset: Asset,
   requested: Transform,
@@ -30,8 +42,27 @@ export async function renderAsset(
   const stored = await getStream(key).catch(() => null);
   if (stored) return { body: stored.body, length: stored.length, contentType: CONTENT_TYPE[format], cached: true };
 
-  const original = await getObject(still ? previewKey(still) : originalKey(asset.sha256));
+  let job = rendering.get(key);
+  if (!job) {
+    if (renders.full) throw new AssetError("rate_limited", "Busy making renditions: try again in a moment");
+    job = renders
+      .run(1, async () => {
+        const body = await render(still ? previewKey(still) : originalKey(asset.sha256), transform, format);
+        if (await roomFor(asset.workspaceId, body.byteLength)) {
+          await putObject(key, body, CONTENT_TYPE[format]);
+          await countRendition(key, asset.workspaceId, body.byteLength);
+        }
+        return body;
+      })
+      .finally(() => rendering.delete(key));
+    rendering.set(key, job);
+  }
+  const body = await job;
+  return { body: new Uint8Array(body), length: body.byteLength, contentType: CONTENT_TYPE[format], cached: false };
+}
 
+async function render(source: string, transform: Transform, format: Format) {
+  const original = await getObject(source);
   let pipeline = sharp(original, { failOn: "none" }).rotate();
   if (transform.w || transform.h) {
     pipeline = pipeline.resize({
@@ -41,12 +72,7 @@ export async function renderAsset(
       withoutEnlargement: true,
     });
   }
-  pipeline = pipeline.toFormat(format, { quality: transform.q ?? 82 });
-
-  const body = await pipeline.toBuffer();
-  await putObject(key, body, CONTENT_TYPE[format]);
-
-  return { body: new Uint8Array(body), length: body.byteLength, contentType: CONTENT_TYPE[format], cached: false };
+  return pipeline.toFormat(format, { quality: transform.q ?? 82 }).toBuffer();
 }
 
 function defaultFormat(mime: string): Format {

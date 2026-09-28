@@ -1,6 +1,6 @@
 {
-  "id": "10ca8c9e-af1d-423a-b421-9aa53fcd416b",
-  "prevId": "1619314b-bb5d-473c-aff2-6bd8e5b17ebb",
+  "id": "1619314b-bb5d-473c-aff2-6bd8e5b17ebb",
+  "prevId": "f754d9bd-c4dd-455d-82b6-3cc6fe109fe7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -953,57 +953,6 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
-        "parent": {
-          "name": "parent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "eyebrow": {
-          "name": "eyebrow",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lede": {
-          "name": "lede",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cover": {
-          "name": "cover",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "icon": {
-          "name": "icon",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "audience": {
-          "name": "audience",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'everyone'"
-        },
-        "tabs": {
-          "name": "tabs",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "aliases": {
-          "name": "aliases",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1047,12 +996,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "brand_pages_audience_check": {
-          "name": "brand_pages_audience_check",
-          "value": "\"brand_pages\".\"audience\" in ('everyone', 'partners', 'members')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.brand_rule_assets": {
@@ -1178,23 +1122,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "value": {
           "name": "value",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
-        },
-        "spec": {
-          "name": "spec",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "usage": {
           "name": "usage",
@@ -1327,12 +1259,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "theme": {
-          "name": "theme",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "published_at": {
           "name": "published_at",
           "type": "timestamp with time zone",
@@ -1342,18 +1268,6 @@
         "published_by": {
           "name": "published_by",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note_image": {
-          "name": "note_image",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1443,13 +1357,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "theme": {
-          "name": "theme",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -2749,6 +2656,58 @@
           "value": "\"portals\".\"access\" <> 'password' or \"portals\".\"password_hash\" is not null"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.renditions": {
+      "name": "renditions",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "renditions_workspace_id_workspaces_id_fk": {
+          "name": "renditions_workspace_id_workspaces_id_fk",
+          "tableFrom": "renditions",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.saved_searches": {

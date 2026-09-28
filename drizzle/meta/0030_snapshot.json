@@ -1,6 +1,6 @@
 {
-  "id": "3d508d5e-c0f8-4e9b-a626-e54b5ed7942b",
-  "prevId": "10ca8c9e-af1d-423a-b421-9aa53fcd416b",
+  "id": "10ca8c9e-af1d-423a-b421-9aa53fcd416b",
+  "prevId": "1619314b-bb5d-473c-aff2-6bd8e5b17ebb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1004,19 +1004,6 @@
           "notNull": true,
           "default": "'{}'::text[]"
         },
-        "translations": {
-          "name": "translations",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "layout": {
-          "name": "layout",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'book'"
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1064,10 +1051,6 @@
         "brand_pages_audience_check": {
           "name": "brand_pages_audience_check",
           "value": "\"brand_pages\".\"audience\" in ('everyone', 'partners', 'members')"
-        },
-        "brand_pages_layout_check": {
-          "name": "brand_pages_layout_check",
-          "value": "\"brand_pages\".\"layout\" in ('book', 'landing')"
         }
       },
       "isRLSEnabled": false
@@ -2692,13 +2675,6 @@
           "notNull": true,
           "default": "'{\"logo\":null,\"accent\":null,\"background\":null}'::jsonb"
         },
-        "site": {
-          "name": "site",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -2773,6 +2749,58 @@
           "value": "\"portals\".\"access\" <> 'password' or \"portals\".\"password_hash\" is not null"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.renditions": {
+      "name": "renditions",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "renditions_workspace_id_workspaces_id_fk": {
+          "name": "renditions_workspace_id_workspaces_id_fk",
+          "tableFrom": "renditions",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.saved_searches": {

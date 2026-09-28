@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname, resolveTxt } from "node:dns/promises";
-import { and, asc, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { domains, portals } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -63,9 +63,15 @@ export async function isAppOrigin(origin: string) {
   }
 }
 
-/** Every verified app domain, as origins: better-auth's trusted origins. */
-export async function appOrigins() {
-  return [...(await verified())].filter(([, t]) => !t.portal).map(([host]) => `${scheme}//${host}`);
+/**
+ * better-auth's trusted origins for a request: the verified app domain it was
+ * sent to, if it was sent to one, so sign-in works there. Never every
+ * organization's domains: one organization's domain is no reason to trust it
+ * on another's, or on APP_URL.
+ */
+export async function appOriginAt(rawHost: string | null | undefined) {
+  const t = rawHost ? await hostTarget(rawHost).catch(() => null) : null;
+  return t && !t.portal ? [`${scheme}//${hostname(rawHost!)}`] : [];
 }
 
 /** Where an organization's people use the app: its default domain (the first verified one without), else APP_URL. For links in email. */
@@ -85,11 +91,20 @@ export async function domainAllowed(raw: string) {
 
 const newToken = () => `artbucket-${randomBytes(16).toString("hex")}`;
 
-/** The host name `raw` means, if it may be claimed: refuses what isn't one, this server's own, and one in use. */
+/** How long a claim holds a host name without proof: after that anyone may claim it, so nobody keeps a domain from its owner. */
+export const CLAIM_DAYS = 7;
+
+/**
+ * The host name `raw` means, if it may be claimed: refuses what isn't one,
+ * this server's own, and one in use. A claim unproved for CLAIM_DAYS is not
+ * in use: it goes, and this one takes its place.
+ */
 export async function claimable(raw: string) {
   const host = hostname(raw);
   if (!host) throw new AssetError("invalid", `Not a host name: "${raw}". Say assets.example.com`);
   if (host === appHost) throw new AssetError("invalid", "That is this server's own address");
+  const stale = and(eq(domains.host, host), isNull(domains.verifiedAt), lt(domains.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`));
+  await db.delete(domains).where(stale);
   const [other] = await db.select().from(domains).where(eq(domains.host, host));
   if (other) throw new AssetError("conflict", `${host} is already in use here`);
   return host;

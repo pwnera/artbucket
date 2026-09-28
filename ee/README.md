@@ -2,8 +2,8 @@
 
 Reserved, and empty.
 
-Everything else in this repository is under the Elastic License 2.0
-([LICENSE](../LICENSE), [decision 0011](../docs/decisions/0011-elastic-license.mdx)).
+Everything else in this repository is AGPLv3, copyright Pwnera SAS
+([LICENSE](../LICENSE), [decision 0013](../docs/decisions/0013-agpl-and-cla.mdx)).
 Code here, when there is any, will be under a separate commercial license.
 
 What may land here: organization-scale governance (SAML, SCIM, custom roles,

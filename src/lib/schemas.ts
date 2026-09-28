@@ -767,7 +767,8 @@ export const Description = z.object({
     .object({
       w: z.tuple([z.number(), z.number()]),
       h: z.tuple([z.number(), z.number()]),
-      q: z.tuple([z.number(), z.number()]),
+      sizes: z.array(z.number()).describe("A side snaps up to the next of these: w_801 is w_828"),
+      q: z.tuple([z.number(), z.number()]).describe("Snaps to a multiple of 5"),
       fit: z.array(z.enum(FITS)),
       f: z.array(z.enum(FORMATS)),
       enlarges: z.literal(false),

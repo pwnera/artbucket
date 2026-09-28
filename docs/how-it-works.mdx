@@ -41,7 +41,8 @@ the server never proxies them. The server then hashes what arrived (SHA-256)
 and files it under that hash, so identical bytes are stored once.
 
 Delivery is a URL: `/a/{id}` is the original, `/a/{id}/w_800,f_webp` a
-rendition, made on first request and cached in storage for 30 days. The bytes
+rendition, made on first request and cached in storage for 30 days (a side
+snaps up to the next of a fixed ladder of sizes: `w_801` is `w_828`). The bytes
 are private: they go to people who can see the asset, by session or key.
 Anyone else needs a signed URL, which share links and portals hand out, or the
 asset made public ([0012](/decisions/0012-private-delivery)). Either way only

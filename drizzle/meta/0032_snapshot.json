@@ -1,6 +1,6 @@
 {
-  "id": "f754d9bd-c4dd-455d-82b6-3cc6fe109fe7",
-  "prevId": "a1221ed4-b457-400a-be9b-d62bea0e0b3f",
+  "id": "143ce2f1-6e69-4603-90fb-2e5165c15a77",
+  "prevId": "3d508d5e-c0f8-4e9b-a626-e54b5ed7942b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -903,6 +903,175 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.brand_pages": {
+      "name": "brand_pages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "brand_id": {
+          "name": "brand_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sections": {
+          "name": "sections",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "parent": {
+          "name": "parent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "eyebrow": {
+          "name": "eyebrow",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lede": {
+          "name": "lede",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover": {
+          "name": "cover",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audience": {
+          "name": "audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'everyone'"
+        },
+        "tabs": {
+          "name": "tabs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "aliases": {
+          "name": "aliases",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "translations": {
+          "name": "translations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "layout": {
+          "name": "layout",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'book'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "brand_pages_brand_id_brands_id_fk": {
+          "name": "brand_pages_brand_id_brands_id_fk",
+          "tableFrom": "brand_pages",
+          "tableTo": "brands",
+          "columnsFrom": [
+            "brand_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "brand_pages_brand_slug_unique": {
+          "name": "brand_pages_brand_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "brand_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "brand_pages_audience_check": {
+          "name": "brand_pages_audience_check",
+          "value": "\"brand_pages\".\"audience\" in ('everyone', 'partners', 'members')"
+        },
+        "brand_pages_layout_check": {
+          "name": "brand_pages_layout_check",
+          "value": "\"brand_pages\".\"layout\" in ('book', 'landing')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.brand_rule_assets": {
       "name": "brand_rule_assets",
       "schema": "",
@@ -1026,11 +1195,23 @@
           "primaryKey": false,
           "notNull": true
         },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "value": {
           "name": "value",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "spec": {
+          "name": "spec",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "usage": {
           "name": "usage",
@@ -1157,6 +1338,42 @@
           "primaryKey": false,
           "notNull": true
         },
+        "pages": {
+          "name": "pages",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_by": {
+          "name": "published_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note_image": {
+          "name": "note_image",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1243,6 +1460,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -2099,6 +2323,87 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.page_views": {
+      "name": "page_views",
+      "schema": "",
+      "columns": {
+        "portal_id": {
+          "name": "portal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_id": {
+          "name": "brand_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "page": {
+          "name": "page",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "views": {
+          "name": "views",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "page_views_portal_id_portals_id_fk": {
+          "name": "page_views_portal_id_portals_id_fk",
+          "tableFrom": "page_views",
+          "tableTo": "portals",
+          "columnsFrom": [
+            "portal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "page_views_brand_id_brands_id_fk": {
+          "name": "page_views_brand_id_brands_id_fk",
+          "tableFrom": "page_views",
+          "tableTo": "brands",
+          "columnsFrom": [
+            "brand_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "page_views_portal_id_brand_id_page_day_pk": {
+          "name": "page_views_portal_id_brand_id_page_day_pk",
+          "columns": [
+            "portal_id",
+            "brand_id",
+            "page",
+            "day"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.portal_brands": {
       "name": "portal_brands",
       "schema": "",
@@ -2305,6 +2610,25 @@
           "notNull": true,
           "default": "'pending'"
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'access'"
+        },
+        "page": {
+          "name": "page",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "section": {
+          "name": "section",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "key_hash": {
           "name": "key_hash",
           "type": "text",
@@ -2396,6 +2720,10 @@
         "portal_requests_status_check": {
           "name": "portal_requests_status_check",
           "value": "\"portal_requests\".\"status\" in ('pending', 'approved', 'denied')"
+        },
+        "portal_requests_kind_check": {
+          "name": "portal_requests_kind_check",
+          "value": "\"portal_requests\".\"kind\" in ('access', 'asset', 'review', 'question')"
         }
       },
       "isRLSEnabled": false
@@ -2467,6 +2795,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{\"logo\":null,\"accent\":null,\"background\":null}'::jsonb"
+        },
+        "site": {
+          "name": "site",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "created_by": {
           "name": "created_by",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { linkHref, plainText, renderMarkdown, safeUrl } from "./markdown.ts";
+import { linkHref, localPath, plainText, renderMarkdown, safeUrl } from "./markdown.ts";
 
 test("Markdown: GFM renders, tables included", () => {
   const html = renderMarkdown("## Voice\n\n**Plain**, *warm*.\n\n| Do | Don't |\n|---|---|\n| Say it | Hype it |\n\n---");
@@ -93,4 +93,18 @@ test("Links: what people paste becomes a link that goes where they meant", () =>
   assert.equal(linkHref("/a/1"), "/a/1");
   assert.equal(linkHref("#rule-colors"), "#rule-colors");
   assert.ok(!safeUrl(linkHref("javascript:alert(1)")));
+});
+
+test("Links: a scheme hidden behind what browsers strip goes nowhere; plain links still work", () => {
+  for (const bad of ["javascript:alert(1)", "JavaScript:alert(1)", " javascript:alert(1)", "java\tscript:alert(1)", "java\nscript:alert(1)", "\x01javascript:alert(1)", "\u0000javascript:alert(1)", "data:text/html,hi", "vbscript:x", "jav\rascript:alert(1)"])
+    assert.ok(!safeUrl(bad), JSON.stringify(bad));
+  for (const ok of ["https://acme.com", "http://acme.com/a?b#c", "mailto:hi@acme.com", "/a/1", "a/1", "#rule-colors", "?q=logo", "//acme.com"]) assert.ok(safeUrl(ok), ok);
+  const html = renderMarkdown("[x](<java\tscript:alert(1)>) [y](<\x01javascript:alert(1)>)");
+  assert.equal((html.match(/href="#"/g) ?? []).length, 2, html);
+});
+
+test("Paths: only this site's own, whatever a browser would make of them", () => {
+  for (const ok of ["/", "/reset-password", "/invite/abc?accept=1", "/a/1#x"]) assert.ok(localPath(ok), ok);
+  for (const bad of ["https://evil.com", "//evil.com", "/\\evil.com", "/\t/evil.com", "/\n/evil.com", "\\/evil.com", "javascript:alert(1)", "reset", "", undefined, 1])
+    assert.ok(!localPath(bad), JSON.stringify(bad));
 });

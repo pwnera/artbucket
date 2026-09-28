@@ -1,6 +1,6 @@
 {
-  "id": "143ce2f1-6e69-4603-90fb-2e5165c15a77",
-  "prevId": "3d508d5e-c0f8-4e9b-a626-e54b5ed7942b",
+  "id": "3d508d5e-c0f8-4e9b-a626-e54b5ed7942b",
+  "prevId": "10ca8c9e-af1d-423a-b421-9aa53fcd416b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2323,87 +2323,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.page_views": {
-      "name": "page_views",
-      "schema": "",
-      "columns": {
-        "portal_id": {
-          "name": "portal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "brand_id": {
-          "name": "brand_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "page": {
-          "name": "page",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "day": {
-          "name": "day",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "views": {
-          "name": "views",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "page_views_portal_id_portals_id_fk": {
-          "name": "page_views_portal_id_portals_id_fk",
-          "tableFrom": "page_views",
-          "tableTo": "portals",
-          "columnsFrom": [
-            "portal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "page_views_brand_id_brands_id_fk": {
-          "name": "page_views_brand_id_brands_id_fk",
-          "tableFrom": "page_views",
-          "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "page_views_portal_id_brand_id_page_day_pk": {
-          "name": "page_views_portal_id_brand_id_page_day_pk",
-          "columns": [
-            "portal_id",
-            "brand_id",
-            "page",
-            "day"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.portal_brands": {
       "name": "portal_brands",
       "schema": "",
@@ -2610,25 +2529,6 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'access'"
-        },
-        "page": {
-          "name": "page",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "section": {
-          "name": "section",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "key_hash": {
           "name": "key_hash",
           "type": "text",
@@ -2720,10 +2620,6 @@
         "portal_requests_status_check": {
           "name": "portal_requests_status_check",
           "value": "\"portal_requests\".\"status\" in ('pending', 'approved', 'denied')"
-        },
-        "portal_requests_kind_check": {
-          "name": "portal_requests_kind_check",
-          "value": "\"portal_requests\".\"kind\" in ('access', 'asset', 'review', 'question')"
         }
       },
       "isRLSEnabled": false
@@ -2877,6 +2773,58 @@
           "value": "\"portals\".\"access\" <> 'password' or \"portals\".\"password_hash\" is not null"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.renditions": {
+      "name": "renditions",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "renditions_workspace_id_workspaces_id_fk": {
+          "name": "renditions_workspace_id_workspaces_id_fk",
+          "tableFrom": "renditions",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.saved_searches": {

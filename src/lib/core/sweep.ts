@@ -1,9 +1,9 @@
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
 import { db } from "@/lib/db";
-import { assets, grants, instance, invitations } from "@/lib/db/schema";
+import { assets, grants, instance, invitations, renditions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
-import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject } from "@/lib/storage";
+import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject, RENDITION_DAYS } from "@/lib/storage";
 
 /**
  * The one path bytes leave by. A deleted asset stays restorable for
@@ -88,6 +88,8 @@ async function dropOriginal(sha256: string) {
  */
 export async function sweep() {
   await ensureBucket();
+  // Renditions the bucket has expired by now no longer count toward storage (lib/core/usage.ts).
+  await db.delete(renditions).where(lt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`));
   const others = await otherOwners();
   if (others.length) {
     console.warn(

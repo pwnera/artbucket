@@ -8979,6 +8979,13 @@
                             "minItems": 2,
                             "maxItems": 2
                           },
+                          "sizes": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "A side snaps up to the next of these: w_801 is w_828"
+                          },
                           "q": {
                             "type": "array",
                             "prefixItems": [
@@ -8991,7 +8998,8 @@
                             ],
                             "items": false,
                             "minItems": 2,
-                            "maxItems": 2
+                            "maxItems": 2,
+                            "description": "Snaps to a multiple of 5"
                           },
                           "fit": {
                             "type": "array",
@@ -9026,6 +9034,7 @@
                         "required": [
                           "w",
                           "h",
+                          "sizes",
                           "q",
                           "fit",
                           "f",
@@ -39539,7 +39548,7 @@
         "name": "transform",
         "in": "path",
         "required": true,
-        "description": "e.g. w_800,f_webp. Keys: w, h (1-8000), fit, q (1-100), f (jpeg, png, webp, avif)",
+        "description": "e.g. w_800,f_webp. Keys: w, h (1-8000, each up to the next of a fixed ladder of sizes), fit (with both w and h), q (1-100, to a multiple of 5), f (jpeg, png, webp, avif)",
         "schema": {
           "type": "string"
         }
@@ -39551,6 +39560,39 @@
       "responses": {
         "200": {
           "description": "Image bytes"
+        },
+        "429": {
+          "description": "Busy making renditions: try again",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
         },
         "default": {
           "description": "An error",
