@@ -7,6 +7,7 @@ import {
   IconBookmark,
   IconDeviceDesktop,
   IconFileSearch,
+  IconFileText,
   IconFolderPlus,
   IconHistory,
   IconInbox,
@@ -50,27 +51,53 @@ import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { hasPreview } from "@/lib/preview";
 
 type RuleHit = Rule & { brandInfo: BrandInfo };
+/** A brand page as GET /brands/{slug}/pages lists it. */
+type PageHit = { slug: string; title: string; hidden: boolean; parent: string | null; brandInfo: BrandInfo };
 
 /**
- * Every brand's rules, kept for a minute across openings: there are dozens,
- * not thousands, and ⌘K opens often. One promise per workspace and brand
- * list, so two quick openings share a fetch; a brand that fails is left out.
+ * Something of every brand's (its rules, its pages), kept for a minute
+ * across openings: there are dozens, not thousands, and ⌘K opens often. One
+ * promise per workspace and brand list, so two quick openings share a fetch;
+ * a brand that fails is left out.
  */
-let rulesCache: { key: string; at: number; rules: Promise<RuleHit[]> } | null = null;
-function allRules(workspace: string, brands: BrandInfo[]) {
+const perBrandCache = new Map<string, { key: string; at: number; data: Promise<unknown[]> }>();
+function perBrand<T>(what: string, url: (slug: string) => string, workspace: string, brands: BrandInfo[]): Promise<(T & { brandInfo: BrandInfo })[]> {
   const key = `${workspace} ${brands.map((b) => b.slug).join(" ")}`;
-  if (!rulesCache || rulesCache.key !== key || Date.now() - rulesCache.at > 60_000) {
-    const rules = Promise.all(
+  let hit = perBrandCache.get(what);
+  if (!hit || hit.key !== key || Date.now() - hit.at > 60_000) {
+    const data = Promise.all(
       brands.map((b) =>
-        fetch(`/api/v1/brand/rules?brand=${encodeURIComponent(b.slug)}`)
+        fetch(url(encodeURIComponent(b.slug)))
           .then((res) => (res.ok ? res.json() : { data: [] }))
-          .then((body: { data: Rule[] }) => body.data.map((r) => ({ ...r, brandInfo: b })))
+          .then((body: { data: T[] }) => body.data.map((x) => ({ ...x, brandInfo: b })))
           .catch(() => []),
       ),
     ).then((all) => all.flat());
-    rulesCache = { key, at: Date.now(), rules };
+    hit = { key, at: Date.now(), data };
+    perBrandCache.set(what, hit);
   }
-  return rulesCache.rules;
+  return hit.data as Promise<(T & { brandInfo: BrandInfo })[]>;
+}
+const allRules = (workspace: string, brands: BrandInfo[]) => perBrand<Rule>("rules", (b) => `/api/v1/brand/rules?brand=${b}`, workspace, brands);
+const allPages = (workspace: string, brands: BrandInfo[]) => perBrand<Omit<PageHit, "brandInfo">>("pages", (b) => `/api/v1/brands/${b}/pages`, workspace, brands);
+
+/** Hidden, or under a hidden page: only editors open it (lib/pages.ts hiddenSlugs, kept out of every page's bundle). */
+function hidden(p: PageHit, all: PageHit[]): boolean {
+  for (let at: PageHit | undefined = p, n = 0; at && n < 50; n++) {
+    if (at.hidden) return true;
+    const parent: string | null = at.parent;
+    at = all.find((x) => x.brandInfo === p.brandInfo && x.slug === parent);
+  }
+  return false;
+}
+
+/** A brand page in the app: /brand decides between the builder and the reader, and one being read stays read. */
+function pageHref(p: PageHit) {
+  const q = new URLSearchParams();
+  if (!p.brandInfo.default) q.set("brand", p.brandInfo.slug);
+  q.set("page", p.slug);
+  if (location.pathname === "/brand" && new URLSearchParams(location.search).get("view") === "read") q.set("view", "read");
+  return `/brand?${q}`;
 }
 
 // Values carry ids so each stays unique to cmdk, but hex ids would fuzzy-match
@@ -90,7 +117,7 @@ const THEMES = [
 ];
 
 /**
- * ⌘K: find anything (assets, brand rules, collections, saved searches,
+ * ⌘K: find anything (assets, brand pages and rules, collections, saved searches,
  * brands, settings), go anywhere, or do the common things, from any page.
  * Empty, it opens on what you had lately; everything else waits for a query,
  * so the list stays short. Assets come from the same search the library runs.
@@ -128,6 +155,7 @@ export function CommandPalette({
   const [assets, setAssets] = useState<{ q: string; data: Asset[] }>({ q: "", data: [] });
   const pending = !!term && assets.q !== term;
   const [rules, setRules] = useState<RuleHit[]>([]);
+  const [pages, setPages] = useState<PageHit[]>([]);
 
   // However it opens (⌘K, a button in the phone's sheet), it opens over the page, not over the sheet.
   useEffect(() => {
@@ -156,6 +184,7 @@ export function CommandPalette({
     if (!open) return;
     let live = true;
     void allRules(workspace, brands).then((r) => live && setRules(r));
+    void allPages(workspace, brands).then((p) => live && setPages(p));
     return () => {
       live = false;
     };
@@ -170,6 +199,13 @@ export function CommandPalette({
     close();
     navigate(href);
   };
+  // Already at that address: only the anchor moves, and the page there hears it (hashchange), as its own links do.
+  const jump = (href: string) => {
+    const u = new URL(href, location.href);
+    if (u.pathname !== location.pathname || u.search !== location.search) return go(href);
+    close();
+    location.assign(u.hash);
+  };
   const run = (fn: () => void) => () => {
     close();
     fn();
@@ -177,6 +213,7 @@ export function CommandPalette({
   const several = brands.length > 1;
   const team = can("member.manage") || can("share.manage");
   const sections = me ? allowedFor(me) : [];
+  const readable = can("brand.edit") ? pages : pages.filter((p) => !hidden(p, pages));
 
   return (
     <CommandDialog
@@ -186,7 +223,7 @@ export function CommandPalette({
         if (!o) setQ("");
       }}
       title="Jump to"
-      description="Find assets, brand rules, collections, saved searches and settings, or go anywhere."
+      description="Find assets, brand pages and rules, collections, saved searches and settings, or go anywhere."
       className="sm:max-w-xl"
       filter={filter}
       loop
@@ -201,7 +238,7 @@ export function CommandPalette({
         <CommandPrimitive.Input
           value={q}
           onValueChange={setQ}
-          placeholder="Search assets, rules, collections, or type a command"
+          placeholder="Search assets, pages, rules, collections, or type a command"
           className="placeholder:text-muted-foreground flex h-10 w-full bg-transparent py-3 text-base outline-hidden md:text-sm"
         />
       </div>
@@ -246,6 +283,21 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
+        {term && readable.length > 0 && (
+          <CommandGroup heading="Brand pages">
+            {readable.map((p) => (
+              <CommandItem
+                key={`${p.brandInfo.slug}/${p.slug}`}
+                value={`page ${p.brandInfo.slug} ${p.slug} ${p.title} ${several ? p.brandInfo.name : ""}`}
+                onSelect={() => go(pageHref(p))}
+              >
+                <IconFileText /> <span className="truncate">{p.title}</span>
+                {several && <CommandShortcut className="tracking-normal">{p.brandInfo.name}</CommandShortcut>}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
         {term && rules.length > 0 && (
           <CommandGroup heading="Brand rules">
             {rules.map((r) => (
@@ -253,7 +305,7 @@ export function CommandPalette({
                 key={r.id}
                 value={`rule ${r.id} ${ruleLabel(r.key)} ${r.key} ${r.context ?? ""} ${several ? r.brandInfo.name : ""}`}
                 keywords={[String(r.value), r.usage ?? ""]}
-                onSelect={() => go(`${brandHref(r.brandInfo, r.context ?? undefined)}#rule-${r.key}`)}
+                onSelect={() => jump(`${brandHref(r.brandInfo, r.context ?? undefined)}#rule-${r.key}`)}
               >
                 {r.type === "color" ? (
                   <span className="size-4 shrink-0 rounded-sm border" style={{ background: String(r.value).slice(0, 7) }} />

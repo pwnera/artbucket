@@ -53,9 +53,6 @@ export const PRESETS: Preset[] = [
   { id: "swatch", label: "Color", hint: "A hex value", section: "", type: "color", value: "#888888" },
 ];
 
-/** The starter set an empty page offers: one of each thing most guidelines have. */
-export const ESSENTIALS = ["logo-space", "logo-size", "logo-never", "type-scale", "tone-voice", "tone-avoid"];
-
 /** "Min clear space" to "minClearSpace"; nothing a key can't hold survives. */
 export function camel(words: string) {
   const parts = words

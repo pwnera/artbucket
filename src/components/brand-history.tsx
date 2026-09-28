@@ -28,7 +28,7 @@ import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/histo
 import type { SnapPage } from "@/lib/pages";
 import { day } from "@/lib/time";
 import { undoable } from "@/lib/undo";
-import { contextLabel, fontLabel, ruleName, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { contextLabel, fontLabel, ruleLabel, ruleName, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Meta = {
@@ -111,6 +111,8 @@ export function History({
   }, [open, brand.slug, edits, tick]);
 
   const latest = versions?.[0]?.number;
+  // What readers see now: the newest version published.
+  const live = versions?.find((v) => v.publishedAt)?.number;
   const days = new Map<string, Meta[]>();
   for (const v of versions ?? []) days.set(day(v.updatedAt), [...(days.get(day(v.updatedAt)) ?? []), v]);
 
@@ -169,21 +171,23 @@ export function History({
                     // The line down to the next dot, so a day reads as a timeline.
                     <li
                       key={v.number}
-                      className="relative before:absolute before:top-7 before:-bottom-3 before:left-[1.375rem] before:w-px before:bg-border last:before:hidden"
+                      className="relative before:absolute before:top-7 before:-bottom-3 before:start-[1.375rem] before:w-px before:bg-border last:before:hidden"
                     >
                       <button
                         type="button"
                         onClick={() => setSelected(v.number)}
-                        className="hover:bg-muted focus-visible:bg-muted flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none"
+                        className="hover:bg-muted focus-visible:bg-muted flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-start outline-none"
                       >
-                        <KindIcon kind={v.kind} named={!!v.name} />
+                        <KindIcon kind={v.kind} named={!!v.name} published={!!v.publishedAt} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
                             <span className={cn("truncate text-sm", v.name ? "font-semibold" : "font-medium")}>
                               {v.name ?? v.summary}
                             </span>
                             {v.number === latest && <Badge variant="secondary">Current</Badge>}
-                            {v.publishedAt && <Badge variant="success">Published</Badge>}
+                            {v.publishedAt && (
+                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Published"}</Badge>
+                            )}
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
                             {time(v.updatedAt)} · {who(v.actor, me)}
@@ -204,14 +208,15 @@ export function History({
   );
 }
 
-function KindIcon({ kind, named }: { kind: VersionKind; named: boolean }) {
-  const I = named ? IconFlag : kind === "restore" ? IconRestore : kind === "baseline" ? IconSparkles : null;
+/** A version's dot on the timeline: a publish, a named checkpoint, a restore, the start. */
+function KindIcon({ kind, named, published }: { kind: VersionKind; named: boolean; published: boolean }) {
+  const I = published ? IconWorldUpload : named ? IconFlag : kind === "restore" ? IconRestore : kind === "baseline" ? IconSparkles : null;
   return (
     <span
       className={cn(
         // Positioned, so it sits over the timeline's line.
         "relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
-        named ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+        published ? "bg-success text-background" : named ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
       )}
     >
       {I ? <I className="size-3" /> : <span className="bg-muted-foreground/60 size-1.5 rounded-full" />}
@@ -279,7 +284,7 @@ function VersionDetail({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-3 border-b p-4">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={onBack}>
+        <Button variant="ghost" size="sm" className="-ms-2" onClick={onBack}>
           <IconArrowLeft /> All versions
         </Button>
         {v ? (
@@ -324,7 +329,7 @@ function VersionDetail({
                   destructive={false}
                   run={restore}
                 >
-                  <Button size="sm" className="ml-auto">
+                  <Button size="sm" className="ms-auto">
                     <IconRestore /> Restore this version
                   </Button>
                 </Confirm>
@@ -352,7 +357,13 @@ function VersionDetail({
           </p>
         )}
         {v && !v.diff.length && !v.pageDiff.length && !themed && <p className="text-sm">No differences.</p>}
-        {v?.diff.map((c) => <Change key={`${c.change}-${c.key}-${c.context}`} change={c} />)}
+        {v?.diff.map((c) => (
+          <Change
+            key={`${c.change}-${c.key}-${c.context}`}
+            change={c}
+            label={v.rules.find((r) => r.key === c.key && r.context === c.context)?.label}
+          />
+        ))}
         {v?.pageDiff.map((p) => {
           const slug = p.slice(5);
           return <Other key={p} tag="page" name={v.pages?.find((x) => x.slug === slug)?.title ?? slug} code={slug} />;
@@ -397,7 +408,7 @@ function Other({ tag, name, code }: { tag: string; name: string; code: string })
     <div className="flex items-center gap-2 rounded-xl border p-3">
       <span className={cn(TAG, "bg-muted text-muted-foreground")}>{tag}</span>
       <span className="truncate text-sm font-medium">{name}</span>
-      <code className="text-muted-foreground ml-auto truncate font-mono text-xs">{code}</code>
+      <code className="text-muted-foreground ms-auto truncate font-mono text-xs">{code}</code>
     </div>
   );
 }
@@ -409,21 +420,21 @@ const CHANGE_STYLE: Record<RuleChange["change"], string> = {
   moved: "bg-muted text-muted-foreground",
 };
 
-function Change({ change: c }: { change: RuleChange }) {
+/** `label`: the rule's heading in this version, which a change or a move doesn't carry. */
+function Change({ change: c, label }: { change: RuleChange; label?: string | null }) {
   return (
     <div className="space-y-2 rounded-xl border p-3">
       <div className="flex items-center gap-2">
         <span className={cn(TAG, CHANGE_STYLE[c.change])}>{c.change}</span>
-        {/* Only an added or removed rule carries its label; a change names the rule by its key. */}
         <span className="truncate text-sm font-medium">
-          {ruleName(c.change === "added" ? c.after : c.change === "removed" ? c.before : c)}
+          {ruleName(c.change === "added" ? c.after : c.change === "removed" ? c.before : { key: c.key, label })}
         </span>
         {c.context && (
           <Badge variant="secondary" title={c.context}>
             {contextLabel(c.context)}
           </Badge>
         )}
-        <code className="text-muted-foreground ml-auto truncate font-mono text-xs">{c.key}</code>
+        <code className="text-muted-foreground ms-auto truncate font-mono text-xs">{c.key}</code>
       </div>
       {c.change === "added" && <Value rule={c.after} />}
       {c.change === "removed" && (
@@ -439,7 +450,7 @@ function Change({ change: c }: { change: RuleChange }) {
       {c.change === "changed" && (
         <div className="space-y-3">
           {c.fields.map((f) => (
-            <Field key={f.field} f={f} />
+            <Field key={f.field} f={f} ruleKey={c.key} />
           ))}
           {c.moved && (
             <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
@@ -472,7 +483,7 @@ const FIELD: Record<FieldChange["field"], string> = {
 const brief = (v: unknown) => (v === undefined ? "nothing" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
 /** One field, before and after, drawn the way the page draws it. */
-function Field({ f }: { f: FieldChange }) {
+function Field({ f, ruleKey }: { f: FieldChange; ruleKey: string }) {
   const body = (() => {
     const isColor = (v: unknown) => typeof v === "string" && /^#[0-9a-f]{6}/i.test(v);
     if (f.field === "value" && isColor(f.before) && isColor(f.after)) {
@@ -534,10 +545,12 @@ function Field({ f }: { f: FieldChange }) {
         </div>
       );
     }
+    // No label reads as the key in words, which is what readers saw.
+    const say = (v: unknown) => (f.field === "label" && v === null ? `${ruleLabel(ruleKey)} (from the key)` : text(v));
     return (
       <div className="space-y-1 text-sm">
-        <p className="text-destructive line-through">{text(f.before)}</p>
-        <p className="text-success">{text(f.after)}</p>
+        <p className="text-destructive line-through">{say(f.before)}</p>
+        <p className="text-success">{say(f.after)}</p>
       </div>
     );
   })();

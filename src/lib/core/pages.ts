@@ -182,7 +182,7 @@ async function place(tx: Tx, brandId: string, slug?: string, position?: number) 
 
 // ---- reads ------------------------------------------------------------------
 
-/** A brand's pages in order, with their tree fields and without their sections. */
+/** A brand's pages in order, with their tree fields and without their sections: how many, and the keys they show (a rule's "Shown on"). */
 export async function listPages(ws: string, brandSlug?: string) {
   const brand = await resolveBrand(ws, brandSlug);
   const rows = await db.select().from(brandPages).where(eq(brandPages.brandId, brand.id)).orderBy(...PAGE_ORDER);
@@ -190,7 +190,7 @@ export async function listPages(ws: string, brandSlug?: string) {
     brand: brand.slug,
     pages: rows.map((p) => {
       const { sections, ...rest } = present(p);
-      return { ...rest, sections: sections.length };
+      return { ...rest, sections: sections.length, keys: [...boundOf(sections)] };
     }),
   };
 }

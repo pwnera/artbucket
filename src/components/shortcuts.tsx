@@ -19,7 +19,8 @@ type Shortcut = {
  * Every key the app answers to, in one list: the "?" sheet shows it, the
  * palette and menus show their items' keys from it, and the go-to
  * sequences here are the ones useShortcuts binds. ⌘B belongs to the sidebar
- * (ui/sidebar.tsx), ⌘Z to undoable toasts, ⌘A and Esc to the library grid.
+ * (ui/sidebar.tsx), ⌘Z to undoable toasts (the builder's history first on
+ * /brand), ⌘A and Esc to the library grid.
  */
 export const SHORTCUTS: Shortcut[] = [
   { keys: ["mod", "K"], label: "Jump to anything", group: "General" },
@@ -36,11 +37,21 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["G", "S"], sequence: true, label: "Settings", group: "Go to", href: "/settings" },
   { keys: ["mod", "A"], label: "Select every asset", group: "Library" },
   { keys: ["Esc"], label: "Clear the selection", group: "Library" },
-  // Bound by the guidelines page itself (components/brand-editor.tsx).
+  // Bound by the builder (components/builder/builder.tsx); J, K, [ and ] by the reader too (site/site-view.tsx).
+  { keys: ["mod", "Z"], label: "Undo", group: "Guidelines" },
+  { keys: ["mod", "⇧", "Z"], label: "Redo", group: "Guidelines" },
+  { keys: ["P"], label: "Preview as readers see it", group: "Guidelines" },
   { keys: ["H"], label: "History", group: "Guidelines" },
   { keys: ["T"], label: "Tokens", group: "Guidelines" },
+  { keys: ["Esc"], label: "Leave the preview, or deselect", group: "Guidelines" },
   { keys: ["J"], label: "Next section", group: "Guidelines" },
   { keys: ["K"], label: "Previous section", group: "Guidelines" },
+  { keys: ["⌫"], label: "Delete the section", group: "Guidelines" },
+  { keys: ["mod", "D"], label: "Duplicate the section", group: "Guidelines" },
+  { keys: ["⌥", "↑"], label: "Move the section up", group: "Guidelines" },
+  { keys: ["⌥", "↓"], label: "Move the section down", group: "Guidelines" },
+  { keys: ["["], label: "Previous page", group: "Guidelines" },
+  { keys: ["]"], label: "Next page", group: "Guidelines" },
 ];
 
 /** A shortcut's keys: a chord as one key cap, a sequence as caps one after another. */

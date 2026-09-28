@@ -1,30 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAssetFont } from "@/components/font-preview";
 import { useSite } from "@/components/site/site-context";
-import { brandTheme, fontFaceCss, fontRoles, stack, type ThemeFace, themeVars } from "@/lib/brand-theme";
+import { brandTheme, fontFaceCss, fontRoles, type ThemeFace, themeVars } from "@/lib/brand-theme";
 import { luminance, rgb } from "@/lib/color";
 import { dirOf, type PageView, scriptOf, type ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
-
-/**
- * The page in the brand's own faces and accent (lib/brand-theme.ts), as CSS
- * variables on the page only: the header, menus and panels stay the app's.
- * Unset, each falls back to the app's own, so a brand with no fonts or colors
- * reads as before. The v1 rules page's; brand sites wear useSiteLook.
- * ponytail: goes with brand-editor.tsx in W6.
- */
-export function useBrandLook(rules: Parameters<typeof brandTheme>[0]) {
-  const t = useMemo(() => brandTheme(rules), [rules]);
-  const head = useAssetFont(t.head?.file);
-  const body = useAssetFont(t.body?.file);
-  return {
-    ...(t.head && { "--brand-head": stack(t.head, head), "--brand-head-weight": String(t.head.weight ?? 600) }),
-    ...(t.body && { "--brand-body": stack(t.body, body) }),
-    ...(t.accent && { "--brand-accent-l": t.accent.light, "--brand-accent-d": t.accent.dark }),
-  } as React.CSSProperties;
-}
 
 /**
  * On the page: body text in the brand's face, and the accent (marks) and its

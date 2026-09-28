@@ -102,3 +102,29 @@ export function useMedia(id: string | undefined): Media | undefined {
   const { view } = useSite();
   return id ? view.media[id] : undefined;
 }
+
+/**
+ * How the words and rules on the builder's canvas change (D12): slots read
+ * it and edit where they draw; nothing else does. The canvas provides it
+ * from the builder (components/builder/use-builder.ts); a reader has none.
+ */
+export type Edit = {
+  /** Change a section of the page on the canvas: the fields named, null clearing one; props are replaced whole. One undo step per field typed within a second. */
+  update(section: string, set: Record<string, unknown>): void;
+  /** Make or change a rule version, whole, by its key and context. */
+  setRule(rule: ViewRule): void;
+  /** Assets just picked or uploaded for an item, so the canvas draws them before the page is loaded again. */
+  addMedia(media: Media[]): void;
+  /** What is picked on the canvas: a section by id, a rule by key. */
+  selection: { section: string | null; rule: string | null };
+  select(to: { section?: string | null; rule?: string | null }): void;
+  /** A color, face, logo or number was clicked: its rule card opens, anchored there. */
+  openRule(key: string, at: HTMLElement): void;
+  /** The language the canvas shows; null: as written. Words typed in another belong in the section's `translations`. */
+  lang: string | null;
+};
+
+export const EditContext = createContext<Edit | null>(null);
+
+/** The canvas's edits, or null where the site is read. */
+export const useEdit = () => useContext(EditContext);

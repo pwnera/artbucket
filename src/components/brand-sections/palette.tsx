@@ -6,7 +6,7 @@ import type { z } from "zod";
 import { copy, GRADE_STYLE, Markdown } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { Pairings } from "@/components/brand-sections/parts";
-import { Body, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, Opens, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { CopyButton } from "@/components/copy-button";
 import { AnchorLink } from "@/components/site/anchors";
@@ -159,7 +159,9 @@ export function PaletteSection({ section, rules }: SectionProps) {
           <div className="@container">
             <div className={cn("grid gap-x-6 gap-y-8", GRID[section.columns])}>
               {rs.map((r) => (
-                <Swatch key={r.key} rule={r} all={all} paint={paint} medium={medium} values={values} heading={grouped ? "h4" : "h3"} />
+                <Opens key={r.key} rule={r}>
+                  <Swatch rule={r} all={all} paint={paint} medium={medium} values={values} heading={grouped ? "h4" : "h3"} />
+                </Opens>
               ))}
             </div>
           </div>
@@ -236,6 +238,7 @@ function Swatch({
 
       <button
         type="button"
+        data-specimen
         aria-label={`Copy ${value}`}
         onClick={() => void copy(value, "hex")}
         className={cn(

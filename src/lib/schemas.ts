@@ -520,7 +520,11 @@ export const BrandPage = z.object({
   translations: z.record(z.string(), pageText).nullable().optional().describe("Its title, eyebrow and lede by language tag"),
   sections: z.array(Section),
 });
-export const PageSummary = z.object({ ...pageFields, sections: z.number().int().describe("How many") });
+export const PageSummary = z.object({
+  ...pageFields,
+  sections: z.number().int().describe("How many"),
+  keys: z.array(z.string()).describe("The rules its sections show, by key: keys, items' keys and background colors"),
+});
 
 const warnings = z.array(z.string()).describe("What a reader would trip on, though it saves: links that go nowhere, keys with no rule");
 const readerUrl = z.url().describe("Where a member reads it in the app");

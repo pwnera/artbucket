@@ -388,7 +388,10 @@ export function GoogleFontImport({
 }
 
 /** A font rule with no files yet: fetch its family from Google Fonts and attach every style, in one click. */
-export function ImportFamily({ family, onImported }: { family: string; onImported: (family: string, ids: string[]) => void }) {
+/** A file the import made, as POST /fonts/google answers it. */
+type Imported = { id: string; filename: string; mime: string; size: number };
+
+export function ImportFamily({ family, onImported }: { family: string; onImported: (family: string, files: Imported[]) => void }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -408,7 +411,7 @@ export function ImportFamily({ family, onImported }: { family: string; onImporte
             const body = await res.json();
             if (!res.ok) return void toast.error(body.error?.message ?? "Couldn't import it", { description: "Add its files with Assets instead." });
             toast.success(`Imported ${body.family}`, { description: `${body.data.length} ${body.data.length === 1 ? "style" : "styles"}, now on this rule` });
-            onImported(body.family, body.data.map((a: { id: string }) => a.id));
+            onImported(body.family, body.data);
           } finally {
             setBusy(false);
           }

@@ -79,24 +79,25 @@ const findBlocks = (query: string) => {
 const SLASH = new PluginKey("slash");
 
 /**
- * Stored as "## " and "### ", drawn two levels down (h4, h5) so they sit
- * under the rule's own h3 name, as lib/markdown renders them for readers.
+ * Stored as "## " and "### ", drawn `by` levels down so they sit under the
+ * heading above the text, as lib/markdown renders them for readers: two
+ * under a rule's h3 name (h4, h5), one under a section's h2 title (h3, h4).
  * Pasting reads either back.
  */
-const DemotedHeading = Heading.configure({ levels: [2, 3] }).extend({
-  renderHTML: ({ node, HTMLAttributes }) => [`h${node.attrs.level + 2}`, HTMLAttributes, 0],
-  parseHTML: () =>
-    [2, 3].flatMap((level) => [
-      { tag: `h${level}`, attrs: { level } },
-      { tag: `h${level + 2}`, attrs: { level } },
-    ]),
-});
+const demoted = (by: number) =>
+  Heading.configure({ levels: [2, 3] }).extend({
+    renderHTML: ({ node, HTMLAttributes }) => [`h${node.attrs.level + by}`, HTMLAttributes, 0],
+    parseHTML: () =>
+      [2, 3].flatMap((level) => [
+        { tag: `h${level}`, attrs: { level } },
+        { tag: `h${level + by}`, attrs: { level } },
+      ]),
+  });
 
 // The same for every editor, so they are built once.
 const BASE = [
   // Underline has no Markdown, so it would not survive a save.
   StarterKit.configure({ underline: false, heading: false, link: { openOnClick: false, isAllowedUri: safeUrl } }),
-  DemotedHeading,
   Markdown,
   TableKit.configure({ table: { resizable: false } }),
   Image,
@@ -121,6 +122,7 @@ export default function RichText({
   style,
   required,
   onEmpty,
+  demote = 2,
 }: {
   value: string;
   onSave: (markdown: string) => void;
@@ -132,6 +134,8 @@ export default function RichText({
   required?: boolean;
   /** Offered when a required text is cleared: a way to delete the rule instead. */
   onEmpty?: () => void;
+  /** How many levels its headings drop, as lib/markdown's `demote`: 2 under a rule's name, 1 under a section's title. */
+  demote?: number;
 }) {
   const [picking, setPicking] = useState(false);
   const [linking, setLinking] = useState<string | null>(null);
@@ -189,6 +193,7 @@ export default function RichText({
       }));
     return [
       ...BASE,
+      demoted(demote),
       Placeholder.configure({
         placeholder: ({ editor }) => (editor.isEmpty ? (placeholder ?? "Write, or type / for blocks") : "Type / for blocks, ## for a heading"),
       }),
@@ -224,7 +229,7 @@ export default function RichText({
         },
       }),
     ];
-  }, [placeholder]);
+  }, [placeholder, demote]);
 
   const editorProps = useMemo(
     () => ({
@@ -309,7 +314,7 @@ export default function RichText({
     }
   }, [editor, open, index, uid]);
 
-  if (!editor) return <div className={cn("rich", className)} style={style} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, { demote: true }) }} />;
+  if (!editor) return <div className={cn("rich", className)} style={style} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, { demote }) }} />;
   return (
     <div className="relative" style={style}>
       <TextMenu editor={editor} linking={linking} setLinking={setLinking} />

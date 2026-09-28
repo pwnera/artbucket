@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { IconCopy, IconDownload, IconExternalLink, IconTrash, type Icon } from "@tabler/icons-react";
+import { IconCopy, IconDownload, IconExternalLink, IconTrash } from "@tabler/icons-react";
 import { copy, GRADE_STYLE, MARKER } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { CopyButton } from "@/components/copy-button";
 import { FontThumb } from "@/components/font-preview";
 import { IconButton } from "@/components/icon-button";
 import { RenditionMenu } from "@/components/rendition-menu";
-import { AnchorLink } from "@/components/site/anchors";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
@@ -89,26 +88,6 @@ export function BrandIcon({ brand, rules, color, onAdd }: { brand: { name: strin
       </TooltipTrigger>
       <TooltipContent>Add the logo</TooltipContent>
     </Tooltip>
-  );
-}
-
-/** A section's heading: its icon, its title with a link to `id`, and a line on what it covers. */
-export function SectionHeader({ id, title, lede, icon: I }: { id: string; title: string; lede?: string; icon?: Icon }) {
-  return (
-    <div className="group/section mb-6 flex items-start gap-3 border-b pb-5">
-      {I && (
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand-accent,var(--primary))_14%,transparent)] text-[var(--brand-accent,var(--primary-ink))]">
-          <I className="size-5" />
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1">
-          <h2 className={cn(HEAD, "text-2xl")}>{title}</h2>
-          <AnchorLink id={id} label={`Copy a link to ${title}`} className="group-hover/section:opacity-100" />
-        </div>
-        {lede && <p className="text-muted-foreground text-sm">{lede}</p>}
-      </div>
-    </div>
   );
 }
 

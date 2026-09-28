@@ -510,7 +510,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "A brand's pages",
           scope: "read",
-          description: "In order, with their tree fields and how many sections each has. GET one for its sections.",
+          description: "In order, with their tree fields, how many sections each has and the keys of the rules they show. GET one for its sections.",
           ok: [200, "Pages", data(z.array(S.PageSummary))],
         }),
         post: op({

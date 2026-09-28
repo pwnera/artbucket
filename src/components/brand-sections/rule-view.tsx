@@ -35,7 +35,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fontFiles, isFontAsset } from "@/lib/font";
 import { keyFor } from "@/lib/presets";
-import { contextLabel, listStyle, ruleLabel as label, section, type Rule } from "@/lib/rules";
+import { contextLabel, listStyle, ruleName, section, type Rule } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 /** Where the line a drag draws sits: above a block or below it. */
@@ -92,12 +92,12 @@ export function fieldIn(block: Element | null | undefined, where: "name" | "valu
 }
 
 /** A rule's block, where the editor anchors it (`rule-{key}`). */
-export const blockOf = (key: string) => document.getElementById(`rule-${key}`);
+const blockOf = (key: string) => document.getElementById(`rule-${key}`);
 /** Every block on the page, top to bottom, across sections. */
 export const blocks = () => [...document.querySelectorAll<HTMLElement>("[data-block]")];
 
 /** The caret in a rule's name (its text selected), value or note, or the block itself selected; then `then`, a frame later. */
-export function focusRule(key: string, where: "block" | "name" | "value" | "note", then?: () => void) {
+function focusRule(key: string, where: "block" | "name" | "value" | "note", then?: () => void) {
   const done = () => then && requestAnimationFrame(then);
   if (where === "block" || where === "note")
     return onceDrawn(
@@ -136,7 +136,7 @@ const USAGE_HINT: Record<string, string> = {
 };
 
 /** A rule's variants, one of them shown: Default, Dark background. Arrows move between them, as radios do. */
-export function Variants({ rules, current, onPick }: { rules: Rule[]; current: Rule; onPick: (id: string) => void }) {
+function Variants({ rules, current, onPick }: { rules: Rule[]; current: Rule; onPick: (id: string) => void }) {
   return (
     <div
       role="radiogroup"
@@ -305,7 +305,7 @@ export function RuleView({
       )}
       {ed && (
         // The gutter: on touch always there, with a mouse on hover or focus. Below sm the dots in the name row stand in.
-        // Viewport sm, not a container query: the editor's page makes the gutter's room at sm (brand-editor.tsx). The builder (W6) replaces it.
+        // Viewport sm, not a container query: the rules sheet (builder/rules-sheet.tsx) leaves the gutter its room.
         <div className="absolute top-3.5 -start-12 hidden gap-0.5 transition-opacity sm:flex pointer-fine:opacity-0 pointer-fine:group-focus-within/block:opacity-100 pointer-fine:group-hover/block:opacity-100">
           <IconButton variant="ghost" size="icon-xs" label="Add below" shortcut={["/"]} className="text-muted-foreground" onClick={ed.onInsert}>
             <IconPlus className="size-4" />
@@ -402,7 +402,7 @@ export function RuleView({
         <Confirm
           open={confirming}
           onOpenChange={setConfirming}
-          title={`Delete ${label(r.key)} for every context?`}
+          title={`Delete ${ruleName(r)} for every context?`}
           says={`${ed.context} shows the default, which every context shares. Deleting it takes it from all of them.`}
           action="Delete for every context"
           run={() => ed.onDelete(r)}
@@ -415,13 +415,13 @@ export function RuleView({
             <Editable
               key={ed.resets}
               field="name"
-              value={label(r.key)}
+              value={ruleName(r)}
               label="Name"
               // The field's -mx-1 makes it 0.5rem wider than the h3 it sizes, so max-w-full would wrap its last letter.
               className="w-auto max-w-[calc(100%+0.5rem)] min-w-8"
               // Only on Enter or leaving, never as you type: a new name is a new key.
               onSave={(v) => v && ed.onRename(r, v)}
-              onFocus={() => setNaming(label(r.key))}
+              onFocus={() => setNaming(ruleName(r))}
               onDraft={setNaming}
               onBlur={() => {
                 setNaming(null);
@@ -442,10 +442,10 @@ export function RuleView({
               }}
             />
           ) : (
-            label(r.key)
+            ruleName(r)
           )}
         </h3>
-        {anchor && <AnchorLink id={anchor} label={`Copy a link to ${label(r.key)}`} className="self-center group-hover/block:opacity-100" />}
+        {anchor && <AnchorLink id={anchor} label={`Copy a link to ${ruleName(r)}`} className="self-center group-hover/block:opacity-100" />}
         {rules.length > 1 ? (
           <Variants
             rules={rules}

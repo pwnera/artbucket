@@ -16,7 +16,7 @@ export const TYPING =
   "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=combobox]";
 
 /** It lights up and fades ([data-flash] in globals.css): where something just landed, or a link led. */
-export function flashEl(el: HTMLElement) {
+function flashEl(el: HTMLElement) {
   el.removeAttribute("data-flash");
   // A reflow between the two restarts the animation.
   void el.offsetWidth;
@@ -34,7 +34,7 @@ export function goTo(id: string) {
 }
 
 /** The link to `id` on this page, for someone else: the brand and context stay in it. */
-export const linkTo = (id: string) => `${location.origin}${location.pathname}${location.search}#${id}`;
+const linkTo = (id: string) => `${location.origin}${location.pathname}${location.search}#${id}`;
 
 /**
  * Which of `ids` is being read: the last whose top has passed 30% of the

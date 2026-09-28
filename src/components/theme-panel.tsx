@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { ThemeSettings } from "@/lib/brand-theme";
+import type { z } from "zod";
+import type { ThemePatch, ThemeSettings } from "@/lib/brand-theme";
 import { grade } from "@/lib/color";
 import { fontValue, ruleName, type Rule } from "@/lib/rules";
 import { send } from "@/lib/send";
@@ -20,7 +21,9 @@ import { cn } from "@/lib/utils";
 
 type Theme = PageView["theme"];
 /** What PATCH /theme takes: a key left out keeps its value, null clears it back to the rules' answer. */
-type Patch = { [K in keyof ThemeSettings]?: ThemeSettings[K] | null };
+type Patch = z.output<typeof ThemePatch>;
+/** What a slot is picked from: a rule as GET /brand/rules or a view gives it. */
+type Choice = Pick<Rule, "key" | "label" | "context" | "type" | "value" | "assets">;
 
 const AUTO = "*";
 const COLORS = [
@@ -50,9 +53,12 @@ const SCALES: [number, string][] = [
 
 /**
  * How a brand's pages look: which rule plays which part, and the page's
- * measure, rhythm and chrome. Each change saves on its own (PATCH /theme, a
- * draft in the history) and `onSaved` has the host fetch its view again, so
- * the page behind re-themes; the contrast checks come back with it.
+ * measure, rhythm and chrome. In the reader each change saves on its own
+ * (PATCH /theme, a draft in the history) and `onSaved` has the host fetch its
+ * view again, so the page behind re-themes; the contrast checks come back
+ * with it. In the builder `onPatch` takes each change instead (an undoable
+ * theme op, which re-themes the canvas at once), and `rules` are the
+ * builder's, so nothing is fetched.
  */
 export function ThemePanel({
   slug,
@@ -60,12 +66,17 @@ export function ThemePanel({
   open,
   onOpenChange,
   onSaved,
+  onPatch,
+  rules: given,
 }: {
   slug: string;
   theme: Theme;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  onSaved?: () => void;
+  onPatch?: (patch: Patch) => void;
+  /** Every rule, when the host has them; fetched on each open otherwise. */
+  rules?: Choice[];
 }) {
   // The settings as last chosen, ahead of the view that confirms them.
   const [s, setS] = useState<Patch>(theme.settings);
@@ -74,43 +85,47 @@ export function ThemePanel({
     setSeen(theme.settings);
     setS(theme.settings);
   }
-  const [rules, setRules] = useState<Rule[] | null>(null);
+  const [fetched, setRules] = useState<Choice[] | null>(null);
   const [picking, setPicking] = useState(false);
+  // The theme reads the default context's.
+  const rules = (given ?? fetched)?.filter((r) => r.context === null) ?? null;
 
-  // Fetched on each open, since rules change elsewhere; the theme reads the default context's.
+  // Fetched on each open, since rules change elsewhere.
   useEffect(() => {
-    if (!open) return;
+    if (!open || given) return;
     const ac = new AbortController();
     fetch(`/api/v1/brand/rules?brand=${encodeURIComponent(slug)}`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j: { data: Rule[] }) => setRules(j.data.filter((r) => r.context === null)))
+      .then((j: { data: Rule[] }) => setRules(j.data))
       .catch(() => {
         if (!ac.signal.aborted) setRules([]);
       });
     return () => ac.abort();
-  }, [open, slug]);
+  }, [open, slug, given]);
 
   const save = async (patch: Patch) => {
+    // The builder's theme changes with the op, and `theme` with it; a refused op changes nothing.
+    if (onPatch) return onPatch(patch);
     setS((p) => ({ ...p, ...patch }));
-    if (await send("PATCH", `/api/v1/brands/${encodeURIComponent(slug)}/theme`, patch)) onSaved();
+    if (await send("PATCH", `/api/v1/brands/${encodeURIComponent(slug)}/theme`, patch)) onSaved?.();
     else setS(theme.settings);
   };
 
   /** A slot's choices: the rules that can fill it, and the one named now even when it has gone. */
-  const slot = (k: keyof Patch, fits: (r: Rule) => boolean, show: (r: Rule) => React.ReactNode) => {
+  const slot = (k: keyof Patch, fits: (r: Choice) => boolean, show: (r: Choice) => React.ReactNode) => {
     const named = s[k] as string | null | undefined;
     const fit = (rules ?? []).filter(fits);
     const options: [string, React.ReactNode][] = [[AUTO, "From the rules"], ...fit.map((r): [string, React.ReactNode] => [r.key, show(r)])];
     if (named && !fit.some((r) => r.key === named)) options.push([named, rules ? `${named} (missing)` : named]);
     return { value: named ?? AUTO, options, onChange: (v: string) => save({ [k]: v === AUTO ? null : v } as Patch) };
   };
-  const color = (r: Rule) => (
+  const color = (r: Choice) => (
     <>
       <Swatch hex={String(r.value)} />
       {ruleName(r)}
     </>
   );
-  const font = (r: Rule) => (
+  const font = (r: Choice) => (
     <>
       {ruleName(r)}
       <span className="text-muted-foreground">{fontValue(r.value).family}</span>
