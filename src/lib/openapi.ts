@@ -513,18 +513,24 @@ export function openapi(serverUrl: string) {
           description: "In order, with their tree fields, how many sections each has and the keys of the rules they show. GET one for its sections.",
           ok: [200, "Pages", data(z.array(S.PageSummary))],
         }),
-        post: op({
-          summary: "Lay out pages from the rules",
-          scope: "write",
-          description:
-            "For a brand with no pages: an overview, then a page per group of rules, each in the templates it fits. " +
-            "A start to edit from; 409 when the brand has pages.",
-          ok: [
-            201,
-            "The pages made",
-            data(z.object({ brand: z.string(), pages: z.array(z.object({ slug: z.string(), title: z.string(), sections: z.number().int() })) })),
-          ],
-        }),
+        post: {
+          ...op({
+            summary: "Lay out pages from the rules",
+            scope: "write",
+            description:
+              "For a brand with no pages: an overview, then a page per group of rules, each in the templates it fits. " +
+              "A start to edit from; 409 when the brand has pages. With `set`, one topic's pages (Our X, Using X, In " +
+              "product, In marketing, Best practices, Showcase) go in beside the pages there are, under `parent`; 409 " +
+              "only when one of their slugs is taken.",
+            ok: [
+              201,
+              "The pages made",
+              data(z.object({ brand: z.string(), pages: z.array(z.object({ slug: z.string(), title: z.string(), sections: z.number().int() })) })),
+            ],
+          }),
+          // `set` is optional, so the body may be left out.
+          requestBody: { required: false, content: json(S.GeneratePagesInput, "input") },
+        },
       },
       "/api/v1/brands/{slug}/pages/{page}": {
         parameters: [path("slug", "Brand slug"), path("page", "The page's slug, e.g. logo")],
@@ -868,12 +874,23 @@ export function openapi(serverUrl: string) {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),
       },
+      "/api/v1/portals/{id}/views": {
+        parameters: [path("id", "Portal id")],
+        get: op({
+          summary: "Page views",
+          scope: "write",
+          description: "How often its pages were read over the last 30 days, per brand and page, most read first. Asset downloads aren't counted here.",
+          ok: [200, "Views", data(S.PortalViews)],
+        }),
+      },
       "/api/v1/portals/{id}/requests/{request}": {
         parameters: [path("id", "Portal id"), path("request", "Request id")],
         patch: op({
-          summary: "Approve or deny an access request",
+          summary: "Answer a request",
           scope: "write",
-          description: `Approved, they get a link of their own for ${90} days (or until the portal closes), emailed when the organization's email works, and in \`url\` to copy.`,
+          description:
+            `An access request approved gets a link of their own for ${90} days (or until the portal closes), emailed when the organization's email works, and in \`url\` to copy. ` +
+            "A request section's ask (asset, review, question) approved is marked done, and denied dismissed; it makes no link.",
           body: S.PortalDecision,
           ok: [200, "The request, and whether it was emailed", S.Decided],
         }),
@@ -968,9 +985,13 @@ export function openapi(serverUrl: string) {
       "/api/v1/portal/{slug}/requests": {
         parameters: [path("slug", "The portal's address")],
         post: op({
-          summary: "Ask for access to a portal",
+          summary: "Ask for access to a portal, or ask its brand team",
           scope: "public",
-          description: "For a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request.",
+          description:
+            "Access (`kind` access, the default) is for a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. " +
+            "A request section's ask (`kind` asset, review or question) works on any portal, says the `page` and `section` it came from, and needs what reading " +
+            "that page needs (X-Portal-Password or X-Portal-Key, or a member's session), else 401. The `page` must be one the visitor can read and `section` a " +
+            "request section on it; access takes neither.",
           body: S.PortalRequestInput,
           ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
         }),

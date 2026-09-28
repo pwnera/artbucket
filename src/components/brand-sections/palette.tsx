@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { IconDownload } from "@tabler/icons-react";
 import type { z } from "zod";
 import { copy, GRADE_STYLE, Markdown } from "@/components/brand-values";
@@ -13,6 +13,7 @@ import { AnchorLink } from "@/components/site/anchors";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toAse } from "@/lib/ase";
@@ -29,7 +30,9 @@ import { cn } from "@/lib/utils";
  * its swatch (a gradient drawn live, a texture laid over), the text it pairs
  * with and its grade, its tints, and its values for screen or print, each a
  * copy away. Above, how much of the brand each color is and an .ase of them
- * (props.ase); below, every color on every other (props.matrix).
+ * (props.ase); below, every color on every other (props.matrix). With
+ * props.simulate, the whole palette seen as with a color vision deficiency,
+ * one at a time, through an SVG color matrix.
  */
 
 type Props = z.output<typeof TEMPLATE_PROPS.palette>;
@@ -48,6 +51,19 @@ const GRID: Record<number, string> = {
 };
 
 const specOf = (r: ViewRule) => (r.spec ?? {}) as Spec;
+
+/**
+ * Color vision deficiencies at full severity (Machado, Oliveira and Fernandes
+ * 2009), and no color at all as luminance: matrices on linear RGB, which is
+ * what feColorMatrix works in by default.
+ */
+const SIMULATE = {
+  protanopia: { name: "Protanopia", what: "without red cones", m: "0.152286 1.052583 -0.204868 0 0 0.114503 0.786281 0.099216 0 0 -0.003882 -0.048116 1.051998 0 0" },
+  deuteranopia: { name: "Deuteranopia", what: "without green cones", m: "0.367322 0.860646 -0.227968 0 0 0.280085 0.672501 0.047413 0 0 -0.01182 0.04294 0.968881 0 0" },
+  tritanopia: { name: "Tritanopia", what: "without blue cones", m: "1.255528 -0.076749 -0.178779 0 0 -0.078411 0.930809 0.147602 0 0 0.004733 0.691367 0.3039 0 0" },
+  achromatopsia: { name: "Achromatopsia", what: "without color", m: "0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0" },
+};
+type Sim = keyof typeof SIMULATE;
 const KIND = { linear: "Linear", radial: "Radial", conic: "Conic" } as const;
 
 /** What a swatch is painted with: its gradient, else its color. */
@@ -128,11 +144,14 @@ export function PaletteSection({ section, rules }: SectionProps) {
     return [...by];
   }, [colors]);
   const grouped = groups.some(([g]) => g);
+  const [sim, setSim] = useState<Sim | null>(null);
+  // A filter id for CSS url(): useId's, without the marks a URL fragment would have to escape.
+  const filter = `cvd${useId().replace(/[^\w-]/g, "")}`;
 
   return (
     <div className="space-y-10">
       <Body />
-      {colors.length > 0 && (both || p.ase) && (
+      {colors.length > 0 && (both || p.ase || p.simulate) && (
         <div className="flex flex-wrap items-center gap-3">
           {both && (
             <ToggleGroup type="single" variant="outline" size="sm" value={medium} onValueChange={(v) => v && setPicked(v as Medium)} aria-label="Values for">
@@ -144,6 +163,18 @@ export function PaletteSection({ section, rules }: SectionProps) {
               </ToggleGroupItem>
             </ToggleGroup>
           )}
+          {p.simulate && (
+            <div role="group" aria-labelledby={`${filter}-label`} className="flex flex-wrap items-center gap-1">
+              <span id={`${filter}-label`} className="text-muted-foreground me-1 text-xs">
+                Color blindness
+              </span>
+              {(Object.keys(SIMULATE) as Sim[]).map((k) => (
+                <Toggle key={k} variant="outline" size="sm" className="px-3" pressed={sim === k} onPressedChange={(on) => setSim(on ? k : null)}>
+                  {SIMULATE[k].name}
+                </Toggle>
+              ))}
+            </div>
+          )}
           {p.ase && (
             <Button variant="outline" size="sm" className="ms-auto" onClick={() => saveAse(colors, `${view.brand.slug}-colors.ase`)}>
               <IconDownload /> Swatches (.ase)
@@ -151,23 +182,40 @@ export function PaletteSection({ section, rules }: SectionProps) {
           )}
         </div>
       )}
-      <Proportions colors={colors} paint={paint} />
-      {groups.map(([name, rs]) => (
-        <div key={name} className="space-y-4">
-          {grouped && <h3 className={cn(HEAD, "text-(length:--brand-h3)")}>{name || "Other"}</h3>}
-          {/* Its own container: the frame's is the whole section, wider than a reading column. */}
-          <div className="@container">
-            <div className={cn("grid gap-x-6 gap-y-8", GRID[section.columns])}>
-              {rs.map((r) => (
-                <Opens key={r.key} rule={r}>
-                  <Swatch rule={r} all={all} paint={paint} medium={medium} values={values} heading={grouped ? "h4" : "h3"} />
-                </Opens>
-              ))}
+      {sim && (
+        <>
+          <p className="text-muted-foreground text-sm">
+            A simulation of {SIMULATE[sim].name.toLowerCase()}: the palette {SIMULATE[sim].what}. The values below are the colors as set.
+          </p>
+          <svg aria-hidden className="absolute size-0">
+            <filter id={filter}>
+              <feColorMatrix type="matrix" values={`${SIMULATE[sim].m} 0 0 0 1 0`} />
+            </filter>
+          </svg>
+        </>
+      )}
+      {/* Everything drawn in the colors, filtered together while a simulation is on. */}
+      {colors.length > 0 && (
+        <div className="space-y-10" style={sim ? { filter: `url(#${filter})` } : undefined}>
+          <Proportions colors={colors} paint={paint} />
+          {groups.map(([name, rs]) => (
+            <div key={name} className="space-y-4">
+              {grouped && <h3 className={cn(HEAD, "text-(length:--brand-h3)")}>{name || "Other"}</h3>}
+              {/* Its own container: the frame's is the whole section, wider than a reading column. */}
+              <div className="@container">
+                <div className={cn("grid gap-x-6 gap-y-8", GRID[section.columns])}>
+                  {rs.map((r) => (
+                    <Opens key={r.key} rule={r}>
+                      <Swatch rule={r} all={all} paint={paint} medium={medium} values={values} heading={grouped ? "h4" : "h3"} />
+                    </Opens>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
+          {p.matrix && <Pairings colors={colors} />}
         </div>
-      ))}
-      {p.matrix && <Pairings colors={colors} />}
+      )}
     </div>
   );
 }

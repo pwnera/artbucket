@@ -48,9 +48,10 @@ insert into portals (id, workspace_id, slug, name, intro, access, password_hash,
    '{"footer": {"text": "Questions? [Write to us](mailto:press@fixture.test).", "links": [{"label": "Newsroom", "href": "https://fixture.test/news"}]}, "quick": [{"label": "Logo", "asset": "00000000-0000-4000-8000-000000000011"}], "terms": "Use the logo as supplied.", "listed": false}',
    'Ada');
 insert into portal_collections (portal_id, collection_id, position) values ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000003', 0);
-insert into portal_requests (portal_id, email, name, note, status, key_hash, expires_at, decided_by, decided_at) values
-  ('00000000-0000-4000-8000-000000000040', 'jo@press.test', 'Jo', 'Writing a piece', 'approved', repeat('e', 64), now() + interval '90 days', 'Ada', now()),
-  ('00000000-0000-4000-8000-000000000040', 'sam@press.test', null, null, 'pending', null, null, null, null);
+insert into portal_requests (portal_id, email, name, note, status, key_hash, expires_at, decided_by, decided_at, kind, page, section) values
+  ('00000000-0000-4000-8000-000000000040', 'jo@press.test', 'Jo', 'Writing a piece', 'approved', repeat('e', 64), now() + interval '90 days', 'Ada', now(), 'access', null, null),
+  ('00000000-0000-4000-8000-000000000040', 'sam@press.test', null, null, 'pending', null, null, null, null, 'access', null, null),
+  ('00000000-0000-4000-8000-000000000040', 'kim@press.test', 'Kim', 'The logo as an EPS, please.', 'pending', null, null, null, null, 'asset', 'color', 'palette');
 insert into domains (host, organization_id, portal_id, token, verified_at) values
   ('press.fixture.test', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000040', 'artbucket-fixture', now());
 
@@ -90,3 +91,7 @@ insert into brand_pages (brand_id, slug, title, sections) values ('00000000-0000
 insert into portal_brands (portal_id, brand_id, position) values
   ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000004', 0),
   ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000005', 1);
+insert into page_views (portal_id, brand_id, page, day, views) values
+  ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000004', 'color', current_date - 1, 14),
+  ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000004', 'color', current_date, 3),
+  ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000005', 'home', current_date, 1);

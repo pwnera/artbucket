@@ -6,7 +6,7 @@ import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
-import { PortalPatch } from "./schemas.ts";
+import { GeneratePagesInput, PortalPatch } from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -129,7 +129,7 @@ export const TOOL_INPUTS = {
 
   delete_page: z.object({ brand, page }),
 
-  generate_pages: z.object({ brand }),
+  generate_pages: z.object({ brand, set: GeneratePagesInput.shape.set }),
 
   get_theme: z.object({ brand }),
 

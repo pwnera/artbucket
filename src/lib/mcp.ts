@@ -381,11 +381,13 @@ const TOOLS: Record<ToolName, Tool> = {
   generate_pages: tool({
     description:
       "Lay out a brand that has no pages from its rules: an Overview (cover, palette), then a page per section of " +
-      "keys (color, logo, type, tone...) with the templates its rules fit. A start to edit from; a brand with pages is left alone.",
+      "keys (color, logo, type, tone...) with the templates its rules fit. A start to edit from; a brand with pages is left alone. " +
+      "With `set`, add one topic's pages beside the ones there are: Our X, Using X, In product, In marketing, Best practices " +
+      "and Showcase, with starter sections, under `parent` (or a page named for the topic). Refused when a slug is taken.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.generate_pages,
-    run: async ({ brand }, caller) => generatePages(caller, brand),
+    run: async ({ brand, set }, caller) => generatePages(caller, brand, set),
   }),
 
   get_theme: tool({

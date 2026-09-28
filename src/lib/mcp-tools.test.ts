@@ -11,12 +11,15 @@ import { TOOL_INPUTS, toolSchemas } from "./mcp-tools.ts";
 // line moved to 10000. W5's languages and layout took edit_page to 11283 (save_page 10087): a section's
 // translations are its five text fields and three item fields again, keyed by a language tag, and a page's are
 // three more, plus layout and the updates template. Their descriptions are cut to a phrase, and the text fields
-// share one set of bounds; what is left is shape, so the line moved to 12000. Raise it only after the same hunt.
-test("the page tools' schemas stay under 12000 characters", () => {
+// share one set of bounds; what is left is shape, so the line moved to 12000. W7's nine templates, their props,
+// the new layouts and kinds, Item.at and Item.level took edit_page to 13596; hotspot, formula, scales and embed
+// words cut to a phrase or to nothing (list_templates says the rest) brought it to 13354 (save_page 12158), so
+// the line moved to 14000. Raise it only after the same hunt.
+test("the page tools' schemas stay under 14000 characters", () => {
   const s = toolSchemas();
   for (const name of ["save_page", "edit_page"]) {
     const size = JSON.stringify(s[name]).length;
-    assert.ok(size < 12000, `${name} is ${size} characters`);
+    assert.ok(size < 14000, `${name} is ${size} characters`);
   }
 });
 

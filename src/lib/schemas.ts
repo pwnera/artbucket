@@ -12,7 +12,7 @@ import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
 import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PRESET_IDS } from "./portal.ts";
-import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, SectionText, WIDTHS } from "./pages.ts";
+import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 
 /**
@@ -137,6 +137,17 @@ export const CheckInput = Use.extend({
   context: z.string().regex(RULE_CONTEXT).max(64).optional().describe("The brand context it is for, e.g. dark-background"),
   brand: z.string().max(60).optional().describe("Only this brand's rules; every brand's when left out"),
 }).strict();
+
+/** POST /api/v1/brands/{slug}/pages, and generate_pages: `set` adds one topic's pages beside the ones there are. */
+export const GeneratePagesInput = z.strictObject({
+  set: z
+    .strictObject({
+      topic: z.string().trim().min(1).max(40).describe("e.g. logo"),
+      parent: pageSlug.optional().describe("The page they go under; a new page named for the topic when left out"),
+    })
+    .optional()
+    .describe("Six pages on one topic under parent, beside pages that exist"),
+});
 
 export const ProposeTags = z.strictObject({
   tags: z.array(z.string().min(1).max(MAX_TAG_LENGTH)).min(1).max(50),
@@ -270,6 +281,9 @@ export const PortalRequestInput = z.strictObject({
   email: z.email().max(320),
   name: z.string().trim().max(120).optional(),
   note: z.string().trim().max(2000).optional().describe("Who you are and what you need it for"),
+  kind: z.enum(REQUEST_KINDS).optional().describe("access when left out; a request section asks for an asset, a review or an answer"),
+  page: pageSlug.optional().describe("The page a request section sits on"),
+  section: sectionId.optional().describe("The request section, by id"),
 });
 export const PortalDecision = z.strictObject({ status: z.enum(["approved", "denied"]) });
 export const DomainInput = z.strictObject({ host: z.string().min(1).max(253).describe("A host name of the organization's, e.g. assets.example.com") });
@@ -996,6 +1010,9 @@ export const PortalRequest = z.object({
   name: z.string().nullable(),
   note: z.string().nullable(),
   status: z.enum(["pending", "approved", "denied"]),
+  kind: z.enum(REQUEST_KINDS).describe("access: to get in; asset, review or question: asked from a request section"),
+  page: z.string().nullable().describe("The page a request section asked from"),
+  section: z.string().nullable().describe("The request section, by id"),
   expiresAt: date.nullable(),
   decidedBy: z.string().nullable(),
   decidedAt: date.nullable(),
@@ -1005,6 +1022,12 @@ export const PortalRequest = z.object({
 export const PortalDomain = z.object({
   host: z.string(),
   portal: z.string().nullable().describe("The portal it serves, by slug; null: free to pick"),
+});
+export const PortalViews = z.object({
+  days: z.number().int().describe("How far back"),
+  pages: z
+    .array(z.object({ brand: z.object({ slug: z.string(), name: z.string() }), page: z.string().describe("The page's slug when it was read"), views: z.number().int() }))
+    .describe("Most read first; a page shown counts, not an error, a lock or a redirect"),
 });
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),

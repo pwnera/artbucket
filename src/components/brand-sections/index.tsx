@@ -1,11 +1,16 @@
 "use client";
 
 import { memo, useMemo } from "react";
+import { AnnotatedSection } from "@/components/brand-sections/annotated";
 import { CardsSection } from "@/components/brand-sections/cards";
+import { ChartSection } from "@/components/brand-sections/chart";
 import { CollectionSection } from "@/components/brand-sections/collection";
+import { CopySection } from "@/components/brand-sections/copy";
 import { CoverSection } from "@/components/brand-sections/cover";
 import { DiagramSection } from "@/components/brand-sections/diagram";
 import { DoDontSection } from "@/components/brand-sections/dodont";
+import { EmbedSection } from "@/components/brand-sections/embed";
+import { FaqSection } from "@/components/brand-sections/faq";
 import { SectionFrame } from "@/components/brand-sections/frame";
 import { GallerySection } from "@/components/brand-sections/gallery";
 import { HeaderSection } from "@/components/brand-sections/header";
@@ -13,7 +18,11 @@ import { LinksSection } from "@/components/brand-sections/links";
 import { LogosSection } from "@/components/brand-sections/logos";
 import { PagesSection } from "@/components/brand-sections/pages";
 import { PaletteSection } from "@/components/brand-sections/palette";
+import { PatternSection } from "@/components/brand-sections/pattern";
+import { RequestSection } from "@/components/brand-sections/request";
 import { Body } from "@/components/brand-sections/slots";
+import { SpecimenSection } from "@/components/brand-sections/specimen";
+import { SpecsSection } from "@/components/brand-sections/specs";
 import { SplitSection } from "@/components/brand-sections/split";
 import { TextSection } from "@/components/brand-sections/text";
 import { TypeSection } from "@/components/brand-sections/type";
@@ -34,6 +43,8 @@ type Renderer = {
   View: React.ComponentType<SectionProps>;
   /** Draws its own title and ground: cover, header. */
   own?: true;
+  /** Lays out the section's contexts itself (specs: a column each), so the frame adds no tabs. */
+  contexts?: "own";
 };
 
 /** A template with no renderer here is a type error. */
@@ -53,6 +64,15 @@ export const RENDERERS: Record<Template, Renderer> = {
   pages: { View: PagesSection },
   diagram: { View: DiagramSection },
   updates: { View: UpdatesSection },
+  annotated: { View: AnnotatedSection },
+  specs: { View: SpecsSection, contexts: "own" },
+  specimen: { View: SpecimenSection },
+  pattern: { View: PatternSection },
+  chart: { View: ChartSection },
+  copy: { View: CopySection },
+  faq: { View: FaqSection },
+  embed: { View: EmbedSection },
+  request: { View: RequestSection },
 };
 
 /** A template from a newer server than this page: the frame, its title and its body, at least. */
@@ -66,8 +86,10 @@ const same = (a: SectionProps, b: SectionProps) =>
 
 /** One section. Drawn again only when its section object or one of its rules changes, which keeps a long canvas quick to type in. */
 export const SectionView = memo(function SectionView({ section, rules }: SectionProps) {
-  const { View, own } = RENDERERS[section.template] ?? FALLBACK;
-  return <SectionFrame section={section} rules={rules} View={View} own={own} />;
+  const { View, own, contexts } = RENDERERS[section.template] ?? FALLBACK;
+  // A logos chooser (`ask`) is its own switch between the contexts.
+  const tabs = contexts !== "own" && !(section.template === "logos" && section.props?.ask);
+  return <SectionFrame section={section} rules={rules} View={View} own={own} tabs={tabs} />;
 }, same);
 
 /**

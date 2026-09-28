@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { z } from "zod";
 import {
@@ -11,6 +12,9 @@ import {
   checkSection,
   checkTree,
   collectionQuery,
+  EMBED_HOSTS,
+  fillSlots,
+  framed,
   hiddenSlugs,
   initialPages,
   issues,
@@ -181,6 +185,7 @@ test("assetRefs: every asset a page names, with its path", () => {
       stored({ id: "a", template: "split", props: { image: A } }),
       stored({ id: "b", template: "cover", props: { video: B }, tone: "image", background: { image: B } }),
       stored({ id: "c", template: "gallery", items: [{ asset: A }, { title: "no picture" }, { asset: B }] }),
+      stored({ id: "d", template: "pattern", props: { asset: A } }),
     ],
   };
   assert.deepEqual(assetRefs(page), [
@@ -190,6 +195,7 @@ test("assetRefs: every asset a page names, with its path", () => {
     { id: B, at: "sections[1].background.image" },
     { id: A, at: "sections[2].items[0].asset" },
     { id: B, at: "sections[2].items[2].asset" },
+    { id: A, at: "sections[3].props.asset" },
   ]);
   assert.deepEqual(assetRefs({ cover: null, sections: [] }), []);
 });
@@ -472,10 +478,26 @@ test("W2 templates: cover's hero props, do/don't layouts, and cards, links and p
 
 test("W2 templates: layouts merge into one enum on the wire, each template's values named", () => {
   const layout = mergedProps().shape.layout;
-  assert.deepEqual([...(layout.unwrap() as z.ZodEnum).options].sort(), ["bento", "cards", "carousel", "grid", "list", "masonry", "pairs", "rows"]);
+  assert.deepEqual([...(layout.unwrap() as z.ZodEnum).options].sort(), [
+    "accordion",
+    "bento",
+    "cards",
+    "carousel",
+    "checklist",
+    "collage",
+    "crops",
+    "definitions",
+    "grid",
+    "list",
+    "masonry",
+    "pairs",
+    "rows",
+    "stats",
+    "tree",
+  ]);
   assert.equal(
     layout.description,
-    "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+    "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
   );
 });
 
@@ -519,7 +541,7 @@ test("W4 props: palette, type, logos, gallery and diagram settings, and a galler
     ]).errors,
     [
       'sections[0].props.show[0]: Invalid option: expected one of "hex"|"rgb"|"hsl"|"cmyk"|"pantone"|"ral"|"token"|"css"',
-      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"',
+      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"|"collage"|"crops"',
       "sections[2].items[0].span: Too big: expected number to be <=2",
       "sections[3].items[0].span: only gallery items span",
       "sections[4].items[0].verdict: a logos item marks a pair never to use: dont",
@@ -620,13 +642,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 15 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 24 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 15);
+  assert.equal(templates.length, 24);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -637,7 +659,7 @@ test("templateCatalog: the 15 templates, each with an example that parses as its
   }
   assert.equal(templates.find((t) => t.template === "dodont")!.items, "a do or a don't with its picture: verdict (needed), asset, title, text, caption");
   assert.equal(templates.find((t) => t.template === "palette")!.items, null);
-  for (const t of ["cards", "links", "pages", "logos", "diagram"]) assert.ok(templates.find((x) => x.template === t)!.items, t);
+  for (const t of ["cards", "links", "pages", "logos", "diagram", "annotated", "faq"]) assert.ok(templates.find((x) => x.template === t)!.items, t);
   assert.equal(templates.find((t) => t.template === "header")!.items, null);
   for (const k of ["id", "tone", "keys", "items", "background", "audience", "contexts", "only"]) assert.ok(common.includes(k), k);
 });
@@ -804,4 +826,155 @@ test("hiddenSlugs: a hidden page and every page under it; a loop ends", () => {
   const page = (slug: string, parent: string | null, hidden = false) => ({ slug, parent, hidden });
   const pages = [page("a", null, true), page("b", "a"), page("c", "b"), page("d", null), page("e", "d"), page("x", "y"), page("y", "x")];
   assert.deepEqual([...hiddenSlugs(pages)].sort(), ["a", "b", "c"]);
+});
+
+// ---- W7: the rest ---------------------------------------------------------------
+
+test("W7 templates: their props and items parse and bind; a stored hotspot parses again", () => {
+  const ok = [
+    {
+      template: "annotated",
+      props: { image: A },
+      items: [
+        { at: [12.5, 50], title: "The mark", key: "logo.mark" },
+        { at: [0, 100], text: "A corner" },
+      ],
+    },
+    { template: "specs", keys: ["logo.minSize", "tone.voice"], contexts: ["default", "print"] },
+    { template: "specimen", keys: ["type.scale", "logo.minSize", "tone.voice"], props: { kind: "motion" } },
+    { template: "pattern", keys: ["logo.mark", "color.primary"], props: { asset: A, scales: [0.5, 1, 2] } },
+    { template: "chart", keys: ["color.primary", "color.secondary"], props: { kind: "donut" } },
+    { template: "copy", keys: ["tone.voice"], props: { form: [{ name: "name", label: "Your name" }], template: "Made by {name}, twice {name}" } },
+    { template: "copy", keys: ["tone.voice"] },
+    { template: "faq", items: [{ title: "Brand", text: "What people feel." }], props: { layout: "definitions" } },
+    { template: "embed", props: { url: "https://www.blender.org/about/", aspect: "auto" } },
+    { template: "request", props: { kind: "review", prompt: "Send us your draft." } },
+    { template: "request" },
+    {
+      template: "cards",
+      props: { layout: "tree" },
+      items: [
+        { title: "Foundation", level: 0 },
+        { title: "Studio", level: 1 },
+      ],
+    },
+    { template: "gallery", props: { layout: "crops" }, items: [{ asset: A }] },
+    { template: "palette", keys: ["color.primary"], props: { simulate: true } },
+    { template: "type", keys: ["type.heading"], props: { formula: { base: 16, ratio: 1.25, steps: 6 } } },
+    { template: "logos", keys: ["logo.mark"], contexts: ["default", "print"], props: { ask: true } },
+  ];
+  const { sections, errors } = parseSections(ok);
+  assert.deepEqual([...errors, ...checkBindings(sections, RULES)], []);
+  assert.deepEqual(sections[0].items?.[0].at, [12.5, 50]);
+  assert.ok(SectionInput.safeParse(JSON.parse(JSON.stringify(sections[0]))).success);
+  assert.equal(sections[10].tone, "panel");
+  assert.deepEqual(
+    checkBindings(
+      parseSections([
+        { template: "specs", keys: ["color.primary"] },
+        { template: "chart", keys: ["tone.voice"] },
+      ]).sections,
+      RULES,
+    ),
+    [
+      "sections[0].keys[0]: a Specs table section shows number and text rules; color.primary is a color",
+      "sections[1].keys[0]: a Chart colors section shows color rules, in series order; tone.voice is text",
+    ],
+  );
+});
+
+test("W7 templates: at, level, url, ask and slots only where they go, each with its path", () => {
+  assert.deepEqual(
+    parseSections([
+      { template: "annotated", items: [{ title: "No point" }] },
+      { template: "annotated", items: [{ at: [101, 0] }] },
+      { template: "cards", items: [{ title: "x", at: [1, 2], level: 3 }] },
+      { template: "cards", items: [{ title: "x", at: [1, 2] }] },
+      { template: "gallery", items: [{ asset: A, level: 1 }] },
+      { template: "embed" },
+      { template: "embed", props: { url: "http://player.vimeo.com/video/1" } },
+      {
+        template: "copy",
+        props: {
+          form: [
+            { name: "who", label: "Who" },
+            { name: "who", label: "Again" },
+          ],
+        },
+      },
+      { template: "copy", props: { form: [{ name: "who", label: "Who" }], template: "{who} and {what}, {what}" } },
+      { template: "logos", keys: ["logo.mark"], props: { ask: true } },
+      { template: "request", props: { kind: "access" } },
+      { template: "faq", items: [{ text: "No question" }] },
+      { template: "embed", contexts: ["default", "print"], props: { url: "https://www.loom.com/embed/x" } },
+      { template: "type", props: { formula: { base: 16, ratio: 1.2 } } },
+    ]).errors,
+    [
+      "sections[0].items[0]: an Annotated image item needs at",
+      "sections[1].items[0].at[0]: Too big: expected number to be <=100",
+      "sections[2].items[0].level: Too big: expected number to be <=2",
+      "sections[3].items[0].at: only annotated items sit at a point",
+      "sections[4].items[0].level: only cards items have a level",
+      "sections[5].props.url: an embed needs the address it shows",
+      "sections[6].props.url: An https:// address",
+      "sections[7].props.form: Each name once",
+      "sections[8].props.template: {what} is not one of props.form's names",
+      "sections[9].props.ask: the chooser picks among the section's contexts; give it contexts",
+      'sections[10].props.kind: Invalid option: expected one of "asset"|"review"|"question"',
+      "sections[11].items[0]: a Questions item needs title",
+      "sections[12].contexts: an Embed section binds no rules, so it has no contexts to show",
+      "sections[13].props.formula.steps: Invalid input: expected number, received undefined",
+    ],
+  );
+});
+
+test("W7: kinds merge on the wire with each template's values named; an annotated image without its picture warns", () => {
+  assert.equal(
+    mergedProps().shape.kind.description,
+    "diagram: clearspace when left out; specimen: spacing, radius, shadow, motion, grid; chart: bar, line, donut; request: asset, review, question",
+  );
+  const page = { slug: "logo", sections: parseSections([{ template: "annotated", items: [{ at: [50, 50] }] }]).sections };
+  assert.deepEqual(pageWarnings(page, [], RULES), ["sections[0].props.image: an annotated image draws its hotspots on a picture; pick one"]);
+});
+
+test("embeds: only the listed hosts frame, over https; proxy.ts frames every one of them", () => {
+  for (const u of ["https://www.youtube-nocookie.com/embed/x", "https://embed.figma.com/design/x", "https://docs.google.com/presentation/d/x/embed"])
+    assert.ok(framed(u), u);
+  for (const u of ["https://www.youtube.com/watch?v=x", "https://figma.com/file/x", "http://player.vimeo.com/video/1", "https://player.vimeo.com.evil.io/x", "nope"]) {
+    assert.ok(!framed(u), u);
+  }
+  const csp = readFileSync(new URL("../proxy.ts", import.meta.url), "utf8")
+    .match(/"frame-src ([^"]+)"/)![1]
+    .split(" ");
+  for (const h of EMBED_HOSTS) assert.ok(csp.includes(`https://${h}`), h);
+});
+
+test("copy: the reader's words fill the slots; a blank one keeps its name", () => {
+  assert.equal(fillSlots("{project} by {author}, made with Blender", { project: "Spring", author: " " }), "Spring by {author}, made with Blender");
+  assert.equal(fillSlots("{name}, {role} {x", { name: "Ton", other: "y" }), "Ton, {role} {x");
+});
+
+test("markdown: what a W7 section draws, embeds, generates and asks", () => {
+  const { sections, errors } = parseSections([
+    { id: "s", template: "specimen", keys: ["type.scale"] },
+    { id: "c", template: "chart", keys: ["color.primary"], props: { kind: "line" } },
+    { id: "g", template: "copy", props: { form: [{ name: "who", label: "Who" }], template: "By {who}" } },
+    { id: "e", template: "embed", props: { url: "https://player.vimeo.com/video/1" } },
+    { id: "l", template: "embed", props: { url: "https://www.blender.org/" } },
+    { id: "r", template: "request", props: { kind: "asset", prompt: "Another format?" } },
+    { id: "q", template: "request" },
+  ]);
+  assert.deepEqual(errors, []);
+  const md = pageMarkdown({ title: "Toolkit", sections }, RULES);
+  for (const line of [
+    "Drawn: spacing.",
+    "Drawn: line.",
+    "Generated from a form: By {who}",
+    "Embedded: https://player.vimeo.com/video/1",
+    "A link: https://www.blender.org/",
+    "Readers ask here (asset): Another format?",
+    "Readers ask here (question).",
+  ]) {
+    assert.ok(md.includes(`\n${line}`), line);
+  }
 });

@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
  * tile with its title, caption and credit. A still opens the lightbox, which
  * steps through this section's stills only, and one marked `download: false`
  * is for reference: it offers no download there. A video plays in place, a
- * muted loop. Laid out as a grid, a bento (an item may span two cells) or a
- * carousel that snaps from one to the next.
+ * muted loop. Laid out as a grid, a bento (an item may span two cells), a
+ * carousel that snaps from one to the next, a collage (columns of pictures
+ * at their own shapes, masonry-like) or crops (each picture cut to the
+ * shapes it gets used at, around its focus point).
  */
 
 /** Tiles per row, up to the section's columns, as its container widens. */
@@ -31,8 +33,27 @@ const GRID: Record<number, string> = {
   4: "@md:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4",
 };
 
-/** A tile's box: a bento's rows are one height, so a tile two cells wide lines up with its neighbours. */
-const SHAPE = { grid: "aspect-[4/3]", bento: "h-56 @3xl:h-72", carousel: "aspect-video" };
+/** A tile's box: a bento's rows are one height, so a tile two cells wide lines up with its neighbours. A collage's is the picture's own. */
+const SHAPE = { grid: "aspect-[4/3]", bento: "h-56 @3xl:h-72", carousel: "aspect-video", collage: "", crops: "" };
+
+/** A collage's columns: CSS columns fill top to bottom, so pictures of different heights pack without gaps. */
+const COLUMNS: Record<number, string> = {
+  1: "",
+  2: "@md:columns-2",
+  3: "@md:columns-2 @3xl:columns-3",
+  4: "@md:columns-2 @3xl:columns-3 @5xl:columns-4",
+};
+
+/** The shapes a picture is cut to: a banner, a square (an avatar, a grid post), a portrait post and a story. */
+const CROPS = [
+  { ratio: 16 / 9, label: "16:9" },
+  { ratio: 1, label: "1:1" },
+  { ratio: 4 / 5, label: "4:5" },
+  { ratio: 9 / 16, label: "9:16" },
+];
+
+/** A collage tile at the picture's own shape, held between a tall portrait and a wide landscape so none is a sliver. */
+const shapeOf = (m: Media) => (m.width && m.height ? Math.min(2, Math.max(0.6, m.width / m.height)) : 4 / 3);
 
 type Picture = {
   m: Media;
@@ -73,16 +94,42 @@ export function GallerySection({ section: s, rules }: SectionProps) {
   );
 
   // One picture needs no carousel.
-  const asked = s.props.layout;
-  const layout: keyof typeof SHAPE = asked === "bento" || (asked === "carousel" && pictures.length > 1) ? asked : "grid";
+  const asked = s.props.layout as string | undefined;
+  const layout = asked && asked in SHAPE && !(asked === "carousel" && pictures.length < 2) ? (asked as keyof typeof SHAPE) : "grid";
 
   const figure = (p: Picture, n: number) => {
     const alt = shown[n].title ?? shown[n].description ?? p.m.filename;
     const credit = p.m.creator ?? p.m.copyright;
     const shape = SHAPE[layout];
+    const ratio = layout === "collage" ? { aspectRatio: shapeOf(p.m) } : undefined;
     return (
       <figure className="space-y-3">
-        {isVideo(p.m) ? <Clip m={p.m} alt={alt} className={shape} /> : <Tile m={p.m} alt={alt} className={shape} onOpen={() => setOpenId(p.m.id)} />}
+        {layout === "crops" ? (
+          // A row at one height; each crop as wide as its shape makes it, wrapping on a phone.
+          <ul aria-label="Crops" className="flex flex-wrap items-end gap-3">
+            {CROPS.map((c) => (
+              <li key={c.label} className="space-y-1.5">
+                {isVideo(p.m) ? (
+                  <Clip m={p.m} alt={`${alt}, cropped to ${c.label}`} className="h-32 @3xl:h-44" style={{ aspectRatio: c.ratio }} />
+                ) : (
+                  <Tile
+                    m={p.m}
+                    alt={`${alt}, cropped to ${c.label}`}
+                    cover
+                    className="h-32 w-auto @3xl:h-44"
+                    style={{ aspectRatio: c.ratio }}
+                    onOpen={() => setOpenId(p.m.id)}
+                  />
+                )}
+                <p className="text-muted-foreground text-xs tabular-nums">{c.label}</p>
+              </li>
+            ))}
+          </ul>
+        ) : isVideo(p.m) ? (
+          <Clip m={p.m} alt={alt} className={shape} style={ratio} />
+        ) : (
+          <Tile m={p.m} alt={alt} className={shape} style={ratio} onOpen={() => setOpenId(p.m.id)} />
+        )}
         <figcaption className="space-y-1">
           {p.i === undefined ? (
             <>
@@ -122,8 +169,16 @@ export function GallerySection({ section: s, rules }: SectionProps) {
                 </div>
               ))}
             </Carousel>
+          ) : layout === "collage" ? (
+            <ul className={cn("gap-x-4", COLUMNS[s.columns])}>
+              {pictures.map((p, n) => (
+                <li key={p.m.id} id={p.anchor} className="mb-6 min-w-0 scroll-mt-20 break-inside-avoid">
+                  {figure(p, n)}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <ul className={cn("grid gap-x-6 gap-y-8", GRID[s.columns], layout === "bento" && "grid-flow-dense gap-x-4")}>
+            <ul className={cn("grid gap-x-6 gap-y-8", layout !== "crops" && GRID[s.columns], layout === "bento" && "grid-flow-dense gap-x-4")}>
               {pictures.map((p, n) => (
                 <li
                   key={p.m.id}
@@ -223,17 +278,31 @@ function Carousel({ count, children }: { count: number; children: React.ReactNod
 
 /**
  * A picture's tile. A photo (a JPEG, or one with a focal point) fills it
- * around its subject; a mark or a drawing is shown whole.
+ * around its subject, as a crop (`cover`) does; a mark or a drawing is shown whole.
  */
-function Tile({ m, alt, className, onOpen }: { m: Media; alt: string; className: string; onOpen: () => void }) {
-  const fill = !!m.focus || m.mime === "image/jpeg";
+function Tile({
+  m,
+  alt,
+  className,
+  style,
+  cover,
+  onOpen,
+}: {
+  m: Media;
+  alt: string;
+  className: string;
+  style?: React.CSSProperties;
+  cover?: boolean;
+  onOpen: () => void;
+}) {
+  const fill = cover || !!m.focus || m.mime === "image/jpeg";
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={`Look at ${alt}`}
       aria-haspopup="dialog"
-      style={focusOf(m)}
+      style={{ ...focusOf(m), ...style }}
       className={cn("bg-muted relative block w-full overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-(--brand-accent)", className)}
     >
       {m.thumbnail ? (
@@ -253,7 +322,7 @@ function Tile({ m, alt, className, onOpen }: { m: Media; alt: string; className:
  * it either way (WCAG 2.2.2).
  * ponytail: every loop on the page plays at once; play only those in view (IntersectionObserver) if a gallery of many gets heavy.
  */
-function Clip({ m, alt, className }: { m: Media; alt: string; className: string }) {
+function Clip({ m, alt, className, style }: { m: Media; alt: string; className: string; style?: React.CSSProperties }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const poster = m.preview ?? m.thumbnail ?? undefined;
@@ -262,7 +331,7 @@ function Clip({ m, alt, className }: { m: Media; alt: string; className: string 
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches) ref.current?.play().catch(() => {});
   }, [m.original]);
   return (
-    <div style={focusOf(m)} className={cn("bg-muted relative overflow-hidden rounded-lg", className)}>
+    <div style={{ ...focusOf(m), ...style }} className={cn("bg-muted relative overflow-hidden rounded-lg", className)}>
       <video
         ref={ref}
         src={m.original}

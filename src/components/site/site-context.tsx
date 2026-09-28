@@ -25,6 +25,8 @@ export type Site = {
   url(id: string, rest?: string): string;
   /** A section's DOM id: the builder prefixes them, so a canvas never clashes with the page around it. */
   idOf(sectionId: string): string;
+  /** The portal the site is shown on, and the headers its visitor got in with; null in the app, where no one outside can ask. */
+  portal: { slug: string; headers?: () => HeadersInit } | null;
 };
 
 const SiteContext = createContext<Site | null>(null);
@@ -35,6 +37,8 @@ export function SiteProvider({
   url,
   idPrefix = "",
   mode = "read",
+  portal,
+  headers,
   children,
 }: {
   view: PageView;
@@ -43,6 +47,9 @@ export function SiteProvider({
   url?: Site["url"];
   idPrefix?: string;
   mode?: Site["mode"];
+  /** The portal's slug, on a portal. */
+  portal?: string;
+  headers?: () => HeadersInit;
   children: React.ReactNode;
 }) {
   const [context, setContext] = useState(view.context);
@@ -65,8 +72,8 @@ export function SiteProvider({
   // The theme's faces as @font-face, so SSR and print show them. A family is the brand's words: no "<" ends the <style>.
   const faces = useMemo(() => fontFaceCss(view.theme.faces, sign).replaceAll("<", "\\3c "), [view.theme.faces, sign]);
   const site = useMemo<Site>(
-    () => ({ view, mode, context, setContext, href, url: sign, idOf: (id) => idPrefix + id }),
-    [view, mode, context, href, sign, idPrefix],
+    () => ({ view, mode, context, setContext, href, url: sign, idOf: (id) => idPrefix + id, portal: portal ? { slug: portal, headers } : null }),
+    [view, mode, context, href, sign, idPrefix, portal, headers],
   );
   return (
     <SiteContext.Provider value={site}>

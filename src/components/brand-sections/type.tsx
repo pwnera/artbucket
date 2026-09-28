@@ -5,7 +5,7 @@ import { IconDownload, IconExternalLink } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
-import { Body, RuleSlot } from "@/components/brand-sections/slots";
+import { Body, Opens, RuleSlot } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { CopyButton } from "@/components/copy-button";
 import { FontPlayground, useAssetFont } from "@/components/font-preview";
@@ -26,17 +26,21 @@ import { cn } from "@/lib/utils";
  * tracking and case. Then each family once, however many rules set it: a
  * line per weight and per script, its character sets (`glyphs`), its files
  * one by one or zipped (unless a rule says download: false), where it comes
- * from, the code to load it elsewhere (`embed`), and a playground.
+ * from, the code to load it elsewhere (`embed`), and a playground. With a
+ * `formula`, the section is that scale instead, set in its first face: the
+ * faces themselves are another type section's.
  */
 export function TypeSection({ section, rules }: SectionProps) {
   const p = section.props;
   const sample = typeof p.sample === "string" ? p.sample : undefined;
   const fonts = rules.filter((r) => r.type === "font");
   const families = familiesOf(fonts);
+  const formula = p.formula as Formula | undefined;
   return (
     <div className="space-y-10">
       <Body />
-      {rules.length > 0 && (
+      {formula && <Scale formula={formula} font={fonts[0]} face={families[0]} sample={sample} />}
+      {!formula && rules.length > 0 && (
         // Its own container: the frame's is the whole section, wider than a reading column.
         <div className="@container">
           <div className={cn("grid gap-x-10 gap-y-8", section.columns > 1 && "@3xl:grid-cols-2")}>
@@ -47,9 +51,7 @@ export function TypeSection({ section, rules }: SectionProps) {
         </div>
       )}
       {p.roles === true && fonts.length > 0 && <Roles rules={fonts} families={families} />}
-      {families.map((f) => (
-        <Family key={f.family} f={f} sample={sample} glyphs={p.glyphs === true} embed={p.embed === true} />
-      ))}
+      {!formula && families.map((f) => <Family key={f.family} f={f} sample={sample} glyphs={p.glyphs === true} embed={p.embed === true} />)}
     </div>
   );
 }
@@ -132,6 +134,48 @@ function inScript(script: string, sample?: string) {
 }
 
 const SCRIPT = new Intl.DisplayNames(["en"], { type: "script" });
+
+// ---- a scale by formula -------------------------------------------------------
+
+type Formula = { base: number; ratio: number; steps: number };
+
+/** Two places for px, three for rem, no trailing zeros. */
+const round = (n: number, places: number) => Number(n.toFixed(places));
+
+/**
+ * A modular scale: base times ratio to the power of each step, from the
+ * top step down to the base, each line set at its size (held to the
+ * container; the numbers say the true size) with its px and its rem (of 16px).
+ */
+function Scale({ formula: { base, ratio, steps }, font, face, sample }: { formula: Formula; font?: ViewRule; face?: Face; sample?: string }) {
+  const weight = font && (fontValue(font.value).weight ?? 400);
+  const text = face ? inScript(face.scripts[0], sample) : { children: sample ?? SCRIPT_SAMPLES.Latn.sample };
+  const lines = (
+    <div className="@container space-y-4">
+      <p className="text-muted-foreground text-sm">
+        {base}px × {ratio}
+        <sup>n</sup>, {steps} steps up
+      </p>
+      {Array.from({ length: steps + 1 }, (_, i) => steps - i).map((n) => {
+        const px = base * ratio ** n;
+        const size = { fontSize: `min(${round(px, 2)}px, 14cqi)` };
+        return (
+          <div key={n} className="grid min-w-0 gap-1 @xl:grid-cols-[10rem_minmax(0,1fr)] @xl:items-baseline @xl:gap-4">
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {n ? `Step ${n}` : "Base"} · {round(px, 2)}px · {round(px / 16, 3)}rem
+            </span>
+            {face ? (
+              <InFace f={face} weight={weight} className="truncate leading-tight" style={size} {...text} />
+            ) : (
+              <p className={cn(HEAD, "truncate leading-tight")} style={size} {...text} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+  return font ? <Opens rule={font}>{lines}</Opens> : lines;
+}
 
 // ---- roles --------------------------------------------------------------------
 

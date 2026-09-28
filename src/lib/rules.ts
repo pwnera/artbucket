@@ -152,7 +152,12 @@ export const FONT_SPEC = z.strictObject({
   // Hides the buttons only: @font-face still serves the files, or readers would not see the face.
   download: z.boolean().optional().describe("false: readers see the face but get no files"),
 });
-export const RULE_SPEC = { color: COLOR_SPEC, number: NUMBER_SPEC, font: FONT_SPEC } as const; // W7 adds text: { copy, max }
+/** Words a book gives to paste as they are: a one-liner, a boilerplate, a required credit. */
+export const TEXT_SPEC = z.strictObject({
+  copy: z.boolean().optional().describe("Readers paste it as it is: a copy button"),
+  max: z.number().int().min(1).max(20000).optional().describe("The most characters it may take where it goes: 30 for a subtitle"),
+});
+export const RULE_SPEC = { color: COLOR_SPEC, number: NUMBER_SPEC, font: FONT_SPEC, text: TEXT_SPEC } as const;
 export type RuleSpec = z.output<(typeof RULE_SPEC)[keyof typeof RULE_SPEC]>;
 
 const label = z
@@ -190,7 +195,7 @@ const rule = <T extends RuleType>(type: T) =>
 const spec = <S extends z.ZodType>(s: S) => s.nullable().optional().describe("Details beyond the value; null clears");
 export const RuleInput = z.discriminatedUnion("type", [
   rule("color").extend({ spec: spec(RULE_SPEC.color) }),
-  rule("text"),
+  rule("text").extend({ spec: spec(RULE_SPEC.text) }),
   rule("number").extend({ spec: spec(RULE_SPEC.number) }),
   rule("list"),
   rule("font").extend({ spec: spec(RULE_SPEC.font) }),

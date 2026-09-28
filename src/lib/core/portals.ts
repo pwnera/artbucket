@@ -42,7 +42,7 @@ import { longSig, pagePath, pageSig } from "@/lib/core/signing";
 import { presentAsset } from "@/lib/core/section-assets";
 import { publishedSource, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
-import { AUDIENCES, LANG, type Audience } from "@/lib/pages";
+import { AUDIENCES, LANG, type Audience, type RequestKind } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
 import { resolve, ruleContext } from "@/lib/rules";
 import { hashPassword, verifyPassword } from "@/lib/share";
@@ -770,33 +770,72 @@ async function adminsOf(p: Row) {
   return rows.map((r) => r.email);
 }
 
+/** What a request section asks for, in the admins' email. */
+const WANTS: Record<Exclude<RequestKind, "access">, string> = { asset: "asks for an asset", review: "asks for a review", question: "has a question" };
+
 /**
- * Ask into a portal that isn't public. It always answers the same, so it
- * can't be used to learn who has asked before; a second ask while one waits
- * is the same ask.
+ * Ask into a portal that isn't public (`kind` access, the default), or ask
+ * its brand team from a request section (an asset, a review, a question).
+ * It always answers the same, so it can't be used to learn who has asked
+ * before; a second ask for access while one waits is the same ask.
+ *
+ * An ask comes from inside: it takes the site's own door (`pass`), and names
+ * a request section the visitor can read, when it names one. So the door
+ * never tells an outsider which pages lie behind it.
  */
-export async function requestAccess(slug: string, input: { email: string; name?: string; note?: string }, ip: string | null) {
-  const [p] = await db.select().from(portals).where(eq(portals.slug, slug));
-  if (!p) throw new AssetError("not_found", "There is no portal here");
-  // A public portal takes asks when some page or section of what it shows is for partners or members.
-  if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
-    throw new AssetError("invalid", "This portal is open: no need to ask");
-  }
-  if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
+export async function requestAccess(
+  slug: string,
+  input: { email: string; name?: string; note?: string; kind?: RequestKind; page?: string; section?: string },
+  ip: string | null,
+  pass: Pass = {},
+) {
+  const kind = input.kind ?? "access";
+  if (kind === "access" && (input.page || input.section)) throw new AssetError("invalid", "page and section: only an ask from a request section says where it came from");
+  if (input.section && !input.page) throw new AssetError("invalid", "section: give the page it is on too");
+  let p: Row;
+  let level: Audience = "everyone";
+  if (kind === "access") {
+    [p] = await db.select().from(portals).where(eq(portals.slug, slug));
+    if (!p) throw new AssetError("not_found", "There is no portal here");
+    // A public portal takes asks when some page or section of what it shows is for partners or members.
+    if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
+      throw new AssetError("invalid", "This portal is open: no need to ask");
+    }
+    if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
+  } else ({ p, level } = await open(slug, pass));
   // Five an hour from one address, thirty an hour in all: enough for real people, not for a flood of email to admins.
   const wait = asks.hit(`${ip ?? "?"}:${p.id}`) || floods.hit(p.id);
   if (wait) throw new AssetError("rate_limited", `Too many requests. Try again in ${Math.ceil(wait / 60)} min`);
+  if (input.page) {
+    const srcs = await publishes(p);
+    const reader = await levelFor(p, level, pass, srcs);
+    const asking = (s: { id: string; template: string }) => s.id === input.section && s.template === "request";
+    const from = srcs.some((src) => readablePages(src, { level: reader }).some((pg) => pg.slug === input.page && (!input.section || pg.sections.some(asking))));
+    if (!from) throw new AssetError("invalid", input.section ? `No request section ${input.section} on the ${input.page} page` : `No page ${input.page}`);
+  }
   const email = input.email.trim().toLowerCase();
-  const [waiting] = await db
-    .select({ id: portalRequests.id })
-    .from(portalRequests)
-    .where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.email, email), eq(portalRequests.status, "pending")));
+  // Each ask is its own message; only access is asked once.
+  const [waiting] =
+    kind === "access"
+      ? await db
+          .select({ id: portalRequests.id })
+          .from(portalRequests)
+          .where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.email, email), eq(portalRequests.kind, "access"), eq(portalRequests.status, "pending")))
+      : [];
   if (!waiting) {
-    await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note: input.note || null });
+    const note = input.note || null;
+    await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note, kind, page: input.page ?? null, section: input.section ?? null });
     const ws = await workspaceById(p.workspaceId);
     const manage = `${await appUrlFor(ws?.organizationId ?? null)}/portals?open=${p.id}`;
+    const who = input.name ? `${input.name} (${email})` : email;
     for (const to of await adminsOf(p)) {
-      await sendAs(ws?.organizationId ?? null, portalRequestEmail(to, { portal: p.name, who: input.name ? `${input.name} (${email})` : email, note: input.note ?? null, url: manage }));
+      const draft = portalRequestEmail(to, { portal: p.name, who, note, url: manage });
+      // ponytail: an ask's words over the access email's; its own template in core/mail.ts when asks grow more than a line.
+      if (kind !== "access") {
+        draft.subject = `${who} ${WANTS[kind]} on ${p.name}`;
+        draft.lines[0] = `${who} ${WANTS[kind]}${input.page ? `, from the ${input.page} page` : ""} of the ${p.name} portal.`;
+      }
+      await sendAs(ws?.organizationId ?? null, draft);
     }
   }
   return { received: true };
@@ -810,6 +849,9 @@ const presentRequest = async (p: Row, d: { host: string; verifiedAt: Date | null
     name: r.name,
     note: r.note,
     status: r.status,
+    kind: r.kind,
+    page: r.page,
+    section: r.section,
     expiresAt: r.expiresAt,
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
@@ -829,14 +871,18 @@ export async function listRequests(caller: Caller, portalId: string) {
   return Promise.all(rows.map((r) => presentRequest(p, d, r)));
 }
 
-/** Say yes or no. Yes makes them a link of their own, emailed when email works, and shown to copy either way. */
+/**
+ * Say yes or no. Yes to access makes them a link of their own, emailed when
+ * email works, and shown to copy either way; yes to an ask marks it done.
+ */
 export async function decideRequest(caller: Caller, portalId: string, requestId: string, status: Exclude<PortalRequestStatus, "pending">) {
   mayManage(caller);
   const p = await row(caller, portalId);
   if (!p) return null;
   const [r] = await db.select().from(portalRequests).where(and(eq(portalRequests.id, requestId), eq(portalRequests.portalId, p.id)));
   if (!r) return null;
-  const key = status === "approved" ? randomBytes(24).toString("base64url") : null;
+  // An ask answered lets nobody in.
+  const key = status === "approved" && r.kind === "access" ? randomBytes(24).toString("base64url") : null;
   const until = new Date(Math.min(Date.now() + REQUEST_DAYS * 86_400_000, p.expiresAt?.getTime() ?? Infinity));
   const [next] = await db
     .update(portalRequests)

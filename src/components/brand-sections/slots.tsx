@@ -132,6 +132,16 @@ export function ItemCaption({ i, as: C = "p", className }: { i: number; as?: "p"
   return text ? <C className={look}>{text}</C> : null;
 }
 
+/** A fold readers open, one at a time in `name` (a question's answer). On the canvas it stays open, so the words in it can be typed. */
+export function ItemFold({ name, className, children }: { name?: string; className?: string; children: React.ReactNode }) {
+  const edit = useEdit();
+  return (
+    <details name={edit ? undefined : name} open={edit ? true : undefined} className={className}>
+      {children}
+    </details>
+  );
+}
+
 /** The item's small tag (Figma, PDF, Partners only), for a template to set where it wants. Written once for every language. */
 export function ItemLabel({ i, as: L = "span", className }: { i: number; as?: "span" | "p"; className?: string }) {
   const it = useItem(i);
@@ -409,7 +419,8 @@ function useItemWords(i: number, field: ItemWord, value: string | undefined): Ty
       ? (next, el) => {
           const find = finder(el);
           const list = typed(next);
-          list.splice(i + 1, 0, { ...BLANK });
+          // At the same depth as the one it follows (a cards tree).
+          list.splice(i + 1, 0, { ...BLANK, ...(it.level !== undefined && { level: it.level }) });
           edit.update(s.id, { items: list });
           // Once React has drawn the new item.
           requestAnimationFrame(() => onceDrawn(() => find(i + 1, "title"), focusEnd));
@@ -534,6 +545,8 @@ function Plain({
           onClear(el);
         }
       }}
+      // In a fold's summary, a space typed would toggle the fold.
+      onKeyUp={(e) => e.key === " " && e.preventDefault()}
     >
       {value}
     </El>

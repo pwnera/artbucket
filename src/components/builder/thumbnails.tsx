@@ -177,6 +177,89 @@ const ART: Record<Template, React.ReactNode> = {
       ))}
     </>
   ),
+  annotated: (
+    <>
+      <R x={4} y={4} w={26} h={22} o={0.2} />
+      {[
+        [11, 11],
+        [22, 19],
+      ].map(([cx, cy], i) => (
+        <g key={i}>
+          <circle cx={cx} cy={cy} r={2.25} fill="currentColor" fillOpacity={0.7} />
+          <R x={34} y={8 + i * 9} w={10} h={2} o={0.5} />
+          <R x={34} y={11.5 + i * 9} w={8} h={1.5} o={0.25} />
+        </g>
+      ))}
+    </>
+  ),
+  specs: (
+    <>
+      <Head />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <R x={4} y={15 + i * 4.5} w={14} h={1.5} o={0.4} />
+          <R x={24} y={15 + i * 4.5} w={7} h={1.5} o={0.3} />
+          <R x={36} y={15 + i * 4.5} w={7} h={1.5} o={0.3} />
+        </g>
+      ))}
+    </>
+  ),
+  specimen: (
+    <>
+      <Head />
+      {[4, 8, 14, 22, 32].map((w, i) => (
+        <R key={i} x={4} y={14 + i * 2.75} w={w} h={1.75} o={0.5} />
+      ))}
+    </>
+  ),
+  pattern: (
+    <>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <circle key={i} cx={8 + (i % 3) * 16} cy={9 + Math.floor(i / 3) * 12} r={4 - (i % 3)} fill="currentColor" fillOpacity={0.4} />
+      ))}
+    </>
+  ),
+  chart: (
+    <>
+      <Head />
+      {[8, 12, 6, 10].map((h, i) => (
+        <R key={i} x={6 + i * 9} y={26 - h} w={6} h={h} o={0.8 - i * 0.18} r={0.5} />
+      ))}
+    </>
+  ),
+  copy: (
+    <>
+      <Head />
+      <R x={4} y={14} w={40} h={6} o={0.12} />
+      <R x={6} y={16.25} w={22} h={1.5} o={0.5} />
+      <rect x={38} y={15.5} width={4} height={3} rx={0.5} fill="none" stroke="currentColor" strokeOpacity={0.6} strokeWidth={0.75} />
+      <R x={4} y={22} w={18} h={4} o={0.2} />
+    </>
+  ),
+  faq: (
+    <>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <R x={4} y={4 + i * 8} w={40} h={6} o={i === 0 ? 0.2 : 0.1} />
+          <R x={6} y={6.25 + i * 8} w={20} h={1.5} o={0.5} />
+          <path d={`M39 ${6.25 + i * 8}l1.5 1.5 1.5-1.5`} stroke="currentColor" strokeOpacity={0.6} strokeWidth={0.75} fill="none" />
+        </g>
+      ))}
+    </>
+  ),
+  embed: (
+    <>
+      <R x={6} y={4} w={36} h={22} o={0.2} />
+      <path d="M21 10.5v9l8-4.5z" fill="currentColor" fillOpacity={0.6} />
+    </>
+  ),
+  request: (
+    <>
+      <Head />
+      <R x={4} y={15} w={40} h={4} o={0.12} />
+      <R x={30} y={22} w={14} h={4} o={0.6} />
+    </>
+  ),
 };
 
 export function Thumbnail({ template, className }: ThumbnailProps) {

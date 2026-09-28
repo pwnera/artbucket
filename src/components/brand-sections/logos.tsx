@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { fileSlug } from "@/lib/branding";
 import { formatBytes } from "@/lib/filename";
 import { pool } from "@/lib/pool";
-import { contextLabel, ruleName } from "@/lib/rules";
+import { contextLabel, resolve, ruleName } from "@/lib/rules";
 import type { ViewAsset, ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import type { Entry } from "@/lib/zip";
@@ -27,7 +27,9 @@ import type { Entry } from "@/lib/zip";
  * URL, captioned by its name, what it is and when to use it. Then every mark
  * on every color the section binds (its keys' and its items' color rules),
  * each item a pair never to use, crossed and numbered with a legend. And the
- * kit: every version's originals in one zip.
+ * kit: every version's originals in one zip. With `ask`, "Which logo?": the
+ * reader picks where the mark will run among the section's contexts, and the
+ * marks show the version for it, else the default, as check_use resolves.
  */
 
 /** Marks per row, as the section's room allows: one on a phone. */
@@ -48,15 +50,26 @@ const current = (a: ViewAsset) => !("supersededBy" in a && a.supersededBy);
 
 const hexOf = (r: ViewRule) => String(r.value).slice(0, 7);
 
+/** `default` in a section's contexts is the rules without one. */
+const contextOf = (c: string) => (c === "default" ? null : c);
+
 export function LogosSection({ section: s, rules: bound }: SectionProps) {
-  const { view } = useSite();
+  const { view, context } = useSite();
   const anchor = useRuleAnchor();
+  const asks = s.props.ask ? (s.contexts ?? []) : [];
+  const [asked, setAsked] = useState(() => asks.find((c) => contextOf(c) === context));
+  // The builder may take the picked one out of the section's contexts.
+  const where = asks.find((c) => c === asked) ?? asks[0];
   // A context's version often has no label of its own: it goes by its default's.
   const nameOf = (key: string) => ruleName(view.rules.find((r) => r.key === key && r.label) ?? { key });
   const items = s.items ?? [];
   // `rules` also carries a background color: grounds are the keys' and items' colors only.
   const grounds = new Set([...s.keys, ...items.flatMap((it) => it.key ?? [])]);
   const marks = bound.filter((r) => s.keys.includes(r.key) && r.type !== "color");
+  // The one to use where the reader said: that context's own version, else the default. "" matches none.
+  const picked = where === undefined ? null : contextOf(where);
+  const own = (k: string) => view.rules.filter((r) => r.key === k && r.type !== "color");
+  const shown = asks.length ? s.keys.flatMap((k) => resolve(own(k), picked ?? "")) : marks;
   const colors = bound.filter((r) => r.type === "color" && grounds.has(r.key));
   const rows = marks.flatMap((r): Row[] => {
     const pics = r.assets.filter(pictured);
@@ -79,12 +92,21 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
     <div className="space-y-10">
       <Body />
       {kit.length > 0 && <Kit files={kit} name={`${fileSlug(view.brand.name)}-logo-kit.zip`} />}
-      {marks.length > 0 && (
+      {where !== undefined && <Where contexts={asks} value={where} onChange={setAsked} />}
+      {shown.length > 0 && (
         // Its own container: the frame's is the whole section, wider than the column this sits in.
         <div className="@container">
           <div className={cn("grid gap-x-6 gap-y-10", GRID[s.columns])}>
-            {marks.map((r) => (
-              <Mark key={r.key} rule={r} name={nameOf(r.key)} id={anchor(r.key)} />
+            {shown.map((r) => (
+              <Mark
+                // Drawn anew for each place picked, so its tiles start on that place's backdrop.
+                key={`${r.key}@${picked ?? ""}`}
+                rule={r}
+                name={nameOf(r.key)}
+                id={anchor(r.key)}
+                dark={picked ? /dark/.test(picked) : undefined}
+                note={picked && !r.context ? `No ${contextLabel(picked).toLowerCase()} version of its own: this one goes there too.` : undefined}
+              />
             ))}
           </div>
         </div>
@@ -102,7 +124,28 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
   );
 }
 
-function Mark({ rule: r, name, id }: { rule: ViewRule; name: string; id?: string }) {
+/** "Which logo?": where the reader's mark will run, one of the section's contexts, as native radios. */
+function Where({ contexts, value, onChange }: { contexts: string[]; value: string; onChange: (c: string) => void }) {
+  const name = useId();
+  return (
+    <fieldset className="space-y-2">
+      <legend className={cn(LABEL, "text-muted-foreground")}>Where will it run?</legend>
+      <div className="flex flex-wrap gap-2">
+        {contexts.map((c) => (
+          <label
+            key={c}
+            className="hover:border-foreground/40 has-[:checked]:bg-foreground has-[:checked]:text-background cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-(--brand-accent)"
+          >
+            <input type="radio" name={name} value={c} checked={c === value} onChange={() => onChange(c)} className="sr-only" />
+            {c === "default" ? "Anywhere else" : contextLabel(c)}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function Mark({ rule: r, name, id, dark, note }: { rule: ViewRule; name: string; id?: string; dark?: boolean; note?: string }) {
   const pics = r.assets.filter(pictured);
   const files = r.assets.filter((a) => !pictured(a));
   return (
@@ -110,13 +153,14 @@ function Mark({ rule: r, name, id }: { rule: ViewRule; name: string; id?: string
       {pics.length > 0 && (
         <div className={cn("grid gap-3", pics.length > 1 && "@lg:grid-cols-2")}>
           {pics.map((a) => (
-            // A dark-background version starts on dark, where it is meant to sit.
-            <LogoTile key={a.id} asset={a} dark={!!r.context && /dark/.test(r.context)} />
+            // A dark-background version starts on dark, where it is meant to sit; as does any mark picked for a dark place.
+            <LogoTile key={a.id} asset={a} dark={dark ?? (!!r.context && /dark/.test(r.context))} />
           ))}
         </div>
       )}
       <div className="space-y-1.5">
         <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>{name}</h3>
+        {note && <p className="text-muted-foreground text-sm">{note}</p>}
         <RuleValue rule={r} />
         {r.usage && (
           <div className="space-y-0.5">

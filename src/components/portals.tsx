@@ -77,7 +77,14 @@ type Request = {
   expiresAt: string | null;
   createdAt: string;
   url: string | null;
+  /** access asks in at the door; the rest come from a request section on a page. */
+  kind: "access" | "asset" | "review" | "question";
+  page: string | null;
+  section: string | null;
 };
+
+/** What a request section asked for, as its row says it. */
+const ASKED: Record<Exclude<Request["kind"], "access">, string> = { asset: "Asset", review: "Review", question: "Question" };
 
 const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
   public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it", icon: IconWorld },
@@ -202,7 +209,8 @@ export function Portals({ portals }: { portals: Portal[] }) {
                   </p>
                 </div>
                 <div className="relative flex items-center gap-1">
-                  {p.access !== "public" && (
+                  {/* A public portal needs no access asks, but its pages' request sections still ask. */}
+                  {(p.access !== "public" || p.brands.length > 0) && (
                     <Button variant={p.pending ? "default" : "ghost"} size="sm" onClick={() => setRequests(p)}>
                       <IconUserQuestion /> {p.pending ? `${p.pending} waiting` : "Requests"}
                     </Button>
@@ -534,6 +542,7 @@ function PortalDialog({
               )}
             </Picks>
           )}
+          {current && current.brands.length > 0 && <PageViews portal={current} />}
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Who gets in</legend>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -821,6 +830,49 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
   );
 }
 
+type Views = { days: number; pages: { brand: { slug: string; name: string }; page: string; views: number }[] };
+
+/** How often its pages were read lately (GET /portals/{id}/views), most read first, each page's brand named when it carries several. */
+function PageViews({ portal }: { portal: Portal }) {
+  // undefined while it loads; null when it couldn't, and nothing is said rather than something wrong.
+  const [got, setGot] = useState<Views | null>();
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/portals/${portal.id}/views`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((b: { data: Views }) => live && setGot(b.data))
+      .catch(() => live && setGot(null));
+    return () => {
+      live = false;
+    };
+  }, [portal.id]);
+  if (got === null) return null;
+  const pages = got?.pages ?? [];
+  const several = portal.brands.length > 1 || pages.some((p) => p.brand.slug !== pages[0].brand.slug);
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-medium">Page views, last {got?.days ?? 30} days</p>
+      {!got ? (
+        <Skeleton className="h-12 w-full" />
+      ) : pages.length === 0 ? (
+        <p className="text-muted-foreground text-xs">None yet. Each page a visitor opens counts here, a day at a time.</p>
+      ) : (
+        <ol aria-label="Page views" className="grid max-h-48 gap-1 overflow-y-auto rounded-md border p-2 text-sm">
+          {pages.map((p) => (
+            <li key={`${p.brand.slug}/${p.page}`} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate">
+                {several && <span className="text-muted-foreground">{p.brand.name}: </span>}
+                {p.page}
+              </span>
+              <span className="text-muted-foreground tabular-nums">{p.views.toLocaleString()}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 /** Where a portal's own links may go, as the API checks them (lib/portal.ts): the web, mail, or a path on the portal. */
 const HREF = "(https?://|mailto:|/(?!/)).*";
 
@@ -1100,7 +1152,8 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
       changed.current = true;
       const next: Request = body.data;
       setRows((rs) => rs?.map((x) => (x.id === r.id ? next : x)) ?? null);
-      if (status === "denied") toast.success(r.status === "approved" ? `${r.email} no longer has access` : "Denied");
+      if (r.kind !== "access") toast.success(status === "approved" ? "Marked done" : "Dismissed");
+      else if (status === "denied") toast.success(r.status === "approved" ? `${r.email} no longer has access` : "Denied");
       else if (body.emailed) toast.success(`${r.email} has access, and a link by email`);
       else {
         // An action, not a copy after the await: Safari refuses a clipboard write that late.
@@ -1132,8 +1185,11 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
     <Dialog open onOpenChange={(o) => !o && onClose(changed.current)}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug break-words">Access requests · {portal.name}</DialogTitle>
-          <DialogDescription>A yes gives them a link of their own, good for 90 days or until the portal closes. Revoke it to take it back.</DialogDescription>
+          <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>
+          <DialogDescription>
+            A yes to access gives them a link of their own, good for 90 days or until the portal closes; revoke it to take it back. Asks from a page&apos;s request section
+            are marked done or dismissed.
+          </DialogDescription>
         </DialogHeader>
         {failed ? (
           <Empty size="sm">
@@ -1161,7 +1217,9 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
                 <IconUserQuestion />
               </EmptyMedia>
               <EmptyTitle>Nobody has asked yet</EmptyTitle>
-              <EmptyDescription>Requests from the portal&apos;s door show here, and admins hear about each one by email.</EmptyDescription>
+              <EmptyDescription>
+                Requests from the portal&apos;s door and its pages&apos; request sections show here, and admins hear about each one by email.
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -1170,7 +1228,19 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
               <li key={r.id} className="grid gap-1.5 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1 truncate font-medium">{r.name ? `${r.name} · ${r.email}` : r.email}</span>
-                  {r.status === "pending" && (
+                  {r.kind !== "access" && <Badge variant="outline">{ASKED[r.kind]}</Badge>}
+                  {r.kind !== "access" && r.status === "pending" && (
+                    <>
+                      <Button size="sm" pending={busy === `${r.id}:approved`} disabled={!!busy} onClick={() => decide(r, "approved")}>
+                        <IconCheck /> Done
+                      </Button>
+                      <Button size="sm" variant="outline" pending={busy === `${r.id}:denied`} disabled={!!busy} onClick={() => decide(r, "denied")}>
+                        Dismiss
+                      </Button>
+                    </>
+                  )}
+                  {r.kind !== "access" && r.status !== "pending" && <Badge variant={r.status === "approved" ? "success" : "outline"}>{r.status === "approved" ? "Done" : "Dismissed"}</Badge>}
+                  {r.kind === "access" && r.status === "pending" && (
                     <>
                       <Button size="sm" pending={busy === `${r.id}:approved`} disabled={!!busy} onClick={() => decide(r, "approved")}>
                         <IconCheck /> Approve
@@ -1180,7 +1250,7 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
                       </Button>
                     </>
                   )}
-                  {r.status === "approved" && (
+                  {r.kind === "access" && r.status === "approved" && (
                     <>
                       <Badge variant="success">Approved{r.expiresAt ? ` until ${new Date(r.expiresAt).toLocaleDateString()}` : ""}</Badge>
                       {r.url && <CopyButton text={r.url} label="Copy their link" what="their link" size="icon-sm" />}
@@ -1196,7 +1266,7 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
                       </Confirm>
                     </>
                   )}
-                  {r.status === "denied" && (
+                  {r.kind === "access" && r.status === "denied" && (
                     <>
                       <Badge variant="outline">Denied</Badge>
                       <Button size="sm" variant="outline" pending={busy === `${r.id}:approved`} disabled={!!busy} onClick={() => decide(r, "approved")}>
@@ -1204,7 +1274,7 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
                       </Button>
                     </>
                   )}
-                  {r.status !== "approved" && (
+                  {(r.status !== "approved" || r.kind !== "access") && (
                     <IconButton
                       variant="ghost"
                       label="Forget this request"
@@ -1217,6 +1287,12 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
                   )}
                 </div>
                 {r.note && <p className="text-muted-foreground">{r.note}</p>}
+                {r.page && (
+                  <p className="text-muted-foreground text-xs">
+                    From {r.page}
+                    {r.section && `#${r.section}`}
+                  </p>
+                )}
                 <p className="text-muted-foreground text-xs" title={exact(r.createdAt)}>
                   Asked {ago(r.createdAt)}
                 </p>

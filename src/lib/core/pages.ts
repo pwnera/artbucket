@@ -28,7 +28,9 @@ import {
   type PageOp,
   type PagePatch,
   type Section,
+  type SectionInput,
 } from "@/lib/pages";
+import { pageSet } from "@/lib/page-sets";
 import { resolve } from "@/lib/rules";
 
 /**
@@ -348,20 +350,32 @@ export async function deletePage(caller: Caller, brandSlug: string | undefined, 
 /**
  * Lay out a brand with no pages from its rules (lib/pages.ts initialPages):
  * the start an agent or a person edits from. A brand with pages is left alone.
+ * A `set` (lib/page-sets.ts) adds six pages on one topic beside the pages
+ * there are instead, and is refused only when one of its slugs is taken.
  */
-export async function generatePages(caller: Caller, brandSlug?: string) {
+export async function generatePages(caller: Caller, brandSlug?: string, set?: { topic: string; parent?: string }) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
-  const rules: BrandRule[] = await listRules(caller.workspace.id, { brand: brand.slug });
-  const drafts = initialPages(rules, brand.name);
-  const made = drafts.map((d, position) => {
+  const drafts: { slug: string; title: string; parent?: string | null; sections: SectionInput[] }[] = set
+    ? pageSet(set.topic, set.parent)
+    : initialPages(await listRules(caller.workspace.id, { brand: brand.slug }), brand.name);
+  if (set && !drafts.length) refuse(["set.topic: needs a letter or a digit, for the pages' slugs"]);
+  const made = drafts.map((d, i) => {
     const { sections, errors } = parseSections(d.sections, d.slug);
-    if (errors.length) throw new Error(`initialPages made a page that doesn't parse: ${errors.join("; ")}`);
-    return { brandId: brand.id, slug: d.slug, title: d.title, position, sections };
+    if (errors.length) throw new Error(`Generated a page that doesn't parse: ${errors.join("; ")}`);
+    // After every page there is; place() numbers them from 0 again.
+    return { brandId: brand.id, slug: d.slug, title: d.title, parent: d.parent ?? null, position: 1e6 + i, sections };
   });
   return tracked(brand.id, caller.actor, [], async (tx) => {
-    const [has] = await tx.select({ id: brandPages.id }).from(brandPages).where(eq(brandPages.brandId, brand.id)).limit(1);
-    if (has) throw new AssetError("conflict", `${brand.slug} has pages already; edit them, or delete them first`);
+    const tree = await tx.select({ slug: brandPages.slug, parent: brandPages.parent }).from(brandPages).where(eq(brandPages.brandId, brand.id));
+    if (!set && tree.length) throw new AssetError("conflict", `${brand.slug} has pages already; edit them, or delete them first`);
+    const taken = made.filter((p) => tree.some((t) => t.slug === p.slug)).map((p) => p.slug);
+    if (taken.length)
+      throw new AssetError("conflict", `${brand.slug} has ${taken.join(", ")} already: rename or delete ${taken.length > 1 ? "them" : "it"}, or pick another topic`);
+    if (tree.length + made.length > MAX_PAGES) throw new AssetError("invalid", `${brand.slug} would have ${tree.length + made.length} pages; ${MAX_PAGES} at most`);
+    refuse(checkTree([...tree, ...made]));
+    for (const p of made) await takeSlug(tx, brand.id, p.slug);
     await tx.insert(brandPages).values(made);
+    await place(tx, brand.id);
     return { brand: brand.slug, pages: made.map((p) => ({ slug: p.slug, title: p.title, sections: p.sections.length })) };
   });
 }

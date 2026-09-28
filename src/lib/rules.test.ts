@@ -155,7 +155,10 @@ test("each type takes its own spec; a misspelled or foreign field is refused", (
   for (const url of ["javascript:alert(1)", "data:text/html,<script>x</script>", "ftp://example.com/inter.zip"]) {
     assert.ok(!parse({ type: "font", value: "Inter", spec: { url } }).success, url);
   }
-  assert.ok(!parse({ type: "text", value: "x", spec: {} }).success, "text has no spec yet");
+  assert.ok(parse({ type: "text", value: "Made with Blender", spec: { copy: true, max: 30 } }).success, "words to paste, and their limit");
+  assert.ok(!parse({ type: "text", value: "x", spec: { max: 0 } }).success);
+  assert.ok(!parse({ type: "text", value: "x", spec: { max: 2.5 } }).success);
+  assert.ok(!parse({ type: "text", value: "x", spec: { unit: "px" } }).success, "a number's field on text");
   assert.ok(!parse({ type: "list", value: ["x"], spec: {} }).success);
   assert.ok(!parse({ type: "color", value: "#e6007e", spec: {}, extra: 1 }).success, "still strict with a spec");
 });
@@ -192,6 +195,7 @@ test("a spec names rules through its pair and gradient stops, and assets through
   assert.deepEqual(specAssets(spec), [texture]);
   assert.deepEqual(specKeys(null), []);
   assert.deepEqual(specKeys({ unit: "px" }), []);
+  assert.deepEqual(specKeys({ copy: true, max: 30 }), []);
   assert.deepEqual(specAssets(undefined), []);
 });
 

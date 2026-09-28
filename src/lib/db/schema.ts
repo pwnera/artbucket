@@ -23,7 +23,7 @@ import type { Metadata } from "@/lib/metadata";
 import type { ThemeSettings } from "@/lib/brand-theme";
 import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
-import type { Audience, PageLayout, PageText, Section, SnapPage } from "@/lib/pages";
+import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
@@ -855,6 +855,8 @@ export type PortalRequestStatus = "pending" | "approved" | "denied";
  * Someone outside asking into a portal that isn't public. Approved, they get
  * a key of their own, found by its hash and kept sealed so the link can be
  * copied again; it stops at `expiresAt` or when the request is deleted.
+ * A request section (lib/pages.ts) asks for an asset, a review or an answer
+ * instead, from the page and section it sits in.
  */
 export const portalRequests = pgTable(
   "portal_requests",
@@ -868,6 +870,10 @@ export const portalRequests = pgTable(
     /** Who they are and what they need it for, in their words. */
     note: text("note"),
     status: text("status").$type<PortalRequestStatus>().notNull().default("pending"),
+    kind: text("kind").$type<RequestKind>().notNull().default("access"),
+    /** Where a request section asked from: a page slug and a section id, as they were then. */
+    page: text("page"),
+    section: text("section"),
     keyHash: text("key_hash").unique(),
     keySealed: text("key_sealed"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -878,7 +884,30 @@ export const portalRequests = pgTable(
   (t) => [
     index("portal_requests_portal_idx").on(t.portalId, t.createdAt.desc()),
     check("portal_requests_status_check", sql`${t.status} in ('pending', 'approved', 'denied')`),
+    check("portal_requests_kind_check", sql`${t.kind} in ('access', 'asset', 'review', 'question')`),
   ],
+);
+
+/**
+ * How often a portal's pages were read, per brand, page and day
+ * (lib/core/usage.ts), for the 30 days of views an admin sees per page.
+ * ponytail: pages only; per-asset downloads come with the v1.3 analytics.
+ */
+export const pageViews = pgTable(
+  "page_views",
+  {
+    portalId: uuid("portal_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** The page's slug when it was read. */
+    page: text("page").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    views: integer("views").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.portalId, t.brandId, t.page, t.day] })],
 );
 
 /**

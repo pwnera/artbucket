@@ -866,6 +866,30 @@
                       }
                     ]
                   }
+                },
+                "spec": {
+                  "description": "Details beyond the value; null clears",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "copy": {
+                          "description": "Readers paste it as it is: a copy button",
+                          "type": "boolean"
+                        },
+                        "max": {
+                          "description": "The most characters it may take where it goes: 30 for a subtitle",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20000
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -1588,6 +1612,31 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2
+                  },
+                  "at": {
+                    "description": "annotated: [x, y], % from the top left",
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "level": {
+                    "description": "cards tree: 0 at the top",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
                   }
                 },
                 "additionalProperties": false
@@ -1700,14 +1749,23 @@
                 "links",
                 "pages",
                 "diagram",
-                "updates"
+                "updates",
+                "annotated",
+                "specs",
+                "specimen",
+                "pattern",
+                "chart",
+                "copy",
+                "faq",
+                "embed",
+                "request"
               ]
             },
             "props": {
               "type": "object",
               "properties": {
                 "image": {
-                  "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
+                  "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
                   "type": "string",
                   "format": "uuid"
                 },
@@ -1743,17 +1801,24 @@
                   "type": "boolean"
                 },
                 "layout": {
-                  "description": "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
                   "type": "string",
                   "enum": [
                     "cards",
                     "list",
+                    "stats",
+                    "checklist",
+                    "tree",
                     "pairs",
                     "grid",
                     "rows",
                     "bento",
                     "carousel",
-                    "masonry"
+                    "collage",
+                    "crops",
+                    "masonry",
+                    "accordion",
+                    "definitions"
                   ]
                 },
                 "show": {
@@ -1790,6 +1855,10 @@
                   "description": "palette: An .ase swatch download",
                   "type": "boolean"
                 },
+                "simulate": {
+                  "description": "palette: Color blindness views",
+                  "type": "boolean"
+                },
                 "sample": {
                   "description": "type: The specimen's starting text",
                   "type": "string",
@@ -1807,8 +1876,39 @@
                   "description": "type: Code to load the faces",
                   "type": "boolean"
                 },
+                "formula": {
+                  "description": "type: base in px",
+                  "type": "object",
+                  "properties": {
+                    "base": {
+                      "type": "number",
+                      "minimum": 4,
+                      "maximum": 200
+                    },
+                    "ratio": {
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "steps": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 12
+                    }
+                  },
+                  "required": [
+                    "base",
+                    "ratio",
+                    "steps"
+                  ],
+                  "additionalProperties": false
+                },
                 "kit": {
                   "description": "logos: A zip of every mark; true when left out",
+                  "type": "boolean"
+                },
+                "ask": {
+                  "description": "logos: Which mark for which context",
                   "type": "boolean"
                 },
                 "collection": {
@@ -1858,13 +1958,24 @@
                   "maximum": 3
                 },
                 "kind": {
-                  "description": "diagram: clearspace when left out",
+                  "description": "diagram: clearspace when left out; specimen: spacing, radius, shadow, motion, grid; chart: bar, line, donut; request: asset, review, question",
                   "type": "string",
                   "enum": [
                     "clearspace",
                     "minsize",
                     "placement",
-                    "cobrand"
+                    "cobrand",
+                    "spacing",
+                    "radius",
+                    "shadow",
+                    "motion",
+                    "grid",
+                    "bar",
+                    "line",
+                    "donut",
+                    "asset",
+                    "review",
+                    "question"
                   ]
                 },
                 "positions": {
@@ -1899,6 +2010,73 @@
                     "x",
                     "none"
                   ]
+                },
+                "asset": {
+                  "description": "pattern: The tile",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "scales": {
+                  "description": "pattern: Tile sizes, as multiples",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 10
+                  }
+                },
+                "form": {
+                  "description": "copy: Fields readers fill",
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 30,
+                        "pattern": "^\\w+$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "template": {
+                  "description": "copy: Their words go in its {name} slots",
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "url": {
+                  "description": "embed: https",
+                  "type": "string",
+                  "maxLength": 2000,
+                  "format": "uri"
+                },
+                "aspect": {
+                  "description": "embed",
+                  "type": "string",
+                  "enum": [
+                    "16:9",
+                    "4:3",
+                    "1:1",
+                    "auto"
+                  ]
+                },
+                "prompt": {
+                  "description": "request: What to ask for",
+                  "type": "string",
+                  "maxLength": 300
                 }
               },
               "additionalProperties": false
@@ -2258,6 +2436,31 @@
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 2
+                          },
+                          "at": {
+                            "description": "annotated: [x, y], % from the top left",
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            ],
+                            "items": false,
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "level": {
+                            "description": "cards tree: 0 at the top",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2
                           }
                         },
                         "additionalProperties": false
@@ -2370,14 +2573,23 @@
                         "links",
                         "pages",
                         "diagram",
-                        "updates"
+                        "updates",
+                        "annotated",
+                        "specs",
+                        "specimen",
+                        "pattern",
+                        "chart",
+                        "copy",
+                        "faq",
+                        "embed",
+                        "request"
                       ]
                     },
                     "props": {
                       "type": "object",
                       "properties": {
                         "image": {
-                          "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture",
+                          "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
                           "type": "string",
                           "format": "uuid"
                         },
@@ -2413,17 +2625,24 @@
                           "type": "boolean"
                         },
                         "layout": {
-                          "description": "cards: cards, list; dodont: pairs, grid, rows; gallery: grid, bento, carousel; collection: grid, masonry, list; links: cards, list; pages: cards, list",
+                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
                           "type": "string",
                           "enum": [
                             "cards",
                             "list",
+                            "stats",
+                            "checklist",
+                            "tree",
                             "pairs",
                             "grid",
                             "rows",
                             "bento",
                             "carousel",
-                            "masonry"
+                            "collage",
+                            "crops",
+                            "masonry",
+                            "accordion",
+                            "definitions"
                           ]
                         },
                         "show": {
@@ -2460,6 +2679,10 @@
                           "description": "palette: An .ase swatch download",
                           "type": "boolean"
                         },
+                        "simulate": {
+                          "description": "palette: Color blindness views",
+                          "type": "boolean"
+                        },
                         "sample": {
                           "description": "type: The specimen's starting text",
                           "type": "string",
@@ -2477,8 +2700,39 @@
                           "description": "type: Code to load the faces",
                           "type": "boolean"
                         },
+                        "formula": {
+                          "description": "type: base in px",
+                          "type": "object",
+                          "properties": {
+                            "base": {
+                              "type": "number",
+                              "minimum": 4,
+                              "maximum": 200
+                            },
+                            "ratio": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 4
+                            },
+                            "steps": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 12
+                            }
+                          },
+                          "required": [
+                            "base",
+                            "ratio",
+                            "steps"
+                          ],
+                          "additionalProperties": false
+                        },
                         "kit": {
                           "description": "logos: A zip of every mark; true when left out",
+                          "type": "boolean"
+                        },
+                        "ask": {
+                          "description": "logos: Which mark for which context",
                           "type": "boolean"
                         },
                         "collection": {
@@ -2528,13 +2782,24 @@
                           "maximum": 3
                         },
                         "kind": {
-                          "description": "diagram: clearspace when left out",
+                          "description": "diagram: clearspace when left out; specimen: spacing, radius, shadow, motion, grid; chart: bar, line, donut; request: asset, review, question",
                           "type": "string",
                           "enum": [
                             "clearspace",
                             "minsize",
                             "placement",
-                            "cobrand"
+                            "cobrand",
+                            "spacing",
+                            "radius",
+                            "shadow",
+                            "motion",
+                            "grid",
+                            "bar",
+                            "line",
+                            "donut",
+                            "asset",
+                            "review",
+                            "question"
                           ]
                         },
                         "positions": {
@@ -2569,6 +2834,73 @@
                             "x",
                             "none"
                           ]
+                        },
+                        "asset": {
+                          "description": "pattern: The tile",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "scales": {
+                          "description": "pattern: Tile sizes, as multiples",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "type": "array",
+                          "items": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 10
+                          }
+                        },
+                        "form": {
+                          "description": "copy: Fields readers fill",
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "maxLength": 30,
+                                "pattern": "^\\w+$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "template": {
+                          "description": "copy: Their words go in its {name} slots",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "url": {
+                          "description": "embed: https",
+                          "type": "string",
+                          "maxLength": 2000,
+                          "format": "uri"
+                        },
+                        "aspect": {
+                          "description": "embed",
+                          "type": "string",
+                          "enum": [
+                            "16:9",
+                            "4:3",
+                            "1:1",
+                            "auto"
+                          ]
+                        },
+                        "prompt": {
+                          "description": "request: What to ask for",
+                          "type": "string",
+                          "maxLength": 300
                         }
                       },
                       "additionalProperties": false
@@ -2870,6 +3202,28 @@
         "description": "A brand's slug; the default brand when left out",
         "type": "string",
         "maxLength": 60
+      },
+      "set": {
+        "description": "Six pages on one topic under parent, beside pages that exist",
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "e.g. logo"
+          },
+          "parent": {
+            "description": "The page they go under; a new page named for the topic when left out",
+            "type": "string",
+            "maxLength": 60,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "additionalProperties": false
       }
     }
   },

@@ -18,7 +18,32 @@ import { fontValue, listStyle, resolve, ruleContext, ruleKey, ruleLabel, section
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const TEMPLATES = ["cover", "header", "text", "split", "cards", "palette", "type", "logos", "dodont", "gallery", "collection", "links", "pages", "diagram", "updates"] as const;
+export const TEMPLATES = [
+  "cover",
+  "header",
+  "text",
+  "split",
+  "cards",
+  "palette",
+  "type",
+  "logos",
+  "dodont",
+  "gallery",
+  "collection",
+  "links",
+  "pages",
+  "diagram",
+  "updates",
+  "annotated",
+  "specs",
+  "specimen",
+  "pattern",
+  "chart",
+  "copy",
+  "faq",
+  "embed",
+  "request",
+] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const WIDTHS = ["text", "wide", "full"] as const;
@@ -261,6 +286,138 @@ export const TEMPLATE_INFO: Record<
     tone: "plain",
     example: { template: "updates", title: "What's new", props: { limit: 5 } },
   },
+  annotated: {
+    name: "Annotated image",
+    use: "A picture (props.image) with numbered hotspots, each explained beside it: the parts of a logo, a layout, a product shot.",
+    binds: null,
+    accepts: null,
+    items: "a hotspot: at (needed, [x, y] in percent from the top left), title, text, key (the rule it points at)",
+    needs: [["at"]],
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: {
+      template: "annotated",
+      title: "Anatomy of the logo",
+      items: [
+        { at: [13, 50], title: "The mark", text: "An orange circle holding a blue dot." },
+        { at: [64, 50], title: "The wordmark", text: "Set in its own letters; never retyped." },
+      ],
+    },
+  },
+  specs: {
+    name: "Specs table",
+    use: "Measurements in a table: a row per rule, a column per context (the section's contexts), each value in its unit.",
+    binds: "number and text rules",
+    accepts: (r) => r.type === "number" || r.type === "text",
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: { template: "specs", title: "Sizes", keys: ["logo.minSize", "logo.clearSpace"], contexts: ["default", "print"] },
+  },
+  specimen: {
+    name: "Token specimen",
+    use: "Design tokens drawn: spacing as bars, radii as corners, shadows on cards, motion as a moving dot, a grid over a frame.",
+    binds: "number, list and text rules (a shadow is CSS in a text rule; motion a number in ms)",
+    accepts: (r) => r.type === "number" || r.type === "list" || r.type === "text",
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: { template: "specimen", title: "Spacing", keys: ["space.scale"], props: { kind: "spacing" } },
+  },
+  pattern: {
+    name: "Pattern",
+    use: "The brand's pattern tiled at a few scales on its colors: props.asset, else a bound rule's picture, else the theme's device.",
+    binds: "rules with assets (the pattern), and color rules (the grounds)",
+    accepts: (r) => hasAssets(r) || r.type === "color",
+    items: null,
+    width: "wide",
+    columns: 3,
+    tone: "plain",
+    example: { template: "pattern", title: "Pattern", keys: ["color.primary", "color.background"], props: { scales: [0.5, 1, 2] } },
+  },
+  chart: {
+    name: "Chart colors",
+    use: "A sample chart in the brand's colors, a series per color in order, with neighbors that are hard to tell apart flagged.",
+    binds: "color rules, in series order",
+    accepts: (r) => r.type === "color",
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: { template: "chart", title: "Charts", keys: ["color.primary", "color.secondary", "color.ink"], props: { kind: "bar" } },
+  },
+  copy: {
+    name: "Copy",
+    use: "Words to paste as they are, each with a copy button and its length limit, and a generator: a form fills props.template (a signature, a credit line) in the reader's browser; nothing is stored.",
+    binds: "text rules (their spec: copy, max)",
+    accepts: (r) => r.type === "text",
+    items: null,
+    width: "text",
+    columns: 1,
+    tone: "plain",
+    example: {
+      template: "copy",
+      title: "Giving credit",
+      keys: ["brand.mission"],
+      props: {
+        form: [
+          { name: "project", label: "Your project" },
+          { name: "author", label: "Your name" },
+        ],
+        template: "{project} by {author}, made with Blender (blender.org)",
+      },
+    },
+  },
+  faq: {
+    name: "Questions",
+    use: "Questions and their answers, opened one at a time, or terms and their meanings: a glossary.",
+    binds: null,
+    accepts: null,
+    items: "a question or a term: title (needed), text (the answer, Markdown)",
+    needs: [["title"]],
+    width: "text",
+    columns: 1,
+    tone: "plain",
+    example: {
+      template: "faq",
+      title: "Questions",
+      items: [
+        { title: "Can I use the logo for my add-on?", text: "To point to Blender, yes. Never as your add-on's own logo." },
+        { title: "Can I change its colors?", text: "No. Keep its orange, blue and white." },
+      ],
+      props: { layout: "accordion" },
+    },
+  },
+  embed: {
+    name: "Embed",
+    use: "A live frame from Figma, YouTube (youtube-nocookie.com), Vimeo, Loom or Google Docs. Any other https address shows as a link card.",
+    binds: null,
+    accepts: null,
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: {
+      template: "embed",
+      title: "Big Buck Bunny",
+      body: "An open movie, made with Blender.",
+      props: { url: "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ", aspect: "16:9" },
+    },
+  },
+  request: {
+    name: "Request",
+    use: "Where portal readers ask the brand team: for an asset, a review of their work, or a question. It is sent with the page and section it came from.",
+    binds: null,
+    accepts: null,
+    items: null,
+    width: "text",
+    columns: 1,
+    tone: "panel",
+    example: { template: "request", title: "Need something else?", props: { kind: "asset", prompt: "The logo in another format or size? Ask the brand team." } },
+  },
 };
 
 // ---- schemas ----------------------------------------------------------------
@@ -269,6 +426,7 @@ export const pageSlug = z.string().max(60).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Us
 export const sectionId = z.string().regex(/^[a-z0-9_-]{1,40}$/i, "Letters, digits, - and _");
 
 const unique = (a: unknown[]) => new Set(a).size === a.length;
+const pct = z.number().min(0).max(100);
 
 /** https:, mailto:, or a link inside the brand (SITE_PATH). */
 export const siteLink = z
@@ -296,12 +454,43 @@ export const Item = z.strictObject({
     .describe("One of the icons a page takes"),
   download: z.boolean().optional().describe("false: for reference, never offered as a download"),
   span: z.number().int().min(1).max(2).optional().describe("gallery bento: 2 takes two cells"),
+  at: z.tuple([pct, pct]).optional().describe("annotated: [x, y], % from the top left"),
+  level: z.number().int().min(0).max(2).optional().describe("cards tree: 0 at the top"),
 });
 export type Item = z.output<typeof Item>;
 
 const image = z.uuid().optional().describe("An asset id, from search_assets");
 /** What a diagram draws. lib/diagram.ts holds the geometry. */
 export const DIAGRAMS = ["clearspace", "minsize", "placement", "cobrand"] as const;
+
+/** What a request section asks the brand team for. A portal's door asks for access, the fourth kind a request row holds. */
+export const ASKS = ["asset", "review", "question"] as const;
+export const REQUEST_KINDS = ["access", ...ASKS] as const;
+export type RequestKind = (typeof REQUEST_KINDS)[number];
+
+/**
+ * The hosts an embed section frames, as these services' embed codes write
+ * them; proxy.ts frame-src lets each in (pages.test.ts checks). Any other
+ * https address still saves, and readers get a link card to it: a watch page
+ * (youtube.com, figma.com without www) is a link, not a frame.
+ */
+export const EMBED_HOSTS = ["www.figma.com", "embed.figma.com", "www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com"] as const;
+
+/** Whether an embed section frames its address, or shows it as a link card. */
+export function framed(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && (EMBED_HOSTS as readonly string[]).includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** A copy section's form field in its template: `{project}`. */
+const SLOT = /\{(\w+)\}/g;
+
+/** A copy section's template with the reader's words in its slots; a slot left blank keeps its `{name}`, so the gap shows. */
+export const fillSlots = (template: string, values: Record<string, string>) => template.replace(SLOT, (slot, name: string) => values[name]?.trim() || slot);
 
 /** Each template's own settings. Strict: a misspelled one is an error, not ignored. */
 export const TEMPLATE_PROPS = {
@@ -315,7 +504,7 @@ export const TEMPLATE_PROPS = {
   header: z.strictObject({ image: image.describe("A picture in the band") }),
   text: z.strictObject({}),
   split: z.strictObject({ image: image.describe("Shown beside the words; else the first bound rule's picture"), flip: z.boolean().optional().describe("Image on the left") }),
-  cards: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
+  cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "checklist", "tree"]).optional() }),
   // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
   palette: z.strictObject({
     show: z
@@ -326,16 +515,24 @@ export const TEMPLATE_PROPS = {
     media: z.enum(["screen", "print"]).optional().describe("Values it opens on; screen when left out"),
     matrix: z.boolean().optional().describe("Contrast of every pair"),
     ase: z.boolean().optional().describe("An .ase swatch download"),
+    simulate: z.boolean().optional().describe("Color blindness views"),
   }),
   type: z.strictObject({
     sample: z.string().max(200).optional().describe("The specimen's starting text"),
     roles: z.boolean().optional().describe("A table of roles"),
     glyphs: z.boolean().optional().describe("Character sets"),
     embed: z.boolean().optional().describe("Code to load the faces"),
+    formula: z
+      .strictObject({ base: z.number().min(4).max(200), ratio: z.number().min(1).max(4), steps: z.number().int().min(1).max(12) })
+      .optional()
+      .describe("base in px"),
   }),
-  logos: z.strictObject({ kit: z.boolean().optional().describe("A zip of every mark; true when left out") }),
+  logos: z.strictObject({
+    kit: z.boolean().optional().describe("A zip of every mark; true when left out"),
+    ask: z.boolean().optional().describe("Which mark for which context"),
+  }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
-  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel"]).optional() }),
+  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),
   collection: z
     .strictObject({
       collection: z.uuid().optional().describe("A collection's id"),
@@ -365,6 +562,33 @@ export const TEMPLATE_PROPS = {
   }),
   // collection's limit, so the prop keeps one kind (mergedProps); checkSection holds it to 20 here.
   updates: z.strictObject({ limit: z.number().int().min(1).max(200).optional().describe("How many publishes; 5 when left out, 20 at most") }),
+  annotated: z.strictObject({ image: z.uuid().optional() }),
+  specs: z.strictObject({}),
+  specimen: z.strictObject({ kind: z.enum(["spacing", "radius", "shadow", "motion", "grid"]).optional() }),
+  pattern: z.strictObject({
+    asset: z.uuid().optional().describe("The tile"),
+    scales: z.array(z.number().min(0.1).max(10)).min(1).max(6).optional().describe("Tile sizes, as multiples"),
+  }),
+  chart: z.strictObject({ kind: z.enum(["bar", "line", "donut"]).optional() }),
+  copy: z.strictObject({
+    form: z
+      .array(z.strictObject({ name: z.string().max(30).regex(/^\w+$/, "Letters, digits and _"), label: z.string().trim().min(1).max(60) }))
+      .max(8)
+      .refine((f) => unique(f.map((x) => x.name)), "Each name once")
+      .optional()
+      .describe("Fields readers fill"),
+    template: z.string().trim().max(2000).optional().describe("Their words go in its {name} slots"),
+  }),
+  faq: z.strictObject({ layout: z.enum(["accordion", "definitions"]).optional() }),
+  embed: z.strictObject({
+    url: z
+      .url({ protocol: /^https$/, error: "An https:// address" })
+      .max(2000)
+      .optional()
+      .describe("https"),
+    aspect: z.enum(["16:9", "4:3", "1:1", "auto"]).optional(),
+  }),
+  request: z.strictObject({ kind: z.enum(ASKS).optional(), prompt: z.string().trim().max(300).optional().describe("What to ask for") }),
 } satisfies Record<Template, z.ZodType>;
 
 const Background = z.strictObject({
@@ -448,6 +672,15 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("pages", TEMPLATE_PROPS.pages),
   variant("diagram", TEMPLATE_PROPS.diagram),
   variant("updates", TEMPLATE_PROPS.updates),
+  variant("annotated", TEMPLATE_PROPS.annotated),
+  variant("specs", TEMPLATE_PROPS.specs),
+  variant("specimen", TEMPLATE_PROPS.specimen),
+  variant("pattern", TEMPLATE_PROPS.pattern),
+  variant("chart", TEMPLATE_PROPS.chart),
+  variant("copy", TEMPLATE_PROPS.copy),
+  variant("faq", TEMPLATE_PROPS.faq),
+  variant("embed", TEMPLATE_PROPS.embed),
+  variant("request", TEMPLATE_PROPS.request),
 ]);
 export type SectionInput = z.input<typeof SectionInput>;
 
@@ -696,6 +929,9 @@ export function parseSections(raw: unknown[], prefix = "sections"): { sections: 
   return { sections, errors };
 }
 
+/** "a Cards", "an Embed": a template's name as a message says it. */
+const an = (name: string) => `${/^[aeiou]/i.test(name) ? "an" : "a"} ${name}`;
+
 /** What zod can't state about a section: grounds that need their parameter, and items only where the template lists them. */
 export function checkSection(s: Section, at: string): string[] {
   const info = TEMPLATE_INFO[s.template];
@@ -705,8 +941,8 @@ export function checkSection(s: Section, at: string): string[] {
   if (s.tone !== "color" && bg.color) errors.push(`${at}.background.color: only for tone color`);
   if (s.tone === "image" && !bg.image) errors.push(`${at}.background.image: tone image needs a picture`);
   if (s.tone !== "image" && (bg.image || bg.scrim !== undefined)) errors.push(`${at}.background.${bg.image ? "image" : "scrim"}: only for tone image`);
-  if (s.contexts && !info.accepts) errors.push(`${at}.contexts: a ${info.name} section binds no rules, so it has no contexts to show`);
-  if (s.items?.length && !info.items) errors.push(`${at}.items: a ${info.name} section takes no items`);
+  if (s.contexts && !info.accepts) errors.push(`${at}.contexts: ${an(info.name)} section binds no rules, so it has no contexts to show`);
+  if (s.items?.length && !info.items) errors.push(`${at}.items: ${an(info.name)} section takes no items`);
   else if (s.items?.length && s.template === "diagram" && s.props.kind !== "cobrand") errors.push(`${at}.items: only a cobrand diagram takes items, its partner`);
   else {
     s.items?.forEach((it, k) => {
@@ -714,14 +950,23 @@ export function checkSection(s: Section, at: string): string[] {
       if (it.verdict && s.template !== "dodont" && !(s.template === "logos" && it.verdict === "dont"))
         errors.push(`${at}.items[${k}].verdict: ${s.template === "logos" ? "a logos item marks a pair never to use: dont" : "only do/don't and logos items take a verdict"}`);
       if (it.span !== undefined && s.template !== "gallery") errors.push(`${at}.items[${k}].span: only gallery items span`);
+      if (it.at && s.template !== "annotated") errors.push(`${at}.items[${k}].at: only annotated items sit at a point`);
+      if (it.level !== undefined && s.template !== "cards") errors.push(`${at}.items[${k}].level: only cards items have a level`);
       for (const group of info.needs ?? []) {
-        if (!group.some((f) => it[f] !== undefined)) errors.push(`${at}.items[${k}]: a ${info.name} item needs ${group.join(" or ")}`);
+        if (!group.some((f) => it[f] !== undefined)) errors.push(`${at}.items[${k}]: ${an(info.name)} item needs ${group.join(" or ")}`);
       }
       if (s.template === "pages" && it.link && !it.link.startsWith("/")) errors.push(`${at}.items[${k}].link: a page of this brand, as /slug`);
     });
   }
   if (s.items?.length && s.props.from) errors.push(`${at}.props.from: items pick the pages, from shows a page's children; one or the other`);
   if (s.template === "updates" && (s.props.limit as number) > 20) errors.push(`${at}.props.limit: an updates section lists 20 publishes at most`);
+  if (s.template === "embed" && !s.props.url) errors.push(`${at}.props.url: an embed needs the address it shows`);
+  if (s.props.ask && !s.contexts) errors.push(`${at}.props.ask: the chooser picks among the section's contexts; give it contexts`);
+  if (s.template === "copy") {
+    const fields = ((s.props.form ?? []) as { name: string }[]).map((f) => f.name);
+    const slots = new Set([...String(s.props.template ?? "").matchAll(SLOT)].map((m) => m[1]));
+    for (const name of slots) if (!fields.includes(name)) errors.push(`${at}.props.template: {${name}} is not one of props.form's names`);
+  }
   return errors;
 }
 
@@ -754,12 +999,12 @@ export function renameKey(sections: Section[], from: string, to: string): Sectio
   });
 }
 
-/** Every asset a page names, with where: its cover, props images and videos, backgrounds, items. */
+/** Every asset a page names, with where: its cover, props images, videos and pattern tiles, backgrounds, items. */
 export function assetRefs(page: { cover?: string | null; sections: Section[] }): { id: string; at: string }[] {
   const out = page.cover ? [{ id: page.cover, at: "cover" }] : [];
   page.sections.forEach((s, i) => {
     const at = `sections[${i}]`;
-    for (const k of ["image", "video"]) if (typeof s.props[k] === "string") out.push({ id: s.props[k], at: `${at}.props.${k}` });
+    for (const k of ["image", "video", "asset"]) if (typeof s.props[k] === "string") out.push({ id: s.props[k], at: `${at}.props.${k}` });
     if (s.background?.image) out.push({ id: s.background.image, at: `${at}.background.image` });
     s.items?.forEach((it, k) => it.asset && out.push({ id: it.asset, at: `${at}.items[${k}].asset` }));
   });
@@ -809,7 +1054,7 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
   const errors: string[] = [];
   sections.forEach((s, i) => {
     const info = TEMPLATE_INFO[s.template];
-    if (!info.accepts && s.keys.length) errors.push(`${prefix}[${i}].keys: a ${info.name} section binds no rules`);
+    if (!info.accepts && s.keys.length) errors.push(`${prefix}[${i}].keys: ${an(info.name)} section binds no rules`);
     for (const { key: k, at } of bindings(s)) {
       const r = byKey.get(k);
       if (!r) {
@@ -821,7 +1066,9 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
         const what = at === "background.color" ? "a background" : "a logos item's key";
         if (r.type !== "color") errors.push(`${prefix}[${i}].${at}: ${what} is a color rule; ${k} is ${TYPE_WORD[r.type]}`);
       } else if (at.startsWith("keys[") && info.accepts && !info.accepts(r)) {
-        errors.push(`${prefix}[${i}].${at}: a ${info.name} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.binds?.includes("assets") && !hasAssets(r) ? " with no assets" : ""}`);
+        errors.push(
+          `${prefix}[${i}].${at}: ${an(info.name)} section shows ${info.binds}; ${k} is ${TYPE_WORD[r.type]}${info.binds?.includes("assets") && !hasAssets(r) ? " with no assets" : ""}`,
+        );
       }
     }
   });
@@ -915,7 +1162,7 @@ const DIAGRAM_NEEDS: Partial<Record<(typeof DIAGRAMS)[number], string>> = {
   minsize: "a number rule, its minimum size in px or mm",
 };
 
-/** A section's warnings that are about its rules rather than its links: units that mix, a diagram with nothing to draw from. */
+/** A section's warnings that are about what it draws rather than its links: units that mix, a diagram or an annotated image with nothing to draw on. */
 function ruleWarnings(s: Section, at: string, rules: Warned[]): string[] {
   const out: string[] = [];
   const keys = new Set(boundKeys(s));
@@ -932,6 +1179,8 @@ function ruleWarnings(s: Section, at: string, rules: Warned[]): string[] {
     if (DIAGRAM_NEEDS[kind] && !bound.some((r) => r.type === "number")) out.push(`${at}.keys: a ${kind} diagram draws from ${DIAGRAM_NEEDS[kind]}; bind one`);
     if (kind === "cobrand" && !s.items?.length && !s.props.partner) out.push(`${at}: a cobrand diagram needs its partner: an item with their mark, or props.partner`);
   }
+  // Saved without it, so a starter section can be added before its picture is picked.
+  if (s.template === "annotated" && !s.props.image) out.push(`${at}.props.image: an annotated image draws its hotspots on a picture; pick one`);
   return out;
 }
 
@@ -1118,6 +1367,9 @@ type MarkdownPage = Pick<SnapPage, "title" | "sections"> & {
   layout?: PageLayout | null;
 };
 
+/** What a template with a `kind` draws when it is left out. */
+const DRAWN: Partial<Record<Template, string>> = { diagram: "clearspace", specimen: "spacing", chart: "bar" };
+
 /** A page as Markdown: what it says and shows, for an agent to read or check its work against. */
 export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
   const byKey = new Map(rules.map((r) => [r.key, r]));
@@ -1144,10 +1396,14 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
     if (lines.length) out.push("", ...lines);
     if (s.template === "logos" && s.items?.length) out.push("", ...s.items.map((it) => `- Don't: asset ${it.asset} on \`${it.key}\`${it.caption ? `. ${it.caption}` : ""}`));
     else if (s.items?.length) out.push("", ...s.items.map(itemLine));
-    if (s.template === "diagram") {
+    const drawn = DRAWN[s.template];
+    if (drawn) {
       const p = s.props as { kind?: string; positions?: string[]; partner?: string };
-      out.push("", `Drawn: ${p.kind ?? "clearspace"}${p.positions?.length ? `, at ${p.positions.join(", ")}` : ""}${p.partner ? `, beside ${p.partner}` : ""}.`);
+      out.push("", `Drawn: ${p.kind ?? drawn}${p.positions?.length ? `, at ${p.positions.join(", ")}` : ""}${p.partner ? `, beside ${p.partner}` : ""}.`);
     }
+    if (s.template === "copy" && s.props.template) out.push("", `Generated from a form: ${s.props.template}`);
+    if (s.template === "embed") out.push("", `${framed(String(s.props.url)) ? "Embedded" : "A link"}: ${s.props.url}`);
+    if (s.template === "request") out.push("", `Readers ask here (${(s.props.kind as string | undefined) ?? "question"})${s.props.prompt ? `: ${s.props.prompt}` : "."}`);
     if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
     if (s.template === "pages" && !s.items?.length) out.push("", `The pages under ${typeof s.props.from === "string" ? `/${s.props.from}` : "this one"}.`);
     if (s.template === "collection") {

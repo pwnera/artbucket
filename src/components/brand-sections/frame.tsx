@@ -79,10 +79,13 @@ export function SectionFrame({
   rules,
   View,
   own,
+  tabs = true,
 }: SectionProps & {
   View: React.ComponentType<SectionProps>;
   /** The template draws its own heading and ground (cover, header). */
   own?: boolean;
+  /** A tab per context; false when the template lays its contexts out itself (specs). */
+  tabs?: boolean;
 }) {
   const { view, context, idOf } = useSite();
   const ground = useGround(s);
@@ -109,7 +112,7 @@ export function SectionFrame({
     );
 
   // Every panel stays in the DOM, hidden when not picked, so print shows them all.
-  const content = s.contexts ? (
+  const content = s.contexts && tabs ? (
     <Tabs defaultValue={s.contexts.find((c) => contextOf(c) === context) ?? s.contexts[0]} className="gap-6">
       <TabsList variant="line" aria-label="Context">
         {s.contexts.map((c) => (

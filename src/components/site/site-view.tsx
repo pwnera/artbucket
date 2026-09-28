@@ -88,7 +88,7 @@ const GRID = {
  */
 export function SiteView({ view, href, url, mode, ...p }: SiteViewProps) {
   return (
-    <SiteProvider view={view} href={href} url={url} mode={mode}>
+    <SiteProvider view={view} href={href} url={url} mode={mode} portal={p.portal?.slug} headers={p.headers}>
       <Layout {...p} />
     </SiteProvider>
   );

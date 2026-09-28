@@ -30,12 +30,13 @@ const PLACEHOLDERS: BookAssets = {
 
 /**
  * Blender: the seed's rules (scripts/seed-demo.ts) with labels, specs (print
- * values, tints, a gradient, font roles and metrics, units, a print size), an
- * ink, and six pages that use every template, items, tones, tabs and a tree
- * (logo-use, with a diagram of each kind, sits under logo), and a landing
- * home with What's new. Every page links and binds only what is there, so
- * get_page answers it with no missing keys and no warnings. The eval edits
- * the logo page and counts its sections, so new sections go elsewhere.
+ * values, tints, a gradient, font roles and metrics, units, a print size,
+ * words to paste), an ink, tokens, and seven pages that use every template,
+ * items, tones, tabs and a tree (logo-use, with a diagram of each kind, sits
+ * under logo), and a landing home with What's new. Every page links and binds
+ * only what is there, so get_page answers it with no missing keys and no
+ * warnings. The eval edits the logo page and counts its sections, so new
+ * sections go elsewhere.
  */
 export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
   return {
@@ -186,6 +187,21 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
       },
       { key: "tone.always", label: "We say", type: "list", value: ["Plain words", "Credit the community", "Say free and open source"] },
       { key: "tone.avoid", label: "We avoid", type: "list", value: ["Hype", "Exclamation marks", "Em dashes"] },
+      {
+        key: "copy.oneLiner",
+        label: "One-liner",
+        type: "text",
+        value: "Blender is the free and open source 3D creation suite.",
+        usage: "Listings, bios and footers.",
+        spec: { copy: true, max: 80 },
+      },
+      { key: "copy.credit", label: "Credit", type: "text", value: "Made with Blender", usage: "Beside the other tools you used.", spec: { copy: true, max: 30 } },
+      { key: "space.scale", label: "Spacing", type: "list", value: [4, 8, 12, 16, 24, 32, 48], usage: "Pixels. Padding and gaps come from the scale." },
+      { key: "radius.corner", label: "Corners", type: "number", value: 6, usage: "Buttons, cards and fields.", spec: { unit: "px" } },
+      { key: "shadow.card", label: "Card shadow", type: "text", value: "0 1px 3px rgb(0 0 0 / 0.12)", usage: "Cards over the page; nothing else casts one." },
+      { key: "motion.duration", label: "Duration", type: "number", value: 200, usage: "Panels and menus open in this time.", spec: { unit: "ms" } },
+      { key: "grid.columns", label: "Columns", type: "number", value: 12 },
+      { key: "grid.gutter", label: "Gutter", type: "number", value: 24, spec: { unit: "px" } },
     ],
 
     pages: [
@@ -205,6 +221,28 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             keys: ["brand.mission"],
             aside: "New here? Start with [the logo](/logo), then [how to use it](/logo-use#misuse).",
           },
+          {
+            id: "numbers",
+            template: "cards",
+            title: "In short",
+            props: { layout: "stats" },
+            items: [
+              { title: "100%", text: "Free and open source" },
+              { title: "GPL", text: "Its license, since 2002" },
+              { title: "4.0", text: "The release that set its interface in Inter" },
+            ],
+          },
+          {
+            id: "family",
+            template: "cards",
+            title: "The family",
+            props: { layout: "tree" },
+            items: [
+              { title: "Blender Foundation", text: "The non-profit that keeps Blender free.", level: 0 },
+              { title: "Blender Institute", text: "Its office in Amsterdam.", level: 1 },
+              { title: "Blender Studio", text: "Open movies and training, made with Blender.", level: 2 },
+            ],
+          },
           { id: "glance", template: "palette", title: "At a glance", keys: ["color.primary", "color.secondary", "color.background"], tone: "tint" },
           {
             id: "in-use",
@@ -216,6 +254,13 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
               { asset: a.wordmark, title: "Credits", caption: "The logo, linked to blender.org.", span: 2 },
               { asset: a.mark, title: "App icon", caption: "The mark alone, where the name is already on screen.", download: false },
             ],
+          },
+          {
+            id: "film",
+            template: "embed",
+            title: "Big Buck Bunny",
+            body: "An open movie, made with Blender.",
+            props: { url: "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ", aspect: "16:9" },
           },
           { id: "library", template: "collection", title: "From the library", props: { query: "type=image", limit: 12 } },
           {
@@ -316,6 +361,49 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
               { asset: a.mark, caption: "A splash screen." },
             ],
           },
+          {
+            id: "anatomy",
+            template: "annotated",
+            title: "Anatomy of the logo",
+            props: { image: a.wordmark },
+            items: [
+              { at: [13, 50], title: "The mark", text: "An orange circle holding a blue dot.", key: "logo.mark" },
+              { at: [64, 50], title: "The wordmark", text: "Set in its own letters; never retyped.", key: "logo.wordmark" },
+            ],
+          },
+          { id: "sizes", template: "specs", title: "Sizes", keys: ["logo.minSize", "logo.clearSpace", "logo.margin"], contexts: ["default", "print"] },
+          {
+            id: "which",
+            template: "logos",
+            title: "Which logo?",
+            keys: ["logo.mark", "logo.wordmark"],
+            contexts: ["default", "dark-background"],
+            props: { ask: true, kit: false },
+          },
+          {
+            id: "wild",
+            template: "gallery",
+            title: "In the wild",
+            props: { layout: "collage" },
+            items: [
+              { asset: a.wordmark, caption: "A title card." },
+              { asset: a.mark, caption: "A sticker." },
+              { asset: a.wordmark, caption: "A slide." },
+            ],
+          },
+          {
+            id: "details",
+            template: "gallery",
+            title: "Details",
+            props: { layout: "crops" },
+            items: [{ asset: a.wordmark, caption: "The mark, from the logo." }, { asset: a.mark }],
+          },
+          {
+            id: "ask",
+            template: "request",
+            title: "Need another format?",
+            props: { kind: "asset", prompt: "The logo as an EPS, or at a size not here? Ask the brand team." },
+          },
         ],
       },
       {
@@ -331,7 +419,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             keys: ["color.primary", "color.secondary", "color.background", "color.ink"],
             contexts: ["default", "dark-background"],
             tab: "Screen",
-            props: { matrix: true, ase: true },
+            props: { matrix: true, ase: true, simulate: true },
           },
           { id: "blend", template: "palette", title: "Gradient", body: "For covers and title cards; everywhere else, its solid.", keys: ["color.blend"], tone: "dark", tab: "Screen" },
           {
@@ -349,6 +437,15 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             tab: "Print",
             props: { media: "print", show: ["pantone", "cmyk", "ral", "hex"], ase: true },
           },
+          {
+            id: "charts",
+            template: "chart",
+            title: "Charts",
+            body: "Series take the palette in order.",
+            keys: ["color.primary", "color.secondary", "color.ink"],
+            props: { kind: "bar" },
+          },
+          { id: "pattern", template: "pattern", title: "Pattern", keys: ["color.primary", "color.background"], props: { scales: [0.5, 1, 2] } },
         ],
       },
       {
@@ -371,6 +468,20 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             body: "Headings one weight step up from the text, never in italics. Sizes from the scale, nothing between steps.",
             tone: "pattern",
           },
+          { id: "formula", template: "type", title: "Scale by formula", keys: ["type.heading"], props: { formula: { base: 16, ratio: 1.25, steps: 5 } } },
+        ],
+      },
+      {
+        slug: "space",
+        title: "Space and motion",
+        lede: "The tokens the interface is built with.",
+        icon: "sparkles",
+        sections: [
+          { id: "spacing", template: "specimen", title: "Spacing", keys: ["space.scale"], props: { kind: "spacing" } },
+          { id: "corners", template: "specimen", title: "Corners", keys: ["radius.corner"], props: { kind: "radius" } },
+          { id: "shadow", template: "specimen", title: "Shadow", keys: ["shadow.card"], props: { kind: "shadow" } },
+          { id: "motion", template: "specimen", title: "Motion", keys: ["motion.duration"], props: { kind: "motion" } },
+          { id: "grid", template: "specimen", title: "Grid", keys: ["grid.columns", "grid.gutter"], props: { kind: "grid" } },
         ],
       },
       {
@@ -395,6 +506,46 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             title: "What we say",
             keys: ["tone.always"],
             items: [{ title: "Free and open source", text: "Say both, every time.", icon: "heart" }],
+          },
+          {
+            id: "words",
+            template: "copy",
+            title: "Words to paste",
+            keys: ["copy.oneLiner", "copy.credit"],
+            props: {
+              form: [
+                { name: "project", label: "Your project" },
+                { name: "author", label: "Your name" },
+              ],
+              template: "{project} by {author}, made with Blender (blender.org)",
+            },
+          },
+          {
+            id: "check",
+            template: "cards",
+            title: "Before you publish",
+            props: { layout: "checklist" },
+            items: [{ title: "Blender with a capital B" }, { title: "The logo links to blender.org" }, { title: "No exclamation marks" }],
+          },
+          {
+            id: "faq",
+            template: "faq",
+            title: "Questions",
+            props: { layout: "accordion" },
+            items: [
+              { title: "Can I use the logo for my add-on?", text: "To point to Blender, yes. Never as your add-on's own logo." },
+              { title: "Can I sell prints of my renders?", text: "Yes. What you make with Blender is yours." },
+            ],
+          },
+          {
+            id: "glossary",
+            template: "faq",
+            title: "Glossary",
+            props: { layout: "definitions" },
+            items: [
+              { title: "Mark", text: "The circle and dot, without the name." },
+              { title: "Logo", text: "The mark beside the wordmark." },
+            ],
           },
         ],
       },

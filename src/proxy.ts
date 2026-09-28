@@ -40,7 +40,8 @@ const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace(":
  * Scripts: Next's inline bootstrap needs 'unsafe-inline' without nonces, which
  * would make every page dynamic; the Lottie player's WebAssembly, fetched from
  * jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
- * (lib/preview.ts). Connections: browser uploads go straight to storage.
+ * (lib/preview.ts), and an embed section's hosts (lib/pages.ts EMBED_HOSTS).
+ * Connections: browser uploads go straight to storage.
  */
 const CSP = [
   "default-src 'self'",
@@ -51,7 +52,7 @@ const CSP = [
   `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
-  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com",
+  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
