@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { parseTransform, PRESETS, serializeTransform } from "@/lib/transform";
 import { cn } from "@/lib/utils";
 
-/** "Web" for a preset's spec, the spec itself otherwise, "Original" for none. */
-export const renditionLabel = (spec: string | null) =>
-  spec === null ? "Original" : (PRESETS.find((p) => p.spec === spec)?.name ?? spec);
+// Moved to lib/transform.ts; still here for the imports that name it from this file.
+export { renditionLabel } from "@/lib/transform";
 
 /**
  * Which rendition of an asset a rule means: the original, one of the library's
@@ -38,7 +37,7 @@ export function RenditionMenu({ value, onChange }: { value: string | null; onCha
               <CommandItem key={o.name} value={o.name} keywords={[o.hint]} onSelect={() => onChange(o.spec)}>
                 <IconCheck className={cn("size-4 shrink-0", value === o.spec ? "opacity-100" : "opacity-0")} />
                 <span className="shrink-0 whitespace-nowrap">{o.name}</span>
-                <span className="text-muted-foreground ml-auto min-w-0 truncate font-mono text-2xs" title={o.hint}>
+                <span className="text-muted-foreground ms-auto min-w-0 truncate font-mono text-2xs" title={o.hint}>
                   {o.hint}
                 </span>
               </CommandItem>

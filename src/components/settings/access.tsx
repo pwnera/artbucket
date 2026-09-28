@@ -724,6 +724,7 @@ const SAYS: Record<AuditAction, string> = {
   "portal.created": "made the portal",
   "portal.updated": "changed the portal",
   "portal.deleted": "deleted the portal",
+  "brand.published": "published the guidelines of",
   "portal.request_approved": "let into a portal",
   "portal.request_denied": "turned down for a portal",
   "portal.request_removed": "took portal access from",

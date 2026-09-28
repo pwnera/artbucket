@@ -1,6 +1,6 @@
-import { and, count, countDistinct, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, domains, grants, invitations, renditions, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
@@ -187,7 +187,54 @@ export function countTraffic(workspaceId: string, bytes: number) {
     .catch((err) => console.error("traffic not counted", err));
 }
 
+/**
+ * One more read of a portal's page: a counter per portal, brand, page and
+ * day, like countTraffic. Named by slugs, as the site route has them; the
+ * ids are looked up in the same statement, and a portal or brand gone since
+ * counts nothing.
+ *
+ * ponytail: pages only; per-asset downloads come with the v1.3 analytics.
+ */
+export function recordPageView(portalSlug: string, brandSlug: string, page: string) {
+  void db
+    .insert(pageViews)
+    .select((qb) =>
+      qb
+        .select({
+          portalId: portals.id,
+          brandId: brands.id,
+          page: sql<string>`${page}::text`.as("page"),
+          day: sql<string>`(now() at time zone 'utc')::date`.as("day"),
+          views: sql<number>`1`.as("views"),
+        })
+        .from(portals)
+        .innerJoin(brands, and(eq(brands.workspaceId, portals.workspaceId), eq(brands.slug, brandSlug)))
+        .where(eq(portals.slug, portalSlug)),
+    )
+    .onConflictDoUpdate({ target: [pageViews.portalId, pageViews.brandId, pageViews.page, pageViews.day], set: { views: sql`${pageViews.views} + 1` } })
+    .catch((err) => console.error("page view not counted", err));
+}
+
 const DAYS = 30;
+
+/** GET /api/v1/portals/{id}/views: its pages' reads over the last 30 days, per brand and page, most read first. Null: no such portal here. */
+export async function portalViews(caller: Caller, portalId: string) {
+  if (!can(caller, "portal.manage")) throw new AssetError("forbidden", `Portals take ${needs("portal.manage")}`);
+  const [p] = await db
+    .select({ id: portals.id })
+    .from(portals)
+    .where(and(eq(portals.id, portalId), eq(portals.workspaceId, caller.workspace.id)));
+  if (!p) return null;
+  const views = sql<number>`sum(${pageViews.views})::int`;
+  const pages = await db
+    .select({ brand: { slug: brands.slug, name: brands.name }, page: pageViews.page, views })
+    .from(pageViews)
+    .innerJoin(brands, eq(brands.id, pageViews.brandId))
+    .where(and(eq(pageViews.portalId, p.id), gte(pageViews.day, sql`(now() at time zone 'utc')::date - ${DAYS - 1}::int`)))
+    .groupBy(brands.id, pageViews.page)
+    .orderBy(desc(views), asc(brands.name), asc(pageViews.page));
+  return { days: DAYS, pages };
+}
 
 /** GET /api/v1/usage: what the organization uses against its limits, and its last 30 days of traffic. Organization admin. */
 export async function usageOf(caller: Caller) {

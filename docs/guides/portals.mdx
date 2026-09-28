@@ -3,11 +3,12 @@ title: Portals
 description: A branded front door onto chosen collections and brand guidelines, for people outside the team.
 ---
 
-A portal is a press kit, a partner hub or a retailer page: the collections and
-brands you pick, under your logo and colors, at `/p/{address}` or a domain of
-its own. Make one from **Portals** in the sidebar, or with
-`POST /api/v1/portals`. It takes write on the workspace, and sharing rights on
-each collection. A portal shows at least one collection or one brand.
+A portal is a press kit, a partner hub or a retailer page: the brand pages and
+collections you pick, under your logo and colors, at `/p/{address}` or a domain
+of its own. Make one from **Portals** in the sidebar, with
+`POST /api/v1/portals`, or have an agent change one with `update_portal`. It
+takes write on the workspace, and sharing rights on each collection. A portal
+shows at least one collection or one brand.
 
 ## What shows
 
@@ -16,19 +17,60 @@ current version. The same rule as `/a/{id}`, so an asset that expires, gets
 archived or is replaced by a new version leaves every portal the moment that
 happens. Nobody has to remember to take it down.
 
-Visitors search, filter by collection, look closer, and download.
+Collections make the portal's **Assets** view (`?view=assets`), where
+visitors search, filter by collection, look closer, and download. To show a
+collection inside the guidelines instead, add a Collection section to a
+brand page.
 
-## Brands
+## Brand pages
 
-Each brand a portal publishes is a tab beside **Assets**: its guidelines as
-the Guidelines page shows them (colors graded for contrast, type specimens,
-logo rules, voice), read-only. A rule's assets show by the same rule as
-everything else, so a draft logo stays in the library. A portal of guidelines
-alone opens on its first brand, and `?brand={slug}` links to one tab.
+A portal publishes the [brand pages](/guides/canon#brand-pages) of each brand
+it carries, in its own theme: the tree of pages in a nav column, the page, and
+a switch between brands. Brands go in by slug, in order
+(`"brands": ["default", "sub-brand"]`).
 
-Brands go in by slug (`"brands": ["default", "sub-brand"]`); the API serves
-each one's guidelines at `GET /api/v1/portal/{address}/brands/{slug}`, behind
-the same door as the portal.
+Visitors read a brand's **latest publish, never the draft**. Edit as much as
+you like: nothing reaches a portal until someone publishes, and a brand that
+was never published shows nothing at all. The Portals page says so beside
+each brand: the version visitors read and when it was published, or "not
+published". Publishing answers with the portals now showing the brand.
+
+A rule's assets show by the same rule as everything else, so a draft logo
+stays in the library, and every asset is signed for the visitor.
+
+| Address | What it opens |
+|---|---|
+| `/p/{address}` | The first brand's first page |
+| `/p/{address}/{page}` | A page of the first brand |
+| `/p/{address}/{brand}/{page}` | A page of another brand |
+| `?view=updates` | What's new: each publish, its note, and what it changed |
+| `?view=book` | Every page in order, to read through or print |
+
+Moving a page in the tree never changes its address, and a renamed page's old
+slug leads to its new one. Pages show when they were last updated, and the
+footer when the brand was last published. `/` opens search, across the pages,
+the rules and the portal's assets.
+
+The API serves the same, behind the same door as the portal:
+`GET /api/v1/portal/{address}/site?path=`, `/search?q=` and `/updates?brand=`.
+`GET /api/v1/portal/{address}/brands/{slug}` still answers with the brand's
+rules, now as published.
+
+## Who reads what
+
+A page or a section can be for fewer readers than the whole portal:
+
+| Audience | Who reads it |
+|---|---|
+| `everyone` | Anyone the portal lets in (the default) |
+| `partners` | Visitors let in by the password or an approved request, and members |
+| `members` | People signed in with access to the workspace |
+
+What is above a visitor is left out before anything is sent or signed. A
+locked page still shows in the nav, with a lock and a way in: **Ask for
+access** or **Sign in**. A public portal carrying partner or member pages
+takes access requests too. Set the audience on a page or a section, in the
+app or with `save_page` and `edit_page`.
 
 ## Downloads
 
@@ -50,7 +92,7 @@ PDF, a video, a font) downloads as itself.
 
 | Access | Who |
 |---|---|
-| Anyone with the address | Everyone. Search engines are asked to stay out. |
+| Anyone with the address | Everyone. Search engines are asked to stay out, unless it is [listed](#search-engines). |
 | Whoever has the password | Ten wrong guesses in ten minutes, then it waits. |
 | People in this workspace | Signed in, with access to the workspace. |
 
@@ -64,7 +106,75 @@ until the portal closes. Remove the request to take it back.
 ## Look
 
 A logo (an approved image from the library), an accent color for buttons and
-links, and a header background. Leave them empty for the app's own.
+links, and a header background. Leave them empty for the app's own. They
+dress the portal's header, its door and its Assets view; the pages wear
+their brand's own theme.
+
+## Around the pages
+
+The portal's `site` holds what sits around the pages, set under **Around the
+pages** or in the API, where it replaces the whole set:
+
+```json
+{
+  "site": {
+    "quick": [
+      { "label": "Logo pack", "asset": "7b1d0e3c-..." },
+      { "label": "Colors", "page": "color" },
+      { "label": "Press office", "href": "mailto:press@example.com" }
+    ],
+    "footer": {
+      "text": "Questions about the brand: **brand@example.com**",
+      "links": [{ "label": "Newsroom", "href": "https://example.com/news" }],
+      "credit": "Design by Studio North",
+      "feedback": "mailto:brand@example.com"
+    },
+    "terms": "For editorial use about Example only.",
+    "listed": true
+  }
+}
+```
+
+- **Quick grab**: up to six links pinned in the header. Each opens a page (of
+  `brand`, or the first), downloads an asset, signed for the visitor while it
+  may be used, or goes to an address.
+- **Footer**: Markdown, up to eight links, a credit line and where feedback
+  goes. The footer also says when the brand was last updated, and links to
+  What's new.
+- **Terms**: Markdown visitors accept once, before their first download. It
+  is a courtesy, not a lock: each file is still signed on its own.
+
+Links go to `https://`, `mailto:` or a `/path`, never a script.
+
+## Languages
+
+A brand's theme lists the languages its pages come in
+(`"languages": [{ "code": "en", "label": "English" }, { "code": "ar", "label": "العربية" }]`);
+the first is the one they are written in. Pages and sections carry their words
+in the others under `translations`, and a visitor who picks one (`?lang=ar`)
+reads it field by field, falling back to the first language where a
+translation is missing. A brand with a context named after the language (`ar`)
+resolves its rules for it too.
+
+Right-to-left languages turn the whole page, and fonts whose rule names the
+language's script lead the type.
+
+## Print and the book
+
+**Print this page** prints the page without the portal around it: colors as
+they are, every tab's content under its name, and the address of each link
+that leaves the portal. **Print the book** prints every page the visitor may read, in order, with
+a table of contents first. Both are the browser's print, so saving a PDF works
+the same way.
+
+## Search engines
+
+Portals are kept out of search: every page asks not to be indexed, and each
+portal's `robots.txt` turns crawlers away. A public portal can opt in with
+**Let search engines list it** (`"listed": true`): its pages may be indexed,
+titled after the page and its brand, with the page's lede as the description
+and its cover as the preview image. A portal behind a password or for members
+is never listed.
 
 ## A domain of its own
 

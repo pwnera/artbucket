@@ -1,4 +1,5 @@
-import type { RuleAsset, RuleType, RuleValue } from "./rules.ts";
+import { canon, hiddenSlugs, type SnapPage } from "./pages.ts";
+import type { RuleAsset, RuleSpec, RuleType, RuleValue } from "./rules.ts";
 
 /**
  * A brand's history, Google Docs style: every change lands in a version that
@@ -18,6 +19,9 @@ export type SnapRule = {
   usage: string | null;
   position: number;
   assets: RuleAsset[];
+  /** Kept only when set, so versions from before labels and specs read the same. */
+  label?: string | null;
+  spec?: RuleSpec | null;
 };
 
 export type VersionKind = "baseline" | "edit" | "restore";
@@ -27,11 +31,12 @@ export const MERGE_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * Whether a change extends the latest version or starts a new one. Only a
- * plain, unnamed edit by the same actor, within the window, is extended: a
- * named version is a checkpoint, and a restore stands on its own.
+ * plain, unnamed, unpublished edit by the same actor, within the window, is
+ * extended: a named or published version is a checkpoint, and a restore
+ * stands on its own.
  */
 export function extendsLatest(
-  latest: { kind: VersionKind; name: string | null; actor: string; updatedAt: Date } | undefined,
+  latest: { kind: VersionKind; name: string | null; actor: string; updatedAt: Date; publishedAt?: Date | null } | undefined,
   actor: string,
   now: Date,
 ) {
@@ -39,12 +44,14 @@ export function extendsLatest(
     !!latest &&
     latest.kind === "edit" &&
     latest.name === null &&
+    // What was published stays as it was published: portals show it.
+    !latest.publishedAt &&
     latest.actor === actor &&
     now.getTime() - latest.updatedAt.getTime() < MERGE_WINDOW_MS
   );
 }
 
-export type FieldChange = { field: "type" | "value" | "usage" | "assets"; before: unknown; after: unknown };
+export type FieldChange = { field: "type" | "label" | "value" | "spec" | "usage" | "assets"; before: unknown; after: unknown };
 
 export type RuleChange =
   | { change: "added"; key: string; context: string | null; after: SnapRule }
@@ -82,9 +89,10 @@ export function diffRules(before: SnapRule[], after: SnapRule[]): RuleChange[] {
       out.push({ change: "added", ...where, after: r });
       continue;
     }
-    const fields = (["type", "value", "usage", "assets"] as const)
-      .filter((f) => !same(old[f], r[f]))
-      .map((f) => ({ field: f, before: old[f], after: r[f] }));
+    // Missing reads as null: a snapshot leaves out an unset label or spec.
+    const fields = (["type", "label", "value", "spec", "usage", "assets"] as const)
+      .filter((f) => !same(old[f] ?? null, r[f] ?? null))
+      .map((f) => ({ field: f, before: old[f] ?? null, after: r[f] ?? null }));
     const moved = rankBefore.get(r.key) !== rankAfter.get(r.key);
     if (fields.length) out.push({ change: "changed", ...where, fields, moved });
     else if (moved) out.push({ change: "moved", ...where });
@@ -97,5 +105,76 @@ export function diffRules(before: SnapRule[], after: SnapRule[]): RuleChange[] {
 export function summarize(changed: string[]) {
   if (!changed.length) return "No changes";
   const [first, ...rest] = changed;
-  return `Edited ${first}${rest.length ? ` and ${rest.length} more` : ""}`;
+  // Pages are named "page:logo" (lib/pages.ts changedPages); the theme is "theme".
+  const name = first === "theme" ? "the theme" : first.startsWith("page:") ? `the ${first.slice(5)} page` : first;
+  return `Edited ${name}${rest.length ? ` and ${rest.length} more` : ""}`;
+}
+
+// ---- what's new ---------------------------------------------------------------
+
+export type Ref = { slug: string; title: string };
+export type WhatsNew = {
+  rules: { added: string[]; changed: string[]; removed: string[] };
+  pages: { added: Ref[]; changed: Ref[]; removed: Ref[] };
+};
+type Published = { rules: SnapRule[]; pages: SnapPage[] | null };
+
+/** What a reader sees of a page: not where it sits in the tree, its old slugs, when it was written, or its hidden sections. */
+const said = (p: SnapPage) =>
+  canon({ ...p, slug: undefined, position: undefined, parent: undefined, aliases: undefined, updatedAt: undefined, sections: p.sections.filter((s) => !s.hidden) });
+
+/**
+ * What a publish changed for readers since the one before it (null: the
+ * first, where everything is new). Rules by key, whatever the context; a
+ * reorder is no news. Pages readers can't reach (hidden, or under a hidden
+ * page) are left out, so hiding one reads as removed and showing it as added;
+ * a renamed page is the same page, found by its old slug.
+ */
+export function whatsNew(before: Published | null, after: Published): WhatsNew {
+  const had = new Set((before?.rules ?? []).map((r) => r.key));
+  const has = new Set(after.rules.map((r) => r.key));
+  const touched = new Set(diffRules(before?.rules ?? [], after.rules).flatMap((c) => (c.change === "moved" ? [] : c.key)));
+  const shown = (ps: SnapPage[] | null) => {
+    const hidden = hiddenSlugs(ps ?? []);
+    return (ps ?? []).filter((p) => !hidden.has(p.slug));
+  };
+  const [was, is] = [shown(before?.pages ?? null), shown(after.pages)];
+  const now = (p: SnapPage) => is.find((q) => q.slug === p.slug) ?? is.find((q) => q.aliases?.includes(p.slug));
+  const kept = new Map(was.flatMap((p) => (now(p) ? [[now(p)!.slug, p] as const] : [])));
+  const ref = ({ slug, title }: SnapPage): Ref => ({ slug, title });
+  return {
+    rules: {
+      added: [...has].filter((k) => !had.has(k)),
+      changed: [...touched].filter((k) => had.has(k) && has.has(k)),
+      removed: [...had].filter((k) => !has.has(k)),
+    },
+    pages: {
+      added: is.filter((p) => !kept.has(p.slug)).map(ref),
+      changed: is.filter((p) => kept.has(p.slug) && said(kept.get(p.slug)!) !== said(p)).map(ref),
+      removed: was.filter((p) => !now(p)).map(ref),
+    },
+  };
+}
+
+/** A publish, as What's new lists it: `image` is the note's picture, an asset id. */
+export type Update = { version: number; publishedAt: string; publishedBy: string | null; note: string | null; image: string | null; changes: WhatsNew };
+
+type Version = Published & { number: number; publishedAt: Date | string | null; publishedBy: string | null; note: string | null; noteImage: string | null };
+
+/**
+ * The latest `limit` publishes, newest first, each beside the publish before
+ * it: edits and restores between two publishes are passed over, so readers
+ * see what changed from what they saw. Give it one publish more than `limit`,
+ * or the oldest listed reads as the first, everything new.
+ */
+export function updatesOf(versions: Version[], limit = 20): Update[] {
+  const published = versions.filter((v) => v.publishedAt).sort((a, b) => b.number - a.number);
+  return published.slice(0, limit).map((v, i) => ({
+    version: v.number,
+    publishedAt: new Date(v.publishedAt!).toISOString(),
+    publishedBy: v.publishedBy,
+    note: v.note,
+    image: v.noteImage,
+    changes: whatsNew(published[i + 1] ?? null, v),
+  }));
 }

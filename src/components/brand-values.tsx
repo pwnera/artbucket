@@ -5,11 +5,11 @@ import { IconCheck, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { copyText, CopyButton } from "@/components/copy-button";
 import { useAssetFont } from "@/components/font-preview";
-import { contrast, grade, hsl, inkOn, rgb } from "@/lib/color";
+import { contrast, grade, hexOf, hsl, inkOn, isHex, rgb } from "@/lib/color";
 import { kebab } from "@/lib/tokens";
 import { renderMarkdown } from "@/lib/markdown";
-import { fontStyle, isFont, pickFace, weightName } from "@/lib/font";
-import { fontValue, listStyle, section, type FontValue, type ListStyle, type Rule, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { fontFiles, fontStyle, pickFace, weightName } from "@/lib/font";
+import { fontValue, listStyle, section, type FontValue, type ListStyle, type Rule, type RuleValue } from "@/lib/rules";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -137,10 +137,6 @@ function TextEditor({ rule: r, onSave, onEmpty }: { rule: Rule; onSave: (v: Rule
     </div>
   );
 }
-
-export const isFontAsset = (a: RuleAsset) => !!a.mime && isFont(a.mime, a.filename ?? "");
-/** The rule's font files, in order. */
-export const fontFiles = (r: Rule) => r.assets.filter(isFontAsset);
 
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
@@ -423,14 +419,6 @@ function Contrast({ hex, on }: { hex: string; on: "#ffffff" | "#000000" }) {
   );
 }
 
-/** "6D4AFF", "#abc" and "#6d4aff" are one color, saved as the last; null when it isn't a hex at all. */
-const hexOf = (typed: string) => {
-  let v = typed.trim().toLowerCase();
-  if (!v.startsWith("#")) v = `#${v}`;
-  if (/^#[0-9a-f]{3,4}$/.test(v)) v = `#${[...v.slice(1)].map((c) => c + c).join("")}`;
-  return /^#[0-9a-f]{6}([0-9a-f]{2})?$/.test(v) ? v : null;
-};
-
 /**
  * The swatch is the native color picker (read only, a click copies the hex);
  * the hex beside it is editable text; the readouts, the CSS variable the
@@ -457,7 +445,7 @@ function ColorEditor({
     setSeen(value);
     setLive(value);
   }
-  const valid = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(live);
+  const valid = isHex(live);
   const hex = valid ? live.slice(0, 7) : "#000000";
   // #rrggbbaa: the swatch shows it over a checker, and the readouts say how see-through.
   const alpha = valid && live.length === 9 ? Math.round((parseInt(live.slice(7), 16) / 255) * 100) : 100;
@@ -469,7 +457,7 @@ function ColorEditor({
     ["CSS", `var(--${kebab(name)})`],
   ];
   const swatch = cn(
-    "relative flex h-32 shrink-0 flex-col justify-between overflow-hidden rounded-xl p-3 text-left shadow-sm ring-1 ring-black/10 dark:ring-white/10",
+    "relative flex h-32 shrink-0 flex-col justify-between overflow-hidden rounded-xl p-3 text-start shadow-sm ring-1 ring-black/10 dark:ring-white/10",
     !stacked && "@md:w-48",
     alpha < 100 && "bg-checker",
   );
@@ -688,7 +676,7 @@ function ListEditor({
                 type="button"
                 onClick={() => void copy(`${it}px`, "size")}
                 aria-label={`Copy ${it}px`}
-                className="hover:bg-muted/40 active:bg-muted flex w-full items-center gap-4 px-3 py-2 text-left transition-colors"
+                className="hover:bg-muted/40 active:bg-muted flex w-full items-center gap-4 px-3 py-2 text-start transition-colors"
               >
                 <span className="grid w-14 shrink-0 font-mono text-xs tabular-nums">
                   <span className="flex items-center gap-1">

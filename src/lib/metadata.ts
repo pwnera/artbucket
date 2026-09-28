@@ -20,6 +20,8 @@ export type Metadata = {
   camera?: string;
   lens?: string;
   gps?: { lat: number; lon: number };
+  /** Where a crop must keep: 0 to 1 from the top left. Set by a person, never read from the file. */
+  focus?: { x: number; y: number };
 };
 
 type Tag = { value?: unknown; description?: unknown } | undefined;

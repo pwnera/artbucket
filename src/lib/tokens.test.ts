@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { toCss, toDtcg, TOKEN_FORMATS, type TokenRule } from "./tokens.ts";
+import { brandTheme } from "./brand-theme.ts";
+import type { RuleSpec } from "./rules.ts";
+import { gradientCss, toCss, toDtcg, TOKEN_FORMATS, type TokenRule } from "./tokens.ts";
 
 const file = (id: string, filename: string) => ({ id, rendition: null, filename, mime: "font/ttf" });
 const RULES: TokenRule[] = [
@@ -106,4 +108,80 @@ test("Every format renders, and none carries guidance", () => {
     assert.ok(out.length > 0, id);
     assert.ok(!out.includes("Hype"), `${id} leaks a do/don't list`);
   }
+});
+
+test("Tokens name the faces the page is set in", () => {
+  const font = (key: string, family: string, spec?: RuleSpec) =>
+    ({ key, type: "font", value: { family }, usage: null, assets: [], context: null, spec }) as TokenRule & { context: null };
+  const fixtures = {
+    named: [font("type.primary", "Inter"), font("type.heading", "Space Grotesk")],
+    roles: [font("type.heading", "Inter", { role: "body" }), font("type.feature", "Canela", { role: "headline" }), font("type.code", "JetBrains Mono")],
+    first: [font("type.sans", "Inter"), font("type.heading", "Space Grotesk"), font("type.serif", "Tiempos")],
+    headFirst: [font("type.heading", "Space Grotesk"), font("type.sans", "Inter")],
+    unnamed: [font("type.heading", "Space Grotesk"), font("type.code", "JetBrains Mono"), font("type.mainText", "Inter")],
+  };
+  for (const [name, rules] of Object.entries(fixtures)) {
+    const page = brandTheme(rules);
+    const css = TOKEN_FORMATS.shadcn.render(rules, OPTS);
+    const mui = TOKEN_FORMATS.mui.render(rules, OPTS);
+    has(css, [`--font-sans: "${page.body?.family}";`, `--font-heading: "${page.head?.family}";`]);
+    has(mui, [`fontFamily: "\\"${page.body?.family}\\", sans-serif"`, `h1: {\n      fontFamily: "\\"${page.head?.family}\\", sans-serif"`]);
+    assert.notEqual(page.head?.family, page.body?.family, name);
+  }
+  // Heading listed first: text is the other face, and never a code face.
+  assert.equal(brandTheme(fixtures.headFirst).body?.family, "Inter");
+  assert.equal(brandTheme(fixtures.unnamed).body?.family, "Inter");
+});
+
+test("Gradients: live CSS beside the solid, in every format", () => {
+  const blend: TokenRule = {
+    key: "color.blend",
+    type: "color",
+    value: "#0f62fe",
+    usage: "Covers only",
+    assets: [],
+    spec: { gradient: { kind: "linear", angle: 135, stops: [{ color: "color.primary" }, { color: "#ffffff", opacity: 0.5 }, { color: "color.overlay", at: 100 }] } },
+  };
+  // Listed before the colors it reads, so Sass's declare-before-use is exercised.
+  const rules = [blend, ...RULES];
+  const css = TOKEN_FORMATS.css.render(rules, OPTS);
+  has(css, [
+    "--color-blend: #0f62fe;",
+    "--color-blend-gradient: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, #ffffff 50%, transparent), var(--color-overlay) 100%);",
+  ]);
+  const scss = TOKEN_FORMATS.scss.render(rules, OPTS);
+  has(scss, ["$color-blend-gradient: linear-gradient(135deg, $color-primary, color-mix(in srgb, #ffffff 50%, transparent), $color-overlay 100%);"]);
+  assert.ok(scss.indexOf("$color-blend-gradient:") > scss.indexOf("$color-overlay:"), "declared after the colors it reads");
+  has(TOKEN_FORMATS.less.render(rules, OPTS), ["@color-blend-gradient: linear-gradient(135deg, @color-primary,"]);
+  has(TOKEN_FORMATS.tailwind.render(rules, OPTS), ["--background-image-blend-gradient: linear-gradient(135deg, var(--color-primary),"]);
+  has(TOKEN_FORMATS.shadcn.render(rules, OPTS), ["--blend-gradient: linear-gradient(135deg, var(--primary),", "--background-image-blend-gradient: var(--blend-gradient);"]);
+
+  // Where no variable reaches, the stops are hexes.
+  const solid = "linear-gradient(135deg, #0f62fe, color-mix(in srgb, #ffffff 50%, transparent), #00000080 100%)";
+  const tokens = new Function(TOKEN_FORMATS.ts.render(rules, OPTS).replace(/^\/\/.*$/m, "").replace("export const tokens =", "return").replace(/ as const;[\s\S]*/, ";"))();
+  assert.equal(tokens.color.blend, "#0f62fe");
+  assert.equal(tokens.color.blendGradient, solid);
+  const tw = new Function(TOKEN_FORMATS.tailwind3.render(rules, OPTS).replace("export default", "return"))();
+  assert.equal(tw.theme.extend.backgroundImage["blend-gradient"], solid);
+  has(TOKEN_FORMATS.mui.render(rules, OPTS), [`gradient: ${JSON.stringify(solid)}`]);
+  has(TOKEN_FORMATS.chakra.render(rules, OPTS), [`gradients: {\n        blend: {\n          value: ${JSON.stringify(solid)}`]);
+
+  // DTCG: a gradient token beside the color, rules by reference, positions spread as CSS spreads them.
+  const t = toDtcg(rules, { origin: "https://dam.example" }) as { color: Record<string, Record<string, unknown>> };
+  assert.equal(t.color.blend.$type, "color");
+  assert.equal(t.color.blendGradient.$type, "gradient");
+  assert.equal(t.color.blendGradient.$description, "Covers only");
+  assert.deepEqual(t.color.blendGradient.$value, [
+    { color: "{color.primary}", position: 0 },
+    { color: { colorSpace: "srgb", components: [1, 1, 1], alpha: 0.5, hex: "#ffffff" }, position: 0.5 },
+    { color: "{color.overlay}", position: 1 },
+  ]);
+  assert.deepEqual(t.color.blendGradient.$extensions, { "com.artbucket": { kind: "linear", angle: 135, css: solid } });
+});
+
+test("gradientCss: radial takes no angle, conic turns from it", () => {
+  const stops = [{ color: "#000000" }, { color: "#ffffff", at: 60 }];
+  assert.equal(gradientCss({ kind: "radial", angle: 90, stops }, (c) => c), "radial-gradient(#000000, #ffffff 60%)");
+  assert.equal(gradientCss({ kind: "conic", angle: 90, stops }, (c) => c), "conic-gradient(from 90deg, #000000, #ffffff 60%)");
+  assert.equal(gradientCss({ stops }, (c) => c), "linear-gradient(#000000, #ffffff 60%)");
 });

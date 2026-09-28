@@ -1,11 +1,28 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, collectionAssets, collections, domains, grants, organizations, portalBrands, portalCollections, portalRequests, portals, users, workspaces, type PortalRequestStatus } from "@/lib/db/schema";
+import {
+  assets,
+  brandRules,
+  brands,
+  brandVersions,
+  collectionAssets,
+  collections,
+  domains,
+  grants,
+  organizations,
+  portalBrands,
+  portalCollections,
+  portalRequests,
+  portals,
+  users,
+  workspaces,
+  type PortalRequestStatus,
+} from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
-import { listContexts, listRules } from "@/lib/core/brand";
+import { listUpdates } from "@/lib/core/brand";
 import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
@@ -16,14 +33,20 @@ import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, downloadsFor, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
-import { hasPreview } from "@/lib/preview";
+import { challengeName, DEFAULT_PRESETS, PortalSite, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
-import { longSig, pageSig } from "@/lib/core/signing";
+import { longSig, pagePath, pageSig } from "@/lib/core/signing";
+import { presentAsset } from "@/lib/core/section-assets";
+import { publishedSource, viewPage, type BrandSource } from "@/lib/core/page-view";
+import { readablePages } from "@/lib/page-view";
+import { AUDIENCES, LANG, type Audience, type RequestKind } from "@/lib/pages";
+import { hasPreview } from "@/lib/preview";
+import { resolve, ruleContext } from "@/lib/rules";
 import { hashPassword, verifyPassword } from "@/lib/share";
+import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
 
 /**
  * Brand portals: a curated, branded front door onto chosen collections, and
@@ -36,8 +59,14 @@ import { hashPassword, verifyPassword } from "@/lib/share";
  * `members` portal, people with access to the workspace. Anyone else may ask;
  * an admin's yes gives them a link of their own.
  *
+ * Visitors read the brands' latest publish, never the draft (D15): a brand
+ * never published shows nothing. Who they are sets what they may open (D19):
+ * everyone on a public portal, partners with its password or an approved
+ * request's key, members signed in to the workspace. Pages and sections above
+ * them are left out before anything is signed (lib/page-view.ts planView).
+ *
  * Managing portals takes `portal.manage`; the portal page itself is a plain
- * client of GET /api/v1/portal/{slug}.
+ * client of GET /api/v1/portal/{slug} and its site, search and updates.
  */
 
 type Row = typeof portals.$inferSelect;
@@ -57,14 +86,28 @@ const urlOf = async (p: Pick<Row, "slug" | "workspaceId">, d: { host: string; ve
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
 };
 
-/** A portal's brands, in tab order. */
-const brandsOf = (portalId: string) =>
-  db
+/**
+ * A portal's brands, in tab order, each with its latest publish. `shown`:
+ * visitors see it, its publish, or as it stands for a brand with no history
+ * at all (D15); a brand with history and no publish is left out.
+ */
+async function brandsOf(portalId: string) {
+  const rows = await db
     .select({ id: brands.id, slug: brands.slug, name: brands.name })
     .from(portalBrands)
     .innerJoin(brands, eq(brands.id, portalBrands.brandId))
     .where(eq(portalBrands.portalId, portalId))
     .orderBy(asc(portalBrands.position));
+  const versions = rows.length
+    ? await db
+        .select({ brandId: brandVersions.brandId, publishedAt: max(brandVersions.publishedAt) })
+        .from(brandVersions)
+        .where(inArray(brandVersions.brandId, rows.map((r) => r.id)))
+        .groupBy(brandVersions.brandId)
+    : [];
+  const published = new Map(versions.map((v) => [v.brandId, v.publishedAt]));
+  return rows.map((r) => ({ ...r, publishedAt: published.get(r.id) ?? null, shown: !published.has(r.id) || !!published.get(r.id) }));
+}
 
 async function present(p: Row) {
   const [cols, brandList, d, [{ pending }]] = await Promise.all([
@@ -89,8 +132,9 @@ async function present(p: Row) {
     expired: !!p.expiresAt && p.expiresAt <= new Date(),
     presets: p.presets,
     theme: p.theme,
+    site: p.site,
     collections: cols,
-    brands: brandList.map(({ slug, name }) => ({ slug, name })),
+    brands: brandList.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token }, cname: cnameFor(d.host) },
     url: await urlOf(p, d),
     pending,
@@ -133,7 +177,14 @@ type Input = {
   collections?: string[];
   brands?: string[];
   domain?: string | null;
+  site?: PortalSite;
 };
+
+/** Search engines list a public portal only: behind a door there is nothing for them to read. Visitors' copy masks it too (siteOf). */
+function checkSite(site: PortalSite, access: PortalAccess) {
+  if (site.listed && access !== "public") throw new AssetError("invalid", "site.listed: only a public portal can be listed");
+  return site;
+}
 
 /** Collections it may show: ones the caller could share themselves. */
 async function checkCollections(caller: Caller, ids: string[]) {
@@ -206,6 +257,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
   const brandIds = await checkBrands(caller, input.brands ?? []);
   showsSomething(ids, brandIds);
   const theme = await checkTheme(caller, input.theme ?? {}, { logo: null, accent: null, background: null });
+  const site = checkSite(input.site ?? {}, access);
   // Refused before anything is made, so a wrong domain leaves no half-made portal.
   if (input.domain) await assignable(caller.workspace.organizationId, null, input.domain);
   const [p] = await db
@@ -220,6 +272,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
       expiresAt: expiry(input.expiresAt) ?? null,
       presets: input.presets ?? DEFAULT_PRESETS,
       theme,
+      site,
       createdBy: caller.actor,
     })
     .returning();
@@ -248,6 +301,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     showsSomething(cols, bs);
   }
   const theme = input.theme ? await checkTheme(caller, input.theme, p.theme) : p.theme;
+  const site = input.site ? checkSite(input.site, access) : p.site;
   const [next] = await db
     .update(portals)
     .set({
@@ -259,6 +313,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
       expiresAt: expiry(input.expiresAt) === undefined ? p.expiresAt : expiry(input.expiresAt),
       presets: input.presets ?? p.presets,
       theme,
+      site,
       updatedAt: new Date(),
     })
     .where(eq(portals.id, p.id))
@@ -306,6 +361,9 @@ const asks = limiter(5, 60 * 60_000);
 const floods = limiter(30, 60 * 60_000);
 
 type Pass = { password?: string | null; key?: string | null; headers?: Headers };
+
+/** How a visitor's request says who they are: the password and an approved request's key in headers, and a member's session. */
+export const passOf = (req: Request): Pass => ({ password: req.headers.get("x-portal-password"), key: req.headers.get("x-portal-key"), headers: req.headers });
 
 /** The logo, signed as the organization's (lib/core/branding.ts): it shows at the door too, to anyone. */
 const logoUrl = async (p: Row) => {
@@ -359,21 +417,25 @@ async function keyValid(p: Row, key: string | null | undefined) {
 }
 
 /**
- * The portal a slug names, if this visitor may open it: 404 for none, 410
- * once it closed, 401 (`password`) naming how to get in otherwise.
+ * The portal a slug names, if this visitor may open it, and who they are to
+ * it (D19): everyone on a public portal; partners, let in by the password or
+ * an approved request's key (on any portal); members, signed in to a members
+ * portal's workspace. 404 for none, 410 once it closed, 401 (`password`)
+ * naming how to get in otherwise.
  */
-async function open(slug: string, pass: Pass) {
+async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience }> {
   const [p] = await db.select().from(portals).where(eq(portals.slug, slug));
   if (!p) throw new AssetError("not_found", "There is no portal here");
   if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
-  if (p.access === "public" || (await keyValid(p, pass.key))) return p;
+  if (await keyValid(p, pass.key)) return { p, level: "partners" };
+  if (p.access === "public") return { p, level: "everyone" };
   if (p.access === "password" && pass.password) {
     const wait = guesses.wait(p.id);
     if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
-    if (p.passwordHash && (await verifyPassword(pass.password, p.passwordHash))) return p;
+    if (p.passwordHash && (await verifyPassword(pass.password, p.passwordHash))) return { p, level: "partners" };
     guesses.hit(p.id);
   }
-  if (p.access === "members" && (await isMember(p, pass.headers))) return p;
+  if (p.access === "members" && (await isMember(p, pass.headers))) return { p, level: "members" };
   const detail = { name: p.name, access: p.access, theme: await shownTheme(p) };
   throw new AssetError(
     "password",
@@ -387,27 +449,31 @@ async function open(slug: string, pass: Pass) {
 }
 
 /** Its URLs signed for the visitor (lib/core/signing.ts): a day at a time, never past the portal's end. */
-const shown = (a: typeof assets.$inferSelect, p: Row) => {
-  const m = a.metadata ?? {};
-  const still = hasPreview(a);
-  const s = pageSig(a.id, p.expiresAt);
-  return {
-    id: a.id,
-    filename: a.filename,
-    title: m.title ?? null,
-    description: m.description ?? null,
-    creator: m.creator ?? null,
-    copyright: m.copyright ?? null,
-    mime: a.mime,
-    size: a.size,
-    width: a.width,
-    height: a.height,
-    // On this host, not APP_URL: a portal on its own domain loads everything from there.
-    thumbnail: still ? withSignature(`/a/${a.id}/w_640,f_webp`, s) : null,
-    preview: still ? withSignature(`/a/${a.id}/w_1600,f_webp`, s) : null,
-    downloads: downloadsFor(a, p.presets, "", s),
-  };
-};
+const shown = (a: typeof assets.$inferSelect, p: Row) => presentAsset(a, { sign: (id) => pageSig(id, p.expiresAt), presets: p.presets });
+
+/** The portal's usable assets in `ids` (some of its collections), newest first, narrowed by `q`: its Assets view, and search. */
+async function portalAssets(p: Row, { ids, q, limit = 60, offset = 0 }: { ids: string[]; q?: string | null; limit?: number; offset?: number }) {
+  const tsq = q ? prefixQuery(q) : null;
+  const where = and(
+    deliverableSql,
+    notSuperseded,
+    ids.length
+      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, ids)})`
+      : sql`false`,
+    tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined,
+  );
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(assets)
+      .where(where)
+      .orderBy(desc(assets.createdAt))
+      .limit(Math.min(Math.max(limit, 1), 200))
+      .offset(Math.max(offset, 0)),
+    db.select({ total: count() }).from(assets).where(where),
+  ]);
+  return { data: rows.map((a) => shown(a, p)), total };
+}
 
 /**
  * What a portal shows: itself, themed, its collections with how many usable
@@ -419,7 +485,7 @@ export async function viewPortal(
   pass: Pass,
   { q, collection, limit = 60, offset = 0 }: { q?: string | null; collection?: string | null; limit?: number; offset?: number } = {},
 ) {
-  const p = await open(slug, pass);
+  const { p } = await open(slug, pass);
   const [org] = await db
     .select({ name: organizations.name })
     .from(workspaces)
@@ -438,24 +504,7 @@ export async function viewPortal(
     .orderBy(asc(portalCollections.position));
   const ids = collection ? cols.filter((c) => c.id === collection).map((c) => c.id) : cols.map((c) => c.id);
   if (collection && !ids.length) throw new AssetError("not_found", "That collection isn't in this portal");
-  const tsq = q ? prefixQuery(q) : null;
-  const where = and(
-    usable,
-    ids.length
-      ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, ids)})`
-      : sql`false`,
-    tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined,
-  );
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select()
-      .from(assets)
-      .where(where)
-      .orderBy(desc(assets.createdAt))
-      .limit(Math.min(Math.max(limit, 1), 200))
-      .offset(Math.max(offset, 0)),
-    db.select({ total: count() }).from(assets).where(where),
-  ]);
+  const { data, total } = await portalAssets(p, { ids, q, limit, offset });
   return {
     portal: {
       slug: p.slug,
@@ -466,42 +515,242 @@ export async function viewPortal(
       expiresAt: p.expiresAt,
       theme: await shownTheme(p),
       collections: cols,
-      brands: (await brandsOf(p.id)).map(({ slug, name }) => ({ slug, name })),
+      brands: (await brandsOf(p.id)).filter((b) => b.shown).map(({ slug, name }) => ({ slug, name })),
     },
-    data: rows.map((a) => shown(a, p)),
+    data,
     total,
   };
 }
 
+/** A rule the draft has dropped since the publish keeps an id all the same: sha256 of where it sat, shaped as a v5 UUID. */
+function snapId(brandId: string, key: string, context: string | null) {
+  const h = digest(`${brandId}:${key}:${context ?? ""}`);
+  const x = `${h.slice(0, 12)}5${h.slice(13, 16)}${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 32)}`;
+  return x.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+}
+
 /**
- * One of a portal's brands, as its guidelines page reads (lib/core/brand.ts
- * listRules), under the same door as the portal. A rule's assets show only
- * when they may be used (lib/lifecycle.ts): a draft logo stays in the library.
- * Those, and images in its text, are signed for the visitor; `signed` holds
- * each one's signature, for URLs the page builds itself.
+ * One of a portal's brands, its rules as its latest publish has them (D15),
+ * in the shape v1 froze: a rule's id is the live rule's for its key and
+ * context, else stable (snapId); `updatedAt` is when it was published. Its
+ * assets show only when they may be used (lib/lifecycle.ts): a draft logo
+ * stays in the library. Those, and images in its text, are signed for the
+ * visitor; `signed` holds each one's signature, for URLs the page builds itself.
  */
 export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: string, { context }: { context?: string | null } = {}) {
-  const p = await open(slug, pass);
+  const { p } = await open(slug, pass);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
-  const [rules, contexts] = await Promise.all([listRules(p.workspaceId, { brand: brand.slug, context: context ?? undefined }), listContexts(p.workspaceId, brand.slug)]);
+  if (context && !ruleContext.safeParse(context).success) {
+    throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
+  }
+  const src = await publishedSource(p.workspaceId, brand.slug);
+  if (!src) throw new AssetError("not_found", "That brand isn't published yet");
+  const rules = context ? resolve(src.rules, context) : src.rules;
+  const live = await db
+    .select({ id: brandRules.id, key: brandRules.key, context: brandRules.context, updatedAt: brandRules.updatedAt })
+    .from(brandRules)
+    .where(eq(brandRules.brandId, brand.id));
+  const liveOf = new Map(live.map((r) => [`${r.key}\0${r.context ?? ""}`, r]));
   const ids = [...new Set([...rules.flatMap((r) => r.assets.map((a) => a.id)), ...assetIdsIn(JSON.stringify(rules))])];
   // Only this workspace's: an id pasted into a rule's text signs nothing of anyone else's.
-  const usable = ids.length
-    ? new Set(
-        (await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))).map(
-          (a) => a.id,
-        ),
-      )
-    : new Set<string>();
-  const signed = Object.fromEntries([...usable].map((id) => [id, pageSig(id, p.expiresAt)]));
-  const data = rules.map((r) => ({ ...r, assets: r.assets.filter((a) => usable.has(a.id)) }));
+  const usable = new Map(
+    (ids.length
+      ? await db
+          .select({ id: assets.id, title: sql<string | null>`${assets.metadata} ->> 'title'`, filename: assets.filename, mime: assets.mime, width: assets.width, height: assets.height, probe: assets.probe })
+          .from(assets)
+          .where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))
+      : []
+    ).map((a) => [a.id, a]),
+  );
+  const signed = Object.fromEntries([...usable.keys()].map((id) => [id, pageSig(id, p.expiresAt)]));
+  const publishedAt = src.version?.publishedAt ? new Date(src.version.publishedAt) : null;
+  const data = rules.map((r) => {
+    const now = liveOf.get(`${r.key}\0${r.context ?? ""}`);
+    return {
+      id: now?.id ?? snapId(brand.id, r.key, r.context),
+      brand: brand.slug,
+      key: r.key,
+      label: r.label ?? null,
+      context: r.context,
+      type: r.type,
+      value: r.value,
+      spec: r.spec ?? null,
+      usage: r.usage,
+      assets: r.assets.flatMap(({ id, rendition }) => {
+        const a = usable.get(id);
+        return a ? [{ id, rendition: rendition ?? null, title: a.title, filename: a.filename, mime: a.mime, width: a.width, height: a.height, preview: hasPreview(a) }] : [];
+      }),
+      // A brand with no history shows as it stands: its rules' own times.
+      updatedAt: publishedAt ?? now?.updatedAt ?? new Date(),
+    };
+  });
   return {
     brand: { slug: brand.slug, name: brand.name },
     data: JSON.parse(signUrlsIn(JSON.stringify(data), (id) => signed[id] ?? null)) as typeof data,
-    contexts,
+    contexts: [...new Set(src.rules.flatMap((r) => r.context ?? []))].sort(),
     signed,
   };
+}
+
+// ---- brand pages, for visitors ------------------------------------------------------
+
+const rank = (a: Audience) => AUDIENCES.indexOf(a);
+
+/** Some page or section of the publish is for readers above `level`. */
+const gatedAbove = (src: BrandSource, level: Audience) =>
+  (src.pages ?? []).some((pg) => [pg, ...pg.sections].some((x) => rank(x.audience ?? "everyone") > rank(level)));
+
+/**
+ * A visitor signed in to the workspace reads what is for members, on any
+ * portal they got into. Asked only when something above them is there to
+ * read: a session lookup most visits never need.
+ */
+async function levelFor(p: Row, level: Audience, pass: Pass, srcs: BrandSource[]): Promise<Audience> {
+  if (level === "members" || !srcs.some((s) => gatedAbove(s, level))) return level;
+  return (await isMember(p, pass.headers)) ? "members" : level;
+}
+
+function checkLang(lang: string | null | undefined) {
+  if (lang && !LANG.safeParse(lang).success) throw new AssetError("invalid", `Not a language: "${lang}". Use a lowercase tag, e.g. ar or en-gb`);
+  return lang || undefined;
+}
+
+/** The brands visitors see, and each one's publish; one gone unpublished since it was listed is left out. */
+async function publishes(p: Row) {
+  const list = (await brandsOf(p.id)).filter((b) => b.shown);
+  const srcs = await Promise.all(list.map((b) => publishedSource(p.workspaceId, b.slug)));
+  return srcs.filter((s): s is BrandSource => s !== null);
+}
+
+/**
+ * The portal's site as visitors get it (lib/portal.ts PortalSite): listed
+ * only while public, and its quick grab resolved: an asset while it may be
+ * used, signed to download (`href`), and a page of a brand it shows.
+ */
+async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
+  const parsed = PortalSite.safeParse(p.site);
+  const site = parsed.success ? parsed.data : {};
+  const ids = (site.quick ?? []).flatMap((q) => q.asset ?? []);
+  const usable = new Set(
+    ids.length
+      ? (await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))).map((a) => a.id)
+      : [],
+  );
+  const quick = site.quick?.flatMap((q) => {
+    if (q.asset) return usable.has(q.asset) ? [{ ...q, href: pagePath(q.asset, "?download", p.expiresAt) }] : [];
+    return q.page && q.brand && !brandSlugs.includes(q.brand) ? [] : [q];
+  });
+  return { ...site, ...(quick && { quick }), listed: p.access === "public" && !!site.listed };
+}
+
+/**
+ * A page of a portal's brand book, for a visitor: the page `path` names (see
+ * lib/site.ts resolvePath), from its brand's latest publish, at the visitor's
+ * level, signed for them. `canonical` is the page's path on the portal, what
+ * links use; `redirect`: the path asked was an old slug or a long form, so
+ * send the reader to `canonical`. A portal showing no brand has no pages:
+ * `view` is null, and its Assets view is the portal.
+ */
+export async function viewPortalSite(slug: string, pass: Pass, o: { path?: string | null; context?: string | null; lang?: string | null } = {}) {
+  const { p, level: door } = await open(slug, pass);
+  const lang = checkLang(o.lang);
+  const path = (o.path ?? "").split("/").filter(Boolean);
+  const [list, [col], theme] = await Promise.all([
+    brandsOf(p.id),
+    db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id)).limit(1),
+    shownTheme(p),
+  ]);
+  const showing = list.filter((b) => b.shown);
+  const slugs = showing.map((b) => b.slug);
+  const portal = {
+    slug: p.slug,
+    name: p.name,
+    theme,
+    site: await siteOf(p, slugs),
+    brands: showing.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
+    assets: !!col,
+  };
+  const firstSrc = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
+  if (!firstSrc) {
+    if (path.length) throw new AssetError("not_found", "There is no page here");
+    return { portal: { ...portal, level: door }, canonical: null, redirect: false, view: null };
+  }
+  const first = firstSrc.brand.slug;
+  // What a one-segment path may name of the first brand: every page some visitor may open, a locked one too (it shows its lock), and old slugs.
+  const reach = readablePages(firstSrc, { level: "members" });
+  const firstBrand = { slugs: reach.map((pg) => pg.slug), aliases: Object.fromEntries(reach.flatMap((pg) => (pg.aliases ?? []).map((a) => [a, pg.slug]))) };
+  const asked = resolvePath(path, slugs, firstBrand);
+  const to = asked.kind === "redirect" ? resolvePath(asked.path, slugs, firstBrand) : asked;
+  if (to.kind !== "page") throw new AssetError("not_found", "There is no page here");
+  const src = to.brand === first ? firstSrc : await publishedSource(p.workspaceId, to.brand);
+  if (!src) throw new AssetError("not_found", "There is no page here");
+  const level = await levelFor(p, door, pass, [src]);
+  const view = await viewPage(p.workspaceId, src, to.page, {
+    context: o.context || undefined,
+    lang,
+    level,
+    // Never `as`: collections read as the workspace's reader, not as whoever is signed in.
+    sign: (id) => pageSig(id, p.expiresAt),
+    presets: p.presets,
+  });
+  const at = view.page?.slug ?? view.redirect ?? to.page;
+  const canonical = `/${(at ? canonicalPath(first, to.brand, at) : to.brand === first ? [] : [to.brand]).join("/")}`;
+  return { portal: { ...portal, level }, canonical, redirect: asked.kind === "redirect" || !!view.redirect, view };
+}
+
+/**
+ * Search a portal: every brand it shows, its publish at the visitor's level,
+ * so nothing hidden or locked is found (lib/site.ts searchSite over
+ * lib/page-view.ts readablePages), best first brand by brand; and its
+ * collections' assets.
+ */
+export async function searchPortal(slug: string, pass: Pass, { q, lang }: { q: string; lang?: string | null }) {
+  const { p, level: door } = await open(slug, pass);
+  const inLang = checkLang(lang);
+  if (!q.trim()) return { hits: [], assets: [] };
+  const srcs = await publishes(p);
+  const level = await levelFor(p, door, pass, srcs);
+  const found = srcs.map((src) =>
+    searchSite(readablePages(src, { level, lang: inLang }), src.rules, q).map((h) => ({
+      ...h,
+      brand: src.brand.slug,
+      path: `/${canonicalPath(srcs[0].brand.slug, src.brand.slug, h.page).join("/")}`,
+    })),
+  );
+  // Each brand's best, then each one's second: one brand's many hits don't bury another's best.
+  const hits = found
+    .flatMap((hs, b) => hs.map((h, i) => ({ h, i, b })))
+    .sort((x, y) => x.i - y.i || x.b - y.b)
+    .slice(0, 20)
+    .map((x) => x.h);
+  const ids = (await db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id))).map((c) => c.id);
+  return { hits, assets: (await portalAssets(p, { ids, q, limit: 12 })).data };
+}
+
+/** What's new in one of a portal's brands (the first when not named): its publishes, newest first, their pictures signed in `media`. */
+export async function portalUpdates(slug: string, pass: Pass, brandSlug?: string | null) {
+  const { p } = await open(slug, pass);
+  const showing = (await brandsOf(p.id)).filter((b) => b.shown);
+  const brand = brandSlug ? showing.find((b) => b.slug === brandSlug) : showing[0];
+  if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
+  const updates = await listUpdates(brand.id);
+  const ids = [...new Set(updates.flatMap((u) => u.image ?? []))];
+  const rows = ids.length ? await db.select().from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql)) : [];
+  const media = Object.fromEntries(rows.map((a) => [a.id, shown(a, p)]));
+  // A publish's picture shows while it may be used, like any other.
+  return { data: updates.map((u) => ({ ...u, image: u.image && media[u.image] ? u.image : null })), media };
+}
+
+/** Where a brand is published: the portals showing it, for publish to name (1.10). */
+export async function portalsShowing(ws: string, brandId: string) {
+  const rows = await db
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId })
+    .from(portalBrands)
+    .innerJoin(portals, eq(portals.id, portalBrands.portalId))
+    .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
+    .orderBy(asc(portals.name));
+  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await urlOf(p, await domainOf(p.id)) })));
 }
 
 /** Admins who hear about a request: the workspace's and the organization's. */
@@ -521,30 +770,72 @@ async function adminsOf(p: Row) {
   return rows.map((r) => r.email);
 }
 
+/** What a request section asks for, in the admins' email. */
+const WANTS: Record<Exclude<RequestKind, "access">, string> = { asset: "asks for an asset", review: "asks for a review", question: "has a question" };
+
 /**
- * Ask into a portal that isn't public. It always answers the same, so it
- * can't be used to learn who has asked before; a second ask while one waits
- * is the same ask.
+ * Ask into a portal that isn't public (`kind` access, the default), or ask
+ * its brand team from a request section (an asset, a review, a question).
+ * It always answers the same, so it can't be used to learn who has asked
+ * before; a second ask for access while one waits is the same ask.
+ *
+ * An ask comes from inside: it takes the site's own door (`pass`), and names
+ * a request section the visitor can read, when it names one. So the door
+ * never tells an outsider which pages lie behind it.
  */
-export async function requestAccess(slug: string, input: { email: string; name?: string; note?: string }, ip: string | null) {
-  const [p] = await db.select().from(portals).where(eq(portals.slug, slug));
-  if (!p) throw new AssetError("not_found", "There is no portal here");
-  if (p.access === "public") throw new AssetError("invalid", "This portal is open: no need to ask");
-  if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
+export async function requestAccess(
+  slug: string,
+  input: { email: string; name?: string; note?: string; kind?: RequestKind; page?: string; section?: string },
+  ip: string | null,
+  pass: Pass = {},
+) {
+  const kind = input.kind ?? "access";
+  if (kind === "access" && (input.page || input.section)) throw new AssetError("invalid", "page and section: only an ask from a request section says where it came from");
+  if (input.section && !input.page) throw new AssetError("invalid", "section: give the page it is on too");
+  let p: Row;
+  let level: Audience = "everyone";
+  if (kind === "access") {
+    [p] = await db.select().from(portals).where(eq(portals.slug, slug));
+    if (!p) throw new AssetError("not_found", "There is no portal here");
+    // A public portal takes asks when some page or section of what it shows is for partners or members.
+    if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
+      throw new AssetError("invalid", "This portal is open: no need to ask");
+    }
+    if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
+  } else ({ p, level } = await open(slug, pass));
   // Five an hour from one address, thirty an hour in all: enough for real people, not for a flood of email to admins.
   const wait = asks.hit(`${ip ?? "?"}:${p.id}`) || floods.hit(p.id);
   if (wait) throw new AssetError("rate_limited", `Too many requests. Try again in ${Math.ceil(wait / 60)} min`);
+  if (input.page) {
+    const srcs = await publishes(p);
+    const reader = await levelFor(p, level, pass, srcs);
+    const asking = (s: { id: string; template: string }) => s.id === input.section && s.template === "request";
+    const from = srcs.some((src) => readablePages(src, { level: reader }).some((pg) => pg.slug === input.page && (!input.section || pg.sections.some(asking))));
+    if (!from) throw new AssetError("invalid", input.section ? `No request section ${input.section} on the ${input.page} page` : `No page ${input.page}`);
+  }
   const email = input.email.trim().toLowerCase();
-  const [waiting] = await db
-    .select({ id: portalRequests.id })
-    .from(portalRequests)
-    .where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.email, email), eq(portalRequests.status, "pending")));
+  // Each ask is its own message; only access is asked once.
+  const [waiting] =
+    kind === "access"
+      ? await db
+          .select({ id: portalRequests.id })
+          .from(portalRequests)
+          .where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.email, email), eq(portalRequests.kind, "access"), eq(portalRequests.status, "pending")))
+      : [];
   if (!waiting) {
-    await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note: input.note || null });
+    const note = input.note || null;
+    await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note, kind, page: input.page ?? null, section: input.section ?? null });
     const ws = await workspaceById(p.workspaceId);
     const manage = `${await appUrlFor(ws?.organizationId ?? null)}/portals?open=${p.id}`;
+    const who = input.name ? `${input.name} (${email})` : email;
     for (const to of await adminsOf(p)) {
-      await sendAs(ws?.organizationId ?? null, portalRequestEmail(to, { portal: p.name, who: input.name ? `${input.name} (${email})` : email, note: input.note ?? null, url: manage }));
+      const draft = portalRequestEmail(to, { portal: p.name, who, note, url: manage });
+      // ponytail: an ask's words over the access email's; its own template in core/mail.ts when asks grow more than a line.
+      if (kind !== "access") {
+        draft.subject = `${who} ${WANTS[kind]} on ${p.name}`;
+        draft.lines[0] = `${who} ${WANTS[kind]}${input.page ? `, from the ${input.page} page` : ""} of the ${p.name} portal.`;
+      }
+      await sendAs(ws?.organizationId ?? null, draft);
     }
   }
   return { received: true };
@@ -558,6 +849,9 @@ const presentRequest = async (p: Row, d: { host: string; verifiedAt: Date | null
     name: r.name,
     note: r.note,
     status: r.status,
+    kind: r.kind,
+    page: r.page,
+    section: r.section,
     expiresAt: r.expiresAt,
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
@@ -577,14 +871,18 @@ export async function listRequests(caller: Caller, portalId: string) {
   return Promise.all(rows.map((r) => presentRequest(p, d, r)));
 }
 
-/** Say yes or no. Yes makes them a link of their own, emailed when email works, and shown to copy either way. */
+/**
+ * Say yes or no. Yes to access makes them a link of their own, emailed when
+ * email works, and shown to copy either way; yes to an ask marks it done.
+ */
 export async function decideRequest(caller: Caller, portalId: string, requestId: string, status: Exclude<PortalRequestStatus, "pending">) {
   mayManage(caller);
   const p = await row(caller, portalId);
   if (!p) return null;
   const [r] = await db.select().from(portalRequests).where(and(eq(portalRequests.id, requestId), eq(portalRequests.portalId, p.id)));
   if (!r) return null;
-  const key = status === "approved" ? randomBytes(24).toString("base64url") : null;
+  // An ask answered lets nobody in.
+  const key = status === "approved" && r.kind === "access" ? randomBytes(24).toString("base64url") : null;
   const until = new Date(Math.min(Date.now() + REQUEST_DAYS * 86_400_000, p.expiresAt?.getTime() ?? Infinity));
   const [next] = await db
     .update(portalRequests)

@@ -9,6 +9,7 @@ import {
   IconHistory,
   IconRestore,
   IconSparkles,
+  IconWorldUpload,
 } from "@tabler/icons-react";
 import type { Me } from "@/components/account";
 import { Can, useCan, useMe } from "@/components/can";
@@ -22,10 +23,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Editable } from "@/components/brand-values";
+import type { ThemeSettings } from "@/lib/brand-theme";
 import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/history";
+import type { SnapPage } from "@/lib/pages";
 import { day } from "@/lib/time";
 import { undoable } from "@/lib/undo";
-import { contextLabel, fontLabel, ruleLabel, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { contextLabel, fontLabel, ruleLabel, ruleName, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Meta = {
@@ -35,12 +38,31 @@ type Meta = {
   actor: string;
   summary: string;
   restoredFrom: number | null;
+  /** Rule keys, "page:{slug}" and "theme". */
+  changed: string[];
   rules: number;
+  /** Null for a version from before pages. */
+  pages: number | null;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  note: string | null;
+  noteImage: string | null;
   createdAt: string;
   updatedAt: string;
 };
 type Mode = "made" | "now";
-type Detail = Omit<Meta, "rules"> & { rules: SnapRule[]; against: number | "current" | null; diff: RuleChange[] };
+type Detail = Omit<Meta, "rules" | "pages"> & {
+  rules: SnapRule[];
+  pages: SnapPage[] | null;
+  /** Null for a version from before themes. */
+  theme: ThemeSettings | null;
+  against: number | "current" | null;
+  diff: RuleChange[];
+  /** "page:{slug}" for each page that differs. */
+  pageDiff: string[];
+  /** Against "current": whether a restore would change the theme. */
+  themeChanged: boolean;
+};
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 const stamp = (iso: string) =>
@@ -89,6 +111,8 @@ export function History({
   }, [open, brand.slug, edits, tick]);
 
   const latest = versions?.[0]?.number;
+  // What readers see now: the newest version published.
+  const live = versions?.find((v) => v.publishedAt)?.number;
   const days = new Map<string, Meta[]>();
   for (const v of versions ?? []) days.set(day(v.updatedAt), [...(days.get(day(v.updatedAt)) ?? []), v]);
 
@@ -147,20 +171,23 @@ export function History({
                     // The line down to the next dot, so a day reads as a timeline.
                     <li
                       key={v.number}
-                      className="relative before:absolute before:top-7 before:-bottom-3 before:left-[1.375rem] before:w-px before:bg-border last:before:hidden"
+                      className="relative before:absolute before:top-7 before:-bottom-3 before:start-[1.375rem] before:w-px before:bg-border last:before:hidden"
                     >
                       <button
                         type="button"
                         onClick={() => setSelected(v.number)}
-                        className="hover:bg-muted focus-visible:bg-muted flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none"
+                        className="hover:bg-muted focus-visible:bg-muted flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-start outline-none"
                       >
-                        <KindIcon kind={v.kind} named={!!v.name} />
+                        <KindIcon kind={v.kind} named={!!v.name} published={!!v.publishedAt} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
                             <span className={cn("truncate text-sm", v.name ? "font-semibold" : "font-medium")}>
                               {v.name ?? v.summary}
                             </span>
                             {v.number === latest && <Badge variant="secondary">Current</Badge>}
+                            {v.publishedAt && (
+                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Published"}</Badge>
+                            )}
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
                             {time(v.updatedAt)} · {who(v.actor, me)}
@@ -181,14 +208,15 @@ export function History({
   );
 }
 
-function KindIcon({ kind, named }: { kind: VersionKind; named: boolean }) {
-  const I = named ? IconFlag : kind === "restore" ? IconRestore : kind === "baseline" ? IconSparkles : null;
+/** A version's dot on the timeline: a publish, a named checkpoint, a restore, the start. */
+function KindIcon({ kind, named, published }: { kind: VersionKind; named: boolean; published: boolean }) {
+  const I = published ? IconWorldUpload : named ? IconFlag : kind === "restore" ? IconRestore : kind === "baseline" ? IconSparkles : null;
   return (
     <span
       className={cn(
         // Positioned, so it sits over the timeline's line.
         "relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
-        named ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+        published ? "bg-success text-background" : named ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
       )}
     >
       {I ? <I className="size-3" /> : <span className="bg-muted-foreground/60 size-1.5 rounded-full" />}
@@ -221,6 +249,7 @@ function VersionDetail({
   const stale = !!got && got.mode !== mode;
   const can = useCan();
   const me = useMe();
+  const themed = !!v?.themeChanged;
 
   useEffect(() => {
     let live = true;
@@ -255,7 +284,7 @@ function VersionDetail({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-3 border-b p-4">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={onBack}>
+        <Button variant="ghost" size="sm" className="-ms-2" onClick={onBack}>
           <IconArrowLeft /> All versions
         </Button>
         {v ? (
@@ -274,9 +303,11 @@ function VersionDetail({
               </Can>
               <p className="text-muted-foreground text-sm">
                 v{number} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
+                {v.pages && ` · ${v.pages.length} pages`}
                 {v.kind === "restore" && v.restoredFrom && ` · restored version ${v.restoredFrom}`}
               </p>
             </div>
+            {v.publishedAt && <Published v={v} />}
             <div className="flex flex-wrap items-center gap-2">
               <ToggleGroup
                 type="single"
@@ -293,12 +324,12 @@ function VersionDetail({
               {!current && can("brand.edit") && (
                 <Confirm
                   title={`Restore version ${number}?`}
-                  says="The brand's rules go back to how they were in this version. Nothing is lost: the rules you have now stay in the history, and you can restore them the same way."
+                  says={`The brand's ${restores(v)} go back to how they were in this version. Nothing is lost: what you have now stays in the history, and you can restore it the same way.`}
                   action="Restore"
                   destructive={false}
                   run={restore}
                 >
-                  <Button size="sm" className="ml-auto">
+                  <Button size="sm" className="ms-auto">
                     <IconRestore /> Restore this version
                   </Button>
                 </Confirm>
@@ -317,17 +348,67 @@ function VersionDetail({
         {v && (
           <p className="text-muted-foreground text-sm">
             {got?.mode === "now"
-              ? "What restoring would undo: how the rules changed from this version to now."
+              ? "What restoring would undo: how the rules, pages and theme changed from this version to now."
               : v.kind === "baseline"
-                ? "Where this brand's history starts: every rule it had."
+                ? "Where this brand's history starts: every rule and page it had."
                 : v.against
                   ? `How version ${v.against} became this one.`
                   : "Everything in this version."}
           </p>
         )}
-        {v && !v.diff.length && <p className="text-sm">No differences.</p>}
-        {v?.diff.map((c) => <Change key={`${c.change}-${c.key}-${c.context}`} change={c} />)}
+        {v && !v.diff.length && !v.pageDiff.length && !themed && <p className="text-sm">No differences.</p>}
+        {v?.diff.map((c) => (
+          <Change
+            key={`${c.change}-${c.key}-${c.context}`}
+            change={c}
+            label={v.rules.find((r) => r.key === c.key && r.context === c.context)?.label}
+          />
+        ))}
+        {v?.pageDiff.map((p) => {
+          const slug = p.slice(5);
+          return <Other key={p} tag="page" name={v.pages?.find((x) => x.slug === slug)?.title ?? slug} code={slug} />;
+        })}
+        {themed && <Other tag="theme" name="Theme" code="theme" />}
       </div>
+    </div>
+  );
+}
+
+/** What a restore puts back: a version from before pages or themes leaves them as they are. */
+const restores = (v: Detail) =>
+  new Intl.ListFormat("en", { type: "conjunction" }).format(
+    ["rules", ...(v.pages ? ["pages"] : []), ...(v.theme ? ["theme"] : [])],
+  );
+
+/** The publish mark: when, by whom, and the note readers got with it. */
+function Published({ v }: { v: Detail }) {
+  const me = useMe();
+  return (
+    <div className="bg-success/10 space-y-2 rounded-lg p-3 text-sm">
+      <p className="text-success flex items-center gap-1.5 font-medium">
+        <IconWorldUpload className="size-4" /> Published {stamp(v.publishedAt!)}
+        {v.publishedBy && ` · ${who(v.publishedBy, me)}`}
+      </p>
+      {/* An unnamed version takes the note as its name, so it already reads above. */}
+      {v.note && v.note !== v.name && <p className="whitespace-pre-line">{v.note}</p>}
+      {v.noteImage && (
+        <div className="bg-checker relative aspect-video overflow-hidden rounded-md border">
+          <Thumb src={`/a/${v.noteImage}/w_560,f_webp`} alt="" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TAG = "rounded px-1.5 py-0.5 text-2xs font-semibold tracking-wide uppercase";
+
+/** A page or the theme that changed. The diff names them only; the page itself shows the rest. */
+function Other({ tag, name, code }: { tag: string; name: string; code: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border p-3">
+      <span className={cn(TAG, "bg-muted text-muted-foreground")}>{tag}</span>
+      <span className="truncate text-sm font-medium">{name}</span>
+      <code className="text-muted-foreground ms-auto truncate font-mono text-xs">{code}</code>
     </div>
   );
 }
@@ -339,20 +420,21 @@ const CHANGE_STYLE: Record<RuleChange["change"], string> = {
   moved: "bg-muted text-muted-foreground",
 };
 
-function Change({ change: c }: { change: RuleChange }) {
+/** `label`: the rule's heading in this version, which a change or a move doesn't carry. */
+function Change({ change: c, label }: { change: RuleChange; label?: string | null }) {
   return (
     <div className="space-y-2 rounded-xl border p-3">
       <div className="flex items-center gap-2">
-        <span className={cn("rounded px-1.5 py-0.5 text-2xs font-semibold tracking-wide uppercase", CHANGE_STYLE[c.change])}>
-          {c.change}
+        <span className={cn(TAG, CHANGE_STYLE[c.change])}>{c.change}</span>
+        <span className="truncate text-sm font-medium">
+          {ruleName(c.change === "added" ? c.after : c.change === "removed" ? c.before : { key: c.key, label })}
         </span>
-        <span className="truncate text-sm font-medium">{ruleLabel(c.key)}</span>
         {c.context && (
           <Badge variant="secondary" title={c.context}>
             {contextLabel(c.context)}
           </Badge>
         )}
-        <code className="text-muted-foreground ml-auto truncate font-mono text-xs">{c.key}</code>
+        <code className="text-muted-foreground ms-auto truncate font-mono text-xs">{c.key}</code>
       </div>
       {c.change === "added" && <Value rule={c.after} />}
       {c.change === "removed" && (
@@ -368,7 +450,7 @@ function Change({ change: c }: { change: RuleChange }) {
       {c.change === "changed" && (
         <div className="space-y-3">
           {c.fields.map((f) => (
-            <Field key={f.field} f={f} />
+            <Field key={f.field} f={f} ruleKey={c.key} />
           ))}
           {c.moved && (
             <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
@@ -389,10 +471,19 @@ const text = (v: unknown) =>
       : typeof v === "object"
         ? fontLabel(v as FontValue)
         : String(v);
-const FIELD: Record<FieldChange["field"], string> = { value: "Value", usage: "Note", assets: "Assets", type: "Kind" };
+const FIELD: Record<FieldChange["field"], string> = {
+  value: "Value",
+  usage: "Note",
+  assets: "Assets",
+  type: "Kind",
+  label: "Heading",
+  spec: "Details",
+};
+// A spec detail in brief: gradients and CMYK tuples read fine as JSON.
+const brief = (v: unknown) => (v === undefined ? "nothing" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
 /** One field, before and after, drawn the way the page draws it. */
-function Field({ f }: { f: FieldChange }) {
+function Field({ f, ruleKey }: { f: FieldChange; ruleKey: string }) {
   const body = (() => {
     const isColor = (v: unknown) => typeof v === "string" && /^#[0-9a-f]{6}/i.test(v);
     if (f.field === "value" && isColor(f.before) && isColor(f.after)) {
@@ -424,6 +515,27 @@ function Field({ f }: { f: FieldChange }) {
         </ul>
       );
     }
+    if (f.field === "spec") {
+      // Only the details that moved, each before and after.
+      const [was, is] = [(f.before ?? {}) as Record<string, unknown>, (f.after ?? {}) as Record<string, unknown>];
+      const keys = [...new Set([...Object.keys(was), ...Object.keys(is)])].filter(
+        (k) => JSON.stringify(was[k]) !== JSON.stringify(is[k]),
+      );
+      return (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          {keys.map((k) => (
+            <div key={k} className="contents">
+              <dt className="text-muted-foreground font-mono text-xs leading-5">{k}</dt>
+              <dd className="min-w-0 break-words">
+                <span className="text-destructive line-through">{brief(was[k])}</span>{" "}
+                <IconArrowRight className="text-muted-foreground inline size-3.5" />{" "}
+                <span className="text-success">{brief(is[k])}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
     if (f.field === "assets") {
       return (
         <div className="flex items-center gap-3">
@@ -433,10 +545,12 @@ function Field({ f }: { f: FieldChange }) {
         </div>
       );
     }
+    // No label reads as the key in words, which is what readers saw.
+    const say = (v: unknown) => (f.field === "label" && v === null ? `${ruleLabel(ruleKey)} (from the key)` : text(v));
     return (
       <div className="space-y-1 text-sm">
-        <p className="text-destructive line-through">{text(f.before)}</p>
-        <p className="text-success">{text(f.after)}</p>
+        <p className="text-destructive line-through">{say(f.before)}</p>
+        <p className="text-success">{say(f.after)}</p>
       </div>
     );
   })();

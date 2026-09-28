@@ -3,7 +3,13 @@
 
 /* shadcn/ui, new-york, neutral base, brand violet #6D4AFF as primary. Stock tokens: restyle through these, not per component. */
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Dark under the nearest .dark, unless a .light comes after it: a brand
+ * ground (brand-sections/frame.tsx) says which it reads as, whatever the
+ * app's mode. ponytail: exact to three levels (app, site, ground); a light
+ * ground inside a dark one inside a light site in a dark app reads as dark.
+ */
+@custom-variant dark (&:is(:is(.dark *):not(:where(.dark .light *)), :where(.dark .light .dark *)));
 
 @theme inline {
   --font-sans: var(--font-dm-sans);
@@ -57,7 +63,8 @@
   --text-2xs--line-height: 1rem;
 }
 
-:root {
+/* .app-tokens keeps the app's own colors inside a brand's site (editor chrome); .light is a light brand ground in a dark app. */
+:root, .app-tokens, .light {
   /* Brand canvas 02 · Colour and type: black #111111 and the cool neutral scale. Violet is primary only: accent also paints skeletons, toggles and menus. */
   --radius: 0.625rem;
   --background: #ffffff;
@@ -93,7 +100,7 @@
   --primary-ink: var(--primary);
 }
 
-.dark {
+.dark, .dark .app-tokens {
   /* Brand black, then plain greys: the cool light-mode neutrals turn muddy on black. */
   --background: #111111;
   --foreground: #fafafa;
@@ -240,6 +247,45 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   color: var(--primary);
 }
 
+/*
+ * The pattern ground (brand-sections/frame.tsx): the brand's device, tiled
+ * faintly over the panel. The theme sets --brand-device, or none.
+ */
+@utility ground-pattern {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--brand-device, none) 0 0 / 6rem repeat;
+    opacity: 0.08;
+  }
+}
+
+/*
+ * A theme's motion: subtle (site/site-view.tsx): sections rise into place as
+ * they scroll in, driven by the scroll, with no script. Never with reduced
+ * motion, and never on paper.
+ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @keyframes brand-reveal {
+      from {
+        opacity: 0;
+        translate: 0 1.5rem;
+      }
+    }
+    [data-motion="subtle"] section[data-template] {
+      animation: brand-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+
 /* A transparency checkerboard: logos and cut-outs show their true edges on it. */
 @utility bg-checker {
   background-color: var(--muted);
@@ -268,10 +314,10 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
 .rich h3 { font-size: 1.05em; }
 .rich h4 { font-size: 1em; }
 .rich h5, .rich h6 { font-size: 0.95em; color: var(--muted-foreground); }
-.rich ul { padding-left: 1.4em; list-style: disc; }
-.rich ol { padding-left: 1.4em; list-style: decimal; }
+.rich ul { padding-inline-start: 1.4em; list-style: disc; }
+.rich ol { padding-inline-start: 1.4em; list-style: decimal; }
 .rich li + li { margin-top: 0.25em; }
-.rich blockquote { border-left: 3px solid var(--border); padding-left: 1em; font-style: italic; color: var(--muted-foreground); }
+.rich blockquote { border-inline-start: 3px solid var(--border); padding-inline-start: 1em; font-style: italic; color: var(--muted-foreground); }
 .rich a { text-decoration: underline; text-underline-offset: 2px; }
 .rich code { border-radius: 4px; background: var(--muted); padding: 0.1em 0.3em; font-family: var(--font-mono); font-size: 0.875em; }
 .rich pre { overflow-x: auto; border-radius: 8px; background: var(--muted); padding: 0.75em 1em; }
@@ -281,17 +327,69 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
 .rich hr::after { content: "\00b7\00b7\00b7"; letter-spacing: 0.6em; color: var(--muted-foreground); }
 .rich img { max-width: 100%; border-radius: 8px; }
 .rich table { width: 100%; border-collapse: collapse; font-size: 0.875em; }
-.rich th, .rich td { border: 1px solid var(--border); padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+.rich th, .rich td { border: 1px solid var(--border); padding: 0.4em 0.6em; text-align: start; vertical-align: top; }
 .rich th { background: var(--muted); font-weight: 600; }
 .rich td > p, .rich th > p { margin: 0; }
-.rich .tableWrapper { overflow-x: auto; }
+/* A wide table scrolls in its own box: the editor's wrapper, and the page's (lib/markdown.ts). */
+.rich .tableWrapper, .rich .table-wrap { overflow-x: auto; }
 .rich .selectedCell { background: color-mix(in oklab, var(--primary) 12%, transparent); }
 .rich .ProseMirror-selectednode { outline: 2px solid var(--ring); }
+/*
+ * GitHub's alerts in a page's Markdown (lib/markdown.ts): a rule in the
+ * tone's color, with the kind written out, so color is never the only cue.
+ */
+.rich .callout {
+  --callout: var(--muted-foreground);
+  border-inline-start: 3px solid var(--callout);
+  border-radius: 8px;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  background: color-mix(in oklab, var(--callout) 8%, transparent);
+  padding: 0.75em 1em;
+}
+.rich .callout[data-tone="tip"] { --callout: var(--success); }
+.rich .callout[data-tone="important"] { --callout: var(--brand-accent, var(--primary)); }
+.rich .callout[data-tone="warning"] { --callout: var(--warning); }
+.rich .callout[data-tone="caution"] { --callout: var(--destructive); }
+.rich .callout > * + * { margin-top: 0.4em; }
+.rich .callout-title { font-weight: 600; }
+/* Each code block gets a copy button once the page is live (brand-sections/slots.tsx): shown on pointing, always on touch. */
+.rich pre[data-copy] { position: relative; }
+.rich .copy-code {
+  position: absolute;
+  inset-block-start: 0.4em;
+  inset-inline-end: 0.4em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  padding: 0.1em 0.5em;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  opacity: 0;
+  transition: opacity var(--default-transition-duration) var(--ease-out);
+}
+.rich pre:hover > .copy-code, .rich .copy-code:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .rich .copy-code { opacity: 1; }
+}
+/*
+ * A brand page's prose (brand-sections/slots.tsx), demoted one level under
+ * its section: headings in the brand's heading face and a step up from a
+ * rule's, links underlined in its accent. Its size comes from the slot's
+ * classes, which a template can change.
+ */
+.rich.prose-brand :is(h2, h3, h4) { font-family: var(--brand-head); font-weight: var(--brand-head-weight, 600); letter-spacing: -0.01em; }
+.rich.prose-brand h2 { font-size: 1.5em; }
+.rich.prose-brand h3 { font-size: 1.25em; }
+.rich.prose-brand h4 { font-size: 1.1em; }
+.rich.prose-brand a { text-decoration-color: var(--brand-accent, currentColor); text-decoration-thickness: 1px; }
+.rich.prose-brand a:hover { text-decoration-thickness: 2px; }
 /* The hint shows on an empty document, and on the empty line the caret is on. */
 .rich p.is-editor-empty:first-child::before,
 .rich.ProseMirror-focused > .is-empty:not(.is-editor-empty)::before {
   content: attr(data-placeholder);
-  float: left;
+  float: inline-start;
   height: 0;
   pointer-events: none;
   color: var(--muted-foreground);
@@ -305,5 +403,106 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   }
   [data-flash], [data-block]:target {
     animation: target-flash 1.6s var(--ease-out);
+  }
+}
+
+/*
+ * Paper (build spec D14): print is CSS, with no print mode of its own. The
+ * page prints as it looks, brand grounds and swatches in their own colors,
+ * less the chrome (data-chrome) and the controls; every tab prints under its
+ * name, and an external link says where it goes. The book (site/book.tsx)
+ * breaks before each page's header. ponytail: paper follows the screen's
+ * scheme, so a dark app with no brand surface prints dark; a paper-white
+ * override of the app's dark mode when someone prints from it.
+ */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  :root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* The site's chrome, and the app's around it: its sidebar, its header (the one with the sidebar's button), toasts. */
+  [data-chrome],
+  [data-slot="sidebar"],
+  header:has([data-slot="sidebar-trigger"]),
+  [data-sonner-toaster] {
+    display: none;
+  }
+  /* Controls are for the screen: what they copy, download or pick between is on the paper already. */
+  section[data-template] :is([data-slot="button"], [data-tip], [data-slot="toggle-group"], [role="radiogroup"]),
+  .rich .copy-code {
+    display: none;
+  }
+  /* A face waiting for its file (brand-sections/type.tsx InFace) shows in its fallback rather than not at all. */
+  [data-font-fade],
+  section[data-template] :is(p, span).opacity-0.transition-opacity {
+    opacity: 1;
+  }
+  /* Never through a specimen, a card or a picture, and never between a heading and what it heads. */
+  section[data-template] :is(li, figure, pre, img, tr, [role="group"], [class~="group/block"]) {
+    break-inside: avoid;
+  }
+  section[data-template] header,
+  :is(h1, h2, h3, h4) {
+    break-after: avoid;
+  }
+  /*
+   * A section's contexts (brand-sections/frame.tsx), all printed: the strip
+   * dissolves into its panels' column and each name moves above its panel.
+   * ponytail: paired up to eight; a ninth prints after them, name apart.
+   */
+  [role="tablist"][aria-label="Context"] {
+    display: contents;
+    & > [role="tab"] {
+      justify-content: flex-start;
+      height: auto;
+      margin-block-end: -0.75rem;
+      padding: 0;
+      color: var(--muted-foreground);
+      font-family: var(--brand-label, inherit);
+      font-size: var(--text-2xs);
+      text-transform: var(--brand-label-case, uppercase);
+      letter-spacing: var(--brand-label-tracking, 0.08em);
+      &::after {
+        display: none;
+      }
+    }
+    & > *,
+    & ~ * {
+      order: 9;
+    }
+    & > :nth-child(1), & ~ :nth-child(2) { order: 1; }
+    & > :nth-child(2), & ~ :nth-child(3) { order: 2; }
+    & > :nth-child(3), & ~ :nth-child(4) { order: 3; }
+    & > :nth-child(4), & ~ :nth-child(5) { order: 4; }
+    & > :nth-child(5), & ~ :nth-child(6) { order: 5; }
+    & > :nth-child(6), & ~ :nth-child(7) { order: 6; }
+    & > :nth-child(7), & ~ :nth-child(8) { order: 7; }
+    & > :nth-child(8), & ~ :nth-child(9) { order: 8; }
+  }
+  /* Paper can't be clicked: an external link says where it goes, after its words. */
+  section[data-template] a[href^="http"]:not(:empty)::after {
+    content: " (" attr(href) ")";
+    overflow-wrap: anywhere;
+    font-size: 0.8em;
+    color: var(--muted-foreground);
+  }
+  /* A link card's link lies over the whole card (brand-sections/links.tsx); on paper it is the card's last line. */
+  [data-template="links"] li:has(> a:empty[href^="http"]) {
+    flex-wrap: wrap;
+  }
+  [data-template="links"] li > a:empty[href^="http"] {
+    position: static;
+    inline-size: 100%;
+    padding-inline: 1rem;
+    padding-block-end: 1rem;
+    overflow-wrap: anywhere;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    &::after {
+      content: attr(href);
+    }
   }
 }

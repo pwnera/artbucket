@@ -3,6 +3,7 @@ import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
 import { STATES } from "./lifecycle.ts";
+import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
 import type { Scope } from "./scopes.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
@@ -156,6 +157,17 @@ export function openapi(serverUrl: string) {
             "`channel` to settle it.",
           body: S.CheckInput,
           ok: [200, "The verdict", S.CheckResult],
+        }),
+      },
+      "/api/v1/brand/templates": {
+        get: op({
+          summary: "Section templates",
+          scope: "read",
+          description:
+            "What a brand page is built from: each template's use, what its keys may name, what its items are, its " +
+            "layout defaults, its own props as JSON Schema and an example section. `common` says what every section " +
+            "takes. The MCP tool list_templates serves the same.",
+          ok: [200, "The templates", data(S.Templates)],
         }),
       },
       "/api/v1/brand/tokens": {
@@ -390,6 +402,22 @@ export function openapi(serverUrl: string) {
           body: S.RuleInput,
           ok: [201, "Created", data(S.BrandRule)],
         }),
+        patch: op({
+          summary: "Set brand rules in one go",
+          scope: "write",
+          description:
+            "The MCP tool set_rules. Each of `set` is made, or changes the rule with its key and context (its type " +
+            "can't change: remove it first); each of `remove` goes, a key without a context with every context " +
+            "version. All or none, checked together, so a gradient and the colors it names can arrive at once: a 422 " +
+            "lists every problem with its path, e.g. `set[0].spec: ...`. One change in the brand's history.",
+          query: { brand: { schema: str, description: "A brand's slug; the default brand when left out" } },
+          body: S.RuleBatch,
+          ok: [
+            200,
+            "What changed, each as key (context)",
+            data(z.object({ brand: z.string(), created: z.array(z.string()), updated: z.array(z.string()), removed: z.array(z.string()) })),
+          ],
+        }),
       },
       "/api/v1/brand/rules/order": {
         put: op({
@@ -476,6 +504,142 @@ export function openapi(serverUrl: string) {
           description: "Replaces the brand's rules with the version's. The restore is a new version, so it can be undone.",
           ok: [200, "Restored", data(S.Restored)],
         }),
+      },
+      "/api/v1/brands/{slug}/pages": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's pages",
+          scope: "read",
+          description: "In order, with their tree fields, how many sections each has and the keys of the rules they show. GET one for its sections.",
+          ok: [200, "Pages", data(z.array(S.PageSummary))],
+        }),
+        post: {
+          ...op({
+            summary: "Lay out pages from the rules",
+            scope: "write",
+            description:
+              "For a brand with no pages: an overview, then a page per group of rules, each in the templates it fits. " +
+              "A start to edit from; 409 when the brand has pages. With `set`, one topic's pages (Our X, Using X, In " +
+              "product, In marketing, Best practices, Showcase) go in beside the pages there are, under `parent`; 409 " +
+              "only when one of their slugs is taken.",
+            ok: [
+              201,
+              "The pages made",
+              data(z.object({ brand: z.string(), pages: z.array(z.object({ slug: z.string(), title: z.string(), sections: z.number().int() })) })),
+            ],
+          }),
+          // `set` is optional, so the body may be left out.
+          requestBody: { required: false, content: json(S.GeneratePagesInput, "input") },
+        },
+      },
+      "/api/v1/brands/{slug}/pages/{page}": {
+        parameters: [path("slug", "Brand slug"), path("page", "The page's slug, e.g. logo")],
+        get: op({
+          summary: "A brand page",
+          scope: "read",
+          description:
+            "The page, the rules its sections show resolved for `context`, the keys whose rule has gone (`missing`), " +
+            "what a reader would trip on (`warnings`), the page as Markdown, and `url`, where a member reads it in the " +
+            "app. A slug it had before a rename finds it too.",
+          query: { context: { schema: str, description: "Resolve its rules for this context, e.g. dark-background" } },
+          ok: [200, "The page", data(S.PageRead)],
+        }),
+        put: op({
+          summary: "Save a page whole",
+          scope: "write",
+          description:
+            "Makes the page, or replaces its title and every section, top to bottom. A page field left out keeps its " +
+            "value; null clears it. Sections keep their ids; new ones get one. Each section is checked against its own " +
+            "template (GET /api/v1/brand/templates), its keys against the rules and its assets against the library: a " +
+            "422 lists every problem with its path, e.g. `sections[1].props.chanel: Unrecognized key`. A slug that " +
+            "isn't one is a 422 too. A draft until the brand is published.",
+          body: S.PageInput,
+          ok: [201, "Made", data(S.PageSaved)],
+          extra: { 200: { description: "Replaced", content: json(data(S.PageSaved)) } },
+        }),
+        patch: op({
+          summary: "Edit a page an operation at a time",
+          scope: "write",
+          description:
+            "`ops` apply in order: `add`, `update`, `move` and `remove` sections, and `page` for its own fields. " +
+            "`page` with `slug` renames it: the old slug becomes an alias that still finds it, and the pages under it " +
+            "follow. All or none: a 422 lists every problem with its path, e.g. `ops[0].section.props.chanel: Unrecognized key`.",
+          body: S.PageEdit,
+          ok: [200, "The page", data(S.PageSaved.omit({ created: true }))],
+        }),
+        delete: op({ summary: "Delete a page", scope: "write", description: "409 while pages sit under it: move or delete them first.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/brands/{slug}/theme": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's theme",
+          scope: "read",
+          description:
+            "How its pages look beyond what the rules say: which rule plays which part (accent, surface, ink, faces, " +
+            "logo) and the page's measure, rhythm and chrome, with the look they give. Every ink is graded on its " +
+            "ground in `checks`: a pair under its need (4.5:1 for text, 3:1 for marks) falls back to a color that " +
+            "reads and is a warning. So is a setting whose rule has gone since, and the default is used.",
+          ok: [200, "The theme", data(S.ThemeView)],
+        }),
+        patch: op({
+          summary: "Change a brand's theme",
+          scope: "write",
+          description:
+            "Merges: a key left out keeps its value, null clears it. A color setting names a color rule, a font setting " +
+            "a font rule, `logo` a rule with a picture and `device` an image asset: a 422 names each that doesn't, with " +
+            "its path. Answers with the look and its `checks`, as GET does. A draft in the brand's history until it is published.",
+          body: S.ThemePatch,
+          ok: [200, "The theme", data(S.ThemeView)],
+        }),
+      },
+      "/api/v1/brands/{slug}/view": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand page, ready to read",
+          scope: "read",
+          description:
+            "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed " +
+            "with a lock), the page's sections, every context version of the rules they show, the assets they name " +
+            "that may be used, and each collection section's assets. No `page`: the first. A slug it had before a " +
+            "rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. " +
+            "`edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among " +
+            "them) and `missing`.",
+          query: {
+            page: { schema: str, description: "The page's slug; the first page when left out" },
+            context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
+            lang: { schema: str, description: "The reader's language" },
+            edit: { schema: { type: "string", enum: ["1"] }, description: "1: as the builder sees it" },
+          },
+          ok: [200, "The page", data(S.PageView)],
+        }),
+      },
+      "/api/v1/brands/{slug}/updates": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "What's new in a brand",
+          scope: "read",
+          description:
+            "Its latest publishes, newest first, up to 20: each one's note and picture, and what it changed for readers " +
+            "since the publish before it (edits between two publishes are passed over): rules by key, and pages readers " +
+            "can reach, a hidden one left out.",
+          ok: [200, "Its publishes", data(z.array(S.Update))],
+        }),
+      },
+      "/api/v1/brands/{slug}/publish": {
+        parameters: [path("slug", "Brand slug")],
+        post: {
+          ...op({
+            summary: "Publish a brand",
+            scope: "write",
+            description:
+              "Its latest version, rules, pages and theme, becomes the published one, and the next edit starts a new " +
+              "version. `note` says what changed, for readers, with `image` beside it. With nothing changed since the " +
+              "last publish, it answers `unchanged: true` and publishes nothing. Takes share on the workspace.",
+            ok: [200, "The published version", data(S.Published)],
+          }),
+          // Everything in it is optional, so the body may be left out.
+          requestBody: { required: false, content: json(S.PublishInput, "input") },
+        },
       },
       "/api/v1/me": {
         get: op({
@@ -710,12 +874,23 @@ export function openapi(serverUrl: string) {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),
       },
+      "/api/v1/portals/{id}/views": {
+        parameters: [path("id", "Portal id")],
+        get: op({
+          summary: "Page views",
+          scope: "write",
+          description: "How often its pages were read over the last 30 days, per brand and page, most read first. Asset downloads aren't counted here.",
+          ok: [200, "Views", data(S.PortalViews)],
+        }),
+      },
       "/api/v1/portals/{id}/requests/{request}": {
         parameters: [path("id", "Portal id"), path("request", "Request id")],
         patch: op({
-          summary: "Approve or deny an access request",
+          summary: "Answer a request",
           scope: "write",
-          description: `Approved, they get a link of their own for ${90} days (or until the portal closes), emailed when the organization's email works, and in \`url\` to copy.`,
+          description:
+            `An access request approved gets a link of their own for ${90} days (or until the portal closes), emailed when the organization's email works, and in \`url\` to copy. ` +
+            "A request section's ask (asset, review, question) approved is marked done, and denied dismissed; it makes no link.",
           body: S.PortalDecision,
           ok: [200, "The request, and whether it was emailed", S.Decided],
         }),
@@ -747,20 +922,76 @@ export function openapi(serverUrl: string) {
           summary: "A brand's guidelines, in a portal",
           scope: "public",
           description:
-            "The rules of one of the portal's brands, read-only, behind the same door as the portal (see GET " +
-            "/api/v1/portal/{slug}). A rule's assets are listed only when they may be used, and load from /a/{id} " +
-            "with the signature in `signed`; images in a rule's text come signed.",
+            "The rules of one of the portal's brands as its latest publish has them, read-only, behind the same door " +
+            "as the portal (see GET /api/v1/portal/{slug}); a brand never published is a 404. A rule's assets are listed " +
+            "only when they may be used, and load from /a/{id} with the signature in `signed`; images in a rule's text " +
+            "come signed. `updatedAt` is when it was published.",
           query: { context: { schema: str, description: "Resolve for one context, e.g. dark-background" } },
           ok: [200, "The guidelines", S.PortalBrand],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/site": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "A page of a portal's brand book",
+          scope: "public",
+          description:
+            "A page of one of the portal's brands, from its latest publish (never the draft), as this visitor may read " +
+            "it, behind the same door as the portal. `path` is what follows /p/{slug}: nothing for the first brand's " +
+            "first page, `{page}` for a page of the first brand (else another brand's first page), `{brand}/{page}`. " +
+            "Pages above the visitor (`portal.level`) are listed with a lock and carry nothing; sections above them and " +
+            "hidden ones are left out. Every asset URL comes signed. `redirect`: the path was an old slug or a long " +
+            "form, so send the reader to `canonical`. A portal showing no brand answers `view: null`.",
+          query: {
+            path: { schema: str, description: "The portal path, e.g. logo or other-brand/logo" },
+            context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
+            lang: { schema: str, description: "The reader's language, a lowercase tag: ar, en-gb" },
+          },
+          ok: [200, "The page", data(S.PortalSiteView)],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/search": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "Search a portal",
+          scope: "public",
+          description:
+            "The pages, sections and rules of every brand it shows, from their latest publish, as far as this visitor " +
+            "may read: nothing hidden or locked is found. Every word must match, each as a prefix; each brand's best " +
+            "first, 20 at most. Beside them, up to 12 of its collections' assets.",
+          query: {
+            q: { schema: str, description: "Words to find" },
+            lang: { schema: str, description: "Search the pages in this language" },
+          },
+          ok: [200, "Hits and assets", data(z.object({ hits: z.array(S.Hit), assets: z.array(S.Media) }))],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/updates": {
+        parameters: [path("slug", "The portal's address")],
+        get: op({
+          summary: "What's new in a portal's brand",
+          scope: "public",
+          description:
+            "One of its brands' latest publishes, newest first, up to 20, with what each changed for readers. A " +
+            "publish's picture is in `media`, signed, while it may be used.",
+          query: { brand: { schema: str, description: "One of its brands, by slug; the first when left out" } },
+          ok: [200, "Its publishes", z.object({ data: z.array(S.Update), media: z.record(z.string(), S.Media) })],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },
       "/api/v1/portal/{slug}/requests": {
         parameters: [path("slug", "The portal's address")],
         post: op({
-          summary: "Ask for access to a portal",
+          summary: "Ask for access to a portal, or ask its brand team",
           scope: "public",
-          description: "For a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request.",
+          description:
+            "Access (`kind` access, the default) is for a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. " +
+            "A request section's ask (`kind` asset, review or question) works on any portal, says the `page` and `section` it came from, and needs what reading " +
+            "that page needs (X-Portal-Password or X-Portal-Key, or a member's session), else 401. The `page` must be one the visitor can read and `section` a " +
+            "request section on it; access takes neither.",
           body: S.PortalRequestInput,
           ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
         }),
@@ -948,9 +1179,10 @@ export function openapi(serverUrl: string) {
           summary: "MCP (Streamable HTTP, stateless)",
           scope: "read",
           description:
-            "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, " +
-            "rendition_url, check_use, ingest_asset, import_google_font, propose_tags, my_proposals, brand_rules. Each tool checks its own scope. " +
-            "Resources: artbucket://brand/rules and artbucket://brand/rules/{context}.",
+            `JSON-RPC 2.0 for Model Context Protocol clients. Tools: ${Object.keys(TOOL_INPUTS).join(", ")}. ` +
+            "Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default " +
+            "brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its " +
+            "pages as Markdown (artbucket://brands/{slug}/pages/{page}).",
           body: z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number()]).optional(), method: z.string(), params: z.unknown().optional() }),
           ok: [200, "A JSON-RPC response", z.object({ jsonrpc: z.literal("2.0"), id: z.unknown(), result: z.unknown().optional(), error: z.unknown().optional() })],
           extra: { 202: { description: "A notification was accepted" } },

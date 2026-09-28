@@ -38,7 +38,24 @@ const HELP = `artbucket <command>
                           a brand's rules; with a context, what applies there
   rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
                           add or replace one; a list is comma-separated
+  rules set <file.json> [--brand b]
+                          many at once, as one version: [rule, ...] or { set, remove }
   rules delete <id>
+  templates               the section templates brand pages are built from
+  pages [--brand b]       a brand's pages, as a tree
+  pages generate [--brand b]
+                          lay out a brand with no pages from its rules
+  page <slug> [--brand b] [--context c]
+                          a page as Markdown; its warnings go to stderr
+  page save <slug> <file.json> [--brand b]
+                          make or replace a page whole: { title, parent?, sections, ... }
+  page edit <slug> <ops.json> [--brand b]
+                          change it op by op, all or none: [{ "op": "add", "section": {...} }, ...]
+  page rm <slug> [--brand b]
+  theme [--brand b]       how the brand's pages look; theme set <file.json> merges
+                          settings into it, and null clears one
+  publish [--brand b] [--note text]
+                          put the brand's pages, rules and theme in front of portal visitors
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
@@ -98,6 +115,7 @@ const { values: opt, positionals } = parseArgs({
     generator: { type: "string" },
     prompt: { type: "string" },
     "version-of": { type: "string" },
+    note: { type: "string" },
     status: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
@@ -138,6 +156,16 @@ const need = (v: string | undefined, what: string) => {
   if (!v) throw new Error(`Missing ${what}. artbucket --help`);
   return v;
 };
+
+/** The brand a command acts on: --brand, or the workspace's default. */
+const brandSlug = async (): Promise<string> =>
+  opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
+const brandPath = async () => `/api/v1/brands/${encodeURIComponent(await brandSlug())}`;
+const readJson = async (file: string | undefined, what: string) => JSON.parse(await readFile(need(file, what), "utf8"));
+
+/** What a page write answers: where to read it, then what a reader would trip on. */
+type Written = { page: { slug: string }; warnings: string[]; url: string };
+const written = (verb: string, d: Written) => [`${verb} ${d.page.slug}  ${d.url}`, ...d.warnings.map((w) => `  ! ${w}`)].join("\n");
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
@@ -302,8 +330,7 @@ async function main() {
     }
     case "history":
     case "restore": {
-      const slug = opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
-      const base = `/api/v1/brands/${slug}/versions`;
+      const base = `${await brandPath()}/versions`;
       if (cmd === "restore") {
         const r = await api("POST", `${base}/${need(args[0], "version number")}/restore`);
         return out(r, () => `restored version ${r.data.restored} as version ${r.data.version}`);
@@ -347,6 +374,17 @@ async function main() {
         const [id, rendition] = a.split(":");
         return { id, rendition: rendition || null };
       });
+      if (args[0] === "set" && args[2] === undefined) {
+        const batch = await readJson(args[1], "a rules file");
+        const r = await api("PATCH", `/api/v1/brand/rules${inBrand}`, Array.isArray(batch) ? { set: batch } : batch);
+        const d = r.data as Record<"created" | "updated" | "removed", string[]>;
+        return out(r, () =>
+          (["created", "updated", "removed"] as const)
+            .filter((verb) => d[verb].length)
+            .map((verb) => `${verb} ${d[verb].join(", ")}`)
+            .join("\n") || "Nothing changed.",
+        );
+      }
       if (args[0] === "set") {
         const key = need(args[1], "rule key");
         const raw = need(args[2], "value");
@@ -377,6 +415,68 @@ async function main() {
       if (opt.context) q.set("context", opt.context);
       const r = await api("GET", `/api/v1/brand/rules${q.size ? `?${q}` : ""}`);
       return out(r, () => r.data.map(show).join("\n") || "No brand rules.");
+    }
+    case "templates": {
+      const r = await api("GET", "/api/v1/brand/templates");
+      return out(r, () =>
+        r.data.templates.map((t: { template: string; use: string }) => `${t.template.padEnd(12)} ${t.use}`).join("\n"),
+      );
+    }
+    case "pages": {
+      const base = `${await brandPath()}/pages`;
+      if (args[0] === "generate") {
+        const r = await api("POST", base);
+        return out(r, () => r.data.pages.map((p: { slug: string; title: string }) => `made ${p.slug.padEnd(20)} ${p.title}`).join("\n"));
+      }
+      type Summary = { slug: string; title: string; parent: string | null; hidden: boolean; sections: number };
+      const r = await api("GET", base);
+      const pages: Summary[] = r.data;
+      // Indented under its parent; one whose parent isn't there shows at the top rather than not at all.
+      const under = (parent: string | null, depth: number): string[] =>
+        pages
+          .filter((p) => (pages.some((x) => x.slug === p.parent) ? p.parent : null) === parent)
+          .flatMap((p) => [
+            `${"  ".repeat(depth)}${p.slug.padEnd(24 - 2 * depth)} ${p.title}  (${p.sections} section${p.sections === 1 ? "" : "s"}${p.hidden ? ", hidden" : ""})`,
+            ...under(p.slug, depth + 1),
+          ]);
+      return out(r, () => under(null, 0).join("\n") || "No pages. artbucket pages generate lays out a start.");
+    }
+    case "page": {
+      const sub = ["save", "edit", "rm"].includes(args[0]) ? args[0] : null;
+      const slug = need(sub ? args[1] : args[0], "page slug");
+      const path = `${await brandPath()}/pages/${encodeURIComponent(slug)}`;
+      if (sub === "save") {
+        const r = await api("PUT", path, await readJson(args[2], "a page file"));
+        return out(r, () => written(r.data.created ? "made" : "saved", r.data));
+      }
+      if (sub === "edit") {
+        const ops = await readJson(args[2], "an ops file");
+        const r = await api("PATCH", path, Array.isArray(ops) ? { ops } : ops);
+        return out(r, () => written("edited", r.data));
+      }
+      if (sub === "rm") {
+        const r = await api("DELETE", path);
+        return out(r, () => "deleted");
+      }
+      const r = await api("GET", `${path}${opt.context ? `?context=${encodeURIComponent(opt.context)}` : ""}`);
+      // Warnings on stderr, so the Markdown pipes into a file clean.
+      if (!opt.json) for (const w of [...r.data.missing.map((k: string) => `no rule "${k}"`), ...r.data.warnings]) console.error(`! ${w}`);
+      return out(r, () => r.data.markdown);
+    }
+    case "theme": {
+      const path = `${await brandPath()}/theme`;
+      const r = args[0] === "set" ? await api("PATCH", path, await readJson(args[1], "a theme file")) : await api("GET", path);
+      const settings = Object.entries(r.data.settings as Record<string, unknown>);
+      return out(r, () =>
+        [
+          ...(settings.length ? settings.map(([k, v]) => `${k.padEnd(12)} ${v}`) : ["Nothing set: the rules decide every part."]),
+          ...(r.data.warnings ?? []).map((w: string) => `  ! ${w}`),
+        ].join("\n"),
+      );
+    }
+    case "publish": {
+      const r = await api("POST", `${await brandPath()}/publish`, { note: opt.note });
+      return out(r, () => `${r.data.unchanged ? "already published" : "published"} ${r.data.brand} as version ${r.data.number}`);
     }
     case "keys": {
       if (args[0] === "create") {

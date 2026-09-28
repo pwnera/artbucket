@@ -20,13 +20,16 @@ import {
 import type { C2pa } from "@/lib/c2pa";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
+import type { ThemeSettings } from "@/lib/brand-theme";
+import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
+import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
 import type { Origin, Rights } from "@/lib/rights";
-import type { RuleType, RuleValue } from "@/lib/rules";
+import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import type { Ability, Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
-import type { PortalAccess, PortalPreset, PortalTheme } from "@/lib/portal";
+import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
 
 export type AssetStatus = Status;
 
@@ -291,6 +294,8 @@ export const brands = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
+    /** How its pages look (lib/brand-theme.ts ThemeSettings): only what was set, the rest read from the rules. */
+    theme: jsonb("theme").$type<ThemeSettings>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -316,7 +321,11 @@ export const brandRules = pgTable(
     key: text("key").notNull(),
     context: text("context"),
     type: text("type").$type<RuleType>().notNull(),
+    /** The heading readers see; null reads the key in words. Keys never change with it. */
+    label: text("label"),
     value: jsonb("value").$type<RuleValue>().notNull(),
+    /** Details beyond the value, checked against `type` (lib/rules.ts RULE_SPEC). */
+    spec: jsonb("spec").$type<RuleSpec>(),
     usage: text("usage"),
     /** Order on the page. Shared by a key's context versions, so they move together. */
     position: integer("position").notNull().default(0),
@@ -377,6 +386,16 @@ export const brandVersions = pgTable(
     /** Keys touched, in order, for the one-line summary. */
     changed: jsonb("changed").$type<string[]>().notNull().default([]),
     snapshot: jsonb("snapshot").$type<SnapRule[]>().notNull(),
+    /** The brand's pages as they stood; null in versions from before pages, which a restore leaves alone. */
+    pages: jsonb("pages").$type<SnapPage[]>(),
+    /** The brand's theme settings; null in versions from before themes, which a restore leaves alone. */
+    theme: jsonb("theme").$type<ThemeSettings>(),
+    /** Set when this version was published: portals show it, and later edits start a new version. */
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by"),
+    /** What the publish said, for readers' "what's new", and a picture with it. */
+    note: text("note"),
+    noteImage: uuid("note_image"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -387,6 +406,52 @@ export const brandVersions = pgTable(
   (t) => [
     unique("brand_versions_brand_number_unique").on(t.brandId, t.number),
     check("brand_versions_kind_check", sql`${t.kind} in ('baseline', 'edit', 'restore')`),
+  ],
+);
+
+/**
+ * A brand's pages: guidelines laid out for people, over its rules
+ * (lib/pages.ts). Sections are stored whole, in order, since a page is always
+ * read and written whole; they bind rules by key, never by value.
+ */
+export const brandPages = pgTable(
+  "brand_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    position: integer("position").notNull().default(0),
+    hidden: boolean("hidden").notNull().default(false),
+    sections: jsonb("sections").$type<Section[]>().notNull().default([]),
+    /** The page it sits under, by slug: ids change on every restore (core/page-store.ts writePages). */
+    parent: text("parent"),
+    eyebrow: text("eyebrow"),
+    lede: text("lede"),
+    /** No foreign key: a restored snapshot can name an asset purged since, and reads leave it out. */
+    cover: uuid("cover"),
+    icon: text("icon").$type<CollectionIcon>(),
+    audience: text("audience").$type<Audience>().notNull().default("everyone"),
+    tabs: boolean("tabs").notNull().default(false),
+    /** Slugs it had before a rename, so old links keep working. */
+    aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+    /** Its title, eyebrow and lede in other languages, by language tag; null for none. */
+    translations: jsonb("translations").$type<Record<string, PageText>>(),
+    layout: text("layout").$type<PageLayout>().notNull().default("book"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    /** The last change to what it says, not to where it sits. */
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    unique("brand_pages_brand_slug_unique").on(t.brandId, t.slug),
+    check("brand_pages_audience_check", sql`${t.audience} in ('everyone', 'partners', 'members')`),
+    check("brand_pages_layout_check", sql`${t.layout} in ('book', 'landing')`),
   ],
 );
 
@@ -741,6 +806,8 @@ export const portals = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     presets: jsonb("presets").$type<PortalPreset[]>().notNull().default(["web", "print", "social"]),
     theme: jsonb("theme").$type<PortalTheme>().notNull().default({ logo: null, accent: null, background: null }),
+    /** The site around its pages: footer, quick grab, terms, and whether search engines may list it (lib/portal.ts PortalSite). */
+    site: jsonb("site").$type<PortalSite>().notNull().default({}),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -788,6 +855,8 @@ export type PortalRequestStatus = "pending" | "approved" | "denied";
  * Someone outside asking into a portal that isn't public. Approved, they get
  * a key of their own, found by its hash and kept sealed so the link can be
  * copied again; it stops at `expiresAt` or when the request is deleted.
+ * A request section (lib/pages.ts) asks for an asset, a review or an answer
+ * instead, from the page and section it sits in.
  */
 export const portalRequests = pgTable(
   "portal_requests",
@@ -801,6 +870,10 @@ export const portalRequests = pgTable(
     /** Who they are and what they need it for, in their words. */
     note: text("note"),
     status: text("status").$type<PortalRequestStatus>().notNull().default("pending"),
+    kind: text("kind").$type<RequestKind>().notNull().default("access"),
+    /** Where a request section asked from: a page slug and a section id, as they were then. */
+    page: text("page"),
+    section: text("section"),
     keyHash: text("key_hash").unique(),
     keySealed: text("key_sealed"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -811,7 +884,30 @@ export const portalRequests = pgTable(
   (t) => [
     index("portal_requests_portal_idx").on(t.portalId, t.createdAt.desc()),
     check("portal_requests_status_check", sql`${t.status} in ('pending', 'approved', 'denied')`),
+    check("portal_requests_kind_check", sql`${t.kind} in ('access', 'asset', 'review', 'question')`),
   ],
+);
+
+/**
+ * How often a portal's pages were read, per brand, page and day
+ * (lib/core/usage.ts), for the 30 days of views an admin sees per page.
+ * ponytail: pages only; per-asset downloads come with the v1.3 analytics.
+ */
+export const pageViews = pgTable(
+  "page_views",
+  {
+    portalId: uuid("portal_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** The page's slug when it was read. */
+    page: text("page").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    views: integer("views").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.portalId, t.brandId, t.page, t.day] })],
 );
 
 /**

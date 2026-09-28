@@ -198,7 +198,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   );
 }
 
-export function BrandDialog({
+function BrandDialog({
   open,
   editing,
   brands,

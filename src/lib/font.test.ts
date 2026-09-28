@@ -1,16 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  embedCss,
+  fontFiles,
   fontFileName,
   fontMime,
   fontStyle,
   GOOGLE_FAMILY,
   googleFontsCss,
   isFont,
+  isFontAsset,
   parseCatalog,
   parseFontFaces,
   pickFace,
+  SCRIPT_SAMPLES,
   searchCatalog,
+  trackingAt,
 } from "./font.ts";
 
 const bytes = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
@@ -111,4 +116,60 @@ test("picks the upright file at a weight, else the Regular", () => {
   assert.equal(pickFace(files)?.filename, "X-Regular.ttf");
   assert.equal(pickFace([{ filename: "X-Italic.ttf" }])?.filename, "X-Italic.ttf");
   assert.equal(pickFace([]), undefined);
+});
+
+test("a rule's font files are its font assets, in order, stored mime or not", () => {
+  const assets = [
+    { id: "a", mime: "image/svg+xml", filename: "logo.svg" },
+    { id: "b", mime: "font/ttf", filename: "Inter-Bold.ttf" },
+    { id: "c", mime: "application/octet-stream", filename: "Inter-Regular.woff2" },
+    { id: "d", filename: "Inter-Italic.ttf" },
+  ];
+  assert.deepEqual(fontFiles({ assets }).map((a) => a.id), ["b", "c"]);
+  assert.equal(isFontAsset({ mime: null, filename: "x.ttf" }), false, "no mime yet: not known to be a font");
+});
+
+test("embeds a Google face with Google's link, for the weights it is set in", () => {
+  const code = embedCss("IBM Plex Sans", { google: true, weights: [700, 400, 700], url: () => "unused" });
+  assert.match(code, /^<link rel="preconnect" href="https:\/\/fonts.googleapis.com">$/m);
+  assert.ok(code.endsWith(`<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700&display=swap">`), code);
+  assert.match(embedCss("Inter", { google: true, url: String }), /Inter:wght@400&/);
+  // A name Google can't have is no URL of ours to build: its files, if any, instead.
+  assert.equal(embedCss("Inter&x=1", { google: true, url: String }), "");
+});
+
+test("embeds files as an @font-face each, weight and style from the name", () => {
+  const files = [
+    { id: "b", filename: "Brand-BoldItalic.woff2", mime: "font/woff2" },
+    { id: "r", filename: "Brand-Regular.otf", mime: "application/octet-stream" },
+  ];
+  const code = embedCss('Brand "Sans"', { files, url: (id) => `https://x.test/a/${id}` });
+  assert.equal(code.match(/@font-face/g)?.length, 2);
+  assert.ok(code.includes(`font-family: "Brand \\"Sans\\"";`), code);
+  assert.ok(code.includes(`src: url("https://x.test/a/b") format("woff2");\n  font-weight: 700;\n  font-style: italic;`));
+  assert.ok(code.includes(`src: url("https://x.test/a/r");\n  font-weight: 400;\n  font-style: normal;`), "an unsniffed mime says no format");
+  assert.equal(embedCss("Helvetica", { url: String }), "", "a system face loads nothing");
+});
+
+test("tracking by size takes the step at or under it", () => {
+  const steps: [number, number][] = [[48, -0.02], [16, 0], [32, -0.01]];
+  assert.equal(trackingAt(steps, 40), -0.01);
+  assert.equal(trackingAt(steps, 48), -0.02);
+  assert.equal(trackingAt(steps, 12), 0, "under every step: the smallest's");
+  assert.equal(trackingAt(0.08, 12), 0.08);
+  assert.equal(trackingAt(undefined, 12), undefined);
+  assert.equal(trackingAt([], 12), undefined);
+});
+
+test("a sample and a character set per script, in that script, RTL ones marked", () => {
+  // Jpan and Kore are ISO mixes of Unicode scripts; the rest name one.
+  const MIX: Record<string, string> = { Jpan: "Hira|Kana|Hani", Kore: "Hang|Hani" };
+  for (const code of ["Latn", "Arab", "Hebr", "Cyrl", "Grek", "Deva", "Hani", "Jpan", "Kore", "Thai"]) {
+    const s = SCRIPT_SAMPLES[code];
+    assert.ok(s?.sample && s.glyphs && s.lang, code);
+    const inScript = new RegExp(`^(${(MIX[code] ?? code).split("|").map((x) => `\\p{Script=${x}}`).join("|")})$`, "u");
+    const letters = [...(s.sample + s.glyphs)].filter((c) => /\p{L}/u.test(c));
+    assert.deepEqual(letters.filter((c) => !inScript.test(c)), [], code);
+    assert.equal(!!s.rtl, code === "Arab" || code === "Hebr", code);
+  }
 });

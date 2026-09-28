@@ -89,7 +89,6 @@
       "id": {
         "type": "string",
         "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
         "description": "Asset id, from search_assets"
       }
     },
@@ -103,7 +102,6 @@
       "id": {
         "type": "string",
         "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
         "description": "Asset id, from search_assets"
       },
       "width": {
@@ -175,7 +173,6 @@
       "id": {
         "type": "string",
         "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
         "description": "Asset id, from search_assets"
       },
       "context": {
@@ -230,8 +227,7 @@
         "type": "array",
         "items": {
           "type": "string",
-          "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "format": "uuid"
         }
       },
       "origin": {
@@ -256,8 +252,7 @@
       "parentAssetId": {
         "description": "The library asset it was made from, e.g. the photo you edited",
         "type": "string",
-        "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        "format": "uuid"
       },
       "rights": {
         "description": "License, territories, channels, embargo, expires, modelRelease, if known",
@@ -340,8 +335,7 @@
       "versionOf": {
         "description": "It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved",
         "type": "string",
-        "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        "format": "uuid"
       }
     },
     "required": [
@@ -370,8 +364,7 @@
         "type": "array",
         "items": {
           "type": "string",
-          "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "format": "uuid"
         }
       }
     },
@@ -422,7 +415,6 @@
       "id": {
         "type": "string",
         "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
         "description": "Asset id, from search_assets"
       },
       "tags": {
@@ -445,13 +437,3310 @@
     "type": "object",
     "properties": {}
   },
+  "list_templates": {
+    "type": "object",
+    "properties": {}
+  },
+  "list_pages": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "get_page": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The page's slug, e.g. logo; list_pages names them"
+      },
+      "context": {
+        "description": "Resolve its rules for this context, e.g. dark-background",
+        "type": "string",
+        "maxLength": 64
+      }
+    },
+    "required": [
+      "page"
+    ]
+  },
+  "set_rules": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "set": {
+        "description": "Rules to make, or change where the key and context exist: { key, type, value, label?, usage?, spec?, context?, assets? }",
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "label": {
+                  "description": "The heading readers see; from the key when left out",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "context": {
+                  "description": "Only in this context; omit for the default",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "const": "color"
+                },
+                "value": {
+                  "type": "string",
+                  "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                },
+                "usage": {
+                  "description": "How and when to use it, in Markdown (GFM)",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assets": {
+                  "description": "Assets it points at, in order: an id, or { id, rendition }. Replaces the list",
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rendition": {
+                            "anyOf": [
+                              {
+                                "description": "A rendition spec, e.g. w_512,f_png; null for the original",
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "spec": {
+                  "description": "Details beyond the value; null clears",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "description": "A scale name beside the brand name: Pink-500",
+                          "type": "string",
+                          "maxLength": 60
+                        },
+                        "group": {
+                          "description": "Primary, Secondary, Neutrals: palettes group by it",
+                          "type": "string",
+                          "maxLength": 60
+                        },
+                        "weight": {
+                          "description": "Its share of the brand's color, for the proportion bar",
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "pair": {
+                          "description": "The color set on it: text on this ground, or its light partner",
+                          "type": "string",
+                          "maxLength": 120,
+                          "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                        },
+                        "tints": {
+                          "description": "Tint steps in percent: [80, 60, 40, 20]",
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 99
+                          }
+                        },
+                        "cmyk": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          ],
+                          "items": false,
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "pantone": {
+                          "description": "Free codes, coated and uncoated: 485 C, 485 U",
+                          "maxItems": 4,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          }
+                        },
+                        "ral": {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "rgb": {
+                          "description": "When the book states it rather than deriving it from the hex",
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 255
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 255
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 255
+                            }
+                          ],
+                          "items": false,
+                          "minItems": 3,
+                          "maxItems": 3
+                        },
+                        "print": {
+                          "description": "Whether the print values were given or converted",
+                          "type": "string",
+                          "enum": [
+                            "specified",
+                            "converted"
+                          ]
+                        },
+                        "texture": {
+                          "description": "An image laid over the swatch",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "gradient": {
+                          "description": "Makes the rule a gradient; its value is the solid to use where a gradient can't go",
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "radial",
+                                "conic"
+                              ]
+                            },
+                            "angle": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "stops": {
+                              "minItems": 2,
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                                      }
+                                    ],
+                                    "description": "A color rule's key, or a hex"
+                                  },
+                                  "at": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "opacity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "color"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "stops"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "type",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "label": {
+                  "description": "The heading readers see; from the key when left out",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "context": {
+                  "description": "Only in this context; omit for the default",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "const": "text"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20000,
+                  "description": "Markdown (GFM)"
+                },
+                "usage": {
+                  "description": "How and when to use it, in Markdown (GFM)",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assets": {
+                  "description": "Assets it points at, in order: an id, or { id, rendition }. Replaces the list",
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rendition": {
+                            "anyOf": [
+                              {
+                                "description": "A rendition spec, e.g. w_512,f_png; null for the original",
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "spec": {
+                  "description": "Details beyond the value; null clears",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "copy": {
+                          "description": "Readers paste it as it is: a copy button",
+                          "type": "boolean"
+                        },
+                        "max": {
+                          "description": "The most characters it may take where it goes: 30 for a subtitle",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20000
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "type",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "label": {
+                  "description": "The heading readers see; from the key when left out",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "context": {
+                  "description": "Only in this context; omit for the default",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "const": "number"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "usage": {
+                  "description": "How and when to use it, in Markdown (GFM)",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assets": {
+                  "description": "Assets it points at, in order: an id, or { id, rendition }. Replaces the list",
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rendition": {
+                            "anyOf": [
+                              {
+                                "description": "A rendition spec, e.g. w_512,f_png; null for the original",
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "spec": {
+                  "description": "Details beyond the value; null clears",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "unit": {
+                          "type": "string",
+                          "enum": [
+                            "px",
+                            "pt",
+                            "mm",
+                            "cm",
+                            "in",
+                            "%",
+                            "em",
+                            "rem",
+                            "x",
+                            "ms"
+                          ]
+                        },
+                        "of": {
+                          "description": "What x or % is of: the mark's height",
+                          "type": "string",
+                          "maxLength": 80
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "type",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "label": {
+                  "description": "The heading readers see; from the key when left out",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "context": {
+                  "description": "Only in this context; omit for the default",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "const": "list"
+                },
+                "value": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "usage": {
+                  "description": "How and when to use it, in Markdown (GFM)",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assets": {
+                  "description": "Assets it points at, in order: an id, or { id, rendition }. Replaces the list",
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rendition": {
+                            "anyOf": [
+                              {
+                                "description": "A rendition spec, e.g. w_512,f_png; null for the original",
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "key",
+                "type",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "label": {
+                  "description": "The heading readers see; from the key when left out",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "context": {
+                  "description": "Only in this context; omit for the default",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "const": "font"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "family": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "size": {
+                          "description": "Pixels",
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "maximum": 1000
+                        },
+                        "weight": {
+                          "description": "400 regular, 700 bold",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        }
+                      },
+                      "required": [
+                        "family"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "usage": {
+                  "description": "How and when to use it, in Markdown (GFM)",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assets": {
+                  "description": "Assets it points at, in order: an id, or { id, rendition }. Replaces the list",
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rendition": {
+                            "anyOf": [
+                              {
+                                "description": "A rendition spec, e.g. w_512,f_png; null for the original",
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "spec": {
+                  "description": "Details beyond the value; null clears",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "display",
+                            "headline",
+                            "subhead",
+                            "body",
+                            "label",
+                            "button",
+                            "caption",
+                            "code"
+                          ]
+                        },
+                        "lineHeight": {
+                          "type": "number",
+                          "minimum": 0.5,
+                          "maximum": 3
+                        },
+                        "tracking": {
+                          "description": "In em, or [size, em] pairs by size",
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "minimum": -0.2,
+                              "maximum": 1
+                            },
+                            {
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "array",
+                                "prefixItems": [
+                                  {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                  },
+                                  {
+                                    "type": "number",
+                                    "minimum": -0.2,
+                                    "maximum": 1
+                                  }
+                                ],
+                                "items": false,
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            }
+                          ]
+                        },
+                        "case": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "upper",
+                            "lower",
+                            "title",
+                            "small-caps"
+                          ]
+                        },
+                        "script": {
+                          "description": "ISO 15924: Latn, Arab",
+                          "type": "string",
+                          "pattern": "^[A-Z][a-z]{3}$"
+                        },
+                        "features": {
+                          "description": "OpenType features on: ss01, tnum",
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]{4}$"
+                          }
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "files",
+                            "google",
+                            "adobe",
+                            "system",
+                            "other"
+                          ]
+                        },
+                        "url": {
+                          "description": "Where the family comes from, or its license",
+                          "type": "string",
+                          "maxLength": 500,
+                          "format": "uri"
+                        },
+                        "license": {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "fallback": {
+                          "description": "A CSS stack: Georgia, serif",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "download": {
+                          "description": "false: readers see the face but get no files",
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "type",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "remove": {
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "maxLength": 120,
+              "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+            },
+            "context": {
+              "description": "Only this context's version; the key and every version when left out",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "key"
+          ]
+        }
+      }
+    }
+  },
+  "save_page": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "hidden": {
+        "description": "Kept, but not published",
+        "type": "boolean"
+      },
+      "position": {
+        "description": "Where among the brand's pages, from 0; the end for a new page",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "sections": {
+        "maxItems": 60,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "description": "Kept across edits; made up when left out",
+              "type": "string",
+              "pattern": "^[a-z0-9_-]{1,40}$"
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "body": {
+              "description": "Markdown (GFM), shown under the title",
+              "type": "string",
+              "maxLength": 20000
+            },
+            "width": {
+              "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+              "type": "string",
+              "enum": [
+                "text",
+                "wide",
+                "full"
+              ]
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "tone": {
+              "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+              "type": "string",
+              "enum": [
+                "plain",
+                "tint",
+                "brand",
+                "panel",
+                "dark",
+                "color",
+                "image",
+                "pattern"
+              ]
+            },
+            "hidden": {
+              "description": "Kept, but not shown to readers",
+              "type": "boolean"
+            },
+            "keys": {
+              "description": "The rules it shows, by key, in order",
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+              }
+            },
+            "eyebrow": {
+              "description": "A small line above the title: a number, a chapter",
+              "type": "string",
+              "maxLength": 120
+            },
+            "lede": {
+              "description": "A line or two under the title, set large; plain text",
+              "type": "string",
+              "maxLength": 1000
+            },
+            "aside": {
+              "description": "Markdown in a ruled column beside the body",
+              "type": "string",
+              "maxLength": 4000
+            },
+            "tab": {
+              "description": "Sections sharing a tab name show under one tab",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "background": {
+              "description": "For tone color and tone image",
+              "type": "object",
+              "properties": {
+                "color": {
+                  "description": "tone color: the color rule it is set on",
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "image": {
+                  "description": "tone image: the picture",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "scrim": {
+                  "description": "tone image: how much to darken it; 0.45 when left out",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.9
+                }
+              },
+              "additionalProperties": false
+            },
+            "items": {
+              "description": "What the template lists; list_templates says which take items",
+              "maxItems": 60,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "description": "A rule it shows, by key",
+                    "type": "string",
+                    "maxLength": 120,
+                    "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                  },
+                  "asset": {
+                    "description": "An image, video or file, from search_assets",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "text": {
+                    "description": "Markdown",
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "verdict": {
+                    "description": "A do (green) or a don't (red)",
+                    "type": "string",
+                    "enum": [
+                      "do",
+                      "dont"
+                    ]
+                  },
+                  "caption": {
+                    "description": "Under the media; the asset's description when left out",
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "link": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "label": {
+                    "description": "A small tag: Figma, PDF, Partners only",
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "icon": {
+                    "description": "One of the icons a page takes",
+                    "type": "string"
+                  },
+                  "download": {
+                    "description": "false: for reference, never offered as a download",
+                    "type": "boolean"
+                  },
+                  "span": {
+                    "description": "gallery bento: 2 takes two cells",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2
+                  },
+                  "at": {
+                    "description": "annotated: [x, y], % from the top left",
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "level": {
+                    "description": "cards tree: 0 at the top",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "audience": {
+              "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+              "type": "string",
+              "enum": [
+                "everyone",
+                "partners",
+                "members"
+              ]
+            },
+            "contexts": {
+              "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+              "minItems": 2,
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              }
+            },
+            "only": {
+              "description": "Shown only in this context",
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            },
+            "translations": {
+              "description": "Its words by language tag; what is left out falls back",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "eyebrow": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "lede": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 20000
+                  },
+                  "aside": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "items": {
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "text": {
+                              "type": "string",
+                              "maxLength": 4000
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "template": {
+              "type": "string",
+              "enum": [
+                "cover",
+                "header",
+                "text",
+                "split",
+                "cards",
+                "palette",
+                "type",
+                "logos",
+                "dodont",
+                "gallery",
+                "collection",
+                "links",
+                "pages",
+                "diagram",
+                "updates",
+                "annotated",
+                "specs",
+                "specimen",
+                "pattern",
+                "chart",
+                "copy",
+                "faq",
+                "embed",
+                "request"
+              ]
+            },
+            "props": {
+              "type": "object",
+              "properties": {
+                "image": {
+                  "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "video": {
+                  "description": "cover: A muted loop over the image, its poster",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "align": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "start",
+                    "center",
+                    "end"
+                  ]
+                },
+                "height": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "tall",
+                    "screen"
+                  ]
+                },
+                "strip": {
+                  "description": "cover: The palette as a strip; true when left out",
+                  "type": "boolean"
+                },
+                "flip": {
+                  "description": "split: Image on the left",
+                  "type": "boolean"
+                },
+                "layout": {
+                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                  "type": "string",
+                  "enum": [
+                    "cards",
+                    "list",
+                    "stats",
+                    "checklist",
+                    "tree",
+                    "pairs",
+                    "grid",
+                    "rows",
+                    "bento",
+                    "carousel",
+                    "collage",
+                    "crops",
+                    "masonry",
+                    "accordion",
+                    "definitions"
+                  ]
+                },
+                "show": {
+                  "description": "palette: Values listed; all it has when left out",
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "hex",
+                      "rgb",
+                      "hsl",
+                      "cmyk",
+                      "pantone",
+                      "ral",
+                      "token",
+                      "css"
+                    ]
+                  }
+                },
+                "media": {
+                  "description": "palette: Values it opens on; screen when left out",
+                  "type": "string",
+                  "enum": [
+                    "screen",
+                    "print"
+                  ]
+                },
+                "matrix": {
+                  "description": "palette: Contrast of every pair",
+                  "type": "boolean"
+                },
+                "ase": {
+                  "description": "palette: An .ase swatch download",
+                  "type": "boolean"
+                },
+                "simulate": {
+                  "description": "palette: Color blindness views",
+                  "type": "boolean"
+                },
+                "sample": {
+                  "description": "type: The specimen's starting text",
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "roles": {
+                  "description": "type: A table of roles",
+                  "type": "boolean"
+                },
+                "glyphs": {
+                  "description": "type: Character sets",
+                  "type": "boolean"
+                },
+                "embed": {
+                  "description": "type: Code to load the faces",
+                  "type": "boolean"
+                },
+                "formula": {
+                  "description": "type: base in px",
+                  "type": "object",
+                  "properties": {
+                    "base": {
+                      "type": "number",
+                      "minimum": 4,
+                      "maximum": 200
+                    },
+                    "ratio": {
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "steps": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 12
+                    }
+                  },
+                  "required": [
+                    "base",
+                    "ratio",
+                    "steps"
+                  ],
+                  "additionalProperties": false
+                },
+                "kit": {
+                  "description": "logos: A zip of every mark; true when left out",
+                  "type": "boolean"
+                },
+                "ask": {
+                  "description": "logos: Which mark for which context",
+                  "type": "boolean"
+                },
+                "collection": {
+                  "description": "collection: A collection's id",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "search": {
+                  "description": "collection: A saved search's id",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "query": {
+                  "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "sort": {
+                  "description": "collection",
+                  "type": "string",
+                  "enum": [
+                    "newest",
+                    "oldest",
+                    "name"
+                  ]
+                },
+                "limit": {
+                  "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 200
+                },
+                "downloads": {
+                  "description": "collection: Offer downloads; true when left out",
+                  "type": "boolean"
+                },
+                "from": {
+                  "description": "pages: The page whose children it shows; this page when left out",
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "depth": {
+                  "description": "pages: How many levels a list goes down: a table of contents",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                },
+                "kind": {
+                  "description": "diagram: clearspace when left out; specimen: spacing, radius, shadow, motion, grid; chart: bar, line, donut; request: asset, review, question",
+                  "type": "string",
+                  "enum": [
+                    "clearspace",
+                    "minsize",
+                    "placement",
+                    "cobrand",
+                    "spacing",
+                    "radius",
+                    "shadow",
+                    "motion",
+                    "grid",
+                    "bar",
+                    "line",
+                    "donut",
+                    "asset",
+                    "review",
+                    "question"
+                  ]
+                },
+                "positions": {
+                  "description": "diagram: placement: where it may sit",
+                  "maxItems": 9,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "tl",
+                      "tc",
+                      "tr",
+                      "ml",
+                      "mc",
+                      "mr",
+                      "bl",
+                      "bc",
+                      "br"
+                    ]
+                  }
+                },
+                "partner": {
+                  "description": "diagram: cobrand: their name",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "separator": {
+                  "description": "diagram: cobrand: line when left out",
+                  "type": "string",
+                  "enum": [
+                    "line",
+                    "x",
+                    "none"
+                  ]
+                },
+                "asset": {
+                  "description": "pattern: The tile",
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "scales": {
+                  "description": "pattern: Tile sizes, as multiples",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 10
+                  }
+                },
+                "form": {
+                  "description": "copy: Fields readers fill",
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 30,
+                        "pattern": "^\\w+$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "template": {
+                  "description": "copy: Their words go in its {name} slots",
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "url": {
+                  "description": "embed: https",
+                  "type": "string",
+                  "maxLength": 2000,
+                  "format": "uri"
+                },
+                "aspect": {
+                  "description": "embed",
+                  "type": "string",
+                  "enum": [
+                    "16:9",
+                    "4:3",
+                    "1:1",
+                    "auto"
+                  ]
+                },
+                "prompt": {
+                  "description": "request: What to ask for",
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "template"
+          ],
+          "additionalProperties": false
+        },
+        "description": "The whole page, top to bottom"
+      },
+      "parent": {
+        "description": "Its parent page; null for the top. Three levels at most",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 60,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "eyebrow": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lede": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 1000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cover": {
+        "description": "Its header and card image",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "folder",
+              "photo",
+              "palette",
+              "brush",
+              "camera",
+              "movie",
+              "music",
+              "star",
+              "heart",
+              "flag",
+              "bookmark",
+              "briefcase",
+              "building-store",
+              "speakerphone",
+              "rocket",
+              "sparkles",
+              "leaf",
+              "world",
+              "users",
+              "archive"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "audience": {
+        "description": "On portals: who may read it",
+        "type": "string",
+        "enum": [
+          "everyone",
+          "partners",
+          "members"
+        ]
+      },
+      "tabs": {
+        "description": "Its child pages as tabs across its top",
+        "type": "boolean"
+      },
+      "layout": {
+        "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+        "type": "string",
+        "enum": [
+          "book",
+          "landing"
+        ]
+      },
+      "translations": {
+        "description": "Its words by language tag",
+        "anyOf": [
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 20,
+              "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "eyebrow": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "lede": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The page's slug, e.g. logo; list_pages names them"
+      }
+    },
+    "required": [
+      "title",
+      "sections",
+      "page"
+    ],
+    "additionalProperties": false
+  },
+  "edit_page": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The page's slug, e.g. logo; list_pages names them"
+      },
+      "ops": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "add"
+                },
+                "section": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "description": "Kept across edits; made up when left out",
+                      "type": "string",
+                      "pattern": "^[a-z0-9_-]{1,40}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "body": {
+                      "description": "Markdown (GFM), shown under the title",
+                      "type": "string",
+                      "maxLength": 20000
+                    },
+                    "width": {
+                      "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "wide",
+                        "full"
+                      ]
+                    },
+                    "columns": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "tone": {
+                      "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+                      "type": "string",
+                      "enum": [
+                        "plain",
+                        "tint",
+                        "brand",
+                        "panel",
+                        "dark",
+                        "color",
+                        "image",
+                        "pattern"
+                      ]
+                    },
+                    "hidden": {
+                      "description": "Kept, but not shown to readers",
+                      "type": "boolean"
+                    },
+                    "keys": {
+                      "description": "The rules it shows, by key, in order",
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                      }
+                    },
+                    "eyebrow": {
+                      "description": "A small line above the title: a number, a chapter",
+                      "type": "string",
+                      "maxLength": 120
+                    },
+                    "lede": {
+                      "description": "A line or two under the title, set large; plain text",
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "aside": {
+                      "description": "Markdown in a ruled column beside the body",
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "tab": {
+                      "description": "Sections sharing a tab name show under one tab",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "background": {
+                      "description": "For tone color and tone image",
+                      "type": "object",
+                      "properties": {
+                        "color": {
+                          "description": "tone color: the color rule it is set on",
+                          "type": "string",
+                          "maxLength": 120,
+                          "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                        },
+                        "image": {
+                          "description": "tone image: the picture",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "scrim": {
+                          "description": "tone image: how much to darken it; 0.45 when left out",
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 0.9
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "items": {
+                      "description": "What the template lists; list_templates says which take items",
+                      "maxItems": 60,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "description": "A rule it shows, by key",
+                            "type": "string",
+                            "maxLength": 120,
+                            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                          },
+                          "asset": {
+                            "description": "An image, video or file, from search_assets",
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "text": {
+                            "description": "Markdown",
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "verdict": {
+                            "description": "A do (green) or a don't (red)",
+                            "type": "string",
+                            "enum": [
+                              "do",
+                              "dont"
+                            ]
+                          },
+                          "caption": {
+                            "description": "Under the media; the asset's description when left out",
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "link": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          },
+                          "label": {
+                            "description": "A small tag: Figma, PDF, Partners only",
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "icon": {
+                            "description": "One of the icons a page takes",
+                            "type": "string"
+                          },
+                          "download": {
+                            "description": "false: for reference, never offered as a download",
+                            "type": "boolean"
+                          },
+                          "span": {
+                            "description": "gallery bento: 2 takes two cells",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2
+                          },
+                          "at": {
+                            "description": "annotated: [x, y], % from the top left",
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            ],
+                            "items": false,
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "level": {
+                            "description": "cards tree: 0 at the top",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "audience": {
+                      "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+                      "type": "string",
+                      "enum": [
+                        "everyone",
+                        "partners",
+                        "members"
+                      ]
+                    },
+                    "contexts": {
+                      "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+                      "minItems": 2,
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                      }
+                    },
+                    "only": {
+                      "description": "Shown only in this context",
+                      "type": "string",
+                      "maxLength": 64,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    "translations": {
+                      "description": "Its words by language tag; what is left out falls back",
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "maxLength": 20,
+                        "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "eyebrow": {
+                            "type": "string",
+                            "maxLength": 120
+                          },
+                          "lede": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "body": {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          "aside": {
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "items": {
+                            "maxItems": 60,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "title": {
+                                      "type": "string",
+                                      "maxLength": 200
+                                    },
+                                    "text": {
+                                      "type": "string",
+                                      "maxLength": 4000
+                                    },
+                                    "caption": {
+                                      "type": "string",
+                                      "maxLength": 500
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "template": {
+                      "type": "string",
+                      "enum": [
+                        "cover",
+                        "header",
+                        "text",
+                        "split",
+                        "cards",
+                        "palette",
+                        "type",
+                        "logos",
+                        "dodont",
+                        "gallery",
+                        "collection",
+                        "links",
+                        "pages",
+                        "diagram",
+                        "updates",
+                        "annotated",
+                        "specs",
+                        "specimen",
+                        "pattern",
+                        "chart",
+                        "copy",
+                        "faq",
+                        "embed",
+                        "request"
+                      ]
+                    },
+                    "props": {
+                      "type": "object",
+                      "properties": {
+                        "image": {
+                          "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "video": {
+                          "description": "cover: A muted loop over the image, its poster",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "align": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "start",
+                            "center",
+                            "end"
+                          ]
+                        },
+                        "height": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "tall",
+                            "screen"
+                          ]
+                        },
+                        "strip": {
+                          "description": "cover: The palette as a strip; true when left out",
+                          "type": "boolean"
+                        },
+                        "flip": {
+                          "description": "split: Image on the left",
+                          "type": "boolean"
+                        },
+                        "layout": {
+                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                          "type": "string",
+                          "enum": [
+                            "cards",
+                            "list",
+                            "stats",
+                            "checklist",
+                            "tree",
+                            "pairs",
+                            "grid",
+                            "rows",
+                            "bento",
+                            "carousel",
+                            "collage",
+                            "crops",
+                            "masonry",
+                            "accordion",
+                            "definitions"
+                          ]
+                        },
+                        "show": {
+                          "description": "palette: Values listed; all it has when left out",
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "hex",
+                              "rgb",
+                              "hsl",
+                              "cmyk",
+                              "pantone",
+                              "ral",
+                              "token",
+                              "css"
+                            ]
+                          }
+                        },
+                        "media": {
+                          "description": "palette: Values it opens on; screen when left out",
+                          "type": "string",
+                          "enum": [
+                            "screen",
+                            "print"
+                          ]
+                        },
+                        "matrix": {
+                          "description": "palette: Contrast of every pair",
+                          "type": "boolean"
+                        },
+                        "ase": {
+                          "description": "palette: An .ase swatch download",
+                          "type": "boolean"
+                        },
+                        "simulate": {
+                          "description": "palette: Color blindness views",
+                          "type": "boolean"
+                        },
+                        "sample": {
+                          "description": "type: The specimen's starting text",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "roles": {
+                          "description": "type: A table of roles",
+                          "type": "boolean"
+                        },
+                        "glyphs": {
+                          "description": "type: Character sets",
+                          "type": "boolean"
+                        },
+                        "embed": {
+                          "description": "type: Code to load the faces",
+                          "type": "boolean"
+                        },
+                        "formula": {
+                          "description": "type: base in px",
+                          "type": "object",
+                          "properties": {
+                            "base": {
+                              "type": "number",
+                              "minimum": 4,
+                              "maximum": 200
+                            },
+                            "ratio": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 4
+                            },
+                            "steps": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 12
+                            }
+                          },
+                          "required": [
+                            "base",
+                            "ratio",
+                            "steps"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "kit": {
+                          "description": "logos: A zip of every mark; true when left out",
+                          "type": "boolean"
+                        },
+                        "ask": {
+                          "description": "logos: Which mark for which context",
+                          "type": "boolean"
+                        },
+                        "collection": {
+                          "description": "collection: A collection's id",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "search": {
+                          "description": "collection: A saved search's id",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "query": {
+                          "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "sort": {
+                          "description": "collection",
+                          "type": "string",
+                          "enum": [
+                            "newest",
+                            "oldest",
+                            "name"
+                          ]
+                        },
+                        "limit": {
+                          "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 200
+                        },
+                        "downloads": {
+                          "description": "collection: Offer downloads; true when left out",
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "description": "pages: The page whose children it shows; this page when left out",
+                          "type": "string",
+                          "maxLength": 60,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                        },
+                        "depth": {
+                          "description": "pages: How many levels a list goes down: a table of contents",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3
+                        },
+                        "kind": {
+                          "description": "diagram: clearspace when left out; specimen: spacing, radius, shadow, motion, grid; chart: bar, line, donut; request: asset, review, question",
+                          "type": "string",
+                          "enum": [
+                            "clearspace",
+                            "minsize",
+                            "placement",
+                            "cobrand",
+                            "spacing",
+                            "radius",
+                            "shadow",
+                            "motion",
+                            "grid",
+                            "bar",
+                            "line",
+                            "donut",
+                            "asset",
+                            "review",
+                            "question"
+                          ]
+                        },
+                        "positions": {
+                          "description": "diagram: placement: where it may sit",
+                          "maxItems": 9,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "tl",
+                              "tc",
+                              "tr",
+                              "ml",
+                              "mc",
+                              "mr",
+                              "bl",
+                              "bc",
+                              "br"
+                            ]
+                          }
+                        },
+                        "partner": {
+                          "description": "diagram: cobrand: their name",
+                          "type": "string",
+                          "maxLength": 60
+                        },
+                        "separator": {
+                          "description": "diagram: cobrand: line when left out",
+                          "type": "string",
+                          "enum": [
+                            "line",
+                            "x",
+                            "none"
+                          ]
+                        },
+                        "asset": {
+                          "description": "pattern: The tile",
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "scales": {
+                          "description": "pattern: Tile sizes, as multiples",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "type": "array",
+                          "items": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 10
+                          }
+                        },
+                        "form": {
+                          "description": "copy: Fields readers fill",
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "maxLength": 30,
+                                "pattern": "^\\w+$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "template": {
+                          "description": "copy: Their words go in its {name} slots",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "url": {
+                          "description": "embed: https",
+                          "type": "string",
+                          "maxLength": 2000,
+                          "format": "uri"
+                        },
+                        "aspect": {
+                          "description": "embed",
+                          "type": "string",
+                          "enum": [
+                            "16:9",
+                            "4:3",
+                            "1:1",
+                            "auto"
+                          ]
+                        },
+                        "prompt": {
+                          "description": "request: What to ask for",
+                          "type": "string",
+                          "maxLength": 300
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "template"
+                  ],
+                  "additionalProperties": false
+                },
+                "after": {
+                  "description": "Add it after this section; null for the top; the end when left out",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "op",
+                "section"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "update"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "set": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {},
+                  "description": "What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"
+                }
+              },
+              "required": [
+                "op",
+                "id",
+                "set"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "move"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "after": {
+                  "description": "After this section; null for the top",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "op",
+                "id",
+                "after"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "remove"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "op",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "page"
+                },
+                "set": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "hidden": {
+                      "type": "boolean"
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 60,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                      "description": "Renames it; the old slug keeps working"
+                    },
+                    "parent": {
+                      "description": "Its parent page; null for the top. Three levels at most",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 60,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "eyebrow": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 120
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lede": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cover": {
+                      "description": "Its header and card image",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "icon": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "folder",
+                            "photo",
+                            "palette",
+                            "brush",
+                            "camera",
+                            "movie",
+                            "music",
+                            "star",
+                            "heart",
+                            "flag",
+                            "bookmark",
+                            "briefcase",
+                            "building-store",
+                            "speakerphone",
+                            "rocket",
+                            "sparkles",
+                            "leaf",
+                            "world",
+                            "users",
+                            "archive"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "audience": {
+                      "description": "On portals: who may read it",
+                      "type": "string",
+                      "enum": [
+                        "everyone",
+                        "partners",
+                        "members"
+                      ]
+                    },
+                    "tabs": {
+                      "description": "Its child pages as tabs across its top",
+                      "type": "boolean"
+                    },
+                    "layout": {
+                      "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+                      "type": "string",
+                      "enum": [
+                        "book",
+                        "landing"
+                      ]
+                    },
+                    "translations": {
+                      "description": "Its words by language tag",
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "eyebrow": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "lede": {
+                                "type": "string",
+                                "maxLength": 1000
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "op",
+                "set"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "description": "Applied in order; all or none"
+      }
+    },
+    "required": [
+      "page",
+      "ops"
+    ]
+  },
+  "delete_page": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The page's slug, e.g. logo; list_pages names them"
+      }
+    },
+    "required": [
+      "page"
+    ]
+  },
+  "generate_pages": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "set": {
+        "description": "Six pages on one topic under parent, beside pages that exist",
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "e.g. logo"
+          },
+          "parent": {
+            "description": "The page they go under; a new page named for the topic when left out",
+            "type": "string",
+            "maxLength": 60,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "get_theme": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "set_theme": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "accent": {
+        "description": "Color rule for links, marks and brand grounds; color.primary, brand or accent when left out",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "accentUse": {
+        "anyOf": [
+          {
+            "description": "hairline: the accent draws rules and marks, never fills",
+            "type": "string",
+            "enum": [
+              "fill",
+              "hairline"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "surface": {
+        "description": "The page ground; color.background, surface or paper when left out, else the app's",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "panel": {
+        "description": "Panels and alternate sections; a step off the surface when left out",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dark": {
+        "description": "The dark ground",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ink": {
+        "description": "Text; color.ink, text or foreground when left out, else black or white by contrast",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "muted": {
+        "description": "Quiet text; mixed from ink and surface when left out",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "head": {
+        "description": "Font rule for headings",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "body": {
+        "description": "Font rule for text",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "label": {
+        "description": "Font rule for eyebrows, labels and running heads; its spec.case and spec.tracking set them",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "logo": {
+        "description": "The rule whose picture is the site's mark; logo.primary, mark or wordmark when left out",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "device": {
+        "description": "An SVG asset: the brand's symbol or pattern for covers, dividers and pattern grounds",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "radius": {
+        "anyOf": [
+          {
+            "description": "Corner radius in px",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 40
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "width": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "narrow",
+              "normal",
+              "wide"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "density": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "compact",
+              "normal",
+              "airy"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "scale": {
+        "anyOf": [
+          {
+            "description": "Heading size ratio; 1.25 when left out",
+            "type": "number",
+            "minimum": 1.067,
+            "maximum": 1.618
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nav": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "sidebar",
+              "top",
+              "overlay"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "band": {
+        "anyOf": [
+          {
+            "description": "Every page opens on a band of the brand color",
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "numbering": {
+        "anyOf": [
+          {
+            "description": "Number chapters and pages: 01, 01.2",
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "motion": {
+        "anyOf": [
+          {
+            "description": "subtle: sections reveal as they scroll in; never with reduced motion",
+            "type": "string",
+            "enum": [
+              "none",
+              "subtle"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "toc": {
+        "anyOf": [
+          {
+            "description": "On this page: a side column, a list under the page header, or hidden",
+            "type": "string",
+            "enum": [
+              "side",
+              "inline",
+              "none"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "languages": {
+        "anyOf": [
+          {
+            "description": "The languages readers pick from; the first is the one the pages are written in",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 20,
+                  "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "dir": {
+                  "description": "From the language when left out",
+                  "type": "string",
+                  "enum": [
+                    "ltr",
+                    "rtl"
+                  ]
+                }
+              },
+              "required": [
+                "code",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
+  "publish": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "note": {
+        "description": "What changed, for the history and What's new",
+        "type": "string",
+        "maxLength": 2000
+      },
+      "image": {
+        "description": "An asset shown beside the note, from search_assets",
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  },
+  "list_portals": {
+    "type": "object",
+    "properties": {}
+  },
+  "update_portal": {
+    "type": "object",
+    "properties": {
+      "brands": {
+        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "public",
+          "password",
+          "members"
+        ],
+        "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+      },
+      "expiresAt": {
+        "description": "It closes then",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "site": {
+        "description": "Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set",
+        "type": "object",
+        "properties": {
+          "footer": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "Markdown",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "links": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "href": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "href"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "credit": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "feedback": {
+                "description": "A URL or mailto:",
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "additionalProperties": false
+          },
+          "quick": {
+            "description": "Quick grab: pinned links in the header",
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "brand": {
+                  "description": "With page: a brand the portal carries; the first when left out",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "page": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "asset": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "href": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "terms": {
+            "description": "Markdown readers accept once before their first download",
+            "type": "string",
+            "maxLength": 10000
+          },
+          "listed": {
+            "description": "Search engines may index it; public portals only",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      }
+    },
+    "required": [
+      "portal"
+    ],
+    "additionalProperties": false
+  },
   "propose_fields": {
     "type": "object",
     "properties": {
       "id": {
         "type": "string",
         "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
         "description": "Asset id, from search_assets"
       },
       "fields": {

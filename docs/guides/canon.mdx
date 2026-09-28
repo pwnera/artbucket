@@ -25,6 +25,49 @@ reorder. Colors show their contrast on white and black, a numeric `type.scale`
 renders as a specimen. An attached asset can name a rendition (`w_512,f_png`):
 agents then get that exact URL.
 
+## Brand pages
+
+The rules are the content; pages lay them out for people. A brand's pages
+form a tree, up to three levels deep (Overview, then Identity with Color, Logo
+and Type under it), and each page is sections built from templates: a cover,
+a palette, type specimens, logo rules, do's and don'ts, a gallery, a live
+collection. A section shows rules by key and never copies a value, so change
+`color.primary` and every page that shows it follows.
+
+```bash
+pnpm artbucket templates                  # what each template shows and binds
+pnpm artbucket pages generate             # a first layout from the rules
+pnpm artbucket page save color color.json # make or replace a page whole
+pnpm artbucket page color                 # a page as Markdown
+```
+
+A page reads as a chapter of the book (`layout: book`, the default: the nav
+beside it, on-this-page, and the next page at its foot) or as a front
+(`layout: landing`: none of those, for a home or a campaign page). Its
+`audience` says who may read it on a portal, and `hidden` keeps it from
+readers altogether. The theme (`/api/v1/brands/{slug}/theme`) says which rules
+play which part (accent, grounds, ink, faces, logo) and sets the measure,
+navigation and on-this-page for every page. Agents build all of it over
+[MCP](/developers/mcp#brand-pages).
+
+## Publishing
+
+Every edit to the rules, the pages or the theme is a draft. Publishing makes
+the brand as it stands the version [portals](/guides/portals) show, until the
+next publish:
+
+```bash
+pnpm artbucket publish --note "A warmer primary, and a page on motion"
+curl -X POST https://assets.example.com/api/v1/brands/default/publish \
+  -H 'Content-Type: application/json' -d '{"note": "A warmer primary"}'
+```
+
+The note (and an optional `image` beside it) is what readers see in What's
+new, with what the publish changed since the one before: rules and pages
+added, changed and removed. The answer names the portals showing the brand.
+Publishing with nothing changed does nothing. It takes write on the
+workspace, with sharing not turned off.
+
 ## Design tokens
 
 `GET /api/v1/brand/tokens?format=css` is the brand as CSS custom properties
@@ -34,7 +77,9 @@ with `@font-face`; `format=json` is W3C design tokens.
 
 A workspace can hold several brands, one of them the default. Every change is
 kept, like a shared doc: edits close together are one version, a named version
-is a checkpoint, and any version can be restored, as a new version.
+is a checkpoint, and any version can be restored, as a new version. Published
+versions are marked; a restore is a draft like any edit, until it is
+published.
 
 ```bash
 curl https://assets.example.com/api/v1/brands/default/versions

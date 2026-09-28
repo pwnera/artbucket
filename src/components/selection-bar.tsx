@@ -30,6 +30,7 @@ import { Confirm } from "@/components/confirm";
 import type { Asset } from "@/components/gallery";
 import { extOf, PRESETS, stem } from "@/components/renditions";
 import { approve, expireOn, moveTo, reject } from "@/components/review-actions";
+import { saveZip } from "@/components/save-zip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,7 +64,6 @@ import type { Action } from "@/lib/permissions";
 import { normalizeTags } from "@/lib/search";
 import { sendResult } from "@/lib/send";
 import { undoable } from "@/lib/undo";
-import { uniqueNames, zip } from "@/lib/zip";
 import { hasPreview } from "@/lib/preview";
 import { cn } from "@/lib/utils";
 
@@ -299,13 +299,7 @@ export function useBulk({
       setBusy(false);
     }
     if (!got.length) return void toast.error("Nothing could be downloaded", { id });
-    const names = uniqueNames(got.map((g) => g.name));
-    const blob = new Blob([zip(got.map((g, i) => ({ ...g, name: names[i] })))], { type: "application/zip" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${fileSlug(brand.name)}-${preset ? preset.name.toLowerCase().replace(/\s+/g, "-") : "originals"}-${got.length}.zip`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+    saveZip(got, `${fileSlug(brand.name)}-${preset ? preset.name.toLowerCase().replace(/\s+/g, "-") : "originals"}-${got.length}.zip`);
     if (failed) toast.warning(`Zipped ${files(got.length)}, ${failed} failed`, { id });
     else toast.success(`Zipped ${files(got.length)}`, { id });
   }

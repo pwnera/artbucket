@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withSignature } from "./asset-url.ts";
+import { pageSlug } from "./pages.ts";
 
 /**
  * Brand portals: a curated, themed front door onto chosen collections, for
@@ -78,3 +79,39 @@ export function hostname(raw: string): string | null {
 
 /** Where a domain's owner proves it: a TXT record at this name holding the token. */
 export const challengeName = (host: string) => `_artbucket-challenge.${host}`;
+
+/** Where a portal's own links may go: the web, mail, or a path on the portal. Never a script. */
+const href = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((h) => /^(https?:\/\/|mailto:|\/(?!\/))/i.test(h), "https://, mailto: or a /path");
+const link = z.strictObject({ label: z.string().trim().min(1).max(60), href });
+
+/** A pinned link in the portal's header: a page (of `brand`, else the first), an asset to download, or a URL. */
+const QuickLink = z
+  .strictObject({
+    label: z.string().trim().min(1).max(40),
+    brand: z.string().max(60).optional().describe("With page: a brand the portal carries; the first when left out"),
+    page: pageSlug.optional(),
+    asset: z.uuid().optional(),
+    href: href.optional(),
+  })
+  .refine((q) => [q.page, q.asset, q.href].filter(Boolean).length === 1, "One of page, asset or href")
+  .refine((q) => !q.brand || q.page, "brand goes with page");
+
+/** A portal's site around the pages: its footer, quick grab, terms and whether search engines may list it (D20, portals.site). */
+export const PortalSite = z.strictObject({
+  footer: z
+    .strictObject({
+      text: z.string().max(2000).optional().describe("Markdown"),
+      links: z.array(link).max(8).optional(),
+      credit: z.string().max(120).optional(),
+      feedback: href.optional().describe("A URL or mailto:"),
+    })
+    .optional(),
+  quick: z.array(QuickLink).max(6).optional().describe("Quick grab: pinned links in the header"),
+  terms: z.string().max(10000).optional().describe("Markdown readers accept once before their first download"),
+  listed: z.boolean().optional().describe("Search engines may index it; public portals only"),
+});
+export type PortalSite = z.output<typeof PortalSite>;

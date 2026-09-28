@@ -1,0 +1,296 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { checkWarnings, deriveTheme, type ThemeSettings } from "@/lib/brand-theme";
+import {
+  apply,
+  type BuilderState,
+  echo,
+  type EchoPage,
+  EMPTY,
+  fieldOf,
+  type History,
+  homeOf,
+  type Init,
+  initState,
+  invert,
+  load,
+  navOf,
+  type Op,
+  pageOf,
+  push,
+  request,
+  shownOn,
+  targetOf,
+  travel,
+} from "@/lib/builder-ops";
+import { boundKeys, canon } from "@/lib/pages";
+import { sendResult, type Sent } from "@/lib/send";
+import type { Media, PageView } from "@/lib/site";
+import { undoable } from "@/lib/undo";
+
+/**
+ * The builder's state in React (lib/builder-ops.ts holds the logic): every
+ * change an op, applied at once, undoable, and sent in order. Writes go out
+ * one request at a time, consecutive ops to one target together (a page's
+ * as one PATCH of ops, rules as one set_rules batch, theme patches as one),
+ * because order matters across targets: a rule is made before a section
+ * binds it. Saving, Saved and Not saved come from lib/saving.ts through
+ * send(); a dropped connection holds the queue with a Retry, and a refusal
+ * says why and offers a reload. Deleting a section or a page gives the 8 s
+ * Undo toast (lib/undo.ts).
+ */
+
+/** How the builder reaches the API: fetch through lib/send.ts in the app; the dev page records writes in memory instead. */
+export type Transport = (method: string, url: string, body?: unknown) => Promise<Sent>;
+const network: Transport = (method, url, body) => sendResult(method, url, body, { quiet: true });
+
+/** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
+export type Panel = "theme" | "rules" | "history" | "tokens" | "publish" | null;
+
+const SAVE = "builder-save";
+
+export function useBuilder(brand: string, init: Init, transport: Transport = network) {
+  const [state, setState] = useState(() => initState(init));
+  const [depth, setDepth] = useState({ past: 0, future: 0 });
+  const [panel, setPanel] = useState<Panel>(null);
+  // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
+  const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
+  useEffect(() => {
+    live.current.brand = brand;
+    live.current.transport = transport;
+  });
+
+  // Leaving with a write not yet landed asks first.
+  useEffect(() => {
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (live.current.queue.length) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, []);
+
+  // Stable across renders: they read the latest state from `live`, so a toolbar or a key handler can hold them.
+  const act = useMemo(() => {
+    const commit = (s: BuilderState) => {
+      live.current.state = s;
+      setState(s);
+    };
+    const remember = (h: History) => {
+      live.current.history = h;
+      setDepth({ past: h.past.length, future: h.future.length });
+    };
+    const send = (ops: Op[]) => {
+      live.current.queue.push(...ops);
+      void flush();
+    };
+
+    /** The next request, then the next, until nothing waits; held after a dropped connection until Retry. */
+    async function flush() {
+      const l = live.current;
+      if (l.flying || l.stalled) return;
+      const r = request(l.queue, l.brand);
+      if (!r) return;
+      l.flying = true;
+      const res = await l.transport(r.method, r.url, r.body);
+      l.flying = false;
+      if (res.ok) {
+        const [sent] = l.queue.splice(0, r.take);
+        toast.dismiss(SAVE);
+        // The server's copy, unless a newer edit to it is still waiting: that one's answer brings it.
+        const later = new Set(l.queue.map(targetOf));
+        const data = res.data as { page?: EchoPage; settings?: ThemeSettings } | null;
+        if (data?.page && !later.has(`page:${data.page.slug}`)) commit(echo(l.state, data.page));
+        if (sent.kind === "theme" && data?.settings && !later.has("theme") && canon(data.settings) !== canon(l.state.theme)) {
+          commit({ ...l.state, theme: data.settings });
+        }
+      } else if (res.network) {
+        l.stalled = true;
+        toast.error("Couldn't save your last change", {
+          id: SAVE,
+          duration: Infinity,
+          description: "It is still on the page.",
+          action: {
+            label: "Retry",
+            onClick: () => {
+              live.current.stalled = false;
+              void flush();
+            },
+          },
+        });
+        return;
+      } else {
+        l.queue.splice(0, r.take);
+        // The server said no to what the canvas shows, so the canvas and its history no longer match it.
+        // ponytail: a reload; roll back just the refused ops if refusals turn out common.
+        remember(EMPTY);
+        if (res.status !== 401) {
+          toast.error(res.error?.message ?? "Couldn't save that", {
+            id: SAVE,
+            duration: Infinity,
+            description: "The page shows a change the server didn't keep.",
+            action: { label: "Reload", onClick: () => location.reload() },
+          });
+        }
+      }
+      void flush();
+    }
+
+    /**
+     * Make a change: applied, recorded for undo, sent. Returns the op as
+     * applied (an added section's id is in it), or null when it doesn't
+     * apply, with a toast saying why. To show why inline instead, try
+     * builder-ops apply() on `state` first.
+     */
+    function change(op: Op): Op | null {
+      const l = live.current;
+      const r = apply(l.state, op);
+      if (r.errors.length) {
+        toast.error(r.errors[0], { duration: 10_000 });
+        return null;
+      }
+      remember(push(l.history, r.op, invert(r.op, l.state), fieldOf(r.op, l.state), Date.now()));
+      commit(r.state);
+      send([r.op]);
+      return r.op;
+    }
+
+    function travelTo(back: boolean) {
+      const l = live.current;
+      const t = travel(l.state, l.history, back);
+      if (t.errors.length) toast.error(`Couldn't ${back ? "undo" : "redo"} that: ${t.errors[0]}`, { duration: 10_000 });
+      commit(t.state);
+      remember(t.history);
+      send(t.sent);
+    }
+
+    const select = (to: Partial<BuilderState["selection"]>) => {
+      const s = live.current.state;
+      commit({ ...s, selection: { ...s.selection, ...to } });
+    };
+
+    /** A page's sections and media, fetched once; true when they are at hand. */
+    async function fetchPage(slug: string): Promise<boolean> {
+      const l = live.current;
+      if (l.state.pages.has(slug)) return true;
+      const q = new URLSearchParams({ page: slug, edit: "1" });
+      const res = await l.transport("GET", `/api/v1/brands/${encodeURIComponent(l.brand)}/view?${q}`);
+      if (!res.ok) {
+        toast.error(`Couldn't open ${slug}`, { duration: 10_000 });
+        return false;
+      }
+      commit(load(live.current.state, res.data as PageView));
+      return true;
+    }
+
+    const current = () => live.current.state.selection.page;
+    const sectionsOf = (page: string) => live.current.state.pages.get(page) ?? [];
+
+    return {
+      apply: change,
+      undo: () => travelTo(true),
+      redo: () => travelTo(false),
+      select,
+      /** Show a page, loading it first when it isn't yet (the canvas shows `page` null meanwhile). */
+      open(slug: string) {
+        select({ page: slug, section: null, rule: null });
+        void fetchPage(slug);
+      },
+      setContext: (context: string | null) => commit({ ...live.current.state, context }),
+      setPreview: (preview: boolean) => commit({ ...live.current.state, preview }),
+      setLang: (lang: string | null) => commit({ ...live.current.state, lang }),
+      /** Assets just picked or uploaded, so the canvas draws them before the page is loaded again. */
+      addMedia(media: Media[]) {
+        const s = live.current.state;
+        commit({ ...s, base: { ...s.base, media: { ...s.base.media, ...Object.fromEntries(media.map((m) => [m.id, m])) } } });
+      },
+      /** Delete a section of the page on show, with the 8 s Undo. */
+      removeSection(id: string) {
+        const page = current();
+        const before = live.current.state;
+        const done = change({ kind: "page", page, op: { op: "remove", id } });
+        if (!done) return;
+        const back = invert(done, before);
+        undoable("Section deleted", {
+          // Cmd+Z may have brought it back already.
+          undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+        });
+      },
+      /** A copy of a section, just under it, selected. */
+      duplicate(id: string) {
+        const page = current();
+        const x = sectionsOf(page).find((y) => y.id === id);
+        if (!x) return;
+        const copy: Record<string, unknown> = { ...x };
+        delete copy.id;
+        const done = change({ kind: "page", page, op: { op: "add", section: copy as never, after: id } });
+        if (done?.kind === "page" && done.op.op === "add") select({ section: done.op.section.id! });
+      },
+      /** Move a section one place up (-1) or down (1): Alt+Up and Alt+Down. */
+      nudge(id: string, by: -1 | 1) {
+        const page = current();
+        const list = sectionsOf(page);
+        const i = list.findIndex((y) => y.id === id);
+        const j = i + by;
+        if (i < 0 || j < 0 || j >= list.length) return;
+        change({ kind: "page", page, op: { op: "move", id, after: by < 0 ? (j > 0 ? list[j - 1].id : null) : list[j].id } });
+      },
+      /** Delete a page with no pages under it, with the 8 s Undo. It is loaded first: its undo puts its sections back. */
+      async deletePage(slug: string) {
+        if (!(await fetchPage(slug))) return;
+        const before = live.current.state;
+        const done = change({ kind: "delete-page", page: slug });
+        if (!done) return;
+        const back = invert(done, before);
+        undoable(`Deleted ${before.nav.find((p) => p.slug === slug)?.title ?? slug}`, {
+          undo: () => (live.current.state.nav.some((p) => p.slug === slug) ? false : change(back) ?? Promise.reject()),
+        });
+      },
+    };
+  }, []);
+
+  // The page on show as the site draws it: the canvas hands this to SiteProvider.
+  const home = homeOf(state.nav, state.pages);
+  const nav = useMemo(() => navOf(state.nav, home, state.lang), [state.nav, home, state.lang]);
+  const slug = state.selection.page;
+  const entry = state.nav.find((p) => p.slug === slug);
+  const sections = state.pages.get(slug);
+  const page = useMemo(() => (entry && sections ? pageOf(entry, sections, home === slug, state.lang) : null), [entry, sections, home, slug, state.lang]);
+  const theme = useMemo(() => ({ ...deriveTheme(state.rules, state.theme), settings: state.theme }), [state.rules, state.theme]);
+  const view = useMemo((): PageView => {
+    const keys = new Set(state.rules.map((r) => r.key));
+    return {
+      ...state.base,
+      lang: state.lang ?? state.base.lang,
+      context: state.context,
+      contexts: [...new Set(state.rules.flatMap((r) => r.context ?? []))].sort(),
+      theme,
+      nav,
+      page,
+      locked: false,
+      rules: state.rules,
+      warnings: checkWarnings(theme.checks),
+      missing: page ? [...new Set(page.sections.flatMap(boundKeys))].filter((k) => !keys.has(k)) : [],
+    };
+  }, [state.base, state.lang, state.context, state.rules, theme, nav, page]);
+
+  return {
+    brand,
+    state,
+    /** The page on show, ready for SiteProvider (mode "edit"); `view.page` is null while it loads. */
+    view,
+    canUndo: depth.past > 0,
+    canRedo: depth.future > 0,
+    panel,
+    setPanel,
+    /** The pages that show a rule, for a rule card's "Shown on". */
+    shownOn: (key: string) => shownOn(state, key),
+    /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. */
+    transport,
+    ...act,
+  };
+}
+
+/** What the builder's parts are handed: the hook's state, the page as the site draws it, and every way to change it. */
+export type BuilderApi = ReturnType<typeof useBuilder>;

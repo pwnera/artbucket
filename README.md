@@ -161,6 +161,10 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed and what became of it |
+| `list_templates`, `list_pages`, `get_page` | read | Brand pages: the templates, the pages, one page with its rules and as Markdown |
+| `set_rules` | write | Make, change and remove many brand rules at once |
+| `save_page`, `edit_page`, `delete_page`, `generate_pages` | write | Build a brand's guideline pages over its rules |
+| `publish` | write, share | Put the pages and rules, as they stand, in front of portal visitors |
 
 The Claude Code plugin brings the MCP server and a skill that teaches the
 workflow (brand rules first, `check_use` before publishing, provenance on

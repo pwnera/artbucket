@@ -1,8 +1,12 @@
 import { z } from "zod";
+import { ThemePatch } from "./brand-theme.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
+import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
+import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
+import { GeneratePagesInput, PortalPatch } from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -14,6 +18,8 @@ import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
+const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
+const page = pageSlug.describe("The page's slug, e.g. logo; list_pages names them");
 
 export const TOOL_INPUTS = {
   search_assets: z.object({
@@ -94,6 +100,55 @@ export const TOOL_INPUTS = {
 
   list_fields: z.object({}),
 
+  list_templates: z.object({}),
+
+  list_pages: z.object({ brand }),
+
+  get_page: z.object({
+    brand,
+    page,
+    context: z.string().max(64).optional().describe("Resolve its rules for this context, e.g. dark-background"),
+  }),
+
+  set_rules: z.object({
+    brand,
+    set: z
+      .array(RuleInput)
+      .max(100)
+      .optional()
+      .describe("Rules to make, or change where the key and context exist: { key, type, value, label?, usage?, spec?, context?, assets? }"),
+    remove: z
+      .array(z.object({ key: ruleKey, context: ruleContext.nullable().optional().describe("Only this context's version; the key and every version when left out") }))
+      .max(100)
+      .optional(),
+  }),
+
+  save_page: PageInput.extend({ brand, page }),
+
+  edit_page: z.object({ brand, page, ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none") }),
+
+  delete_page: z.object({ brand, page }),
+
+  generate_pages: z.object({ brand, set: GeneratePagesInput.shape.set }),
+
+  get_theme: z.object({ brand }),
+
+  // Strict: a misspelled setting is refused, not dropped.
+  set_theme: z.strictObject({ brand, ...ThemePatch.shape }),
+
+  publish: z.object({
+    brand,
+    note: z.string().trim().max(2000).optional().describe("What changed, for the history and What's new"),
+    image: z.uuid().optional().describe("An asset shown beside the note, from search_assets"),
+  }),
+
+  list_portals: z.object({}),
+
+  // PATCH /portals/{id}'s own fields, so both doors take the same thing; strict, as there.
+  update_portal: PortalPatch.pick({ brands: true, access: true, expiresAt: true, site: true }).extend({
+    portal: z.string().min(1).max(64).describe("Its address (slug), as list_portals names it"),
+  }),
+
   propose_fields: z.object({
     id,
     fields: z
@@ -104,11 +159,21 @@ export const TOOL_INPUTS = {
 
 export type ToolName = keyof typeof TOOL_INPUTS;
 
-/** The tools as JSON Schema, the way tools/list sends them. */
+/**
+ * The tools as JSON Schema, the way tools/list sends them. A uuid's or a
+ * date-time's `format` says it all: zod's 190- and 400-character patterns
+ * beside them would be most of a page tool's schema (the size guard in
+ * mcp-tools.test.ts).
+ */
 export function toolSchemas() {
   return Object.fromEntries(
     Object.entries(TOOL_INPUTS).map(([name, input]) => {
-      const s = z.toJSONSchema(input, { io: "input" });
+      const s = z.toJSONSchema(input, {
+        io: "input",
+        override: ({ jsonSchema: j }) => {
+          if (j.format === "uuid" || j.format === "date-time") delete j.pattern;
+        },
+      });
       delete s.$schema;
       return [name, s];
     }),

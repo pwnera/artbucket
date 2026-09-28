@@ -26,16 +26,79 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `describe_asset` | read | What it is, its rights, what replaced it, and the brand rules that point at it |
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality; with `expiresIn`, signed, for someone without access |
-| `brand_rules` | read | A brand's rules for a context |
+| `brand_rules` | read | A brand's rules for a context, with their labels and specs |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
+| `list_templates` | read | The section templates a brand page is built from: their props, what they list, and an example each |
+| `list_pages` | read | A brand's pages, in order, with their tree |
+| `get_page` | read | One page: its sections, the rules they show, its warnings, the page as Markdown, and its URL in the app |
+| `get_theme` | read | How a brand's pages look: its theme settings, and the look they give |
+| `set_rules` | write | Make, change and remove many brand rules at once, as one version: values, labels and specs |
+| `save_page` | write | Make or replace a page whole, placed in the tree; every problem comes back at once with its path |
+| `edit_page` | write | Add, update, move and remove sections, change the page's own fields or rename it; all or none |
+| `delete_page` | write | Delete a page that has no pages under it; the brand's history keeps it |
+| `generate_pages` | write | Lay out a brand with no pages from its rules |
+| `set_theme` | write | Change the look a setting at a time; `null` clears one |
+| `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
+| `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
+| `update_portal` | write, share | Change the brands a portal shows, who gets in, when it closes, and its site: footer, quick grab, terms, listed |
+
+A tool shows up in `tools/list` only when the key may run it: the portal
+tools, only for a key that may manage portals (write on the workspace, with
+sharing not turned off).
 
 Brand rules are also resources: `artbucket://brand/rules`, and
-`artbucket://brands/{slug}/rules/{context}`.
+`artbucket://brands/{slug}/rules/{context}`. So is every brand page, as
+Markdown: `artbucket://brands/{slug}/pages/{page}`.
+
+## Brand pages
+
+A brand's guidelines are pages laid out over its rules. An agent builds them
+with the same tools a person's edits go through:
+
+1. **Rules are the content.** `set_rules` writes many at once. A rule's `label`
+   is the heading readers see; its key never changes. Its `spec` holds what the
+   value can't: a color's print values, tints, the color set on it, or a
+   gradient (`spec.gradient`, whose stops name color rules, with the rule's
+   `value` as the solid fallback), a number's unit, a face's role, tracking and case.
+2. **Pages are the layout.** `list_templates` says what each template shows,
+   binds and lists, with an example. `save_page` writes a page whole: `parent`
+   nests it (three levels at most), and each section binds rules by `keys`.
+   `items` hold what a template lists, like a do or a don't with its picture.
+   `tone` picks a section's ground: `plain`, `tint`, `brand`, `panel`, `dark`,
+   `color` and `image` (set in `background`), or `pattern` (the theme's device).
+   A page's `layout` is `book`, a chapter with the nav beside it (the default),
+   or `landing`, a front for a home or campaign page with no nav column,
+   on-this-page or pager.
+3. **The theme is the look.** `set_theme` says which rules play which part
+   (accent, grounds, ink, faces, logo) and sets the measure and chrome: radius,
+   width, density, type scale, navigation, numbering, motion. It merges, and
+   `null` clears a setting back to what the rules give.
+4. **Check before publishing.** Every page write, and `get_page`, returns
+   `warnings` (a link to no page, a key with no rule) and `url`, the page in the
+   app as readers will see it.
+5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
+   readers (up to 2000 characters) and an `image` beside it; portals show the
+   publish, never the draft, and `portals` in its answer names where.
+6. **Put it in front of people.** `list_portals` says which portals show which
+   brands, and whether each brand was ever published (`publishedAt: null`:
+   visitors see nothing of it). `update_portal` takes the portal's slug and
+   what changes: `brands` (the whole list, in order), `access`, `expiresAt`,
+   and `site`, which replaces the whole set, so send back what `list_portals`
+   gave, changed.
+
+`edit_page` changes a page an operation at a time. Its `page` operation sets
+the page's own fields; a new `slug` renames it, and the old slug stays an alias,
+so links and `get_page` still find it. A page with pages under it can't be
+deleted until they move.
+
+A font rule's `spec.download: false` hides the download buttons from readers.
+It is not protection: the files are still served, because the pages set their
+text in them through `@font-face`.
 
 ## The skill
 

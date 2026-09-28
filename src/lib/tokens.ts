@@ -1,6 +1,8 @@
+import type { z } from "zod";
+import { fontRoles } from "./brand-theme.ts";
 import { inkOn, rgb } from "./color.ts";
-import { fontStyle, isFont } from "./font.ts";
-import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
+import { fontFace, fontStyle, isFont } from "./font.ts";
+import { type COLOR_SPEC, fontValue, listStyle, type Rule } from "./rules.ts";
 
 /**
  * Brand rules as design tokens, for code: plain stylesheets (CSS custom
@@ -8,21 +10,21 @@ import { fontValue, listStyle, type Rule, type RuleAsset } from "./rules.ts";
  * module), design-system themes (shadcn/ui, MUI, Chakra UI), and W3C Design
  * Tokens (DTCG 2025.10) JSON for Style Dictionary, Tokens Studio and Figma
  * importers. Colors, numbers, fonts (family, size, weight, and their files as
- * @font-face) and a type scale become tokens; a rule set in one of the
- * brand's fonts (see SetIn) aliases that font. Sentences and do/don't lists
- * are guidance, not values, and stay out.
+ * @font-face) and a type scale become tokens; a color with a gradient adds
+ * the gradient beside its solid; a rule set in one of the brand's fonts (see
+ * SetIn) aliases that font. Sentences and do/don't lists are guidance, not
+ * values, and stay out.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets">;
+export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets" | "spec">;
 type Opts = { origin: string; title: string };
 
 /** `logo.minClearSpace` is `--logo-min-clear-space`. */
 export const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
 const fontFiles = (r: TokenRule) => r.assets.filter((a) => a.mime && isFont(a.mime, a.filename ?? ""));
 const isScale = (r: TokenRule) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
-const FORMAT: Record<string, string> = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "truetype", "font/otf": "opentype" };
 
 /** A non-font rule set in a font: the font rule whose file it carries. */
 function setIn(r: TokenRule, rules: TokenRule[]) {
@@ -31,7 +33,8 @@ function setIn(r: TokenRule, rules: TokenRule[]) {
   return file && rules.find((f) => f.type === "font" && f.assets.some((a) => a.id === file.id));
 }
 
-const fileUrl = (a: RuleAsset, origin: string) => `${origin}/a/${a.id}`;
+/** Where a file loads from, at this origin. */
+const fileUrl = (origin: string) => (id: string) => `${origin}/a/${id}`;
 
 /** A key within a theme namespace: `color.brandDark` among colors is `brand-dark`; `logo.tile` keeps its section. */
 const local = (key: string, home: string) => kebab(key.startsWith(`${home}.`) ? key.slice(home.length + 1) : key);
@@ -50,53 +53,65 @@ const js = (o: unknown) => JSON.stringify(o, null, 2).replace(/^(\s*)"([A-Za-z_$
 
 const fonts = (rules: TokenRule[]) => rules.filter((r) => r.type === "font");
 const last = (key: string) => key.split(".").pop()!;
-/** The brand's body and heading faces, by name where they say so; the first font otherwise. */
+/** The brand's body and heading faces as its pages set them (fontRoles), and a mono face by name. */
 function roles(rules: TokenRule[]) {
-  const fs = fonts(rules);
-  const body = fs.find((f) => /body|text|base|sans|copy|regular/i.test(last(f.key))) ?? fs[0];
-  const heading = fs.find((f) => f !== body && /head|display|title/i.test(last(f.key)));
-  const mono = fs.find((f) => /mono|code/i.test(last(f.key)));
+  const { head: heading, body } = fontRoles(rules);
+  const mono = fonts(rules).find((f) => /mono|code/i.test(last(f.key)));
   return { body, heading, mono };
+}
+
+// ---- gradients ------------------------------------------------------------------
+
+export type Gradient = NonNullable<z.output<typeof COLOR_SPEC>["gradient"]>;
+
+/** A color rule's gradient, when it is one; its value is then the solid for where a gradient can't go. */
+export const gradientOf = (r: Pick<TokenRule, "type" | "spec">): Gradient | undefined =>
+  r.type === "color" ? (r.spec as z.output<typeof COLOR_SPEC> | null | undefined)?.gradient : undefined;
+
+/** A stop's color as a hex: its own, or the value of the color rule it names (clear when there is none). */
+export const stopHex = (rules: Pick<TokenRule, "key" | "type" | "value">[]) => (color: string) =>
+  color.startsWith("#") ? color : String(rules.find((r) => r.type === "color" && r.key === color)?.value ?? "#00000000");
+
+/**
+ * A gradient as CSS, each stop's color as `paint` writes it: a rule's key as
+ * its variable in a stylesheet, its hex anywhere else. A stop's opacity mixes
+ * it toward transparent.
+ */
+export function gradientCss({ kind = "linear", angle, stops }: Gradient, paint: (color: string) => string) {
+  const from = angle === undefined || kind === "radial" ? [] : [kind === "conic" ? `from ${angle}deg` : `${angle}deg`];
+  const each = stops.map(({ color, at, opacity = 1 }) => {
+    const c = opacity < 1 ? `color-mix(in srgb, ${paint(color)} ${Math.round(opacity * 100)}%, transparent)` : paint(color);
+    return at === undefined ? c : `${c} ${at}%`;
+  });
+  return `${kind}-gradient(${[...from, ...each].join(", ")})`;
 }
 
 // ---- stylesheets: CSS, Sass, Less ----------------------------------------------
 
 /** One @font-face per font file, however many rules carry it. */
-function fontFaces(rules: TokenRule[], origin: string) {
+function fontFaces(rules: TokenRule[], url: (id: string) => string) {
   const faces = new Map<string, string>();
-  for (const r of fonts(rules)) {
-    const { family } = fontValue(r.value);
-    for (const a of fontFiles(r)) {
-      const { weight, italic } = fontStyle(a.filename ?? "");
-      const format = FORMAT[a.mime!];
-      faces.set(
-        a.id,
-        [
-          "@font-face {",
-          `  font-family: ${str(family)};`,
-          `  src: url(${str(fileUrl(a, origin))})${format ? ` format(${str(format)})` : ""};`,
-          `  font-weight: ${weight};`,
-          `  font-style: ${italic ? "italic" : "normal"};`,
-          "  font-display: swap;",
-          "}",
-        ].join("\n"),
-      );
-    }
-  }
+  for (const r of fonts(rules)) for (const a of fontFiles(r)) faces.set(a.id, fontFace(fontValue(r.value).family, a, url));
   return [...faces.values()];
 }
 
-type Decl = [name: string, value: string | { ref: string }];
+/** A value, or one written from other variables in the stylesheet's syntax for them (`ref`). */
+type Decl = [name: string, value: string | ((ref: (name: string) => string) => string)];
+type Block = { usage: string | null; decls: Decl[] };
 
 /** Every rule as flat, kebab-named variables, each group under its usage: what the stylesheet formats share. */
 function declarations(rules: TokenRule[]) {
-  const blocks: { usage: string | null; decls: Decl[] }[] = [];
+  const blocks: Block[] = [];
+  // Gradients go last: Sass wants a variable declared before a value reads it.
+  const gradients: Block[] = [];
   for (const r of rules) {
     const name = kebab(r.key);
     const font = setIn(r, rules);
-    const via: Decl[] = font ? [[`${name}-font-family`, { ref: `${kebab(font.key)}-font-family` }]] : [];
-    if (font && fontValue(font.value).weight) via.push([`${name}-font-weight`, { ref: `${kebab(font.key)}-font-weight` }]);
+    const via: Decl[] = font ? [[`${name}-font-family`, (ref) => ref(`${kebab(font.key)}-font-family`)]] : [];
+    if (font && fontValue(font.value).weight) via.push([`${name}-font-weight`, (ref) => ref(`${kebab(font.key)}-font-weight`)]);
 
+    const g = gradientOf(r);
+    if (g) gradients.push({ usage: r.usage, decls: [[`${name}-gradient`, (ref) => gradientCss(g, (c) => (c.startsWith("#") ? c : ref(kebab(c))))]] });
     let decls: Decl[] = via;
     if (r.type === "color" || r.type === "number") decls = [[name, String(r.value)]];
     else if (isScale(r)) decls = [...(r.value as number[]).map((n, i): Decl => [`${name}-${i + 1}`, `${n}px`]), ...via];
@@ -108,42 +123,46 @@ function declarations(rules: TokenRule[]) {
     }
     if (decls.length) blocks.push({ usage: r.usage, decls });
   }
-  return blocks;
+  return [...blocks, ...gradients];
 }
 
 /** Declarations in one stylesheet syntax: `--x` and `var(--y)`, `$x` and `$y`, `@x` and `@y`. */
 function variables(rules: TokenRule[], sigil: string, ref: (name: string) => string, indent = "") {
   return declarations(rules).flatMap(({ usage, decls }) => [
     ...(usage ? [indent + comment(usage)] : []),
-    ...decls.map(([n, v]) => `${indent}${sigil}${n}: ${typeof v === "string" ? v : ref(v.ref)};`),
+    ...decls.map(([n, v]) => `${indent}${sigil}${n}: ${typeof v === "string" ? v : v(ref)};`),
   ]);
 }
 
 export function toCss(rules: TokenRule[], { origin, title }: Opts) {
-  return [comment(title), ...fontFaces(rules, origin), ":root {", ...variables(rules, "--", (n) => `var(--${n})`, "  "), "}", ""].join("\n");
+  return [comment(title), ...fontFaces(rules, fileUrl(origin)), ":root {", ...variables(rules, "--", (n) => `var(--${n})`, "  "), "}", ""].join("\n");
 }
 
 export const toScss = (rules: TokenRule[], { origin, title }: Opts) =>
-  [comment(title), ...fontFaces(rules, origin), ...variables(rules, "$", (n) => `$${n}`), ""].join("\n");
+  [comment(title), ...fontFaces(rules, fileUrl(origin)), ...variables(rules, "$", (n) => `$${n}`), ""].join("\n");
 
 export const toLess = (rules: TokenRule[], { origin, title }: Opts) =>
-  [comment(title), ...fontFaces(rules, origin), ...variables(rules, "@", (n) => `@${n}`), ""].join("\n");
+  [comment(title), ...fontFaces(rules, fileUrl(origin)), ...variables(rules, "@", (n) => `@${n}`), ""].join("\n");
 
 // ---- frameworks ------------------------------------------------------------------
 
 /**
  * Tailwind CSS 4: an @theme in its namespaces, so the brand is utilities:
  * `--color-primary` is `bg-primary`, `--font-headings` is `font-headings`,
- * `--text-scale-3` is `text-scale-3`. Numbers have no namespace and stay
- * plain variables.
+ * `--text-scale-3` is `text-scale-3`, `--background-image-hero-gradient`
+ * is `bg-hero-gradient`. Numbers have no namespace and stay plain variables.
  */
 export function toTailwind(rules: TokenRule[], { origin, title }: Opts) {
   const theme: string[] = [];
   const root: string[] = [];
   for (const r of rules) {
     const note = r.usage ? [`  ${comment(r.usage)}`] : [];
-    if (r.type === "color") theme.push(...note, `  --color-${local(r.key, "color")}: ${r.value};`);
-    else if (r.type === "number") root.push(...note, `  --${kebab(r.key)}: ${r.value};`);
+    if (r.type === "color") {
+      theme.push(...note, `  --color-${local(r.key, "color")}: ${r.value};`);
+      const g = gradientOf(r);
+      const paint = (c: string) => (c.startsWith("#") ? c : `var(--color-${local(c, "color")})`);
+      if (g) theme.push(`  --background-image-${local(r.key, "color")}-gradient: ${gradientCss(g, paint)};`);
+    } else if (r.type === "number") root.push(...note, `  --${kebab(r.key)}: ${r.value};`);
     else if (isScale(r)) theme.push(...note, ...(r.value as number[]).map((n, i) => `  --text-${local(r.key, "type")}-${i + 1}: ${n}px;`));
     else if (r.type === "font") {
       const { family, size, weight } = fontValue(r.value);
@@ -156,7 +175,7 @@ export function toTailwind(rules: TokenRule[], { origin, title }: Opts) {
   return [
     comment(title),
     comment('In your main stylesheet, after @import "tailwindcss";'),
-    ...fontFaces(rules, origin),
+    ...fontFaces(rules, fileUrl(origin)),
     "@theme {",
     ...theme,
     "}",
@@ -167,8 +186,11 @@ export function toTailwind(rules: TokenRule[], { origin, title }: Opts) {
 
 /** Tailwind CSS 3: `theme.extend` for tailwind.config.js. The font files load from the CSS export. */
 export function toTailwind3(rules: TokenRule[], { title }: Opts) {
-  const ext: Record<string, Record<string, unknown>> = { colors: {}, fontFamily: {}, fontSize: {}, fontWeight: {} };
+  const ext: Record<string, Record<string, unknown>> = { colors: {}, fontFamily: {}, fontSize: {}, fontWeight: {}, backgroundImage: {} };
+  const hex = stopHex(rules);
   for (const r of rules) {
+    const g = gradientOf(r);
+    if (g) ext.backgroundImage[`${local(r.key, "color")}-gradient`] = gradientCss(g, hex);
     if (r.type === "color") ext.colors[local(r.key, "color")] = r.value;
     else if (isScale(r)) (r.value as number[]).forEach((n, i) => (ext.fontSize[`${local(r.key, "type")}-${i + 1}`] = `${n}px`));
     else if (r.type === "font") {
@@ -200,12 +222,15 @@ export function toTs(rules: TokenRule[], { origin, title }: Opts) {
     const parts = key.split(".");
     at(root, parts.slice(0, -1).join("."))[parts.at(-1)!] = v;
   };
+  const hex = stopHex(rules);
   for (const r of rules) {
+    const g = gradientOf(r);
+    if (g) put(`${r.key}Gradient`, gradientCss(g, hex));
     if (r.type === "color" || r.type === "number") put(r.key, r.value);
     else if (isScale(r)) put(r.key, (r.value as number[]).map((n) => `${n}px`));
     else if (r.type === "font") {
       const { family, size, weight } = fontValue(r.value);
-      const files = fontFiles(r).map((a) => ({ url: fileUrl(a, origin), ...fontStyle(a.filename ?? "") }));
+      const files = fontFiles(r).map((a) => ({ url: fileUrl(origin)(a.id), ...fontStyle(a.filename ?? "") }));
       put(r.key, {
         fontFamily: family,
         ...(size ? { fontSize: `${size}px` } : {}),
@@ -231,7 +256,8 @@ const PAIRED = ["card", "popover", "primary", "secondary", "muted", "accent"];
 /**
  * shadcn/ui on Tailwind 4: its own variables where a brand color has their
  * name (`color.primary` is `--primary`), with a readable foreground made for
- * any it lacks; the brand's other colors and its fonts join them as utilities.
+ * any it lacks; the brand's other colors, its gradients and its fonts join
+ * them as utilities.
  */
 export function toShadcn(rules: TokenRule[], { origin, title }: Opts) {
   const root: string[] = [];
@@ -242,6 +268,11 @@ export function toShadcn(rules: TokenRule[], { origin, title }: Opts) {
     root.push(`  --${n}: ${r.value};`);
     if (!SHADCN.has(n)) inline.push(`  --color-${n}: var(--${n});`);
     if (PAIRED.includes(n) && !named.has(`${n}-foreground`)) root.push(`  --${n}-foreground: ${inkOn((r.value as string).slice(0, 7))};`);
+    const g = gradientOf(r);
+    if (g) {
+      root.push(`  --${n}-gradient: ${gradientCss(g, (c) => (c.startsWith("#") ? c : `var(--${local(c, "color")})`))};`);
+      inline.push(`  --background-image-${n}-gradient: var(--${n}-gradient);`);
+    }
   }
   const radius = rules.find((r) => r.type === "number" && last(r.key) === "radius");
   if (radius) root.push(`  --radius: ${radius.value}px;`);
@@ -251,7 +282,7 @@ export function toShadcn(rules: TokenRule[], { origin, title }: Opts) {
   return [
     comment(title),
     comment("Over the matching variables in globals.css; .dark keeps its own."),
-    ...fontFaces(rules, origin),
+    ...fontFaces(rules, fileUrl(origin)),
     ":root {",
     ...root,
     "}",
@@ -262,7 +293,15 @@ export function toShadcn(rules: TokenRule[], { origin, title }: Opts) {
 
 /** Material UI: a theme with the brand's colors in the palette and its faces in the typography. */
 export function toMui(rules: TokenRule[], { title }: Opts) {
-  const palette = Object.fromEntries(rules.filter((r) => r.type === "color").map((r) => [localCamel(r.key, "color"), { main: r.value }]));
+  const hex = stopHex(rules);
+  const palette = Object.fromEntries(
+    rules
+      .filter((r) => r.type === "color")
+      .map((r) => {
+        const g = gradientOf(r);
+        return [localCamel(r.key, "color"), { main: r.value, ...(g ? { gradient: gradientCss(g, hex) } : {}) }];
+      }),
+  );
   const { body, heading } = roles(rules);
   const face = (f: TokenRule) => `${str(fontValue(f.value).family)}, sans-serif`;
   const typography = {
@@ -289,8 +328,11 @@ export function toMui(rules: TokenRule[], { title }: Opts) {
 
 /** Chakra UI 3: the tokens as a system config, merged over Chakra's defaults. */
 export function toChakra(rules: TokenRule[], { title }: Opts) {
-  const tokens: Record<string, Record<string, { value: unknown }>> = { colors: {}, fonts: {}, fontSizes: {}, fontWeights: {} };
+  const tokens: Record<string, Record<string, { value: unknown }>> = { colors: {}, fonts: {}, fontSizes: {}, fontWeights: {}, gradients: {} };
+  const hex = stopHex(rules);
   for (const r of rules) {
+    const g = gradientOf(r);
+    if (g) tokens.gradients[local(r.key, "color")] = { value: gradientCss(g, hex) };
     if (r.type === "color") tokens.colors[local(r.key, "color")] = { value: r.value };
     else if (isScale(r)) (r.value as number[]).forEach((n, i) => (tokens.fontSizes[`${local(r.key, "type")}-${i + 1}`] = { value: `${n}px` }));
     else if (r.type === "font") {
@@ -327,12 +369,42 @@ function color(hex: string) {
   };
 }
 
+/** Each stop's place from 0 to 1, those left out spread as CSS spreads them: the ends at 0 and 100%, the rest evenly between. */
+function placed(at: (number | undefined)[]) {
+  const p = [...at];
+  p[0] ??= 0;
+  p[p.length - 1] ??= 100;
+  for (let i = 1; i < p.length; i++) {
+    let j = i;
+    while (p[j] === undefined) j++;
+    for (let k = i; k < j; k++) p[k] = p[i - 1]! + ((p[j]! - p[i - 1]!) * (k - i + 1)) / (j - i + 1);
+  }
+  return p.map((v) => Math.round(v! * 100) / 10000);
+}
+
+/**
+ * A DTCG 2025.10 gradient: a rule's color by reference, a hex (or a stop made
+ * see-through) by value. DTCG has no angle or kind: they and the CSS travel
+ * in $extensions.
+ */
+function gradient(g: Gradient, hex: (c: string) => string) {
+  const at = placed(g.stops.map((s) => s.at));
+  const stops = g.stops.map(({ color: c, opacity = 1 }, i) => {
+    if (!c.startsWith("#") && opacity === 1) return { color: `{${c}}`, position: at[i] };
+    const v = color(hex(c));
+    const alpha = (v.alpha ?? 1) * opacity;
+    return { color: { ...v, ...(alpha < 1 ? { alpha: Math.round(alpha * 10000) / 10000 } : {}) }, position: at[i] };
+  });
+  return { $type: "gradient", $value: stops, $extensions: { "com.artbucket": { kind: g.kind ?? "linear", angle: g.angle, css: gradientCss(g, hex) } } };
+}
+
 export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
   const root: Node = {};
   // ponytail: a key that is both a token and another key's prefix (color.primary
   // and color.primary.dark) nests the second inside the first, which DTCG
   // readers reject. Rename one of the rules if it comes up.
   const described = (r: TokenRule) => (r.usage ? { $description: r.usage } : {});
+  const hex = stopHex(rules);
 
   for (const r of rules) {
     const font = setIn(r, rules);
@@ -343,6 +415,9 @@ export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
         }
       : {};
 
+    const g = gradientOf(r);
+    // Beside its solid, not in it: a token with tokens inside is no token to DTCG readers.
+    if (g) Object.assign(at(root, `${r.key}Gradient`), { ...gradient(g, hex), ...described(r) });
     if (r.type === "color") Object.assign(at(root, r.key), { $type: "color", $value: color(r.value as string), ...described(r) });
     else if (r.type === "number") Object.assign(at(root, r.key), { $type: "number", $value: r.value, ...described(r) });
     else if (isScale(r)) {
@@ -354,7 +429,7 @@ export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
       const { family, size, weight } = fontValue(r.value);
       const files = fontFiles(r).map((a) => {
         const s = fontStyle(a.filename ?? "");
-        return { url: fileUrl(a, origin), weight: s.weight, style: s.italic ? "italic" : "normal", mime: a.mime };
+        return { url: fileUrl(origin)(a.id), weight: s.weight, style: s.italic ? "italic" : "normal", mime: a.mime };
       });
       Object.assign(at(root, r.key), {
         fontFamily: { $type: "fontFamily", $value: family },

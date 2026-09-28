@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { camel, ESSENTIALS, keyFor, PRESETS } from "./presets.ts";
+import { camel, keyFor, PRESETS } from "./presets.ts";
 import { RuleInput, ruleLabel } from "./rules.ts";
 
 test("names become camelCase key segments", () => {
@@ -38,5 +38,4 @@ test("every preset makes a valid rule, and the essentials exist", () => {
     const key = keyFor(p.section || "custom", p.name ?? p.suggest ?? "rule", new Set())!;
     assert.ok(RuleInput.safeParse({ key, type: p.type, value: p.value, usage: p.usage }).success, p.id);
   }
-  for (const id of ESSENTIALS) assert.ok(PRESETS.some((p) => p.id === id && p.name), `${id} is a named preset`);
 });

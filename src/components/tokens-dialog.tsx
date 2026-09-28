@@ -14,7 +14,10 @@ import { TOKEN_FORMAT_IDS, TOKEN_FORMATS, type TokenFormat, type TokenFormatId }
 import { cn } from "@/lib/utils";
 
 /** This brand's tokens in one format, as the API serves them. */
-export const tokensPath = (brand: BrandInfo, context: string | undefined, format: TokenFormatId) => {
+/** The brand as the dialog needs it; no `default`, and the path names it anyway. */
+type TokenBrand = Pick<BrandInfo, "slug" | "name"> & { default?: boolean };
+
+export const tokensPath = (brand: TokenBrand, context: string | undefined, format: TokenFormatId) => {
   const q = new URLSearchParams({ format });
   if (!brand.default) q.set("brand", brand.slug);
   if (context) q.set("context", context);
@@ -37,7 +40,7 @@ export function TokensDialog({
   open,
   onOpenChange,
 }: {
-  brand: BrandInfo;
+  brand: TokenBrand;
   context?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -1,11 +1,23 @@
 /**
- * Just enough color math for the guidelines page: RGB and HSL readouts, and
- * WCAG 2 contrast so a palette says where each color may carry text.
+ * Just enough color math for the guidelines page: RGB, HSL and CMYK readouts,
+ * tints, and WCAG 2 contrast so a palette says where each color may carry text.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
 
 export type Rgb = [r: number, g: number, b: number];
+
+const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+/** "#6d4aff" or "#6d4aff80", as a color rule stores it. */
+export const isHex = (v: string) => HEX.test(v);
+
+/** "6D4AFF", "#abc" and "#6d4aff" are one color, saved as the last; null when it isn't a hex at all. */
+export function hexOf(typed: string) {
+  let v = typed.trim().toLowerCase();
+  if (!v.startsWith("#")) v = `#${v}`;
+  if (/^#[0-9a-f]{3,4}$/.test(v)) v = `#${[...v.slice(1)].map((c) => c + c).join("")}`;
+  return isHex(v) ? v : null;
+}
 
 /** "#34a853" or "#34a853ff" (alpha ignored) to [52, 168, 83]. */
 export function rgb(hex: string): Rgb {
@@ -50,6 +62,32 @@ export const inkOn = (hex: string) => (contrast(hex, "#ffffff") >= contrast(hex,
 
 const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
 
+/** `a` moved toward `b` by `t`, 0 to 1, in sRGB: mix(surface, ink, 0.04) is a step off the surface. Always "#rrggbb". */
+export function mix(a: string, b: string, t: number) {
+  const y = rgb(b);
+  return hex(rgb(a).map((v, i) => v + (y[i] - v) * t) as Rgb);
+}
+
+/**
+ * A tint at `pct` percent of the color, the rest paper white, as print tint
+ * steps are named: tintOf(c, 80) is 80% ink. Always "#rrggbb".
+ */
+export const tintOf = (color: string, pct: number) => mix(color, "#ffffff", 1 - pct / 100);
+
+export type Cmyk = [c: number, m: number, y: number, k: number];
+
+/**
+ * CMYK in whole percents, converted naively from RGB (no ICC profile), for a
+ * color whose book gives none. Palettes mark it converted: a printer should
+ * get the book's own values, or a proof.
+ */
+export function toCmyk(color: string): Cmyk {
+  const c = rgb(color);
+  const max = Math.max(...c);
+  if (!max) return [0, 0, 0, 100];
+  return [...c.map((v) => Math.round(((max - v) / max) * 100)), Math.round((1 - max / 255) * 100)] as Cmyk;
+}
+
 /**
  * The color, moved toward white on a dark background or black on a light
  * one, just until it clears `min` against it: an org accent that vanishes in
@@ -58,7 +96,8 @@ const hex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, 
  */
 export function lift(color: string, bg: string, min = 3) {
   const c = rgb(color);
-  const to = luminance(rgb(bg)) < 0.5 ? 255 : 0;
+  // Toward whichever of black and white reads on it: on a mid ground (an orange band) white never clears 4.5.
+  const to = inkOn(bg) === "#ffffff" ? 255 : 0;
   for (let t = 0; t < 1; t += 0.05) {
     const x = hex(c.map((v) => v + (to - v) * t) as Rgb);
     if (contrast(x, bg) >= min) return x;

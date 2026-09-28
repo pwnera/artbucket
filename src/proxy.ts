@@ -42,7 +42,8 @@ const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace(":
  * brand), and app/layout.tsx hands it to next-themes. So text that got into a
  * page some other way runs nothing. The Lottie player's WebAssembly, fetched
  * from jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
- * (lib/preview.ts). Connections: browser uploads go straight to storage.
+ * (lib/preview.ts), and an embed section's hosts (lib/pages.ts EMBED_HOSTS).
+ * Connections: browser uploads go straight to storage.
  */
 const csp = (nonce: string) => [
   "default-src 'self'",
@@ -53,7 +54,7 @@ const csp = (nonce: string) => [
   `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
-  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com",
+  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
@@ -66,18 +67,19 @@ const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")
 
 /**
  * A request to a verified portal domain (lib/core/domains.ts) sees that
- * portal and nothing else of the app: every page is the portal's, and only
- * what the portal page calls, /api and /a, passes through as is.
+ * portal and nothing else of the app: every path is one of the portal's
+ * (/logo is /p/{slug}/logo), and only what the portal page calls, /api and
+ * /a, and robots.txt, which answers per host (app/robots.ts), pass through as is.
  */
 async function portalRewrite(req: NextRequest, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   if (!host || host === appHost) return null;
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/api/") || pathname.startsWith("/a/")) return null;
+  if (pathname.startsWith("/api/") || pathname.startsWith("/a/") || pathname === "/robots.txt") return null;
   const slug = await portalAtHost(host).catch(() => null);
   if (!slug) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/p/${slug}`;
+  url.pathname = `/p/${slug}${pathname === "/" ? "" : pathname}`;
   return NextResponse.rewrite(url, init);
 }
 
