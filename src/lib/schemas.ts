@@ -773,7 +773,7 @@ export const Description = z.object({
       q: z.tuple([z.number(), z.number()]).describe("Snaps to a multiple of 5"),
       fit: z.array(z.enum(FITS)),
       f: z.array(z.enum(FORMATS)),
-      enlarges: z.literal(false),
+      enlarges: z.boolean().describe("An SVG is drawn at the size asked, up to the w and h caps; any other image never comes out larger than it is"),
     })
     .nullable()
     .describe("What a rendition of this asset may ask for; null when it can't be transformed"),

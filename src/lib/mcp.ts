@@ -26,7 +26,7 @@ import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
 import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
-import { parseTransform, serializeTransform } from "@/lib/transform";
+import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
  * The MCP adapter: a second front door onto lib/core, beside REST. Stateless
@@ -197,8 +197,8 @@ const TOOLS: Record<ToolName, Tool> = {
   rendition_url: tool({
     description:
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
-      "image is made on first request and cached. Renditions never upscale: asking for more pixels than the " +
-      "original has returns the original size. The URL works for people who can see the asset; with expiresIn, " +
+      "image is made on first request and cached. A raster image is never upscaled: asking for more pixels than the " +
+      `original has returns the original size. An SVG is drawn sharp at the size asked, up to ${MAX_DIMENSION}px. The URL works for people who can see the asset; with expiresIn, ` +
       "it is signed and works for anyone until then.",
     action: "asset.read",
     readOnly: true,
@@ -212,9 +212,10 @@ const TOOLS: Record<ToolName, Tool> = {
       const url = signed?.url ?? (spec ? `${base(a.id)}/${spec}` : base(a.id));
       const expiresAt = signed?.expiresAt ?? null;
       if (!spec) return { url, expiresAt, transform: null, note: "No transform asked for: this is the original." };
+      const raster = !isVector(a.mime);
       const notes = [
-        width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
-        height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
+        raster && width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
+        raster && height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
         fit && !(width && height) ? "fit only matters with both width and height." : null,
       ].filter(Boolean);
       return { url, expiresAt, transform: spec, source: { width: a.width, height: a.height }, notes };

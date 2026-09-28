@@ -31,11 +31,12 @@ const GROUPS: { label: string; names: string[] }[] = [
 
 /**
  * "1200 × 630 JPEG", or "up to 1000 × 750 JPEG" when the image is smaller
- * than asked, since nothing is enlarged. The spec itself when the size is unknown.
+ * than asked, since a raster is never enlarged (an SVG is drawn at the size
+ * asked). The spec itself when the size is unknown.
  */
 export function describeSpec(
   spec: string,
-  size: { width?: number | null; height?: number | null; probe?: Record<string, unknown> | null },
+  size: { width?: number | null; height?: number | null; mime: string; probe?: Record<string, unknown> | null },
 ) {
   const t = parseTransform(spec);
   if (!t) return spec;

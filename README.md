@@ -133,8 +133,10 @@ Then build any rendition URL you like, no API call needed:
 ```
 
 Transforms: `w` `h` (1-8000), `fit` (cover, contain, inside, outside, fill),
-`q` (1-100), `f` (jpeg, png, webp, avif). Renditions are generated once and
-cached. The bytes are private: the URLs work with your key or session, and for
+`q` (1-100), `f` (jpeg, png, webp, avif). A photo or other raster image is
+never enlarged: asking for more pixels than it has gives it at its own size.
+An SVG is drawn at the size asked, up to 8000px, so a 24px icon at `w_512,f_png`
+is a sharp 512px PNG. Renditions are generated once and cached. The bytes are private: the URLs work with your key or session, and for
 anyone else once signed (`POST /api/v1/assets/{id}/signed-url`) or made public.
 
 ### 3. Connect your agents

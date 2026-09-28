@@ -133,14 +133,36 @@ export function serializeTransform(t: Transform): string {
   return parts.join(",");
 }
 
+/** An SVG: drawn at the size asked rather than rasterized at its own and scaled. */
+export const isVector = (mime: string | null | undefined) => mime === "image/svg+xml";
+
+type Source = { width?: number | null; height?: number | null; mime: string };
+
+/**
+ * How much larger than its own size a vector source is drawn, so the sides a
+ * spec asks for bind as they would on a raster that big: never smaller (a
+ * thin side would round away), and never past MAX_DIMENSION on its longest
+ * side. 1 for a raster, which is never enlarged.
+ */
+export function drawScale(t: Transform, size: Source): number {
+  const [W, H] = [size.width, size.height];
+  if (!isVector(size.mime) || !W || !H || (!t.w && !t.h)) return 1;
+  const [sx, sy] = [t.w ? t.w / W : 0, t.h ? t.h / H : 0];
+  const fit = t.fit ?? "inside";
+  // Inside and contain stop at the side that binds first; cover, outside and fill fill the box.
+  const s = t.w && t.h && (fit === "inside" || fit === "contain") ? Math.min(sx, sy) : Math.max(sx, sy);
+  return Math.max(1, Math.min(s, MAX_DIMENSION / Math.max(W, H)));
+}
+
 /**
  * The transform that renders the same pixels, so one stored rendition serves
- * every URL that asks for them. Only for fit inside, which never enlarges: a
- * side at least the image's longest never binds, whichever way EXIF turns it,
- * so it drops. `w_8000` on a 2000px image is the image at its own size.
+ * every URL that asks for them. Only for a raster at fit inside, which never
+ * enlarges: a side at least the image's longest never binds, whichever way
+ * EXIF turns it, so it drops. `w_8000` on a 2000px image is the image at its
+ * own size. A vector is drawn at the size asked, so every side binds.
  */
-export function effective(t: Transform, size: { width?: number | null; height?: number | null }): Transform {
-  if ((t.fit && t.fit !== "inside") || !size.width || !size.height) return t;
+export function effective(t: Transform, size: Source): Transform {
+  if (isVector(size.mime) || (t.fit && t.fit !== "inside") || !size.width || !size.height) return t;
   const longest = Math.max(size.width, size.height);
   const out = { ...t };
   if (out.w && out.w >= longest) delete out.w;
@@ -151,18 +173,23 @@ export function effective(t: Transform, size: { width?: number | null; height?: 
 
 /**
  * What a spec gives for an image of `size`, for saying "1200 × 630" rather
- * than a URL grammar. An estimate: the server never enlarges, so `capped`
- * means the image is smaller than asked and it comes out up to that size,
- * and EXIF orientation 5 to 8 (when known) turns the image on its side first.
+ * than a URL grammar. An estimate: the server never enlarges a raster, so
+ * `capped` means the image is smaller than asked and it comes out up to that
+ * size, and EXIF orientation 5 to 8 (when known) turns the image on its side
+ * first. A vector is drawn at the size asked (drawScale), capped only by
+ * MAX_DIMENSION.
  */
 export function outputSize(
   t: Transform,
-  size: { width?: number | null; height?: number | null },
+  size: Source,
   orientation?: number,
 ): { width: number; height: number; capped: boolean } | null {
   let [W, H] = [size.width, size.height];
   if (!W || !H) return null;
-  if (orientation && orientation >= 5 && orientation <= 8) [W, H] = [H, W];
+  if (isVector(size.mime)) {
+    const k = drawScale(t, size);
+    [W, H] = [Math.max(1, Math.round(W * k)), Math.max(1, Math.round(H * k))];
+  } else if (orientation && orientation >= 5 && orientation <= 8) [W, H] = [H, W];
   if (!t.w && !t.h) return { width: W, height: H, capped: false };
   const fit = t.fit ?? "inside";
   let width: number;

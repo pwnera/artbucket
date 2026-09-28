@@ -9064,7 +9064,7 @@
                             },
                             "enlarges": {
                               "type": "boolean",
-                              "const": false
+                              "description": "An SVG is drawn at the size asked, up to the w and h caps; any other image never comes out larger than it is"
                             }
                           },
                           "required": [
