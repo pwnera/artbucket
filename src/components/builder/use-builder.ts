@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { checkWarnings, deriveTheme, type ThemeSettings } from "@/lib/brand-theme";
 import {
   apply,
+  applyAll,
   type BuilderState,
   echo,
   type EchoPage,
@@ -20,12 +21,13 @@ import {
   type Op,
   pageOf,
   push,
+  pushStep,
   request,
   shownOn,
   targetOf,
   travel,
 } from "@/lib/builder-ops";
-import { boundKeys, canon } from "@/lib/pages";
+import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
 import { undoable } from "@/lib/undo";
@@ -49,12 +51,35 @@ const network: Transport = (method, url, body) => sendResult(method, url, body, 
 /** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
 export type Panel = "theme" | "rules" | "history" | "tokens" | "publish" | null;
 
+/** The panel docked beside the canvas, which never covers it: the picked section's settings, or blocks and rules to drag in. */
+export type Dock = "section" | "insert" | null;
+
+/** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
+export const CLIP = "artbucket/section";
+
+/** A section as the clipboard carries it, and back: null for text that isn't one. */
+export const clip = (s: Section) => JSON.stringify({ [CLIP]: s });
+export function unclip(text: string): Record<string, unknown> | null {
+  try {
+    const x = JSON.parse(text)?.[CLIP];
+    return x && typeof x === "object" && typeof x.template === "string" ? x : null;
+  } catch {
+    return null;
+  }
+}
+
 const SAVE = "builder-save";
+
+/** The last section copied from a menu, for a paste the clipboard won't give back (permission refused). */
+let copied: string | null = null;
 
 export function useBuilder(brand: string, init: Init, transport: Transport = network) {
   const [state, setState] = useState(() => initState(init));
   const [depth, setDepth] = useState({ past: 0, future: 0 });
   const [panel, setPanel] = useState<Panel>(null);
+  const [dock, setDock] = useState<Dock>(null);
+  // The item the section panel sets up, by its section and index: a right click's "Item settings".
+  const [item, setItem] = useState<{ section: string; i: number } | null>(null);
   // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
   const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
   useEffect(() => {
@@ -156,6 +181,30 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       return r.op;
     }
 
+    /** Several ops as one change and one undo step: all apply, or none, with a toast saying why. */
+    function changeAll(ops: Op[]): Op[] | null {
+      const l = live.current;
+      const r = applyAll(l.state, ops);
+      if (r.errors.length) {
+        toast.error(r.errors[0], { duration: 10_000 });
+        return null;
+      }
+      remember(pushStep(l.history, { redo: r.done, undo: r.undo, field: null, at: Date.now() }));
+      commit(r.state);
+      send(r.done);
+      return r.done;
+    }
+
+    /** A section put in after `after` on `page` (the page on show when left out), picked. Its id is made unless it's free there. */
+    function insert(section: Record<string, unknown>, after: string | null, page = current()): string | null {
+      const copy = { ...section };
+      if (sectionsOf(page).some((x) => x.id === copy.id)) delete copy.id;
+      const done = change({ kind: "page", page, op: { op: "add", section: copy as never, after } });
+      if (done?.kind !== "page" || done.op.op !== "add") return null;
+      if (page === current()) select({ section: done.op.section.id!, rule: null });
+      return done.op.section.id!;
+    }
+
     function travelTo(back: boolean) {
       const l = live.current;
       const t = travel(l.state, l.history, back);
@@ -189,6 +238,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
 
     return {
       apply: change,
+      applyAll: changeAll,
+      insert,
       undo: () => travelTo(true),
       redo: () => travelTo(false),
       select,
@@ -219,13 +270,46 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       },
       /** A copy of a section, just under it, selected. */
       duplicate(id: string) {
-        const page = current();
-        const x = sectionsOf(page).find((y) => y.id === id);
+        const x = sectionsOf(current()).find((y) => y.id === id);
         if (!x) return;
         const copy: Record<string, unknown> = { ...x };
         delete copy.id;
-        const done = change({ kind: "page", page, op: { op: "add", section: copy as never, after: id } });
-        if (done?.kind === "page" && done.op.op === "add") select({ section: done.op.section.id! });
+        insert(copy, id);
+      },
+      /** A section of the page on show, as the clipboard carries it. */
+      clipOf(id: string): string | null {
+        const x = sectionsOf(current()).find((y) => y.id === id);
+        return x ? clip(x) : null;
+      },
+      /** Copy a section from a menu: to the clipboard, and kept here for a browser that won't read it back. */
+      copy(id: string) {
+        const text = clip(sectionsOf(current()).find((y) => y.id === id)!);
+        copied = text;
+        navigator.clipboard?.writeText(text).catch(() => {});
+        toast.success("Section copied", { description: "Paste it on any page of any brand." });
+      },
+      /** Paste from a menu: the clipboard's section, else the last one copied here, after `after`. */
+      async paste(after: string | null) {
+        const text = await navigator.clipboard?.readText().catch(() => null);
+        const x = (text && unclip(text)) ?? (copied ? unclip(copied) : null);
+        if (!x) return void toast.error("Nothing to paste", { description: "Copy a section first: right click it, or ⌘C." });
+        insert(x, after);
+      },
+      /** A section of the page on show onto another page, last there, as one undo step. Its page is loaded first. */
+      async moveToPage(id: string, to: string) {
+        const from = current();
+        const x = sectionsOf(from).find((y) => y.id === id);
+        if (!x || to === from || !(await fetchPage(to))) return;
+        const there = sectionsOf(to);
+        const section: Record<string, unknown> = { ...x };
+        if (there.some((y) => y.id === id)) delete section.id;
+        const done = changeAll([
+          { kind: "page", page: from, op: { op: "remove", id } },
+          { kind: "page", page: to, op: { op: "add", section: section as never, after: there.at(-1)?.id ?? null } },
+        ]);
+        if (!done) return;
+        const title = live.current.state.nav.find((p) => p.slug === to)?.title ?? to;
+        toast.success(`Moved to ${title}`, { action: { label: "Open", onClick: () => live.current.state.nav.some((p) => p.slug === to) && select({ page: to, section: null, rule: null }) } });
       },
       /** Move a section one place up (-1) or down (1): Alt+Up and Alt+Down. */
       nudge(id: string, by: -1 | 1) {
@@ -284,6 +368,10 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     canRedo: depth.future > 0,
     panel,
     setPanel,
+    dock,
+    setDock,
+    item,
+    setItem,
     /** The pages that show a rule, for a rule card's "Shown on". */
     shownOn: (key: string) => shownOn(state, key),
     /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. */

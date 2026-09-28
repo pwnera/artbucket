@@ -61,6 +61,10 @@ export function CoverSection({ section: s }: SectionProps) {
   const sections = view.page?.sections;
   // The page's h1 when it opens the page; the page header then leaves its own out.
   const H = sections?.[0]?.id === s.id ? "h1" : "h2";
+  // The home is the brand's own: its mark and name. Anywhere else the cover opens a chapter, named for its page.
+  const home = view.page?.home ?? true;
+  const mark = p.mark === "always" || (p.mark !== "never" && home);
+  const heading = home ? view.brand.name : (view.page?.title ?? view.brand.name);
   const big = "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] break-words";
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
@@ -92,10 +96,10 @@ export function CoverSection({ section: s }: SectionProps) {
       {(still || video) && <div aria-hidden className="absolute inset-0 -z-10 bg-black" style={{ opacity: scrim }} />}
 
       <div className={cn("mx-auto flex w-full flex-col gap-8 px-6 py-16 @3xl:px-10 @3xl:py-24", WIDTH[s.width], ALIGN[p.align ?? "start"])}>
-        <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} />
+        {mark && <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} />}
         <div className="space-y-4">
           <Eyebrow />
-          {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{view.brand.name}</H>}
+          {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{heading}</H>}
           <Lede className="max-w-2xl @3xl:text-2xl" />
         </div>
         <Body className="max-w-2xl" />

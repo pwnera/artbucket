@@ -56,7 +56,9 @@ export const ThemeSettings = z.strictObject({
   density: z.enum(["compact", "normal", "airy"]).optional(),
   scale: z.number().min(1.067).max(1.618).optional().describe("Heading size ratio; 1.25 when left out"),
   nav: z.enum(["sidebar", "top", "overlay"]).optional(),
-  band: z.boolean().optional().describe("Every page opens on a band of the brand color"),
+  band: z.boolean().optional().describe("Every page opens on a band of the brand color; header band says the same"),
+  header: z.enum(["plain", "band", "split"]).optional().describe("A page's opening: on the page, on a band of the brand color, or beside its cover"),
+  separation: z.enum(["space", "hairline"]).optional().describe("Between two sections on the page's own ground: space alone, or a hairline too"),
   numbering: z.boolean().optional().describe("Number chapters and pages: 01, 01.2"),
   motion: z.enum(["none", "subtle"]).optional().describe("subtle: sections reveal as they scroll in; never with reduced motion"),
   toc: z.enum(["side", "inline", "none"]).optional().describe("On this page: a side column, a list under the page header, or hidden"),
@@ -204,7 +206,10 @@ export type Theme = {
   device: string | null;
   logo: { key: string } | null;
   nav: "sidebar" | "top" | "overlay";
+  /** header is band: every page opens on the brand color. */
   band: boolean;
+  header: "plain" | "band" | "split";
+  separation: "space" | "hairline";
   numbering: boolean;
   motion: "none" | "subtle";
   toc: "side" | "inline" | "none";
@@ -312,6 +317,7 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
   const label = face(roles.label) ?? body;
   const logo = (r?: Pick<Rule, "key" | "assets">) => (r?.assets.length ? { key: r.key } : undefined);
   const logos = base.filter((r) => r.key.startsWith("logo."));
+  const header = s.header ?? (s.band ? "band" : "plain");
 
   return {
     v1: brandTheme(rules),
@@ -349,7 +355,9 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
       ["primary", "mark", "wordmark"].map((n) => logo(logos.find((r) => last(r.key) === n))).find(Boolean) ??
       null,
     nav: s.nav ?? "sidebar",
-    band: s.band ?? false,
+    band: header === "band",
+    header,
+    separation: s.separation ?? "space",
     numbering: s.numbering ?? false,
     motion: s.motion ?? "none",
     toc: s.toc ?? "side",

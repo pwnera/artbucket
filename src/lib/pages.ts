@@ -500,10 +500,17 @@ export const TEMPLATE_PROPS = {
     align: z.enum(["start", "center", "end"]).optional(),
     height: z.enum(["auto", "tall", "screen"]).optional(),
     strip: z.boolean().optional().describe("The palette as a strip; true when left out"),
+    mark: z.enum(["home", "always", "never"]).optional().describe("Logo above the title"),
   }),
   header: z.strictObject({ image: image.describe("A picture in the band") }),
   text: z.strictObject({}),
-  split: z.strictObject({ image: image.describe("Shown beside the words; else the first bound rule's picture"), flip: z.boolean().optional().describe("Image on the left") }),
+  split: z.strictObject({
+    image: image.describe("Shown beside the words; else the first bound rule's picture"),
+    flip: z.boolean().optional().describe("Image on the left"),
+    ratio: z.enum(["even", "words", "picture"]).optional().describe("The wider side"),
+    align: z.enum(["start", "center"]).optional(),
+    fit: z.enum(["auto", "fill", "whole"]).optional(),
+  }),
   cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "checklist", "tree"]).optional() }),
   // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
   palette: z.strictObject({
@@ -530,6 +537,8 @@ export const TEMPLATE_PROPS = {
   logos: z.strictObject({
     kit: z.boolean().optional().describe("A zip of every mark; true when left out"),
     ask: z.boolean().optional().describe("Which mark for which context"),
+    size: z.enum(["medium", "small", "large"]).optional().describe("How much of its tile a mark fills"),
+    backdrop: z.enum(["checker", "light", "dark"]).optional(),
   }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
   gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),
@@ -634,6 +643,7 @@ const base = {
   lede: TEXT.lede.optional().describe("A line or two under the title, set large; plain text"),
   aside: TEXT.aside.optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
+  space: z.enum(["tight", "loose"]).optional().describe("Room above it"),
   background: Background.optional().describe("For tone color and tone image"),
   items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
   audience: z.enum(AUDIENCES).optional().describe("On portals: everyone let in, partners (by a password or an approved request) or members"),
@@ -649,7 +659,7 @@ const base = {
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
-const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "background", "items", "audience", "contexts", "only", "translations"] as const;
+const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "space", "background", "items", "audience", "contexts", "only", "translations"] as const;
 
 // Props come in as their own type parameter: indexing TEMPLATE_PROPS by a generic template typed every prop as never.
 const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
@@ -747,6 +757,7 @@ export type Section = {
   lede: string;
   aside: string;
   tab: string;
+  space: "tight" | "loose";
   background: Background;
   items: Item[];
   audience: Audience;
@@ -1206,6 +1217,35 @@ export function pageWarnings(page: Linked, pages: Linked[], rules: Warned[]): st
   page.sections.forEach((s, i) => {
     for (const b of bindings(s)) if (!keys.has(b.key)) out.push(`sections[${i}].${b.at}: no rule "${b.key}"; readers see nothing for it`);
     out.push(...ruleWarnings(s, `sections[${i}]`, rules));
+  });
+  for (const d of designWarnings(page.sections)) out.push(`${d.at === null ? "page" : `sections[${d.at}]`}: ${d.text}`);
+  return out;
+}
+
+/** Grounds that read as a block of their own: two in a row run together. */
+const BLOCKS: Tone[] = ["tint", "panel", "dark", "brand", "pattern", "color"];
+
+/**
+ * Where a page reads but doesn't look designed: nothing on it, two grounds
+ * of a kind in a row, more than one cover, a long title typed in capitals,
+ * starter text left in. `at` is the section's index, null for the page. The
+ * builder lists them as checks; agents get them with a save's warnings.
+ */
+export function designWarnings(sections: Section[]): { at: number | null; text: string }[] {
+  const out: { at: number | null; text: string }[] = [];
+  const shown = sections.flatMap((s, at) => (s.hidden ? [] : [{ s, at }]));
+  if (!shown.length) return [{ at: null, text: "nothing shows on this page; readers see only its title" }];
+  const covers = shown.filter(({ s }) => s.template === "cover");
+  if (covers.length > 1) out.push({ at: covers[1].at, text: "a second cover; a page opens once, so open its parts with a header section" });
+  shown.forEach(({ s, at }, n) => {
+    const prev = shown[n - 1]?.s;
+    const same = prev && s.tone === prev.tone && (s.tone !== "color" || s.background?.color === prev.background?.color);
+    if (same && BLOCKS.includes(s.tone) && !s.tab && !prev.tab) out.push({ at, text: `a second ${s.tone} ground in a row runs into the one before; make one of them plain` });
+    const title = s.title ?? "";
+    if (title.length > 24 && /\p{Lu}/u.test(title) && title === title.toUpperCase())
+      out.push({ at, text: "the title is typed in capitals, which read slowly at length; type it as a sentence" });
+    // A starter's body is one italic prompt (page-sets.ts): still there, it was never written over.
+    if (/^_[^_]+_$/.test(s.body ?? "") || /lorem ipsum/i.test(`${title} ${s.body ?? ""}`)) out.push({ at, text: "still has its starter text" });
   });
   return out;
 }

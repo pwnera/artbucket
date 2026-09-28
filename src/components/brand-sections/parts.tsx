@@ -275,9 +275,23 @@ const BACKDROPS: Record<Backdrop, { label: string; bg: string }> = {
  * or dark backdrop (dark first for a dark-background variant), with its
  * download and its URL on the tile.
  */
-export function LogoTile({ asset: a, dark }: { asset: RuleAsset; dark: boolean }) {
+/** Room around a mark in its tile: the less room, the more of the tile it fills. */
+const ROOM = { small: "p-12", medium: "p-6", large: "p-3" } as const;
+
+export function LogoTile({
+  asset: a,
+  dark,
+  size = "medium",
+  backdrop = "checker",
+}: {
+  asset: RuleAsset;
+  dark: boolean;
+  size?: keyof typeof ROOM;
+  /** Where it starts, unless it's a dark-background version. */
+  backdrop?: Backdrop;
+}) {
   const url = useAssetUrl();
-  const [on, setOn] = useState<Backdrop>(dark ? "dark" : "checker");
+  const [on, setOn] = useState<Backdrop>(dark ? "dark" : backdrop);
   const path = a.rendition ? url(a.id, `/${a.rendition}`) : url(a.id);
   const name = a.title || a.filename || "Asset";
   // With a mouse, on hover or focus; on touch, always.
@@ -286,7 +300,7 @@ export function LogoTile({ asset: a, dark }: { asset: RuleAsset; dark: boolean }
   return (
     <figure className="grid min-w-0 gap-1.5">
       <div className={cn("group/tile relative aspect-[4/3] overflow-hidden rounded-xl border transition-colors", BACKDROPS[on].bg)}>
-        <Thumb src={url(a.id, "/w_480,f_webp")} alt={name} className="p-6" />
+        <Thumb src={url(a.id, "/w_480,f_webp")} alt={name} className={ROOM[size]} />
         <div className={cn("absolute top-2 end-2 flex gap-1", reveal)}>
           <IconButton variant="secondary" size="icon-xs" label={`Download ${name}`} asChild>
             {/* The original with its metadata; a rendition under the name the server gives it. */}

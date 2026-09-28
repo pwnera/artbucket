@@ -16,14 +16,15 @@ export type PageHeaderProps = {
 };
 
 /** A section is drawn in the context being read unless it's only for another. */
-const drawn = (only: string | undefined, context: string | null) => !only || (only === "default" ? null : only) === context;
+const drawn = (only: string | undefined, context: string | null) =>
+  !only || (only === "default" ? null : only) === context;
 
 /**
  * The top of a page: the trail up to it, its number and eyebrow, its h1 and
  * lede, its cover and when it last changed, and, for a page whose children
  * are tabs (or one of them), those pages as tabs. A page that opens on a
  * cover leaves the heading to the cover, which draws it as the h1. With the
- * theme's `band`, it sits on the brand ground.
+ * theme's `band`, it sits on the brand ground; with `split`, beside its cover.
  */
 export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
   const { view, href, url, context } = useSite();
@@ -31,13 +32,19 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
   const up = path.slice(0, -1);
   const number = path.at(-1)?.number;
   // The page whose children are tabs: this one, or its parent.
-  const host = page.tabs ? path.at(-1) : up.at(-1)?.tabs ? up.at(-1) : undefined;
+  const host = page.tabs
+    ? path.at(-1)
+    : up.at(-1)?.tabs
+      ? up.at(-1)
+      : undefined;
   const tabs = host ? [host, ...host.children] : [];
   const first = page.sections[0];
   const covered = first?.template === "cover" && drawn(first.only, context);
   const cover = useMedia(covered ? undefined : (page.cover ?? undefined));
   // A cover is its own opening: the band gives way to it.
   const band = view.theme.band && !covered;
+  // Split: the words beside the cover, not over a strip of it. Without a cover it reads as plain.
+  const split = view.theme.header === "split" && !!cover?.preview;
   const ground = useGround({ tone: band ? "brand" : "plain" });
 
   if (covered && !up.length && tabs.length < 2) return <></>;
@@ -46,8 +53,11 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
       <header
         className={cn(
           "mx-auto w-full max-w-280 space-y-4 px-6 @3xl:px-10",
-          covered ? "pt-6" : "pt-[calc(var(--brand-gap)*4/3)] pb-4 @3xl:pt-[calc(var(--brand-gap)*2)]",
-          band && "pb-[calc(var(--brand-gap)*4/3)] @3xl:pb-[calc(var(--brand-gap)*2)]",
+          covered
+            ? "pt-6"
+            : "pt-[calc(var(--brand-gap)*4/3)] pb-4 @3xl:pt-[calc(var(--brand-gap)*2)]",
+          band &&
+            "pb-[calc(var(--brand-gap)*4/3)] @3xl:pb-[calc(var(--brand-gap)*2)]",
         )}
       >
         {up.length > 0 && (
@@ -55,51 +65,89 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
             <ol className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
               {up.map((n) => (
                 <li key={n.slug} className="flex items-center gap-1.5">
-                  <SiteLink href={href(n.slug)} onNavigate={onNavigate} className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-2">
+                  <SiteLink
+                    href={href(n.slug)}
+                    onNavigate={onNavigate}
+                    className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-2"
+                  >
                     {n.title}
                   </SiteLink>
                   <span aria-hidden>/</span>
                 </li>
               ))}
-              <li aria-current="page" className="text-foreground min-w-0 truncate">
+              <li
+                aria-current="page"
+                className="text-foreground min-w-0 truncate"
+              >
                 {page.title}
               </li>
             </ol>
           </nav>
         )}
         {!covered && (
-          <>
-            {(number || page.eyebrow) && (
-              <p className={cn(LABEL, "text-muted-foreground flex gap-2")}>
-                {number && <span className="tabular-nums">{number}</span>}
-                {page.eyebrow && <span>{page.eyebrow}</span>}
-              </p>
+          <div
+            className={cn(
+              split &&
+                "grid gap-8 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] @3xl:items-center @3xl:gap-12",
             )}
-            <h1 className={cn(HEAD, "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance")}>{page.title}</h1>
-            {page.lede && <p className="text-muted-foreground max-w-(--brand-measure) text-lg text-pretty @3xl:text-xl">{page.lede}</p>}
-            {page.updatedAt && (
-              <p className="text-muted-foreground text-xs">
-                Updated <LocalDate at={page.updatedAt} />
-              </p>
-            )}
+          >
+            <div className="min-w-0 space-y-4">
+              {(number || page.eyebrow) && (
+                <p className={cn(LABEL, "text-muted-foreground flex gap-2")}>
+                  {number && <span className="tabular-nums">{number}</span>}
+                  {page.eyebrow && <span>{page.eyebrow}</span>}
+                </p>
+              )}
+              <h1
+                className={cn(
+                  HEAD,
+                  "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance",
+                )}
+              >
+                {page.title}
+              </h1>
+              {page.lede && (
+                <p className="text-muted-foreground max-w-(--brand-measure) text-lg text-pretty @3xl:text-xl">
+                  {page.lede}
+                </p>
+              )}
+              {page.updatedAt && (
+                <p className="text-muted-foreground text-xs">
+                  Updated <LocalDate at={page.updatedAt} />
+                </p>
+              )}
+            </div>
             {cover?.preview && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={url(cover.id, "/w_1600,f_webp")}
+                src={url(cover.id, split ? "/w_960,f_webp" : "/w_1600,f_webp")}
                 alt={cover.title ?? cover.description ?? cover.filename}
                 decoding="async"
                 className={cn(
-                  "bg-muted aspect-[3/1] w-full rounded-xl",
+                  "bg-muted w-full rounded-xl",
+                  split ? "aspect-4/3" : "aspect-[3/1]",
                   // A drawing (a logo) sits whole on its panel; a photo fills it.
-                  cover.mime === "image/svg+xml" ? "object-contain p-8" : "object-cover",
+                  cover.mime === "image/svg+xml"
+                    ? "object-contain p-8"
+                    : "object-cover",
                 )}
-                style={cover.focus ? { objectPosition: `${cover.focus.x * 100}% ${cover.focus.y * 100}%` } : undefined}
+                style={
+                  cover.focus
+                    ? {
+                        objectPosition: `${cover.focus.x * 100}% ${cover.focus.y * 100}%`,
+                      }
+                    : undefined
+                }
               />
             )}
-          </>
+          </div>
         )}
         {host && tabs.length > 1 && (
-          <nav aria-label={`${host.title} pages`} data-chrome className="print:hidden">
+          <nav
+            aria-label={`${host.title} pages`}
+            data-chrome
+            className="print:hidden"
+          >
             <ul className="flex gap-4 overflow-x-auto border-b">
               {tabs.map((n) => (
                 <li key={n.slug} className="shrink-0">

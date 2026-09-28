@@ -64,6 +64,34 @@ export function useGround({ tone, background }: Pick<Section, "tone" | "backgrou
   }, [view.theme, view.rules, context, url, image, tone, background]);
 }
 
+/** Padding below a section, and above it: none when joined to the one before, less when tight, more when loose. */
+const PAD_END = "pb-[calc(var(--brand-gap)*2)] @3xl:pb-[calc(var(--brand-gap)*8/3)]";
+const PAD_TOP = {
+  joined: "pt-0",
+  tight: "pt-[calc(var(--brand-gap)*2/3)]",
+  normal: "pt-[calc(var(--brand-gap)*2)] @3xl:pt-[calc(var(--brand-gap)*8/3)]",
+  loose: "pt-[calc(var(--brand-gap)*4)] @3xl:pt-[calc(var(--brand-gap)*16/3)]",
+};
+
+/** Templates that draw their own ground (cover, header): what follows one starts afresh. */
+const OWN_GROUND = new Set<Section["template"]>(["cover", "header"]);
+
+/**
+ * Two sections in a row on the page's own ground read as one flow: the second
+ * takes no space above it, the first's below is enough, and with the theme's
+ * `separation` a hairline marks the seam. A ground, a band, a cover or another
+ * tab between them breaks the flow.
+ */
+function useJoined(s: Section): "space" | "hairline" | null {
+  const { view, context } = useSite();
+  // Loose sets it apart: its own room, never a seam.
+  if (s.tone !== "plain" || s.space === "loose") return null;
+  const drawn = view.page?.sections.filter((x) => !x.hidden && (!x.only || (x.only === "default" ? null : x.only) === context)) ?? [];
+  const prev = drawn[drawn.findIndex((x) => x.id === s.id) - 1];
+  if (!prev || prev.tone !== "plain" || OWN_GROUND.has(prev.template) || (prev.tab ?? null) !== (s.tab ?? null)) return null;
+  return view.theme.separation;
+}
+
 /** A section's bound rules for one context: its version there, else the default, in the section's order. */
 function rulesIn(all: ViewRule[], s: Section, context: string | null): ViewRule[] {
   // A context is a slug, so "" matches none: the default versions.
@@ -89,6 +117,7 @@ export function SectionFrame({
 }) {
   const { view, context, idOf } = useSite();
   const ground = useGround(s);
+  const joined = useJoined(s);
   const id = idOf(s.id);
   const name = TEMPLATE_INFO[s.template]?.name ?? s.template;
   const scope = useMemo(() => ({ section: s, anchors: true }), [s]);
@@ -138,7 +167,15 @@ export function SectionFrame({
   return (
     <section {...landmark} className={cn("@container scroll-mt-20", ground.className)} style={ground.style}>
       <SectionScope.Provider value={scope}>
-        <div className={cn("mx-auto px-6 py-[calc(var(--brand-gap)*2)] @3xl:px-10 @3xl:py-[calc(var(--brand-gap)*8/3)]", WIDTH[s.width])}>
+        <div
+          className={cn(
+            "mx-auto px-6 @3xl:px-10",
+            PAD_END,
+            PAD_TOP[joined === "space" ? "joined" : (s.space ?? "normal")],
+            joined === "hairline" && "border-t",
+            WIDTH[s.width],
+          )}
+        >
           {(s.eyebrow || s.title || s.lede) && (
             <header className="group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3">
               <Eyebrow />

@@ -2,7 +2,7 @@
 
 import { IconDownload, IconExternalLink, IconFile, IconLink } from "@tabler/icons-react";
 import { HEAD } from "@/components/brand-sections/look";
-import { Body, ItemText, ItemTitle, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
+import { Body, ItemText, ItemTitle, itemRoot, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { useMedia, useSite } from "@/components/site/site-context";
@@ -93,6 +93,7 @@ function ItemEntry({ k, list }: { k: number; list: boolean }) {
   if (!link && !media) return null;
   return (
     <Entry
+      item={k}
       list={list}
       name={name}
       picture={media?.thumbnail ? url(media.id, list ? "/w_96,f_webp" : "/w_640,f_webp") : undefined}
@@ -121,6 +122,7 @@ function Name({ list, children }: { list: boolean; children: string }) {
  */
 function Entry({
   id,
+  item,
   list,
   name,
   picture,
@@ -131,6 +133,8 @@ function Entry({
   downloads,
 }: {
   id?: string;
+  /** The item it draws, by index; none for a rule's file. */
+  item?: number;
   list: boolean;
   /** What the resource is called, for the link's and buttons' names. */
   name: string;
@@ -191,7 +195,7 @@ function Entry({
     </div>
   );
   return list ? (
-    <li id={id} className="relative flex scroll-mt-20 items-center gap-3 py-3">
+    <li id={id} {...itemRoot(item)} className="relative flex scroll-mt-20 items-center gap-3 py-3">
       {pic}
       <div className="min-w-0 flex-1 space-y-1.5">
         {words}
@@ -201,7 +205,7 @@ function Entry({
       {cover}
     </li>
   ) : (
-    <li id={id} className="bg-card text-card-foreground relative flex scroll-mt-20 flex-col overflow-hidden rounded-xl border">
+    <li id={id} {...itemRoot(item)} className="bg-card text-card-foreground relative flex scroll-mt-20 flex-col overflow-hidden rounded-xl border">
       {pic}
       <div className="flex flex-1 flex-col gap-3 p-4">
         {words}

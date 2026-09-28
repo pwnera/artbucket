@@ -623,8 +623,8 @@ export function ugly(a: BookAssets = PLACEHOLDERS): BrandBook {
         lede: "Every tone a section takes.",
         sections: [
           { id: "band", template: "header", eyebrow: "Part one", title: "Every ground", lede: "The brand ground opens it." },
-          text("tint", "Tint", { tone: "tint" }),
           text("panel", "Panel", { tone: "panel" }),
+          text("tint", "Tint", { tone: "tint" }),
           text("dark", "Dark", { tone: "dark" }),
           text("sky", "Sky", { tone: "color", background: { color: "color.secondary" } }),
           text("photo", "Image", { tone: "image", background: { image: a.mark, scrim: 0.1 } }),

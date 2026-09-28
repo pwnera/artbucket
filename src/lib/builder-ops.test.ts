@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   apply,
+  applyAll,
   type BuilderState,
+  duplicateItem,
+  insertItems,
+  moveItem,
+  removeItem,
   echo,
   EMPTY,
   fieldOf,
@@ -327,4 +332,47 @@ test("loading, the home, pages shown on, words in a language", () => {
   assert.equal(p.title, "Logo FR");
   assert.equal(p.sections[0].title, "Marque");
   assert.equal(pageOf(entry("logo", 1), [fr], false, null).sections[0], fr);
+});
+
+test("items: moved, added, copied and removed, translations following by position", () => {
+  const s = {
+    items: [{ title: "a" }, { title: "b" }, { title: "c" }],
+    translations: { fr: { title: "T", items: [{ title: "A" }, null, { title: "C" }] }, de: { lede: "L" } },
+  };
+  const titles = (set: Record<string, unknown>) => (set.items as { title: string }[]).map((x) => x.title).join("");
+  const fr = (set: Record<string, unknown>) => (set.translations as Record<string, { items?: unknown[] }>).fr.items;
+  let set = moveItem(s, 0, 2);
+  assert.equal(titles(set), "bca");
+  assert.deepEqual(fr(set), [null, { title: "C" }, { title: "A" }]);
+  // A language with no item words keeps none.
+  assert.deepEqual((set.translations as Record<string, unknown>).de, { lede: "L" });
+  set = insertItems(s, 1, [{ title: "x" }]);
+  assert.equal(titles(set), "axbc");
+  assert.deepEqual(fr(set), [{ title: "A" }, null, null, { title: "C" }]);
+  set = duplicateItem(s, 0);
+  assert.equal(titles(set), "aabc");
+  assert.deepEqual(fr(set), [{ title: "A" }, { title: "A" }, null, { title: "C" }]);
+  set = removeItem(s, 2);
+  assert.equal(titles(set), "ab");
+  // Trailing nulls go: the list is as long as its last word.
+  assert.deepEqual(fr(set), [{ title: "A" }]);
+  assert.deepEqual(removeItem({ items: [{ title: "a" }] }, 0), { items: null });
+});
+
+test("applyAll: a section moved to another page, undone as one", () => {
+  const s = state();
+  const t1 = s.pages.get("logo")![0];
+  const r = applyAll(s, [on("logo", { op: "remove", id: "t1" }), on("overview", { op: "add", section: t1, after: "p1" })]);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(
+    r.state.pages.get("overview")!.map((x) => x.id),
+    ["c1", "p1", "t1"],
+  );
+  let back = r.state;
+  for (const op of r.undo) back = apply(back, op).state;
+  assert.equal(snap(back), snap(s));
+  // One op refused: nothing changed.
+  const no = applyAll(s, [on("logo", { op: "remove", id: "t1" }), on("nowhere", { op: "remove", id: "x" })]);
+  assert.equal(no.state, s);
+  assert.ok(no.errors.length);
 });
