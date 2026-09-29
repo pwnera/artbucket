@@ -10,7 +10,8 @@ import { AssetPicker } from "@/components/builder/asset-picker";
 import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builder/drag";
 import { ADD_LABEL, blankItem } from "@/components/builder/items";
 import { RuleCard } from "@/components/builder/rule-card";
-import { BLOCK, Seam, starter } from "@/components/builder/seam";
+import { BLOCK, END, Seam, starter } from "@/components/builder/seam";
+import { PagesPanel } from "@/components/builder/page-tree";
 import { SectionMenu } from "@/components/builder/section-menu";
 import { SectionPanel } from "@/components/builder/section-panel";
 import { asMedia, HANDLE, SectionToolbar, standIn } from "@/components/builder/section-toolbar";
@@ -32,7 +33,8 @@ import { cn } from "@/lib/utils";
  * b: update is a `page` op on b.state.selection.page), in the brand's theme,
  * editor chrome in `.app-tokens`. Around each section: its SectionToolbar on
  * hover or selection, a Seam between, and a right click menu (SectionMenu)
- * on it or on one of its items. A clicked specimen opens its RuleCard,
+ * on it or on one of its items, and a standing way in at the page's end. The
+ * page list (PagesPanel) sits before it when open. A clicked specimen opens its RuleCard,
  * anchored there (the canvas holds which). The section panel (b.dock) sits
  * beside it. A width toggle of its own narrows the container to 390 or
  * 768px (D11). b.state.preview shows the page as readers see it, no chrome.
@@ -99,7 +101,9 @@ export function Canvas({ b }: CanvasProps) {
   return (
     <SiteProvider view={b.view} href={href} mode={preview ? "read" : "edit"} idPrefix={PREFIX}>
       <EditContext.Provider value={preview ? null : edit}>
-        <div className="flex min-h-full min-w-0 flex-1">
+        {/* No min-h-full here: it would override a flex item's own minimum, and the row would stop at the viewport, taking the sticky panels with it. */}
+        <div className="flex min-w-0 flex-1">
+          {b.pagesOpen && !preview && <PagesPanel b={b} />}
           <div className={cn("relative min-h-full min-w-0 flex-1", width && "bg-muted")}>
             <div className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
               {b.view.page ? (
@@ -123,24 +127,27 @@ export function Canvas({ b }: CanvasProps) {
                 </p>
               )}
             </div>
-            <div
-              role="group"
-              aria-label="Canvas width"
-              className="app-tokens bg-background sticky bottom-4 z-40 mx-auto mt-4 flex w-fit gap-0.5 rounded-lg border p-0.5 font-sans shadow-md"
-            >
-              {WIDTHS.map(([w, I, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  aria-label={label}
-                  title={label}
-                  aria-pressed={width === w}
-                  onClick={() => setWidth(w)}
-                  className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
-                >
-                  <I className="size-4" />
-                </button>
-              ))}
+            {/* Stuck at the viewport's foot with no height of its own, so it adds no scroll below the page and the panels beside stay put. */}
+            <div className="sticky bottom-4 z-40 h-0">
+              <div
+                role="group"
+                aria-label="Canvas width"
+                className="app-tokens bg-background absolute inset-x-0 bottom-0 mx-auto flex w-fit gap-0.5 rounded-lg border p-0.5 font-sans shadow-md"
+              >
+                {WIDTHS.map(([w, I, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={width === w}
+                    onClick={() => setWidth(w)}
+                    className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
+                  >
+                    <I className="size-4" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {b.dock && !preview && <SectionPanel b={b} />}
@@ -528,8 +535,12 @@ function Stage({ b }: { b: BuilderApi }) {
           return;
         }
         if (overTab !== null) setOverTab(null);
-        // An empty page takes a block or pictures anywhere.
-        if (!shown.length && (p?.kind === "template" || p?.kind === "files")) e.preventDefault();
+        // An empty page takes a block or pictures anywhere; a page with sections, on the way in at its end.
+        const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
+        if (last && (p?.kind === "template" || p?.kind === "files")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
       }}
       onDrop={(e) => {
         if (preview || e.defaultPrevented) return;
@@ -539,8 +550,11 @@ function Stage({ b }: { b: BuilderApi }) {
         if (p.kind === "section" && overTab !== null) {
           const s = storedOf(p.id);
           if (s && s.tab !== overTab) b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { tab: overTab } } });
-        } else if (!shown.length && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), null);
-        else if (!shown.length && p.kind === "files") void dropFiles(pictureFiles(e), null);
+        } else if (p.kind === "template" || p.kind === "files") {
+          const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
+          if (last && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), stored.at(-1)?.id ?? null);
+          else if (last) void dropFiles(pictureFiles(e), null);
+        }
         clear();
         endDrag();
       }}
@@ -560,7 +574,7 @@ function Stage({ b }: { b: BuilderApi }) {
         {before.map(draw)}
         {tabs.length > 0 && <PageTabs tabs={tabs} render={draw} />}
         {after.map(draw)}
-        {!preview && !shown.length && <Seam b={b} after={null} always />}
+        {!preview && <Seam b={b} after={stored.at(-1)?.id ?? null} always={shown.length ? "end" : "empty"} />}
       </article>
       <AssetPicker
         open={pictures !== null}

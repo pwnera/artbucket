@@ -53,3 +53,12 @@ test("find_icons takes nothing; import_icons wants a set and each icon once, as 
   assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "Tabler Icons", icons: ["home"] }).success);
   assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: [] }).success);
 });
+
+test("create_portal takes members or public, never a password, and refuses a misspelled field", () => {
+  const ok = { name: "Press kit", access: "members", brands: ["default"] };
+  assert.ok(TOOL_INPUTS.create_portal.safeParse(ok).success);
+  assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, slug: "press-kit", access: "public" }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "hunter22" }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, brand: ["default"] }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
+});

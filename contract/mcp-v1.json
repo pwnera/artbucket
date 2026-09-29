@@ -524,6 +524,16 @@
     "type": "object",
     "properties": {}
   },
+  "brand_status": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
   "list_templates": {
     "type": "object",
     "properties": {}
@@ -3958,6 +3968,190 @@
     },
     "required": [
       "portal"
+    ],
+    "additionalProperties": false
+  },
+  "create_portal": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "What visitors see it called, e.g. Press kit"
+      },
+      "intro": {
+        "description": "A few paragraphs under the name",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 4000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expiresAt": {
+        "description": "It closes then",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "presets": {
+        "description": "What images download as; web, print and social when left out",
+        "maxItems": 6,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "web",
+            "social",
+            "story",
+            "print",
+            "png",
+            "original"
+          ]
+        }
+      },
+      "collections": {
+        "description": "Collections it shows, in this order. With brands, at least one of the two",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "brands": {
+        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "site": {
+        "description": "Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set",
+        "type": "object",
+        "properties": {
+          "footer": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "Markdown",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "links": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "href": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "href"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "credit": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "feedback": {
+                "description": "A URL or mailto:",
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "additionalProperties": false
+          },
+          "quick": {
+            "description": "Quick grab: pinned links in the header",
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "brand": {
+                  "description": "With page: a brand the portal carries; the first when left out",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "page": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "asset": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "href": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "terms": {
+            "description": "Markdown readers accept once before their first download",
+            "type": "string",
+            "maxLength": 10000
+          },
+          "listed": {
+            "description": "Search engines may index it; public portals only",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "slug": {
+        "description": "Its address, /p/{slug}; made from the name when left out",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "members",
+          "public"
+        ],
+        "description": "members: people with access to the workspace; public: anyone with the address. A password portal is made in the app"
+      }
+    },
+    "required": [
+      "name",
+      "access"
     ],
     "additionalProperties": false
   },

@@ -515,6 +515,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "Deleted", S.Deleted],
         }),
       },
+      "/api/v1/brands/{slug}/status": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's launch checklist",
+          scope: "read",
+          description:
+            "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in " +
+            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.",
+          ok: [200, "The checklist", data(S.BrandStatus)],
+        }),
+      },
       "/api/v1/brands/{slug}/versions": {
         parameters: [path("slug", "Brand slug")],
         get: op({
@@ -908,6 +919,15 @@ export function openapi(serverUrl: string) {
           scope: "write",
           description: "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
           ok: [200, "Domains", data(z.array(S.PortalDomain))],
+        }),
+      },
+      "/api/v1/portals/{id}/close": {
+        parameters: [path("id", "Portal id")],
+        post: op({
+          summary: "Take a portal offline now",
+          scope: "write",
+          description: "It closes as a portal past its `expiresAt` does. PATCH `expiresAt: null` opens it again, as it was.",
+          ok: [200, "The portal", data(S.Portal)],
         }),
       },
       "/api/v1/portals/{id}/domain": {

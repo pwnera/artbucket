@@ -6,7 +6,8 @@ description: A branded front door onto chosen collections and brand guidelines, 
 A portal is a press kit, a partner hub or a retailer page: the brand pages and
 collections you pick, under your logo and colors, at `/p/{address}` or a domain
 of its own. Make one from **Portals** in the sidebar, with
-`POST /api/v1/portals`, or have an agent change one with `update_portal`. It
+`POST /api/v1/portals`, or have an agent make one with `create_portal` (open to
+the workspace's members, or to anyone) and change one with `update_portal`. It
 takes write on the workspace, and sharing rights on each collection. A portal
 shows at least one collection or one brand.
 
@@ -55,6 +56,19 @@ The API serves the same, behind the same door as the portal:
 `GET /api/v1/portal/{address}/site?path=`, `/search?q=` and `/updates?brand=`.
 `GET /api/v1/portal/{address}/brands/{slug}` still answers with the brand's
 rules, now as published.
+
+Publishing and sharing are two steps: a publish is the version readers get,
+a portal the address they read it at, with who gets in and its look. One brand
+can be on several portals, and a portal can show several brands. A brand no
+portal shows yet gets one in the same step as its publish, if you like: the
+publish dialog offers a portal named for the brand, open to the workspace's
+members or to anyone with the address. Publishing from the builder with no
+portal also links to a new one with the brand already picked.
+
+A portal's menu on the Portals page takes it offline at once (its address
+says it is closed, and nothing about it is lost), brings it back, or deletes
+it. Over the API, `POST /api/v1/portals/{id}/close` takes it offline and
+`PATCH` with `expiresAt: null` reopens it.
 
 ## Who reads what
 
