@@ -1,0 +1,1051 @@
+{
+  "name": "Blender",
+  "fonts": [
+    "Inter"
+  ],
+  "assets": {
+    "9dfd7f8b-0e2a-41f3-adf3-f76ffdeac98c": {
+      "url": "https://download.blender.org/branding/blender_logo.svg",
+      "filename": "blender-logo.svg"
+    },
+    "a9d35125-be08-4ea8-98a9-22f2758bc973": {
+      "url": "https://download.blender.org/branding/blenderlogowhite.png",
+      "filename": "blender-logo-white.png"
+    },
+    "37819fb6-d190-468d-9c87-4809fcc6cbbd": {
+      "url": "https://www.blender.org/wp-content/themes/bthree/assets/icons/favicon.svg",
+      "filename": "blender-icon.svg"
+    },
+    "049bd40b-fccb-4772-91ec-3f68c192dcc2": {
+      "url": "https://download.blender.org/branding/community/blender_community_badge_orange.svg",
+      "filename": "blender-community-badge.svg"
+    },
+    "8c777830-1200-48a6-b918-e477fdda4833": {
+      "url": "https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4",
+      "filename": "sintel-trailer.mp4"
+    },
+    "4f2918ca-6909-41b0-ab2a-44751325dc98": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Durian_-_Sintel-wallpaper-sintel.jpg",
+      "filename": "sintel-wallpaper.jpg"
+    },
+    "8c005515-dba9-4ada-ba3d-551a731dda02": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/22/Blender_Foundation_-_Spring_-_Closing_title_card.jpg",
+      "filename": "spring-title-card.jpg"
+    },
+    "7b4a3dfb-2c0b-4a73-b208-c8f6a6b88993": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/2a/Charge_-_Blender_Open_Movie-YouTube_thumbnail.jpg",
+      "filename": "charge-key-art.jpg"
+    },
+    "998cbf02-83ca-44e2-8381-f90931322967": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c1/Sprite_Fright-concept_art-group.png",
+      "filename": "sprite-fright-concept.png"
+    },
+    "c18c121c-ea78-4337-a487-853a1b083366": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e4/Elephants_Dream_cover.jpg",
+      "filename": "elephants-dream-cover.jpg"
+    },
+    "11a8b49b-fbc3-48bf-8077-f4b12c7ce084": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
+      "filename": "big-buck-bunny-poster.jpg"
+    },
+    "d676d283-934e-4c1a-a9ac-da591a707fce": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/69/Big_Buck_Bunny_-_forest.jpg",
+      "filename": "big-buck-bunny-forest.jpg"
+    },
+    "7c733a9e-e3e7-4066-9a2a-d0e690317309": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Sintel-screenshot-1.jpg",
+      "filename": "sintel-still.jpg"
+    }
+  },
+  "rules": [
+    {
+      "key": "color.primary",
+      "label": "Blender Orange",
+      "type": "color",
+      "value": "#e87d0d",
+      "spec": {
+        "pair": "color.white",
+        "group": "Primary",
+        "print": "specified",
+        "tints": [
+          80,
+          60,
+          40,
+          20
+        ],
+        "weight": 35,
+        "pantone": [
+          "716 C"
+        ]
+      },
+      "usage": "The orange of the logo's outer ring. The brand's signature: logo, highlights, calls to action. The 2020 logo file draws it as #EA7600."
+    },
+    {
+      "key": "color.blue",
+      "label": "Blender Blue",
+      "type": "color",
+      "value": "#265787",
+      "spec": {
+        "pair": "color.white",
+        "group": "Primary",
+        "print": "specified",
+        "weight": 20,
+        "pantone": [
+          "647 C"
+        ]
+      },
+      "usage": "The blue of the logo's inner dot. Pairs with the orange, never replaces it."
+    },
+    {
+      "key": "color.interface",
+      "label": "Interface Blue",
+      "type": "color",
+      "value": "#0099ff",
+      "spec": {
+        "group": "Secondary",
+        "weight": 10
+      },
+      "usage": "The accent of blender.org and the app's selection color: links, focus and active states on screen."
+    },
+    {
+      "key": "color.background",
+      "label": "Studio Night",
+      "type": "color",
+      "value": "#1c1e22",
+      "spec": {
+        "pair": "color.white",
+        "group": "Neutrals",
+        "weight": 30
+      },
+      "usage": "The dark ground Blender lives on, from the app's viewport to blender.org. Artwork reads best here."
+    },
+    {
+      "key": "color.white",
+      "label": "White",
+      "type": "color",
+      "value": "#ffffff",
+      "spec": {
+        "group": "Neutrals",
+        "weight": 2
+      },
+      "usage": "Text on Studio Night, and the logo's third color."
+    },
+    {
+      "key": "type.heading",
+      "label": "Headings",
+      "type": "font",
+      "value": {
+        "family": "Inter",
+        "weight": 700
+      },
+      "spec": {
+        "role": "headline",
+        "source": "google",
+        "license": "SIL Open Font License 1.1",
+        "fallback": "system-ui, sans-serif",
+        "tracking": -0.02
+      },
+      "usage": "Inter, bold and tight, for every heading on blender.org."
+    },
+    {
+      "key": "type.body",
+      "label": "Text",
+      "type": "font",
+      "value": {
+        "family": "Inter",
+        "weight": 400
+      },
+      "spec": {
+        "role": "body",
+        "source": "google",
+        "license": "SIL Open Font License 1.1",
+        "fallback": "system-ui, sans-serif",
+        "lineHeight": 1.6
+      },
+      "usage": "Inter at regular weight for reading, with the system font as fallback."
+    },
+    {
+      "key": "logo.primary",
+      "label": "The logo",
+      "type": "text",
+      "value": "The logo: the orbit mark and the word **blender**, always together, in their original colors.",
+      "usage": "Use it to credit Blender or link to blender.org, as a secondary brand beside your own. It is a registered trademark of the Blender Foundation.",
+      "assets": [
+        "9dfd7f8b-0e2a-41f3-adf3-f76ffdeac98c"
+      ]
+    },
+    {
+      "key": "logo.reversed",
+      "label": "On dark",
+      "type": "text",
+      "value": "The whole logo in white, for dark grounds and photography.",
+      "assets": [
+        "a9d35125-be08-4ea8-98a9-22f2758bc973"
+      ]
+    },
+    {
+      "key": "logo.mark",
+      "label": "The mark",
+      "type": "text",
+      "value": "The orbit mark alone: for app icons and favicons, where the word would not read.",
+      "assets": [
+        "37819fb6-d190-468d-9c87-4809fcc6cbbd"
+      ]
+    },
+    {
+      "key": "logo.badge",
+      "label": "Community badge",
+      "type": "text",
+      "value": "The community badge, for events, meetups and add-ons made by the community.",
+      "assets": [
+        "049bd40b-fccb-4772-91ec-3f68c192dcc2"
+      ]
+    },
+    {
+      "key": "logo.always",
+      "label": "Always",
+      "type": "list",
+      "value": [
+        "Use it unaltered, in its original colors",
+        "Keep the mark and the word together",
+        "Keep your own brand more prominent than Blender's",
+        "Link it to blender.org"
+      ]
+    },
+    {
+      "key": "logo.never",
+      "label": "Never",
+      "type": "list",
+      "value": [
+        "Recolor, redraw or retype the word",
+        "Use it as your product's or company's own logo",
+        "Use it alone outside a group of logos",
+        "Imply the Blender Foundation endorses you"
+      ]
+    },
+    {
+      "key": "tone.voice",
+      "label": "Voice",
+      "type": "text",
+      "value": "Plain, confident and generous. Blender speaks like an artist who is glad to share: free to use for any purpose, forever, made by a community for everyone."
+    },
+    {
+      "key": "tone.always",
+      "label": "We always",
+      "type": "list",
+      "value": [
+        "Say free, and mean it: free as in freedom",
+        "Credit the community and the artists by name",
+        "Show the work, then talk about the tool",
+        "Keep sentences short and verbs active"
+      ]
+    },
+    {
+      "key": "tone.avoid",
+      "label": "We avoid",
+      "type": "list",
+      "value": [
+        "Marketing superlatives",
+        "Talking down to beginners",
+        "Calling it a product or a service",
+        "Hiding the license"
+      ]
+    },
+    {
+      "key": "brand.tagline",
+      "label": "Tagline",
+      "type": "text",
+      "value": "The Freedom to Create",
+      "spec": {
+        "max": 30,
+        "copy": true
+      }
+    },
+    {
+      "key": "brand.mission",
+      "label": "Boilerplate",
+      "type": "text",
+      "value": "Blender is the free and open source 3D creation suite. Free to use for any purpose, forever.",
+      "spec": {
+        "max": 140,
+        "copy": true
+      }
+    },
+    {
+      "key": "brand.credit",
+      "label": "Credit line",
+      "type": "text",
+      "value": "Made with Blender",
+      "spec": {
+        "max": 20,
+        "copy": true
+      },
+      "usage": "In film and game credits, type it out rather than placing the logo."
+    },
+    {
+      "key": "imagery.openMovies",
+      "label": "Open movies",
+      "type": "text",
+      "value": "The Blender Studio open movies, every one of them made with Blender and released under Creative Commons.",
+      "usage": "Credit each still as its license asks: the film, the Blender Foundation and the CC license.",
+      "assets": [
+        "4f2918ca-6909-41b0-ab2a-44751325dc98",
+        "8c005515-dba9-4ada-ba3d-551a731dda02",
+        "7b4a3dfb-2c0b-4a73-b208-c8f6a6b88993",
+        "998cbf02-83ca-44e2-8381-f90931322967",
+        "c18c121c-ea78-4337-a487-853a1b083366",
+        "11a8b49b-fbc3-48bf-8077-f4b12c7ce084",
+        "d676d283-934e-4c1a-a9ac-da591a707fce",
+        "7c733a9e-e3e7-4066-9a2a-d0e690317309"
+      ]
+    }
+  ],
+  "theme": {
+    "ink": "color.white",
+    "nav": "overlay",
+    "toc": "none",
+    "body": "type.body",
+    "dark": "color.background",
+    "head": "type.heading",
+    "logo": "logo.reversed",
+    "scale": 1.414,
+    "width": "wide",
+    "accent": "color.primary",
+    "device": "37819fb6-d190-468d-9c87-4809fcc6cbbd",
+    "header": "split",
+    "motion": "subtle",
+    "radius": 12,
+    "titles": "huge",
+    "density": "airy",
+    "grounds": "alternate",
+    "surface": "color.background",
+    "numbering": false,
+    "separation": "space"
+  },
+  "pages": [
+    {
+      "slug": "overview",
+      "title": "Overview",
+      "icon": "star",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "landing",
+      "sections": [
+        {
+          "template": "cover",
+          "title": "Blender",
+          "eyebrow": "Brand guidelines, an unofficial showcase",
+          "lede": "The free and open source 3D creation suite, and how it looks, sounds and is credited.",
+          "tone": "brand",
+          "width": "full",
+          "columns": 1,
+          "props": {
+            "mark": "always",
+            "align": "start",
+            "image": "4f2918ca-6909-41b0-ab2a-44751325dc98",
+            "strip": false,
+            "video": "8c777830-1200-48a6-b918-e477fdda4833",
+            "height": "screen",
+            "markSize": "large",
+            "markFrame": "bare",
+            "titleSize": "huge"
+          }
+        },
+        {
+          "template": "statement",
+          "title": "The Freedom to Create.",
+          "eyebrow": "The promise",
+          "keys": [
+            "brand.mission"
+          ],
+          "tone": "color",
+          "background": {
+            "color": "color.primary"
+          },
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "gallery",
+          "title": "Every frame here was made with Blender",
+          "eyebrow": "01",
+          "body": "The Blender Studio open movies, from Elephants Dream to Charge, all under Creative Commons.",
+          "keys": [
+            "imagery.openMovies"
+          ],
+          "tone": "plain",
+          "width": "full",
+          "columns": 3,
+          "props": {
+            "layout": "bento"
+          }
+        },
+        {
+          "template": "split",
+          "title": "An orbit around a dot",
+          "eyebrow": "02",
+          "body": "Orange ring, blue core, the word in its own lettering. A trademark shared generously, as long as it points to Blender.",
+          "aside": "An unofficial showcase built on Artbucket from Blender's public brand assets. Blender and the Blender logo are trademarks of the Blender Foundation. Open movie stills are CC BY, credited on each asset.",
+          "keys": [
+            "logo.primary"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 1,
+          "props": {
+            "fit": "whole",
+            "align": "center",
+            "ratio": "even"
+          }
+        },
+        {
+          "template": "quote",
+          "body": "Free to use for any purpose, forever.",
+          "keys": [
+            "tone.voice"
+          ],
+          "tone": "panel",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "by": "blender.org"
+          }
+        },
+        {
+          "template": "palette",
+          "title": "Orange and blue on Studio Night",
+          "eyebrow": "03",
+          "keys": [
+            "color.primary",
+            "color.blue",
+            "color.interface",
+            "color.background",
+            "color.white"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "show": [
+              "hex",
+              "pantone"
+            ]
+          }
+        },
+        {
+          "template": "pages",
+          "title": "Inside the guide",
+          "tone": "panel",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "cards"
+          },
+          "items": [
+            {
+              "link": "/logo",
+              "text": "The orbit, the word, and how to credit Blender.",
+              "asset": "9dfd7f8b-0e2a-41f3-adf3-f76ffdeac98c",
+              "title": "Logo"
+            },
+            {
+              "link": "/color",
+              "text": "Orange and blue on Studio Night.",
+              "asset": "7b4a3dfb-2c0b-4a73-b208-c8f6a6b88993",
+              "title": "Color"
+            },
+            {
+              "link": "/typography",
+              "text": "Inter, from headline to caption.",
+              "asset": "8c005515-dba9-4ada-ba3d-551a731dda02",
+              "title": "Typography"
+            },
+            {
+              "link": "/voice",
+              "text": "Plain, confident, generous.",
+              "asset": "c18c121c-ea78-4337-a487-853a1b083366",
+              "title": "Voice"
+            },
+            {
+              "link": "/open-movies",
+              "text": "Stills and trailers, ready to use with credit.",
+              "asset": "998cbf02-83ca-44e2-8381-f90931322967",
+              "title": "Open movies"
+            },
+            {
+              "link": "/resources",
+              "text": "Downloads and where to ask.",
+              "title": "Resources"
+            }
+          ]
+        },
+        {
+          "template": "updates",
+          "title": "What's new",
+          "tone": "plain",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "limit": 3
+          }
+        }
+      ]
+    },
+    {
+      "slug": "logo",
+      "title": "Logo",
+      "lede": "An orbit around a dot, and the word blender. A registered trademark, shared generously with one condition: it points to Blender, never to you.",
+      "icon": "sparkles",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "logos",
+          "title": "One orbit, four ways to show it",
+          "keys": [
+            "logo.primary",
+            "logo.reversed",
+            "logo.mark",
+            "logo.badge",
+            "color.background",
+            "color.primary",
+            "color.white"
+          ],
+          "tone": "panel",
+          "width": "full",
+          "columns": 2,
+          "props": {
+            "kit": true
+          }
+        },
+        {
+          "template": "annotated",
+          "title": "Anatomy",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 1,
+          "props": {
+            "image": "9dfd7f8b-0e2a-41f3-adf3-f76ffdeac98c"
+          },
+          "items": [
+            {
+              "at": [
+                12,
+                50
+              ],
+              "key": "color.primary",
+              "text": "An orange ring around a blue dot: a vertex in orbit.",
+              "title": "The orbit"
+            },
+            {
+              "at": [
+                14,
+                55
+              ],
+              "key": "color.blue",
+              "text": "Blender Blue, the heart of the mark.",
+              "title": "The dot"
+            },
+            {
+              "at": [
+                62,
+                50
+              ],
+              "text": "Custom lettering. Never retype it in a font.",
+              "title": "The word"
+            }
+          ]
+        },
+        {
+          "template": "statement",
+          "title": "It points to Blender, never to you.",
+          "body": "Use the logo to credit Blender or link to blender.org, beside your own brand and smaller than it.",
+          "tone": "color",
+          "background": {
+            "color": "color.blue"
+          },
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "dodont",
+          "title": "What the trademark allows",
+          "keys": [
+            "logo.always",
+            "logo.never"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": {
+            "layout": "pairs"
+          }
+        },
+        {
+          "template": "copy",
+          "title": "Credit, don't stamp",
+          "body": "In film and game credits, type the credit out rather than placing the logo. Fill in your project and copy the line.",
+          "keys": [
+            "brand.credit"
+          ],
+          "tone": "plain",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "form": [
+              {
+                "name": "project",
+                "label": "Your project"
+              },
+              {
+                "name": "author",
+                "label": "Made by"
+              }
+            ],
+            "template": "{project} by {author}. Made with Blender (blender.org)"
+          }
+        },
+        {
+          "template": "faq",
+          "title": "Questions",
+          "tone": "plain",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "layout": "accordion"
+          },
+          "items": [
+            {
+              "text": "To point to Blender, yes, beside your own logo. Never as your add-on's own logo.",
+              "title": "Can I use the logo for my add-on?"
+            },
+            {
+              "text": "Commercial use needs explicit permission from the Blender Foundation. See [blender.org/about/logo](https://www.blender.org/about/logo/).",
+              "title": "Can I sell merchandise with it?"
+            },
+            {
+              "text": "The official page does not set one. Give it room and keep your own brand the larger one.",
+              "title": "Is there a clear space rule?"
+            }
+          ]
+        },
+        {
+          "template": "pages",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "list"
+          },
+          "items": [
+            {
+              "link": "/color",
+              "title": "Color"
+            },
+            {
+              "link": "/resources",
+              "title": "Resources"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "color",
+      "title": "Color",
+      "lede": "Two colors from the logo, one from the interface, on the dark ground artists work on all day.",
+      "icon": "palette",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "palette",
+          "title": "Two colors from the logo, one from the app",
+          "keys": [
+            "color.primary",
+            "color.blue",
+            "color.interface",
+            "color.background",
+            "color.white"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "ase": true,
+            "show": [
+              "hex",
+              "rgb",
+              "cmyk",
+              "pantone",
+              "css"
+            ],
+            "matrix": true,
+            "simulate": true
+          }
+        },
+        {
+          "template": "statement",
+          "title": "Orange leads, blue follows.",
+          "body": "They are one logo: side by side, orange first. Let the artwork bring every other color.",
+          "tone": "color",
+          "background": {
+            "color": "color.primary"
+          },
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "chart",
+          "title": "Charts start orange",
+          "body": "Benchmarks and release stats: orange first, then the blues.",
+          "keys": [
+            "color.primary",
+            "color.blue",
+            "color.interface",
+            "color.white"
+          ],
+          "tone": "panel",
+          "width": "wide",
+          "columns": 1,
+          "props": {
+            "kind": "bar"
+          }
+        },
+        {
+          "template": "dodont",
+          "title": "Pairs that work, pairs that don't",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": {
+            "layout": "grid"
+          },
+          "items": [
+            {
+              "text": "They are one logo: keep them side by side, orange leading.",
+              "title": "Orange and blue together",
+              "verdict": "do"
+            },
+            {
+              "text": "Renders and stills read best on Studio Night.",
+              "title": "Dark grounds for artwork",
+              "verdict": "do"
+            },
+            {
+              "text": "Keep orange for marks and calls to action; set text in white.",
+              "title": "Orange for long text",
+              "verdict": "dont"
+            },
+            {
+              "text": "No greens or purples as brand colors. Let the artwork bring them.",
+              "title": "New brand colors",
+              "verdict": "dont"
+            }
+          ]
+        },
+        {
+          "template": "pages",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "list"
+          },
+          "items": [
+            {
+              "link": "/typography",
+              "title": "Typography"
+            },
+            {
+              "link": "/open-movies",
+              "title": "Open movies"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "typography",
+      "title": "Typography",
+      "lede": "One family, Inter, from the biggest headline to the smallest label.",
+      "icon": "brush",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "type",
+          "title": "One family does everything",
+          "keys": [
+            "type.heading",
+            "type.body"
+          ],
+          "tone": "plain",
+          "width": "full",
+          "columns": 1,
+          "props": {
+            "embed": true,
+            "roles": true,
+            "glyphs": true,
+            "sample": "The Freedom to Create",
+            "formula": {
+              "base": 16,
+              "ratio": 1.25,
+              "steps": 7
+            }
+          }
+        },
+        {
+          "template": "statement",
+          "title": "Bold, tight, and out of the artwork's way.",
+          "body": "Headlines in Inter Bold with slightly negative tracking; text in Inter Regular at a generous line height.",
+          "tone": "panel",
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "pages",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "list"
+          },
+          "items": [
+            {
+              "link": "/voice",
+              "title": "Voice"
+            },
+            {
+              "link": "/color",
+              "title": "Color"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "voice",
+      "title": "Voice",
+      "lede": "Plain, confident and generous: an artist who is glad to share.",
+      "icon": "speakerphone",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "statement",
+          "title": "Say free, and mean it.",
+          "keys": [
+            "tone.voice"
+          ],
+          "tone": "color",
+          "background": {
+            "color": "color.primary"
+          },
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "dodont",
+          "title": "How Blender writes",
+          "keys": [
+            "tone.always",
+            "tone.avoid"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": {
+            "layout": "rows"
+          }
+        },
+        {
+          "template": "copy",
+          "title": "Words to paste",
+          "body": "Use them as they are.",
+          "keys": [
+            "brand.tagline",
+            "brand.mission",
+            "brand.credit"
+          ],
+          "tone": "panel",
+          "width": "text",
+          "columns": 1
+        },
+        {
+          "template": "pages",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "list"
+          },
+          "items": [
+            {
+              "link": "/open-movies",
+              "title": "Open movies"
+            },
+            {
+              "link": "/resources",
+              "title": "Resources"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "open-movies",
+      "title": "Open movies",
+      "lede": "Since 2006 the Blender Studio has made its films in the open and given them away. They are the brand's best imagery.",
+      "icon": "movie",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "gallery",
+          "title": "Films anyone may use",
+          "keys": [
+            "imagery.openMovies"
+          ],
+          "tone": "plain",
+          "width": "full",
+          "columns": 3,
+          "props": {
+            "layout": "carousel"
+          }
+        },
+        {
+          "template": "statement",
+          "title": "Made in the open, given away.",
+          "body": "Each film was produced by the Blender Studio to push Blender forward, then released under Creative Commons.",
+          "tone": "color",
+          "background": {
+            "color": "color.blue"
+          },
+          "width": "wide",
+          "columns": 1
+        },
+        {
+          "template": "embed",
+          "title": "Big Buck Bunny",
+          "body": "Project Peach, 2008. CC BY 3.0, Blender Foundation.",
+          "tone": "dark",
+          "width": "wide",
+          "columns": 1,
+          "props": {
+            "url": "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ",
+            "aspect": "16:9"
+          }
+        },
+        {
+          "template": "collection",
+          "title": "The whole collection, live",
+          "body": "Live from the Blender collection: new stills show here as soon as they are approved.",
+          "tone": "plain",
+          "width": "full",
+          "columns": 4,
+          "props": {
+            "limit": 24,
+            "query": "tag=open movie",
+            "layout": "masonry"
+          }
+        },
+        {
+          "template": "text",
+          "title": "Crediting a still",
+          "body": "Name the film, the Blender Foundation and the license, for example: *Sintel, (c) Blender Foundation, durian.blender.org, CC BY 3.0*. Each asset's rights hold its exact line.",
+          "tone": "panel",
+          "width": "text",
+          "columns": 1
+        },
+        {
+          "template": "pages",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": {
+            "layout": "list"
+          },
+          "items": [
+            {
+              "link": "/resources",
+              "title": "Resources"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resources",
+      "title": "Resources",
+      "icon": "archive",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "links",
+          "title": "Downloads",
+          "keys": [
+            "logo.primary",
+            "logo.reversed",
+            "logo.mark",
+            "logo.badge"
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": {
+            "layout": "cards"
+          },
+          "items": [
+            {
+              "link": "https://www.blender.org/about/logo/",
+              "text": "The Blender Foundation's own terms for the logo.",
+              "label": "Web",
+              "title": "Logo and trademark"
+            },
+            {
+              "link": "https://www.blender.org/about/press/",
+              "text": "Facts, screenshots and contacts.",
+              "label": "Web",
+              "title": "Press"
+            },
+            {
+              "link": "https://studio.blender.org/",
+              "text": "The open movies and their production files.",
+              "label": "Web",
+              "title": "Blender Studio"
+            }
+          ]
+        },
+        {
+          "template": "request",
+          "title": "Need something else?",
+          "tone": "panel",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "kind": "asset",
+            "prompt": "Another still, a logo format, or a size? Ask and we will add it to the library."
+          }
+        },
+        {
+          "template": "updates",
+          "title": "What's new",
+          "tone": "plain",
+          "width": "text",
+          "columns": 1,
+          "props": {
+            "limit": 5
+          }
+        }
+      ]
+    }
+  ]
+}

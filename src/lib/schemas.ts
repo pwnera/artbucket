@@ -221,7 +221,11 @@ export const BrandCreate = z.strictObject({
   name: z.string().trim().min(1).max(80),
   slug: brandSlug.optional().describe("Defaults to the name, as a slug"),
   from: brandSlug.optional().describe("Start as a copy of this brand's rules"),
-});
+  template: z
+    .enum(["firefox", "rust", "blender"])
+    .optional()
+    .describe("Start from a showcase brand's rules, theme, pages and logos, to edit into your own"),
+}).refine((b) => !(b.from && b.template), "Start from a brand or a template, not both");
 export const BrandPatch = z.strictObject({
   name: z.string().trim().min(1).max(80).optional(),
   slug: brandSlug.optional(),
