@@ -1,0 +1,52 @@
+---
+title: Render
+description: One click, with a Render Postgres and your storage.
+---
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pwnera/artbucket)
+
+The button reads the repository's `render.yaml`: a web service running
+`ghcr.io/pwnera/artbucket:1` and a Render Postgres, both in Frankfurt.
+`BETTER_AUTH_SECRET` is generated and `DATABASE_URL` wired in.
+
+## What Render asks for
+
+Render has no object storage, so bring an S3-compatible bucket: Cloudflare R2,
+AWS S3, Backblaze B2. Render asks for it when the Blueprint is created:
+
+| Variable | Example |
+| --- | --- |
+| `APP_URL` | `https://artbucket.onrender.com`, or your own domain |
+| `S3_ENDPOINT` | `https://<account>.r2.cloudflarestorage.com` |
+| `S3_REGION` | `auto` for R2, the bucket's region elsewhere |
+| `S3_BUCKET` | `acme-assets` |
+| `S3_ACCESS_KEY_ID` | ... |
+| `S3_SECRET_ACCESS_KEY` | ... |
+
+`APP_URL` is the service's address, `https://<service name>.onrender.com`
+(Render shows it once the service exists: change the variable if it differs),
+or your own domain once it is added under Settings, Custom Domains.
+
+Browsers upload to the bucket directly. The server sets the bucket's CORS rule
+and lifecycle on start; with a key that can't (R2's object tokens), set them in
+the provider's console, as [Storage](/configuration/storage) says.
+
+## After
+
+The service migrates its database on start and answers once it has. Make the
+first account at `APP_URL`. Every other variable is in
+[Environment](/configuration/environment): add it under the service's
+Environment.
+
+## Plans and region
+
+The Blueprint picks the `standard` instance (2 GB: uploads are buffered while
+previews are made) and a `basic-256mb` Postgres, in Frankfurt. For another
+region or size, fork the repository, edit `render.yaml`, and deploy the fork:
+`https://render.com/deploy?repo=<your fork>`.
+
+## Upgrading
+
+The image follows the major line (`:1`). **Manual Deploy**, then **Deploy latest
+reference**, pulls the newest `1.x`; to pin one, set the image to
+`ghcr.io/pwnera/artbucket:1.0.0` under Settings.

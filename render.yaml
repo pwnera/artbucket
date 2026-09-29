@@ -1,0 +1,54 @@
+# Artbucket on Render, in one click (docs/installation/render.mdx):
+#   https://render.com/deploy?repo=https://github.com/pwnera/artbucket
+#
+# The published image and a Render Postgres. Render has no object storage:
+# bring any S3-compatible bucket (Cloudflare R2, AWS S3, Backblaze B2), and
+# Render asks for it, and for APP_URL, when the Blueprint is created.
+services:
+  - type: web
+    name: artbucket
+    runtime: image
+    image:
+      url: ghcr.io/pwnera/artbucket:1
+    # 2 GB: uploads are buffered while previews are made.
+    plan: standard
+    region: frankfurt
+    # A static file, answered only once migrations have run.
+    healthCheckPath: /icon.svg
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: artbucket-db
+          property: connectionString
+      # Signs sessions and encrypts secrets stored in settings: never change it.
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      # https://<service name>.onrender.com, or your own domain.
+      - key: APP_URL
+        sync: false
+      - key: PORT
+        value: "3000"
+      # Pages call the API while they render: this instance, not the public address.
+      - key: INTERNAL_URL
+        value: http://localhost:3000
+      - key: S3_ENDPOINT
+        sync: false
+      # "auto" for R2.
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+
+databases:
+  - name: artbucket-db
+    databaseName: artbucket
+    user: artbucket
+    plan: basic-256mb
+    region: frankfurt
+    postgresMajorVersion: "17"
+    # Reachable from Render's own services only.
+    ipAllowList: []
