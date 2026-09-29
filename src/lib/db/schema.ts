@@ -455,6 +455,51 @@ export const brandPages = pgTable(
   ],
 );
 
+/**
+ * Review comments on a brand's pages (lib/core/brand-comments.ts), pinned to
+ * a section or to the page as a whole, the way a design tool's are: a root
+ * starts a thread, replies point at it through `parentId`, and only a root is
+ * resolved. Not part of the guidelines: no history, never published. `page`
+ * and `section` are slugs and ids as they were, not keys: a renamed page
+ * still finds its comments through its aliases, and a section deleted since
+ * leaves them on the page. `author` is the name as it read then, so a comment
+ * outlives its person; `authorId` or `authorKey` says whose it is.
+ */
+export const brandComments = pgTable(
+  "brand_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    page: text("page").notNull(),
+    /** A section's id on the page; null for the page as a whole. */
+    section: text("section"),
+    /** The thread's root; null for a root. Deleting a root takes its replies. */
+    parentId: uuid("parent_id").references((): AnyPgColumn => brandComments.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    authorId: text("author_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    /** The API key that wrote it, for an agent's own; not a foreign key, as in `audit`. */
+    authorKey: uuid("author_key"),
+    author: text("author").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by"),
+    /** When its body last changed: "edited" beside it. Resolving is not an edit. */
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("brand_comments_brand_page_idx").on(t.brandId, t.page),
+    index("brand_comments_parent_idx").on(t.parentId),
+    check("brand_comments_body_check", sql`char_length(${t.body}) between 1 and 4000`),
+    check("brand_comments_resolved_check", sql`${t.parentId} is null or ${t.resolvedAt} is null`),
+  ],
+);
+
 export type ActivityVerb =
   | "added"
   | "suggested"

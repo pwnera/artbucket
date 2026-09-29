@@ -673,6 +673,49 @@ export function openapi(serverUrl: string) {
           ok: [200, "The page", data(S.PageView)],
         }),
       },
+      "/api/v1/brands/{slug}/comments": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "Review comments on a brand's pages",
+          scope: "read",
+          description:
+            "Threads, each a first comment with its replies (oldest first): open ones first, the one that moved last on " +
+            "top, then resolved ones, the last resolved first. A comment is on a page, or on one section of it by the " +
+            "section's id; `page` is the page's slug now, so comments follow a rename. A section deleted since leaves its " +
+            "comments on the page. Comments are never published and never in the brand's history. `mine`: the caller wrote it.",
+          query: { page: { schema: str, description: "That page's only; a slug it had before a rename finds it too" } },
+          ok: [200, "Threads", data(z.array(S.CommentThread))],
+        }),
+        post: op({
+          summary: "Comment on a brand page, or reply",
+          scope: "propose",
+          description:
+            "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. " +
+            "`parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a " +
+            "reply to a resolved thread reopens it. Takes propose on the workspace.",
+          body: S.CommentCreate,
+          ok: [201, "The comment", data(S.Comment)],
+        }),
+      },
+      "/api/v1/brands/{slug}/comments/{id}": {
+        parameters: [path("slug", "Brand slug"), path("id", "The comment's id")],
+        patch: op({
+          summary: "Edit a comment, or resolve its thread",
+          scope: "propose",
+          description:
+            "`body` changes the text, of your own comment only, and sets `editedAt`. `resolved` resolves the thread or " +
+            "reopens it, on a thread's first comment (a reply is a 422); anyone who may comment may. Resolving a " +
+            "resolved thread keeps who resolved it first.",
+          body: S.CommentPatch,
+          ok: [200, "The comment", data(S.Comment)],
+        }),
+        delete: op({
+          summary: "Delete a comment",
+          scope: "propose",
+          description: "Your own, or anyone's with write on the workspace. A thread's first comment takes its replies with it.",
+          ok: [200, "Deleted", S.Deleted],
+        }),
+      },
       "/api/v1/brands/{slug}/updates": {
         parameters: [path("slug", "Brand slug")],
         get: op({
