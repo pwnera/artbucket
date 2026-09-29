@@ -4,51 +4,80 @@
 
 # artbucket
 
-**The self-hosted brand library for people and their AI agents.**
+**All your brand. None of the busywork.**
 
-A brand knowledge graph with a blob store attached - not a blob store with tags.
+The open-source DAM and brand manager: your assets, guidelines and portals in
+one connected home, for your team and your AI agents.
 
 [![CI](https://github.com/pwnera/artbucket/actions/workflows/ci.yml/badge.svg)](https://github.com/pwnera/artbucket/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](docs/developers/stability.mdx)
 [![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](docs/developers/mcp.mdx)
 
-[Docs](docs/) · [Quick start](#quick-start) · [API](docs/developers/api.mdx) · [Roadmap](ROADMAP.md)
+[Website](https://artbucket.io) · [Why open source](https://artbucket.io/open-source) · [Docs](docs/) · [Quick start](#quick-start) · [API](docs/developers/api.mdx) · [Roadmap](ROADMAP.md)
 
 </div>
 
+<p align="center">
+  <img src="docs/images/library.webp" alt="The artbucket library: assets in a grid, with collections and brands in the sidebar" width="1000">
+</p>
+
 ---
 
-Commercial DAM costs $25k-$50k a year, is quoted only by sales, and charges
-per seat, so every contractor and agency partner raises the bill. And finding
-files is no longer the hard part. The hard part is **authority**: which logo is
-current, which photo is still licensed for paid social in Germany, what the
-brand's rules actually are. No agent can infer that from pixels. It has to be
-written down and served.
+## Your brand's truth should be yours
 
-Artbucket writes it down and serves it: to people in the web app, and to
-agents over MCP, REST and a CLI.
+Most brand libraries are a closed box. You can't see how they work, you can't
+run them yourself, and when you leave, your metadata stays behind.
 
-## Why artbucket?
+And finding files is the easy part. The hard part is **authority**: which logo
+is current, which photo is licensed for paid social in Germany, what the rules
+really are. Agents now make and ship brand work, and an agent can't read
+authority from pixels. It needs a source of truth it can query, and that you
+can inspect, host and take with you.
 
-- 🤖 **Agents are first-class.** One MCP URL connects Claude, ChatGPT, Gemini,
-  coding agents, Figma, Lovable and the rest. They search, describe, size and ingest; what
-  they add waits in Review for a person.
-- ✅ **A yes or no on every use.** `/check` says whether an asset may run here,
-  now, in this channel and territory, why not, and what to use instead.
-- 📐 **The brand, as data.** Colors, type, logo rules and don'ts are typed
-  records with history, not a PDF. The guidelines page is drawn from them.
-- 🖼️ **Renditions are URLs.** `/a/{id}/w_1200,f_webp`. No export step, no
-  download button, no job queue. Identical bytes are stored once.
-- 🔐 **Teams, SSO and access down to one asset, free.** Grants add up and reach
-  down, so an agency sees exactly its part of the library. OpenID Connect
-  single sign-on is never behind a paywall.
-- 🏷️ **Portals and white-labeling.** Share links, upload links, brand portals
-  with their own look and domain, your name down to the emails.
-- 📦 **Your metadata stays yours.** IPTC/XMP written back into the file on
-  download, C2PA provenance read on ingest. Leaving costs nothing.
-- ⚡ **Fast and boring.** Postgres and an S3 bucket, nothing else. Searching
-  100,000 assets takes 5 to 100 ms ([benchmarks](docs/developers/benchmarks.mdx)).
+Artbucket writes the answers down, as data, next to the files. It serves them
+to people in the web app, and to agents over MCP, REST and a CLI. The whole
+core is here, free to self-host on Postgres and an S3-compatible bucket.
+Nothing held back, nothing to unlock.
+
+> **Rather not host it?** [Artbucket Cloud](https://artbucket.io) runs the same
+> core for you, hosted in the EU. It is a free alpha today.
+
+## What's inside
+
+**📚 Library. Find it, use it, keep creating.**
+Search the whole library in 5 to 100 ms at 100,000 assets
+([benchmarks](docs/developers/benchmarks.mdx)). Every size and format comes
+from one original as a URL, `/a/{id}/w_1200,f_webp`: no export, no duplicate,
+no job queue. Identical bytes are stored once.
+
+**📐 Guidelines. A living brand, not a lost PDF.**
+Colors, type, logo rules and don'ts are typed records with history, tied to
+the assets themselves. Change a rule once and everyone gets the same answer;
+the guideline pages are drawn from it.
+
+**🏷️ Portals. Share your brand, beautifully.**
+A press kit, partner hub or retailer portal on your own domain, with your
+look and your name down to the emails. Plus share links and upload links for
+people without an account.
+
+**🤖 Agents. Your AI, now on brand.**
+One MCP URL connects Claude, ChatGPT, Gemini, coding agents, Figma, Lovable and
+the rest to the same library your team uses, with the permission you choose:
+Suggest, Read or Edit. What they add waits in Review for a person.
+
+**✅ A yes or no on every use.**
+`/check` says whether an asset may run here, now, in this channel and
+territory, why not, and what to use instead.
+
+**🔐 Teams, SSO and access down to one asset, free.**
+Grants add up and reach down, so an agency sees exactly its part of the
+library. OpenID Connect single sign-on is never behind a paywall, and viewers
+are never counted.
+
+**📦 Leave whenever you like.**
+IPTC/XMP written back into the file on download, C2PA Content Credentials read
+on ingest and preserved. No telemetry.
 
 > **Status: v1, stable.** `/api/v1` and the MCP tools are frozen: what works
 > against them keeps working on every 1.x release
@@ -283,6 +312,6 @@ Tailwind 4. No monorepo, no job queue, no Redis, no search cluster.
 
 [AGPL-3.0](LICENSE), copyright Pwnera SAS. Run it, change it, self-host it, for
 any purpose. If you offer a changed version as a network service, publish your
-changes. Can't take the AGPL? Pwnera SAS also licenses artbucket commercially:
-[open an issue](https://github.com/pwnera/artbucket/issues) and ask. `ee/` is
+changes. Building a product on artbucket, or need your own terms and limits?
+Pwnera SAS also licenses it commercially: [open an issue](https://github.com/pwnera/artbucket/issues) and ask. `ee/` is
 reserved for commercial code. See [decision 0013](docs/decisions/0013-agpl-and-cla.mdx).
