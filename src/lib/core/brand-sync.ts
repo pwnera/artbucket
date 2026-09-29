@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { and, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brandPreviews, brandRules, brands, brandSources, brandVersions } from "@/lib/db/schema";
+import { assets, brandPreviews, brandRuleAssets, brandRules, brands, brandSources, brandVersions } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { latestVersion, publishBrand, snapshot, themeOf, tracked, writeRules, type Tx } from "@/lib/core/brand";
 import { resolveBrand, type Brand } from "@/lib/core/brands";
@@ -183,10 +183,39 @@ export async function exportBrand(ws: string, slug: string | undefined, o: { pre
 
 // ---- import ---------------------------------------------------------------------
 
+/**
+ * The rules as `after` says them, changed in place: a rule both have keeps its row, so its id holds for whoever
+ * is editing it in the builder while a sync lands. Only rules that came or went are inserted or deleted.
+ */
+async function writeRulesInPlace(tx: Tx, ws: string, brandId: string, after: BrandState["rules"]) {
+  const rows = await tx.select().from(brandRules).where(eq(brandRules.brandId, brandId));
+  const id = (r: { key: string; context: string | null }) => `${r.key}\u0000${r.context ?? ""}`;
+  const want = new Map(after.map((r) => [id(r), r]));
+  const gone = rows.filter((r) => !want.has(id(r)) || want.get(id(r))!.type !== r.type);
+  if (gone.length) await tx.delete(brandRules).where(inArray(brandRules.id, gone.map((r) => r.id)));
+  const kept = new Map(rows.filter((r) => !gone.includes(r)).map((r) => [id(r), r]));
+  const fresh = after.filter((r) => !kept.has(id(r)));
+  await writeRules(tx, ws, brandId, fresh);
+  const refs = kept.size
+    ? await tx.select().from(brandRuleAssets).where(inArray(brandRuleAssets.ruleId, [...kept.values()].map((r) => r.id))).orderBy(asc(brandRuleAssets.position))
+    : [];
+  for (const r of after) {
+    const row = kept.get(id(r));
+    if (!row) continue;
+    const set = { label: r.label ?? null, value: r.value, spec: r.spec ?? null, usage: r.usage, position: r.position };
+    const was = { label: row.label, value: row.value, spec: row.spec, usage: row.usage, position: row.position };
+    if (canon(set) !== canon(was)) await tx.update(brandRules).set({ ...set, updatedAt: sql`now()` }).where(eq(brandRules.id, row.id));
+    const had = refs.filter((a) => a.ruleId === row.id).map((a) => ({ id: a.assetId, rendition: a.rendition }));
+    if (canon(had) !== canon(r.assets)) {
+      await tx.delete(brandRuleAssets).where(eq(brandRuleAssets.ruleId, row.id));
+      if (r.assets.length) await tx.insert(brandRuleAssets).values(r.assets.map((a, position) => ({ ruleId: row.id, assetId: a.id, rendition: a.rendition, position })));
+    }
+  }
+}
+
 /** Write a state over the brand's rules, pages, theme and name. A page that says what it said keeps its time. */
 async function writeState(tx: Tx, ws: string, brand: Brand, before: BrandState, after: BrandState) {
-  await tx.delete(brandRules).where(eq(brandRules.brandId, brand.id));
-  await writeRules(tx, ws, brand.id, after.rules);
+  await writeRulesInPlace(tx, ws, brand.id, after.rules);
   const words = (p: SnapPage) => canon({ ...p, position: undefined, parent: undefined, updatedAt: undefined });
   const was = new Map(before.pages.map((p) => [p.slug, p]));
   const now = new Date().toISOString();
