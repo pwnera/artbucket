@@ -2,6 +2,7 @@ import { lookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { BlockList, isIP } from "node:net";
+import pkg from "../../package.json" with { type: "json" };
 
 /**
  * Fetch a URL an API caller handed us, without letting them point the server
@@ -55,6 +56,13 @@ export function isPublicAddress(ip: string): boolean {
 
 export class FetchError extends Error {}
 
+/**
+ * Names the tool, its version and where to read about it, as sites ask of bots
+ * (Wikimedia answers 429 to a bare one). Not a browser's, so Google Fonts still
+ * serves whole TTFs (lib/font.ts).
+ */
+export const USER_AGENT = `Artbucket/${pkg.version} (+https://github.com/pwnera/artbucket)`;
+
 type Lookup = NonNullable<http.RequestOptions["lookup"]>;
 
 const guardedLookup: Lookup = (hostname, options, callback) => {
@@ -80,7 +88,7 @@ export async function fetchPublic(
   const res = await new Promise<http.IncomingMessage>((resolve, reject) => {
     const req = (url.protocol === "https:" ? https : http).get(
       url,
-      { lookup: guardedLookup, timeout: timeoutMs, headers: { "user-agent": "artbucket" } },
+      { lookup: guardedLookup, timeout: timeoutMs, headers: { "user-agent": USER_AGENT } },
       resolve,
     );
     req.on("timeout", () => req.destroy(new FetchError("Timed out")));
