@@ -8,6 +8,8 @@ const config: NextConfig = {
   // mupdf and libheif (heic-decode) load their WebAssembly from their own package directory.
   // playwright-core drives the server's Chromium (lib/core/print.ts) and is not for bundling.
   serverExternalPackages: ["sharp", "exifreader", "mupdf", "heic-decode", "playwright-core"],
+  // It reads files like browsers.json by computed path, which tracing cannot see: the standalone image needs all of it.
+  outputFileTracingIncludes: { "/api/**/*": ["./node_modules/playwright-core/**/*"] },
   // The dev badge sits bottom-left by default, on top of the sidebar's footer.
   devIndicators: { position: "bottom-right" },
   // OAuth discovery (lib/core/oauth.ts). The path after either one names the resource or issuer; there is one of each.
