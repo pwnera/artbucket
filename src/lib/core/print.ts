@@ -62,7 +62,8 @@ export async function printPage(caller: Caller, brandSlug: string | undefined, s
   } catch (err) {
     throw new AssetError("unavailable", `No browser to draw the page with (${(err as Error).message.split("\n")[0]}); open ${url} instead`);
   }
-  const tab = await b.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, colorScheme: "light" });
+  // Reduced motion: the theme's scroll-driven reveal (globals.css) would leave every section below the fold invisible in a full-page picture.
+  const tab = await b.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, colorScheme: "light", reducedMotion: "reduce" });
   try {
     await tab.goto(`${env.INTERNAL_URL ?? env.APP_URL}/print/${token}`, { waitUntil: "networkidle", timeout: 45_000 });
     // Scroll through, a screen at a time, so reveal-on-scroll sections and lazy pictures are drawn; then back to the top.
