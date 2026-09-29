@@ -63,11 +63,27 @@ const why = (state: string) => (state === "active" ? "under embargo" : state);
  * An old slug gives the page it names now, with `redirect` set. `sign` signs
  * URLs for visitors without a session; members' own session opens them.
  */
+/** A reader's search in a collection section, from a request's `in` (its id) and `find` (the words); nothing when either is missing. */
+export function findOf(q: URLSearchParams): { find?: { section: string; q: string } } {
+  const section = q.get("in");
+  const words = q.get("find")?.trim().slice(0, 200);
+  return section && words ? { find: { section, q: words } } : {};
+}
+
 export async function viewPage(
   ws: string,
   src: BrandSource,
   slug: string | null,
-  o: { context?: string; lang?: string; level: Level; sign: Sign; presets: PortalPreset[]; as?: Caller },
+  o: {
+    context?: string;
+    lang?: string;
+    level: Level;
+    sign: Sign;
+    presets: PortalPreset[];
+    as?: Caller;
+    /** A reader's search in one collection section: its words narrow that section's assets (the library's `q`). */
+    find?: { section: string; q: string };
+  },
 ): Promise<PageView> {
   if (o.context !== undefined && !ruleContext.safeParse(o.context).success) {
     throw new AssetError("invalid", `Not a context: "${o.context}". Contexts are slugs, e.g. dark-background`);
@@ -115,7 +131,10 @@ export async function viewPage(
   const collections = Object.fromEntries(
     await Promise.all(
       plan.collections.map(async (s) => {
-        const got = await collectionItems(ws, liveProps(s), o);
+        const props = liveProps(s);
+        const q = o.find?.section === s.id ? o.find.q.trim() : "";
+        // The words join the section's own query: collectionQuery joins two `q`s into one.
+        const got = await collectionItems(ws, q ? { ...props, query: `${props.query ?? ""}&${new URLSearchParams({ q })}` } : props, o);
         // The reason is for editors: it can name the workspace's collections.
         return [s.id, editor ? got : { ...got, error: null }] as const;
       }),

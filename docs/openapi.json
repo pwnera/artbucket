@@ -23902,6 +23902,22 @@
               ]
             },
             "description": "1: as the builder sees it"
+          },
+          {
+            "name": "in",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A collection section's id, whose assets `find` narrows"
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words a reader searches that collection section for"
           }
         ],
         "responses": {
@@ -35286,6 +35302,22 @@
               "type": "string"
             },
             "description": "The reader's language, a lowercase tag: ar, en-gb"
+          },
+          {
+            "name": "in",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A collection section's id, whose assets `find` narrows"
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words a reader searches that collection section for"
           }
         ],
         "responses": {

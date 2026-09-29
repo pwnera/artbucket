@@ -1,6 +1,6 @@
 import { ok, route } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
-import { draftSource, viewPage } from "@/lib/core/page-view";
+import { draftSource, findOf, viewPage } from "@/lib/core/page-view";
 import { can, needs } from "@/lib/permissions";
 import { DEFAULT_PRESETS } from "@/lib/portal";
 
@@ -12,6 +12,8 @@ type P = { slug: string };
  * nav, its sections, the rules and assets they show, its collections filled.
  * No page: the first. An old slug gives the page with `redirect` set.
  * `edit=1` (write): hidden pages and sections too, and the warnings.
+ * `in={section}&find=words`: that collection section's assets narrowed to
+ * the words, as a reader's search in it asks.
  */
 export const GET = route<P>("brand.read", async (req, { slug }, caller) => {
   const q = new URL(req.url).searchParams;
@@ -26,6 +28,7 @@ export const GET = route<P>("brand.read", async (req, { slug }, caller) => {
     presets: DEFAULT_PRESETS,
     // Collections list what this reader may see in the library, not what the workspace holds.
     as: caller,
+    ...findOf(q),
   });
   return ok({ data: view });
 });
