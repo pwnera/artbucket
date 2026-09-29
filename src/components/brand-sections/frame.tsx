@@ -100,8 +100,16 @@ export function useTone(s: Section): Section["tone"] {
   const { view } = useSite();
   const drawn = useDrawn();
   if (view.theme.grounds !== "alternate" || s.tone !== "plain" || OWN_GROUND.has(s.template)) return s.tone;
-  const plain = drawn.filter((x) => x.tone === "plain" && !OWN_GROUND.has(x.template));
-  return plain.findIndex((x) => x.id === s.id) % 2 === 1 ? "panel" : "plain";
+  // A plain section takes the panel when the one drawn before it sits on the page's own ground; a section with a ground of its own resets the count.
+  const before = drawn[drawn.findIndex((x) => x.id === s.id) - 1];
+  if (!before || OWN_GROUND.has(before.template) || before.tone !== "plain") return "plain";
+  const run = drawn.slice(0, drawn.indexOf(before) + 1).reverse();
+  let n = 0;
+  for (const x of run) {
+    if (x.tone !== "plain" || OWN_GROUND.has(x.template)) break;
+    n++;
+  }
+  return n % 2 === 1 ? "panel" : "plain";
 }
 
 /**
