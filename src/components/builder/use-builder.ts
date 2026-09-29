@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { checkWarnings, deriveTheme, type ThemeSettings } from "@/lib/brand-theme";
 import {
@@ -82,6 +82,15 @@ let copied: string | null = null;
 export function useBuilder(brand: string, init: Init, transport: Transport = network) {
   const [state, setState] = useState(() => initState(init));
   const [depth, setDepth] = useState({ past: 0, future: 0 });
+  // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
+  const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
+  useEffect(() => {
+    live.current.brand = brand;
+    live.current.transport = transport;
+  });
+  // The transport under one identity for the builder's life, since reads key their effects on it:
+  // a production build inlines `network` into the default above, a new function each render.
+  const send = useCallback<Transport>((method, url, body) => live.current.transport(method, url, body), []);
   const [panel, setPanel] = useState<Panel>(null);
   const [dock, setDock] = useState<Dock>(null);
   // The item the section panel sets up, by its section and index: a right click's "Item settings".
@@ -91,7 +100,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
   const [library, setLibrary] = useState(false);
   // Review comments on the brand's pages (comments.tsx): counts on sections, threads in the panel.
-  const comments = useComments(brand, transport);
+  const comments = useComments(brand, send);
   // The comments panel shows the whole page's threads rather than the picked section's.
   const [commentsOnPage, setCommentsOnPage] = useState(false);
   // Marking what changed since the last publish on the canvas (changes.tsx).
@@ -102,13 +111,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [floating, setFloating] = usePref(FLOAT, false);
   // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
   const [pageSettings, setPageSettings] = useState<string | null>(null);
-  const { status, refresh: refreshStatus } = useStatus(brand, transport);
-  // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
-  const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
-  useEffect(() => {
-    live.current.brand = brand;
-    live.current.transport = transport;
-  });
+  const { status, refresh: refreshStatus } = useStatus(brand, send);
 
   // Leaving with a write not yet landed asks first.
   useEffect(() => {
@@ -451,8 +454,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     refreshStatus,
     /** The pages that show a rule, for a rule card's "Shown on". */
     shownOn: (key: string) => shownOn(state, key),
-    /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. */
-    transport,
+    /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. One identity, safe in an effect's deps. */
+    transport: send,
     ...act,
   };
 }
