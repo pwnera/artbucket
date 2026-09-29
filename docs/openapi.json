@@ -45330,6 +45330,126 @@
         }
       }
     },
+    "/c/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Asset id, any version of it",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "The current version",
+        "description": "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "To /a/{current id}"
+          },
+          "404": {
+            "description": "Not there for this caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/c/{id}/{transform}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Asset id, any version of it",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "transform",
+          "in": "path",
+          "required": true,
+          "description": "As /a/{id}/{transform}",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A rendition of the current version",
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "To /a/{current id}/{transform}"
+          },
+          "404": {
+            "description": "Not there for this caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/a/{id}/{transform}": {
       "parameters": [
         {

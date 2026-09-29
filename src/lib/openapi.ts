@@ -1406,6 +1406,27 @@ export function openapi(serverUrl: string) {
           extra: { 410: { description: "Expired or archived", content: json(S.ErrorBody) } },
         }),
       },
+      "/c/{id}": {
+        parameters: [path("id", "Asset id, any version of it")],
+        get: {
+          summary: "The current version",
+          description:
+            "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the " +
+            "stack's current version, or the asset a person replaced it with. For embedding: a new version reaches " +
+            "the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it " +
+            "in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+          security: [],
+          responses: { 302: { description: "To /a/{current id}" }, 404: { description: "Not there for this caller", content: json(S.ErrorBody) } },
+        },
+      },
+      "/c/{id}/{transform}": {
+        parameters: [path("id", "Asset id, any version of it"), path("transform", "As /a/{id}/{transform}")],
+        get: {
+          summary: "A rendition of the current version",
+          security: [],
+          responses: { 302: { description: "To /a/{current id}/{transform}" }, 404: { description: "Not there for this caller", content: json(S.ErrorBody) } },
+        },
+      },
       "/a/{id}/{transform}": {
         parameters: [
           path("id", "Asset id"),
