@@ -191,6 +191,8 @@ export const TOOL_INPUTS = {
 
   list_templates: z.object({}),
 
+  brand_playbook: z.object({}),
+
   list_pages: z.object({ brand }),
 
   get_page: z.object({

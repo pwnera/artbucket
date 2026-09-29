@@ -171,6 +171,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The templates", data(S.Templates)],
         }),
       },
+      "/api/v1/brand/playbook": {
+        get: op({
+          summary: "The brand site playbook",
+          scope: "read",
+          description:
+            "What a good brand site is, for an agent about to build one: research, assets before pages, a look that fits, " +
+            "the overview as a landing page, varied blocks, titles as claims, review; with a worked example in calls. " +
+            "Markdown. The MCP tool brand_playbook and the artbucket://playbook resource serve the same.",
+          ok: [200, "The playbook", data(z.object({ markdown: z.string() }))],
+        }),
+      },
       "/api/v1/brand/tokens": {
         get: op({
           summary: "Export the brand as design tokens",

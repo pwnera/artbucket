@@ -955,6 +955,10 @@
     "type": "object",
     "properties": {}
   },
+  "brand_playbook": {
+    "type": "object",
+    "properties": {}
+  },
   "list_pages": {
     "type": "object",
     "properties": {
@@ -977,7 +981,7 @@
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "description": "The page's slug, e.g. logo; list_pages names them"
+        "description": "Its slug, e.g. logo (list_pages)"
       },
       "context": {
         "description": "Resolve its rules for this context, e.g. dark-background",
@@ -1963,7 +1967,7 @@
           "type": "object",
           "properties": {
             "id": {
-              "description": "Kept across edits; made up when left out",
+              "description": "Kept across edits",
               "type": "string",
               "pattern": "^[a-z0-9_-]{1,40}$"
             },
@@ -1977,7 +1981,7 @@
               "maxLength": 20000
             },
             "width": {
-              "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+              "description": "text: a reading column",
               "type": "string",
               "enum": [
                 "text",
@@ -1991,7 +1995,7 @@
               "maximum": 4
             },
             "tone": {
-              "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+              "description": "panel: second surface; color, image: see background",
               "type": "string",
               "enum": [
                 "plain",
@@ -2019,12 +2023,12 @@
               }
             },
             "eyebrow": {
-              "description": "A small line above the title: a number, a chapter",
+              "description": "Above the title: a number, a chapter",
               "type": "string",
               "maxLength": 120
             },
             "lede": {
-              "description": "A line or two under the title, set large; plain text",
+              "description": "Under the title, set large; plain text",
               "type": "string",
               "maxLength": 1000
             },
@@ -2047,6 +2051,15 @@
                 "loose"
               ]
             },
+            "size": {
+              "description": "Title size",
+              "type": "string",
+              "enum": [
+                "medium",
+                "large",
+                "huge"
+              ]
+            },
             "background": {
               "description": "For tone color and tone image",
               "type": "object",
@@ -2057,13 +2070,25 @@
                   "maxLength": 120,
                   "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
                 },
+                "to": {
+                  "description": "tone color: a color rule to fade into",
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                },
+                "angle": {
+                  "description": "With to: degrees, 180 when left out",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 359
+                },
                 "image": {
                   "description": "tone image: the picture",
                   "type": "string",
                   "format": "uuid"
                 },
                 "scrim": {
-                  "description": "tone image: how much to darken it; 0.45 when left out",
+                  "description": "tone image: darkening, 0.45 when left out",
                   "type": "number",
                   "minimum": 0,
                   "maximum": 0.9
@@ -2072,7 +2097,7 @@
               "additionalProperties": false
             },
             "items": {
-              "description": "What the template lists; list_templates says which take items",
+              "description": "What the template lists (list_templates)",
               "maxItems": 60,
               "type": "array",
               "items": {
@@ -2107,7 +2132,7 @@
                     ]
                   },
                   "caption": {
-                    "description": "Under the media; the asset's description when left out",
+                    "description": "The asset's description when left out",
                     "type": "string",
                     "maxLength": 500
                   },
@@ -2126,7 +2151,7 @@
                     "type": "string"
                   },
                   "download": {
-                    "description": "false: for reference, never offered as a download",
+                    "description": "false: never offered as a download",
                     "type": "boolean"
                   },
                   "span": {
@@ -2165,7 +2190,7 @@
               }
             },
             "audience": {
-              "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+              "description": "On portals: who may read it",
               "type": "string",
               "enum": [
                 "everyone",
@@ -2174,7 +2199,7 @@
               ]
             },
             "contexts": {
-              "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+              "description": "A tab per context: [\"default\", \"dark-background\"]",
               "minItems": 2,
               "maxItems": 8,
               "type": "array",
@@ -2191,7 +2216,7 @@
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
             },
             "translations": {
-              "description": "Its words by language tag; what is left out falls back",
+              "description": "By language tag; what is left out falls back",
               "type": "object",
               "propertyNames": {
                 "type": "string",
@@ -2260,6 +2285,8 @@
                 "cover",
                 "header",
                 "text",
+                "statement",
+                "quote",
                 "split",
                 "cards",
                 "palette",
@@ -2288,7 +2315,7 @@
               "type": "object",
               "properties": {
                 "image": {
-                  "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                  "description": "cover: Over the color; header: In the band; quote: A portrait; split: Beside the words; annotated",
                   "type": "string",
                   "format": "uuid"
                 },
@@ -2298,7 +2325,7 @@
                   "format": "uuid"
                 },
                 "align": {
-                  "description": "cover: start, center, end; split: start, center",
+                  "description": "cover: start, center, end; statement, split: start, center",
                   "type": "string",
                   "enum": [
                     "start",
@@ -2316,7 +2343,7 @@
                   ]
                 },
                 "strip": {
-                  "description": "cover: The palette as a strip; true when left out",
+                  "description": "cover: true when left out",
                   "type": "boolean"
                 },
                 "mark": {
@@ -2327,6 +2354,37 @@
                     "always",
                     "never"
                   ]
+                },
+                "markFrame": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "tile",
+                    "bare"
+                  ]
+                },
+                "markSize": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "small",
+                    "medium",
+                    "large"
+                  ]
+                },
+                "titleSize": {
+                  "description": "cover",
+                  "type": "string",
+                  "enum": [
+                    "medium",
+                    "large",
+                    "huge"
+                  ]
+                },
+                "by": {
+                  "description": "quote: Who said it",
+                  "type": "string",
+                  "maxLength": 120
                 },
                 "flip": {
                   "description": "split: Image on the left",
@@ -2351,12 +2409,13 @@
                   ]
                 },
                 "layout": {
-                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+                  "description": "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                   "type": "string",
                   "enum": [
                     "cards",
                     "list",
                     "stats",
+                    "steps",
                     "checklist",
                     "tree",
                     "pairs",
@@ -2364,6 +2423,7 @@
                     "rows",
                     "bento",
                     "carousel",
+                    "strip",
                     "collage",
                     "crops",
                     "masonry",
@@ -2462,7 +2522,7 @@
                   "type": "boolean"
                 },
                 "size": {
-                  "description": "logos, icons: How big each is drawn in its tile",
+                  "description": "logos, icons: In its tile",
                   "type": "string",
                   "enum": [
                     "medium",
@@ -2490,7 +2550,7 @@
                   "format": "uuid"
                 },
                 "query": {
-                  "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
+                  "description": "collection, icons: q=poster&type=image&tag=campaign",
                   "type": "string",
                   "maxLength": 2000
                 },
@@ -2504,23 +2564,23 @@
                   ]
                 },
                 "limit": {
-                  "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
+                  "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 200
                 },
                 "downloads": {
-                  "description": "collection, icons: Offer downloads; true when left out",
+                  "description": "collection, icons: true when left out",
                   "type": "boolean"
                 },
                 "from": {
-                  "description": "pages: The page whose children it shows; this page when left out",
+                  "description": "pages: Whose children; this page when left out",
                   "type": "string",
                   "maxLength": 60,
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "depth": {
-                  "description": "pages: How many levels a list goes down: a table of contents",
+                  "description": "pages: Levels down",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 3
@@ -2658,7 +2718,7 @@
         "description": "The whole page, top to bottom"
       },
       "parent": {
-        "description": "Its parent page; null for the top. Three levels at most",
+        "description": "Parent page; null for the top; three levels",
         "anyOf": [
           {
             "type": "string",
@@ -2750,7 +2810,7 @@
         "type": "boolean"
       },
       "layout": {
-        "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+        "description": "landing: no nav or pager; book when left out",
         "type": "string",
         "enum": [
           "book",
@@ -2800,7 +2860,7 @@
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "description": "The page's slug, e.g. logo; list_pages names them"
+        "description": "Its slug, e.g. logo (list_pages)"
       }
     },
     "required": [
@@ -2822,7 +2882,7 @@
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "description": "The page's slug, e.g. logo; list_pages names them"
+        "description": "Its slug, e.g. logo (list_pages)"
       },
       "ops": {
         "minItems": 1,
@@ -2841,7 +2901,7 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "description": "Kept across edits; made up when left out",
+                      "description": "Kept across edits",
                       "type": "string",
                       "pattern": "^[a-z0-9_-]{1,40}$"
                     },
@@ -2855,7 +2915,7 @@
                       "maxLength": 20000
                     },
                     "width": {
-                      "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+                      "description": "text: a reading column",
                       "type": "string",
                       "enum": [
                         "text",
@@ -2869,7 +2929,7 @@
                       "maximum": 4
                     },
                     "tone": {
-                      "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+                      "description": "panel: second surface; color, image: see background",
                       "type": "string",
                       "enum": [
                         "plain",
@@ -2897,12 +2957,12 @@
                       }
                     },
                     "eyebrow": {
-                      "description": "A small line above the title: a number, a chapter",
+                      "description": "Above the title: a number, a chapter",
                       "type": "string",
                       "maxLength": 120
                     },
                     "lede": {
-                      "description": "A line or two under the title, set large; plain text",
+                      "description": "Under the title, set large; plain text",
                       "type": "string",
                       "maxLength": 1000
                     },
@@ -2925,6 +2985,15 @@
                         "loose"
                       ]
                     },
+                    "size": {
+                      "description": "Title size",
+                      "type": "string",
+                      "enum": [
+                        "medium",
+                        "large",
+                        "huge"
+                      ]
+                    },
                     "background": {
                       "description": "For tone color and tone image",
                       "type": "object",
@@ -2935,13 +3004,25 @@
                           "maxLength": 120,
                           "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
                         },
+                        "to": {
+                          "description": "tone color: a color rule to fade into",
+                          "type": "string",
+                          "maxLength": 120,
+                          "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                        },
+                        "angle": {
+                          "description": "With to: degrees, 180 when left out",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 359
+                        },
                         "image": {
                           "description": "tone image: the picture",
                           "type": "string",
                           "format": "uuid"
                         },
                         "scrim": {
-                          "description": "tone image: how much to darken it; 0.45 when left out",
+                          "description": "tone image: darkening, 0.45 when left out",
                           "type": "number",
                           "minimum": 0,
                           "maximum": 0.9
@@ -2950,7 +3031,7 @@
                       "additionalProperties": false
                     },
                     "items": {
-                      "description": "What the template lists; list_templates says which take items",
+                      "description": "What the template lists (list_templates)",
                       "maxItems": 60,
                       "type": "array",
                       "items": {
@@ -2985,7 +3066,7 @@
                             ]
                           },
                           "caption": {
-                            "description": "Under the media; the asset's description when left out",
+                            "description": "The asset's description when left out",
                             "type": "string",
                             "maxLength": 500
                           },
@@ -3004,7 +3085,7 @@
                             "type": "string"
                           },
                           "download": {
-                            "description": "false: for reference, never offered as a download",
+                            "description": "false: never offered as a download",
                             "type": "boolean"
                           },
                           "span": {
@@ -3043,7 +3124,7 @@
                       }
                     },
                     "audience": {
-                      "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+                      "description": "On portals: who may read it",
                       "type": "string",
                       "enum": [
                         "everyone",
@@ -3052,7 +3133,7 @@
                       ]
                     },
                     "contexts": {
-                      "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+                      "description": "A tab per context: [\"default\", \"dark-background\"]",
                       "minItems": 2,
                       "maxItems": 8,
                       "type": "array",
@@ -3069,7 +3150,7 @@
                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                     },
                     "translations": {
-                      "description": "Its words by language tag; what is left out falls back",
+                      "description": "By language tag; what is left out falls back",
                       "type": "object",
                       "propertyNames": {
                         "type": "string",
@@ -3138,6 +3219,8 @@
                         "cover",
                         "header",
                         "text",
+                        "statement",
+                        "quote",
                         "split",
                         "cards",
                         "palette",
@@ -3166,7 +3249,7 @@
                       "type": "object",
                       "properties": {
                         "image": {
-                          "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                          "description": "cover: Over the color; header: In the band; quote: A portrait; split: Beside the words; annotated",
                           "type": "string",
                           "format": "uuid"
                         },
@@ -3176,7 +3259,7 @@
                           "format": "uuid"
                         },
                         "align": {
-                          "description": "cover: start, center, end; split: start, center",
+                          "description": "cover: start, center, end; statement, split: start, center",
                           "type": "string",
                           "enum": [
                             "start",
@@ -3194,7 +3277,7 @@
                           ]
                         },
                         "strip": {
-                          "description": "cover: The palette as a strip; true when left out",
+                          "description": "cover: true when left out",
                           "type": "boolean"
                         },
                         "mark": {
@@ -3205,6 +3288,37 @@
                             "always",
                             "never"
                           ]
+                        },
+                        "markFrame": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "tile",
+                            "bare"
+                          ]
+                        },
+                        "markSize": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "small",
+                            "medium",
+                            "large"
+                          ]
+                        },
+                        "titleSize": {
+                          "description": "cover",
+                          "type": "string",
+                          "enum": [
+                            "medium",
+                            "large",
+                            "huge"
+                          ]
+                        },
+                        "by": {
+                          "description": "quote: Who said it",
+                          "type": "string",
+                          "maxLength": 120
                         },
                         "flip": {
                           "description": "split: Image on the left",
@@ -3229,12 +3343,13 @@
                           ]
                         },
                         "layout": {
-                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+                          "description": "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                           "type": "string",
                           "enum": [
                             "cards",
                             "list",
                             "stats",
+                            "steps",
                             "checklist",
                             "tree",
                             "pairs",
@@ -3242,6 +3357,7 @@
                             "rows",
                             "bento",
                             "carousel",
+                            "strip",
                             "collage",
                             "crops",
                             "masonry",
@@ -3340,7 +3456,7 @@
                           "type": "boolean"
                         },
                         "size": {
-                          "description": "logos, icons: How big each is drawn in its tile",
+                          "description": "logos, icons: In its tile",
                           "type": "string",
                           "enum": [
                             "medium",
@@ -3368,7 +3484,7 @@
                           "format": "uuid"
                         },
                         "query": {
-                          "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
+                          "description": "collection, icons: q=poster&type=image&tag=campaign",
                           "type": "string",
                           "maxLength": 2000
                         },
@@ -3382,23 +3498,23 @@
                           ]
                         },
                         "limit": {
-                          "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
+                          "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 200
                         },
                         "downloads": {
-                          "description": "collection, icons: Offer downloads; true when left out",
+                          "description": "collection, icons: true when left out",
                           "type": "boolean"
                         },
                         "from": {
-                          "description": "pages: The page whose children it shows; this page when left out",
+                          "description": "pages: Whose children; this page when left out",
                           "type": "string",
                           "maxLength": 60,
                           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                         },
                         "depth": {
-                          "description": "pages: How many levels a list goes down: a table of contents",
+                          "description": "pages: Levels down",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 3
@@ -3534,7 +3650,7 @@
                   "additionalProperties": false
                 },
                 "after": {
-                  "description": "Add it after this section; null for the top; the end when left out",
+                  "description": "null for the top; the end when left out",
                   "type": [
                     "string",
                     "null"
@@ -3563,7 +3679,7 @@
                     "type": "string"
                   },
                   "additionalProperties": {},
-                  "description": "What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"
+                  "description": "What changes: { title, keys, props, template }; null clears; props replaced whole"
                 }
               },
               "required": [
@@ -3645,7 +3761,7 @@
                       "description": "Renames it; the old slug keeps working"
                     },
                     "parent": {
-                      "description": "Its parent page; null for the top. Three levels at most",
+                      "description": "Parent page; null for the top; three levels",
                       "anyOf": [
                         {
                           "type": "string",
@@ -3737,7 +3853,7 @@
                       "type": "boolean"
                     },
                     "layout": {
-                      "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+                      "description": "landing: no nav or pager; book when left out",
                       "type": "string",
                       "enum": [
                         "book",
@@ -3810,7 +3926,7 @@
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "description": "The page's slug, e.g. logo; list_pages names them"
+        "description": "Its slug, e.g. logo (list_pages)"
       }
     },
     "required": [
@@ -4179,6 +4295,37 @@
           }
         ]
       },
+      "titles": {
+        "anyOf": [
+          {
+            "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+            "type": "string",
+            "enum": [
+              "medium",
+              "large",
+              "huge"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "grounds": {
+        "anyOf": [
+          {
+            "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+            "type": "string",
+            "enum": [
+              "plain",
+              "alternate"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "languages": {
         "anyOf": [
           {
@@ -4217,6 +4364,18 @@
           {
             "type": "null"
           }
+        ]
+      },
+      "look": {
+        "description": "A look sets the layout at once (documentation: dense, quiet, easy to scan; editorial: a book: airy, numbered, big titles; swiss: grid, hairlines, no corners, headlines; bold: every chapter opens on the brand color; cinematic: pictures first, dark, wide, airy; playful: round, warm, alternating grounds); keys named beside it win",
+        "type": "string",
+        "enum": [
+          "documentation",
+          "editorial",
+          "swiss",
+          "bold",
+          "cinematic",
+          "playful"
         ]
       }
     },
