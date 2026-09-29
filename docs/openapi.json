@@ -28259,7 +28259,7 @@
                     }
                   },
                   "commit": {
-                    "description": "The commit the files are at: recorded as agreed, when the brand has a source",
+                    "description": "The commit the files are at, when they are the repository's: recorded as agreed, when the brand has a source",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 100
