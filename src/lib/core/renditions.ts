@@ -7,7 +7,9 @@ import { gate } from "@/lib/pool";
 import { getObject, getStream, originalKey, previewKey, putObject, renditionKey } from "@/lib/storage";
 import {
   CONTENT_TYPE,
+  drawScale,
   effective,
+  isVector,
   serializeTransform,
   type Format,
   type Transform,
@@ -47,7 +49,8 @@ export async function renderAsset(
     if (renders.full) throw new AssetError("rate_limited", "Busy making renditions: try again in a moment");
     job = renders
       .run(1, async () => {
-        const body = await render(still ? previewKey(still) : originalKey(asset.sha256), transform, format);
+        const source = still ? previewKey(still) : originalKey(asset.sha256);
+        const body = await render(source, transform, format, !still && isVector(asset.mime));
         if (await roomFor(asset.workspaceId, body.byteLength)) {
           await putObject(key, body, CONTENT_TYPE[format]);
           await countRendition(key, asset.workspaceId, body.byteLength);
@@ -61,9 +64,20 @@ export async function renderAsset(
   return { body: new Uint8Array(body), length: body.byteLength, contentType: CONTENT_TYPE[format], cached: false };
 }
 
-async function render(source: string, transform: Transform, format: Format) {
+/**
+ * A vector is drawn at a density that makes it at least as large as the
+ * transform asks (lib/transform.ts drawScale), so the resize below only ever
+ * shrinks: a 24px icon at w_512 is drawn at 512, not stretched from 24.
+ */
+async function render(source: string, transform: Transform, format: Format, vector: boolean) {
   const original = await getObject(source);
-  let pipeline = sharp(original, { failOn: "none" }).rotate();
+  let density: number | undefined;
+  if (vector) {
+    // Its own size is what it draws at the default 72 dpi.
+    const { width, height } = await sharp(original, { failOn: "none" }).metadata();
+    density = Math.min(100_000, 72 * drawScale(transform, { width, height, mime: "image/svg+xml" }));
+  }
+  let pipeline = sharp(original, { failOn: "none", density }).rotate();
   if (transform.w || transform.h) {
     pipeline = pipeline.resize({
       width: transform.w,

@@ -32,7 +32,7 @@ import { gate } from "@/lib/pool";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
-import { FITS, FORMATS, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
+import { FITS, FORMATS, isVector, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   BYTES_LOCK,
@@ -978,7 +978,8 @@ export function describeAsset(asset: Asset) {
           q: [1, 100] as [number, number],
           fit: [...FITS],
           f: [...FORMATS],
-          enlarges: false as const,
+          // An SVG is drawn at the size asked; a raster never comes out larger than it is.
+          enlarges: isVector(asset.mime),
         }
       : null,
     alternatives: renderable ? PRESETS.map((p) => ({ name: p.name, url: `${base}/${p.spec}` })) : [],
