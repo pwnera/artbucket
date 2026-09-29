@@ -4,9 +4,27 @@ import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
+import { PORTAL_ACCESS } from "./portal.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
-import { GeneratePagesInput, IconBrowseQuery, IconImport, IconSetQuery, PortalInput, PortalPatch } from "./schemas.ts";
+import {
+  BrandCreate,
+  BrandPatch,
+  CollectionCreate,
+  CollectionPatch,
+  CommentCreate,
+  CommentPatch,
+  GeneratePagesInput,
+  IconBrowseQuery,
+  IconImport,
+  IconSetQuery,
+  MembersChange,
+  PortalDecision,
+  PortalInput,
+  PortalPatch,
+  VersionPatch,
+} from "./schemas.ts";
+import { FIELD_KEY, FieldDefInput, FieldDefPatch } from "./fields.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -20,6 +38,12 @@ const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
 const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
 const page = pageSlug.describe("The page's slug, e.g. logo; list_pages names them");
+const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
+const version = z.number().int().min(1).describe("The version's number, from list_versions");
+const portal = z.string().min(1).max(64).describe("Its address (slug), as list_portals names it");
+const fieldKey = z.string().regex(FIELD_KEY).describe("The field's key, as list_fields names it");
+const comment = z.uuid().describe("The comment's id, from list_comments");
+const collection = z.string().min(1).max(120).describe("Its id, or its name in any case, as list_collections names it");
 
 export const TOOL_INPUTS = {
   search_assets: z.object({
@@ -114,9 +138,56 @@ export const TOOL_INPUTS = {
 
   propose_tags: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
 
+  review_asset: z.strictObject({
+    id,
+    decision: z
+      .enum(["approve", "reject"])
+      .optional()
+      .describe("approve puts a proposed asset in the library; reject turns it down and keeps it, with `note` saying why"),
+    note: z.string().trim().min(1).max(2000).optional().describe("Why, read back by whoever proposed it in my_proposals; asked for with reject"),
+    fields: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe("Field values to set, merged; null clears one. Required fields must be set before approve"),
+    acceptTags: z.array(text.max(64)).max(50).optional().describe("Suggested tags to apply"),
+    dismissTags: z.array(text.max(64)).max(50).optional().describe("Suggested tags to drop"),
+    acceptFields: z.array(z.string().regex(FIELD_KEY)).max(50).optional().describe("Keys of suggested field values to apply"),
+    dismissFields: z.array(z.string().regex(FIELD_KEY)).max(50).optional().describe("Keys of suggested field values to drop"),
+  }),
+
   list_fields: z.object({}),
 
+  // POST /fields's and PATCH /fields/{key}'s own fields; strict, as there.
+  create_field: FieldDefInput,
+
+  update_field: FieldDefPatch.safeExtend({ key: fieldKey }),
+
+  delete_field: z.object({ key: fieldKey }),
+
+  list_collections: z.object({}),
+
+  // POST /collections's and PATCH /collections/{id}'s own fields; strict, as there.
+  create_collection: CollectionCreate,
+
+  update_collection: CollectionPatch.extend({ collection }),
+
+  // POST /collections/{id}/assets's own fields; strict, as there.
+  update_collection_assets: MembersChange.extend({
+    collection,
+    add: MembersChange.shape.add.describe("Asset ids to put in it, from search_assets"),
+    remove: MembersChange.shape.remove.describe("Asset ids to take out; the assets stay in the library"),
+  }),
+
+  delete_collection: z.object({ collection }),
+
   brand_status: z.object({ brand }),
+
+  // POST /brands's and PATCH /brands/{slug}'s own fields, so both doors take the same thing; strict, as there.
+  create_brand: BrandCreate,
+
+  update_brand: BrandPatch.extend({ brand: which }),
+
+  delete_brand: z.object({ brand: which }),
 
   list_templates: z.object({}),
 
@@ -154,6 +225,29 @@ export const TOOL_INPUTS = {
   // Strict: a misspelled setting is refused, not dropped.
   set_theme: z.strictObject({ brand, ...ThemePatch.shape }),
 
+  list_versions: z.object({ brand }),
+
+  get_version: z.object({
+    brand,
+    number: version,
+    against: z
+      .union([z.number().int().min(1), z.literal("current")])
+      .optional()
+      .describe("Diff against this version, or current for this one to now; the version before when left out"),
+  }),
+
+  name_version: VersionPatch.extend({ brand, number: version }),
+
+  restore_version: z.object({ brand, number: version }),
+
+  list_comments: z.object({ brand, page: pageSlug.optional().describe("That page's only; an old slug finds it too") }),
+
+  add_comment: CommentCreate.safeExtend({ brand }),
+
+  update_comment: CommentPatch.safeExtend({ brand, id: comment }),
+
+  delete_comment: z.object({ brand, id: comment }),
+
   publish: z.object({
     brand,
     note: z.string().trim().max(2000).optional().describe("What changed, for the history and What's new"),
@@ -163,17 +257,23 @@ export const TOOL_INPUTS = {
   list_portals: z.object({}),
 
   // PATCH /portals/{id}'s own fields, so both doors take the same thing; strict, as there.
-  update_portal: PortalPatch.pick({ brands: true, access: true, expiresAt: true, site: true }).extend({
-    portal: z.string().min(1).max(64).describe("Its address (slug), as list_portals names it"),
-  }),
+  update_portal: PortalPatch.extend({ portal }),
 
-  // POST /portals's own fields, less the password and the look, which a person sets in the app; strict, as there.
-  create_portal: PortalInput.pick({ name: true, intro: true, expiresAt: true, presets: true, collections: true, brands: true, site: true }).extend({
+  // POST /portals's own fields; strict, as there. Access is asked for, never assumed public.
+  create_portal: PortalInput.extend({
     slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
     access: z
-      .enum(["members", "public"])
-      .describe("members: people with access to the workspace; public: anyone with the address. A password portal is made in the app"),
+      .enum(PORTAL_ACCESS)
+      .describe("members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"),
   }),
+
+  close_portal: z.object({ portal }),
+
+  delete_portal: z.object({ portal }),
+
+  list_portal_requests: z.object({ portal }),
+
+  decide_portal_request: PortalDecision.extend({ portal, request: z.uuid().describe("The request's id, from list_portal_requests") }),
 
   propose_fields: z.object({
     id,

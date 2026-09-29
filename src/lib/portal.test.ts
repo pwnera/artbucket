@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { downloadsFor, hostname, PORTAL_SLUG, PortalSite } from "./portal.ts";
+import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
 
@@ -60,4 +61,9 @@ test("site: footer, quick grab, terms and listing; links go to the web, mail or 
   }
   assert.ok(!PortalSite.safeParse({ quick: Array.from({ length: 7 }, (_, i) => ({ label: `L${i}`, page: "logo" })) }).success);
   assert.ok(!PortalSite.safeParse({ sitemap: true }).success);
+});
+
+test("a theme change keeps what it leaves out: the accent alone never clears the logo", () => {
+  assert.deepEqual(PortalPatch.parse({ theme: { accent: "#00aa55" } }).theme, { accent: "#00aa55" });
+  assert.deepEqual(PortalPatch.parse({ theme: { logo: null } }).theme, { logo: null });
 });

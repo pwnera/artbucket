@@ -12,7 +12,7 @@ import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
-import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PRESET_IDS } from "./portal.ts";
+import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, PRESET_IDS } from "./portal.ts";
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 import { MAX_COMMENT } from "./comments.ts";
@@ -310,7 +310,7 @@ const portal = {
   password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
   expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
   presets: z.array(z.enum(PRESET_IDS)).max(PRESET_IDS.length).optional().describe("What images download as; web, print and social when left out"),
-  theme: PortalTheme.partial().optional(),
+  theme: PortalThemePatch.optional().describe("Left out, a setting stays; null clears it"),
   collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
   brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
   site: PortalSite.optional().describe("Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set"),
