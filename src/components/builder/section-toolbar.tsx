@@ -16,6 +16,7 @@ import {
   IconEyeOff,
   IconGripVertical,
   IconLink,
+  IconMessageCircle,
   IconPhoto,
   IconPlus,
   IconTexture,
@@ -60,8 +61,8 @@ import { cn } from "@/lib/utils";
  * things reached for most: the template switch (templates whose `accepts` fit
  * its bound rules) and its variant (layout or kind), tone swatches, bound
  * rules (a popover filtered by `accepts`, and "New rule" from PRESETS), move
- * up and down, the settings panel (section-panel.tsx: width, columns and the
- * rest), and a menu to duplicate, copy, hide and delete. Every
+ * up and down, its comments and the settings panel (section-panel.tsx:
+ * width, columns and the rest), and a menu to duplicate, copy, hide and delete. Every
  * change is b.apply of a `page` op on b.state.selection.page; delete is
  * b.removeSection, duplicate b.duplicate, move b.nudge. It sits in the
  * canvas's EditContext, and draws in the app's colors (.app-tokens).
@@ -225,6 +226,16 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
         <IconArrowDown />
       </Tool>
       <Sep />
+      <Tool
+        label="Comment on this section"
+        pressed={b.dock === "comments"}
+        onClick={() => {
+          b.setCommentsOnPage(false);
+          b.setDock(b.dock === "comments" ? null : "comments");
+        }}
+      >
+        <IconMessageCircle />
+      </Tool>
       <Tool label="Section settings: width, columns, options" pressed={b.dock === "section"} onClick={() => b.setDock(b.dock === "section" ? null : "section")}>
         <IconAdjustmentsHorizontal />
       </Tool>

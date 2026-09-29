@@ -13,6 +13,7 @@ import {
   IconEyeOff,
   IconFileArrowRight,
   IconLayoutGrid,
+  IconMessageCircle,
   IconPhoto,
   IconPhotoOff,
   IconPlus,
@@ -127,6 +128,17 @@ function SectionPart({ b, s, onSectionPicture }: { b: BuilderApi; s: Section; on
           <ContextMenuSeparator />
         </>
       )}
+
+      <ContextMenuItem
+        onSelect={() => {
+          b.pick(s.id);
+          b.setCommentsOnPage(false);
+          b.setDock("comments");
+        }}
+      >
+        <IconMessageCircle /> Comment…
+      </ContextMenuItem>
+      <ContextMenuSeparator />
 
       <ContextMenuItem onSelect={() => b.copy(s.id)}>
         <IconCopy /> Copy <ContextMenuShortcut>⌘C</ContextMenuShortcut>

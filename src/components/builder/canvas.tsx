@@ -18,6 +18,7 @@ import { SectionView } from "@/components/brand-sections";
 import { useSiteLook } from "@/components/brand-sections/look";
 import { asMedia as libraryMedia, upload } from "@/components/brand-sections/slots";
 import { AssetPicker } from "@/components/builder/asset-picker";
+import { CommentBadge, sectionKey } from "@/components/builder/comments";
 import { CHANGE_LABEL, type Changes, ChangesContext, useChanges, usePublishedChanges } from "@/components/builder/changes";
 import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builder/drag";
 import { ADD_LABEL, blankItem, PICTURED } from "@/components/builder/items";
@@ -398,6 +399,7 @@ function Stage({ b }: { b: BuilderApi }) {
     const handle = picked ?? hovered;
     const iline = itemOver?.section === s.id ? itemOver : null;
     const change = changes?.bySection.get(s.id);
+    const threads = b.comments.bySection.get(sectionKey(slug, s.id)) ?? 0;
     return (
       <ContextMenu
         key={s.id}
@@ -530,8 +532,20 @@ function Stage({ b }: { b: BuilderApi }) {
                 )}
               />
             )}
-            {(s.hidden || change) && (
-              <span className="app-tokens pointer-events-none absolute end-4 top-3 z-20 flex gap-1 font-sans text-xs">
+            {(s.hidden || change || threads > 0 || on) && (
+              <span className="app-tokens pointer-events-none absolute end-4 top-3 z-20 flex items-center gap-1 font-sans text-xs">
+                {/* Its open threads, or, picked, a way in to the first one. */}
+                {(threads > 0 || on) && (
+                  <CommentBadge
+                    count={threads}
+                    className="pointer-events-auto"
+                    onClick={() => {
+                      b.pick(s.id);
+                      b.setCommentsOnPage(false);
+                      b.setDock("comments");
+                    }}
+                  />
+                )}
                 {change && (
                   <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-success text-white" : "bg-warning text-white")}>
                     {CHANGE_LABEL[change]}

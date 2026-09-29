@@ -28,6 +28,7 @@ import {
   travel,
 } from "@/lib/builder-ops";
 import { useStatus } from "@/components/builder/use-status";
+import { useComments } from "@/components/builder/comments";
 import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
@@ -54,7 +55,7 @@ const network: Transport = (method, url, body) => sendResult(method, url, body, 
 export type Panel = "rules" | "history" | "tokens" | "publish" | null;
 
 /** The panel docked beside the canvas, which never covers it: the picked section's settings, blocks and rules to drag in, or the theme, so the page re-themes in view. */
-export type Dock = "section" | "insert" | "theme" | null;
+export type Dock = "section" | "insert" | "theme" | "comments" | null;
 
 /** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
 export const CLIP = "artbucket/section";
@@ -89,6 +90,10 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [also, setAlso] = useState<string[]>([]);
   // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
   const [library, setLibrary] = useState(false);
+  // Review comments on the brand's pages (comments.tsx): counts on sections, threads in the panel.
+  const comments = useComments(brand, transport);
+  // The comments panel shows the whole page's threads rather than the picked section's.
+  const [commentsOnPage, setCommentsOnPage] = useState(false);
   // Marking what changed since the last publish on the canvas (changes.tsx).
   const [changes, setChanges] = useState(false);
   // The page list beside the canvas: open unless the person closed it in this browser.
@@ -426,6 +431,10 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     /** Whether the library panel floats over the canvas. */
     library,
     setLibrary,
+    /** The brand's review comments, and whether the panel shows the page's rather than the picked section's. */
+    comments,
+    commentsOnPage,
+    setCommentsOnPage,
     /** Whether the canvas marks what changed since the last publish. */
     changes,
     setChanges,

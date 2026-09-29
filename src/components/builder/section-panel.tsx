@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { endDrag, startDrag } from "@/components/builder/drag";
+import { CommentsPanel } from "@/components/builder/comments";
 import { FloatingPanel } from "@/components/builder/floating-panel";
+import { reveal } from "@/components/builder/layers";
 import { ITEM_FIELDS, PICTURED } from "@/components/builder/items";
 import { PictureField } from "@/components/builder/picture-field";
 import {
@@ -60,16 +62,21 @@ export function SectionPanel({ b }: SectionPanelProps) {
   // Previewing the whole site, only the theme is set here: there is no section to pick, and nothing to add.
   const { preview } = b.state;
   const tab = preview ? "theme" : (b.dock ?? "section");
-  const label = tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : "Theme";
+  const label = tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : tab === "comments" ? "Comments" : "Theme";
+  const open = b.comments.openCount;
   const head = preview ? (
     <span className="flex items-center gap-2 text-sm font-medium">
       {!b.floating && <IconPalette className="size-4" />} Theme
     </span>
   ) : (
-    <ToggleGroup type="single" size="sm" variant="outline" value={tab} onValueChange={(v) => v && b.setDock(v as Dock)} aria-label="Panel">
+    <ToggleGroup type="single" size="sm" variant="outline" value={tab} onValueChange={(v) => v && b.setDock(v as Dock)} aria-label="Panel" className="[&>*]:px-2 [&>*]:text-xs">
       <ToggleGroupItem value="section">Section</ToggleGroupItem>
       <ToggleGroupItem value="insert">Add</ToggleGroupItem>
       <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
+      <ToggleGroupItem value="comments" aria-label={`Comments${open ? `, ${open} open` : ""}`} title="Comments" className="gap-1">
+        <IconMessageCircle />
+        {open > 0 && <span className="text-xs tabular-nums">{open}</span>}
+      </ToggleGroupItem>
     </ToggleGroup>
   );
   const pop = (
@@ -84,7 +91,9 @@ export function SectionPanel({ b }: SectionPanelProps) {
     </Button>
   );
   const body =
-    tab === "section" ? (
+    tab === "comments" ? (
+      <Comments b={b} />
+    ) : tab === "section" ? (
       <Settings b={b} />
     ) : tab === "insert" ? (
       <Insert b={b} />
@@ -131,6 +140,57 @@ export function SectionPanel({ b }: SectionPanelProps) {
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{body}</div>
     </aside>
+  );
+}
+
+// ---- comments ---------------------------------------------------------------
+
+/**
+ * The review comments of the page on show (comments.tsx CommentsPanel): the
+ * picked section's, with a switch to the whole page's; with none picked,
+ * the page's. A thread's section, clicked, is picked and brought into view.
+ */
+function Comments({ b }: { b: BuilderApi }) {
+  const page = b.state.selection.page;
+  const list = b.state.pages.get(page) ?? [];
+  const picked = b.state.selection.section;
+  const s = picked ? list.find((x) => x.id === picked) : undefined;
+  const section = s && !b.commentsOnPage ? s.id : null;
+  return (
+    <div className="grid gap-3 p-3">
+      {s && (
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          value={section ? "section" : "page"}
+          onValueChange={(v) => v && b.setCommentsOnPage(v === "page")}
+          aria-label="Whose comments"
+          className="w-full"
+        >
+          <ToggleGroupItem value="section" className="min-w-0 flex-1 truncate">
+            {s.title || TEMPLATE_INFO[s.template].name}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="page" className="flex-1">
+            Whole page
+          </ToggleGroupItem>
+        </ToggleGroup>
+      )}
+      <CommentsPanel
+        comments={b.comments}
+        page={page}
+        section={section}
+        sectionName={(id) => {
+          const x = list.find((y) => y.id === id);
+          return x ? x.title || TEMPLATE_INFO[x.template].name : undefined;
+        }}
+        onPickSection={(id) => {
+          b.pick(id);
+          b.setCommentsOnPage(false);
+          requestAnimationFrame(() => reveal(id));
+        }}
+      />
+    </div>
   );
 }
 
