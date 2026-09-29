@@ -6,6 +6,7 @@ import { auth, oidc } from "@/lib/auth";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
+import { ssoOffered } from "@/lib/core/sso";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -194,12 +195,13 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
-  const [email, workspaces, signUp, anonymous, passwordReset] = await Promise.all([
+  const [email, workspaces, signUp, anonymous, passwordReset, sso] = await Promise.all([
     canEmail(caller.workspace.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
     anonymousScope(),
     canResetPasswords(),
+    ssoOffered(),
   ]);
   return {
     user: caller.user,
@@ -219,6 +221,7 @@ export async function describeCaller(caller: Caller) {
       signUp,
       open: env.SIGNUP === "open",
       oidc: oidc && { name: oidc.name },
+      sso,
       anonymous,
       passwordReset,
       serverEmail: lockedBy("email", process.env),

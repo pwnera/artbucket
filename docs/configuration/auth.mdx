@@ -3,8 +3,9 @@ title: Authentication
 description: Passwords, single sign-on, who may sign up, confirming addresses, and email.
 ---
 
-People sign in with an email and a password, or with any OpenID Connect
-provider. Single sign-on is free here, and stays free.
+People sign in with an email and a password, with the server's OpenID Connect
+provider, or with their organization's own. Single sign-on is free here, and
+stays free.
 
 ## Who may make an account
 
@@ -14,6 +15,8 @@ By default (`SIGNUP=invite`):
 - anyone holding an invitation link, which an admin makes on Team
 - anyone the OIDC provider vouches for, who arrives with no access until an
   admin gives them some
+- anyone at an organization's verified email domain its own provider vouches
+  for, who joins that organization able to read
 
 `SIGNUP=open` lets anyone make an account from the sign-in page. Each new
 account gets an organization of its own, with a first workspace, and is its
@@ -22,8 +25,35 @@ points instead.
 
 ## Single sign-on
 
-Set all three, for Okta, Entra ID, Google Workspace, Keycloak, Authentik or
-any other OpenID Connect provider:
+### An organization's own
+
+Each organization can bring its own provider in Settings, Single sign-on
+(`/api/v1/sso`), with no restart and nothing in the environment. This is the
+one for a server shared by several organizations. An organization admin:
+
+1. registers a web app with the provider (Okta, Entra ID, Google Workspace, or
+   any OpenID Connect one), with the redirect URI the page shows:
+   `{APP_URL}/api/auth/sso/callback/{organization id}`
+2. saves its issuer URL, client ID and client secret, and the email domain its
+   people use, e.g. `acme.com`. The endpoints are read from the issuer's
+   discovery document then, and must be public https addresses
+3. proves the domain: a TXT record at `_artbucket-challenge.acme.com`
+   holding the token shown, then Check now
+
+From then on "Sign in with SSO" on the sign-in page takes anyone at that
+domain, or under it, to the provider. The first time, they join the
+organization able to read; an admin raises their access in Team. An account
+made before, with a password, joins at its next sign-in through the provider.
+The provider vouches for its own domain only: an address anywhere else is
+refused. One domain belongs to one organization; a claim left unproved for
+seven days can be taken by another. Turning it off keeps everyone's account
+and access: they sign in with a password, reset by email.
+
+### The server's
+
+For a server with one company on it, set all three, for Okta, Entra ID, Google
+Workspace, Keycloak, Authentik or any other OpenID Connect provider, internal
+ones included:
 
 ```bash
 OIDC_ISSUER=https://accounts.example.com

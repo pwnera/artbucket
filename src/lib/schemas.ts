@@ -337,6 +337,15 @@ export const PortalRequestInput = z.strictObject({
 });
 export const PortalDecision = z.strictObject({ status: z.enum(["approved", "denied"]) });
 export const DomainInput = z.strictObject({ host: z.string().min(1).max(253).describe("A host name of the organization's, e.g. assets.example.com") });
+export const SsoInput = z.strictObject({
+  issuer: z
+    .url({ protocol: /^https$/ })
+    .max(2000)
+    .describe("The provider's issuer URL: its discovery document is read from {issuer}/.well-known/openid-configuration"),
+  clientId: z.string().trim().min(1).max(500).describe("The app's client ID at the provider"),
+  clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
+  domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
+});
 export const DomainPatch = z.strictObject({ primary: z.literal(true).describe("Make it the default: where links in email point") });
 export const SignedUrlInput = z.strictObject({
   expiresIn: z
@@ -975,6 +984,7 @@ export const Me = z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
+    sso: z.boolean().describe("Some organization here signs its people in through its own provider: sign-in offers it by email domain"),
     anonymous: scope.describe("What a request without a key or a session may do"),
     passwordReset: z.boolean().describe("A forgotten password can be reset by email"),
     serverEmail: z
@@ -1143,6 +1153,14 @@ export const SignedUrl = z.object({
   expiresAt: date,
 });
 export const Decided = z.object({ data: PortalRequest, emailed: z.boolean() });
+export const Sso = z.object({
+  issuer: z.string(),
+  clientId: z.string(),
+  domain: z.string(),
+  verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
+  record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
+  redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
+});
 export const Domain = domainState.extend({
   primary: z.boolean().describe("The app's default address: links in email point here"),
   portal: z.string().nullable().describe("The portal it serves, by slug; null for the whole app"),

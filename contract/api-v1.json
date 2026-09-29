@@ -28074,6 +28074,10 @@
                             ],
                             "description": "Single sign-on, when configured"
                           },
+                          "sso": {
+                            "type": "boolean",
+                            "description": "Some organization here signs its people in through its own provider: sign-in offers it by email domain"
+                          },
                           "anonymous": {
                             "anyOf": [
                               {
@@ -28104,6 +28108,7 @@
                           "signUp",
                           "open",
                           "oidc",
+                          "sso",
                           "anonymous",
                           "passwordReset",
                           "serverEmail"
@@ -42612,6 +42617,463 @@
                       "primary",
                       "portal",
                       "url"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/sso": {
+    "get": {
+      "summary": "The organization's single sign-on",
+      "description": "Its OpenID Connect provider, or null, and the redirect URI to register with the provider before setting it up. Never the client secret. Organization admin.\n\nScope: `admin`.",
+      "x-scope": "admin",
+      "responses": {
+        "200": {
+          "description": "Single sign-on",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "clientId": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean",
+                            "description": "The domain is proved: its people sign in through the provider"
+                          },
+                          "record": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "const": "TXT"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "name",
+                              "value"
+                            ],
+                            "additionalProperties": false,
+                            "description": "What proves the domain: add this record at your DNS host"
+                          },
+                          "redirectUri": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "Register this with the provider as the app's redirect URI"
+                          }
+                        },
+                        "required": [
+                          "issuer",
+                          "clientId",
+                          "domain",
+                          "verified",
+                          "record",
+                          "redirectUri"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "redirectUri": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "data",
+                  "redirectUri"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "summary": "Set up single sign-on",
+      "description": "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register `redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the organization able to read. A new domain is proved again; one another organization proved is refused.\n\nScope: `admin`.",
+      "x-scope": "admin",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "issuer": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "format": "uri",
+                  "description": "The provider's issuer URL: its discovery document is read from {issuer}/.well-known/openid-configuration"
+                },
+                "clientId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500,
+                  "description": "The app's client ID at the provider"
+                },
+                "clientSecret": {
+                  "description": "The app's client secret. Needed to set it up; left out on a change, the one kept stays",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "domain": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253,
+                  "description": "The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"
+                }
+              },
+              "required": [
+                "issuer",
+                "clientId",
+                "domain"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Single sign-on",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "issuer": {
+                        "type": "string"
+                      },
+                      "clientId": {
+                        "type": "string"
+                      },
+                      "domain": {
+                        "type": "string"
+                      },
+                      "verified": {
+                        "type": "boolean",
+                        "description": "The domain is proved: its people sign in through the provider"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "const": "TXT"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What proves the domain: add this record at your DNS host"
+                      },
+                      "redirectUri": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Register this with the provider as the app's redirect URI"
+                      }
+                    },
+                    "required": [
+                      "issuer",
+                      "clientId",
+                      "domain",
+                      "verified",
+                      "record",
+                      "redirectUri"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "summary": "Turn off single sign-on",
+      "description": "Its people keep their accounts and access, and sign in with a password (reset by email) from then on.\n\nScope: `admin`.",
+      "x-scope": "admin",
+      "responses": {
+        "200": {
+          "description": "Removed",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "deleted": {
+                        "type": "boolean",
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "deleted"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/sso/verify": {
+    "post": {
+      "summary": "Verify the single sign-on domain",
+      "description": "Looks up its TXT record now; a 422 names what is missing and what was found.\n\nScope: `admin`.",
+      "x-scope": "admin",
+      "responses": {
+        "200": {
+          "description": "Single sign-on",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "issuer": {
+                        "type": "string"
+                      },
+                      "clientId": {
+                        "type": "string"
+                      },
+                      "domain": {
+                        "type": "string"
+                      },
+                      "verified": {
+                        "type": "boolean",
+                        "description": "The domain is proved: its people sign in through the provider"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "const": "TXT"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What proves the domain: add this record at your DNS host"
+                      },
+                      "redirectUri": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Register this with the provider as the app's redirect URI"
+                      }
+                    },
+                    "required": [
+                      "issuer",
+                      "clientId",
+                      "domain",
+                      "verified",
+                      "record",
+                      "redirectUri"
                     ],
                     "additionalProperties": false
                   }

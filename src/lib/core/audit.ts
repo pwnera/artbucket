@@ -44,6 +44,10 @@ export type AuditAction =
   | "domain.verified"
   | "domain.removed"
   | "domain.primary"
+  | "sso.saved"
+  | "sso.verified"
+  | "sso.removed"
+  | "sso.joined"
   | "setting.changed"
   | "setting.reset"
   | "email.failed";

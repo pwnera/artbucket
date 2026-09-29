@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { People, type Members } from "@/components/settings/access";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
+import { SsoPanel, type Sso } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, opens } from "@/components/settings/sections";
 import type { FieldDef } from "@/lib/fields";
@@ -31,6 +32,7 @@ const LOADS: Record<string, string> = {
   "organization/email": "settings?context=organization",
   "organization/branding": "settings?context=organization",
   "organization/domains": "domains",
+  "organization/sso": "sso",
 };
 
 /**
@@ -99,6 +101,11 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     }
     case "organization/domains":
       return <DomainsPanel domains={data<Domain[]>()} />;
+    case "organization/sso": {
+      const { data: sso, redirectUri } = loaded as { data: Sso | null; redirectUri: string };
+      // Keyed by what the server has: after a save the form starts from it.
+      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUri={redirectUri} />;
+    }
     case "account/profile":
       return <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;
   }

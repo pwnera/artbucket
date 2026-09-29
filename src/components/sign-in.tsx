@@ -144,6 +144,7 @@ export function AuthForm({
   mode: initial,
   signUp,
   oidc,
+  sso: ssoOffered = false,
   email: fixed,
   callbackURL = "/",
   newUserURL,
@@ -160,6 +161,8 @@ export function AuthForm({
   /** Whether signing up is on offer at all. */
   signUp: boolean;
   oidc: { name: string } | null;
+  /** Some organization signs its people in through its own provider: found by the email's domain. */
+  sso?: boolean;
   /** From an invitation: filled in. */
   email?: string;
   /** Where single sign-on returns, and where the form goes without `then`. */
@@ -183,7 +186,7 @@ export function AuthForm({
   const id = useId();
   const go = useGo();
   const [mode, setMode] = useState(initial);
-  const [busy, setBusy] = useState<"form" | "sso" | null>(null);
+  const [busy, setBusy] = useState<"form" | "sso" | "org" | null>(null);
   const [error, setError] = useState<{ text: string; code?: string } | null>(initialError ? { text: initialError } : null);
   /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -239,6 +242,25 @@ export function AuthForm({
     setError({ text: r.ok ? "Single sign-on isn't answering. Try again, or use your password." : r.message });
   }
 
+  /** The organization's own provider, by the domain of the email typed above. */
+  async function orgSso() {
+    const field = emailInput.current;
+    const email = field?.value.trim() ?? "";
+    if (!field || !email || !field.checkValidity()) {
+      setError({ text: "Type your work email above first." });
+      field?.focus();
+      return;
+    }
+    setBusy("org");
+    setError(null);
+    beforeSubmit?.();
+    const r = await authPost("sign-in/sso", { email, callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
+    if (r.ok && r.data.url) return window.location.assign(r.data.url);
+    setBusy(null);
+    const mine = r.ok || (r.code !== "NETWORK" && r.code !== "RATE_LIMITED");
+    setError({ text: mine ? `${email.split("@")[1]} doesn't sign in with single sign-on here. Use your password, or ask your admin.` : r.message });
+  }
+
   const switchMode = (to: "in" | "up") => {
     setMode(to);
     setError(null);
@@ -276,7 +298,7 @@ export function AuthForm({
       <div hidden={!!confirming} className={cn("space-y-4", returned && "animate-in fade-in-0 slide-in-from-left-2 duration-200")}>
         {oidc && (
           <>
-            <Button type="button" variant="outline" className="w-full" pending={busy === "sso"} disabled={busy === "form"} onClick={() => void sso()}>
+            <Button type="button" variant="outline" className="w-full" pending={busy === "sso"} disabled={!!busy && busy !== "sso"} onClick={() => void sso()}>
               <IconKey /> Continue with {oidc.name}
             </Button>
             <div className="text-muted-foreground flex items-center gap-3 text-xs">
@@ -376,9 +398,14 @@ export function AuthForm({
               )}
             </FormError>
           )}
-          <Button type="submit" pending={busy === "form"} disabled={busy === "sso"}>
+          <Button type="submit" pending={busy === "form"} disabled={!!busy && busy !== "form"}>
             {mode === "in" ? (busy === "form" ? "Signing in…" : "Sign in") : busy === "form" ? "Making account…" : "Make account"}
           </Button>
+          {ssoOffered && (
+            <Button type="button" variant="outline" pending={busy === "org"} disabled={!!busy && busy !== "org"} onClick={() => void orgSso()}>
+              <IconBuilding /> Sign in with SSO
+            </Button>
+          )}
         </form>
         {signUp && (
           <p className="text-muted-foreground text-center text-sm">
@@ -545,6 +572,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       mode={first ? "up" : "in"}
       signUp={!first && auth.open}
       oidc={auth.oidc}
+      sso={auth.sso}
       callbackURL={next || "/"}
       errorURL={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
       forgot={auth.passwordReset}
@@ -751,6 +779,7 @@ export function InvitePage({
       mode={info.signUp ? "up" : "in"}
       signUp
       oidc={me?.auth.oidc ?? null}
+      sso={!!me?.auth.sso}
       email={info.email}
       // A new single sign-on account took the invitation as it was made; one that existed comes back to accept it.
       callbackURL={`/invite/${token}?accept=1`}

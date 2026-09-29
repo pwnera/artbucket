@@ -1194,6 +1194,40 @@ export function openapi(serverUrl: string) {
         parameters: [path("host", "e.g. assets.example.com")],
         post: op({ summary: "Verify a domain", scope: "admin", description: "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.", ok: [200, "The domain", data(S.Domain)] }),
       },
+      "/api/v1/sso": {
+        get: op({
+          summary: "The organization's single sign-on",
+          scope: "admin",
+          description: "Its OpenID Connect provider, or null, and the redirect URI to register with the provider before setting it up. Never the client secret. Organization admin.",
+          ok: [200, "Single sign-on", z.object({ data: S.Sso.nullable(), redirectUri: z.url() })],
+        }),
+        put: op({
+          summary: "Set up single sign-on",
+          scope: "admin",
+          description:
+            "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register " +
+            "`redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the " +
+            "issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then " +
+            "POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the " +
+            "organization able to read. A new domain is proved again; one another organization proved is refused.",
+          body: S.SsoInput,
+          ok: [200, "Single sign-on", data(S.Sso)],
+        }),
+        delete: op({
+          summary: "Turn off single sign-on",
+          scope: "admin",
+          description: "Its people keep their accounts and access, and sign in with a password (reset by email) from then on.",
+          ok: [200, "Removed", S.Deleted],
+        }),
+      },
+      "/api/v1/sso/verify": {
+        post: op({
+          summary: "Verify the single sign-on domain",
+          scope: "admin",
+          description: "Looks up its TXT record now; a 422 names what is missing and what was found.",
+          ok: [200, "Single sign-on", data(S.Sso)],
+        }),
+      },
       "/api/v1/domains/check": {
         get: op({
           summary: "Does this server serve a domain?",

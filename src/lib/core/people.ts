@@ -62,9 +62,10 @@ export async function maySignUp(cookie: string | null, viaOidc: boolean) {
 /**
  * After an account is made: the very first one gets admin on every
  * organization, one made from an invitation takes it, and with open sign-up
- * anyone else gets an organization of their own.
+ * anyone else gets an organization of their own, but for someone an
+ * organization's own provider signed in (`joined`), who is its member.
  */
-export async function welcome(user: { id: string; name: string; email: string }, cookie: string | null) {
+export async function welcome(user: { id: string; name: string; email: string }, cookie: string | null, joined = false) {
   const by: AuditBy = { actor: user.name || user.email, user };
   const [{ n }] = await db.select({ n: count() }).from(users);
   someone = true;
@@ -80,7 +81,7 @@ export async function welcome(user: { id: string; name: string; email: string },
   }
   const token = cookieValue(cookie, INVITE_COOKIE);
   if (token && (await pending(token))) await acceptInvitation(decodeURIComponent(token), { ...user, ip: null });
-  else if (n > 1 && env.SIGNUP === "open") {
+  else if (n > 1 && env.SIGNUP === "open" && !joined) {
     const org = await addOrganization(user.id, `${user.name || user.email.split("@")[0]}'s organization`);
     await recordAudit(by, "organization.created", org.name, { signUp: true }, { organizationId: org.id, workspaceId: null });
   }
