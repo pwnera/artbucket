@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { portalAtHost, portalHome } from "@/lib/core/domains";
-import { portalRedirect } from "@/lib/portal";
+import { hostTarget, portalHome } from "@/lib/core/domains";
+import { portalRedirect, underDomain } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 
 /**
@@ -32,6 +32,7 @@ const appHost = (() => {
     return "";
   }
 })();
+const portalDomain = process.env.PORTAL_DOMAIN?.toLowerCase().replace(/\.$/, "");
 const s3 = origin(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT);
 // Virtual-hosted buckets live at {bucket}.{host}: that is where a presigned PUT goes.
 const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace("://", `://${process.env.S3_BUCKET}.`) : "";
@@ -81,8 +82,11 @@ const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")
 async function portalRoute(req: NextRequest, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   const { pathname, search } = req.nextUrl;
+  const target = host && host !== appHost ? await hostTarget(host).catch(() => null) : null;
+  const asked = target?.portal ?? null;
+  // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
+  if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
   if (pathname.startsWith("/api/") || pathname.startsWith("/a/") || pathname === "/robots.txt") return null;
-  const asked = host && host !== appHost ? await portalAtHost(host).catch(() => null) : null;
   const onApp = asked ? null : pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
   const slug = asked ?? onApp?.[1];
   if (!slug) return null;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal } from "./portal.ts";
+import { downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -48,6 +48,9 @@ test("subdomains: one label under the portal domain, never a reserved name or a 
   assert.equal(subdomainRefusal("press"), null);
   assert.match(subdomainRefusal("api")!, /kept/);
   assert.match(subdomainRefusal("ab--c")!, /dashes/);
+  for (const host of ["artbucket.page", "nope.artbucket.page", "a.b.artbucket.page:3000", "WWW.Artbucket.page."]) assert.ok(underDomain(host, d), host);
+  for (const host of ["app.artbucket.io", "notartbucket.page", "artbucket.page.evil.com"]) assert.ok(!underDomain(host, d), host);
+  assert.ok(!underDomain("x.artbucket.page", undefined));
 });
 
 test("a portal asked for anywhere but its home goes there; members stay at /p/", () => {

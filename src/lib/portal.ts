@@ -86,6 +86,12 @@ export function portalRedirect(home: { url: string; slug: string; access: string
   return at.slug !== home.slug ? `/p/${home.slug}` : null;
 }
 
+/** Whether a host is `domain` or a name under it, its port aside. */
+export function underDomain(host: string, domain: string | undefined) {
+  const h = host.toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
+  return !!domain && (h === domain || h.endsWith(`.${domain}`));
+}
+
 /** The portal slug a host names as a subdomain of `domain` (PORTAL_DOMAIN): one label, a portal's shape, not refused. */
 export function slugAtHost(host: string, domain: string | undefined) {
   if (!domain || !host.endsWith(`.${domain}`)) return null;
