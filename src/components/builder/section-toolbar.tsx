@@ -16,6 +16,7 @@ import {
   IconEyeOff,
   IconGripVertical,
   IconLink,
+  IconMessageCircle,
   IconPhoto,
   IconPlus,
   IconTexture,
@@ -26,6 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AssetPicker } from "@/components/builder/asset-picker";
+import { PictureField } from "@/components/builder/picture-field";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { useEdit, useSite } from "@/components/site/site-context";
@@ -59,8 +61,8 @@ import { cn } from "@/lib/utils";
  * things reached for most: the template switch (templates whose `accepts` fit
  * its bound rules) and its variant (layout or kind), tone swatches, bound
  * rules (a popover filtered by `accepts`, and "New rule" from PRESETS), move
- * up and down, the settings panel (section-panel.tsx: width, columns and the
- * rest), and a menu to duplicate, copy, hide and delete. Every
+ * up and down, its comments and the settings panel (section-panel.tsx:
+ * width, columns and the rest), and a menu to duplicate, copy, hide and delete. Every
  * change is b.apply of a `page` op on b.state.selection.page; delete is
  * b.removeSection, duplicate b.duplicate, move b.nudge. It sits in the
  * canvas's EditContext, and draws in the app's colors (.app-tokens).
@@ -214,6 +216,7 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
       <VariantMenu s={s} set={set} />
       <Sep />
       <TonePicker b={b} s={s} set={set} />
+      <SectionPictures b={b} s={s} set={set} />
       {info.accepts && <RulesPicker b={b} s={s} set={set} />}
       <Sep />
       <Tool label="Move up (Alt+Up)" disabled={at <= 0} onClick={() => b.nudge(s.id, -1)}>
@@ -223,6 +226,16 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
         <IconArrowDown />
       </Tool>
       <Sep />
+      <Tool
+        label="Comment on this section"
+        pressed={b.dock === "comments"}
+        onClick={() => {
+          b.setCommentsOnPage(false);
+          b.setDock(b.dock === "comments" ? null : "comments");
+        }}
+      >
+        <IconMessageCircle />
+      </Tool>
       <Tool label="Section settings: width, columns, options" pressed={b.dock === "section"} onClick={() => b.setDock(b.dock === "section" ? null : "section")}>
         <IconAdjustmentsHorizontal />
       </Tool>
@@ -253,6 +266,51 @@ export function SectionToolbar({ b, section: s }: SectionToolbarProps) {
 }
 
 export type Part = { b: BuilderApi; s: Section; set: (patch: Record<string, unknown>) => unknown };
+
+/** The pictures a section's template takes as props (a cover's image and loop, a split's picture), for the toolbar. */
+export const pictureFields = (t: Template) => fieldsOf(t).filter((f) => f.kind === "asset");
+
+/**
+ * The section's own pictures, one click from the toolbar: each one's
+ * thumbnail, with a way to pick another, upload one or take it away. The
+ * section panel sets the same props; a double click on the picture opens
+ * the library for it (canvas.tsx).
+ */
+function SectionPictures({ b, s, set }: Part) {
+  const fields = pictureFields(s.template);
+  if (!fields.length || b.state.lang) return null;
+  const has = fields.some((f) => typeof s.props[f.name] === "string");
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Tool label={has ? "Change the picture" : "Add a picture"}>
+          <IconPhoto />
+        </Tool>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="app-tokens grid w-80 gap-3 p-3"
+        // The library opens in a dialog over it: picking there is not leaving.
+        onInteractOutside={(e) => {
+          if ((e.target as Element | null)?.closest?.('[role="dialog"]')) e.preventDefault();
+        }}
+      >
+        {fields.map((f) => (
+          <div key={f.name} className="grid gap-1.5">
+            <Label className="text-xs">{f.label}</Label>
+            <PictureField
+              b={b}
+              value={s.props[f.name] as string | undefined}
+              video={f.name === "video"}
+              onPick={(id) => set({ props: withProp(s.props, f, id) })}
+            />
+            {f.about && <p className="text-muted-foreground text-xs">{f.about}</p>}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /**
  * The templates the section's rules fit, each checked as the server would

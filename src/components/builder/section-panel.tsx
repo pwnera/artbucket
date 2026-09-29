@@ -1,10 +1,13 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useState } from "react";
-import { IconGripVertical, IconPhoto, IconPlus, IconX } from "@tabler/icons-react";
-import { asMedia } from "@/components/brand-sections/slots";
+import { useEffect, useState } from "react";
+import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { endDrag, startDrag } from "@/components/builder/drag";
-import { ITEM_FIELDS } from "@/components/builder/items";
+import { CommentsPanel } from "@/components/builder/comments";
+import { FloatingPanel } from "@/components/builder/floating-panel";
+import { reveal } from "@/components/builder/layers";
+import { ITEM_FIELDS, PICTURED } from "@/components/builder/items";
+import { PictureField } from "@/components/builder/picture-field";
 import {
   byKey,
   choiceLabel,
@@ -18,10 +21,8 @@ import {
 } from "@/components/builder/section-toolbar";
 import { starter } from "@/components/builder/seam";
 import { Thumbnail } from "@/components/builder/thumbnails";
-import { Thumb } from "@/components/thumb";
 import type { BuilderApi, Dock } from "@/components/builder/use-builder";
 import { ThemeEditor } from "@/components/theme-panel";
-import { useSite } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { apply } from "@/lib/builder-ops";
+import { apply, duplicateItem, removeItem } from "@/lib/builder-ops";
 import { COLLECTION_ICONS } from "@/lib/collection-icons";
 import { type Item, type Section, TEMPLATE_INFO, TEMPLATES } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
@@ -38,7 +39,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The panel docked beside the canvas (b.dock), which never covers the page,
- * so a change shows as it is made. "Section" sets the picked section up:
+ * so a change shows as it is made; or, with b.floating, a FloatingPanel over
+ * it, dragged anywhere and folded to its header. "Section" sets the picked section up:
  * its template, width, columns and ground, the options its template takes
  * (every prop in TEMPLATE_PROPS, through lib/template-fields.ts), the
  * rules it shows, the item a right click asked for, and where it shows.
@@ -56,44 +58,139 @@ export type SectionPanelProps = {
   b: BuilderApi;
 };
 
-const LibraryPicker = lazy(() => import("@/components/asset-picker").then((m) => ({ default: m.LibraryPicker })));
-
 export function SectionPanel({ b }: SectionPanelProps) {
-  const tab = b.dock ?? "section";
+  // Previewing the whole site, only the theme is set here: there is no section to pick, and nothing to add.
+  const { preview } = b.state;
+  const tab = preview ? "theme" : (b.dock ?? "section");
+  const label = tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : tab === "comments" ? "Comments" : "Theme";
+  const open = b.comments.openCount;
+  const head = preview ? (
+    <span className="flex items-center gap-2 text-sm font-medium">
+      {!b.floating && <IconPalette className="size-4" />} Theme
+    </span>
+  ) : (
+    <ToggleGroup type="single" size="sm" variant="outline" value={tab} onValueChange={(v) => v && b.setDock(v as Dock)} aria-label="Panel" className="[&>*]:px-2 [&>*]:text-xs">
+      <ToggleGroupItem value="section">Section</ToggleGroupItem>
+      <ToggleGroupItem value="insert">Add</ToggleGroupItem>
+      <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
+      <ToggleGroupItem value="comments" aria-label={`Comments${open ? `, ${open} open` : ""}`} title="Comments" className="gap-1">
+        <IconMessageCircle />
+        {open > 0 && <span className="text-xs tabular-nums">{open}</span>}
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
+  const pop = (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={b.floating ? "Dock beside the page" : "Float over the page"}
+      title={b.floating ? "Dock beside the page" : "Float over the page"}
+      onClick={() => b.setFloating(!b.floating)}
+    >
+      {b.floating ? <IconLayoutSidebarRight /> : <IconPictureInPictureOn />}
+    </Button>
+  );
+  const body =
+    tab === "comments" ? (
+      <Comments b={b} />
+    ) : tab === "section" ? (
+      <Settings b={b} />
+    ) : tab === "insert" ? (
+      <Insert b={b} />
+    ) : (
+      <div className="grid gap-4 px-3 py-4">
+        {preview ? (
+          <p className="text-muted-foreground text-xs">The whole site as readers get it once published. Each change shows here as it is made.</p>
+        ) : (
+          // The canvas is the page alone: the nav, on this page and the site's mark show around it only in the preview.
+          <div className="bg-muted/50 grid gap-2 rounded-md border p-3">
+            <p className="text-muted-foreground text-xs">Navigation, on this page and the site&apos;s mark show around the page, in the preview.</p>
+            <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => b.setPreview(true)}>
+              <IconEye /> Preview the whole site
+            </Button>
+          </div>
+        )}
+        <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
+      </div>
+    );
+
+  // Floating, it is a window over the page: dragged anywhere, folded to its header, the whole canvas left to the page.
+  if (b.floating)
+    return (
+      <FloatingPanel id="builder-panel" title={head} label={label} actions={pop} width={340} onClose={() => b.setDock(null)}>
+        {body}
+      </FloatingPanel>
+    );
+
   return (
     <aside
-      aria-label={tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : "Theme"}
-      className="app-tokens bg-background text-foreground sticky top-12 flex h-[calc(100dvh-3rem)] w-80 shrink-0 flex-col border-s font-sans"
+      aria-label={label}
+      className={cn(
+        "app-tokens bg-background text-foreground sticky flex w-80 shrink-0 flex-col border-s font-sans",
+        preview ? "top-0 h-dvh" : "top-12 h-[calc(100dvh-3rem)]",
+      )}
     >
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2">
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b px-2">
+        {head}
+        <span className="ms-auto" />
+        {pop}
+        <Button variant="ghost" size="icon-sm" aria-label="Close the panel" title="Close" onClick={() => b.setDock(null)}>
+          <IconX />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{body}</div>
+    </aside>
+  );
+}
+
+// ---- comments ---------------------------------------------------------------
+
+/**
+ * The review comments of the page on show (comments.tsx CommentsPanel): the
+ * picked section's, with a switch to the whole page's; with none picked,
+ * the page's. A thread's section, clicked, is picked and brought into view.
+ */
+function Comments({ b }: { b: BuilderApi }) {
+  const page = b.state.selection.page;
+  const list = b.state.pages.get(page) ?? [];
+  const picked = b.state.selection.section;
+  const s = picked ? list.find((x) => x.id === picked) : undefined;
+  const section = s && !b.commentsOnPage ? s.id : null;
+  return (
+    <div className="grid gap-3 p-3">
+      {s && (
         <ToggleGroup
           type="single"
           size="sm"
           variant="outline"
-          value={tab}
-          onValueChange={(v) => v && b.setDock(v as Dock)}
-          aria-label="Panel"
+          value={section ? "section" : "page"}
+          onValueChange={(v) => v && b.setCommentsOnPage(v === "page")}
+          aria-label="Whose comments"
+          className="w-full"
         >
-          <ToggleGroupItem value="section">Section</ToggleGroupItem>
-          <ToggleGroupItem value="insert">Add</ToggleGroupItem>
-          <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
+          <ToggleGroupItem value="section" className="min-w-0 flex-1 truncate">
+            {s.title || TEMPLATE_INFO[s.template].name}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="page" className="flex-1">
+            Whole page
+          </ToggleGroupItem>
         </ToggleGroup>
-        <Button variant="ghost" size="icon-sm" className="ms-auto" aria-label="Close the panel" title="Close" onClick={() => b.setDock(null)}>
-          <IconX />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {tab === "section" ? (
-          <Settings b={b} />
-        ) : tab === "insert" ? (
-          <Insert b={b} />
-        ) : (
-          <div className="px-3 py-4">
-            <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
-          </div>
-        )}
-      </div>
-    </aside>
+      )}
+      <CommentsPanel
+        comments={b.comments}
+        page={page}
+        section={section}
+        sectionName={(id) => {
+          const x = list.find((y) => y.id === id);
+          return x ? x.title || TEMPLATE_INFO[x.template].name : undefined;
+        }}
+        onPickSection={(id) => {
+          b.pick(id);
+          b.setCommentsOnPage(false);
+          requestAnimationFrame(() => reveal(id));
+        }}
+      />
+    </div>
   );
 }
 
@@ -152,7 +249,9 @@ function Settings({ b }: { b: BuilderApi }) {
 
   return (
     <>
-      <Group title="Layout">
+      {/* What is picked comes first, as in a design tool's inspector: the item, then the section around it. */}
+      {item !== null && <ItemSettings key={`${s.id}:${item}`} b={b} s={s} i={item} set={set} error={errorOf("item")} />}
+      <Group title={item !== null ? `${info.name} section` : "Layout"}>
         <Row label="Template" about={info.use}>
           <TemplateMenu b={b} s={s} set={set} className="bg-muted/50 h-8 w-full justify-start border" />
         </Row>
@@ -214,7 +313,6 @@ function Settings({ b }: { b: BuilderApi }) {
         </Group>
       )}
 
-      {item !== null && <ItemSettings key={`${s.id}:${item}`} b={b} s={s} i={item} set={set} error={errorOf("item")} />}
 
       <Group title="Where it shows">
         <Label className="font-normal">
@@ -396,43 +494,6 @@ function GroupField({ s, f, error, onSet }: { s: Section; f: Extract<Field, { ki
   );
 }
 
-/** A picture from the library: its thumbnail, a way to pick another, and one to clear it. */
-function PictureField({ b, id, value, onPick, video }: { b: BuilderApi; id: string; value?: string; onPick(id: string | undefined): void; video?: boolean }) {
-  const { url } = useSite();
-  const [picking, setPicking] = useState(false);
-  const m = value ? b.view.media[value] : undefined;
-  return (
-    <div className="flex items-center gap-2">
-      <span className="bg-muted flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-        {m?.thumbnail ? <Thumb src={m.thumbnail} alt="" /> : <IconPhoto className="text-muted-foreground size-5" />}
-      </span>
-      <Button id={id} type="button" variant="outline" size="sm" onClick={() => setPicking(true)}>
-        {value ? "Change" : "Pick"}
-      </Button>
-      {value && (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onPick(undefined)}>
-          Clear
-        </Button>
-      )}
-      {picking && (
-        <Suspense>
-          <LibraryPicker
-            title={video ? "Pick a video" : "Pick a picture"}
-            description="From the library."
-            filter={video ? (a) => a.mime.startsWith("video/") : undefined}
-            onClose={() => setPicking(false)}
-            onPick={(a) => {
-              setPicking(false);
-              b.addMedia([asMedia(a, url)]);
-              onPick(a.id);
-            }}
-          />
-        </Suspense>
-      )}
-    </div>
-  );
-}
-
 /** A collection or a saved search of the workspace, by name. */
 function SavedPicker({ b, id, kind, value, onPick }: { b: BuilderApi; id: string; kind: "collection" | "search"; value?: string; onPick(id: string | undefined): void }) {
   const [list, setList] = useState<{ id: string; name: string }[] | null>(null);
@@ -478,10 +539,24 @@ function ItemSettings({ b, s, i, set, error }: { b: BuilderApi; s: Section; i: n
   const rules = [...byKey(b.state.rules).values()];
   const name = it.title || (it.asset && b.view.media[it.asset]?.title) || `Item ${i + 1}`;
   const id = (f: string) => `item-${s.id}-${i}-${f}`;
+  // A picture its template can't do without (a gallery's) goes with the item; any other can go alone.
+  const needsPicture = (TEMPLATE_INFO[s.template].needs ?? []).some((g) => g.length === 1 && g[0] === "asset");
 
   return (
     <Group title={`Item: ${name}`}>
-      {!fields.length && <p className="text-muted-foreground text-sm">Its words are typed on the page, and its picture is picked there.</p>}
+      {!fields.length && !PICTURED.has(s.template) && <p className="text-muted-foreground text-sm">Its words are typed on the page.</p>}
+      {(PICTURED.has(s.template) || it.asset) && (
+        <Row label="Picture" htmlFor={id("asset")}>
+          <PictureField
+            b={b}
+            id={id("asset")}
+            value={it.asset}
+            onPick={(asset) => put({ asset })}
+            onRemove={needsPicture ? () => set(removeItem(s, i), "item") : undefined}
+            removeLabel={needsPicture ? "Remove item" : "Remove"}
+          />
+        </Row>
+      )}
       {fields.includes("verdict") && (
         <Row label="Verdict">
           <ToggleGroup type="single" variant="outline" size="sm" value={it.verdict ?? ""} onValueChange={(v) => v && put({ verdict: v as "do" | "dont" })}>
@@ -598,9 +673,26 @@ function ItemSettings({ b, s, i, set, error }: { b: BuilderApi; s: Section; i: n
         </Row>
       )}
       {error && <p className="text-destructive text-xs">{error}</p>}
-      <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={() => b.setItem(null)}>
-        Done with this item
-      </Button>
+      <div className="flex flex-wrap gap-1">
+        <Button type="button" variant="outline" size="sm" onClick={() => set(duplicateItem(s, i), "item")}>
+          <IconCopy /> Duplicate
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="hover:text-destructive"
+          onClick={() => {
+            set(removeItem(s, i), "item");
+            b.setItem(null);
+          }}
+        >
+          <IconTrash /> Remove item
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => b.setItem(null)}>
+          Select the section
+        </Button>
+      </div>
     </Group>
   );
 }

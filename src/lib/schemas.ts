@@ -15,6 +15,7 @@ import { FITS, FORMATS } from "./transform.ts";
 import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PRESET_IDS } from "./portal.ts";
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
+import { MAX_COMMENT } from "./comments.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -243,6 +244,23 @@ export const PublishInput = z.strictObject({
   note: z.string().trim().max(2000).optional().describe("What changed, for readers of the history and What's new"),
   image: uuid.optional().describe("An asset shown beside the note"),
 });
+
+const commentBody = z.string().trim().min(1).max(MAX_COMMENT);
+export const CommentCreate = z
+  .strictObject({
+    page: pageSlug.optional().describe("The page it is on; a slug it had before a rename finds it too"),
+    section: sectionId.nullable().optional().describe("A section's id on the page; left out or null: the page as a whole"),
+    parent: uuid.optional().describe("Reply to this thread instead; its page and section are the reply's. A reply to a reply joins its thread"),
+    body: commentBody.describe("Plain text"),
+  })
+  .refine((c) => !c.parent !== !c.page, "Send `page` for a new thread, or `parent` for a reply, not both")
+  .refine((c) => !c.parent || c.section === undefined, "A reply is on its thread's section: leave `section` out");
+export const CommentPatch = z
+  .strictObject({
+    body: commentBody.optional().describe("Your own comment's new text"),
+    resolved: z.boolean().optional().describe("Resolve the thread, or reopen it; a thread's first comment only"),
+  })
+  .refine((p) => p.body !== undefined || p.resolved !== undefined, "Send `body`, `resolved`, or both");
 
 export const CreateKey = z.strictObject({
   name: z.string().trim().min(1).max(120),
@@ -764,6 +782,24 @@ export const Update = z.object({
     })
     .describe("What it changed for readers since the publish before it"),
 });
+/** A review comment on a brand page (lib/core/brand-comments.ts). */
+export const Comment = z.object({
+  id: uuid,
+  page: z.string().describe("The page's slug now: a comment on a page renamed since follows it"),
+  section: z.string().nullable().describe("The section's id; null for the page as a whole"),
+  parent: uuid.nullable().describe("The thread it replies in; null for a thread's first comment"),
+  body: z.string(),
+  author: z.string().describe("Their name when they wrote it"),
+  authorId: z.string().nullable().describe("The person's id; null for an agent's, or once they are gone"),
+  mine: z.boolean().describe("Written by the caller: theirs to edit and delete"),
+  resolvedAt: date.nullable().describe("When its thread was resolved; null while open, and always on a reply"),
+  resolvedBy: z.string().nullable(),
+  editedAt: date.nullable().describe("When its text last changed; null if never"),
+  createdAt: date,
+  updatedAt: date,
+});
+export const CommentThread = Comment.extend({ replies: z.array(Comment).describe("Oldest first") });
+
 export const Restored = z.object({
   restored: z.number().int(),
   version: z.number().int().describe("The new version the restore made"),

@@ -67,3 +67,6 @@ export const ADD_LABEL: Partial<Record<Template, string>> = {
   diagram: "Add their mark",
   logos: "Add a don't",
 };
+
+/** Templates whose items carry a picture: the canvas and the section panel offer to change it. */
+export const PICTURED: ReadonlySet<Template> = new Set(["cards", "dodont", "gallery", "links", "logos", "diagram"]);

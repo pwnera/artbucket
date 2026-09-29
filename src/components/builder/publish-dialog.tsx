@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconExternalLink, IconLoader2, IconWorldUpload } from "@tabler/icons-react";
+import { IconExternalLink, IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -20,7 +20,8 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /**
  * Publish (build spec 3.5.3, W6.3): a note, an image, and what changed since
- * the last publish (lib/history.ts whatsNew against the draft); the result
+ * the last publish (lib/history.ts whatsNew against the draft), with the
+ * open review comments one click away; the result
  * lists the portals it now shows on. Publishing and sharing are two things (a
  * version readers get, and a door with an address and who gets in; one brand
  * can be on several portals, one portal can show several brands), but a
@@ -176,6 +177,27 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
           <p className="text-sm">The first publish: readers get every page and rule.</p>
         )}
       </section>
+
+      {b.comments.openCount > 0 && (
+        // Review before readers get it: the open threads, one click away.
+        <p role="note" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+          <IconMessageCircle aria-hidden className="text-warning size-4 shrink-0" />
+          <span className="flex-1">
+            {b.comments.openCount} open {b.comments.openCount === 1 ? "comment" : "comments"} on these pages.
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              onClose();
+              b.setCommentsOnPage(true);
+              b.setDock("comments");
+            }}
+          >
+            Review
+          </Button>
+        </p>
+      )}
 
       <div className="grid gap-1.5">
         <Label htmlFor="publish-note">Note for readers</Label>

@@ -28,6 +28,7 @@ import {
   travel,
 } from "@/lib/builder-ops";
 import { useStatus } from "@/components/builder/use-status";
+import { useComments } from "@/components/builder/comments";
 import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
@@ -54,7 +55,7 @@ const network: Transport = (method, url, body) => sendResult(method, url, body, 
 export type Panel = "rules" | "history" | "tokens" | "publish" | null;
 
 /** The panel docked beside the canvas, which never covers it: the picked section's settings, blocks and rules to drag in, or the theme, so the page re-themes in view. */
-export type Dock = "section" | "insert" | "theme" | null;
+export type Dock = "section" | "insert" | "theme" | "comments" | null;
 
 /** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
 export const CLIP = "artbucket/section";
@@ -73,6 +74,7 @@ export function unclip(text: string): Record<string, unknown> | null {
 const SAVE = "builder-save";
 /** Where the page list's open or closed is remembered. */
 const PAGES = "artbucket:builder-pages";
+const FLOAT = "artbucket:builder-panel-float";
 
 /** The last section copied from a menu, for a paste the clipboard won't give back (permission refused). */
 let copied: string | null = null;
@@ -84,8 +86,20 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [dock, setDock] = useState<Dock>(null);
   // The item the section panel sets up, by its section and index: a right click's "Item settings".
   const [item, setItem] = useState<{ section: string; i: number } | null>(null);
+  // Sections picked besides the one selected, with Shift or Cmd (b.pick), for changes to all of them at once.
+  const [also, setAlso] = useState<string[]>([]);
+  // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
+  const [library, setLibrary] = useState(false);
+  // Review comments on the brand's pages (comments.tsx): counts on sections, threads in the panel.
+  const comments = useComments(brand, transport);
+  // The comments panel shows the whole page's threads rather than the picked section's.
+  const [commentsOnPage, setCommentsOnPage] = useState(false);
+  // Marking what changed since the last publish on the canvas (changes.tsx).
+  const [changes, setChanges] = useState(false);
   // The page list beside the canvas: open unless the person closed it in this browser.
   const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
+  // The panel (b.dock) floats over the canvas instead of beside it: kept in this browser, as the page list's is.
+  const [floating, setFloating] = usePref(FLOAT, false);
   // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
   const [pageSettings, setPageSettings] = useState<string | null>(null);
   const { status, refresh: refreshStatus } = useStatus(brand, transport);
@@ -225,6 +239,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
 
     const select = (to: Partial<BuilderState["selection"]>) => {
       const s = live.current.state;
+      // Another section, or another page: the ones picked with it let go.
+      if ((to.section !== undefined && to.section !== s.selection.section) || (to.page !== undefined && to.page !== s.selection.page)) setAlso([]);
       commit({ ...s, selection: { ...s.selection, ...to } });
     };
 
@@ -252,6 +268,19 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       undo: () => travelTo(true),
       redo: () => travelTo(false),
       select,
+      /**
+       * Pick a section, as a design tool picks a layer: alone, or with `add`
+       * (Shift or Cmd) added to the ones picked, or taken out of them again.
+       * The first one picked stays the selection, which the panel sets up.
+       */
+      pick(id: string, o: { add?: boolean } = {}) {
+        const primary = live.current.state.selection.section;
+        if (!o.add || !primary) return select({ section: id, rule: null });
+        if (id === primary) return;
+        setAlso((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
+      },
+      /** Let go of every section picked but the selection. */
+      unpickOthers: () => setAlso([]),
       /** Show a page, loading it first when it isn't yet (the canvas shows `page` null meanwhile). */
       open(slug: string) {
         select({ page: slug, section: null, rule: null });
@@ -275,6 +304,17 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
         undoable("Section deleted", {
           // Cmd+Z may have brought it back already.
           undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+        });
+      },
+      /** Delete several sections of the page on show at once: one step to undo, and one toast's Undo. */
+      removeSections(ids: string[]) {
+        const page = current();
+        const ops: Op[] = ids.map((id) => ({ kind: "page", page, op: { op: "remove", id } }));
+        const back = applyAll(live.current.state, ops).undo;
+        if (!changeAll(ops)) return;
+        select({ section: null, rule: null });
+        undoable(ids.length === 1 ? "Section deleted" : `${ids.length} sections deleted`, {
+          undo: () => (ids.some((id) => sectionsOf(page).some((x) => x.id === id)) ? false : (changeAll(back) ?? Promise.reject())),
         });
       },
       /** A copy of a section, just under it, selected. */
@@ -351,6 +391,11 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const sections = state.pages.get(slug);
   const page = useMemo(() => (entry && sections ? pageOf(entry, sections, home === slug, state.lang) : null), [entry, sections, home, slug, state.lang]);
   const theme = useMemo(() => ({ ...deriveTheme(state.rules, state.theme), settings: state.theme }), [state.rules, state.theme]);
+  const primary = state.selection.section;
+  const picked = useMemo(
+    () => (primary ? [primary, ...also.filter((id) => id !== primary && sections?.some((x) => x.id === id))] : []),
+    [primary, also, sections],
+  );
   const view = useMemo((): PageView => {
     const keys = new Set(state.rules.map((r) => r.key));
     return {
@@ -381,9 +426,24 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     setDock,
     item,
     setItem,
+    /** Every section picked on the page, the selection first: more than one after Shift or Cmd clicks (pick). */
+    picked,
+    /** Whether the library panel floats over the canvas. */
+    library,
+    setLibrary,
+    /** The brand's review comments, and whether the panel shows the page's rather than the picked section's. */
+    comments,
+    commentsOnPage,
+    setCommentsOnPage,
+    /** Whether the canvas marks what changed since the last publish. */
+    changes,
+    setChanges,
     /** Whether the page list shows beside the canvas. */
     pagesOpen,
     setPagesOpen,
+    /** Whether the panel floats over the canvas (floating-panel.tsx) rather than docking beside it. */
+    floating,
+    setFloating,
     pageSettings,
     setPageSettings,
     /** The launch checklist and whether readers see the latest (use-status.ts); null until read. */

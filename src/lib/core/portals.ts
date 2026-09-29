@@ -667,7 +667,11 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
  * send the reader to `canonical`. A portal showing no brand has no pages:
  * `view` is null, and its Assets view is the portal.
  */
-export async function viewPortalSite(slug: string, pass: Pass, o: { path?: string | null; context?: string | null; lang?: string | null } = {}) {
+export async function viewPortalSite(
+  slug: string,
+  pass: Pass,
+  o: { path?: string | null; context?: string | null; lang?: string | null; find?: { section: string; q: string } } = {},
+) {
   const { p, level: door } = await open(slug, pass);
   const lang = checkLang(o.lang);
   const path = (o.path ?? "").split("/").filter(Boolean);
@@ -708,6 +712,7 @@ export async function viewPortalSite(slug: string, pass: Pass, o: { path?: strin
     // Never `as`: collections read as the workspace's reader, not as whoever is signed in.
     sign: (id) => pageSig(id, p.expiresAt),
     presets: p.presets,
+    find: o.find,
   });
   const at = view.page?.slug ?? view.redirect ?? to.page;
   const canonical = `/${(at ? canonicalPath(first, to.brand, at) : to.brand === first ? [] : [to.brand]).join("/")}`;

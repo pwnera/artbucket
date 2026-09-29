@@ -232,6 +232,13 @@
       "when": 1790623647031,
       "tag": "0032_requests_and_views",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790676090890,
+      "tag": "0033_brand_comments",
+      "breakpoints": true
     }
   ]
 }

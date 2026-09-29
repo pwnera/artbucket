@@ -60,6 +60,12 @@ export const ACTIONS = {
   // The brand
   "brand.read": { scope: "read", on: "anywhere" },
   "brand.edit": { scope: "write", on: "workspace", ability: "setup" },
+  /**
+   * Comment on its pages, reply, resolve and reopen a thread, and edit or
+   * delete one's own comment; deleting someone else's takes brand.edit.
+   * Propose: saying something about the guidelines, not changing them.
+   */
+  "brand.comment": { scope: "propose", on: "workspace" },
   /** Put the brand's pages and rules, as they stand, in front of portal visitors. */
   "brand.publish": { scope: "write", on: "workspace", ability: "share" },
   // Sharing, keys, people, settings

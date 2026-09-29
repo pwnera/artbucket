@@ -24,7 +24,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
-import { Brands, type BrandInfo } from "@/components/brand-switcher";
+import { BrandTile, brandHref, Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { useCan } from "@/components/can";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
@@ -121,6 +121,7 @@ export function AppSidebar({
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
+  const shownBrand = pathname === "/brand" && brands.length > 1 ? brands.find((b) => b.slug === currentBrand) : undefined;
   const at = {
     // With several brands, the brand's own row below is lit instead: one place, one lit entry.
     brand: pathname === "/brand" && brands.length < 2,
@@ -176,6 +177,16 @@ export function AppSidebar({
                 hint={reviewCount ? `${reviewCount} waiting in Review` : undefined}
               />
               <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
+              {/* Folded to the rail, the Brands section is gone: the brand on show stands in for its row, lit, under Guidelines. */}
+              {shownBrand && (
+                <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+                  <SidebarMenuButton asChild isActive tooltip={`${shownBrand.name} guidelines`}>
+                    <NavLink href={brandHref(shownBrand)}>
+                      <BrandTile name={shownBrand.name} /> <span>{shownBrand.name}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
               {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
