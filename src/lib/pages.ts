@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COLLECTION_ICONS, type CollectionIcon } from "./collection-icons.ts";
-import { SITE_PATH } from "./markdown.ts";
+import { plainText, SITE_PATH } from "./markdown.ts";
 import { fontValue, listStyle, resolve, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
 
 /**
@@ -202,7 +202,7 @@ export const TEMPLATE_INFO: Record<
     width: "wide",
     columns: 1,
     tone: "plain",
-    example: { template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way", roles: true } },
+    example: { template: "type", title: "Two faces, one voice", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way", roles: true } },
   },
   logos: {
     name: "Logo showcase",
@@ -1246,7 +1246,7 @@ export function applyOps(stored: Section[], ops: PageOp[], slug: string): { sect
   return { sections, page, errors };
 }
 
-type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null };
+type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null; position?: number; parent?: string | null };
 type Warned = Pick<Rule, "key"> & Partial<Pick<Rule, "type" | "context" | "spec" | "assets">>;
 
 /** Lengths a reader compares; x, %, em and ms are of something else, so they mix with anything. */
@@ -1304,12 +1304,42 @@ export function pageWarnings(page: Linked, pages: Linked[], rules: Warned[]): st
     for (const b of bindings(s)) if (!keys.has(b.key)) out.push(`sections[${i}].${b.at}: no rule "${b.key}"; readers see nothing for it`);
     out.push(...ruleWarnings(s, `sections[${i}]`, rules));
   });
-  for (const d of designWarnings(page.sections)) out.push(`${d.at === null ? "page" : `sections[${d.at}]`}: ${d.text}`);
+  // The page readers land on: the first shown at the top of the tree. A picture there is what makes a site.
+  const first = [...pages].filter((p) => !p.hidden && (p.parent ?? null) === null).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0];
+  const withAssets = new Set(rules.filter((r) => r.assets?.length).map((r) => r.key));
+  const pictured = (s: Section) => hasPicture(s) || boundKeys(s).some((k) => withAssets.has(k));
+  for (const d of designWarnings(page.sections, { opens: first?.slug === page.slug, pictured })) out.push(`${d.at === null ? "page" : `sections[${d.at}]`}: ${d.text}`);
   return out;
 }
 
+/** Templates that draw pictures of their own, before any rule they bind: a cover draws the mark and the palette strip. */
+const PICTURED = new Set<Template>(["cover", "split", "gallery", "logos", "annotated", "pattern", "collection", "icons", "diagram"]);
+
+/** Whether a section shows a picture as written: a pictured template, an image ground, a cover or header image, an item with an asset. */
+export const hasPicture = (s: Section) =>
+  PICTURED.has(s.template) || s.tone === "image" || !!s.props.image || !!s.props.video || !!s.props.asset || !!s.items?.some((it) => it.asset);
+
+const words = (text: string) => (plainText(text).match(/\S+/g) ?? []).length;
+
+/** Titles that name the block instead of saying something: what a label reads like on each template. */
+const LABELS: Partial<Record<Template, string[]>> = {
+  palette: ["color", "colors", "colour", "colours", "palette", "color palette", "our colors", "the colors"],
+  type: ["type", "typography", "typefaces", "typeface", "fonts", "our type", "the type"],
+  logos: ["logo", "logos", "the logo", "our logo", "logo showcase"],
+  gallery: ["gallery", "examples", "images", "pictures"],
+  icons: ["icons", "icon set", "iconography"],
+};
+
+/** A page holds this many shown sections before it reads better as two; a run of this many on the page's own ground reads as one list. */
+const LONG_PAGE = 16;
+const PLAIN_RUN = 6;
+const LONG_BODY = 300;
+const LONG_LEDE = 25;
+
 /** Grounds that read as a block of their own: two in a row run together. */
 const BLOCKS: Tone[] = ["tint", "panel", "dark", "brand", "pattern", "color"];
+/** Templates that draw their own ground and heading: not part of a run of blocks. */
+const OWN_GROUND = new Set<Template>(["cover", "header"]);
 
 /**
  * Where a page reads but doesn't look designed: nothing on it, two grounds
@@ -1317,14 +1347,39 @@ const BLOCKS: Tone[] = ["tint", "panel", "dark", "brand", "pattern", "color"];
  * starter text left in. `at` is the section's index, null for the page. The
  * builder lists them as checks; agents get them with a save's warnings.
  */
-export function designWarnings(sections: Section[]): { at: number | null; text: string }[] {
+export function designWarnings(
+  sections: Section[],
+  /** `opens`: the page readers land on. `alternate`: the theme alternates grounds. `pictured`: whether a section shows a picture, rules it binds included; as written, when left out. */
+  ctx: { opens?: boolean; alternate?: boolean; pictured?: (s: Section) => boolean } = {},
+): { at: number | null; text: string }[] {
   const out: { at: number | null; text: string }[] = [];
   const shown = sections.flatMap((s, at) => (s.hidden ? [] : [{ s, at }]));
   if (!shown.length) return [{ at: null, text: "nothing shows on this page; readers see only its title" }];
+  const pictured = ctx.pictured ?? hasPicture;
   const covers = shown.filter(({ s }) => s.template === "cover");
   if (covers.length > 1) out.push({ at: covers[1].at, text: "a second cover; a page opens once, so open its parts with a header section" });
+  if (shown.length > LONG_PAGE) out.push({ at: null, text: `${shown.length} sections; a page reads best under 12: move the rest to pages under this one` });
+  if (ctx.opens && shown.length > 3 && !shown.slice(0, 3).some(({ s }) => pictured(s)))
+    out.push({ at: null, text: "no picture in the first three sections of the page readers land on; a cover image, a split or a gallery makes it a site, not a document" });
   shown.forEach(({ s, at }, n) => {
     const prev = shown[n - 1]?.s;
+    // Three of one block in a row, or five on the page's own ground: the page reads as one long list.
+    const run = (same: (x: Section) => boolean) => {
+      let k = 0;
+      for (let i = n; i >= 0 && same(shown[i].s) && (shown[i].s.tab ?? null) === (s.tab ?? null); i--) k++;
+      return k;
+    };
+    // The same block three times: template, ground and layout or kind alike; four diagrams of four kinds are not a run.
+    const alike = (x: Section) => x.template === s.template && x.tone === s.tone && x.props.layout === s.props.layout && x.props.kind === s.props.kind;
+    if (run(alike) === 3 && !OWN_GROUND.has(s.template))
+      out.push({ at, text: `the third ${TEMPLATE_INFO[s.template].name} section in a row; vary the block: a statement, a quote, a split or a gallery between them` });
+    if (!ctx.alternate && run((x) => x.tone === "plain" && !OWN_GROUND.has(x.template)) === PLAIN_RUN)
+      out.push({ at, text: `the ${PLAIN_RUN}th section in a row on the page's own ground; give one a ground (tint, panel, brand), or set the theme's grounds to alternate` });
+    const label = LABELS[s.template];
+    if (label && s.title && label.includes(s.title.trim().toLowerCase()))
+      out.push({ at, text: `the title "${s.title}" names the block; say what the reader should take from it, as a claim` });
+    if (s.lede && words(s.lede) > LONG_LEDE) out.push({ at, text: `the lede is ${words(s.lede)} words; under 20 reads in one breath` });
+    if (s.body && words(s.body) > LONG_BODY) out.push({ at, text: `the body runs to ${words(s.body)} words; cut it, or move the rest to a page of its own` });
     const same = prev && s.tone === prev.tone && (s.tone !== "color" || (s.background?.color === prev.background?.color && s.background?.to === prev.background?.to));
     if (same && BLOCKS.includes(s.tone) && !s.tab && !prev.tab) out.push({ at, text: `a second ${s.tone} ground in a row runs into the one before; make one of them plain` });
     const title = s.title ?? "";
@@ -1447,8 +1502,8 @@ export function initialPages(all: Bindable[], brand: string): Draft[] {
     const add = (template: Template, keys: string[], title: string) => {
       if (keys.length) sections.push({ template, keys, title } as SectionInput);
     };
-    add("palette", take(TEMPLATE_INFO.palette.accepts!), "Palette");
-    add("type", take(TEMPLATE_INFO.type.accepts!), "Typefaces");
+    add("palette", take(TEMPLATE_INFO.palette.accepts!), "The colors, and what each is for");
+    add("type", take(TEMPLATE_INFO.type.accepts!), "Set in these faces");
     add(s === "logo" ? "logos" : "gallery", take(hasAssets), s === "logo" ? "The marks" : "In use");
     add("text", take((r) => TEMPLATE_INFO.text.accepts!(r) && !(r.type === "list" && ["do", "dont"].includes(listStyle(r.key, r.value as (string | number)[])))), "Rules");
     add("dodont", take(TEMPLATE_INFO.dodont.accepts!), "Do and don't");

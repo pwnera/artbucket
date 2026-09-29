@@ -32,7 +32,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { designWarnings } from "@/lib/pages";
+import { boundKeys, designWarnings, hasPicture } from "@/lib/pages";
 import type { StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { cn } from "@/lib/utils";
@@ -262,7 +262,11 @@ function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void;
 function Checklist({ b }: { b: BuilderApi }) {
   const sections = b.view.page?.sections ?? [];
   const found = [
-    ...designWarnings(sections).map((w) => ({ id: w.at === null ? null : sections[w.at].id, where: w.at === null ? "This page" : (sections[w.at].title ?? `Section ${w.at + 1}`), text: w.text })),
+    ...designWarnings(sections, {
+      opens: b.view.page?.home,
+      alternate: b.view.theme.grounds === "alternate",
+      pictured: (s) => hasPicture(s) || boundKeys(s).some((k) => b.view.rules.some((r) => r.key === k && r.assets.length)),
+    }).map((w) => ({ id: w.at === null ? null : sections[w.at].id, where: w.at === null ? "This page" : (sections[w.at].title ?? `Section ${w.at + 1}`), text: w.text })),
     ...b.view.warnings.map((text) => ({ id: null, where: "Theme", text })),
   ];
   const status = b.status;
