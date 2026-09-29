@@ -41,7 +41,29 @@ export const pictured = (a: RuleAsset) => a.preview ?? !a.mime;
  * CSS alone), a wide mark as wide as it is. Without one, its initial on its
  * first color; editors click that to add the logo.
  */
-export function BrandIcon({ brand, rules, color, onAdd }: { brand: { name: string }; rules: Shown[]; color?: string; onAdd?: () => void }) {
+/** The mark's height, and the letter's size on a brand with no logo yet. */
+const ICON_SIZE = {
+  small: ["h-12", "size-12 text-xl"],
+  medium: ["h-16", "size-16 text-2xl"],
+  large: ["h-24", "size-24 text-4xl"],
+} as const;
+
+/** `bare`: the logo alone on the ground, without the checkered, bordered square. */
+export function BrandIcon({
+  brand,
+  rules,
+  color,
+  onAdd,
+  size = "medium",
+  bare,
+}: {
+  brand: { name: string };
+  rules: Shown[];
+  color?: string;
+  onAdd?: () => void;
+  size?: keyof typeof ICON_SIZE;
+  bare?: boolean;
+}) {
   const url = useAssetUrl();
   const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.some(pictured));
   const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)/.test(r.key)) ?? logos[0];
@@ -50,10 +72,10 @@ export function BrandIcon({ brand, rules, color, onAdd }: { brand: { name: strin
   const a = base?.assets.find(pictured);
   const d = dark?.assets.find(pictured);
   if (a) {
-    // As wide as the mark, from a square to three squares (h-16, at most max-w-48).
+    // As wide as the mark, from a square to three squares.
     const ratio = a.width && a.height ? Math.min(Math.max(a.width / a.height, 1), 3) : 1;
     return (
-      <span className="bg-checker relative h-16 shrink-0 overflow-hidden rounded-2xl border" style={{ aspectRatio: ratio }}>
+      <span className={cn("relative shrink-0 overflow-hidden", ICON_SIZE[size][0], !bare && "bg-checker rounded-2xl border")} style={{ aspectRatio: ratio }}>
         <span className={cn("absolute inset-0", d && "dark:hidden")}>
           <Thumb src={url(a.id, "/w_192,f_webp")} alt={`${brand.name} logo`} eager />
         </span>
@@ -65,7 +87,7 @@ export function BrandIcon({ brand, rules, color, onAdd }: { brand: { name: strin
       </span>
     );
   }
-  const tile = cn("flex size-16 shrink-0 items-center justify-center rounded-2xl border text-2xl font-semibold", !color && "bg-muted");
+  const tile = cn("flex shrink-0 items-center justify-center rounded-2xl border font-semibold", ICON_SIZE[size][1], !color && "bg-muted");
   const style = color ? { backgroundColor: color, color: inkOn(color.slice(0, 7)) } : undefined;
   if (!onAdd)
     return (

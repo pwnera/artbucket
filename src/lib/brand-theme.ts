@@ -433,6 +433,8 @@ export type Ground = {
   background: string | null;
   /** Black over the picture, 0.54 to 0.9: the section's scrim, raised until white text reads on any picture. */
   scrim?: number;
+  /** A fade from `background` into a second color, over it: tone color with background.to. */
+  gradient?: string;
   /** A 2px rule along its top: the brand ground, when the accent is a hairline. */
   rule?: string;
   /** Its text is light: the ground takes class="dark" too (D13). Null: it follows the app's light or dark, as a page with no surface does. */
@@ -499,7 +501,21 @@ export function sectionGround(t: Theme, s: Pick<Section, "tone" | "background">,
       const bg = hexOf(key);
       // A color that has gone since: the brand's own ground stands in.
       if (!bg) return sectionGround(t, { tone: "brand" }, colorOf);
-      return on(bg, key!, hexOf(colorSpec(colorOf(key!)).pair) ?? inkOn(bg));
+      const pair = hexOf(colorSpec(colorOf(key!)).pair);
+      const to = hexOf(s.background?.to);
+      if (!to) return on(bg, key!, pair ?? inkOn(bg));
+      // A fade: every color along it lies between its ends, so an ink that reads on both ends reads everywhere.
+      // The one that reads best is kept, and an end it still misses is moved until it reads (a blue into an
+      // orange: no ink reads on both). The ink is graded on the end it reads worse on.
+      const reads = (ink: string) => Math.min(contrast(ink, bg), contrast(ink, to));
+      const ink = [pair, inkOn(bg), inkOn(to)].filter((c): c is string => !!c).reduce((a, b) => (reads(b) > reads(a) ? b : a));
+      const [from, into] = [bg, to].map((end) => check(rows, `fade end under text`, end, ink, 4.5, () => lift(end, ink, 4.5)));
+      const worst = contrast(ink, from) <= contrast(ink, into) ? from : into;
+      return {
+        ...on(worst, `${key} fading into ${s.background!.to}`, ink),
+        background: from,
+        gradient: `linear-gradient(${s.background?.angle ?? 180}deg, ${from}, ${into})`,
+      };
     }
     case "image": {
       // Graded on the worst picture, a white one under the scrim; black shows until it loads.

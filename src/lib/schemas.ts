@@ -504,7 +504,7 @@ export const Section = z.object({
   lede: z.string().optional(),
   aside: z.string().optional().describe("Markdown"),
   tab: z.string().optional().describe("Sections sharing a tab name show under one tab"),
-  background: z.object({ color: z.string(), image: uuid, scrim: z.number() }).partial().optional(),
+  background: z.object({ color: z.string(), to: z.string(), angle: z.number(), image: uuid, scrim: z.number() }).partial().optional(),
   items: z.array(Item).optional(),
   audience: z.enum(AUDIENCES).optional(),
   contexts: z.array(z.string()).optional().describe("A tab per context, its rules resolved for each"),

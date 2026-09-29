@@ -28,6 +28,8 @@ const FALLBACK: Record<string, string | boolean> = {
   "embed.aspect": "auto",
   "request.kind": "question",
   "cover.strip": true,
+  "cover.markSize": "medium",
+  "cover.titleSize": "large",
   "logos.kit": true,
   "collection.downloads": true,
 };
@@ -48,6 +50,9 @@ const LABELS: Record<string, string> = {
   ask: "Which mark for which context",
   flip: "Picture on the other side",
   strip: "Palette as a strip",
+  mark: "Logo",
+  markFrame: "Logo frame",
+  markSize: "Logo size",
   from: "Pages under",
   depth: "Levels",
   query: "Filters",
