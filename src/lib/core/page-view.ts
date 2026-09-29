@@ -55,6 +55,38 @@ export async function publishedSource(ws: string, brandSlug?: string): Promise<B
   };
 }
 
+/**
+ * A brand's look with no page: its theme, its faces' files and its device
+ * described and signed as viewPage does, for views that should read as part
+ * of its site (a portal's Assets view, a share link). With no brand, the
+ * organization's accent over the app's own look.
+ */
+export async function viewLook(ws: string, src: BrandSource | null, sign: Sign, accent: string | null) {
+  if (!src) {
+    const rules = accent ? [{ key: "color.accent", type: "color" as const, value: accent, context: null, assets: [], spec: null }] : [];
+    return { brand: null, theme: { ...deriveTheme(rules), settings: {} }, signed: {} };
+  }
+  const ids = [
+    ...new Set([...src.rules.filter((r) => r.type === "font").flatMap((r) => r.assets.map((a) => a.id)), ...(src.theme.device ? [src.theme.device] : [])]),
+  ];
+  const rows = ids.length
+    ? await db
+        .select({ id: assets.id, filename: assets.filename, mime: assets.mime })
+        .from(assets)
+        .where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))
+    : [];
+  const described = new Map(rows.map((a) => [a.id, a]));
+  const theme = deriveTheme(
+    src.rules.map((r) => ({ ...r, assets: r.assets.flatMap((a) => (described.has(a.id) ? [{ ...described.get(a.id)!, rendition: a.rendition }] : [])) })),
+    src.theme,
+  );
+  return {
+    brand: src.brand,
+    theme: { ...theme, settings: src.theme },
+    signed: sign ? Object.fromEntries(rows.map((a) => [a.id, sign(a.id)])) : {},
+  };
+}
+
 /** Why a reader won't see an asset, for the editor's warning. */
 const why = (state: string) => (state === "active" ? "under embargo" : state);
 

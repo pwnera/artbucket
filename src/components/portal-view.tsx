@@ -374,13 +374,19 @@ export function PortalView({
         <PortalAssets
           key={loaded}
           slug={slug}
+          base={base}
           initial={state.view}
           q={state.q}
           collection={state.collection}
           asset={state.asset}
           headers={headers}
           onLost={lost}
-          nav={tabs.length > 1 && <PortalNav tabs={tabs} current="" onNavigate={navigate} />}
+          onNavigate={navigate}
+          header={
+            <PortalHeader name={portal.name} theme={portal.theme} home={at(base, "/")} onNavigate={navigate}>
+              {tabs.length > 1 && <PortalNav tabs={tabs} current="" onNavigate={navigate} />}
+            </PortalHeader>
+          }
         />
       </Shell>
     );

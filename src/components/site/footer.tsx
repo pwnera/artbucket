@@ -14,7 +14,7 @@ const LINK = "hover:text-foreground focus-visible:ring-ring/50 rounded-sm underl
  * brand being read was last published and what that changed, where to send
  * feedback, and the credit line.
  */
-export function SiteFooter({ portal, base, onNavigate }: { portal: SitePortal; base: string; onNavigate?: (href: string) => void }) {
+export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "site" | "brands">; base: string; onNavigate?: (href: string) => void }) {
   const { view } = useSite();
   const f = portal.site.footer ?? {};
   const brand = view.brand.slug;

@@ -17,6 +17,7 @@ import {
   IconPlayerPlayFilled,
   IconTypography,
 } from "@tabler/icons-react";
+import { HEAD, usePortaledLook } from "@/components/brand-sections/look";
 import { IconButton } from "@/components/icon-button";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
@@ -234,7 +235,11 @@ export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]
         {items.map((a) => {
           const name = a.title ?? a.filename;
           return (
-            <li key={a.id} className="bg-card text-card-foreground overflow-hidden rounded-xl border shadow-xs transition-shadow hover:shadow-md">
+            // Corners as the brand draws them (--brand-radius), on a portal's or a page's site; the app's elsewhere.
+            <li
+              key={a.id}
+              className="group/tile bg-card text-card-foreground overflow-hidden rounded-[var(--brand-radius,var(--radius-xl))] border shadow-xs transition-[box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:hover:translate-y-0"
+            >
               <button
                 type="button"
                 onClick={() => show(a.id)}
@@ -246,11 +251,15 @@ export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]
                   // Tiles are ~270px: 320 for a 1x screen, and the API's own 640 for a 2x one.
                   <Thumb src={a.thumbnail.replace("/w_640,", "/w_320,")} alt={name} />
                 ) : (
-                  <span className="text-muted-foreground absolute inset-0 flex items-center justify-center">
-                    <KindIcon item={a} />
+                  // No still: the kind, and its type set large, on a wash of the accent.
+                  <span className="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[color-mix(in_oklab,var(--primary)_7%,var(--muted))]">
+                    <KindIcon item={a} className="transition-transform duration-200 group-hover/tile:-translate-y-0.5 motion-reduce:transform-none" />
+                    <span className="text-foreground/80 [font-family:var(--brand-head,var(--font-display))] text-xl font-semibold tracking-tight">
+                      {fileTypeBadge(a.filename, a.mime)}
+                    </span>
                   </span>
                 )}
-                {(!a.thumbnail || !a.mime.startsWith("image/")) && (
+                {a.thumbnail && !a.mime.startsWith("image/") && (
                   <Badge variant="secondary" className="bg-background/80 absolute start-2 top-2 font-mono text-2xs backdrop-blur">
                     {fileTypeBadge(a.filename, a.mime)}
                   </Badge>
@@ -290,6 +299,8 @@ export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]
 export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openId: string | null; onOpen: (id: string | null) => void }) {
   const at = items.findIndex((a) => a.id === openId);
   const open = at >= 0 ? items[at] : null;
+  // It portals out of the site: it takes the site's look along, as the nav sheet does.
+  const look = usePortaledLook();
   // With no DialogTrigger, Radix has nothing to give focus back to on close: remember what had it.
   const opener = useRef<HTMLElement | null>(null);
   const step = (by: number) => {
@@ -301,7 +312,13 @@ export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openI
     <Dialog open={!!open} onOpenChange={(o) => !o && onOpen(null)}>
       {open && (
         <DialogContent
-          className="sm:max-w-3xl max-sm:h-svh max-sm:max-h-none max-sm:max-w-none max-sm:content-start max-sm:rounded-none max-sm:border-0"
+          style={look?.style}
+          lang={look?.lang}
+          dir={look?.dir}
+          className={cn(
+            look && [look.className, "bg-background text-foreground"],
+            "sm:max-w-3xl max-sm:h-svh max-sm:max-h-none max-sm:max-w-none max-sm:content-start max-sm:rounded-none max-sm:border-0",
+          )}
           onOpenAutoFocus={() => {
             opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           }}
@@ -318,7 +335,7 @@ export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openI
           }}
         >
           <DialogHeader>
-            <DialogTitle className="pr-8 leading-snug break-words">{open.title ?? open.filename}</DialogTitle>
+            <DialogTitle className={cn("pe-8 leading-snug break-words", look && HEAD)}>{open.title ?? open.filename}</DialogTitle>
             <DialogDescription>{[meta(open), open.copyright].filter(Boolean).join(" · ")}</DialogDescription>
           </DialogHeader>
           <div className="relative">

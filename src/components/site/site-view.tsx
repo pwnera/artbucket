@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from "@tabler/icons-react";
 import { PageBody } from "@/components/brand-sections";
-import { LABEL, useSiteLook } from "@/components/brand-sections/look";
+import { LABEL, LookProvider, useSiteLook } from "@/components/brand-sections/look";
 import { goTo, TYPING, useHashFlash } from "@/components/site/anchors";
 import { SiteFooter } from "@/components/site/footer";
 import { NavBar, NavTree, plain } from "@/components/site/nav-tree";
@@ -89,7 +89,9 @@ const GRID = {
 export function SiteView({ view, href, url, mode, ...p }: SiteViewProps) {
   return (
     <SiteProvider view={view} href={href} url={url} mode={mode} portal={p.portal?.slug} headers={p.headers}>
-      <Layout {...p} />
+      <LookProvider>
+        <Layout {...p} />
+      </LookProvider>
     </SiteProvider>
   );
 }

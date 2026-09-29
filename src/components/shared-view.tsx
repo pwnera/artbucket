@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { IconCircleCheck, IconCloudUpload, IconExternalLink, IconLock, IconRefresh, IconUpload } from "@tabler/icons-react";
 import { BrandMark, ThemeToggle, useAccent } from "@/components/brand";
+import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { Downloads, LocalDate, meta, PublicGrid, Stage, type PublicItem } from "@/components/public-grid";
 import { Card } from "@/components/sign-in";
 import { GridSkeleton } from "@/components/skeletons";
+import { type BrandLook, Looked, Opening } from "@/components/site/looked";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +44,8 @@ type Shared = {
     target: { type: string; label: string | null };
     expiresAt: string | null;
     brand: Brand;
+    /** The workspace's brand site, once published; else the organization's accent (lib/core/page-view.ts viewLook). */
+    look: BrandLook;
   };
   data: Item[];
   total: number;
@@ -115,27 +120,32 @@ export function SharedView({ token, initial, asset = null }: { token: string; in
   });
   const headers = useCallback((): HeadersInit => (password.current ? { "X-Share-Password": password.current } : {}), []);
 
-  const load = useCallback(async (typed = false) => {
-    const sent = password.current;
-    setPending(true);
-    try {
-      const res = await fetch(`/api/v1/shared/${token}`, { headers: headers(), cache: "no-store" });
-      const body = (await res.json().catch(() => ({}))) as SharedBody;
-      if (res.ok && sent) keep(store, sent);
-      if (!res.ok && body.error?.code === "password" && sent) {
-        password.current = null;
-        keep(store, null);
+  const load = useCallback(
+    async (typed = false) => {
+      const sent = password.current;
+      setPending(true);
+      try {
+        const res = await fetch(`/api/v1/shared/${token}`, { headers: headers(), cache: "no-store" });
+        const body = (await res.json().catch(() => ({}))) as SharedBody;
+        if (res.ok && sent) keep(store, sent);
+        if (!res.ok && body.error?.code === "password" && sent) {
+          password.current = null;
+          keep(store, null);
+        }
+        setState(next(body, typed && !!sent, latest.current));
+      } catch {
+        // At the door, the door stays, saying why.
+        const was = latest.current;
+        const offline = "Couldn't reach the server. Check the connection and try again.";
+        setState(
+          was.at === "password" ? { ...was, wrong: false, note: offline } : { at: "error", title: "Couldn't reach the link", message: offline, retry: true },
+        );
+      } finally {
+        setPending(false);
       }
-      setState(next(body, typed && !!sent, latest.current));
-    } catch {
-      // At the door, the door stays, saying why.
-      const was = latest.current;
-      const offline = "Couldn't reach the server. Check the connection and try again.";
-      setState(was.at === "password" ? { ...was, wrong: false, note: offline } : { at: "error", title: "Couldn't reach the link", message: offline, retry: true });
-    } finally {
-      setPending(false);
-    }
-  }, [token, headers, store]);
+    },
+    [token, headers, store],
+  );
 
   useEffect(() => {
     // The server rendered what anyone sees; a password this tab kept may open more.
@@ -194,26 +204,42 @@ export function SharedView({ token, initial, asset = null }: { token: string; in
   const { share } = state.shared;
   const title = share.name ?? share.target.label ?? "Shared";
   const from = [share.organization, share.workspace].filter(Boolean).join(" · ");
+  const by = share.organization ?? share.workspace;
   const single = share.target.type === "asset" && state.shared.data.length === 1;
   return (
-    <div className="min-h-svh" style={accentVars(share.brand.accent)}>
-      <header className="bg-background/95 sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 backdrop-blur sm:px-8">
-        <BrandMark brand={share.brand} className="size-7 max-w-24" />
-        <p className="text-muted-foreground min-w-0 flex-1 truncate text-sm">{from ? `Shared from ${from}` : "Shared with you"}</p>
-        <ThemeToggle />
-      </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+    <div style={accentVars(share.brand.accent)}>
+      <Looked look={share.look} name={by ?? share.brand.name}>
+        <header className="bg-background/90 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-10 border-b backdrop-blur">
+          <div className="mx-auto flex h-14 w-full max-w-280 items-center gap-3 px-6 @3xl/site:px-10">
+            <BrandMark brand={share.brand} className="h-7 max-w-28" />
+            <p className="text-muted-foreground min-w-0 flex-1 truncate text-sm">{from ? `Shared from ${from}` : "Shared with you"}</p>
+            <ThemeToggle />
+          </div>
+        </header>
         {share.kind === "upload" ? (
-          <Dropzone token={token} headers={headers} into={share.target.label} expiresAt={share.expiresAt} />
+          <Dropzone token={token} headers={headers} into={share.target.label} by={by} />
         ) : single ? (
-          <Single item={toPublic(state.shared.data[0])} expiresAt={share.expiresAt} />
+          <Single item={toPublic(state.shared.data[0])} by={by} />
         ) : (
-          <Listing token={token} headers={headers} title={title} shared={state.shared} asset={asset} />
+          <Listing token={token} headers={headers} title={title} by={by} shared={state.shared} asset={asset} />
         )}
-      </main>
+        <footer className="text-muted-foreground border-t text-sm">
+          <div className="mx-auto flex w-full max-w-280 flex-wrap justify-between gap-x-6 gap-y-1 px-6 py-8 @3xl/site:px-10">
+            <p>{by ? `Shared by ${by}` : "Shared with you"}</p>
+            {share.expiresAt && (
+              <p>
+                This link works until <LocalDate at={share.expiresAt} />
+              </p>
+            )}
+          </div>
+        </footer>
+      </Looked>
     </div>
   );
 }
+
+/** Where a share's content sits: the site's column, filling the page above the footer. */
+const MAIN = "mx-auto w-full max-w-280 flex-1 px-6 pt-8 pb-[calc(var(--brand-gap)*2)] @3xl/site:px-10";
 
 function PasswordForm({ state, onSubmit }: { state: Locked; onSubmit: (p: string) => Promise<unknown> }) {
   const id = useId();
@@ -262,35 +288,51 @@ function PasswordForm({ state, onSubmit }: { state: Locked; onSubmit: (p: string
   );
 }
 
-/** A link to one asset: a delivery, not a file index. */
-function Single({ item, expiresAt }: { item: PublicItem; expiresAt: string | null }) {
+/** A link to one asset: a delivery, not a file index. The file first, then what it is and how to take it. */
+function Single({ item, by }: { item: PublicItem; by: string | null }) {
   return (
-    <article className="mx-auto grid max-w-4xl gap-6">
-      <Stage item={item} className="max-h-[70svh] min-h-64 rounded-xl border [&>img]:max-h-[70svh]" />
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight break-words">{item.title ?? item.filename}</h1>
-          <p className="text-muted-foreground text-sm tabular-nums">{[meta(item), item.copyright].filter(Boolean).join(" · ")}</p>
-          {item.description && <p className="pt-2 text-sm">{item.description}</p>}
-          {expiresAt && <p className="text-muted-foreground text-xs">This link works until <LocalDate at={expiresAt} />.</p>}
+    <main className={MAIN}>
+      <article className="grid grid-cols-[minmax(0,1fr)] gap-8">
+        <Stage item={item} className="max-h-[70svh] min-h-64 rounded-[var(--brand-radius,var(--radius-xl))] border [&>img]:max-h-[70svh]" />
+        <div className="flex flex-wrap items-end gap-6">
+          <div className="min-w-0 flex-1 basis-72 space-y-3">
+            {by && <p className={cn(LABEL, "text-muted-foreground")}>Shared by {by}</p>}
+            <h1 className={cn(HEAD, "text-[length:min(var(--brand-h2),10cqi)] leading-[1.1] break-words text-balance")}>{item.title ?? item.filename}</h1>
+            <p className="text-muted-foreground text-sm tabular-nums [overflow-wrap:anywhere]">{[meta(item), item.copyright].filter(Boolean).join(" · ")}</p>
+            {item.description && <p className="max-w-(--brand-measure) text-pretty">{item.description}</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {item.original && (
+              <Button variant="outline" size="lg" asChild>
+                <a href={item.original} target="_blank" rel="noreferrer">
+                  <IconExternalLink /> Open original
+                </a>
+              </Button>
+            )}
+            <Downloads item={item} variant="default" size="lg" />
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {item.original && (
-            <Button variant="outline" size="lg" asChild>
-              <a href={item.original} target="_blank" rel="noreferrer">
-                <IconExternalLink /> Open original
-              </a>
-            </Button>
-          )}
-          <Downloads item={item} variant="default" size="lg" />
-        </div>
-      </div>
-    </article>
+      </article>
+    </main>
   );
 }
 
 /** A collection's approved assets, a page at a time: more load as the end comes into view, or with the button. */
-function Listing({ token, headers, title, shared, asset }: { token: string; headers: () => HeadersInit; title: string; shared: Shared; asset: string | null }) {
+function Listing({
+  token,
+  headers,
+  title,
+  by,
+  shared,
+  asset,
+}: {
+  token: string;
+  headers: () => HeadersInit;
+  title: string;
+  by: string | null;
+  shared: Shared;
+  asset: string | null;
+}) {
   const [items, setItems] = useState(shared.data);
   const [more, setMore] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -321,45 +363,41 @@ function Listing({ token, headers, title, shared, asset }: { token: string; head
     return () => io.disconnect();
   }, [left, more, failed, loadMore]);
 
-  if (!items.length) {
-    return (
-      <div className="py-24 text-center">
-        <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-muted-foreground mt-2 text-sm">Nothing here yet. Check back soon.</p>
-      </div>
-    );
-  }
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight break-words">{title}</h1>
-        <p className="text-muted-foreground text-sm">
+    <>
+      <Opening eyebrow={by ? `Shared by ${by}` : "Shared with you"} title={title}>
+        <p className="text-muted-foreground text-sm tabular-nums">
           {total} {total === 1 ? "file" : "files"}
-          {shared.share.expiresAt && (
-            <>
-              {" "}
-              · until <LocalDate at={shared.share.expiresAt} />
-            </>
-          )}
         </p>
-      </div>
-      <PublicGrid items={items.map(toPublic)} asset={asset} />
-      {left && (
-        <div ref={end} className="flex flex-col items-center gap-2">
-          <p className="text-muted-foreground text-sm tabular-nums" aria-live="polite">
-            {items.length} of {total}
-          </p>
-          <Button variant="outline" pending={more} onClick={() => void loadMore()}>
-            {failed ? "Try again" : "Show more"}
-          </Button>
-        </div>
-      )}
-    </div>
+      </Opening>
+      <main className={cn(MAIN, "space-y-6")}>
+        {items.length ? (
+          <PublicGrid items={items.map(toPublic)} asset={asset} />
+        ) : (
+          <Empty size="sm" className="rounded-[var(--brand-radius,var(--radius-xl))] border border-dashed py-16">
+            <EmptyHeader>
+              <EmptyTitle className={HEAD}>Nothing here yet</EmptyTitle>
+              <EmptyDescription>Check back soon.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        {left && (
+          <div ref={end} className="flex flex-col items-center gap-2">
+            <p className="text-muted-foreground text-sm tabular-nums" aria-live="polite">
+              {items.length} of {total}
+            </p>
+            <Button variant="outline" pending={more} onClick={() => void loadMore()}>
+              {failed ? "Try again" : "Show more"}
+            </Button>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
 /** Send files in, like the library's own upload: straight to storage, then handed in for review. */
-function Dropzone({ token, headers, into, expiresAt }: { token: string; headers: () => HeadersInit; into: string | null; expiresAt: string | null }) {
+function Dropzone({ token, headers, into, by }: { token: string; headers: () => HeadersInit; into: string | null; by: string | null }) {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
@@ -462,66 +500,66 @@ function Dropzone({ token, headers, into, expiresAt }: { token: string; headers:
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <div className="space-y-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Send files{into ? ` for ${into}` : ""}</h1>
-        <p className="text-muted-foreground text-sm">
-          No account needed. What you send is reviewed before it is used.
-          {expiresAt && (
-            <>
-              {" "}
-              This link works until <LocalDate at={expiresAt} />.
-            </>
+    <>
+      <Opening
+        eyebrow={by ? `For ${by}` : null}
+        title={`Send files${into ? ` for ${into}` : ""}`}
+        lede="No account needed. What you send is reviewed before it is used."
+      />
+      <main className={MAIN}>
+        <div className="max-w-3xl space-y-4">
+          {allDone && (
+            <div role="status" className="animate-in fade-in-0 flex items-start gap-3 rounded-xl border p-4">
+              <IconCircleCheck className="text-success mt-0.5 size-5 shrink-0" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">
+                  Thank you: {uploads.length} {uploads.length === 1 ? "file" : "files"} sent for review
+                </p>
+                <p className="text-muted-foreground text-sm">Someone will look them over before they are used. Send more any time.</p>
+              </div>
+            </div>
           )}
-        </p>
-      </div>
-      {allDone && (
-        <div role="status" className="animate-in fade-in-0 flex items-start gap-3 rounded-xl border p-4">
-          <IconCircleCheck className="text-success mt-0.5 size-5 shrink-0" />
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium">
-              Thank you: {uploads.length} {uploads.length === 1 ? "file" : "files"} sent for review
-            </p>
-            <p className="text-muted-foreground text-sm">Someone will look them over before they are used. Send more any time.</p>
-          </div>
+          <button
+            type="button"
+            onClick={() => input.current?.click()}
+            className={cn(
+              "text-muted-foreground flex w-full flex-col items-center gap-3 rounded-[var(--brand-radius,var(--radius-xl))] border-2 border-dashed px-6 py-20 transition-colors [&>*]:pointer-events-none",
+              dragging ? "border-primary bg-primary/5 text-foreground" : "hover:border-primary/50 hover:bg-primary/5",
+            )}
+          >
+            <span className="bg-primary/10 text-primary rounded-full p-4">
+              <IconUpload className="size-7" />
+            </span>
+            <span className={cn(HEAD, "text-foreground text-lg")}>Drop files here</span>
+            <span className="text-sm">or click to choose them</span>
+          </button>
+          <input
+            ref={input}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files?.length) send([...e.target.files]);
+              e.target.value = "";
+            }}
+          />
+          <UploadTray
+            inline
+            uploads={uploads}
+            onDismiss={() => (setUploads([]), files.current.clear())}
+            onRetry={retry}
+            labels={{ done: "Sent", finished: (n) => `${n} sent for review` }}
+          />
+          {dragging && (
+            <div className="bg-background/80 animate-in fade-in-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-150">
+              <div className="border-primary/40 bg-muted/50 flex size-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed">
+                <IconCloudUpload className="size-10" stroke={1.5} />
+                <p className="text-lg font-medium">Drop to send{into ? ` for ${into}` : ""}</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      <button
-        type="button"
-        onClick={() => input.current?.click()}
-        className={cn(
-          "text-muted-foreground flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-16 transition-colors [&>*]:pointer-events-none",
-          dragging ? "border-primary bg-primary/5 text-foreground" : "hover:bg-muted/50",
-        )}
-      >
-        <IconUpload className="size-8" />
-        <span className="text-sm">Drop files or choose them</span>
-      </button>
-      <input
-        ref={input}
-        type="file"
-        multiple
-        hidden
-        onChange={(e) => {
-          if (e.target.files?.length) send([...e.target.files]);
-          e.target.value = "";
-        }}
-      />
-      <UploadTray
-        inline
-        uploads={uploads}
-        onDismiss={() => (setUploads([]), files.current.clear())}
-        onRetry={retry}
-        labels={{ done: "Sent", finished: (n) => `${n} sent for review` }}
-      />
-      {dragging && (
-        <div className="bg-background/80 animate-in fade-in-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-150">
-          <div className="border-primary/40 bg-muted/50 flex size-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed">
-            <IconCloudUpload className="size-10" stroke={1.5} />
-            <p className="text-lg font-medium">Drop to send{into ? ` for ${into}` : ""}</p>
-          </div>
-        </div>
-      )}
-    </div>
+      </main>
+    </>
   );
 }
