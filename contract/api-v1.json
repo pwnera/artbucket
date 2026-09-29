@@ -927,7 +927,7 @@
     },
     "post": {
       "summary": "Promote an upload, or ingest from a URL",
-      "description": "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, and required fields may be left for the person who approves it. C2PA Content Credentials in the file are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version of that asset: filed where it is, with its tags and fields, and current once approved.\n\nScope: `propose`.",
+      "description": "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, and required fields may be left for the person who approves it. C2PA Content Credentials in the file are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version of that asset: filed where it is, with its tags and fields, and current once approved; public when the version it takes over from is, if whoever uploads or approves it may share it.\n\nScope: `propose`.",
       "x-scope": "propose",
       "requestBody": {
         "required": true,
@@ -45260,6 +45260,126 @@
         },
         "default": {
           "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/c/{id}": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Asset id, any version of it",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "The current version",
+      "description": "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+      "security": [],
+      "responses": {
+        "302": {
+          "description": "To /a/{current id}"
+        },
+        "404": {
+          "description": "Not there for this caller",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/c/{id}/{transform}": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Asset id, any version of it",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "transform",
+        "in": "path",
+        "required": true,
+        "description": "As /a/{id}/{transform}",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A rendition of the current version",
+      "security": [],
+      "responses": {
+        "302": {
+          "description": "To /a/{current id}/{transform}"
+        },
+        "404": {
+          "description": "Not there for this caller",
           "content": {
             "application/json": {
               "schema": {

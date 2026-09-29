@@ -139,7 +139,8 @@ export function openapi(serverUrl: string) {
             "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
             "and required fields may be left for the person who approves it. C2PA Content Credentials in the file " +
             "are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version " +
-            "of that asset: filed where it is, with its tags and fields, and current once approved.",
+            "of that asset: filed where it is, with its tags and fields, and current once approved; public when the version " +
+            "it takes over from is, if whoever uploads or approves it may share it.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },
@@ -1405,6 +1406,27 @@ export function openapi(serverUrl: string) {
           ok: [200, "The file"],
           extra: { 410: { description: "Expired or archived", content: json(S.ErrorBody) } },
         }),
+      },
+      "/c/{id}": {
+        parameters: [path("id", "Asset id, any version of it")],
+        get: {
+          summary: "The current version",
+          description:
+            "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the " +
+            "stack's current version, or the asset a person replaced it with. For embedding: a new version reaches " +
+            "the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it " +
+            "in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+          security: [],
+          responses: { 302: { description: "To /a/{current id}" }, 404: { description: "Not there for this caller", content: json(S.ErrorBody) } },
+        },
+      },
+      "/c/{id}/{transform}": {
+        parameters: [path("id", "Asset id, any version of it"), path("transform", "As /a/{id}/{transform}")],
+        get: {
+          summary: "A rendition of the current version",
+          security: [],
+          responses: { 302: { description: "To /a/{current id}/{transform}" }, 404: { description: "Not there for this caller", content: json(S.ErrorBody) } },
+        },
       },
       "/a/{id}/{transform}": {
         parameters: [

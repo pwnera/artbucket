@@ -253,6 +253,8 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   const described = Object.fromEntries(EDITABLE.flatMap((k) => (prior?.metadata?.[k] ? [[k, prior.metadata[k]]] : [])));
   const kept = { ...input.described, ...described, ...metadata };
   const stack = prior ? (prior.stackId ?? prior.id) : null;
+  // Public goes with the asset: an embed of /c/{id} follows it to this version, for whoever may put it there.
+  const open = !!prior && can(caller, "asset.share", prior) && (prior.stackId ? await takesOverPublic(prior.stackId) : prior.public);
   const { row, purged } = await db.transaction(async (tx) => {
     // The bytes and the row that holds them land together: lib/core/sweep.ts
     // takes the same lock before it removes an original nothing holds.
@@ -295,6 +297,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         status,
         proposedBy: proposed ? caller.actor : null,
         private: prior?.private ?? false,
+        public: open,
         rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
         origin: input.origin ?? (c2pa && originOf(c2pa)),
         parentAssetId: input.parentAssetId ?? null,
@@ -316,8 +319,19 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   // An approved new version becomes current; one in review waits for its approval.
   if (stack) await repoint(stack, status === "active" ? { id: row.id } : undefined);
   const asset = await fileInto(ws, into, row.id);
+  if (open) await recordAudit(caller, "asset.published", asset.filename);
   await record(caller, proposed ? "suggested" : "added", asset, row.version ? { version: row.version } : undefined);
   return { asset, deduped: false };
+}
+
+/** Whether the stack's current version is public and older than `version` (any, without one): a newer one takes over its embeds. */
+async function takesOverPublic(stack: string, version?: number | null) {
+  const [row] = await db
+    .select({ version: assets.version })
+    .from(assets)
+    .where(and(eq(assets.stackId, stack), eq(assets.current, true), eq(assets.public, true)))
+    .limit(1);
+  return !!row && (version == null || row.version! < version);
 }
 
 /**
@@ -773,6 +787,12 @@ export async function updateAsset(
   const reviewing = (moves && isReview(current.status, status)) || reviewNote !== undefined || proposedTags !== undefined || proposedFields !== undefined;
   const action = reviewing ? "asset.review" : "asset.edit";
   const publishing = open !== undefined && open !== current.public;
+  // Approving a version that takes over from a public one makes it public too, when the approver may share:
+  // what an agent proposed goes where the version before it went. Asked for either way, it is as asked.
+  const approving = status === "active" && current.status !== "active" && current.status !== "archived";
+  const inherits =
+    open === undefined && approving && !current.public && !!current.stackId && can(caller, "asset.share", current) &&
+    (await takesOverPublic(current.stackId, current.version));
   // Making it public is sharing it; on its own, that is all it takes.
   const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, focus, ...fields });
   if (others.some(([, v]) => v !== undefined) && !can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
@@ -800,6 +820,7 @@ export async function updateAsset(
   if (supersededBy !== undefined) set.supersededBy = supersededBy;
   if (hidden !== undefined) set.private = hidden;
   if (publishing) set.public = open;
+  if (inherits) set.public = true;
   if (tags) set.tags = normalizeTags(tags);
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
@@ -837,6 +858,7 @@ export async function updateAsset(
   if (!asset) return null;
   if (hidden) await keepReach(caller, "asset", id);
   if (publishing) await recordAudit(caller, open ? "asset.published" : "asset.unpublished", asset.filename);
+  if (inherits) await recordAudit(caller, "asset.published", asset.filename);
   if (moves) {
     // Approving a newer version makes it current; archiving the current one hands over to the newest
     // approved. Unarchiving brings one back without taking over: make it current for that.
