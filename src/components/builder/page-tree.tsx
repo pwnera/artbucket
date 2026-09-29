@@ -15,6 +15,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { endDrag, payloadOf } from "@/components/builder/drag";
+import { Layers } from "@/components/builder/layers";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,9 @@ import { cn } from "@/lib/utils";
  * Tab and Shift+Tab nest and lift, arrows reorder. A section dragged from the
  * canvas onto a row moves to that page. Add is an `add-page` op, hide a
  * `page` op, delete b.deletePage; each undoes.
+ *
+ * Under the pages, the page on show's sections and items as layers
+ * (layers.tsx).
  *
  * PageTrail is where the bar says which page is on show, and PageSettings
  * the dialog b.pageSettings opens.
@@ -120,8 +124,16 @@ export function PagesPanel({ b }: PagesPanelProps) {
           </IconButton>
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+      {/* The book's pages above, the page on show's layers below, as a design tool keeps pages over layers. */}
+      <div className="max-h-[45%] min-h-0 shrink-0 overflow-y-auto p-1.5">
         <Outline b={b} rows={rowsOf(roots)} hidden={hidden} onToggle={toggle} onMove={move} siblings={siblings} />
+      </div>
+      <div className="flex h-9 shrink-0 items-center gap-1 border-y ps-3 pe-1.5">
+        <h2 className="text-sm font-medium">Layers</h2>
+        <span className="text-muted-foreground text-xs tabular-nums">{b.state.pages.get(b.state.selection.page)?.length ?? ""}</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        <Layers b={b} />
       </div>
     </aside>
   );

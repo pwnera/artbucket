@@ -196,8 +196,9 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       }
       if (e.key === "Escape") {
         if (b.state.preview) b.setPreview(false);
-        // Up a level at a time: the item, then the section.
+        // Up a level at a time: the item, the other sections picked, then the section.
         else if (b.item) b.setItem(null);
+        else if (b.picked.length > 1) b.unpickOthers();
         else if (id || b.state.selection.rule) b.select({ section: null, rule: null });
         else return;
       } else if (e.key === "Backspace" || e.key === "Delete") {
@@ -205,7 +206,8 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
         if (item !== null) {
           setItems(removeItem(section!, item));
           b.setItem(null);
-        } else b.removeSection(id);
+        } else if (b.picked.length > 1) b.removeSections(b.picked);
+        else b.removeSection(id);
       } else if (key === "p") {
         b.setPreview(!b.state.preview);
       } else if (key === "h" || key === "t") {

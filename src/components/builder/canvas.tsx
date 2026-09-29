@@ -21,6 +21,7 @@ import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builde
 import { ADD_LABEL, blankItem, PICTURED } from "@/components/builder/items";
 import { RuleCard } from "@/components/builder/rule-card";
 import { BLOCK, END, Seam, starter } from "@/components/builder/seam";
+import { MultiBar } from "@/components/builder/multi-bar";
 import { PagesPanel } from "@/components/builder/page-tree";
 import { SectionMenu } from "@/components/builder/section-menu";
 import { SectionPanel } from "@/components/builder/section-panel";
@@ -139,6 +140,7 @@ export function Canvas({ b }: CanvasProps) {
             </div>
             {/* Stuck at the viewport's foot with no height of its own, so it adds no scroll below the page and the panels beside stay put. */}
             <div className="sticky bottom-4 z-40 h-0">
+              {!preview && <MultiBar b={b} />}
               <div
                 role="group"
                 aria-label="Canvas width"
@@ -208,6 +210,7 @@ function Stage({ b }: { b: BuilderApi }) {
   // The picked item (b.item, in the picked section) where it is drawn, for its ring and its bar.
   const [chosen, setChosen] = useState<{ section: string; i: number; box: Box } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const adding = useRef(false);
   const onPictures = (section: string, at: number, replace: boolean) => setPictures({ section, at, replace });
   // What an upload's end reads: the builder as it is then, not as it was at the drop.
   const live = useRef(b);
@@ -361,6 +364,8 @@ function Stage({ b }: { b: BuilderApi }) {
     const rules = boundKeys(s).flatMap((k) => byKey.get(k) ?? []);
     if (preview) return <SectionView key={s.id} section={s} rules={rules} />;
     const on = selected === s.id;
+    // Picked with Shift or Cmd besides the selection: ringed too, for the bar that changes them all.
+    const also = !on && b.picked.includes(s.id);
     const line = over?.id === s.id ? over : null;
     const own = storedOf(s.id) ?? s;
     const blank = on ? blankItem(own, b.state.rules, pages) : null;
@@ -402,6 +407,12 @@ function Stage({ b }: { b: BuilderApi }) {
               setNative(!!a?.matches(FIELD) && a.contains(e.target as Node));
             }}
             onPointerDown={(e) => {
+              // Shift or Cmd adds the section to the ones picked (or takes it out), and does nothing else.
+              if (e.shiftKey || e.metaKey) {
+                adding.current = true;
+                b.pick(s.id, { add: true });
+                return;
+              }
               // One click picks the section and, when it lands on one of its items, that item too; elsewhere in the section, the section alone.
               const t = e.target as Element;
               if (!on) b.select({ section: s.id, rule: null });
@@ -424,7 +435,11 @@ function Stage({ b }: { b: BuilderApi }) {
               const prop = pictureFields(own.template).find((f) => f.name === "image");
               if (prop) setPictures({ section: s.id, at: 0, replace: true, prop: prop.name });
             }}
-            onFocus={() => on || b.select({ section: s.id, rule: null })}
+            onFocus={() => {
+              // The focus a Shift or Cmd click brings is not a pick of its own.
+              if (adding.current) return void (adding.current = false);
+              if (!on) b.select({ section: s.id, rule: null });
+            }}
             onContextMenuCapture={(e) => {
               if (native) return;
               const el = (e.target as Element).closest?.("[data-item-root]");
@@ -478,7 +493,7 @@ function Stage({ b }: { b: BuilderApi }) {
               aria-hidden
               className={cn(
                 "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset",
-                line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
+                line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : also ? "ring-primary/70 bg-primary/5 ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
                 "group-focus-visible/block:ring-ring group-focus-visible/block:ring-3",
               )}
             />
