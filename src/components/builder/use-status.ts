@@ -57,13 +57,16 @@ export function useStatus(brand: string, transport: Transport) {
   return { status, refresh };
 }
 
-/** GET /api/v1/brands/{slug}/source: where the brand's files also live (brand as code), when they do. */
-export type Source = { remote: string; branch: string; path: string; commit: string | null; syncedAt: string | null; pending: boolean; files: number };
+/** GET /api/v1/brands/{slug}/source: where the brand's files also live (brand as code), when they do, and where to connect them. */
+export type Source = {
+  source: { remote: string; branch: string; path: string; commit: string | null; syncedAt: string | null; pending: boolean; files: number } | null;
+  connect: string | null;
+};
 
 /**
  * The repository the brand is kept in too, read on arrival and once each
  * save lands, as the checklist is: whether the edits made here are in it
- * yet. null for a brand that lives here alone.
+ * yet. null until read.
  */
 export function useSource(brand: string, transport: Transport) {
   const [source, setSource] = useState<Source | null>(null);

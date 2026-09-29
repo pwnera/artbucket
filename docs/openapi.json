@@ -28687,7 +28687,7 @@
       ],
       "get": {
         "summary": "Where a brand's files live",
-        "description": "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed here since. A 404 when it lives here alone.\n\nScope: `read`.",
+        "description": "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed here since; `source` is null when it lives here alone. `connect`: where this server connects a repository.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -28700,52 +28700,82 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "remote": {
-                          "type": "string"
-                        },
-                        "branch": {
-                          "type": "string"
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "commit": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "syncedAt": {
+                        "source": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              "type": "object",
+                              "properties": {
+                                "remote": {
+                                  "type": "string"
+                                },
+                                "branch": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                },
+                                "commit": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "syncedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "pending": {
+                                  "type": "boolean",
+                                  "description": "Changed here since the repository last agreed: an export is due"
+                                },
+                                "files": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "Assets that are files in the repository"
+                                }
+                              },
+                              "required": [
+                                "remote",
+                                "branch",
+                                "path",
+                                "commit",
+                                "syncedAt",
+                                "pending",
+                                "files"
+                              ],
+                              "additionalProperties": false
                             },
                             {
                               "type": "null"
                             }
-                          ]
+                          ],
+                          "description": "null: the brand lives here alone"
                         },
-                        "pending": {
-                          "type": "boolean",
-                          "description": "Changed here since the repository last agreed: an export is due"
-                        },
-                        "files": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "description": "Assets that are files in the repository"
+                        "connect": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where this server connects a brand to a Git repository (GIT_CONNECT_URL); null when it doesn't"
                         }
                       },
                       "required": [
-                        "remote",
-                        "branch",
-                        "path",
-                        "commit",
-                        "syncedAt",
-                        "pending",
-                        "files"
+                        "source",
+                        "connect"
                       ],
                       "additionalProperties": false
                     }

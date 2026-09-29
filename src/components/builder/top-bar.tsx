@@ -177,7 +177,7 @@ export function TopBar({ b }: TopBarProps) {
           <IconEye />
         </IconButton>
         <More b={b} />
-        {b.source && <Repository b={b} />}
+        {b.source?.source && <Repository b={b} />}
         <Publish b={b} />
       </div>
     </header>
@@ -208,6 +208,13 @@ function More({ b }: { b: BuilderApi }) {
         <DropdownMenuItem onSelect={open("tokens")}>
           <IconCode /> Design tokens <DropdownMenuShortcut>T</DropdownMenuShortcut>
         </DropdownMenuItem>
+        {b.source && !b.source.source && b.source.connect && (
+          <DropdownMenuItem asChild>
+            <a href={b.source.connect}>
+              <IconBrandGit /> Keep in a Git repository
+            </a>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -215,7 +222,8 @@ function More({ b }: { b: BuilderApi }) {
 
 /** The repository the brand is kept in too: whether the edits made here have reached it, and where it is. */
 function Repository({ b }: { b: BuilderApi }) {
-  const s = b.source!;
+  const s = b.source!.source!;
+  const manage = b.source!.connect;
   const where = s.remote.replace(/^https?:\/\//, "").replace(/\.git$/, "");
   const label = s.pending ? `Changes here not yet in ${where}` : `In step with ${where}`;
   return (
@@ -245,6 +253,11 @@ function Repository({ b }: { b: BuilderApi }) {
             ? "Edits made here since the last sync go to the repository next: as a commit, or a pull request to review."
             : "The brand here and its files say the same. Changes merged there come here, and edits here go there."}
         </p>
+        {manage && (
+          <a href={manage} className="text-xs underline underline-offset-2">
+            Manage the connection
+          </a>
+        )}
       </PopoverContent>
     </Popover>
   );

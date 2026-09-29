@@ -826,8 +826,10 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "Where a brand's files live",
           scope: "read",
-          description: "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed here since. A 404 when it lives here alone.",
-          ok: [200, "The source", data(S.BrandSource)],
+          description:
+            "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed " +
+            "here since; `source` is null when it lives here alone. `connect`: where this server connects a repository.",
+          ok: [200, "The source", data(S.BrandSourceView)],
         }),
         put: op({
           summary: "Say where a brand's files live",

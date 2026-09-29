@@ -277,10 +277,14 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
 
 // ---- source ---------------------------------------------------------------------
 
+/** Where the brand's files live, when they do, and where to connect a repository (GIT_CONNECT_URL). */
 export async function getSource(ws: string, slug: string | undefined) {
   const brand = await resolveBrand(ws, slug);
   const source = await sourceRow(brand.id);
-  return source ? presentSource(source, await stateOf(db, brand)) : null;
+  return {
+    source: source ? presentSource(source, await stateOf(db, brand)) : null,
+    connect: env.GIT_CONNECT_URL ? env.GIT_CONNECT_URL.replace("{brand}", encodeURIComponent(brand.slug)) : null,
+  };
 }
 
 export type SourceInput = {

@@ -1444,6 +1444,10 @@ export const BrandSource = z.object({
   pending: z.boolean().describe("Changed here since the repository last agreed: an export is due"),
   files: z.number().int().describe("Assets that are files in the repository"),
 });
+export const BrandSourceView = z.object({
+  source: BrandSource.nullable().describe("null: the brand lives here alone"),
+  connect: z.url().nullable().describe("Where this server connects a brand to a Git repository (GIT_CONNECT_URL); null when it doesn't"),
+});
 export const BrandExport = z.object({
   brand: z.string(),
   files: z.record(z.string(), z.string()),

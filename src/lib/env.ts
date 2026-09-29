@@ -46,6 +46,13 @@ const schema = z.object({
    */
   BILLING_URL: z.string().url().optional(),
   /**
+   * Where a brand gets kept in a Git repository too (brand as code): the page
+   * of this server's Git integration that connects one, {brand} standing for
+   * the brand's slug. The builder links there. Unset: no link; the API and
+   * the CLI still sync a brand with its files.
+   */
+  GIT_CONNECT_URL: z.string().url().optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.
