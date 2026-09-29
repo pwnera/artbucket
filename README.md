@@ -18,6 +18,10 @@ one connected home, for your team and your AI agents.
 
 </div>
 
+<p align="center">
+  <img src="docs/images/library.webp" alt="The artbucket library: assets in a grid, with collections and brands in the sidebar" width="1000">
+</p>
+
 ---
 
 ## Your brand's truth should be yours
