@@ -60,7 +60,7 @@ const opening = <T,>(of: T) => (k: Kept<T>) => ({ of, open: true, n: (k?.n ?? 0)
 const closing = <T,>(k: Kept<T>) => k && { ...k, open: false };
 
 /** The brand's initial, or a spinner while its page is on the way: same box, only opacity changes. */
-function BrandTile({ name }: { name: string }) {
+export function BrandTile({ name }: { name: string }) {
   const { pending } = useLinkStatus();
   return (
     <span className="bg-muted text-muted-foreground in-data-[active=true]:bg-primary in-data-[active=true]:text-primary-foreground relative flex size-4 shrink-0 items-center justify-center rounded text-2xs font-semibold uppercase transition-colors">

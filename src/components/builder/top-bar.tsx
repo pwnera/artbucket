@@ -41,16 +41,17 @@ import { cn } from "@/lib/utils";
  * title, which opens its settings), then SaveStatus, undo and redo
  * (b.undo, b.redo), the context and language switches (b.setContext,
  * b.setLang) when the brand has more than one, then the three things an
- * editor reaches for, named: Add and Theme (panels beside the canvas,
- * b.setDock) and Rules (b.setPanel). Then the launch checklist (b.status and the
+ * editor reaches for, named: Add (a panel beside the canvas, b.setDock),
+ * Rules (b.setPanel) and Theme, which previews the whole site with the theme
+ * panel beside it (b.setPreview, b.setDock). Then the launch checklist (b.status and the
  * page's own checks), For agents, Preview (b.setPreview), More (the section
  * panel, History, Design tokens) and Publish, which says whether readers see
  * the latest (b.status.publish).
  *
  * The context switch only sets b.state.context: the canvas's site resolves
  * each bound rule for it (lib/rules.ts resolve, through useRule), with no
- * fetch. In preview the bar steps aside for one Exit preview button, so keep
- * it mounted then too. Its keys (Cmd+Z, P, H, T, Esc) are the builder's; the
+ * fetch. In preview the bar steps aside for a Theme toggle and an Exit
+ * preview button, so keep it mounted then too. Its keys (Cmd+Z, P, H, T, Esc) are the builder's; the
  * bar only names them. Words drop to icons, with their name in a tooltip,
  * when the bar is narrow.
  *
@@ -83,12 +84,20 @@ function Tool({ label, icon, pressed, ...p }: Omit<React.ComponentProps<typeof B
 const Sep = () => <span aria-hidden className="bg-border mx-1 hidden h-5 w-px @3xl/bar:block" />;
 
 export function TopBar({ b }: TopBarProps) {
-  if (b.state.preview)
+  if (b.state.preview) {
+    const theming = b.dock === "theme";
     return (
-      <Button variant="secondary" size="sm" className="app-tokens fixed end-4 bottom-4 z-40 shadow-lg" onClick={() => b.setPreview(false)}>
-        <IconEyeOff /> Exit preview <Kbd keys={["Esc"]} />
-      </Button>
+      // Clear of the Theme panel (w-80) while it is open beside the site.
+      <div className={cn("app-tokens fixed bottom-4 z-40 flex gap-2", theming ? "end-84" : "end-4")}>
+        <Button variant="secondary" size="sm" className="shadow-lg" aria-pressed={theming} onClick={() => b.setDock(theming ? null : "theme")}>
+          <IconPalette /> {theming ? "Hide theme" : "Theme"}
+        </Button>
+        <Button variant="secondary" size="sm" className="shadow-lg" onClick={() => b.setPreview(false)}>
+          <IconEyeOff /> Exit preview <Kbd keys={["Esc"]} />
+        </Button>
+      </div>
     );
+  }
 
   const languages = b.view.theme.settings.languages ?? [];
   const contexts = b.view.contexts;
@@ -141,7 +150,15 @@ export function TopBar({ b }: TopBarProps) {
         <Sep />
         <Tool label="Add" icon={<IconPlus />} pressed={b.dock === "insert"} onClick={() => b.setDock(b.dock === "insert" ? null : "insert")} />
         <Tool label="Rules" icon={<IconListDetails />} aria-haspopup="dialog" onClick={() => b.setPanel("rules")} />
-        <Tool label="Theme" icon={<IconPalette />} pressed={b.dock === "theme"} onClick={() => b.setDock(b.dock === "theme" ? null : "theme")} />
+        <Tool
+          label="Theme"
+          icon={<IconPalette />}
+          onClick={() => {
+            // The theme is the whole site's look: shown on the whole site, the panel beside it.
+            b.setDock("theme");
+            b.setPreview(true);
+          }}
+        />
         <Sep />
         <Checklist b={b} />
         <ForAgents

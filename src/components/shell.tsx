@@ -46,6 +46,20 @@ export function useShell() {
 }
 
 /**
+ * Folds the app's sidebar to its rail while the caller is mounted and `on`,
+ * as the brand's reader and builder do to give the page room. Nothing where
+ * no Shell is around (the /design pages).
+ */
+export function useSqueeze(on = true) {
+  const setSqueeze = useContext(ShellContext)?.setSqueeze;
+  useEffect(() => {
+    if (!setSqueeze || !on) return;
+    setSqueeze(true);
+    return () => setSqueeze(false);
+  }, [setSqueeze, on]);
+}
+
+/**
  * The app's frame, mounted once in the (app) layout: the sidebar, ⌘K, the
  * keyboard shortcuts and the collection dialog stay put while pages swap beside them, so the sidebar
  * keeps its scroll, its collapse and its open menus across navigation.

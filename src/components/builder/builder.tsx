@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { History } from "@/components/brand-history";
 import { BrandSetup } from "@/components/builder/brand-setup";
@@ -8,13 +8,15 @@ import { Canvas } from "@/components/builder/canvas";
 import { PageSettings } from "@/components/builder/page-tree";
 import { PublishDialog } from "@/components/builder/publish-dialog";
 import { RulesSheet } from "@/components/builder/rules-sheet";
+import { SectionPanel } from "@/components/builder/section-panel";
 import { TopBar } from "@/components/builder/top-bar";
 import { type Panel, type Transport, unclip, useBuilder } from "@/components/builder/use-builder";
+import { useSqueeze } from "@/components/shell";
 import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
 import { TokensDialog } from "@/components/tokens-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Init } from "@/lib/builder-ops";
+import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
 import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
 
@@ -55,6 +57,8 @@ const FIELD = "input, textarea, select, [contenteditable]:not([contenteditable=f
 function Editor({ brand, init, transport, header }: BuilderProps) {
   const b = useBuilder(brand, init, transport);
   const mobile = useIsMobile();
+  // The canvas and its panels want the room: the app's sidebar folds to its rail while editing, as it does for the reader.
+  useSqueeze(!mobile);
   const root = useRef<HTMLDivElement>(null);
   // What keys, links and answers read after a render: always the latest.
   const live = useRef(b);
@@ -149,6 +153,11 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       const key = e.key.toLowerCase();
       const id = b.state.selection.section;
       const editing = !b.state.preview;
+      // The item picked in the picked section, as Figma picks a layer inside a frame: the keys act on it before its section.
+      const page = b.state.selection.page;
+      const section = id ? b.state.pages.get(page)?.find((s) => s.id === id) : undefined;
+      const item = editing && !b.state.lang && section && b.item?.section === id && section.items?.[b.item.i] ? b.item.i : null;
+      const setItems = (set: Record<string, unknown>) => b.apply({ kind: "page", page, op: { op: "update", id: id!, set } });
       if (mod && !e.altKey && key === "z") {
         if (t?.closest(FIELD)) return;
         // Prevented, so an undo toast's own ⌘Z (lib/undo.ts) doesn't undo it twice.
@@ -158,18 +167,28 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
         return;
       }
       if (e.repeat || t?.closest(TYPING)) return;
+      // Previewing, the site's own keys move between its sections and pages (site-view.tsx).
+      if (b.state.preview && !mod && ["j", "k", "[", "]"].includes(key)) return;
       // G then a letter goes somewhere (components/shortcuts.tsx): G T is Team, not Tokens.
       if (!mod && !e.altKey && key === "g") return void (afterG.current = Date.now());
       if (Date.now() - afterG.current < 1000) return;
       if (mod) {
         if (e.altKey || e.shiftKey || key !== "d" || !id || !editing) return;
         e.preventDefault();
-        b.duplicate(id);
+        if (item !== null) setItems(duplicateItem(section!, item));
+        else b.duplicate(id);
         return;
       }
       if (e.altKey) {
         if ((e.key !== "ArrowUp" && e.key !== "ArrowDown") || !id || !editing) return;
         e.preventDefault();
+        if (item !== null) {
+          const to = item + (e.key === "ArrowUp" ? -1 : 1);
+          if (to < 0 || to >= section!.items!.length) return;
+          setItems(moveItem(section!, item, to));
+          b.setItem({ section: id, i: to });
+          return;
+        }
         b.nudge(id, e.key === "ArrowUp" ? -1 : 1);
         // Where it moved to, once drawn there.
         requestAnimationFrame(() => show(id));
@@ -177,11 +196,16 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       }
       if (e.key === "Escape") {
         if (b.state.preview) b.setPreview(false);
+        // Up a level at a time: the item, then the section.
+        else if (b.item) b.setItem(null);
         else if (id || b.state.selection.rule) b.select({ section: null, rule: null });
         else return;
-      } else if (e.key === "Backspace") {
+      } else if (e.key === "Backspace" || e.key === "Delete") {
         if (!id || !editing) return;
-        b.removeSection(id);
+        if (item !== null) {
+          setItems(removeItem(section!, item));
+          b.setItem(null);
+        } else b.removeSection(id);
       } else if (key === "p") {
         b.setPreview(!b.state.preview);
       } else if (key === "h" || key === "t") {
@@ -272,16 +296,60 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       </div>
     );
 
+  // Preview is the whole site as readers will get it once published: its nav, on-this-page and pager around the page, in the draft's theme.
+  // Theme stays open beside it, so a change to the nav or the page's opening shows as it is made.
+  const theming = b.state.preview && b.dock === "theme";
   return (
     <div ref={root} className="flex min-w-0 flex-1 flex-col">
       <TopBar b={b} />
-      <Canvas b={b} />
+      {b.state.preview ? (
+        <div className="flex min-w-0 flex-1">
+          <Fit on={theming}>
+            {readable.page ? (
+              <SiteView view={readable} href={href} onNavigate={navigate} />
+            ) : (
+              <p role="status" className="text-muted-foreground px-6 py-16 text-center text-sm">
+                Opening the page…
+              </p>
+            )}
+          </Fit>
+          {theming && <SectionPanel b={b} />}
+        </div>
+      ) : (
+        <Canvas b={b} />
+      )}
       <RulesSheet b={b} {...panel("rules")} />
       {/* The sheet is modal: nothing is edited while it's open, so it keeps up by fetching on open. */}
       <History brand={b.view.brand} {...panel("history")} edits={0} onRestored={() => location.reload()} />
       <TokensDialog brand={b.view.brand} context={b.state.context ?? undefined} {...panel("tokens")} />
       <PublishDialog b={b} {...panel("publish")} />
       <PageSettings b={b} />
+    </div>
+  );
+}
+
+/** The width the site is previewed at beside the Theme panel: past 72rem, where its nav and on-this-page take their own columns. */
+const DESKTOP = 1280;
+
+/**
+ * The site at a desktop's width, scaled down to the room it has while `on`,
+ * so the Theme panel beside it never folds its columns into the phone's
+ * layout. The whole of it is one CSS zoom: its sticky chrome and anchors
+ * still work, only smaller.
+ */
+function Fit({ on, children }: { on: boolean; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !on) return;
+    const ro = new ResizeObserver(([e]) => setZoom(Math.min(1, e.contentRect.width / DESKTOP)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [on]);
+  return (
+    <div ref={box} className="min-w-0 flex-1">
+      <div style={on && zoom < 1 ? { zoom } : undefined}>{children}</div>
     </div>
   );
 }

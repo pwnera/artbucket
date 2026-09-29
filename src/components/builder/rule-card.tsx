@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconPhotoPlus } from "@tabler/icons-react";
+import { IconPhotoPlus, IconTrash } from "@tabler/icons-react";
 import { AssetPicker, AssetThumb } from "@/components/builder/asset-picker";
 import { SpecForm } from "@/components/builder/spec-form";
 import type { BuilderApi } from "@/components/builder/use-builder";
@@ -25,7 +25,7 @@ import type { ViewRule } from "@/lib/site";
  *
  * A text rule's words are edited where they read, so clicking into its
  * specimen shows a chip instead: its name, its key, Details (this card) and
- * Remove from section.
+ * Remove from section. The card ends with the same way out of the section.
  *
  * Props:
  * - b: the builder.
@@ -216,6 +216,19 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
               </dl>
               <p className="text-muted-foreground mt-2">Agents and the API find it by its key. Renaming it changes only the heading readers see.</p>
             </details>
+            {section && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hover:text-destructive justify-self-start"
+                onClick={() => {
+                  b.apply({ kind: "page", page, op: { op: "update", id: section.id, set: { keys: section.keys.filter((k) => k !== key) } } });
+                  onClose();
+                }}
+              >
+                <IconTrash /> Remove from this section
+              </Button>
+            )}
             <AssetPicker open={picking} rule={rule} transport={b.transport} onClose={() => setPicking(false)} onSave={(assets) => set({ assets })} />
           </ReadOnly.Provider>
         )}
