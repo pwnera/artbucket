@@ -9,7 +9,8 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
-import { pagePath } from "@/lib/core/signing";
+import { pagePath, pageSig } from "@/lib/core/signing";
+import { publishedSource, viewLook } from "@/lib/core/page-view";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
 import { NO_OFF, NONE } from "@/lib/access";
@@ -214,6 +215,10 @@ export async function viewShare(token: string, password: string | null, { limit 
   const link = await open(token, password);
   const ws = await workspaceById(link.workspaceId);
   const target = await targetLabel(link);
+  const brand = await brandOfWorkspace(link.workspaceId);
+  // The workspace's brand site, once it has been published: the link reads as part of it. Else the organization's accent.
+  const src = await publishedSource(link.workspaceId).catch(() => null);
+  const look = await viewLook(link.workspaceId, src?.version ? src : null, (id) => pageSig(id, link.expiresAt), brand.accent);
   const meta = {
     kind: link.kind,
     name: link.name,
@@ -222,7 +227,8 @@ export async function viewShare(token: string, password: string | null, { limit 
     target,
     expiresAt: link.expiresAt,
     // The organization's look, not the product's: a guest sees whose link this is.
-    brand: await brandOfWorkspace(link.workspaceId),
+    brand,
+    look,
   };
   if (link.kind === "upload") return { share: meta, data: [], total: 0 };
   // Only what may be used: approved, unexpired, out of embargo, and a stack's current version.

@@ -84,7 +84,17 @@ export function useSqueeze(on = true) {
  * their fresher copies through the setters; a router.refresh re-renders the
  * layout, and its new props win again.
  */
-export function Shell({ sidebar, defaultOpen, children }: { sidebar: SidebarData; defaultOpen: boolean; children: React.ReactNode }) {
+export function Shell({
+  sidebar,
+  defaultOpen,
+  defaultWidth,
+  children,
+}: {
+  sidebar: SidebarData;
+  defaultOpen: boolean;
+  defaultWidth: number | null;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -238,6 +248,7 @@ export function Shell({ sidebar, defaultOpen, children }: { sidebar: SidebarData
   return (
     <ShellContext.Provider value={value}>
       <SidebarProvider
+        defaultWidth={defaultWidth}
         open={nav && !squeeze}
         onOpenChange={(o) => {
           // Toggling by hand wins over a page's squeeze.

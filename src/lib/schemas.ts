@@ -1033,6 +1033,12 @@ export const Share = z.object({
   createdBy: z.string(),
   createdAt: date,
 });
+/** A look for a page that is not one of a brand's but reads as part of its site. */
+const Look = z.object({
+  brand: z.object({ slug: z.string(), name: z.string() }).nullable().describe("Whose look it is; null: none, the accent over the app's own"),
+  theme: Theme.extend({ settings: ThemeSettings }).describe("Derived and graded, as a page view's"),
+  signed: z.record(uuid, z.string()).describe("Signatures for the theme's font files and device"),
+});
 export const Shared = z.object({
   share: z.object({
     kind: z.enum(["view", "upload"]),
@@ -1042,6 +1048,7 @@ export const Shared = z.object({
     target: Share.shape.target,
     expiresAt: date.nullable(),
     brand: Branding.describe("Whose link this is, and how it looks"),
+    look: Look.describe("How to draw it: the workspace's brand site once published; else the organization's accent over the app's own"),
   }),
   data: z.array(
     z.object({
@@ -1152,8 +1159,14 @@ export const PortalView = z.object({
       icon: z.string().nullable().describe("The organization's, for the browser tab"),
       product: z.string().describe("What the organization calls the product"),
     }),
-    collections: z.array(z.object({ id: uuid, name: z.string(), count: z.number().int() })),
-    brands: z.array(z.object({ slug: z.string(), name: z.string() })).describe("Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"),
+    collections: z.array(
+      z.object({ id: uuid, name: z.string(), count: z.number().int(), covers: z.array(z.string()).describe("Up to 3 of its newest pictures' thumbnails, URLs on this host") }),
+    ),
+    brands: z
+      .array(z.object({ slug: z.string(), name: z.string(), publishedAt: date.nullable().describe("null: shown as it stands, having no history") }))
+      .describe("Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"),
+    site: PortalSite.describe("Footer, quick grab and terms, as its pages have them"),
+    look: Look.describe("How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"),
   }),
   data: z.array(
     z.object({

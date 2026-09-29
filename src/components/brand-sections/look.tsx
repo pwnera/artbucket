@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { useSite } from "@/components/site/site-context";
 import { brandTheme, fontFaceCss, fontRoles, type ThemeFace, themeVars } from "@/lib/brand-theme";
 import { luminance, rgb } from "@/lib/color";
@@ -86,4 +86,11 @@ export function useSiteLook(): SiteLook {
       faces: fontFaceCss(lead, url).replaceAll("<", "\\3c "),
     };
   }, [view, url]);
+}
+
+/** The site's look for what portals out of it (the lightbox): the site root provides it, so a dialog reads as part of the site. */
+const PortaledLook = createContext<SiteLook | null>(null);
+export const usePortaledLook = () => useContext(PortaledLook);
+export function LookProvider({ children }: { children: React.ReactNode }) {
+  return <PortaledLook.Provider value={useSiteLook()}>{children}</PortaledLook.Provider>;
 }

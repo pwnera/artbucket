@@ -11,15 +11,15 @@ import { sidebarData } from "@/lib/sidebar";
  * over: no collection, count or recent from the one before survives.
  *
  * The frame (sidebar, ⌘K) is mounted here once, so pages swap beside it.
- * It opens collapsed when the person last left it collapsed (ui/sidebar.tsx
- * writes the cookie).
+ * It opens collapsed when the person last left it collapsed, and as wide as
+ * they last dragged it (ui/sidebar.tsx writes both cookies).
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebar, jar] = await Promise.all([sidebarData(), cookies()]);
   return (
     <AccessProvider me={sidebar.me}>
       <Fragment key={sidebar.me.workspace.id}>
-        <Shell sidebar={sidebar} defaultOpen={jar.get("sidebar_state")?.value !== "false"}>
+        <Shell sidebar={sidebar} defaultOpen={jar.get("sidebar_state")?.value !== "false"} defaultWidth={Number(jar.get("sidebar_width")?.value) || null}>
           {children}
         </Shell>
       </Fragment>

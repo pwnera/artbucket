@@ -41,7 +41,7 @@ import { seal, unseal } from "@/lib/settings";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
 import { longSig, pagePath, pageSig } from "@/lib/core/signing";
 import { presentAsset } from "@/lib/core/section-assets";
-import { publishedSource, viewPage, type BrandSource } from "@/lib/core/page-view";
+import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
 import { AUDIENCES, LANG, type Audience, type RequestKind } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
@@ -533,6 +533,8 @@ export async function viewPortal(
       id: collections.id,
       name: collections.name,
       count: sql<number>`(select count(*)::int from ${collectionAssets} ca join ${assets} on ${assets.id} = ca.asset_id where ca.collection_id = ${collections.id} and ${usable})`,
+      // Its newest pictures, for its card.
+      covers: sql<string[]>`array(select ${assets.id} from ${collectionAssets} ca join ${assets} on ${assets.id} = ca.asset_id where ca.collection_id = ${collections.id} and ${usable} and ${assets.mime} like 'image/%' order by ${assets.createdAt} desc limit 3)`,
     })
     .from(portalCollections)
     .innerJoin(collections, eq(collections.id, portalCollections.collectionId))
@@ -540,7 +542,10 @@ export async function viewPortal(
     .orderBy(asc(portalCollections.position));
   const ids = collection ? cols.filter((c) => c.id === collection).map((c) => c.id) : cols.map((c) => c.id);
   if (collection && !ids.length) throw new AssetError("not_found", "That collection isn't in this portal");
-  const { data, total } = await portalAssets(p, { ids, q, limit, offset });
+  const [{ data, total }, theme, showing] = await Promise.all([portalAssets(p, { ids, q, limit, offset }), shownTheme(p), brandsOf(p.id).then((l) => l.filter((b) => b.shown))]);
+  // The first brand's look, so the view reads as part of its site; with no brand, the portal's accent over the app's own.
+  const src = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
+  const look = await viewLook(p.workspaceId, src, (id) => pageSig(id, p.expiresAt), theme.accent);
   return {
     portal: {
       slug: p.slug,
@@ -549,9 +554,11 @@ export async function viewPortal(
       organization: org?.name ?? "",
       access: p.access,
       expiresAt: p.expiresAt,
-      theme: await shownTheme(p),
-      collections: cols,
-      brands: (await brandsOf(p.id)).filter((b) => b.shown).map(({ slug, name }) => ({ slug, name })),
+      theme,
+      collections: cols.map(({ covers, ...c }) => ({ ...c, covers: covers.map((id) => pagePath(id, "/w_640,f_webp", p.expiresAt)) })),
+      brands: showing.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
+      site: await siteOf(p, showing.map((b) => b.slug)),
+      look,
     },
     data,
     total,

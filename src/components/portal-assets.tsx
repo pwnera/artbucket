@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { IconLoader2, IconSearch } from "@tabler/icons-react";
-import { ThemeToggle } from "@/components/brand";
-import { Markdown } from "@/components/brand-values";
+import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { LocalDate, PublicGrid, type PublicItem } from "@/components/public-grid";
+import { Thumb } from "@/components/thumb";
+import { SiteFooter } from "@/components/site/footer";
+import { type BrandLook, Looked, Opening } from "@/components/site/looked";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
-import { inkOn } from "@/lib/color";
+import type { PortalSite } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 export type Theme = { logo: string | null; accent: string | null; background: string | null; icon?: string | null; product?: string };
@@ -26,8 +28,12 @@ export type AssetsView = {
     access: "public" | Access;
     expiresAt: string | null;
     theme: Theme;
-    collections: { id: string; name: string; count: number }[];
-    brands: { slug: string; name: string }[];
+    /** `covers`: its newest pictures' thumbnails, signed, for its card. */
+    collections: { id: string; name: string; count: number; covers: string[] }[];
+    brands: { slug: string; name: string; publishedAt: string | null }[];
+    site: PortalSite;
+    /** The first brand's look (lib/core/page-view.ts viewLook); with no brand, the portal's accent over the app's own. */
+    look: BrandLook;
   };
   data: Item[];
   total: number;
@@ -46,29 +52,35 @@ const withOriginal = (a: Item): PublicItem => ({ ...a, original: a.downloads.fin
 
 /**
  * A portal's Assets view (D16): its collections' files, searchable, from GET
- * /api/v1/portal/{slug}, under the portal's hero. It shows at ?view=assets,
- * and is the whole portal when it carries no brand. `nav` goes in the bar
- * under the hero: the way to the portal's brand pages. A door or a closed
- * portal met while searching goes to `onLost`; the host shows it.
+ * /api/v1/portal/{slug}. It shows at ?view=assets beside the brand's pages,
+ * and wears that brand's site: its faces, colors, corners and opening, its
+ * footer. A portal with no brand is this view alone, in the portal's accent.
+ * `header` is the host's bar above it; `base` and `onNavigate` are how the
+ * footer's links move within the portal. A door or a closed portal met while
+ * searching goes to `onLost`; the host shows it.
  */
 export function PortalAssets({
   slug,
+  base,
   initial,
   q: firstQ = "",
   collection: firstCollection = null,
   asset = null,
   headers,
-  nav,
+  header,
+  onNavigate,
   onLost,
 }: {
   slug: string;
+  base: string;
   initial: AssetsView;
   q?: string;
   collection?: string | null;
   /** From ?asset=: open in the lightbox. */
   asset?: string | null;
   headers: () => HeadersInit;
-  nav?: React.ReactNode;
+  header?: React.ReactNode;
+  onNavigate?: (href: string) => void;
   onLost: (body: PortalBody) => void;
 }) {
   const [view, setView] = useState(initial);
@@ -77,11 +89,11 @@ export function PortalAssets({
   const [pending, setPending] = useState(false);
   const [more, setMore] = useState(false);
   const fetched = useRef(queryKey(firstQ, firstCollection));
+  /** What the list on screen answers: its words say that, not what is being typed. */
+  const [shown, setShown] = useState({ q: firstQ.trim(), collection: firstCollection });
   /** The newest load: only it may say what shows. */
   const loads = useRef(0);
   const search = useRef<HTMLInputElement>(null);
-  const hero = useRef<HTMLElement>(null);
-  const [past, setPast] = useState(false);
 
   const fetchPage = useCallback(
     async (offset: number, signal?: AbortSignal) => {
@@ -104,6 +116,7 @@ export function PortalAssets({
         if (signal?.aborted) return;
         if (res.ok) {
           fetched.current = k;
+          setShown({ q: q.trim(), collection });
           return setView(body as AssetsView);
         }
         const code = body.error?.code;
@@ -151,76 +164,80 @@ export function PortalAssets({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    // The bar's small logo shows once the hero's big one has scrolled away.
-    const el = hero.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setPast(!e.isIntersecting));
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   const { portal, data, total } = view;
-  const inCollection = portal.collections.find((c) => c.id === collection);
+  const home = base || "/";
+  const href = useCallback(() => home, [home]);
+  const inCollection = portal.collections.find((c) => c.id === shown.collection);
+  const words = shown.q;
   return (
-    <>
-      <Hero ref={hero} name={portal.name} intro={portal.intro} theme={portal.theme} organization={portal.organization} />
-      {nav && (
-        <div className="bg-background/85 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 border-b backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-4 sm:px-8">
-            {past &&
-              (portal.theme.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={portal.theme.logo} alt={portal.organization} className="animate-in fade-in-0 h-6 w-auto max-w-24 shrink-0 object-contain duration-150" />
-              ) : (
-                <span className="animate-in fade-in-0 shrink-0 text-sm font-semibold duration-150">{portal.name}</span>
-              ))}
-            {nav}
-          </div>
-        </div>
-      )}
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-8">
-        <div className="relative">
-          <span className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
-            {pending ? <IconLoader2 className="size-4 animate-spin" /> : <IconSearch className="size-4" />}
+    <Looked look={portal.look} name={portal.name} href={href} portal={slug} headers={headers} before={header}>
+      <Opening
+        eyebrow={portal.look.brand ? portal.name : portal.organization}
+        title={portal.look.brand ? "Assets" : portal.name}
+        lede={portal.intro ?? (portal.look.brand ? `Files from ${portal.organization}, ready to download.` : null)}
+      >
+        <div className="relative max-w-2xl">
+          <span className="text-(--brand-muted) pointer-events-none absolute start-4 top-1/2 -translate-y-1/2">
+            {pending ? <IconLoader2 className="size-5 animate-spin" /> : <IconSearch className="size-5" />}
           </span>
           <Input
             ref={search}
             type="search"
-            placeholder={`Search ${portal.name}`}
+            placeholder={`Search ${portal.collections.find((c) => c.id === collection)?.name ?? portal.name}`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="ps-9 sm:pe-10"
+            // The page's own field on whatever ground the opening is: a band, a tint, the page.
+            className="h-12 rounded-[var(--brand-radius,var(--radius-lg))] border-(--brand-line) bg-(--brand-surface) ps-12 text-base text-(--brand-ink) shadow-sm placeholder:text-(--brand-muted) sm:pe-12 md:text-base"
             aria-label="Search"
           />
-          {!q && <Kbd keys={["/"]} className="pointer-events-none absolute end-3 top-1/2 hidden -translate-y-1/2 sm:inline-flex" />}
+          {!q && <Kbd keys={["/"]} className="pointer-events-none absolute end-4 top-1/2 hidden -translate-y-1/2 sm:inline-flex" />}
         </div>
-        {portal.collections.length > 1 && (
-          <nav className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Collections">
-            <Chip active={!collection} onClick={() => setCollection(null)}>
+        {portal.expiresAt && (
+          <p className="text-muted-foreground text-sm">
+            Open until <LocalDate at={portal.expiresAt} />
+          </p>
+        )}
+      </Opening>
+
+      {portal.collections.length > 1 && (
+        <div className="bg-background/90 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-10 border-b backdrop-blur">
+          <nav aria-label="Collections" className="mx-auto flex w-full max-w-280 gap-6 overflow-x-auto px-6 [scrollbar-width:none] @3xl/site:px-10">
+            <Tab active={!collection} onClick={() => setCollection(null)}>
               All
-            </Chip>
+            </Tab>
             {portal.collections.map((c) => (
-              <Chip key={c.id} active={collection === c.id} onClick={() => setCollection(c.id)}>
-                {c.name} <span className="opacity-60">{c.count}</span>
-              </Chip>
+              <Tab key={c.id} active={collection === c.id} count={c.count} onClick={() => setCollection(c.id)}>
+                {c.name}
+              </Tab>
             ))}
           </nav>
-        )}
-        <p aria-live="polite" className={cn("text-muted-foreground text-sm", !total && "sr-only")}>
-          {total} {total === 1 ? "file" : "files"}
+        </div>
+      )}
+
+      <main className="mx-auto w-full max-w-280 flex-1 space-y-6 px-6 pt-8 pb-[calc(var(--brand-gap)*2)] @3xl/site:px-10">
+        {!q.trim() && !collection && portal.collections.length > 1 && <Collections collections={portal.collections} onPick={setCollection} />}
+        <p aria-live="polite" className={cn(LABEL, "text-muted-foreground", !total && "sr-only")}>
+          {words
+            ? `${total} ${total === 1 ? "match" : "matches"} for “${words}”`
+            : `${total} ${total === 1 ? "file" : "files"}${inCollection ? ` in ${inCollection.name}` : ""}`}
         </p>
         {data.length ? (
           <PublicGrid items={data.map(withOriginal)} asset={asset} busy={pending} />
         ) : (
-          <Empty size="sm" aria-busy={pending || undefined} className={cn("transition-opacity", pending && "opacity-60")}>
+          <Empty
+            size="sm"
+            aria-busy={pending || undefined}
+            className={cn("rounded-[var(--brand-radius,var(--radius-xl))] border border-dashed py-16 transition-opacity", pending && "opacity-60")}
+          >
             <EmptyHeader>
-              <EmptyTitle>{q.trim() ? `No files match “${q.trim()}”` : inCollection ? `Nothing in ${inCollection.name} yet` : "Nothing to download here yet"}</EmptyTitle>
-              {!q.trim() && <EmptyDescription>Check back soon.</EmptyDescription>}
+              <EmptyTitle className={HEAD}>
+                {words ? `No files match “${words}”` : inCollection ? `Nothing in ${inCollection.name} yet` : "Nothing to download here yet"}
+              </EmptyTitle>
+              <EmptyDescription>{words ? "Try fewer words, or another collection." : "Check back soon."}</EmptyDescription>
             </EmptyHeader>
-            {q.trim() && (
+            {words && (
               <EmptyContent>
-                <Button variant="link" onClick={() => (setQ(""), search.current?.focus())}>
+                <Button variant="outline" onClick={() => (setQ(""), search.current?.focus())}>
                   Clear search
                 </Button>
               </EmptyContent>
@@ -228,7 +245,10 @@ export function PortalAssets({
           </Empty>
         )}
         {data.length < total && (
-          <div className="text-center">
+          <div className="flex flex-col items-center gap-2 pt-4">
+            <p className="text-muted-foreground text-sm tabular-nums">
+              {data.length} of {total}
+            </p>
             <Button
               variant="outline"
               pending={more}
@@ -253,59 +273,82 @@ export function PortalAssets({
           </div>
         )}
       </main>
-      <footer className="text-muted-foreground border-t py-6 text-center text-xs">
-        {portal.organization}
-        {portal.expiresAt && (
-          <>
-            {" "}
-            · open until <LocalDate at={portal.expiresAt} />
-          </>
-        )}
-      </footer>
-    </>
+
+      {portal.look.brand ? (
+        <SiteFooter portal={portal} base={base} onNavigate={onNavigate} />
+      ) : (
+        <footer className="text-muted-foreground border-t text-sm">
+          <div className="mx-auto flex w-full max-w-280 flex-wrap justify-between gap-x-6 gap-y-1 px-6 py-8 @3xl/site:px-10">
+            <p>{portal.organization}</p>
+            {portal.expiresAt && (
+              <p>
+                Open until <LocalDate at={portal.expiresAt} />
+              </p>
+            )}
+          </div>
+        </footer>
+      )}
+    </Looked>
   );
 }
 
-function Hero({ ref, name, intro, theme, organization }: { ref?: React.Ref<HTMLElement>; name: string; intro: string | null; theme: Theme; organization: string }) {
-  const ink = theme.background ? inkOn(theme.background) : undefined;
-  return (
-    <header
-      ref={ref}
-      // Unset, the band is the accent, faint: every portal looks like its brand, not like the app.
-      className={cn("border-b", !theme.background && "bg-[color-mix(in_oklab,var(--primary)_7%,var(--background))]")}
-      style={theme.background ? { background: theme.background, color: ink } : undefined}
-    >
-      <div className="mx-auto flex w-full max-w-6xl items-start gap-4 px-4 pt-10 pb-12 sm:px-8 sm:pt-14">
-        <div className="min-w-0 flex-1 space-y-4">
-          {theme.logo ? (
-            // A rendition already sized for this: next/image would only resize it again.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={theme.logo} alt={organization} className="h-10 w-auto max-w-[240px] object-contain object-left sm:h-12" />
-          ) : (
-            <p className="text-sm font-semibold opacity-80">{organization}</p>
-          )}
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{name}</h1>
-          {intro && <Markdown text={intro} className="max-w-2xl text-base opacity-80" />}
-        </div>
-        {/* On a painted header the toggle keeps the header's ink, hovered or not. */}
-        <ThemeToggle className={cn(ink && "hover:bg-current/10 hover:text-current dark:hover:bg-current/10 dark:hover:text-current")} />
-      </div>
-    </header>
-  );
-}
-
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+/** A collection, as the site's tabs are drawn: the line under the one showing. */
+function Tab({ active, count, onClick, children }: { active: boolean; count?: number; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={cn(
-        "shrink-0 snap-start rounded-full border px-3 py-1 text-sm whitespace-nowrap transition-colors",
-        active ? "bg-primary text-primary-foreground border-transparent" : "hover:bg-muted",
-      )}
+      className="text-muted-foreground hover:text-foreground aria-pressed:border-primary aria-pressed:text-foreground focus-visible:ring-ring/50 -mb-px flex shrink-0 items-center gap-1.5 border-b-2 border-transparent py-3 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-2"
     >
       {children}
+      {count !== undefined && <span className="text-muted-foreground text-xs font-normal tabular-nums">{count}</span>}
     </button>
+  );
+}
+
+/** The collections as cards, each over its newest pictures: a way in before the whole list. */
+function Collections({ collections, onPick }: { collections: AssetsView["portal"]["collections"]; onPick: (id: string) => void }) {
+  return (
+    <section aria-label="Collections" className="space-y-4 pb-4">
+      <h2 className={cn(LABEL, "text-muted-foreground")}>Collections</h2>
+      <ul className="grid grid-cols-2 gap-4 @3xl/site:grid-cols-3 @6xl/site:grid-cols-4">
+        {collections.map((c) => (
+          <li key={c.id}>
+            <button
+              type="button"
+              onClick={() => onPick(c.id)}
+              className="group/card focus-visible:ring-ring/50 block w-full rounded-[var(--brand-radius,var(--radius-xl))] text-start outline-none focus-visible:ring-2"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "bg-muted grid aspect-[4/3] gap-0.5 overflow-hidden rounded-[var(--brand-radius,var(--radius-xl))] border shadow-xs transition-[box-shadow,translate] duration-200 group-hover/card:-translate-y-0.5 group-hover/card:shadow-lg motion-reduce:group-hover/card:translate-y-0",
+                  c.covers.length === 3 && "grid-cols-[2fr_1fr] grid-rows-2",
+                  c.covers.length === 2 && "grid-cols-2",
+                )}
+              >
+                {c.covers.length ? (
+                  c.covers.map((src, i) => (
+                    <span key={src} className={cn("relative", c.covers.length === 3 && i === 0 && "row-span-2")}>
+                      <Thumb src={src.replace("/w_640,", i ? "/w_240," : "/w_480,")} alt="" className="object-cover p-0" />
+                    </span>
+                  ))
+                ) : (
+                  // No picture yet: its initial, large, on a wash of the accent.
+                  <span className="flex items-center justify-center bg-[color-mix(in_oklab,var(--primary)_10%,var(--muted))] text-5xl text-(--brand-accent) [font-family:var(--brand-head,var(--font-display))] font-semibold">
+                    {c.name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </span>
+              <span className={cn(HEAD, "mt-3 block truncate text-base")}>{c.name}</span>
+              <span className="text-muted-foreground block text-sm tabular-nums">
+                {c.count} {c.count === 1 ? "file" : "files"}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

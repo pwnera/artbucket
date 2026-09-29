@@ -2,14 +2,21 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Collapsible } from "radix-ui";
 import {
   IconBook,
   IconBookmark,
+  IconBookmarks,
+  IconChevronRight,
+  IconClock,
   IconDots,
   IconFolder,
   IconFolderUp,
+  IconFolders,
+  IconLayoutSidebarLeftExpand,
+  IconPalette,
   IconLock,
   IconPencil,
   IconPhoto,
@@ -31,6 +38,7 @@ import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
   DropLine,
   FOLD,
+  Flyout,
   MoveItems,
   SectionAdd,
   SidebarSection,
@@ -39,19 +47,15 @@ import {
   useSections,
   useSortable,
   type Recent,
+  type SectionId,
   type SortableItem,
 } from "@/components/sidebar-prefs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
   SidebarContent,
+  SidebarExpandedScope,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
@@ -133,6 +137,33 @@ export function AppSidebar({
     assets: (inLibrary && !view.collection && !onSearch) || pathname === "/activity",
   };
 
+  const [stored] = useRecents();
+  /** Whether a section has anything to show, so a folded rail offers no empty panel. */
+  const shows = (id: SectionId) =>
+    id === "recents"
+      ? liveRecents(stored, collections, searches).length > 0
+      : id === "searches"
+        ? searches.length > 0
+        : id === "brands" || collections.length > 0 || !!newCollection;
+  /** A section, in the sidebar or in its panel. */
+  const section = (id: SectionId) => {
+    const sortable = sections.item(id);
+    if (id === "recents") return <Recents key={id} section={sortable} collections={collections} searches={searches} />;
+    if (id === "brands") return <Brands key={id} brands={brands} current={currentBrand} section={sortable} />;
+    if (id === "collections")
+      return (
+        <Collections
+          key={id}
+          section={sortable}
+          collections={collections}
+          current={inLibrary && !onSearch ? view.collection : null}
+          onNew={newCollection}
+          onEdit={onEditCollection}
+        />
+      );
+    return searches.length > 0 ? <Searches key={id} section={sortable} searches={searches} current={inLibrary ? query : null} onDelete={deleteSearch} /> : null;
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -196,30 +227,16 @@ export function AppSidebar({
 
         {children}
 
+        {/* Folded to icons, each section is an icon whose panel flies out beside the rail. */}
+        <FlyoutRail items={sections.sorted.filter(shows).map((id) => ({ id, ...RAIL[id] }))} render={section} />
+
         {/* The person's own arrangement: sections in their order, each foldable and sortable. */}
-        {sections.sorted.map((id) => {
-          const section = sections.item(id);
-          if (id === "recents") return <Recents key={id} section={section} collections={collections} searches={searches} />;
-          if (id === "brands") return <Brands key={id} brands={brands} current={currentBrand} section={section} />;
-          if (id === "collections")
-            return (
-              <Collections
-                key={id}
-                section={section}
-                collections={collections}
-                current={inLibrary && !onSearch ? view.collection : null}
-                onNew={newCollection}
-                onEdit={onEditCollection}
-              />
-            );
-          return searches.length > 0 ? (
-            <Searches key={id} section={section} searches={searches} current={inLibrary ? query : null} onDelete={deleteSearch} />
-          ) : null;
-        })}
+        {sections.sorted.map(section)}
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
+          <ExpandItem />
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">
@@ -237,6 +254,156 @@ export function AppSidebar({
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+/** Folded, the way back to the whole sidebar; dragging its edge out does the same. */
+function ExpandItem() {
+  const { setOpen } = useSidebar();
+  return (
+    <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+      <SidebarMenuButton
+        onClick={() => setOpen(true)}
+        tooltip={{
+          children: (
+            <>
+              Expand sidebar <Kbd keys={["mod", "B"]} className="ml-2" />
+            </>
+          ),
+        }}
+      >
+        <IconLayoutSidebarLeftExpand /> <span>Expand sidebar</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+/** Each section's icon on the folded rail. */
+const RAIL: Record<SectionId, { label: string; icon: React.ReactNode }> = {
+  recents: { label: "Recents", icon: <IconClock /> },
+  brands: { label: "Brands", icon: <IconPalette /> },
+  collections: { label: "Collections", icon: <IconFolders /> },
+  searches: { label: "Saved searches", icon: <IconBookmarks /> },
+};
+
+/** How long the pointer rests on an icon before its panel opens, or away before it closes. */
+const HOVER_MS = 120;
+
+/**
+ * Folded to icons, the sections the sidebar lists stay one move away: each
+ * is an icon on the rail, and its panel flies out beside it, the section
+ * whole, with every action it has (add, share, edit, move, delete). Resting
+ * the pointer on an icon opens its panel and moving away closes it; a click,
+ * or anything done inside, keeps it open until a click elsewhere, Esc, its
+ * close button, or following one of its links.
+ */
+function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; icon: React.ReactNode }[]; render: (id: SectionId) => React.ReactNode }) {
+  const { state, isMobile } = useSidebar();
+  const folded = state === "collapsed" && !isMobile;
+  const [open, setOpen] = useState<{ id: SectionId; pinned: boolean; keyboard?: boolean } | null>(null);
+  // Unfolded, the sections are in the sidebar itself.
+  if (open && !folded) setOpen(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const rail = useRef<HTMLUListElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const base = useId();
+  const later = (fn: () => void) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(fn, HOVER_MS);
+  };
+  const close = useCallback(() => {
+    clearTimeout(timer.current);
+    setOpen(null);
+  }, []);
+  const flyout = useMemo(() => ({ close }), [close]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    if (!open) return;
+    // A click elsewhere closes it; not one in its menus or the dialogs they open, which sit outside it on the page.
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element;
+      if (panel.current?.contains(t) || rail.current?.contains(t) || t.closest?.("[data-radix-popper-content-wrapper], [role=dialog], [role=alertdialog]"))
+        return;
+      setOpen(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+  useEffect(() => {
+    // Opened from the keyboard, focus goes into it, as into a menu.
+    if (open?.keyboard) (panel.current?.querySelector<HTMLElement>("a[href]") ?? panel.current?.querySelector<HTMLElement>("button"))?.focus();
+  }, [open]);
+
+  if (!items.length) return null;
+  const shown = open && items.find((i) => i.id === open.id);
+  return (
+    <SidebarGroup className="hidden group-data-[collapsible=icon]:flex">
+      <SidebarGroupContent>
+        <SidebarMenu ref={rail}>
+          {items.map((i) => {
+            const on = open?.id === i.id;
+            return (
+              <SidebarMenuItem key={i.id}>
+                <SidebarMenuButton
+                  id={`${base}-${i.id}`}
+                  isActive={on}
+                  aria-expanded={on}
+                  aria-controls={on ? `${base}-panel` : undefined}
+                  onClick={(e) => {
+                    clearTimeout(timer.current);
+                    // A click on the one showing: pinned, it closes; opened by hovering, it stays.
+                    setOpen((o) => (o?.id === i.id && o.pinned ? null : { id: i.id, pinned: true, keyboard: e.detail === 0 }));
+                  }}
+                  onPointerEnter={(e) => {
+                    if (e.pointerType !== "mouse") return;
+                    later(() => setOpen((o) => (o?.id === i.id ? o : { id: i.id, pinned: false })));
+                  }}
+                  onPointerLeave={(e) => {
+                    if (e.pointerType !== "mouse") return;
+                    later(() => setOpen((o) => (o?.pinned ? o : null)));
+                  }}
+                  onKeyDown={(e) => e.key === "Escape" && on && close()}
+                  className="relative"
+                >
+                  {i.icon} <span className="sr-only">{i.label}</span>
+                  <IconChevronRight aria-hidden className="text-muted-foreground absolute end-0 top-1/2 !size-2.5 -translate-y-1/2" />
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+      {shown &&
+        createPortal(
+          <div
+            ref={panel}
+            id={`${base}-panel`}
+            role="region"
+            aria-label={shown.label}
+            onPointerEnter={() => clearTimeout(timer.current)}
+            onPointerLeave={(e) => e.pointerType === "mouse" && later(() => setOpen((o) => (o?.pinned ? o : null)))}
+            // Anything done inside keeps it open while the pointer wanders (a menu, a dialog).
+            onPointerDownCapture={() => setOpen((o) => o && (o.pinned ? o : { ...o, pinned: true }))}
+            onClick={(e) => {
+              // Following a link leaves it; a menu's items live outside it on the page, so only its own links count.
+              const a = (e.target as Element).closest("a[href]");
+              if (a && panel.current?.contains(a)) close();
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape" || !panel.current?.contains(e.target as Node)) return;
+              close();
+              document.getElementById(`${base}-${shown.id}`)?.focus();
+            }}
+            className="bg-sidebar text-sidebar-foreground animate-in fade-in-0 slide-in-from-left-2 fixed inset-y-0 start-(--sidebar-width-icon,3rem) z-30 hidden w-64 overflow-y-auto border-e shadow-xl duration-150 md:block"
+          >
+            <SidebarExpandedScope>
+              <Flyout.Provider value={flyout}>{render(shown.id)}</Flyout.Provider>
+            </SidebarExpandedScope>
+          </div>,
+          document.body,
+        )}
+    </SidebarGroup>
   );
 }
 
