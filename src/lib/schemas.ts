@@ -936,6 +936,7 @@ export const Usage = z.object({
     features: z.array(z.enum(["agents", "shares"])).nullable().describe("What it may use; null: everything"),
     readOnly: z.boolean(),
   }).describe("Set by whoever runs the server; never by the organization"),
+  billing: z.string().url().nullable().describe("Where the organization's admins manage the plan behind these limits; null when this server has no such place"),
   used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int(), domains: z.number().int() }),
   traffic: z.object({
     days: z.number().int().describe("How far back"),

@@ -15625,6 +15625,15 @@
                   "type": "string",
                   "maxLength": 60,
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "template": {
+                  "description": "Start from a showcase brand's rules, theme, pages and logos, to edit into your own",
+                  "type": "string",
+                  "enum": [
+                    "firefox",
+                    "rust",
+                    "blender"
+                  ]
                 }
               },
               "required": [
@@ -28634,6 +28643,18 @@
                         "additionalProperties": false,
                         "description": "Set by whoever runs the server; never by the organization"
                       },
+                      "billing": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Where the organization's admins manage the plan behind these limits; null when this server has no such place"
+                      },
                       "used": {
                         "type": "object",
                         "properties": {
@@ -28751,6 +28772,7 @@
                     },
                     "required": [
                       "limits",
+                      "billing",
                       "used",
                       "traffic"
                     ],
@@ -31199,6 +31221,766 @@
                         ],
                         "additionalProperties": false,
                         "description": "Whose link this is, and how it looks"
+                      },
+                      "look": {
+                        "type": "object",
+                        "properties": {
+                          "brand": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Whose look it is; null: none, the accent over the app's own"
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "v1": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {},
+                                "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                              },
+                              "surface": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "A hex color"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                              },
+                              "panel": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "dark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "ink": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "muted": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "onDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "mutedOnDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accent": {
+                                "type": "string",
+                                "description": "The fill, as the brand has it: bands and buttons"
+                              },
+                              "accentText": {
+                                "type": "string",
+                                "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                              },
+                              "onAccent": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accentUse": {
+                                "type": "string",
+                                "enum": [
+                                  "fill",
+                                  "hairline"
+                                ]
+                              },
+                              "line": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "faces": {
+                                "type": "object",
+                                "properties": {
+                                  "head": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "body": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "label": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      },
+                                      "case": {
+                                        "type": "string"
+                                      },
+                                      "tracking": {
+                                        "type": "number",
+                                        "description": "In em"
+                                      }
+                                    },
+                                    "required": [
+                                      "family",
+                                      "case",
+                                      "tracking"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "radius": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "string",
+                                "enum": [
+                                  "narrow",
+                                  "normal",
+                                  "wide"
+                                ]
+                              },
+                              "density": {
+                                "type": "string",
+                                "enum": [
+                                  "compact",
+                                  "normal",
+                                  "airy"
+                                ]
+                              },
+                              "scale": {
+                                "type": "number"
+                              },
+                              "device": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "logo": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "key"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nav": {
+                                "type": "string",
+                                "enum": [
+                                  "sidebar",
+                                  "top",
+                                  "overlay"
+                                ]
+                              },
+                              "band": {
+                                "type": "boolean",
+                                "description": "header is band"
+                              },
+                              "header": {
+                                "type": "string",
+                                "enum": [
+                                  "plain",
+                                  "band",
+                                  "split"
+                                ]
+                              },
+                              "separation": {
+                                "type": "string",
+                                "enum": [
+                                  "space",
+                                  "hairline"
+                                ]
+                              },
+                              "numbering": {
+                                "type": "boolean"
+                              },
+                              "motion": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "subtle"
+                                ]
+                              },
+                              "toc": {
+                                "type": "string",
+                                "enum": [
+                                  "side",
+                                  "inline",
+                                  "none"
+                                ],
+                                "description": "On this page: a side column, a list under the page header, or none"
+                              },
+                              "checks": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "pair": {
+                                      "type": "string",
+                                      "description": "Which color on which, e.g. ink on surface"
+                                    },
+                                    "fg": {
+                                      "type": "string"
+                                    },
+                                    "bg": {
+                                      "type": "string"
+                                    },
+                                    "ratio": {
+                                      "type": "number"
+                                    },
+                                    "need": {
+                                      "type": "number",
+                                      "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                    },
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "used": {
+                                      "type": "string",
+                                      "description": "The color used: fg when it passes, else its fallback"
+                                    }
+                                  },
+                                  "required": [
+                                    "pair",
+                                    "fg",
+                                    "bg",
+                                    "ratio",
+                                    "need",
+                                    "ok",
+                                    "used"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "properties": {
+                                  "accent": {
+                                    "description": "Color rule for links, marks and brand grounds; color.primary, brand or accent when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "accentUse": {
+                                    "description": "hairline: the accent draws rules and marks, never fills",
+                                    "type": "string",
+                                    "enum": [
+                                      "fill",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "surface": {
+                                    "description": "The page ground; color.background, surface or paper when left out, else the app's",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "panel": {
+                                    "description": "Panels and alternate sections; a step off the surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dark": {
+                                    "description": "The dark ground",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "ink": {
+                                    "description": "Text; color.ink, text or foreground when left out, else black or white by contrast",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "muted": {
+                                    "description": "Quiet text; mixed from ink and surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "head": {
+                                    "description": "Font rule for headings",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "body": {
+                                    "description": "Font rule for text",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "label": {
+                                    "description": "Font rule for eyebrows, labels and running heads; its spec.case and spec.tracking set them",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "logo": {
+                                    "description": "The rule whose picture is the site's mark; logo.primary, mark or wordmark when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "device": {
+                                    "description": "An SVG asset: the brand's symbol or pattern for covers, dividers and pattern grounds",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "radius": {
+                                    "description": "Corner radius in px",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 40
+                                  },
+                                  "width": {
+                                    "type": "string",
+                                    "enum": [
+                                      "narrow",
+                                      "normal",
+                                      "wide"
+                                    ]
+                                  },
+                                  "density": {
+                                    "type": "string",
+                                    "enum": [
+                                      "compact",
+                                      "normal",
+                                      "airy"
+                                    ]
+                                  },
+                                  "scale": {
+                                    "description": "Heading size ratio; 1.25 when left out",
+                                    "type": "number",
+                                    "minimum": 1.067,
+                                    "maximum": 1.618
+                                  },
+                                  "nav": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sidebar",
+                                      "top",
+                                      "overlay"
+                                    ]
+                                  },
+                                  "band": {
+                                    "description": "Every page opens on a band of the brand color; header band says the same",
+                                    "type": "boolean"
+                                  },
+                                  "header": {
+                                    "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "band",
+                                      "split"
+                                    ]
+                                  },
+                                  "separation": {
+                                    "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                    "type": "string",
+                                    "enum": [
+                                      "space",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "numbering": {
+                                    "description": "Number chapters and pages: 01, 01.2",
+                                    "type": "boolean"
+                                  },
+                                  "motion": {
+                                    "description": "subtle: sections reveal as they scroll in; never with reduced motion",
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "subtle"
+                                    ]
+                                  },
+                                  "toc": {
+                                    "description": "On this page: a side column, a list under the page header, or hidden",
+                                    "type": "string",
+                                    "enum": [
+                                      "side",
+                                      "inline",
+                                      "none"
+                                    ]
+                                  },
+                                  "titles": {
+                                    "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                    "type": "string",
+                                    "enum": [
+                                      "medium",
+                                      "large",
+                                      "huge"
+                                    ]
+                                  },
+                                  "grounds": {
+                                    "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "alternate"
+                                    ]
+                                  },
+                                  "languages": {
+                                    "description": "The languages readers pick from; the first is the one the pages are written in",
+                                    "maxItems": 12,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "code": {
+                                          "type": "string",
+                                          "maxLength": 20,
+                                          "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40
+                                        },
+                                        "dir": {
+                                          "description": "From the language when left out",
+                                          "type": "string",
+                                          "enum": [
+                                            "ltr",
+                                            "rtl"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "code",
+                                        "label"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "v1",
+                              "surface",
+                              "panel",
+                              "dark",
+                              "ink",
+                              "muted",
+                              "onDark",
+                              "mutedOnDark",
+                              "accent",
+                              "accentText",
+                              "onAccent",
+                              "accentUse",
+                              "line",
+                              "faces",
+                              "radius",
+                              "width",
+                              "density",
+                              "scale",
+                              "device",
+                              "logo",
+                              "nav",
+                              "band",
+                              "header",
+                              "separation",
+                              "numbering",
+                              "motion",
+                              "toc",
+                              "checks",
+                              "settings"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Derived and graded, as a page view's"
+                          },
+                          "signed": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "description": "Signatures for the theme's font files and device"
+                          }
+                        },
+                        "required": [
+                          "brand",
+                          "theme",
+                          "signed"
+                        ],
+                        "additionalProperties": false,
+                        "description": "How to draw it: the workspace's brand site once published; else the organization's accent over the app's own"
                       }
                     },
                     "required": [
@@ -31208,7 +31990,8 @@
                       "organization",
                       "target",
                       "expiresAt",
-                      "brand"
+                      "brand",
+                      "look"
                     ],
                     "additionalProperties": false
                   },
@@ -35833,12 +36616,20 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "covers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Up to 3 of its newest pictures' thumbnails, URLs on this host"
                             }
                           },
                           "required": [
                             "id",
                             "name",
-                            "count"
+                            "count",
+                            "covers"
                           ],
                           "additionalProperties": false
                         }
@@ -35853,15 +36644,886 @@
                             },
                             "name": {
                               "type": "string"
+                            },
+                            "publishedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "null: shown as it stands, having no history"
                             }
                           },
                           "required": [
                             "slug",
-                            "name"
+                            "name",
+                            "publishedAt"
                           ],
                           "additionalProperties": false
                         },
                         "description": "Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"
+                      },
+                      "site": {
+                        "type": "object",
+                        "properties": {
+                          "footer": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "description": "Markdown",
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              "links": {
+                                "maxItems": 8,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 60
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "credit": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "feedback": {
+                                "description": "A URL or mailto:",
+                                "type": "string",
+                                "maxLength": 2000
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "quick": {
+                            "description": "Quick grab: pinned links in the header",
+                            "maxItems": 6,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "brand": {
+                                  "description": "With page: a brand the portal carries; the first when left out",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "page": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                },
+                                "asset": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "terms": {
+                            "description": "Markdown readers accept once before their first download",
+                            "type": "string",
+                            "maxLength": 10000
+                          },
+                          "listed": {
+                            "description": "Search engines may index it; public portals only",
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Footer, quick grab and terms, as its pages have them"
+                      },
+                      "look": {
+                        "type": "object",
+                        "properties": {
+                          "brand": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Whose look it is; null: none, the accent over the app's own"
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "v1": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {},
+                                "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                              },
+                              "surface": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "A hex color"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                              },
+                              "panel": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "dark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "ink": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "muted": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "onDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "mutedOnDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accent": {
+                                "type": "string",
+                                "description": "The fill, as the brand has it: bands and buttons"
+                              },
+                              "accentText": {
+                                "type": "string",
+                                "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                              },
+                              "onAccent": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accentUse": {
+                                "type": "string",
+                                "enum": [
+                                  "fill",
+                                  "hairline"
+                                ]
+                              },
+                              "line": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "faces": {
+                                "type": "object",
+                                "properties": {
+                                  "head": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "body": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "label": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      },
+                                      "case": {
+                                        "type": "string"
+                                      },
+                                      "tracking": {
+                                        "type": "number",
+                                        "description": "In em"
+                                      }
+                                    },
+                                    "required": [
+                                      "family",
+                                      "case",
+                                      "tracking"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "radius": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "string",
+                                "enum": [
+                                  "narrow",
+                                  "normal",
+                                  "wide"
+                                ]
+                              },
+                              "density": {
+                                "type": "string",
+                                "enum": [
+                                  "compact",
+                                  "normal",
+                                  "airy"
+                                ]
+                              },
+                              "scale": {
+                                "type": "number"
+                              },
+                              "device": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "logo": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "key"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nav": {
+                                "type": "string",
+                                "enum": [
+                                  "sidebar",
+                                  "top",
+                                  "overlay"
+                                ]
+                              },
+                              "band": {
+                                "type": "boolean",
+                                "description": "header is band"
+                              },
+                              "header": {
+                                "type": "string",
+                                "enum": [
+                                  "plain",
+                                  "band",
+                                  "split"
+                                ]
+                              },
+                              "separation": {
+                                "type": "string",
+                                "enum": [
+                                  "space",
+                                  "hairline"
+                                ]
+                              },
+                              "numbering": {
+                                "type": "boolean"
+                              },
+                              "motion": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "subtle"
+                                ]
+                              },
+                              "toc": {
+                                "type": "string",
+                                "enum": [
+                                  "side",
+                                  "inline",
+                                  "none"
+                                ],
+                                "description": "On this page: a side column, a list under the page header, or none"
+                              },
+                              "checks": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "pair": {
+                                      "type": "string",
+                                      "description": "Which color on which, e.g. ink on surface"
+                                    },
+                                    "fg": {
+                                      "type": "string"
+                                    },
+                                    "bg": {
+                                      "type": "string"
+                                    },
+                                    "ratio": {
+                                      "type": "number"
+                                    },
+                                    "need": {
+                                      "type": "number",
+                                      "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                    },
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "used": {
+                                      "type": "string",
+                                      "description": "The color used: fg when it passes, else its fallback"
+                                    }
+                                  },
+                                  "required": [
+                                    "pair",
+                                    "fg",
+                                    "bg",
+                                    "ratio",
+                                    "need",
+                                    "ok",
+                                    "used"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "properties": {
+                                  "accent": {
+                                    "description": "Color rule for links, marks and brand grounds; color.primary, brand or accent when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "accentUse": {
+                                    "description": "hairline: the accent draws rules and marks, never fills",
+                                    "type": "string",
+                                    "enum": [
+                                      "fill",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "surface": {
+                                    "description": "The page ground; color.background, surface or paper when left out, else the app's",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "panel": {
+                                    "description": "Panels and alternate sections; a step off the surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dark": {
+                                    "description": "The dark ground",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "ink": {
+                                    "description": "Text; color.ink, text or foreground when left out, else black or white by contrast",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "muted": {
+                                    "description": "Quiet text; mixed from ink and surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "head": {
+                                    "description": "Font rule for headings",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "body": {
+                                    "description": "Font rule for text",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "label": {
+                                    "description": "Font rule for eyebrows, labels and running heads; its spec.case and spec.tracking set them",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "logo": {
+                                    "description": "The rule whose picture is the site's mark; logo.primary, mark or wordmark when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "device": {
+                                    "description": "An SVG asset: the brand's symbol or pattern for covers, dividers and pattern grounds",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "radius": {
+                                    "description": "Corner radius in px",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 40
+                                  },
+                                  "width": {
+                                    "type": "string",
+                                    "enum": [
+                                      "narrow",
+                                      "normal",
+                                      "wide"
+                                    ]
+                                  },
+                                  "density": {
+                                    "type": "string",
+                                    "enum": [
+                                      "compact",
+                                      "normal",
+                                      "airy"
+                                    ]
+                                  },
+                                  "scale": {
+                                    "description": "Heading size ratio; 1.25 when left out",
+                                    "type": "number",
+                                    "minimum": 1.067,
+                                    "maximum": 1.618
+                                  },
+                                  "nav": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sidebar",
+                                      "top",
+                                      "overlay"
+                                    ]
+                                  },
+                                  "band": {
+                                    "description": "Every page opens on a band of the brand color; header band says the same",
+                                    "type": "boolean"
+                                  },
+                                  "header": {
+                                    "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "band",
+                                      "split"
+                                    ]
+                                  },
+                                  "separation": {
+                                    "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                    "type": "string",
+                                    "enum": [
+                                      "space",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "numbering": {
+                                    "description": "Number chapters and pages: 01, 01.2",
+                                    "type": "boolean"
+                                  },
+                                  "motion": {
+                                    "description": "subtle: sections reveal as they scroll in; never with reduced motion",
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "subtle"
+                                    ]
+                                  },
+                                  "toc": {
+                                    "description": "On this page: a side column, a list under the page header, or hidden",
+                                    "type": "string",
+                                    "enum": [
+                                      "side",
+                                      "inline",
+                                      "none"
+                                    ]
+                                  },
+                                  "titles": {
+                                    "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                    "type": "string",
+                                    "enum": [
+                                      "medium",
+                                      "large",
+                                      "huge"
+                                    ]
+                                  },
+                                  "grounds": {
+                                    "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "alternate"
+                                    ]
+                                  },
+                                  "languages": {
+                                    "description": "The languages readers pick from; the first is the one the pages are written in",
+                                    "maxItems": 12,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "code": {
+                                          "type": "string",
+                                          "maxLength": 20,
+                                          "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40
+                                        },
+                                        "dir": {
+                                          "description": "From the language when left out",
+                                          "type": "string",
+                                          "enum": [
+                                            "ltr",
+                                            "rtl"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "code",
+                                        "label"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "v1",
+                              "surface",
+                              "panel",
+                              "dark",
+                              "ink",
+                              "muted",
+                              "onDark",
+                              "mutedOnDark",
+                              "accent",
+                              "accentText",
+                              "onAccent",
+                              "accentUse",
+                              "line",
+                              "faces",
+                              "radius",
+                              "width",
+                              "density",
+                              "scale",
+                              "device",
+                              "logo",
+                              "nav",
+                              "band",
+                              "header",
+                              "separation",
+                              "numbering",
+                              "motion",
+                              "toc",
+                              "checks",
+                              "settings"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Derived and graded, as a page view's"
+                          },
+                          "signed": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "description": "Signatures for the theme's font files and device"
+                          }
+                        },
+                        "required": [
+                          "brand",
+                          "theme",
+                          "signed"
+                        ],
+                        "additionalProperties": false,
+                        "description": "How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"
                       }
                     },
                     "required": [
@@ -35873,7 +37535,9 @@
                       "expiresAt",
                       "theme",
                       "collections",
-                      "brands"
+                      "brands",
+                      "site",
+                      "look"
                     ],
                     "additionalProperties": false
                   },

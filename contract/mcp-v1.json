@@ -900,6 +900,15 @@
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "template": {
+        "description": "Start from a showcase brand's rules, theme, pages and logos, to edit into your own",
+        "type": "string",
+        "enum": [
+          "firefox",
+          "rust",
+          "blender"
+        ]
       }
     },
     "required": [

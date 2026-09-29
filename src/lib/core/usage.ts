@@ -1,5 +1,6 @@
 import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
@@ -43,9 +44,12 @@ async function storageOf(organizationId: string, q: Tx | typeof db = db) {
   return a.bytes + r.bytes;
 }
 
+/** Where to go about it, when the operator said (BILLING_URL). */
+const manage = () => (env.BILLING_URL ? `. Manage the plan at ${env.BILLING_URL}` : "");
+
 /** Storage past the limit, said the one way. */
 const storageRefused = (l: Limits, used: number) =>
-  new AssetError("limit_reached", `That would pass this organization's storage of ${formatSize(l.storage!)} (${formatSize(used)} used)`, {
+  new AssetError("limit_reached", `That would pass this organization's storage of ${formatSize(l.storage!)} (${formatSize(used)} used)${manage()}`, {
     limit: "storage",
     max: l.storage,
   });
@@ -141,7 +145,7 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
   const l = await limitsOf(organizationId);
   if (l.readOnly) throw new AssetError("read_only", "This organization is read-only");
   const refuse = (message: string, limit: number) => {
-    throw new AssetError("limit_reached", message, { limit: what, max: limit });
+    throw new AssetError("limit_reached", message + manage(), { limit: what, max: limit });
   };
   switch (what) {
     case "storage":
@@ -165,7 +169,7 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
       if (l.domains !== null && over(l.domains, await domainsOf(organizationId))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
       return;
     default:
-      if (l.features && !l.features.includes(what)) throw new AssetError("limit_reached", `${FEATURE_LABEL[what]} is off for this organization`, { limit: what });
+      if (l.features && !l.features.includes(what)) throw new AssetError("limit_reached", `${FEATURE_LABEL[what]} is off for this organization${manage()}`, { limit: what });
   }
 }
 
@@ -272,6 +276,7 @@ export async function usageOf(caller: Caller) {
   ]);
   return {
     limits,
+    billing: env.BILLING_URL ?? null,
     used: { storage, editors, workspaces: spaces, brands: brandCount, domains: domainCount },
     traffic: { days: DAYS, workspaces: byWorkspace, daily: byDay },
   };

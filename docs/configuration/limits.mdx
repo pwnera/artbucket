@@ -22,6 +22,10 @@ Past a limit, the request is refused with `403` and the code `limit_reached`
 (or `read_only`), naming the limit. Nothing already there is taken away:
 lowering a limit only stops what would go further.
 
+When the limits come with a plan, set `BILLING_URL` to where its admins
+manage it: Settings, Usage shows a "Manage plan" link there, a refusal names
+it, and `GET /api/v1/usage` returns it as `billing`.
+
 ## For every organization
 
 ```bash
