@@ -777,6 +777,105 @@ export function openapi(serverUrl: string) {
           requestBody: { required: false, content: json(S.PublishInput, "input") },
         },
       },
+      "/api/v1/brands/{slug}/files": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand as files",
+          scope: "read",
+          description:
+            "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (name, theme, the order of `rules/`, " +
+            "the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` " +
+            "(a page's fields and sections). Every default is left out, so the same brand is always the same bytes. " +
+            "Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives " +
+            "every asset a path, to fetch from `assets[path].url` and add beside the files.",
+          query: { assets: { schema: { type: "string", enum: ["ids", "files"] }, description: "files: every asset as a file under assets/" } },
+          ok: [200, "The files", data(S.BrandExport)],
+        }),
+      },
+      "/api/v1/brands/{slug}/files/export": {
+        parameters: [path("slug", "Brand slug")],
+        post: op({
+          summary: "A brand as files, keeping the repository's",
+          scope: "read",
+          description:
+            "As GET .../files, given the repository's files as they are in `previous`: a file that says the same as " +
+            "what would be written is answered as it was written, comments and all, so a sync commits only what changed.",
+          body: S.BrandExportInput,
+          ok: [200, "The files", data(S.BrandExport)],
+        }),
+      },
+      "/api/v1/brands/{slug}/files/import": {
+        parameters: [path("slug", "Brand slug")],
+        post: op({
+          summary: "Take a brand from its files",
+          scope: "write",
+          description:
+            "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a " +
+            "source that remembers what both sides last agreed, what changed here since is kept: the files win only " +
+            "where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are " +
+            "named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line " +
+            "(`detail.errors`) and the files to upload first (`detail.missing`). `dryRun` answers what would change. " +
+            "`pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.",
+          body: S.BrandImportInput,
+          ok: [200, "What changed", data(S.BrandImport)],
+          extra: { 422: { description: "Problems in the files", content: json(z.object({ error: z.object({ code: z.string(), message: z.string(), detail: S.FileProblems }) })) } },
+        }),
+      },
+      "/api/v1/brands/{slug}/source": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "Where a brand's files live",
+          scope: "read",
+          description: "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed here since. A 404 when it lives here alone.",
+          ok: [200, "The source", data(S.BrandSource)],
+        }),
+        put: op({
+          summary: "Say where a brand's files live",
+          scope: "write",
+          description:
+            "Moving it to another repository, branch or folder forgets what was agreed: the next import takes the files " +
+            "whole. After pushing an export, send the files pushed as `synced` with their commit: they become what both " +
+            "sides agree on. Takes setup on the workspace.",
+          body: S.BrandSourceInput,
+          ok: [200, "The source", data(S.BrandSource)],
+        }),
+        delete: op({ summary: "Keep a brand here alone", scope: "write", description: "Its repository is left as it is.", ok: [204, "Done"] }),
+      },
+      "/api/v1/brands/{slug}/previews": {
+        parameters: [path("slug", "Brand slug")],
+        post: op({
+          summary: "Preview a proposed change",
+          scope: "write",
+          description:
+            "A pull request's files as the brand's site, at a link that needs no account, and what they would change " +
+            "of the brand as it stands. Checked as an import is. One preview per `ref`: saving again keeps its link. " +
+            "It opens for 30 days after its last save.",
+          body: S.BrandPreviewInput,
+          ok: [200, "The preview", data(S.BrandPreview)],
+        }),
+        delete: op({
+          summary: "Close a preview",
+          scope: "write",
+          query: { ref: { schema: { type: "string" }, description: "The preview's ref, e.g. pull/12" } },
+          ok: [204, "Done"],
+        }),
+      },
+      "/api/v1/previews/{token}": {
+        parameters: [path("token", "The preview's token, from its link")],
+        get: op({
+          summary: "A page of a preview",
+          scope: "public",
+          description:
+            "What a preview's link shows (POST .../previews): a page of the brand as a proposed change's files say it, " +
+            "as GET .../view gives a page of the draft, every page open, assets signed. A 404 once it has closed.",
+          query: {
+            page: { schema: str, description: "The page's slug; the first page when left out" },
+            context: { schema: str, description: "The context the reader starts in" },
+            lang: { schema: str, description: "The reader's language" },
+          },
+          ok: [200, "The page", data(z.object({ preview: S.PreviewMeta, view: S.PageView }))],
+        }),
+      },
       "/api/v1/me": {
         get: op({
           summary: "Who is calling",

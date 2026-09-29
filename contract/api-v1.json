@@ -27733,6 +27733,3846 @@
       }
     }
   },
+  "/api/v1/brands/{slug}/files": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A brand as files",
+      "description": "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (name, theme, the order of `rules/`, the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` (a page's fields and sections). Every default is left out, so the same brand is always the same bytes. Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives every asset a path, to fetch from `assets[path].url` and add beside the files.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "assets",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "ids",
+              "files"
+            ]
+          },
+          "description": "files: every asset as a file under assets/"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The files",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "brand": {
+                        "type": "string"
+                      },
+                      "files": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "assets": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "filename": {
+                              "type": "string"
+                            },
+                            "mime": {
+                              "type": "string"
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "sha256": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "filename",
+                            "mime",
+                            "size",
+                            "sha256",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Each path under assets/ the files name, with its asset: fetch it from url, or compare by sha256"
+                      },
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "remote": {
+                                "type": "string"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "commit": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "syncedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "pending": {
+                                "type": "boolean",
+                                "description": "Changed here since the repository last agreed: an export is due"
+                              },
+                              "files": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Assets that are files in the repository"
+                              }
+                            },
+                            "required": [
+                              "remote",
+                              "branch",
+                              "path",
+                              "commit",
+                              "syncedAt",
+                              "pending",
+                              "files"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "brand",
+                      "files",
+                      "assets",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brands/{slug}/files/export": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "A brand as files, keeping the repository's",
+      "description": "As GET .../files, given the repository's files as they are in `previous`: a file that says the same as what would be written is answered as it was written, comments and all, so a sync commits only what changed.\n\nScope: `read`.",
+      "x-scope": "read",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "previous": {
+                  "description": "The repository's files as they are: one that says the same is kept as written, comments and all",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  }
+                },
+                "assets": {
+                  "description": "files: give every asset the brand points at a path under assets/, to add them to the repository",
+                  "type": "string",
+                  "enum": [
+                    "ids",
+                    "files"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The files",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "brand": {
+                        "type": "string"
+                      },
+                      "files": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "assets": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "filename": {
+                              "type": "string"
+                            },
+                            "mime": {
+                              "type": "string"
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "sha256": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "filename",
+                            "mime",
+                            "size",
+                            "sha256",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Each path under assets/ the files name, with its asset: fetch it from url, or compare by sha256"
+                      },
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "remote": {
+                                "type": "string"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "commit": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "syncedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "pending": {
+                                "type": "boolean",
+                                "description": "Changed here since the repository last agreed: an export is due"
+                              },
+                              "files": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Assets that are files in the repository"
+                              }
+                            },
+                            "required": [
+                              "remote",
+                              "branch",
+                              "path",
+                              "commit",
+                              "syncedAt",
+                              "pending",
+                              "files"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "brand",
+                      "files",
+                      "assets",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brands/{slug}/files/import": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "Take a brand from its files",
+      "description": "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a source that remembers what both sides last agreed, what changed here since is kept: the files win only where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line (`detail.errors`) and the files to upload first (`detail.missing`). `dryRun` answers what would change. `pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.\n\nScope: `write`.",
+      "x-scope": "write",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "files": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  },
+                  "description": "The brand's files by path in its folder: brand.yaml, rules/*.yaml, pages/*.yaml. Others are left alone"
+                },
+                "assets": {
+                  "description": "The files under assets/ the brand's files point at: path to asset id, or to the SHA-256 of its bytes (upload first)",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "commit": {
+                  "description": "The commit the files are at: recorded as agreed, when the brand has a source",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "message": {
+                  "description": "The commit's message: its first line names the version the import makes",
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "dryRun": {
+                  "description": "Check and merge, answer what would change, write nothing",
+                  "type": "boolean"
+                },
+                "merge": {
+                  "description": "Keep what changed here since the source last agreed (default); false takes the files whole",
+                  "type": "boolean"
+                },
+                "publish": {
+                  "description": "Publish after, with this note (true: none). Takes share",
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "What changed",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "brand": {
+                        "type": "string"
+                      },
+                      "applied": {
+                        "type": "boolean",
+                        "description": "Something changed: a new version in the brand's history"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "published": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The version published, when publish was asked and something was new"
+                      },
+                      "diff": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "before": {
+                                    "type": "string"
+                                  },
+                                  "after": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "before",
+                                  "after"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rules": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "change": {
+                                  "type": "string",
+                                  "enum": [
+                                    "added",
+                                    "removed",
+                                    "changed"
+                                  ]
+                                },
+                                "key": {
+                                  "type": "string"
+                                },
+                                "context": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "color",
+                                    "text",
+                                    "number",
+                                    "list",
+                                    "font"
+                                  ]
+                                },
+                                "before": {},
+                                "after": {},
+                                "fields": {
+                                  "description": "What changed: value, usage, label, spec, assets, type",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "change",
+                                "key",
+                                "context",
+                                "type"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "pages": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "change": {
+                                  "type": "string",
+                                  "enum": [
+                                    "added",
+                                    "removed",
+                                    "changed",
+                                    "moved"
+                                  ]
+                                },
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "change",
+                                "slug",
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "theme": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Theme settings changed"
+                          },
+                          "reordered": {
+                            "type": "boolean",
+                            "description": "The rules' order changed"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "rules",
+                          "pages",
+                          "theme",
+                          "reordered"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "conflicts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "what": {
+                              "type": "string"
+                            },
+                            "ours": {},
+                            "theirs": {}
+                          },
+                          "required": [
+                            "what",
+                            "ours",
+                            "theirs"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Pieces both sides changed differently: the files' side was taken, this side's is in the history"
+                      },
+                      "warnings": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "file": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "file",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "pending": {
+                        "type": "boolean",
+                        "description": "The brand holds changes the files lack: export them back"
+                      }
+                    },
+                    "required": [
+                      "brand",
+                      "applied",
+                      "version",
+                      "published",
+                      "diff",
+                      "conflicts",
+                      "warnings",
+                      "pending"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Problems in the files",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {
+                        "type": "object",
+                        "properties": {
+                          "errors": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "file": {
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "message": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "file",
+                                "message"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "file": {
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "message": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "file",
+                                "message"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "missing": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Files under assets/ to upload, then name in assets by SHA-256"
+                          }
+                        },
+                        "required": [
+                          "errors",
+                          "warnings",
+                          "missing"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brands/{slug}/source": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "Where a brand's files live",
+      "description": "The repository, branch and folder, the commit both sides last agreed at, and `pending` when the brand changed here since. A 404 when it lives here alone.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The source",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "remote": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "commit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "syncedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "pending": {
+                        "type": "boolean",
+                        "description": "Changed here since the repository last agreed: an export is due"
+                      },
+                      "files": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Assets that are files in the repository"
+                      }
+                    },
+                    "required": [
+                      "remote",
+                      "branch",
+                      "path",
+                      "commit",
+                      "syncedAt",
+                      "pending",
+                      "files"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "summary": "Say where a brand's files live",
+      "description": "Moving it to another repository, branch or folder forgets what was agreed: the next import takes the files whole. After pushing an export, send the files pushed as `synced` with their commit: they become what both sides agree on. Takes setup on the workspace.\n\nScope: `write`.",
+      "x-scope": "write",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "remote": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "format": "uri",
+                  "description": "The repository, as its host shows it: https://github.com/acme/brand"
+                },
+                "branch": {
+                  "description": "main when left out",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "path": {
+                  "description": "The brand's folder in the repository; its root when left out",
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "synced": {
+                  "description": "The files just pushed, at `commit`: recorded as what both sides agree on",
+                  "type": "object",
+                  "properties": {
+                    "commit": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "files": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "additionalProperties": {
+                        "type": "string",
+                        "maxLength": 2000000
+                      },
+                      "description": "The brand's files by path in its folder: brand.yaml, rules/*.yaml, pages/*.yaml. Others are left alone"
+                    },
+                    "assets": {
+                      "description": "The files under assets/ the brand's files point at: path to asset id, or to the SHA-256 of its bytes (upload first)",
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "additionalProperties": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    }
+                  },
+                  "required": [
+                    "commit",
+                    "files"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "remote"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The source",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "remote": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "commit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "syncedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "pending": {
+                        "type": "boolean",
+                        "description": "Changed here since the repository last agreed: an export is due"
+                      },
+                      "files": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Assets that are files in the repository"
+                      }
+                    },
+                    "required": [
+                      "remote",
+                      "branch",
+                      "path",
+                      "commit",
+                      "syncedAt",
+                      "pending",
+                      "files"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "summary": "Keep a brand here alone",
+      "description": "Its repository is left as it is.\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "204": {
+          "description": "Done"
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brands/{slug}/previews": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "Preview a proposed change",
+      "description": "A pull request's files as the brand's site, at a link that needs no account, and what they would change of the brand as it stands. Checked as an import is. One preview per `ref`: saving again keeps its link. It opens for 30 days after its last save.\n\nScope: `write`.",
+      "x-scope": "write",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "What proposes it, as its host names it: pull/12. One preview each; saving again updates it"
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "commit": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "files": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  },
+                  "description": "The brand's files by path in its folder: brand.yaml, rules/*.yaml, pages/*.yaml. Others are left alone"
+                },
+                "assets": {
+                  "description": "The files under assets/ the brand's files point at: path to asset id, or to the SHA-256 of its bytes (upload first)",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                }
+              },
+              "required": [
+                "ref",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The preview",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "brand": {
+                        "type": "string"
+                      },
+                      "ref": {
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The site as the files say it; no account needed"
+                      },
+                      "pages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "title",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "expiresAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      "diff": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "before": {
+                                    "type": "string"
+                                  },
+                                  "after": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "before",
+                                  "after"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rules": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "change": {
+                                  "type": "string",
+                                  "enum": [
+                                    "added",
+                                    "removed",
+                                    "changed"
+                                  ]
+                                },
+                                "key": {
+                                  "type": "string"
+                                },
+                                "context": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "color",
+                                    "text",
+                                    "number",
+                                    "list",
+                                    "font"
+                                  ]
+                                },
+                                "before": {},
+                                "after": {},
+                                "fields": {
+                                  "description": "What changed: value, usage, label, spec, assets, type",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "change",
+                                "key",
+                                "context",
+                                "type"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "pages": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "change": {
+                                  "type": "string",
+                                  "enum": [
+                                    "added",
+                                    "removed",
+                                    "changed",
+                                    "moved"
+                                  ]
+                                },
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "change",
+                                "slug",
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "theme": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Theme settings changed"
+                          },
+                          "reordered": {
+                            "type": "boolean",
+                            "description": "The rules' order changed"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "rules",
+                          "pages",
+                          "theme",
+                          "reordered"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What it would change of the brand as it stands"
+                      },
+                      "warnings": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "file": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "file",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "brand",
+                      "ref",
+                      "url",
+                      "pages",
+                      "expiresAt",
+                      "diff",
+                      "warnings"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "summary": "Close a preview",
+      "description": "Scope: `write`.",
+      "x-scope": "write",
+      "parameters": [
+        {
+          "name": "ref",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The preview's ref, e.g. pull/12"
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Done"
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/previews/{token}": {
+    "parameters": [
+      {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "The preview's token, from its link",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A page of a preview",
+      "description": "What a preview's link shows (POST .../previews): a page of the brand as a proposed change's files say it, as GET .../view gives a page of the draft, every page open, assets signed. A 404 once it has closed.\n\nNo key needed.",
+      "security": [],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The page's slug; the first page when left out"
+        },
+        {
+          "name": "context",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The context the reader starts in"
+        },
+        {
+          "name": "lang",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The reader's language"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The page",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "preview": {
+                        "type": "object",
+                        "properties": {
+                          "brand": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "ref": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "commit": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          }
+                        },
+                        "required": [
+                          "brand",
+                          "name",
+                          "ref",
+                          "title",
+                          "commit",
+                          "updatedAt",
+                          "expiresAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "view": {
+                        "type": "object",
+                        "properties": {
+                          "brand": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "version": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "number": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "publishedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "number",
+                                  "publishedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The version it shows; null: the draft"
+                          },
+                          "context": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contexts": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Every context some rule is scoped to"
+                          },
+                          "lang": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "v1": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {},
+                                "description": "The accent, lifted for light and dark pages, and the faces, as before W3"
+                              },
+                              "surface": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "A hex color"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The page ground; null: none set or named, so the page keeps the app's, light or dark"
+                              },
+                              "panel": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "dark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "ink": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "muted": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "onDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "mutedOnDark": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accent": {
+                                "type": "string",
+                                "description": "The fill, as the brand has it: bands and buttons"
+                              },
+                              "accentText": {
+                                "type": "string",
+                                "description": "The accent where it is text (links), at 4.5:1 on the surface"
+                              },
+                              "onAccent": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "accentUse": {
+                                "type": "string",
+                                "enum": [
+                                  "fill",
+                                  "hairline"
+                                ]
+                              },
+                              "line": {
+                                "type": "string",
+                                "description": "A hex color"
+                              },
+                              "faces": {
+                                "type": "object",
+                                "properties": {
+                                  "head": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "body": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "family"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "label": {
+                                    "type": "object",
+                                    "properties": {
+                                      "family": {
+                                        "type": "string"
+                                      },
+                                      "weight": {
+                                        "type": "number"
+                                      },
+                                      "file": {
+                                        "description": "The font file for its weight",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "files": {
+                                        "description": "Every font file of the rule, one @font-face each",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "filename",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "fallback": {
+                                        "type": "string"
+                                      },
+                                      "google": {
+                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "type": "boolean",
+                                        "const": true
+                                      },
+                                      "case": {
+                                        "type": "string"
+                                      },
+                                      "tracking": {
+                                        "type": "number",
+                                        "description": "In em"
+                                      }
+                                    },
+                                    "required": [
+                                      "family",
+                                      "case",
+                                      "tracking"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "radius": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "string",
+                                "enum": [
+                                  "narrow",
+                                  "normal",
+                                  "wide"
+                                ]
+                              },
+                              "density": {
+                                "type": "string",
+                                "enum": [
+                                  "compact",
+                                  "normal",
+                                  "airy"
+                                ]
+                              },
+                              "scale": {
+                                "type": "number"
+                              },
+                              "device": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "logo": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "key"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nav": {
+                                "type": "string",
+                                "enum": [
+                                  "sidebar",
+                                  "top",
+                                  "overlay"
+                                ]
+                              },
+                              "band": {
+                                "type": "boolean",
+                                "description": "header is band"
+                              },
+                              "header": {
+                                "type": "string",
+                                "enum": [
+                                  "plain",
+                                  "band",
+                                  "split"
+                                ]
+                              },
+                              "separation": {
+                                "type": "string",
+                                "enum": [
+                                  "space",
+                                  "hairline"
+                                ]
+                              },
+                              "numbering": {
+                                "type": "boolean"
+                              },
+                              "motion": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "subtle"
+                                ]
+                              },
+                              "toc": {
+                                "type": "string",
+                                "enum": [
+                                  "side",
+                                  "inline",
+                                  "none"
+                                ],
+                                "description": "On this page: a side column, a list under the page header, or none"
+                              },
+                              "checks": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "pair": {
+                                      "type": "string",
+                                      "description": "Which color on which, e.g. ink on surface"
+                                    },
+                                    "fg": {
+                                      "type": "string"
+                                    },
+                                    "bg": {
+                                      "type": "string"
+                                    },
+                                    "ratio": {
+                                      "type": "number"
+                                    },
+                                    "need": {
+                                      "type": "number",
+                                      "description": "The contrast it must reach: 4.5 for text, 3 for marks"
+                                    },
+                                    "ok": {
+                                      "type": "boolean"
+                                    },
+                                    "used": {
+                                      "type": "string",
+                                      "description": "The color used: fg when it passes, else its fallback"
+                                    }
+                                  },
+                                  "required": [
+                                    "pair",
+                                    "fg",
+                                    "bg",
+                                    "ratio",
+                                    "need",
+                                    "ok",
+                                    "used"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Contrast of each pair in the look: one that fails falls back to a color that reads, and says which"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "properties": {
+                                  "accent": {
+                                    "description": "Color rule for links, marks and brand grounds; color.primary, brand or accent when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "accentUse": {
+                                    "description": "hairline: the accent draws rules and marks, never fills",
+                                    "type": "string",
+                                    "enum": [
+                                      "fill",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "surface": {
+                                    "description": "The page ground; color.background, surface or paper when left out, else the app's",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "panel": {
+                                    "description": "Panels and alternate sections; a step off the surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dark": {
+                                    "description": "The dark ground",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "ink": {
+                                    "description": "Text; color.ink, text or foreground when left out, else black or white by contrast",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "muted": {
+                                    "description": "Quiet text; mixed from ink and surface when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "head": {
+                                    "description": "Font rule for headings",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "body": {
+                                    "description": "Font rule for text",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "label": {
+                                    "description": "Font rule for eyebrows, labels and running heads; its spec.case and spec.tracking set them",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "logo": {
+                                    "description": "The rule whose picture is the site's mark; logo.primary, mark or wordmark when left out",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "device": {
+                                    "description": "An SVG asset: the brand's symbol or pattern for covers, dividers and pattern grounds",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "radius": {
+                                    "description": "Corner radius in px",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 40
+                                  },
+                                  "width": {
+                                    "type": "string",
+                                    "enum": [
+                                      "narrow",
+                                      "normal",
+                                      "wide"
+                                    ]
+                                  },
+                                  "density": {
+                                    "type": "string",
+                                    "enum": [
+                                      "compact",
+                                      "normal",
+                                      "airy"
+                                    ]
+                                  },
+                                  "scale": {
+                                    "description": "Heading size ratio; 1.25 when left out",
+                                    "type": "number",
+                                    "minimum": 1.067,
+                                    "maximum": 1.618
+                                  },
+                                  "nav": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sidebar",
+                                      "top",
+                                      "overlay"
+                                    ]
+                                  },
+                                  "band": {
+                                    "description": "Every page opens on a band of the brand color; header band says the same",
+                                    "type": "boolean"
+                                  },
+                                  "header": {
+                                    "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "band",
+                                      "split"
+                                    ]
+                                  },
+                                  "separation": {
+                                    "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+                                    "type": "string",
+                                    "enum": [
+                                      "space",
+                                      "hairline"
+                                    ]
+                                  },
+                                  "numbering": {
+                                    "description": "Number chapters and pages: 01, 01.2",
+                                    "type": "boolean"
+                                  },
+                                  "motion": {
+                                    "description": "subtle: sections reveal as they scroll in; never with reduced motion",
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "subtle"
+                                    ]
+                                  },
+                                  "toc": {
+                                    "description": "On this page: a side column, a list under the page header, or hidden",
+                                    "type": "string",
+                                    "enum": [
+                                      "side",
+                                      "inline",
+                                      "none"
+                                    ]
+                                  },
+                                  "titles": {
+                                    "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                    "type": "string",
+                                    "enum": [
+                                      "medium",
+                                      "large",
+                                      "huge"
+                                    ]
+                                  },
+                                  "grounds": {
+                                    "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                    "type": "string",
+                                    "enum": [
+                                      "plain",
+                                      "alternate"
+                                    ]
+                                  },
+                                  "languages": {
+                                    "description": "The languages readers pick from; the first is the one the pages are written in",
+                                    "maxItems": 12,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "code": {
+                                          "type": "string",
+                                          "maxLength": 20,
+                                          "pattern": "^[a-z]{2,3}(-[a-z0-9]{2,8})?$"
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40
+                                        },
+                                        "dir": {
+                                          "description": "From the language when left out",
+                                          "type": "string",
+                                          "enum": [
+                                            "ltr",
+                                            "rtl"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "code",
+                                        "label"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "v1",
+                              "surface",
+                              "panel",
+                              "dark",
+                              "ink",
+                              "muted",
+                              "onDark",
+                              "mutedOnDark",
+                              "accent",
+                              "accentText",
+                              "onAccent",
+                              "accentUse",
+                              "line",
+                              "faces",
+                              "radius",
+                              "width",
+                              "density",
+                              "scale",
+                              "device",
+                              "logo",
+                              "nav",
+                              "band",
+                              "header",
+                              "separation",
+                              "numbering",
+                              "motion",
+                              "toc",
+                              "checks",
+                              "settings"
+                            ],
+                            "additionalProperties": false,
+                            "description": "The look, derived and graded, and the settings it came from"
+                          },
+                          "nav": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "parent": {
+                                  "description": "The page it sits under; null at the top",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "eyebrow": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lede": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "cover": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Its header and card image"
+                                },
+                                "icon": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "audience": {
+                                  "type": "string",
+                                  "enum": [
+                                    "everyone",
+                                    "partners",
+                                    "members"
+                                  ],
+                                  "description": "On portals: who may read it"
+                                },
+                                "tabs": {
+                                  "type": "boolean",
+                                  "description": "Its child pages show as tabs across its top"
+                                },
+                                "home": {
+                                  "type": "boolean",
+                                  "description": "The first page, opening on a cover: never numbered"
+                                },
+                                "locked": {
+                                  "type": "boolean",
+                                  "description": "Above the reader: listed by title with a lock, nothing more"
+                                },
+                                "updatedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "title",
+                                "parent",
+                                "position",
+                                "eyebrow",
+                                "lede",
+                                "cover",
+                                "icon",
+                                "audience",
+                                "tabs",
+                                "home",
+                                "locked",
+                                "updatedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Every page the reader is listed, in order"
+                          },
+                          "page": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "parent": {
+                                    "description": "The page it sits under; null at the top",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "eyebrow": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "lede": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "cover": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Its header and card image"
+                                  },
+                                  "icon": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "audience": {
+                                    "type": "string",
+                                    "enum": [
+                                      "everyone",
+                                      "partners",
+                                      "members"
+                                    ],
+                                    "description": "On portals: who may read it"
+                                  },
+                                  "tabs": {
+                                    "type": "boolean",
+                                    "description": "Its child pages show as tabs across its top"
+                                  },
+                                  "home": {
+                                    "type": "boolean",
+                                    "description": "The first page, opening on a cover: never numbered"
+                                  },
+                                  "updatedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "sections": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "template": {
+                                          "type": "string",
+                                          "description": "GET /api/v1/brand/templates lists them"
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        },
+                                        "body": {
+                                          "type": "string",
+                                          "description": "Markdown"
+                                        },
+                                        "width": {
+                                          "type": "string",
+                                          "enum": [
+                                            "text",
+                                            "wide",
+                                            "full"
+                                          ]
+                                        },
+                                        "columns": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "tone": {
+                                          "type": "string",
+                                          "description": "Its ground: plain, tint, brand, panel, dark, color, image or pattern"
+                                        },
+                                        "hidden": {
+                                          "type": "boolean"
+                                        },
+                                        "keys": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The rules it shows, by key, in order"
+                                        },
+                                        "props": {
+                                          "type": "object",
+                                          "propertyNames": {
+                                            "type": "string"
+                                          },
+                                          "additionalProperties": {},
+                                          "description": "Its template's own settings"
+                                        },
+                                        "eyebrow": {
+                                          "type": "string"
+                                        },
+                                        "lede": {
+                                          "type": "string"
+                                        },
+                                        "aside": {
+                                          "description": "Markdown",
+                                          "type": "string"
+                                        },
+                                        "tab": {
+                                          "description": "Sections sharing a tab name show under one tab",
+                                          "type": "string"
+                                        },
+                                        "background": {
+                                          "type": "object",
+                                          "properties": {
+                                            "color": {
+                                              "type": "string"
+                                            },
+                                            "to": {
+                                              "type": "string"
+                                            },
+                                            "angle": {
+                                              "type": "number"
+                                            },
+                                            "image": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "scrim": {
+                                              "type": "number"
+                                            }
+                                          },
+                                          "additionalProperties": false
+                                        },
+                                        "items": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "key": {
+                                                "type": "string",
+                                                "description": "A rule it shows"
+                                              },
+                                              "asset": {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                              },
+                                              "title": {
+                                                "type": "string"
+                                              },
+                                              "text": {
+                                                "type": "string",
+                                                "description": "Markdown"
+                                              },
+                                              "verdict": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "do",
+                                                  "dont"
+                                                ]
+                                              },
+                                              "caption": {
+                                                "type": "string"
+                                              },
+                                              "link": {
+                                                "type": "string"
+                                              },
+                                              "label": {
+                                                "type": "string"
+                                              },
+                                              "icon": {
+                                                "type": "string"
+                                              },
+                                              "download": {
+                                                "type": "boolean",
+                                                "description": "false: for reference, never offered as a download"
+                                              }
+                                            },
+                                            "additionalProperties": false,
+                                            "description": "A thing a template lists: a do or a don't with its picture, a picture in a gallery"
+                                          }
+                                        },
+                                        "audience": {
+                                          "type": "string",
+                                          "enum": [
+                                            "everyone",
+                                            "partners",
+                                            "members"
+                                          ]
+                                        },
+                                        "contexts": {
+                                          "description": "A tab per context, its rules resolved for each",
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "only": {
+                                          "description": "Shown only in this context",
+                                          "type": "string"
+                                        },
+                                        "translations": {
+                                          "description": "Its words by language tag; readers get them already in their language",
+                                          "type": "object",
+                                          "propertyNames": {
+                                            "type": "string"
+                                          },
+                                          "additionalProperties": {
+                                            "type": "object",
+                                            "properties": {
+                                              "title": {
+                                                "type": "string",
+                                                "maxLength": 300
+                                              },
+                                              "eyebrow": {
+                                                "type": "string",
+                                                "maxLength": 120
+                                              },
+                                              "lede": {
+                                                "type": "string",
+                                                "maxLength": 1000
+                                              },
+                                              "body": {
+                                                "type": "string",
+                                                "maxLength": 20000
+                                              },
+                                              "aside": {
+                                                "type": "string",
+                                                "maxLength": 4000
+                                              },
+                                              "items": {
+                                                "maxItems": 60,
+                                                "type": "array",
+                                                "items": {
+                                                  "anyOf": [
+                                                    {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "title": {
+                                                          "type": "string",
+                                                          "maxLength": 200
+                                                        },
+                                                        "text": {
+                                                          "type": "string",
+                                                          "maxLength": 4000
+                                                        },
+                                                        "caption": {
+                                                          "type": "string",
+                                                          "maxLength": 500
+                                                        }
+                                                      },
+                                                      "additionalProperties": false
+                                                    },
+                                                    {
+                                                      "type": "null"
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "template",
+                                        "title",
+                                        "body",
+                                        "width",
+                                        "columns",
+                                        "tone",
+                                        "hidden",
+                                        "keys",
+                                        "props"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "What the reader gets: hidden ones for editors only"
+                                  },
+                                  "aliases": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "layout": {
+                                    "type": "string",
+                                    "enum": [
+                                      "book",
+                                      "landing"
+                                    ],
+                                    "description": "landing: a front with no nav column, on-this-page or pager; book: a chapter"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "title",
+                                  "parent",
+                                  "position",
+                                  "eyebrow",
+                                  "lede",
+                                  "cover",
+                                  "icon",
+                                  "audience",
+                                  "tabs",
+                                  "home",
+                                  "updatedAt",
+                                  "sections",
+                                  "aliases",
+                                  "layout"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "null: locked for this reader"
+                          },
+                          "locked": {
+                            "type": "boolean"
+                          },
+                          "redirect": {
+                            "description": "An old slug was asked for: the page's slug now",
+                            "type": "string"
+                          },
+                          "rules": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "description": "Dotted, e.g. color.primary"
+                                },
+                                "label": {
+                                  "description": "The heading readers see; null: the key, in words",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "context": {
+                                  "description": "null: the default",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "color",
+                                    "text",
+                                    "number",
+                                    "list",
+                                    "font"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {
+                                        "type": [
+                                          "string",
+                                          "number"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "family": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 120
+                                        },
+                                        "size": {
+                                          "description": "Pixels",
+                                          "type": "number",
+                                          "exclusiveMinimum": 0,
+                                          "maximum": 1000
+                                        },
+                                        "weight": {
+                                          "description": "400 regular, 700 bold",
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 1000
+                                        }
+                                      },
+                                      "required": [
+                                        "family"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "spec": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string"
+                                      },
+                                      "additionalProperties": {}
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Details beyond the value, by type: RuleInput's spec"
+                                },
+                                "usage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "assets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "rendition": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "title": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "filename": {
+                                        "type": "string"
+                                      },
+                                      "mime": {
+                                        "type": "string"
+                                      },
+                                      "width": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "height": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "size": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Has renditions: /a/{id}/{rendition} draws it"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "rendition",
+                                      "title",
+                                      "filename",
+                                      "mime",
+                                      "width",
+                                      "height",
+                                      "size",
+                                      "preview"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "Its assets readers may see, in order; one that may not be used is left out"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "context",
+                                "type",
+                                "value",
+                                "spec",
+                                "usage",
+                                "assets"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Every context version of the rules the page binds, the theme's, and those their specs name"
+                          },
+                          "media": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "creator": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "copyright": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "width": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "height": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "thumbnail": {
+                                  "description": "A URL on this host",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "preview": {
+                                  "description": "Larger, for a closer look",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "downloads": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "preset": {
+                                        "type": "string",
+                                        "enum": [
+                                          "web",
+                                          "social",
+                                          "story",
+                                          "print",
+                                          "png",
+                                          "original"
+                                        ]
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "hint": {
+                                        "type": "string"
+                                      },
+                                      "url": {
+                                        "type": "string"
+                                      },
+                                      "filename": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "preset",
+                                      "label",
+                                      "hint",
+                                      "url",
+                                      "filename"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "original": {
+                                  "type": "string",
+                                  "description": "The file as uploaded"
+                                },
+                                "focus": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "x": {
+                                          "type": "number"
+                                        },
+                                        "y": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "x",
+                                        "y"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Where a crop keeps its subject, from 0 to 1 across and down"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "filename",
+                                "title",
+                                "description",
+                                "creator",
+                                "copyright",
+                                "mime",
+                                "size",
+                                "width",
+                                "height",
+                                "thumbnail",
+                                "preview",
+                                "downloads",
+                                "original",
+                                "focus",
+                                "updatedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "The assets it names that may be used, by id"
+                          },
+                          "collections": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "filename": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "description": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "creator": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "copyright": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "mime": {
+                                        "type": "string"
+                                      },
+                                      "size": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "width": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "height": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "thumbnail": {
+                                        "description": "A URL on this host",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "preview": {
+                                        "description": "Larger, for a closer look",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "downloads": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "preset": {
+                                              "type": "string",
+                                              "enum": [
+                                                "web",
+                                                "social",
+                                                "story",
+                                                "print",
+                                                "png",
+                                                "original"
+                                              ]
+                                            },
+                                            "label": {
+                                              "type": "string"
+                                            },
+                                            "hint": {
+                                              "type": "string"
+                                            },
+                                            "url": {
+                                              "type": "string"
+                                            },
+                                            "filename": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "preset",
+                                            "label",
+                                            "hint",
+                                            "url",
+                                            "filename"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "original": {
+                                        "type": "string",
+                                        "description": "The file as uploaded"
+                                      },
+                                      "focus": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "x": {
+                                                "type": "number"
+                                              },
+                                              "y": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            "required": [
+                                              "x",
+                                              "y"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Where a crop keeps its subject, from 0 to 1 across and down"
+                                      },
+                                      "updatedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "filename",
+                                      "title",
+                                      "description",
+                                      "creator",
+                                      "copyright",
+                                      "mime",
+                                      "size",
+                                      "width",
+                                      "height",
+                                      "thumbnail",
+                                      "preview",
+                                      "downloads",
+                                      "original",
+                                      "focus",
+                                      "updatedAt"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "error": {
+                                  "description": "Why it shows nothing; editors only",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "items",
+                                "total",
+                                "error"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "A collection section's assets, by section id"
+                          },
+                          "updates": {
+                            "description": "With an updates section: the latest publishes, newest first, as many as its largest limit",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "version": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "publishedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "publishedBy": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "note": {
+                                  "description": "What changed, in the publisher's words",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "image": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "An asset shown beside the note; null when it may no longer be used"
+                                },
+                                "changes": {
+                                  "type": "object",
+                                  "properties": {
+                                    "rules": {
+                                      "type": "object",
+                                      "properties": {
+                                        "added": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "changed": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "removed": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "added",
+                                        "changed",
+                                        "removed"
+                                      ],
+                                      "additionalProperties": false,
+                                      "description": "By key"
+                                    },
+                                    "pages": {
+                                      "type": "object",
+                                      "properties": {
+                                        "added": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "slug": {
+                                                "type": "string"
+                                              },
+                                              "title": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "slug",
+                                              "title"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "changed": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "slug": {
+                                                "type": "string"
+                                              },
+                                              "title": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "slug",
+                                              "title"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "removed": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "slug": {
+                                                "type": "string"
+                                              },
+                                              "title": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "slug",
+                                              "title"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "added",
+                                        "changed",
+                                        "removed"
+                                      ],
+                                      "additionalProperties": false,
+                                      "description": "Pages readers can reach: a hidden one is left out"
+                                    }
+                                  },
+                                  "required": [
+                                    "rules",
+                                    "pages"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "What it changed for readers since the publish before it"
+                                }
+                              },
+                              "required": [
+                                "version",
+                                "publishedAt",
+                                "publishedBy",
+                                "note",
+                                "image",
+                                "changes"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "signed": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "description": "Signatures by asset id, for visitors; empty for members"
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Editors only: what a reader would trip on, assets they won't see, and theme pairs that fell back"
+                          },
+                          "missing": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Editors only: keys a section binds with no rule"
+                          }
+                        },
+                        "required": [
+                          "brand",
+                          "version",
+                          "context",
+                          "contexts",
+                          "lang",
+                          "theme",
+                          "nav",
+                          "page",
+                          "locked",
+                          "rules",
+                          "media",
+                          "collections",
+                          "signed",
+                          "warnings",
+                          "missing"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "preview",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/me": {
     "get": {
       "summary": "Who is calling",

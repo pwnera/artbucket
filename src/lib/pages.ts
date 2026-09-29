@@ -58,7 +58,7 @@ export const AUDIENCES = ["everyone", "partners", "members"] as const;
 export type Audience = (typeof AUDIENCES)[number];
 /** ponytail: hard-coded caps; add LIMIT_PAGES when an operator asks. */
 export const MAX_PAGES = 200;
-const MAX_SECTIONS = 60;
+export const MAX_SECTIONS = 60;
 const MAX_ITEMS = 60;
 
 type Bindable = Pick<Rule, "key" | "type" | "value" | "assets">;

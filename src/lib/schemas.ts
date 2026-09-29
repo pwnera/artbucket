@@ -1368,3 +1368,117 @@ export const IconBrowse = z.object({
   total: z.number().int().describe("Matching icons before `offset` and `limit`"),
   data: z.array(z.object({ name: z.string(), svg: z.string().describe("The file an import stores") })),
 });
+
+// ---- brand as code (core/brand-sync.ts) -------------------------------------------
+
+const MAX_FILES = 500;
+const brandFiles = z
+  .record(z.string().min(1).max(300), z.string().max(2_000_000))
+  .refine((f) => Object.keys(f).length <= MAX_FILES, `${MAX_FILES} files at most`)
+  .describe("The brand's files by path in its folder: brand.yaml, rules/*.yaml, pages/*.yaml. Others are left alone");
+const fileAssets = z
+  .record(z.string().min(1).max(300), z.string().max(64))
+  .optional()
+  .describe("The files under assets/ the brand's files point at: path to asset id, or to the SHA-256 of its bytes (upload first)");
+const commit = z.string().trim().min(1).max(100);
+
+export const BrandExportInput = z.strictObject({
+  previous: brandFiles.optional().describe("The repository's files as they are: one that says the same is kept as written, comments and all"),
+  assets: z.enum(["ids", "files"]).optional().describe("files: give every asset the brand points at a path under assets/, to add them to the repository"),
+});
+export const BrandImportInput = z.strictObject({
+  files: brandFiles,
+  assets: fileAssets,
+  commit: commit.optional().describe("The commit the files are at: recorded as agreed, when the brand has a source"),
+  message: z.string().trim().max(2000).optional().describe("The commit's message: its first line names the version the import makes"),
+  dryRun: z.boolean().optional().describe("Check and merge, answer what would change, write nothing"),
+  merge: z.boolean().optional().describe("Keep what changed here since the source last agreed (default); false takes the files whole"),
+  publish: z.union([z.boolean(), z.string().trim().max(2000)]).optional().describe("Publish after, with this note (true: none). Takes share"),
+});
+export const BrandSourceInput = z.strictObject({
+  remote: z.url({ protocol: /^https?$/ }).max(500).describe("The repository, as its host shows it: https://github.com/acme/brand"),
+  branch: z.string().trim().min(1).max(255).optional().describe("main when left out"),
+  path: z.string().max(500).optional().describe("The brand's folder in the repository; its root when left out"),
+  synced: z
+    .strictObject({ commit, files: brandFiles, assets: fileAssets })
+    .optional()
+    .describe("The files just pushed, at `commit`: recorded as what both sides agree on"),
+});
+export const BrandPreviewInput = z.strictObject({
+  ref: z.string().trim().min(1).max(200).describe("What proposes it, as its host names it: pull/12. One preview each; saving again updates it"),
+  title: z.string().trim().max(300).optional(),
+  commit: commit.optional(),
+  files: brandFiles,
+  assets: fileAssets,
+});
+
+export const FileProblem = z.object({ file: z.string(), line: z.number().int().optional(), message: z.string() });
+export const FileProblems = z.object({
+  errors: z.array(FileProblem),
+  warnings: z.array(FileProblem),
+  missing: z.array(z.string()).describe("Files under assets/ to upload, then name in assets by SHA-256"),
+});
+const StateDiff = z.object({
+  name: z.object({ before: z.string(), after: z.string() }).nullable(),
+  rules: z.array(
+    z.object({
+      change: z.enum(["added", "removed", "changed"]),
+      key: z.string(),
+      context: z.string().nullable(),
+      type: z.enum(RULE_TYPES),
+      before: z.unknown().optional(),
+      after: z.unknown().optional(),
+      fields: z.array(z.string()).optional().describe("What changed: value, usage, label, spec, assets, type"),
+    }),
+  ),
+  pages: z.array(z.object({ change: z.enum(["added", "removed", "changed", "moved"]), slug: z.string(), title: z.string() })),
+  theme: z.array(z.string()).describe("Theme settings changed"),
+  reordered: z.boolean().describe("The rules' order changed"),
+});
+export const BrandSource = z.object({
+  remote: z.string(),
+  branch: z.string(),
+  path: z.string(),
+  commit: z.string().nullable(),
+  syncedAt: date.nullable(),
+  pending: z.boolean().describe("Changed here since the repository last agreed: an export is due"),
+  files: z.number().int().describe("Assets that are files in the repository"),
+});
+export const BrandExport = z.object({
+  brand: z.string(),
+  files: z.record(z.string(), z.string()),
+  assets: z
+    .record(z.string(), z.object({ id: uuid, filename: z.string(), mime: z.string(), size: z.number().int(), sha256: z.string(), url: z.url() }))
+    .describe("Each path under assets/ the files name, with its asset: fetch it from url, or compare by sha256"),
+  source: BrandSource.nullable(),
+});
+export const BrandImport = z.object({
+  brand: z.string(),
+  applied: z.boolean().describe("Something changed: a new version in the brand's history"),
+  version: z.number().int().nullable(),
+  published: z.number().int().nullable().describe("The version published, when publish was asked and something was new"),
+  diff: StateDiff,
+  conflicts: z
+    .array(z.object({ what: z.string(), ours: z.unknown(), theirs: z.unknown() }))
+    .describe("Pieces both sides changed differently: the files' side was taken, this side's is in the history"),
+  warnings: z.array(FileProblem),
+  pending: z.boolean().describe("The brand holds changes the files lack: export them back"),
+});
+export const BrandPreview = z.object({
+  brand: z.string(),
+  ref: z.string(),
+  url: z.url().describe("The site as the files say it; no account needed"),
+  pages: z.array(z.object({ slug: z.string(), title: z.string(), url: z.url() })),
+  expiresAt: date,
+  diff: StateDiff.describe("What it would change of the brand as it stands"),
+  warnings: z.array(FileProblem),
+});
+export const PreviewMeta = z.object({
+  brand: z.string(),
+  name: z.string(),
+  ref: z.string(),
+  title: z.string().nullable(),
+  commit: z.string().nullable(),
+  updatedAt: date,
+  expiresAt: date,
+});
