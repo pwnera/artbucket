@@ -20,6 +20,8 @@ RUN apk add --no-cache ffmpeg
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./
+# The standalone build leaves out public/ and .next/static: without public/, /icon.svg is a 404.
+COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 USER node
