@@ -48,7 +48,7 @@ jobs:
           # The base branch too: the migration checks below compare with it.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v7
         with:
