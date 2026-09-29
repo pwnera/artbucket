@@ -401,6 +401,47 @@ _~4 weekends._
 
 ---
 
+## v1.9 - Bring your own bucket
+**Question:** can an organization keep its files in its own bucket, on a
+server someone else runs?
+
+The open-source promise, extended to Cloud: your metadata is already yours,
+now the bytes can be too. Also the answer to data residency (an EU bucket, an
+R2 jurisdiction) and to contractual isolation.
+
+- **Storage is a setting:** one `storage` setting on the organization
+  (endpoint, public endpoint, region, bucket, path style, keys sealed like
+  every other secret). Unset, the server's `S3_*` bucket stays the default, so
+  self-hosters notice nothing
+- **`storageFor(org)` replaces the singleton:** delivery, uploads, previews,
+  renditions, usage and the sweeper take their client from the asset's
+  organization. No other code learns about buckets
+- **Dedup per bucket:** identical bytes are stored once per bucket, not once
+  per server. The byte lock, the sweeper and its marker work per bucket, so
+  two organizations never sweep each other's files
+- **Connect, then prove it:** saving the setting runs a test PUT, GET, HEAD and
+  DELETE, checks CORS for browser uploads, and sets the `staging/` and
+  `renditions/` lifecycle rules or says exactly which to add
+- **Moving in and out:** switching buckets copies originals to the new one,
+  resumable and checked by hash, and flips only when every byte is there. The
+  old bucket is left untouched until a person confirms. Renditions regenerate
+- **Safe on a shared server:** the endpoint must be public HTTPS, never a
+  private or link-local address, so a setting can't point the server at its
+  own network. Who may set it is the operator's call: operator-only by
+  default, organization admins when the server allows it
+- **Usage still counts:** storage stays the sum of asset sizes in Postgres,
+  wherever the bytes live. An operator can leave bytes in an organization's own
+  bucket out of its storage limit
+
+**Not in this one:** a bucket per workspace, storage classes and cold tiers,
+client-side encryption, non-S3 backends.
+**Done when:** an organization on a shared server points at its own R2 bucket,
+moves a 10k-asset library there with zero lost files, and the server's bucket
+holds none of its bytes afterwards.
+_~3 weekends._
+
+---
+
 ## Later - Backup and restore
 **Question:** can a lost file or a dropped table come back?
 
