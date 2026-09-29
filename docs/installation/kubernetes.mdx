@@ -1,0 +1,95 @@
+---
+title: Kubernetes
+description: The image as a Deployment, with your Postgres and your storage.
+---
+
+`deploy/kubernetes/` in the repository is a Kustomize base: a namespace, a
+Deployment, a Service and an Ingress. `kubectl` applies it as is, no Helm.
+Bring Postgres 16 or later and S3-compatible storage: managed ones (RDS, Cloud
+SQL, Neon; S3, R2, B2), or in the cluster (CloudNativePG, SeaweedFS, Garage).
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket/deploy/kubernetes
+cp secret.env.example secret.env    # git ignores it
+```
+
+## Settings
+
+`config.env` holds the plain settings and becomes a ConfigMap:
+
+```bash config.env
+APP_URL=https://assets.example.com
+INTERNAL_URL=http://localhost:3000
+HOSTNAME=0.0.0.0
+S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+S3_REGION=eu-central-1
+S3_BUCKET=acme-assets
+S3_FORCE_PATH_STYLE=false
+```
+
+Keep `HOSTNAME=0.0.0.0`: Kubernetes sets `HOSTNAME` to the pod's name, and the
+server would listen on that address only. When the pod reaches storage inside
+the cluster, set `S3_PUBLIC_ENDPOINT` to where browsers upload.
+
+`secret.env` becomes a Secret:
+
+```bash secret.env
+DATABASE_URL=postgres://artbucket:...@postgres.example.com:5432/artbucket
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+BETTER_AUTH_SECRET=   # openssl rand -base64 32
+```
+
+Keep `BETTER_AUTH_SECRET` somewhere safe: a new one signs everyone out and
+makes stored secrets unreadable. Both objects' names carry a hash of their
+contents, so a change to either rolls the pods.
+
+Every variable is in [Environment](/configuration/environment).
+
+## Domain
+
+In `ingress.yaml`, set your domain (the one in `APP_URL`), your
+`ingressClassName`, and your certificate issuer's annotation. Uploads go from
+browsers straight to storage, so the ingress needs no body size limit raised.
+
+## Apply
+
+```bash
+kubectl apply -k .
+kubectl -n artbucket rollout status deployment/artbucket
+```
+
+The pod migrates the database before it answers; its probes read
+`/icon.svg`, a static file, so they never query the database. Make the first
+account at your domain.
+
+## Replicas and resources
+
+The base runs one replica. More work: migrations run under a lock and the
+sweeper is safe twice. The rate limit counts per pod, so each allows
+`RATE_LIMIT` requests a minute on its own.
+
+It asks for half a CPU and 1 GiB, and may use up to 4 GiB: an upload of up to
+512 MB is buffered while its previews are made.
+
+## Your own overlay
+
+Keep your changes out of the base with an overlay of your own:
+
+```yaml kustomization.yaml
+resources:
+  - github.com/pwnera/artbucket//deploy/kubernetes?ref=v1.0.0
+images:
+  - name: ghcr.io/pwnera/artbucket
+    newTag: "1.0.0"
+```
+
+With a secrets manager (External Secrets, Sealed Secrets), make a Secret named
+`artbucket-secret` there and drop the `secretGenerator` from the base.
+
+## Upgrading
+
+Change `newTag` in `kustomization.yaml` (`"1"` follows the major line) and
+apply again. The new pod migrates, then takes over. See
+[Upgrading](/installation/upgrading).
