@@ -524,6 +524,179 @@
     "type": "object",
     "properties": {}
   },
+  "list_collections": {
+    "type": "object",
+    "properties": {}
+  },
+  "create_collection": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "folder",
+              "photo",
+              "palette",
+              "brush",
+              "camera",
+              "movie",
+              "music",
+              "star",
+              "heart",
+              "flag",
+              "bookmark",
+              "briefcase",
+              "building-store",
+              "speakerphone",
+              "rocket",
+              "sparkles",
+              "leaf",
+              "world",
+              "users",
+              "archive"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fields": {
+        "description": "Values its members inherit",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "private": {
+        "description": "Only people with a grant on it and admins see it; assets only in private collections are private too",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "update_collection": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "folder",
+              "photo",
+              "palette",
+              "brush",
+              "camera",
+              "movie",
+              "music",
+              "star",
+              "heart",
+              "flag",
+              "bookmark",
+              "briefcase",
+              "building-store",
+              "speakerphone",
+              "rocket",
+              "sparkles",
+              "leaf",
+              "world",
+              "users",
+              "archive"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fields": {
+        "description": "Merges; null clears; members re-inherit",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "private": {
+        "description": "Only people with a grant on it and admins see it; assets only in private collections are private too",
+        "type": "boolean"
+      },
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ],
+    "additionalProperties": false
+  },
+  "update_collection_assets": {
+    "type": "object",
+    "properties": {
+      "add": {
+        "description": "Asset ids to put in it, from search_assets",
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "remove": {
+        "description": "Asset ids to take out; the assets stay in the library",
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ],
+    "additionalProperties": false
+  },
+  "delete_collection": {
+    "type": "object",
+    "properties": {
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ]
+  },
   "brand_status": {
     "type": "object",
     "properties": {
@@ -533,6 +706,76 @@
         "maxLength": 60
       }
     }
+  },
+  "create_brand": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "slug": {
+        "description": "Defaults to the name, as a slug",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "from": {
+        "description": "Start as a copy of this brand's rules",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "update_brand": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "slug": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "default": {
+        "description": "Make this the default brand",
+        "type": "boolean",
+        "const": true
+      },
+      "brand": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60,
+        "description": "The brand's slug, as brand_status names it"
+      }
+    },
+    "required": [
+      "brand"
+    ],
+    "additionalProperties": false
+  },
+  "delete_brand": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60,
+        "description": "The brand's slug, as brand_status names it"
+      }
+    },
+    "required": [
+      "brand"
+    ]
   },
   "list_templates": {
     "type": "object",

@@ -62,3 +62,23 @@ test("create_portal takes members or public, never a password, and refuses a mis
   assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, brand: ["default"] }).success);
   assert.ok(!TOOL_INPUTS.create_portal.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
 });
+
+test("create_brand and update_brand take what POST and PATCH /brands take, and refuse a misspelled field", () => {
+  assert.ok(TOOL_INPUTS.create_brand.safeParse({ name: "Acme Kids" }).success);
+  assert.ok(TOOL_INPUTS.create_brand.safeParse({ name: "Acme Kids", slug: "kids", from: "default" }).success);
+  assert.ok(!TOOL_INPUTS.create_brand.safeParse({ name: "Acme Kids", slug: "Acme Kids" }).success);
+  assert.ok(!TOOL_INPUTS.create_brand.safeParse({ nmae: "Acme Kids" }).success);
+  assert.ok(TOOL_INPUTS.update_brand.safeParse({ brand: "kids", default: true }).success);
+  assert.ok(!TOOL_INPUTS.update_brand.safeParse({ brand: "kids", default: false }).success, "a brand is made the default, never unmade");
+  assert.ok(!TOOL_INPUTS.delete_brand.safeParse({}).success, "the brand is named, never the default by omission");
+});
+
+test("the collection tools name a collection by id or name, and take ids to file", () => {
+  assert.ok(TOOL_INPUTS.create_collection.safeParse({ name: "Spring campaign", fields: { channel: "web" }, private: true }).success);
+  assert.ok(!TOOL_INPUTS.create_collection.safeParse({ name: "" }).success);
+  assert.ok(TOOL_INPUTS.update_collection.safeParse({ collection: "Spring campaign", fields: { channel: null } }).success);
+  assert.ok(!TOOL_INPUTS.update_collection.safeParse({ collection: "Spring campaign", nmae: "Spring" }).success);
+  const id = "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
+  assert.ok(TOOL_INPUTS.update_collection_assets.safeParse({ collection: "Spring campaign", add: [id], remove: [] }).success);
+  assert.ok(!TOOL_INPUTS.update_collection_assets.safeParse({ collection: "Spring campaign", add: ["logo.svg"] }).success);
+});

@@ -77,6 +77,10 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
 Start with `brand_status`: it names every brand and lists what the one you work on still lacks (colors,
 typefaces, logo, voice, pages, a publish, a portal), each step with the tools that do it. Take `next`
 first, and ask again after each change until every step is done or only the person's decisions are left.
+A new brand (a sub-brand, a product line) is `create_brand({"name": "Acme Kids"})`, empty, or with
+`from` a copy of another brand's rules, pages and theme; `update_brand` renames one or makes it the default.
+Group assets with `create_collection` and `update_collection_assets`; `list_collections` gives the ids that
+`ingest_asset` and `create_portal` take.
 
 1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
    with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists

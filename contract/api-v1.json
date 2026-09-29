@@ -23866,6 +23866,22 @@
             ]
           },
           "description": "1: as the builder sees it"
+        },
+        {
+          "name": "in",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A collection section's id, whose assets `find` narrows"
+        },
+        {
+          "name": "find",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Words a reader searches that collection section for"
         }
       ],
       "responses": {
@@ -36049,6 +36065,22 @@
             "type": "string"
           },
           "description": "The reader's language, a lowercase tag: ar, en-gb"
+        },
+        {
+          "name": "in",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A collection section's id, whose assets `find` narrows"
+        },
+        {
+          "name": "find",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Words a reader searches that collection section for"
         }
       ],
       "responses": {
@@ -42324,7 +42356,7 @@
   "/api/v1/mcp": {
     "post": {
       "summary": "MCP (Streamable HTTP, stateless)",
-      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, list_fields, brand_status, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, publish, list_portals, update_portal, create_portal, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, list_fields, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, delete_brand, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, publish, list_portals, update_portal, create_portal, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
       "x-scope": "read",
       "requestBody": {
         "required": true,

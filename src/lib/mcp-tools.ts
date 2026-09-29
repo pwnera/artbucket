@@ -6,7 +6,19 @@ import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
-import { GeneratePagesInput, IconBrowseQuery, IconImport, IconSetQuery, PortalInput, PortalPatch } from "./schemas.ts";
+import {
+  BrandCreate,
+  BrandPatch,
+  CollectionCreate,
+  CollectionPatch,
+  GeneratePagesInput,
+  IconBrowseQuery,
+  IconImport,
+  IconSetQuery,
+  MembersChange,
+  PortalInput,
+  PortalPatch,
+} from "./schemas.ts";
 import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 /**
@@ -20,6 +32,8 @@ const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
 const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
 const page = pageSlug.describe("The page's slug, e.g. logo; list_pages names them");
+const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
+const collection = z.string().min(1).max(120).describe("Its id, or its name in any case, as list_collections names it");
 
 export const TOOL_INPUTS = {
   search_assets: z.object({
@@ -116,7 +130,30 @@ export const TOOL_INPUTS = {
 
   list_fields: z.object({}),
 
+  list_collections: z.object({}),
+
+  // POST /collections's and PATCH /collections/{id}'s own fields; strict, as there.
+  create_collection: CollectionCreate,
+
+  update_collection: CollectionPatch.extend({ collection }),
+
+  // POST /collections/{id}/assets's own fields; strict, as there.
+  update_collection_assets: MembersChange.extend({
+    collection,
+    add: MembersChange.shape.add.describe("Asset ids to put in it, from search_assets"),
+    remove: MembersChange.shape.remove.describe("Asset ids to take out; the assets stay in the library"),
+  }),
+
+  delete_collection: z.object({ collection }),
+
   brand_status: z.object({ brand }),
+
+  // POST /brands's and PATCH /brands/{slug}'s own fields, so both doors take the same thing; strict, as there.
+  create_brand: BrandCreate,
+
+  update_brand: BrandPatch.extend({ brand: which }),
+
+  delete_brand: z.object({ brand: which }),
 
   list_templates: z.object({}),
 

@@ -483,7 +483,7 @@ export async function parseAssetQuery(caller: Caller, params: URLSearchParams): 
 }
 
 /** A collection by id, or by name (any case): agents and people remember names. */
-async function collectionId(caller: Caller, ref: string): Promise<string> {
+export async function collectionId(caller: Caller, ref: string): Promise<string> {
   const all = await listCollections(caller);
   const hit = all.find((c) => c.id === ref) ?? all.find((c) => c.name.toLowerCase() === ref.trim().toLowerCase());
   if (hit) return hit.id;

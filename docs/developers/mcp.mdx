@@ -33,9 +33,17 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `list_fields` | read | The library's custom fields: keys, types, options |
+| `list_collections` | read | The collections you can see, with their ids, field values and how many assets each holds |
+| `create_collection` | write | Make a collection, with field values its assets inherit, private or not |
+| `update_collection` | write | Rename it, change its icon or privacy, merge its field values; its assets inherit at once |
+| `update_collection_assets` | write | Put assets in a collection and take others out, in one call |
+| `delete_collection` | write, delete | Delete a collection; its assets stay in the library |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
 | `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, and every brand's slug |
+| `create_brand` | write | Make a brand, empty or as a copy of another's rules, pages and theme |
+| `update_brand` | write | Rename a brand, change its slug, or make it the default |
+| `delete_brand` | write | Delete a brand with its rules, pages and history; never the default |
 | `list_templates` | read | The section templates a brand page is built from: their props, what they list, and an example each |
 | `list_pages` | read | A brand's pages, in order, with their tree |
 | `get_page` | read | One page: its sections, the rules they show, its warnings, the page as Markdown, and its URL in the app |
@@ -54,6 +62,10 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 A tool shows up in `tools/list` only when the key may run it: the portal
 tools, only for a key that may manage portals (write on the workspace, with
 sharing not turned off).
+
+Brands and collections are made, changed and deleted over MCP as in the app.
+A collection is named by its id or its name; `list_collections` gives the ids that `ingest_asset`,
+`import_icons` and `create_portal` take.
 
 Brand rules are also resources: `artbucket://brand/rules`, and
 `artbucket://brands/{slug}/rules/{context}`. So is every brand page, as
