@@ -304,7 +304,7 @@ export const ShareFinalize = z.strictObject({
 
 const portal = {
   name: z.string().trim().min(1).max(120).describe("What visitors see it called, e.g. Press kit"),
-  slug: z.string().regex(PORTAL_SLUG).describe("Its address: /p/{slug}. Lowercase letters, digits and dashes"),
+  slug: z.string().regex(PORTAL_SLUG).describe("Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"),
   intro: z.string().trim().max(4000).nullable().optional().describe("A few paragraphs under the name"),
   access: z.enum(PORTAL_ACCESS).describe("public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"),
   password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
@@ -1089,7 +1089,7 @@ export const Portal = z.object({
     .describe("Brands whose guidelines it publishes, in tab order"),
   site: PortalSite,
   domain: domainState.nullable(),
-  url: z.url().describe("Where visitors go: its domain once verified, else /p/{slug}"),
+  url: z.url().describe("Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"),
   pending: z.number().int().describe("Access requests waiting"),
   createdBy: z.string(),
   createdAt: date,
@@ -1109,6 +1109,12 @@ export const PortalRequest = z.object({
   decidedAt: date.nullable(),
   createdAt: date,
   url: z.string().nullable().describe("For an approved request: their own link, to copy"),
+});
+export const PortalAddress = z.object({
+  slug: z.string(),
+  available: z.boolean(),
+  reason: z.string().nullable().describe("Why not: taken, or kept for the service"),
+  url: z.url().describe("Where a public portal at it answers: {slug}.PORTAL_DOMAIN when the server has one, else /p/{slug}"),
 });
 export const PortalDomain = z.object({
   host: z.string(),

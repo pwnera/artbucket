@@ -4651,7 +4651,7 @@
       "slug": {
         "type": "string",
         "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$",
-        "description": "Its address: /p/{slug}. Lowercase letters, digits and dashes"
+        "description": "Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"
       },
       "intro": {
         "description": "A few paragraphs under the name",

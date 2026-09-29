@@ -54,6 +54,45 @@ export function downloadsFor(asset: { id: string; filename: string; mime: string
 /** Lowercase letters, digits and dashes: the portal's address, /p/{slug}. */
 export const PORTAL_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
+/**
+ * Addresses kept back when portals answer at {slug}.PORTAL_DOMAIN too: names
+ * a visitor would read as the service's own, or its DNS may need.
+ */
+export const RESERVED_SLUGS = new Set([
+  "abuse", "account", "admin", "api", "app", "artbucket", "assets", "auth", "billing", "blog", "cdn", "dev", "docs",
+  "email", "ftp", "help", "hostmaster", "imap", "login", "mail", "mx", "ns1", "ns2", "pop", "postmaster", "root",
+  "security", "signin", "signup", "smtp", "staging", "static", "status", "support", "test", "webmaster", "www",
+]);
+
+/** Why a slug can't be a subdomain, or null when it can: reserved, or `ab--`, the shape of a look-alike (xn--, punycode). */
+export function subdomainRefusal(slug: string): string | null {
+  if (RESERVED_SLUGS.has(slug)) return `"${slug}" is kept for the service: pick another address`;
+  if (slug.slice(2, 4) === "--") return "An address can't have dashes as its third and fourth characters";
+  return null;
+}
+
+/**
+ * Where a request for a portal goes instead, or null to serve it where it is:
+ * `home` is the portal now (its slug, and where it answers), `at` what was
+ * asked, a portal host or /p/{slug} on the app's. It goes home, but for a
+ * members portal at /p/ (its members sign in there) and an old slug on the
+ * app's, which only moves to the current one.
+ */
+export function portalRedirect(home: { url: string; slug: string; access: string }, at: { host?: string; slug: string }) {
+  const to = new URL(home.url);
+  const own = !to.pathname.startsWith("/p/"); // a subdomain, or a domain of its own
+  if (at.host) return own && to.host === at.host ? null : own ? to.origin : to.href;
+  if (own && home.access !== "members") return to.origin;
+  return at.slug !== home.slug ? `/p/${home.slug}` : null;
+}
+
+/** The portal slug a host names as a subdomain of `domain` (PORTAL_DOMAIN): one label, a portal's shape, not refused. */
+export function slugAtHost(host: string, domain: string | undefined) {
+  if (!domain || !host.endsWith(`.${domain}`)) return null;
+  const slug = host.slice(0, -domain.length - 1);
+  return PORTAL_SLUG.test(slug) && !subdomainRefusal(slug) ? slug : null;
+}
+
 export const PORTAL_ACCESS = ["public", "password", "members"] as const;
 export type PortalAccess = (typeof PORTAL_ACCESS)[number];
 

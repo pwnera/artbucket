@@ -864,6 +864,19 @@ export const portals = pgTable(
   ],
 );
 
+/**
+ * A portal's addresses before a rename, its last five (lib/core/portals.ts
+ * ALIASES): each still leads to it (src/proxy.ts redirects), and nobody else
+ * may take one while the portal stands. Deleting the portal frees them.
+ */
+export const portalAliases = pgTable("portal_aliases", {
+  slug: text("slug").primaryKey(),
+  portalId: uuid("portal_id")
+    .notNull()
+    .references(() => portals.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** A portal's collections, in the order it shows them. Deleting a collection takes it off every portal. */
 export const portalCollections = pgTable(
   "portal_collections",

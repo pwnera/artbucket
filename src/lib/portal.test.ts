@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { downloadsFor, hostname, PORTAL_SLUG, PortalSite } from "./portal.ts";
+import { downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -35,6 +35,40 @@ test("host names: lowercased and bare, or refused", () => {
 test("slugs", () => {
   for (const ok of ["press", "partner-hub", "a", "2027"]) assert.ok(PORTAL_SLUG.test(ok), ok);
   for (const bad of ["-press", "press-", "Press", "a_b", ""]) assert.ok(!PORTAL_SLUG.test(bad), bad);
+});
+
+test("subdomains: one label under the portal domain, never a reserved name or a look-alike", () => {
+  const d = "artbucket.page";
+  assert.equal(slugAtHost("blender.artbucket.page", d), "blender");
+  assert.equal(slugAtHost("press-kit.artbucket.page", d), "press-kit");
+  for (const host of ["artbucket.page", "a.b.artbucket.page", "blender.artbucket.site", "blenderartbucket.page", "www.artbucket.page", "xn--pple-43d.artbucket.page", "-x.artbucket.page"]) {
+    assert.equal(slugAtHost(host, d), null, host);
+  }
+  assert.equal(slugAtHost("blender.artbucket.page", undefined), null);
+  assert.equal(subdomainRefusal("press"), null);
+  assert.match(subdomainRefusal("api")!, /kept/);
+  assert.match(subdomainRefusal("ab--c")!, /dashes/);
+});
+
+test("a portal asked for anywhere but its home goes there; members stay at /p/", () => {
+  const sub = { url: "https://press.artbucket.page", slug: "press", access: "public" };
+  // /p/ on the app's: to the subdomain, an old slug too.
+  assert.equal(portalRedirect(sub, { slug: "press" }), "https://press.artbucket.page");
+  assert.equal(portalRedirect(sub, { slug: "old" }), "https://press.artbucket.page");
+  // At home: served. An old subdomain: home.
+  assert.equal(portalRedirect(sub, { host: "press.artbucket.page", slug: "press" }), null);
+  assert.equal(portalRedirect(sub, { host: "old.artbucket.page", slug: "old" }), "https://press.artbucket.page");
+  // A domain of its own is home, the subdomain goes there.
+  const own = { url: "https://press.example.com", slug: "press", access: "public" };
+  assert.equal(portalRedirect(own, { host: "press.artbucket.page", slug: "press" }), "https://press.example.com");
+  assert.equal(portalRedirect(own, { host: "press.example.com", slug: "press" }), null);
+  // Members: /p/ on the app's; only an old slug moves, and a subdomain sends them there.
+  const members = { url: "https://app.artbucket.io/p/team", slug: "team", access: "members" };
+  assert.equal(portalRedirect(members, { slug: "team" }), null);
+  assert.equal(portalRedirect(members, { slug: "crew" }), "/p/team");
+  assert.equal(portalRedirect(members, { host: "team.artbucket.page", slug: "team" }), "https://app.artbucket.io/p/team");
+  // A members portal on a domain of its own still answers at /p/ for sign-in.
+  assert.equal(portalRedirect({ ...own, access: "members" }, { slug: "press" }), null);
 });
 
 test("site: footer, quick grab, terms and listing; links go to the web, mail or a path, never a script", () => {

@@ -32001,7 +32001,7 @@
                           "url": {
                             "type": "string",
                             "format": "uri",
-                            "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                            "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                           },
                           "pending": {
                             "type": "integer",
@@ -32111,7 +32111,7 @@
                   "slug": {
                     "type": "string",
                     "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$",
-                    "description": "Its address: /p/{slug}. Lowercase letters, digits and dashes"
+                    "description": "Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"
                   },
                   "intro": {
                     "description": "A few paragraphs under the name",
@@ -32701,7 +32701,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                          "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                         },
                         "pending": {
                           "type": "integer",
@@ -33156,7 +33156,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                          "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                         },
                         "pending": {
                           "type": "integer",
@@ -33247,7 +33247,7 @@
       },
       "patch": {
         "summary": "Change a brand portal",
-        "description": "Only what is given changes. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
+        "description": "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands: the last five. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -33265,7 +33265,7 @@
                   "slug": {
                     "type": "string",
                     "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$",
-                    "description": "Its address: /p/{slug}. Lowercase letters, digits and dashes"
+                    "description": "Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"
                   },
                   "intro": {
                     "description": "A few paragraphs under the name",
@@ -33850,7 +33850,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                          "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                         },
                         "pending": {
                           "type": "integer",
@@ -33961,6 +33961,112 @@
                       },
                       "required": [
                         "deleted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portals/address": {
+      "get": {
+        "summary": "Is a portal address free?",
+        "description": "Whether a portal may take this address, why not (taken, or kept for the service), and the URL it would answer at.\n\nScope: `write`.",
+        "x-scope": "write",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The address, e.g. press-kit"
+          },
+          {
+            "name": "portal",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The portal being renamed, by id: its own address counts as free"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string"
+                        },
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "description": "Why not: taken, or kept for the service",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "Where a public portal at it answers: {slug}.PORTAL_DOMAIN when the server has one, else /p/{slug}"
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "available",
+                        "reason",
+                        "url"
                       ],
                       "additionalProperties": false
                     }
@@ -34455,7 +34561,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                          "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                         },
                         "pending": {
                           "type": "integer",
@@ -34910,7 +35016,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                          "description": "Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"
                         },
                         "pending": {
                           "type": "integer",
@@ -40929,7 +41035,7 @@
     "/api/v1/domains/check": {
       "get": {
         "summary": "Does this server serve a domain?",
-        "description": "200 for a verified domain, an organization's or a portal's, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.\n\nNo key needed.",
+        "description": "200 for a verified domain, an organization's or a portal's, or a portal's subdomain of PORTAL_DOMAIN, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.\n\nNo key needed.",
         "security": [],
         "parameters": [
           {

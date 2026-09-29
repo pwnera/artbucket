@@ -40,6 +40,16 @@ const schema = z.object({
    */
   DOMAIN_TARGET: z.string().regex(/^[a-z0-9.-]+$/i, "A host name, e.g. domains.example.com").optional(),
   /**
+   * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
+   * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
+   * DNS record and certificate. Unset: portals answer at /p/{slug} only.
+   */
+  PORTAL_DOMAIN: z
+    .string()
+    .regex(/^[a-z0-9.-]+$/i, "A domain, e.g. portals.example.com")
+    .transform((v) => v.toLowerCase().replace(/\.$/, ""))
+    .optional(),
+  /**
    * What a request without an API key or a session may do, once the first
    * account exists (before, nothing works). Unset: nothing. See lib/scopes.ts.
    */

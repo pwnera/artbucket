@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { portalAtHost } from "@/lib/core/domains";
+import { portalAtHost, portalHome } from "@/lib/core/domains";
+import { portalRedirect } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 
 /**
@@ -66,20 +67,32 @@ const csp = (nonce: string) => [
 const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
 
 /**
- * A request to a verified portal domain (lib/core/domains.ts) sees that
- * portal and nothing else of the app: every path is one of the portal's
- * (/logo is /p/{slug}/logo), and only what the portal page calls, /api and
- * /a, and robots.txt, which answers per host (app/robots.ts), pass through as is.
+ * A request to a portal's host, a verified domain or a subdomain of
+ * PORTAL_DOMAIN (lib/core/domains.ts), sees that portal and nothing else of
+ * the app: every path is one of the portal's (/logo is /p/{slug}/logo), and
+ * only what the portal page calls, /api and /a, and robots.txt, which answers
+ * per host (app/robots.ts), pass through as is.
+ *
+ * A portal asked for anywhere but its home goes there, for good: /p/{slug} to
+ * its subdomain or domain of its own, an address from before a rename to the
+ * current one. A members portal stays at /p/ on the host asked: its members
+ * sign in there.
  */
-async function portalRewrite(req: NextRequest, init?: { request: { headers: Headers } }) {
+async function portalRoute(req: NextRequest, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
-  if (!host || host === appHost) return null;
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
   if (pathname.startsWith("/api/") || pathname.startsWith("/a/") || pathname === "/robots.txt") return null;
-  const slug = await portalAtHost(host).catch(() => null);
+  const asked = host && host !== appHost ? await portalAtHost(host).catch(() => null) : null;
+  const onApp = asked ? null : pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
+  const slug = asked ?? onApp?.[1];
   if (!slug) return null;
+  const rest = onApp ? (onApp[2] ?? "") : pathname === "/" ? "" : pathname;
+  const home = await portalHome(slug).catch(() => null);
+  const where = home && portalRedirect(home, asked ? { host, slug } : { slug });
+  if (where) return new NextResponse(null, { status: 308, headers: { Location: `${where}${rest}${search}` } });
+  if (!asked) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/p/${slug}${pathname === "/" ? "" : pathname}`;
+  url.pathname = `/p/${asked}${rest}`;
   return NextResponse.rewrite(url, init);
 }
 
@@ -102,7 +115,7 @@ export async function proxy(req: NextRequest) {
   const policy = csp(nonce);
   init?.request.headers.set("x-nonce", nonce);
   init?.request.headers.set("Content-Security-Policy", policy);
-  const res = (await portalRewrite(req, init)) ?? NextResponse.next(init);
+  const res = (await portalRoute(req, init)) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own; pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);

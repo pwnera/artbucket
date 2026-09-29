@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   assets,
@@ -12,6 +12,7 @@ import {
   grants,
   organizations,
   portalBrands,
+  portalAliases,
   portalCollections,
   portalRequests,
   portals,
@@ -27,13 +28,13 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, proveHost } from "@/lib/core/domains";
+import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, PortalSite, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
+import { challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
@@ -72,6 +73,8 @@ import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
 type Row = typeof portals.$inferSelect;
 
 const REQUEST_DAYS = 90;
+/** Old addresses a portal keeps after renames: the latest, so renaming can't hold names without end. */
+const ALIASES = 5;
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
 async function domainOf(portalId: string) {
@@ -79,12 +82,6 @@ async function domainOf(portalId: string) {
   return d ?? null;
 }
 
-/** Its own domain once verified; else /p/{slug}, on the organization's domain when it has one. */
-const urlOf = async (p: Pick<Row, "slug" | "workspaceId">, d: { host: string; verifiedAt: Date | null } | null) => {
-  if (d?.verifiedAt) return `${new URL(env.APP_URL).protocol}//${d.host}`;
-  const ws = await workspaceById(p.workspaceId);
-  return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
-};
 
 /**
  * A portal's brands, in tab order, each with its latest publish. `shown`:
@@ -136,7 +133,7 @@ async function present(p: Row) {
     collections: cols,
     brands: brandList.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token }, cname: cnameFor(d.host) },
-    url: await urlOf(p, d),
+    url: await portalUrl(p, d),
     pending,
     createdBy: p.createdBy,
     createdAt: p.createdAt,
@@ -221,9 +218,26 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
   return next;
 }
 
+/** A new address: free, and with PORTAL_DOMAIN, one that may be a subdomain. One already held keeps working. */
 async function slugFree(slug: string, except?: string) {
-  const [taken] = await db.select({ id: portals.id }).from(portals).where(eq(portals.slug, slug));
-  if (taken && taken.id !== except) throw new AssetError("conflict", `/p/${slug} is taken: pick another address`);
+  const refused = env.PORTAL_DOMAIN && subdomainRefusal(slug);
+  if (refused) throw new AssetError("invalid", refused);
+  const named = await portalNamed(slug);
+  if (named && named.p.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
+}
+
+/** GET /api/v1/portals/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
+export async function portalAddress(caller: Caller, slug: string, except?: string) {
+  mayManage(caller);
+  if (!PORTAL_SLUG.test(slug)) throw new AssetError("invalid", "An address is lowercase letters, digits and dashes, e.g. press-kit");
+  let reason: string | null = null;
+  try {
+    await slugFree(slug, except);
+  } catch (err) {
+    if (!(err instanceof AssetError)) throw err;
+    reason = err.message;
+  }
+  return { slug, available: !reason, reason, url: await portalUrl({ slug, workspaceId: caller.workspace.id, access: "public" }, null) };
 }
 
 /** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
@@ -320,6 +334,13 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     .returning();
   if (ids) await setCollections(p.id, ids);
   if (brandIds) await setBrands(p.id, brandIds);
+  if (next.slug !== p.slug) {
+    // The old address keeps leading here, and stays this portal's; renaming back takes one up again.
+    await db.insert(portalAliases).values({ slug: p.slug, portalId: p.id }).onConflictDoNothing();
+    await db.delete(portalAliases).where(eq(portalAliases.slug, next.slug));
+    const kept = db.select({ slug: portalAliases.slug }).from(portalAliases).where(eq(portalAliases.portalId, p.id)).orderBy(desc(portalAliases.createdAt)).limit(ALIASES);
+    await db.delete(portalAliases).where(and(eq(portalAliases.portalId, p.id), notInArray(portalAliases.slug, kept)));
+  }
   if (input.domain !== undefined) await setDomain(caller, p.id, input.domain);
   forgetHosts();
   const changed = Object.keys(input).filter((k) => k !== "password" || input.password);
@@ -439,7 +460,7 @@ async function keyValid(p: Row, key: string | null | undefined) {
  * naming how to get in otherwise.
  */
 async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience }> {
-  const [p] = await db.select().from(portals).where(eq(portals.slug, slug));
+  const p = (await portalNamed(slug))?.p;
   if (!p) throw new AssetError("not_found", "There is no portal here");
   if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
   if (await keyValid(p, pass.key)) return { p, level: "partners" };
@@ -765,12 +786,12 @@ export async function portalUpdates(slug: string, pass: Pass, brandSlug?: string
 /** Where a brand is published: the portals showing it, for publish to name (1.10). */
 export async function portalsShowing(ws: string, brandId: string) {
   const rows = await db
-    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId })
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId, access: portals.access })
     .from(portalBrands)
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
     .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
     .orderBy(asc(portals.name));
-  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await urlOf(p, await domainOf(p.id)) })));
+  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await portalUrl(p, await domainOf(p.id)) })));
 }
 
 /** Admins who hear about a request: the workspace's and the organization's. */
@@ -876,7 +897,7 @@ const presentRequest = async (p: Row, d: { host: string; verifiedAt: Date | null
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
     createdAt: r.createdAt,
-    url: key ? `${await urlOf(p, d)}?key=${key}` : null,
+    url: key ? `${await portalUrl(p, d)}?key=${key}` : null,
   };
 };
 

@@ -983,11 +983,23 @@ export function openapi(serverUrl: string) {
         patch: op({
           summary: "Change a brand portal",
           scope: "write",
-          description: "Only what is given changes. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
+          description: "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands: the last five. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
           body: S.PortalPatch,
           ok: [200, "The portal", data(S.Portal)],
         }),
         delete: op({ summary: "Delete a brand portal", scope: "write", description: "Its address and domain stop answering at once.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/portals/address": {
+        get: op({
+          summary: "Is a portal address free?",
+          scope: "write",
+          description: "Whether a portal may take this address, why not (taken, or kept for the service), and the URL it would answer at.",
+          query: {
+            slug: { schema: str, description: "The address, e.g. press-kit" },
+            portal: { schema: str, description: "The portal being renamed, by id: its own address counts as free" },
+          },
+          ok: [200, "The address", data(S.PortalAddress)],
+        }),
       },
       "/api/v1/portals/domains": {
         get: op({
@@ -1186,7 +1198,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "Does this server serve a domain?",
           scope: "public",
-          description: "200 for a verified domain, an organization's or a portal's, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.",
+          description: "200 for a verified domain, an organization's or a portal's, or a portal's subdomain of PORTAL_DOMAIN, 404 otherwise. For a reverse proxy issuing TLS certificates on demand, e.g. Caddy's `on_demand_tls { ask }`.",
           query: { domain: { schema: str, description: "A host name, e.g. press.example.com" } },
           ok: [200, "Served", data(z.object({ domain: z.string(), served: z.literal(true) }))],
         }),
