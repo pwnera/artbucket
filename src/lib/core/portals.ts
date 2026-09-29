@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   assets,
@@ -73,6 +73,8 @@ import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
 type Row = typeof portals.$inferSelect;
 
 const REQUEST_DAYS = 90;
+/** Old addresses a portal keeps after renames: the latest, so renaming can't hold names without end. */
+const ALIASES = 5;
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
 async function domainOf(portalId: string) {
@@ -336,6 +338,8 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     // The old address keeps leading here, and stays this portal's; renaming back takes one up again.
     await db.insert(portalAliases).values({ slug: p.slug, portalId: p.id }).onConflictDoNothing();
     await db.delete(portalAliases).where(eq(portalAliases.slug, next.slug));
+    const kept = db.select({ slug: portalAliases.slug }).from(portalAliases).where(eq(portalAliases.portalId, p.id)).orderBy(desc(portalAliases.createdAt)).limit(ALIASES);
+    await db.delete(portalAliases).where(and(eq(portalAliases.portalId, p.id), notInArray(portalAliases.slug, kept)));
   }
   if (input.domain !== undefined) await setDomain(caller, p.id, input.domain);
   forgetHosts();

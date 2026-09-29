@@ -201,8 +201,9 @@ to the app's own address), and a portal with a verified domain of its own.
 
 `/p/{address}` redirects there for good, so links shared before keep working.
 Renaming a portal keeps its old address, `/p/` and subdomain alike, leading
-to the new one, and nobody else may take it while the portal stands; deleting
-the portal frees it. While you type an address, the form says whether it is
+to the new one, and nobody else may take it while the portal stands. It keeps
+its last five; an older one, and every one when the portal is deleted, is
+free again. While you type an address, the form says whether it is
 free (`GET /api/v1/portals/address?slug=...`). Some addresses are kept
 for the service, like `www`, `api` or `mail`, and so is any with dashes as its
 third and fourth characters (`xn--`, the shape of a look-alike name).

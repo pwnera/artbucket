@@ -983,7 +983,7 @@ export function openapi(serverUrl: string) {
         patch: op({
           summary: "Change a brand portal",
           scope: "write",
-          description: "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
+          description: "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands: the last five. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
           body: S.PortalPatch,
           ok: [200, "The portal", data(S.Portal)],
         }),

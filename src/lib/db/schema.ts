@@ -865,9 +865,9 @@ export const portals = pgTable(
 );
 
 /**
- * A portal's addresses before a rename: each still leads to it (src/proxy.ts
- * redirects), and nobody else may take one while the portal stands. Deleting
- * the portal frees them.
+ * A portal's addresses before a rename, its last five (lib/core/portals.ts
+ * ALIASES): each still leads to it (src/proxy.ts redirects), and nobody else
+ * may take one while the portal stands. Deleting the portal frees them.
  */
 export const portalAliases = pgTable("portal_aliases", {
   slug: text("slug").primaryKey(),
