@@ -87,8 +87,13 @@ export function useComments(brand: string, transport: Transport): Comments {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // What work outliving a render reads: the latest rows, and a count of local changes, so a read
-  // that set out before one of them doesn't put back what was there.
-  const live = useRef({ rows, changes: 0, seq: 0 });
+  // that set out before one of them doesn't put back what was there. And the caller's transport
+  // as it is now: reads are keyed on the brand, never on the function, which can be new each
+  // render (use-status.ts).
+  const live = useRef({ rows, changes: 0, seq: 0, transport });
+  useEffect(() => {
+    live.current.transport = transport;
+  });
   const base = `/api/v1/brands/${encodeURIComponent(brand)}/comments`;
   const author = me?.user?.name || me?.actor || "You";
 
@@ -108,7 +113,7 @@ export function useComments(brand: string, transport: Transport): Comments {
   const refresh = useCallback(async () => {
     const n = ++live.current.seq;
     const changes = live.current.changes;
-    const res = await transport("GET", base);
+    const res = await live.current.transport("GET", base);
     // A later read has been asked for, or a change was made here since: the newer state wins.
     if (n !== live.current.seq || changes !== live.current.changes) return;
     if (res.ok) {
@@ -117,7 +122,7 @@ export function useComments(brand: string, transport: Transport): Comments {
       setLoaded(true);
     }
     setError(res.ok ? null : why(res, "read the comments"));
-  }, [transport, base]);
+  }, [base]);
 
   // A new brand is a new set of comments: none shown until they are read.
   const [shownFor, setShownFor] = useState(brand);

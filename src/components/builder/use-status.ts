@@ -26,14 +26,20 @@ export function useStatus(brand: string, transport: Transport) {
   const saving = useSyncExternalStore(subscribe, snapshot, () => IDLE).inFlight > 0;
   const was = useRef(saving);
   const seq = useRef(0);
+  // The caller's transport as it is now. Reads are keyed on the brand, never on the function: a
+  // caller (or a minifier inlining a default) can hand a new one each render, and each read renders.
+  const send = useRef(transport);
+  useEffect(() => {
+    send.current = transport;
+  });
 
   const refresh = useCallback(async () => {
     const n = ++seq.current;
-    const res = await transport("GET", `/api/v1/brands/${encodeURIComponent(brand)}/status`);
+    const res = await send.current("GET", `/api/v1/brands/${encodeURIComponent(brand)}/status`);
     // A later read has been asked for: its answer is the newer one.
     if (n !== seq.current) return;
     setStatus(res.ok ? (res.data as Status) : null);
-  }, [brand, transport]);
+  }, [brand]);
 
   useEffect(() => {
     void refresh();
