@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconAlignLeft, IconChevronRight, IconHash, IconList, IconPhotoPlus, IconTrash, IconTypography } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconAlignLeft, IconChevronRight, IconColorPicker, IconHash, IconList, IconPhotoPlus, IconTrash, IconTypography } from "@tabler/icons-react";
 import { AssetPicker, AssetThumb } from "@/components/builder/asset-picker";
 import { FloatingPanel } from "@/components/builder/floating-panel";
 import { SpecForm } from "@/components/builder/spec-form";
@@ -11,7 +11,9 @@ import { CopyButton } from "@/components/copy-button";
 import { ImportFamily } from "@/components/font-preview";
 import { usePref } from "@/components/sidebar-prefs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { contrast, grade, hexOf, inkOn } from "@/lib/color";
 import { contextLabel, fontValue, resolve, RULE_SPEC, ruleLabel, ruleName, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,8 @@ import { cn } from "@/lib/utils";
  * A text rule's words are edited where they read, so clicking into its
  * specimen shows a chip instead: its name, its key, Details (this card) and
  * Remove from section. The card ends with the same way out of the section.
+ * A color opens its quick picker first (QuickColor): hex, system picker,
+ * eyedropper and contrast, with More for this card.
  *
  * Props:
  * - b: the builder.
@@ -59,7 +63,9 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
   const [opened, setOpened] = useState<HTMLElement | null>(null);
 
   // The card takes the focus as it opens or shows another rule, so Esc closes it; the chip leaves the caret where it is.
-  const whole = !!rule && !(rule.type === "text" && opened !== anchor && !(anchor.matches("img") || anchor.querySelector("img")));
+  // A color clicked opens the quick picker first; Details (setOpened) opens the whole card for it.
+  const quick = !!rule && rule.type === "color" && opened !== anchor;
+  const whole = !!rule && !quick && !(rule.type === "text" && opened !== anchor && !(anchor.matches("img") || anchor.querySelector("img")));
   useEffect(() => {
     if (whole) content.current?.focus({ preventScroll: true });
   }, [whole, key]);
@@ -70,13 +76,48 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
   }, [rule, onClose]);
   if (!rule) return null;
 
-  const chip = !whole;
+  const chip = !whole && !quick;
   const set = (patch: Partial<ViewRule>) => b.apply({ kind: "rules", set: [{ ...rule, ...patch }], remove: [] });
 
   // The section around the specimen, when it binds the rule by key: the chip can take it out.
   const page = b.state.selection.page;
   const host = anchor.closest("section[data-template]")?.id;
   const section = (b.state.pages.get(page) ?? []).find((s) => (host ? host.endsWith(s.id) : s.id === b.state.selection.section) && s.keys.includes(key));
+
+  const removeFromSection = section
+    ? () => {
+        b.apply({ kind: "page", page, op: { op: "update", id: section.id, set: { keys: section.keys.filter((k) => k !== key) } } });
+        onClose();
+      }
+    : undefined;
+
+  if (quick)
+    return (
+      <Popover open onOpenChange={(open) => !open && onClose()}>
+        <PopoverAnchor virtualRef={anchorRef} />
+        {/* Beside the specimen, which is often tall: above or below it would cover the bar or run off the page. */}
+        <PopoverContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          collisionPadding={{ top: 64, bottom: 16, left: 16, right: 16 }}
+          aria-label={ruleName(rule)}
+          className="app-tokens w-72 p-3"
+          onInteractOutside={(e) => {
+            if (anchor.contains(e.target as Node)) e.preventDefault();
+          }}
+        >
+          <QuickColor
+            rule={rule}
+            surface={b.view.theme.surface ?? "#ffffff"}
+            ink={b.view.theme.ink}
+            onSet={(value) => set({ value })}
+            onMore={() => setOpened(anchor)}
+            onRemove={removeFromSection}
+          />
+        </PopoverContent>
+      </Popover>
+    );
 
   if (chip)
     return (
@@ -260,6 +301,151 @@ function TypeIcon({ rule }: { rule: ViewRule }) {
   if (rule.type === "color") return <span aria-hidden className="size-4 rounded-full border" style={{ background: String(rule.value) }} />;
   const I = { text: IconAlignLeft, number: IconHash, list: IconList, font: IconTypography }[rule.type];
   return <I aria-hidden />;
+}
+
+/**
+ * A color's quick picker, as a design tool's is: its swatch, its hex to type
+ * or paste, the system picker and the eyedropper where the browser has one,
+ * how text reads on it and it on the page, then More for the whole card.
+ * A hex commits on Enter or on leaving the field; the system picker a
+ * moment after its last change, never on every drag step, so the history
+ * keeps one step.
+ */
+function QuickColor({
+  rule,
+  surface,
+  ink,
+  onSet,
+  onMore,
+  onRemove,
+}: {
+  rule: ViewRule;
+  surface: string;
+  ink: string;
+  onSet(hex: string): void;
+  onMore(): void;
+  onRemove?: () => void;
+}) {
+  const value = hexOf(String(rule.value)) ?? "#000000";
+  const [draft, setDraft] = useState(value);
+  const [seen, setSeen] = useState(value);
+  // A new value from outside (undo, another tab): the field shows it.
+  if (value !== seen) {
+    setSeen(value);
+    setDraft(value);
+  }
+  const shown = hexOf(draft) ?? value;
+  const commit = (typed: string) => {
+    const hex = hexOf(typed);
+    if (!hex) return setDraft(value);
+    setDraft(hex);
+    if (hex !== value) onSet(hex);
+  };
+  // The system picker commits a moment after its last change, and before the popover goes, whichever comes first.
+  const pending = useRef<{ hex: string; t: ReturnType<typeof setTimeout> } | null>(null);
+  const flush = useRef(() => {});
+  useEffect(() => {
+    flush.current = () => {
+      const p = pending.current;
+      if (!p) return;
+      clearTimeout(p.t);
+      pending.current = null;
+      commit(p.hex);
+    };
+  });
+  useEffect(() => () => flush.current(), []);
+  const picked = (hex: string) => {
+    setDraft(hex);
+    if (pending.current) clearTimeout(pending.current.t);
+    pending.current = { hex, t: setTimeout(() => flush.current(), 300) };
+  };
+  const dropper = typeof window !== "undefined" && "EyeDropper" in window;
+  const pairs = [
+    { label: "Text on it", fg: inkOn(shown), bg: shown },
+    { label: "It on the page", fg: shown, bg: surface },
+    { label: "Page text on it", fg: ink, bg: shown },
+  ];
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-sm font-medium">{ruleName(rule)}</span>
+        <code className="text-muted-foreground truncate font-mono text-xs">{rule.key}</code>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="relative size-10 shrink-0 cursor-pointer overflow-hidden rounded-md border" style={{ background: shown }} title="Pick a color">
+          <input
+            type="color"
+            value={shown.slice(0, 7)}
+            aria-label="Pick a color"
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            onChange={(e) => picked(e.target.value)}
+          />
+        </label>
+        <Input
+          value={draft}
+          aria-label="Hex"
+          spellCheck={false}
+          className="h-9 font-mono"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit(e.currentTarget.value);
+            else if (e.key === "Escape" && draft !== value) {
+              e.preventDefault();
+              setDraft(value);
+            }
+          }}
+        />
+        {dropper && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Pick a color from the screen"
+            title="Pick a color from the screen"
+            onClick={async () => {
+              try {
+                const got = await new (window as unknown as { EyeDropper: new () => { open(): Promise<{ sRGBHex: string }> } }).EyeDropper().open();
+                commit(got.sRGBHex);
+              } catch {
+                // Called off with Esc.
+              }
+            }}
+          >
+            <IconColorPicker />
+          </Button>
+        )}
+      </div>
+      <ul className="grid gap-1">
+        {pairs.map((x) => {
+          const ratio = contrast(x.fg, x.bg);
+          const g = grade(ratio);
+          return (
+            <li key={x.label} className="flex items-center gap-2 text-xs">
+              <span className="flex h-5 w-7 shrink-0 items-center justify-center rounded border text-[10px] font-semibold" style={{ background: x.bg, color: x.fg }}>
+                Aa
+              </span>
+              <span className="text-muted-foreground flex-1">{x.label}</span>
+              <span className="tabular-nums">{ratio.toFixed(1)}</span>
+              <span className={cn("w-14 rounded px-1 text-center text-[10px] font-semibold", g === "fail" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
+                {g === "fail" ? "FAIL" : g}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex items-center gap-1 border-t pt-2">
+        <Button type="button" variant="ghost" size="xs" onClick={onMore}>
+          <IconAdjustmentsHorizontal /> More…
+        </Button>
+        {onRemove && (
+          <Button type="button" variant="ghost" size="xs" className="hover:text-destructive ms-auto" onClick={onRemove}>
+            <IconTrash /> Remove from section
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** The card's parts folded away, by title: kept in this browser, the same for every rule, as a design tool's inspector keeps its sections. */
