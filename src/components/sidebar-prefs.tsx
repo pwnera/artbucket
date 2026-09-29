@@ -1,15 +1,9 @@
 "use client";
 
-import { useCallback, useState, useSyncExternalStore } from "react";
-import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots } from "@tabler/icons-react";
+import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
+import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@tabler/icons-react";
 import { Collapsible } from "radix-ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/components/can";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -252,8 +246,7 @@ export const useFolded = () => usePref<string[]>("artbucket:folded", []);
  * (tw-animate-css keyframes). Clipped with a margin, as details folds are,
  * so the rows' focus rings aren't cut at the sides.
  */
-export const FOLD =
-  "overflow-clip [overflow-clip-margin:4px] data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down";
+export const FOLD = "overflow-clip [overflow-clip-margin:4px] data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down";
 
 /**
  * A sidebar section, PostHog style: a small-caps label that folds it, an add
@@ -261,6 +254,9 @@ export const FOLD =
  * label is also its drag handle. Folded to the icon rail, sections leave
  * altogether: the rail is places, Settings and the account, as in Linear.
  */
+/** A section shown in the panel that flies out of the folded rail: open, headed by its name, and a way to close the panel. */
+export const Flyout = createContext<{ close: () => void } | null>(null);
+
 export function SidebarSection({
   id,
   label,
@@ -279,24 +275,30 @@ export function SidebarSection({
   children: React.ReactNode;
 }) {
   const [folded, setFolded] = useFolded();
-  const closed = folded.includes(id);
+  const flyout = useContext(Flyout);
+  // In the panel it is all there is to see: never folded.
+  const closed = !flyout && folded.includes(id);
   return (
     <Collapsible.Root asChild open={!closed} onOpenChange={(o) => setFolded(o ? folded.filter((f) => f !== id) : [...folded, id])}>
-      <SidebarGroup {...s.target} className={cn("relative py-0.5 group-data-[collapsible=icon]:hidden", s.dragging && "opacity-50")}>
-        <DropLine line={s.line} />
-        <div className="group/section relative flex items-center">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SidebarGroupLabel asChild className="h-7 flex-1 cursor-pointer pr-14 tracking-wide uppercase">
-                <Collapsible.Trigger {...s.handle}>
-                  <IconChevronRight className={cn("mr-1 !size-3 transition-transform", !closed && "rotate-90")} />
-                  {label}
-                </Collapsible.Trigger>
-              </SidebarGroupLabel>
-            </TooltipTrigger>
-            <TooltipContent side="right">Click to fold, drag to move</TooltipContent>
-          </Tooltip>
-          <div className="absolute right-2 flex items-center gap-0.5">
+      <SidebarGroup {...(!flyout && s.target)} className={cn("relative py-0.5", !flyout && "group-data-[collapsible=icon]:hidden", s.dragging && "opacity-50")}>
+        {!flyout && <DropLine line={s.line} />}
+        <div className={cn("group/section relative flex items-center", flyout && "h-12 border-b mb-2")}>
+          {flyout ? (
+            <h2 className="flex-1 truncate px-2 text-sm font-semibold">{label}</h2>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarGroupLabel asChild className="h-7 flex-1 cursor-pointer pr-14 tracking-wide uppercase">
+                  <Collapsible.Trigger {...s.handle}>
+                    <IconChevronRight className={cn("mr-1 !size-3 transition-transform", !closed && "rotate-90")} />
+                    {label}
+                  </Collapsible.Trigger>
+                </SidebarGroupLabel>
+              </TooltipTrigger>
+              <TooltipContent side="right">Click to fold, drag to move</TooltipContent>
+            </Tooltip>
+          )}
+          <div className={cn("flex items-center gap-0.5", flyout ? "pe-1" : "absolute right-2")}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -319,6 +321,16 @@ export function SidebarSection({
               </DropdownMenuContent>
             </DropdownMenu>
             {action}
+            {flyout && (
+              <button
+                type="button"
+                onClick={flyout.close}
+                aria-label="Close panel"
+                className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-6 items-center justify-center rounded-md"
+              >
+                <IconX className="size-4" />
+              </button>
+            )}
           </div>
         </div>
         <Collapsible.Content className={FOLD}>

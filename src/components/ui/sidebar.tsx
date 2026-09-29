@@ -31,6 +31,12 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+/** Dragged wider or narrower, in px, kept in a cookie so the server draws it that wide. */
+const SIDEBAR_WIDTH_COOKIE = "sidebar_width"
+const WIDTH_MIN = 208
+const WIDTH_MAX = 400
+/** Dragged narrower than this, it folds to icons; out past it, folded, it opens. */
+const WIDTH_FOLD = 150
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -40,6 +46,11 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
+  /** Its width in px once dragged; null: the default. */
+  width: number | null
+  setWidth: (px: number | null) => void
+  /** Being dragged: size changes follow the pointer, with no transition. */
+  setResizing: (on: boolean) => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -55,6 +66,7 @@ function useSidebar() {
 
 function SidebarProvider({
   defaultOpen = true,
+  defaultWidth = null,
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -63,11 +75,20 @@ function SidebarProvider({
   ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean
+  /** The width the person dragged it to, from the cookie. */
+  defaultWidth?: number | null
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [width, setWidthState] = React.useState(defaultWidth)
+  const [resizing, setResizing] = React.useState(false)
+  const setWidth = React.useCallback((px: number | null) => {
+    const w = px === null ? null : Math.round(Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, px)))
+    setWidthState(w)
+    document.cookie = `${SIDEBAR_WIDTH_COOKIE}=${w ?? ""}; path=/; max-age=${w === null ? 0 : SIDEBAR_COOKIE_MAX_AGE}`
+  }, [])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -128,17 +149,21 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      width,
+      setWidth,
+      setResizing,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, width, setWidth]
   )
 
   return (
     <SidebarContext.Provider value={contextValue}>
       <div
         data-slot="sidebar-wrapper"
+        data-resizing={resizing || undefined}
         style={
           {
-            "--sidebar-width": SIDEBAR_WIDTH,
+            "--sidebar-width": width ? `${width}px` : SIDEBAR_WIDTH,
             "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
@@ -228,7 +253,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-in-out",
+          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-in-out group-data-resizing/sidebar-wrapper:transition-none",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
@@ -239,7 +264,7 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-in-out md:flex",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-in-out group-data-resizing/sidebar-wrapper:transition-none md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -298,20 +323,63 @@ function SidebarTrigger({
   )
 }
 
+/**
+ * The sidebar's edge: drag it to make the sidebar wider or narrower, out
+ * from the icons to open it, or in past a point to fold it to icons. A click
+ * without a drag toggles it, as before.
+ */
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, open, setOpen, width, setWidth, setResizing } = useSidebar()
+  /** Where it started, and how wide: a drag that folds it leaves the width as it was, for when it opens again. */
+  const drag = React.useRef<{ x: number; moved: boolean; width: number | null } | null>(null)
 
   return (
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Toggle sidebar"
+      aria-label="Resize sidebar"
       tabIndex={-1}
-      onClick={toggleSidebar}
-      title="Toggle sidebar"
-      // A toggle, not a resize handle: the pointer says so.
+      title="Drag to resize, click to fold"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = { x: e.clientX, moved: false, width }
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current
+        if (!d) return
+        if (!d.moved && Math.abs(e.clientX - d.x) < 4) return
+        if (!d.moved) {
+          d.moved = true
+          setResizing(true)
+          document.body.style.cursor = "col-resize"
+        }
+        // The sidebar starts at the left edge, so the pointer's x is the width asked for.
+        if (e.clientX < WIDTH_FOLD) {
+          if (open) {
+            setOpen(false)
+            setWidth(d.width)
+          }
+        } else {
+          if (!open) setOpen(true)
+          setWidth(e.clientX)
+        }
+      }}
+      onPointerUp={() => {
+        const d = drag.current
+        drag.current = null
+        setResizing(false)
+        document.body.style.cursor = ""
+        if (d && !d.moved) toggleSidebar()
+      }}
+      onPointerCancel={() => {
+        drag.current = null
+        setResizing(false)
+        document.body.style.cursor = ""
+      }}
+      onDoubleClick={() => setWidth(null)}
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 cursor-pointer transition-[translate,background-color] ease-in-out group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] after:transition-colors hover:after:bg-sidebar-border sm:flex",
+        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 cursor-col-resize touch-none transition-[translate,background-color] ease-in-out group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] after:transition-colors hover:after:bg-sidebar-border group-data-resizing/sidebar-wrapper:after:bg-primary sm:flex",
         "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar",
         "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
         "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
@@ -320,6 +388,16 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
       {...props}
     />
   )
+}
+
+/**
+ * Inside, the sidebar's parts draw as if it were open: a panel that flies
+ * out of the folded rail shows its items whole, with no tooltips over them.
+ */
+function SidebarExpandedScope({ children }: { children: React.ReactNode }) {
+  const context = useSidebar()
+  const value = React.useMemo(() => ({ ...context, state: "expanded" as const }), [context])
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
 }
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
@@ -740,6 +818,7 @@ export {
   SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
+  SidebarExpandedScope,
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
