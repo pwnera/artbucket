@@ -40,6 +40,12 @@ const schema = z.object({
    */
   DOMAIN_TARGET: z.string().regex(/^[a-z0-9.-]+$/i, "A host name, e.g. domains.example.com").optional(),
   /**
+   * Where an organization's admins manage the plan behind its limits: a
+   * "Manage plan" link in Settings, Usage, and named when a limit refuses
+   * something. Unset: limits are simply set by whoever runs this server.
+   */
+  BILLING_URL: z.string().url().optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.

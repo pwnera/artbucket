@@ -499,6 +499,8 @@ export function DeleteOrganization({ me }: { me: Me }) {
 
 export type Usage = {
   limits: Limits;
+  /** Where to manage the plan behind the limits (BILLING_URL); null when there is nowhere. */
+  billing: string | null;
   used: { storage: number; editors: number; workspaces: number; brands: number; domains: number };
   traffic: {
     days: number;
@@ -509,7 +511,7 @@ export type Usage = {
 
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {
-  const { limits: l, used, traffic } = usage;
+  const { limits: l, billing, used, traffic } = usage;
   const rows: [string, number, number | null, (n: number) => string][] = [
     ["Storage", used.storage, l.storage, formatSize],
     ["Editors", used.editors, l.editors, String],
@@ -523,7 +525,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
     <div className="space-y-6">
       <Group
         title="Limits"
-        description="Set by whoever runs this server, not from here. Deleted assets stop counting at once. Editors are people with write or admin anywhere, invitations included."
+        description={`${billing ? "What your plan allows." : "Set by whoever runs this server, not from here."} Deleted assets stop counting at once. Editors are people with write or admin anywhere, invitations included.`}
       >
         {l.readOnly && (
           <p role="status" className="text-destructive text-sm font-medium">
@@ -561,6 +563,14 @@ export function UsagePanel({ usage }: { usage: Usage }) {
           <p className="text-muted-foreground text-sm">
             Off here: {off.map((f) => (f === "agents" ? "connecting agents and API keys" : "share and upload links")).join(", ")}.
           </p>
+        )}
+        {billing && (
+          <Button asChild variant="outline" size="sm">
+            <a href={billing}>
+              Manage plan
+              <IconArrowRight aria-hidden />
+            </a>
+          </Button>
         )}
       </Group>
       <Group title={`Delivery, last ${traffic.days} days`} description="What asset URLs served, originals, renditions and downloads, by workspace.">

@@ -28679,6 +28679,18 @@
                           "additionalProperties": false,
                           "description": "Set by whoever runs the server; never by the organization"
                         },
+                        "billing": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where the organization's admins manage the plan behind these limits; null when this server has no such place"
+                        },
                         "used": {
                           "type": "object",
                           "properties": {
@@ -28796,6 +28808,7 @@
                       },
                       "required": [
                         "limits",
+                        "billing",
                         "used",
                         "traffic"
                       ],
