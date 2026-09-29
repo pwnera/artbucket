@@ -66,6 +66,15 @@ export const PortalTheme = z.object({
   background: hex.nullable().default(null).describe("The page behind everything"),
 });
 export type PortalTheme = z.infer<typeof PortalTheme>;
+/**
+ * A change to it: what is left out stays, null clears. Not `PortalTheme.partial()`, which still
+ * fills each default, so sending the accent alone would clear the logo and the background.
+ */
+export const PortalThemePatch = z.object({
+  logo: z.uuid().nullable().optional().describe("An approved image asset, shown in the header"),
+  accent: hex.nullable().optional().describe("Buttons and links"),
+  background: hex.nullable().optional().describe("The page behind everything"),
+});
 
 /**
  * A host name as a portal or the app may be served at: lowercased, without a

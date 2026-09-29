@@ -34,6 +34,9 @@ Two ways in, same tools:
    and tell the person why.
 5. **What you add is a suggestion.** `ingest_asset` and `propose_tags` land in Review for a person
    to approve. `my_proposals` says what they decided and why. Don't treat a proposed asset as final.
+   When the person asks you to review, `search_assets({"review": true})` lists what waits, and `review_asset`
+   approves or rejects it (a rejection says why, in `note`) and applies or drops suggested tags and values.
+   Never approve on your own initiative, least of all what you proposed.
 6. **A new version is not a new asset.** A redrawn logo or a corrected photo goes in with
    `ingest_asset({"url": ..., "versionOf": "<id of the old one>"})` (CLI: `--version-of`): once approved it
    replaces the old one everywhere, and checks point to it. Expired, archived and deleted assets are not
@@ -113,10 +116,15 @@ Group assets with `create_collection` and `update_collection_assets`; `list_coll
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
-   With a key that manages portals, `create_portal` makes one for the brand (`access` members, or public once
-   the person says so; a password portal is made in the app), and `list_portals` says which brands each shows (`publishedAt: null`: never
-   published, so visitors see nothing), and `update_portal` changes its brands, access, closing date and site
+   With a key that manages portals, `create_portal` makes one for the brand (`access` members, password with the
+   password the person gives you, or public once the person says so; `theme` for its logo and colors), and
+   `list_portals` says which brands each shows (`publishedAt: null`: never published, so visitors see nothing),
+   and `update_portal` changes anything about it: brands, access and password, theme, closing date and site
    (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
+   Requests to get in wait in `list_portal_requests` for `decide_portal_request`.
+10. **Comments and history.** Before publishing, `list_comments` for open threads; answer with `add_comment`
+   and resolve with `update_comment`. `list_versions` shows the history; `restore_version` undoes a bad change
+   as a new version, never losing anything.
 
 ## Fonts
 

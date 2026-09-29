@@ -54,11 +54,13 @@ test("find_icons takes nothing; import_icons wants a set and each icon once, as 
   assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: [] }).success);
 });
 
-test("create_portal takes members or public, never a password, and refuses a misspelled field", () => {
+test("create_portal takes what POST /portals takes, asks for access, and refuses a misspelled field", () => {
   const ok = { name: "Press kit", access: "members", brands: ["default"] };
   assert.ok(TOOL_INPUTS.create_portal.safeParse(ok).success);
   assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, slug: "press-kit", access: "public" }).success);
-  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "hunter22" }).success);
+  assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "hunter22", theme: { accent: "#ff5500" } }).success);
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "abc" }).success, "four characters at least, as there");
+  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, theme: { accent: "orange" } }).success);
   assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, brand: ["default"] }).success);
   assert.ok(!TOOL_INPUTS.create_portal.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
 });
@@ -81,4 +83,45 @@ test("the collection tools name a collection by id or name, and take ids to file
   const id = "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
   assert.ok(TOOL_INPUTS.update_collection_assets.safeParse({ collection: "Spring campaign", add: [id], remove: [] }).success);
   assert.ok(!TOOL_INPUTS.update_collection_assets.safeParse({ collection: "Spring campaign", add: ["logo.svg"] }).success);
+});
+
+test("update_portal takes a password and a theme, as PATCH /portals/{id} does", () => {
+  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", access: "password", password: "hunter22" }).success);
+  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", theme: { logo: null, background: "#101010" } }).success);
+  assert.ok(TOOL_INPUTS.decide_portal_request.safeParse({ portal: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "approved" }).success);
+  assert.ok(!TOOL_INPUTS.decide_portal_request.safeParse({ portal: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "pending" }).success);
+});
+
+test("the field tools take what POST and PATCH /fields take: a select has options, a key never changes", () => {
+  assert.ok(TOOL_INPUTS.create_field.safeParse({ key: "channel", label: "Channel", type: "select", options: ["web", "print"] }).success);
+  assert.ok(!TOOL_INPUTS.create_field.safeParse({ key: "channel", label: "Channel", type: "select" }).success);
+  assert.ok(!TOOL_INPUTS.create_field.safeParse({ key: "Channel", label: "Channel", type: "text" }).success);
+  assert.ok(TOOL_INPUTS.update_field.safeParse({ key: "channel", required: true }).success);
+  assert.ok(!TOOL_INPUTS.update_field.safeParse({ key: "channel", options: ["web", "web"] }).success, "the refinement survives the extension");
+  assert.ok(!TOOL_INPUTS.update_field.safeParse({ key: "channel", type: "number" }).success);
+});
+
+test("review_asset decides, and accepts or dismisses suggestions, by name", () => {
+  const id = "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
+  assert.ok(TOOL_INPUTS.review_asset.safeParse({ id, decision: "approve", fields: { channel: "web" }, acceptTags: ["logo"] }).success);
+  assert.ok(TOOL_INPUTS.review_asset.safeParse({ id, decision: "reject", note: "Off brand" }).success);
+  assert.ok(!TOOL_INPUTS.review_asset.safeParse({ id, decision: "archive" }).success);
+  assert.ok(!TOOL_INPUTS.review_asset.safeParse({ id, status: "active" }).success);
+});
+
+test("comments start a thread on a page or reply by parent, never both, as POST /comments does", () => {
+  const parent = "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
+  assert.ok(TOOL_INPUTS.add_comment.safeParse({ brand: "default", page: "logo", body: "Too small?" }).success);
+  assert.ok(TOOL_INPUTS.add_comment.safeParse({ parent, body: "Fixed" }).success);
+  assert.ok(!TOOL_INPUTS.add_comment.safeParse({ page: "logo", parent, body: "Both" }).success);
+  assert.ok(TOOL_INPUTS.update_comment.safeParse({ id: parent, resolved: true }).success);
+  assert.ok(!TOOL_INPUTS.update_comment.safeParse({ id: parent }).success, "body, resolved, or both");
+});
+
+test("versions go by number; against is a number or current", () => {
+  assert.ok(TOOL_INPUTS.get_version.safeParse({ number: 3, against: "current" }).success);
+  assert.ok(!TOOL_INPUTS.get_version.safeParse({ number: 0 }).success);
+  assert.ok(!TOOL_INPUTS.get_version.safeParse({ number: 3, against: "latest" }).success);
+  assert.ok(TOOL_INPUTS.name_version.safeParse({ number: 3, name: null }).success);
+  assert.ok(!TOOL_INPUTS.name_version.safeParse({ number: 3 }).success, "a name, or null to clear it");
 });
