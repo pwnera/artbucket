@@ -205,7 +205,7 @@ export type ImportInput = {
   files: Files;
   /** The files under assets/ the brand's files point at: path to asset id, or to the SHA-256 of its bytes. */
   assets?: Record<string, string>;
-  /** The commit the files are at: the source then records it as agreed. */
+  /** The commit the files are at, when they are the repository's: the source then records them as agreed. */
   commit?: string;
   /** What the commit says: names the version the import makes, so each sync stands as a checkpoint in the history. */
   message?: string;
@@ -245,7 +245,8 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
     }
   }
   const diff = diffStates(ours, merged);
-  const pending = !sameState(merged, theirs);
+  // Changes the repository lacks: what the merge kept of this side, or, for files from elsewhere, anything it hasn't seen.
+  const pending = input.commit || !source?.base ? !sameState(merged, theirs) : !sameState(merged, source.base);
   const out = { brand: brand.slug, diff, conflicts, warnings: checked.warnings, pending };
   if (input.dryRun) return { ...out, applied: false, version: null, published: null };
 
@@ -261,10 +262,12 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
       if (v && !v.name && !v.publishedAt) await db.update(brandVersions).set({ name }).where(eq(brandVersions.id, v.id));
     }
   }
-  if (source) {
+  // Files at a commit are the repository's: what both sides now agree on. Files from anywhere else (the CLI)
+  // are not, so the next sync merges from what the repository last said, and exports what they changed.
+  if (source && input.commit) {
     await db
       .update(brandSources)
-      .set({ base: canonical(theirs), paths: invert(checked.used), ...(input.commit && { commit: input.commit }), syncedAt: sql`now()`, updatedAt: sql`now()` })
+      .set({ base: canonical(theirs), paths: invert(checked.used), commit: input.commit, syncedAt: sql`now()`, updatedAt: sql`now()` })
       .where(eq(brandSources.brandId, brand.id));
   }
   const published = input.publish ? await publishBrand(caller, brand.slug, { note: typeof input.publish === "string" ? input.publish : undefined }) : null;

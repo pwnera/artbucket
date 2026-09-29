@@ -62,6 +62,7 @@
         "pages": [
           "guides/assets",
           "guides/canon",
+          "guides/brand-as-code",
           "guides/check",
           "guides/sharing",
           "guides/portals",

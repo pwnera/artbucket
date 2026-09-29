@@ -1389,7 +1389,7 @@ export const BrandExportInput = z.strictObject({
 export const BrandImportInput = z.strictObject({
   files: brandFiles,
   assets: fileAssets,
-  commit: commit.optional().describe("The commit the files are at: recorded as agreed, when the brand has a source"),
+  commit: commit.optional().describe("The commit the files are at, when they are the repository's: recorded as agreed, when the brand has a source"),
   message: z.string().trim().max(2000).optional().describe("The commit's message: its first line names the version the import makes"),
   dryRun: z.boolean().optional().describe("Check and merge, answer what would change, write nothing"),
   merge: z.boolean().optional().describe("Keep what changed here since the source last agreed (default); false takes the files whole"),

@@ -41,4 +41,12 @@ artbucket theme set theme.json
 artbucket publish --note "New accent, and a page on logo use"
 ```
 
+A brand as files for a Git repository ([brand as code](/guides/brand-as-code)):
+
+```bash
+artbucket brand pull brand --assets
+artbucket brand diff brand
+artbucket brand push brand --publish --note "Bluer primary"
+```
+
 `--json` prints the raw API response. `artbucket --help` lists every command.

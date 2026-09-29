@@ -56,3 +56,36 @@ export function useStatus(brand: string, transport: Transport) {
 
   return { status, refresh };
 }
+
+/** GET /api/v1/brands/{slug}/source: where the brand's files also live (brand as code), when they do. */
+export type Source = { remote: string; branch: string; path: string; commit: string | null; syncedAt: string | null; pending: boolean; files: number };
+
+/**
+ * The repository the brand is kept in too, read on arrival and once each
+ * save lands, as the checklist is: whether the edits made here are in it
+ * yet. null for a brand that lives here alone.
+ */
+export function useSource(brand: string, transport: Transport) {
+  const [source, setSource] = useState<Source | null>(null);
+  const saving = useSyncExternalStore(subscribe, snapshot, () => IDLE).inFlight > 0;
+  const was = useRef(saving);
+  const send = useRef(transport);
+  useEffect(() => {
+    send.current = transport;
+  });
+  const refresh = useCallback(async () => {
+    const res = await send.current("GET", `/api/v1/brands/${encodeURIComponent(brand)}/source`);
+    setSource(res.ok ? (res.data as Source) : null);
+  }, [brand]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  useEffect(() => {
+    const landed = was.current && !saving;
+    was.current = saving;
+    if (!landed) return;
+    const t = setTimeout(() => void refresh(), 600);
+    return () => clearTimeout(t);
+  }, [saving, refresh]);
+  return source;
+}
