@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk } from "./color.ts";
+import { APP_BG, contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -48,17 +48,32 @@ test("mix moves one color toward another", () => {
   assert.equal(mix("#FF0000", "#0000ff80", 0.25), "#bf0040", "alpha ignored, normalized");
 });
 
-test("status colors read as text on the background in both themes", () => {
+test("every text token reads on every surface text sits on, in both themes", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   // The theme blocks also carry the selectors that restore the app's tokens inside a brand site (.app-tokens, .light).
   const block = (sel: string) => css.slice(css.search(new RegExp(`^\\${sel[0]}${sel.slice(1)}[ ,]`, "m"))).split("}")[0];
-  for (const [sel, bg] of [[":root", "#ffffff"], [".dark", "#111111"]]) {
-    assert.ok(block(sel).includes(`--background: ${bg};`), `${sel} background`);
-    for (const name of ["success", "warning"]) {
-      const value = block(sel).match(new RegExp(`--${name}: (#[0-9a-f]{6});`))?.[1];
-      assert.ok(value, `${sel} --${name}`);
-      assert.ok(contrast(value, bg) >= 4.5, `${sel} --${name} ${value}`);
-    }
+  const token = (sel: string, name: string) => {
+    const value = block(sel).match(new RegExp(`--${name}: (#[0-9a-f]{6});`))?.[1];
+    assert.ok(value, `${sel} --${name}`);
+    return value;
+  };
+  // The sidebar's current item is the primary mixed into the sidebar, in sRGB as mix() is.
+  const current = (sel: string) => {
+    const pct = block(sel).match(/--sidebar-accent: color-mix\(in srgb, var\(--primary\) (\d+)%, var\(--sidebar\)\);/)?.[1];
+    assert.ok(pct, `${sel} --sidebar-accent`);
+    return mix(token(sel, "sidebar"), token(sel, "primary"), Number(pct) / 100);
+  };
+  for (const [sel, bg] of [[":root", APP_BG.light], [".dark", APP_BG.dark]]) {
+    assert.equal(token(sel, "background"), bg, `${sel} --background is APP_BG`);
+    const surfaces = { ...Object.fromEntries(["background", "card", "muted", "sidebar"].map((k) => [k, token(sel, k)])), "sidebar-accent": current(sel) };
+    for (const [surface, s] of Object.entries(surfaces))
+      for (const text of ["foreground", "muted-foreground", "primary-ink", "success", "warning"]) {
+        const t = token(sel, text);
+        assert.ok(contrast(t, s) >= 4.5, `${sel} --${text} ${t} on --${surface} ${s}: ${contrast(t, s).toFixed(2)}`);
+      }
+    assert.ok(contrast(token(sel, "primary-foreground"), token(sel, "primary")) >= 4.5, `${sel} text on primary`);
+    assert.ok(contrast(token(sel, "highlight-foreground"), token(sel, "highlight")) >= 4.5, `${sel} text on highlight`);
+    assert.ok(contrast(token(sel, "ring"), bg) >= 3, `${sel} focus ring`);
   }
 });
 

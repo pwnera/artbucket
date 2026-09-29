@@ -48,7 +48,7 @@ export function Group({
   return (
     <section className={cn("space-y-4 rounded-lg border p-4 sm:p-5", tone === "danger" && "border-destructive/40 bg-destructive/5")}>
       <div className="space-y-1">
-        <h2 className={cn("text-sm font-semibold", tone === "danger" && "text-destructive")}>{title}</h2>
+        <h2 className={cn("font-display text-sm font-semibold", tone === "danger" && "text-destructive")}>{title}</h2>
         {description && <p className="text-muted-foreground text-sm text-pretty">{description}</p>}
       </div>
       {children}

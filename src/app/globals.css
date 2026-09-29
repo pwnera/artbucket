@@ -12,7 +12,8 @@
 @custom-variant dark (&:is(:is(.dark *):not(:where(.dark .light *)), :where(.dark .light .dark *)));
 
 @theme inline {
-  --font-sans: var(--font-dm-sans);
+  --font-sans: var(--font-funnel-sans);
+  --font-display: var(--font-funnel-display);
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -32,6 +33,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-primary-ink: var(--primary-ink);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -65,44 +68,48 @@
 
 /* .app-tokens keeps the app's own colors inside a brand's site (editor chrome); .light is a light brand ground in a dark app. */
 :root, .app-tokens, .light {
-  /* Brand canvas 02 · Colour and type: black #111111 and the cool neutral scale. Violet is primary only: accent also paints skeletons, toggles and menus. */
+  /* From artbucket.io: white, faintly violet greys, green-black ink. Violet marks where you are (the sidebar's current item, a toggle that is on); accent stays grey, since it also paints skeletons and menus. */
   --radius: 0.625rem;
+  /* The page, as APP_BG in lib/color.ts: change both together. */
   --background: #ffffff;
-  --foreground: #111111;
+  --foreground: #20241f;
   --card: #ffffff;
-  --card-foreground: #111111;
+  --card-foreground: #20241f;
   --popover: #ffffff;
-  --popover-foreground: #111111;
+  --popover-foreground: #20241f;
   --primary: #6d4aff;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f7;
-  --secondary-foreground: #111111;
-  --muted: #f5f5f7;
-  --muted-foreground: #6e6e7a;
-  --accent: #f5f5f7;
-  --accent-foreground: #111111;
+  --secondary: #f4f4f7;
+  --secondary-foreground: #20241f;
+  --muted: #f4f4f7;
+  --muted-foreground: #67646e;
+  --accent: #f4f4f7;
+  --accent-foreground: #20241f;
   --destructive: oklch(0.577 0.245 27.325);
-  /* Status as text: each clears 4.5:1 on the background (lib/color.test.ts). */
-  --success: #007e46;
-  --warning: #a75c00;
-  --border: #e4e4ea;
-  --input: #e4e4ea;
+  /* Text tokens clear 4.5:1 on every surface text sits on (lib/color.test.ts). */
+  --success: #2f6b2a;
+  --warning: #9a5500;
+  --border: #eae8eb;
+  --input: #dcdae0;
   --ring: #6d4aff;
-  --sidebar: #fafafb;
-  --sidebar-foreground: #111111;
+  --sidebar: #fafafc;
+  --sidebar-foreground: #20241f;
   --sidebar-primary: #6d4aff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0f0f3;
-  --sidebar-accent-foreground: #111111;
-  --sidebar-border: #e4e4ea;
+  --sidebar-accent: color-mix(in srgb, var(--primary) 10%, var(--sidebar));
+  --sidebar-accent-foreground: var(--primary-ink);
+  --sidebar-border: #eae8eb;
   --sidebar-ring: #6d4aff;
-  /* Primary as text or a thin icon. Violet fill is fine on #111, violet text is not. */
-  --primary-ink: var(--primary);
+  /* Primary as text or a thin icon: a step darker than the fill, which misses 4.5:1 on muted. */
+  --primary-ink: #5b38f0;
+  /* Lime, for selection and what's new, never for actions: always under the light ink. */
+  --highlight: #e1eea1;
+  --highlight-foreground: #20241f;
 }
 
 .dark, .dark .app-tokens {
-  /* Brand black, then plain greys: the cool light-mode neutrals turn muddy on black. */
-  --background: #111111;
+  /* Neutral greys: tinted neutrals turn muddy on near-black. */
+  --background: #141414;
   --foreground: #fafafa;
   --card: #1c1c1c;
   --card-foreground: #fafafa;
@@ -110,27 +117,29 @@
   --popover-foreground: #fafafa;
   --primary: #6d4aff;
   --primary-foreground: #ffffff;
-  --secondary: #2b2b2b;
+  --secondary: #262626;
   --secondary-foreground: #fafafa;
-  --muted: #2b2b2b;
+  --muted: #262626;
   --muted-foreground: #a3a3a3;
-  --accent: #2b2b2b;
+  --accent: #262626;
   --accent-foreground: #fafafa;
   --destructive: oklch(0.704 0.191 22.216);
-  --success: #63d18f;
-  --warning: #f3b94c;
+  --success: #6fd08f;
+  --warning: #f0b54a;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: #6d4aff;
-  --sidebar: #1c1c1c;
+  --sidebar: #171717;
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #6d4aff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2b2b2b;
-  --sidebar-accent-foreground: #fafafa;
+  --sidebar-accent: color-mix(in srgb, var(--primary) 20%, var(--sidebar));
+  --sidebar-accent-foreground: var(--primary-ink);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: #6d4aff;
-  --primary-ink: color-mix(in oklab, var(--primary) 70%, white);
+  --primary-ink: #a592ff;
+  --highlight: #d9e89a;
+  --highlight-foreground: #20241f;
 }
 
 :root {
@@ -156,7 +165,8 @@
     cursor: pointer;
   }
   ::selection {
-    background: color-mix(in oklab, var(--primary) 22%, transparent);
+    background: var(--highlight);
+    color: var(--highlight-foreground);
   }
 }
 
@@ -217,7 +227,7 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
 
 /*
  * Tabler draws a 2 stroke on a 24 grid: 1.33px at 16px, which blurs on a 1x
- * screen and reads heavier than DM Sans at 400. 1.5 is exactly 1px at 16px.
+ * screen and reads heavier than Funnel Sans at 400. 1.5 is exactly 1px at 16px.
  * Only the default is changed: an icon that asks for its own stroke keeps it,
  * and 12px icons (in badges) keep 2, which is 1px there.
  */

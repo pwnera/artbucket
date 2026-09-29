@@ -232,7 +232,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
             <p className="text-primary flex items-center gap-1.5 text-sm font-medium">
               <IconSparkles aria-hidden className="size-4" /> Brand pages
             </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Set up {name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Set up {name}</h1>
             <p className="text-muted-foreground max-w-prose">
               Four essentials make every page look and sound like {name}. The pages are laid out from them, and all of it stays editable, and private until you publish.
             </p>

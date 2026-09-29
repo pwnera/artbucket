@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { contrast, inkOn, isHex, lift, luminance, mix, rgb } from "./color.ts";
+import { APP_BG, contrast, inkOn, isHex, lift, luminance, mix, rgb } from "./color.ts";
 import { fontFace, fontFiles, googleFontsCss, pickFace } from "./font.ts";
 import { LANG, type Section } from "./pages.ts";
 import { type COLOR_SPEC, type FONT_SPEC, fontValue, type Rule, type RuleAsset, ruleKey } from "./rules.ts";
@@ -149,9 +149,8 @@ type R = Pick<Rule, "key" | "type" | "value" | "context" | "assets" | "spec">;
 
 const last = (key: string) => key.split(".").pop()!;
 
-/** The app's page backgrounds (globals.css), which the accent must read on. */
-const LIGHT = "#ffffff";
-const DARK = "#111111";
+/** The app's page backgrounds, which the accent must read on. */
+const { light: LIGHT, dark: DARK } = APP_BG;
 
 const fontSpec = (r: Pick<Rule, "spec">) => (r.spec ?? {}) as z.output<typeof FONT_SPEC>;
 
@@ -350,7 +349,7 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
   const accentRule = set(s.accent) ?? accentOf(colors);
   const accent = hex(accentRule) ?? APP_ACCENT;
   const surface = hex(set(s.surface) ?? named("background", "surface", "paper", "ground", "canvas")) ?? null;
-  // With no surface, the grounds that need one (tint, panel) are laid on white, as the app's light page.
+  // With no surface, the grounds that need one (tint, panel) are laid on the app's light page.
   const S = surface ?? LIGHT;
   const want = hex(set(s.ink) ?? named("ink", "text", "foreground")) ?? inkOn(S);
   const p = paint(accent, S, "surface", want, hex(set(s.muted)), rows);
@@ -360,7 +359,8 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
   const darks = colors.filter((r) => lum(solid(r)) < 0.2);
   const darkest = darks.sort((a, b) => lum(solid(a)) - lum(solid(b)))[0];
   const darkRule = set(s.dark) ?? darks.find((r) => ["dark", "night", "navy", "black"].includes(last(r.key))) ?? darkest;
-  const dark = hex(darkRule) ?? DARK;
+  // A brand default, not the app's page: a brand with no dark color gets a plain near-black.
+  const dark = hex(darkRule) ?? "#111111";
   // Text on a fill is the color the brand pairs with it, else whichever of the page's two reads better there.
   // A stated pair that fails is worth a warning; one the brand never chose is not.
   const page = (bg: string) => (contrast(S, bg) >= contrast(p.ink, bg) ? S : p.ink);
@@ -585,7 +585,7 @@ export function sectionGround(t: Theme, s: Pick<Section, "tone" | "background">,
     case "image": {
       // Graded on the worst picture, a white one under the scrim; black shows until it loads.
       const scrim = Math.max(s.background?.scrim ?? 0.45, SCRIM);
-      return { ...on(mix(LIGHT, "#000000", scrim), "image", "#ffffff"), background: "#000000", scrim };
+      return { ...on(mix("#ffffff", "#000000", scrim), "image", "#ffffff"), background: "#000000", scrim };
     }
     default:
       return { background: null, dark: false, vars: {}, checks: [] };

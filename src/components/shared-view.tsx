@@ -269,7 +269,7 @@ function Single({ item, expiresAt }: { item: PublicItem; expiresAt: string | nul
       <Stage item={item} className="max-h-[70svh] min-h-64 rounded-xl border [&>img]:max-h-[70svh]" />
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight break-words">{item.title ?? item.filename}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight break-words">{item.title ?? item.filename}</h1>
           <p className="text-muted-foreground text-sm tabular-nums">{[meta(item), item.copyright].filter(Boolean).join(" · ")}</p>
           {item.description && <p className="pt-2 text-sm">{item.description}</p>}
           {expiresAt && <p className="text-muted-foreground text-xs">This link works until <LocalDate at={expiresAt} />.</p>}
@@ -324,7 +324,7 @@ function Listing({ token, headers, title, shared, asset }: { token: string; head
   if (!items.length) {
     return (
       <div className="py-24 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
         <p className="text-muted-foreground mt-2 text-sm">Nothing here yet. Check back soon.</p>
       </div>
     );
@@ -332,7 +332,7 @@ function Listing({ token, headers, title, shared, asset }: { token: string; head
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight break-words">{title}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight break-words">{title}</h1>
         <p className="text-muted-foreground text-sm">
           {total} {total === 1 ? "file" : "files"}
           {shared.share.expiresAt && (
@@ -464,7 +464,7 @@ function Dropzone({ token, headers, into, expiresAt }: { token: string; headers:
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Send files{into ? ` for ${into}` : ""}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Send files{into ? ` for ${into}` : ""}</h1>
         <p className="text-muted-foreground text-sm">
           No account needed. What you send is reviewed before it is used.
           {expiresAt && (
