@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { z } from "zod";
-import type { ThemePatch, ThemeSettings } from "@/lib/brand-theme";
+import { LOOKS, type ThemePatch, type ThemeSettings } from "@/lib/brand-theme";
 import { grade } from "@/lib/color";
 import { fontValue, ruleName, type Rule } from "@/lib/rules";
 import { send } from "@/lib/send";
@@ -52,27 +52,6 @@ const SCALES: [number, string][] = [
   [1.618, "golden ratio"],
 ];
 
-/**
- * Starting points a design team would pick, each a coherent set of the
- * layout settings in one change; every one of them can be changed after.
- */
-const STYLES: { name: string; about: string; patch: Patch }[] = [
-  {
-    name: "Documentation",
-    about: "Dense, quiet, easy to scan",
-    patch: { width: "normal", density: "compact", scale: 1.2, radius: 8, nav: "sidebar", toc: "side", header: "plain", band: null, numbering: false, separation: "hairline" },
-  },
-  {
-    name: "Editorial",
-    about: "A book: airy, numbered, big titles",
-    patch: { width: "narrow", density: "airy", scale: 1.333, radius: 0, nav: "top", toc: "inline", header: "split", band: null, numbering: true, separation: "space" },
-  },
-  {
-    name: "Bold",
-    about: "Every chapter opens on the brand color",
-    patch: { width: "wide", density: "normal", scale: 1.414, radius: 16, nav: "sidebar", toc: "side", header: "band", band: null, numbering: true, separation: "space" },
-  },
-];
 
 /**
  * How a brand's pages look: which rule plays which part, and the page's
@@ -197,11 +176,11 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
     <div className="grid min-w-0 grid-cols-1 content-start gap-6">
       <Group title="Style">
         <div className="grid grid-cols-1 gap-1.5">
-          {STYLES.map((st) => {
+          {Object.entries(LOOKS).map(([id, st]) => {
             const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
             return (
               <button
-                key={st.name}
+                key={id}
                 type="button"
                 aria-pressed={on}
                 onClick={() => save(st.patch)}
@@ -337,6 +316,17 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
             ]}
             onChange={(v) => save({ toc: v as ThemeSettings["toc"] })}
           />
+          <Toggle
+            label="Section titles"
+            value={s.titles ?? theme.titles}
+            options={[
+              ["medium", "Headings"],
+              ["large", "Large"],
+              ["huge", "Headlines"],
+            ]}
+            onChange={(v) => save({ titles: v as ThemeSettings["titles"] })}
+          />
+          <On label="Alternate grounds down the page" checked={(s.grounds ?? theme.grounds) === "alternate"} onChange={(on) => save({ grounds: on ? "alternate" : "plain" })} />
           <Toggle
             label="Between sections"
             value={s.separation ?? theme.separation}

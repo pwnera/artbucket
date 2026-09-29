@@ -27,7 +27,7 @@ export async function brandStatus(caller: Caller, slug?: string) {
   return {
     brand: { slug: brand.slug, name: brand.name, default: brand.isDefault },
     brands: brands.map((b) => ({ slug: b.slug, name: b.name, default: b.default })),
-    ...readiness({ rules, pages, versions, portals }),
+    ...readiness({ rules, theme: brand.theme, pages, versions, portals }),
     publish: publishState(versions),
     portals,
     url: `${env.APP_URL}/brand?${new URLSearchParams({ brand: brand.slug })}`,

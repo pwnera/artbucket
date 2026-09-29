@@ -16,6 +16,13 @@ import { cn } from "@/lib/utils";
  * lede on its tone, and a picture beside them when it has one.
  */
 
+/** The band's title at the section's own size, over the page's default. */
+const SIZE: Record<NonNullable<Section["size"]>, string> = {
+  medium: "text-[length:min(var(--brand-h2-medium),8cqi)] leading-tight",
+  large: "text-[length:min(var(--brand-h2-large),9cqi)] leading-[1.1]",
+  huge: "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1]",
+};
+
 /** The words keep to a reading column, or the wide frame; the ground bleeds either way. */
 const WIDTH: Record<Section["width"], string> = {
   text: "max-w-(--brand-measure)",
@@ -45,7 +52,7 @@ export function HeaderSection({ section: s }: SectionProps) {
           <Eyebrow />
           {s.title && (
             <div className="flex items-center gap-1">
-              <Title className={cn(opens && "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1]")} />
+              <Title className={cn(s.size ? SIZE[s.size] : opens && "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1]")} />
               <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
             </div>
           )}

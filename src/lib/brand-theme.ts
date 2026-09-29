@@ -62,6 +62,8 @@ export const ThemeSettings = z.strictObject({
   numbering: z.boolean().optional().describe("Number chapters and pages: 01, 01.2"),
   motion: z.enum(["none", "subtle"]).optional().describe("subtle: sections reveal as they scroll in; never with reduced motion"),
   toc: z.enum(["side", "inline", "none"]).optional().describe("On this page: a side column, a list under the page header, or hidden"),
+  titles: z.enum(["medium", "large", "huge"]).optional().describe("Section titles: headings (medium), or headlines (large, huge); a section's own size wins"),
+  grounds: z.enum(["plain", "alternate"]).optional().describe("alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm"),
   languages: z
     .array(z.strictObject({ code: LANG, label: z.string().trim().min(1).max(40), dir: z.enum(["ltr", "rtl"]).optional().describe("From the language when left out") }))
     .max(12)
@@ -71,12 +73,66 @@ export const ThemeSettings = z.strictObject({
 });
 export type ThemeSettings = z.output<typeof ThemeSettings>;
 
-/** A change to the settings, for set_theme and PATCH theme: a key left out keeps its value, null clears it. Core checks the merged settings whole. */
-export const ThemePatch = z.strictObject(
-  Object.fromEntries(Object.entries(ThemeSettings.shape).map(([k, v]) => [k, v.isNullable() ? v : v.nullable()])) as {
-    [K in keyof typeof ThemeSettings.shape]: z.ZodNullable<(typeof ThemeSettings.shape)[K]>;
+/** The layout settings a look sets at once: what makes two brands compose differently. Any set counts as a look chosen (readiness). */
+export const LAYOUT_KEYS = ["width", "density", "scale", "radius", "nav", "toc", "header", "separation", "numbering", "motion", "titles", "grounds"] as const;
+type Layout = Pick<ThemeSettings, (typeof LAYOUT_KEYS)[number]> & { band: null };
+
+/**
+ * Looks: starting points a design team would pick, each a coherent set of
+ * the layout settings in one change, so one call gives a brand a grammar
+ * of its own. Applied, not stored: every setting can be changed after.
+ * `band` is cleared by each, since `header` says it.
+ */
+export const LOOKS: Record<string, { name: string; about: string; fits: string; patch: Layout }> = {
+  documentation: {
+    name: "Documentation",
+    about: "Dense, quiet, easy to scan",
+    fits: "a design system, a developer brand, a team that reads more than it looks",
+    patch: { width: "normal", density: "compact", scale: 1.2, radius: 8, nav: "sidebar", toc: "side", header: "plain", band: null, numbering: false, separation: "hairline", motion: "none", titles: "medium", grounds: "plain" },
   },
-);
+  editorial: {
+    name: "Editorial",
+    about: "A book: airy, numbered, big titles",
+    fits: "a publisher, a cultural brand, a company with a story to tell",
+    patch: { width: "narrow", density: "airy", scale: 1.333, radius: 0, nav: "top", toc: "inline", header: "split", band: null, numbering: true, separation: "space", motion: "subtle", titles: "large", grounds: "plain" },
+  },
+  swiss: {
+    name: "Swiss",
+    about: "Grid, hairlines, no corners, headlines",
+    fits: "a modernist or engineering brand, anything set in a grotesque",
+    patch: { width: "wide", density: "compact", scale: 1.25, radius: 0, nav: "top", toc: "none", header: "plain", band: null, numbering: true, separation: "hairline", motion: "none", titles: "huge", grounds: "plain" },
+  },
+  bold: {
+    name: "Bold",
+    about: "Every chapter opens on the brand color",
+    fits: "a consumer brand with a strong color, a sports or gaming brand",
+    patch: { width: "wide", density: "normal", scale: 1.414, radius: 8, nav: "overlay", toc: "side", header: "band", band: null, numbering: false, separation: "space", motion: "subtle", titles: "huge", grounds: "alternate" },
+  },
+  cinematic: {
+    name: "Cinematic",
+    about: "Pictures first, dark, wide, airy",
+    fits: "film, games, photography, anything with strong imagery",
+    patch: { width: "wide", density: "airy", scale: 1.414, radius: 12, nav: "overlay", toc: "none", header: "split", band: null, numbering: false, separation: "space", motion: "subtle", titles: "huge", grounds: "alternate" },
+  },
+  playful: {
+    name: "Playful",
+    about: "Round, warm, alternating grounds",
+    fits: "a mascot brand, a community, a product for children or makers",
+    patch: { width: "normal", density: "normal", scale: 1.333, radius: 24, nav: "top", toc: "inline", header: "band", band: null, numbering: false, separation: "space", motion: "subtle", titles: "large", grounds: "alternate" },
+  },
+};
+export const LOOK_NAMES = Object.keys(LOOKS) as [string, ...string[]];
+
+/** A change to the settings, for set_theme and PATCH theme: a key left out keeps its value, null clears it. Core checks the merged settings whole. `look` applies a look first; the other keys win over it. */
+export const ThemePatch = z.strictObject({
+  ...(Object.fromEntries(Object.entries(ThemeSettings.shape).map(([k, v]) => [k, v.isNullable() ? v : v.nullable()])) as {
+    [K in keyof typeof ThemeSettings.shape]: z.ZodNullable<(typeof ThemeSettings.shape)[K]>;
+  }),
+  look: z
+    .enum(LOOK_NAMES)
+    .optional()
+    .describe(`A look sets the layout at once (${Object.entries(LOOKS).map(([k, l]) => `${k}: ${l.about.toLowerCase()}`).join("; ")}); keys named beside it win`),
+});
 
 /** The settings that name a rule, by the type it must be; `logo` names any rule with assets. What core checks on write. */
 export const COLOR_SLOTS = ["accent", "surface", "panel", "dark", "ink", "muted"] as const;
@@ -213,6 +269,8 @@ export type Theme = {
   numbering: boolean;
   motion: "none" | "subtle";
   toc: "side" | "inline" | "none";
+  titles: "medium" | "large" | "huge";
+  grounds: "plain" | "alternate";
   /** Every pair graded: `used` is `fg` when it clears `need`, else its fallback. */
   checks: Check[];
 };
@@ -361,6 +419,8 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
     numbering: s.numbering ?? false,
     motion: s.motion ?? "none",
     toc: s.toc ?? "side",
+    titles: s.titles ?? "medium",
+    grounds: s.grounds ?? "plain",
     checks: rows,
   };
 }
@@ -370,6 +430,7 @@ export const checkWarnings = (checks: Check[]) =>
   checks.filter((c) => !c.ok).map((c) => `${c.pair}: ${c.fg} on ${c.bg} is ${c.ratio}:1, under ${c.need}:1; ${c.used} is used`);
 
 const MEASURE = { narrow: "60ch", normal: "68ch", wide: "76ch" };
+const H2_STEP = { medium: 3, large: 4, huge: 5 };
 const GAP = { compact: "1rem", normal: "1.5rem", airy: "2.5rem" };
 // ponytail: small caps are a font-variant, not a text-transform; they read as set until LABEL takes a variant.
 const CASE: Record<string, string> = { none: "none", upper: "uppercase", lower: "lowercase", title: "capitalize", "small-caps": "none" };
@@ -403,7 +464,11 @@ export function themeVars(t: Theme, url: (id: string) => string): Record<string,
     // Two steps of the scale between levels: at 1.25, 3rem titles, 2rem sections and 1.25rem subheads.
     // ponytail: a 1.618 scale makes 11rem titles; clamp them in CSS if a brand picks one.
     "--brand-h1": rem(t.scale ** 5),
-    "--brand-h2": rem(t.scale ** 3),
+    // Section titles: two steps under the h1 as headings, one as headlines, the h1's own at huge (frame.tsx H2 caps them on a phone).
+    "--brand-h2": rem(t.scale ** H2_STEP[t.titles]),
+    "--brand-h2-medium": rem(t.scale ** 3),
+    "--brand-h2-large": rem(t.scale ** 4),
+    "--brand-h2-huge": rem(t.scale ** 5),
     "--brand-h3": rem(t.scale),
     "--brand-device": t.device ? `url(${JSON.stringify(url(t.device))})` : "none",
   };

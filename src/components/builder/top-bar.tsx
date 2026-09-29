@@ -241,6 +241,8 @@ function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void;
     case "logo":
     case "voice":
       return { label: "Add in Rules", run: () => b.setPanel("rules") };
+    case "look":
+      return { label: "Pick a look", run: () => b.setDock("theme") };
     case "pages":
       return { label: "Add sections", run: () => b.setDock("insert") };
     case "publish":

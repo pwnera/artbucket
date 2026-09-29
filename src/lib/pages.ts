@@ -22,6 +22,8 @@ export const TEMPLATES = [
   "cover",
   "header",
   "text",
+  "statement",
+  "quote",
   "split",
   "cards",
   "palette",
@@ -79,6 +81,8 @@ export const TEMPLATE_INFO: Record<
     width: (typeof WIDTHS)[number];
     columns: number;
     tone: Tone;
+    /** Its title's size when the section sets none: a statement is a headline. The theme's `titles` otherwise. */
+    size?: Section["size"];
     /** A section that shows the template off, for the catalog, the builder and the fixtures. */
     example: SectionInput;
   }
@@ -123,6 +127,29 @@ export const TEMPLATE_INFO: Record<
       keys: ["tone.always", "tone.avoid"],
       aside: "Unsure? Read it out loud, or see how [the mark](/logo) speaks.",
     },
+  },
+  statement: {
+    name: "Statement",
+    use: "One line at headline size on a ground: the mission, the tagline, a claim, as the title; a small line under it as the body. Between two dense sections, to let the page breathe.",
+    binds: "a text rule, said under the title",
+    accepts: (r) => r.type === "text",
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "brand",
+    size: "huge",
+    example: { template: "statement", eyebrow: "Our mission", title: "Free to use, for any purpose, forever.", body: "Made by everyone who uses it, for everyone who will." },
+  },
+  quote: {
+    name: "Quote",
+    use: "A pull quote: the body set large in the heading face, who said it (props.by), and a portrait (props.image).",
+    binds: "a text rule, quoted",
+    accepts: (r) => r.type === "text",
+    items: null,
+    width: "text",
+    columns: 1,
+    tone: "panel",
+    example: { template: "quote", body: "We make the tools we wished we had, and give them away.", props: { by: "Ton Roosendaal, founder" } },
   },
   split: {
     name: "Split",
@@ -516,7 +543,7 @@ const LIVE = {
     .string()
     .max(2000)
     .optional()
-    .describe("A library query string: q=poster&type=image&tag=campaign"),
+    .describe("q=poster&type=image&tag=campaign"),
   sort: z.enum(["newest", "oldest", "name"]).optional(),
   limit: z.number().int().min(1).max(200).optional(),
   downloads: z.boolean().optional().describe("true when left out"),
@@ -524,7 +551,7 @@ const LIVE = {
 
 export const TEMPLATE_PROPS = {
   cover: z.strictObject({
-    image: image.describe("In place of the brand color"),
+    image: image.describe("Over the color"),
     video: z.uuid().optional().describe("A muted loop over the image, its poster"),
     align: z.enum(["start", "center", "end"]).optional(),
     height: z.enum(["auto", "tall", "screen"]).optional(),
@@ -536,14 +563,16 @@ export const TEMPLATE_PROPS = {
   }),
   header: z.strictObject({ image: image.describe("In the band") }),
   text: z.strictObject({}),
+  statement: z.strictObject({ align: z.enum(["start", "center"]).optional() }),
+  quote: z.strictObject({ by: z.string().trim().max(120).optional().describe("Who said it"), image: image.describe("A portrait") }),
   split: z.strictObject({
-    image: image.describe("Beside the words; else the first rule's picture"),
+    image: image.describe("Beside the words"),
     flip: z.boolean().optional().describe("Image on the left"),
     ratio: z.enum(["even", "words", "picture"]).optional().describe("The wider side"),
     align: z.enum(["start", "center"]).optional(),
     fit: z.enum(["auto", "fill", "whole"]).optional(),
   }),
-  cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "checklist", "tree"]).optional() }),
+  cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "steps", "checklist", "tree"]).optional() }),
   // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
   palette: z.strictObject({
     show: z
@@ -573,7 +602,7 @@ export const TEMPLATE_PROPS = {
     backdrop: z.enum(["checker", "light", "dark"]).optional(),
   }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
-  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),
+  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "strip", "collage", "crops"]).optional() }),
   collection: z
     .strictObject({
       collection: LIVE.collection,
@@ -670,15 +699,15 @@ export const SectionText = z
 export type SectionText = z.output<typeof SectionText>;
 
 const base = {
-  id: sectionId.optional().describe("Kept across edits; made up when left out"),
+  id: sectionId.optional().describe("Kept across edits"),
   title: TEXT.title.optional(),
   body: TEXT.body.optional().describe("Markdown (GFM), shown under the title"),
-  width: z.enum(WIDTHS).optional().describe("text: a reading column; the template's when left out"),
+  width: z.enum(WIDTHS).optional().describe("text: a reading column"),
   columns: z.number().int().min(1).max(4).optional(),
   tone: z
     .enum(TONES)
     .optional()
-    .describe("panel: the second surface; color and image: set in background; pattern: the theme's device"),
+    .describe("panel: second surface; color, image: see background"),
   hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
   keys: z.array(ruleKey).max(100).refine(unique, "Each key once").optional().describe("The rules it shows, by key, in order"),
   eyebrow: TEXT.eyebrow.optional().describe("Above the title: a number, a chapter"),
@@ -686,8 +715,9 @@ const base = {
   aside: TEXT.aside.optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
   space: z.enum(["tight", "loose"]).optional().describe("Room above it"),
+  size: z.enum(["medium", "large", "huge"]).optional().describe("Title size"),
   background: Background.optional().describe("For tone color and tone image"),
-  items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
+  items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists (list_templates)"),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   contexts: z
     .array(ruleContext)
@@ -695,13 +725,13 @@ const base = {
     .max(8)
     .refine(unique, "Each context once")
     .optional()
-    .describe('A tab per context: ["default", "dark-background"]; default: no context'),
+    .describe('A tab per context: ["default", "dark-background"]'),
   only: ruleContext.optional().describe("Shown only in this context"),
   translations: z.record(LANG, SectionText).optional().describe("By language tag; what is left out falls back"),
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
-const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "space", "background", "items", "audience", "contexts", "only", "translations"] as const;
+const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "space", "size", "background", "items", "audience", "contexts", "only", "translations"] as const;
 
 // Props come in as their own type parameter: indexing TEMPLATE_PROPS by a generic template typed every prop as never.
 const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
@@ -712,6 +742,8 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("cover", TEMPLATE_PROPS.cover),
   variant("header", TEMPLATE_PROPS.header),
   variant("text", TEMPLATE_PROPS.text),
+  variant("statement", TEMPLATE_PROPS.statement),
+  variant("quote", TEMPLATE_PROPS.quote),
   variant("split", TEMPLATE_PROPS.split),
   variant("cards", TEMPLATE_PROPS.cards),
   variant("palette", TEMPLATE_PROPS.palette),
@@ -806,6 +838,7 @@ export type Section = {
   aside: string;
   tab: string;
   space: "tight" | "loose";
+  size: "medium" | "large" | "huge";
   background: Background;
   items: Item[];
   audience: Audience;
@@ -824,14 +857,14 @@ export type PageText = z.output<typeof PageText>;
 
 /** A page's own fields beside its title and sections. On save, left out keeps a value and null clears it. */
 const PageMeta = {
-  parent: pageSlug.nullable().optional().describe("Its parent page; null for the top. Three levels at most"),
+  parent: pageSlug.nullable().optional().describe("Parent page; null for the top; three levels"),
   eyebrow: z.string().trim().max(120).nullable().optional(),
   lede: z.string().trim().max(1000).nullable().optional(),
   cover: z.uuid().nullable().optional().describe("Its header and card image"),
   icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   tabs: z.boolean().optional().describe("Its child pages as tabs across its top"),
-  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav or pager, for a home or campaign; book when left out"),
+  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav or pager; book when left out"),
   translations: z.record(LANG, PageText).nullable().optional().describe("Its words by language tag"),
 };
 
@@ -859,7 +892,7 @@ export const PageOp = z.discriminatedUnion("op", [
     id: sectionRef,
     set: z
       .record(z.string(), z.unknown())
-      .describe("What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"),
+      .describe("What changes: { title, keys, props, template }; null clears; props replaced whole"),
   }),
   z.strictObject({ op: z.literal("move"), id: sectionRef, after: sectionRef.nullable().describe("After this section; null for the top") }),
   z.strictObject({ op: z.literal("remove"), id: sectionRef }),

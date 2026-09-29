@@ -233,6 +233,20 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             ],
           },
           {
+            id: "promise",
+            template: "statement",
+            eyebrow: "The promise",
+            title: "Free to use, for any purpose, forever.",
+            body: "The one line every page of Blender's stands on.",
+            keys: ["copy.oneLiner"],
+          },
+          {
+            id: "ton",
+            template: "quote",
+            body: "We make the tools we wished we had, and give them away.",
+            props: { by: "Ton Roosendaal, founder" },
+          },
+          {
             id: "family",
             template: "cards",
             title: "The family",

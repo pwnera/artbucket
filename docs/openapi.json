@@ -17166,6 +17166,23 @@
                                     "none"
                                   ]
                                 },
+                                "titles": {
+                                  "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                  "type": "string",
+                                  "enum": [
+                                    "medium",
+                                    "large",
+                                    "huge"
+                                  ]
+                                },
+                                "grounds": {
+                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                  "type": "string",
+                                  "enum": [
+                                    "plain",
+                                    "alternate"
+                                  ]
+                                },
                                 "languages": {
                                   "description": "The languages readers pick from; the first is the one the pages are written in",
                                   "maxItems": 12,
@@ -18712,7 +18729,7 @@
                       "type": "object",
                       "properties": {
                         "id": {
-                          "description": "Kept across edits; made up when left out",
+                          "description": "Kept across edits",
                           "type": "string",
                           "pattern": "^[a-z0-9_-]{1,40}$"
                         },
@@ -18726,7 +18743,7 @@
                           "maxLength": 20000
                         },
                         "width": {
-                          "description": "text: a reading column; the template's when left out",
+                          "description": "text: a reading column",
                           "type": "string",
                           "enum": [
                             "text",
@@ -18740,7 +18757,7 @@
                           "maximum": 4
                         },
                         "tone": {
-                          "description": "panel: the second surface; color and image: set in background; pattern: the theme's device",
+                          "description": "panel: second surface; color, image: see background",
                           "type": "string",
                           "enum": [
                             "plain",
@@ -18796,6 +18813,15 @@
                             "loose"
                           ]
                         },
+                        "size": {
+                          "description": "Title size",
+                          "type": "string",
+                          "enum": [
+                            "medium",
+                            "large",
+                            "huge"
+                          ]
+                        },
                         "background": {
                           "description": "For tone color and tone image",
                           "type": "object",
@@ -18834,7 +18860,7 @@
                           "additionalProperties": false
                         },
                         "items": {
-                          "description": "What the template lists; list_templates says which take items",
+                          "description": "What the template lists (list_templates)",
                           "maxItems": 60,
                           "type": "array",
                           "items": {
@@ -18937,7 +18963,7 @@
                           ]
                         },
                         "contexts": {
-                          "description": "A tab per context: [\"default\", \"dark-background\"]; default: no context",
+                          "description": "A tab per context: [\"default\", \"dark-background\"]",
                           "minItems": 2,
                           "maxItems": 8,
                           "type": "array",
@@ -19023,6 +19049,8 @@
                             "cover",
                             "header",
                             "text",
+                            "statement",
+                            "quote",
                             "split",
                             "cards",
                             "palette",
@@ -19051,7 +19079,7 @@
                           "type": "object",
                           "properties": {
                             "image": {
-                              "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
+                              "description": "cover: Over the color; header: In the band; quote: A portrait; split: Beside the words; annotated",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -19063,7 +19091,7 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "align": {
-                              "description": "cover: start, center, end; split: start, center",
+                              "description": "cover: start, center, end; statement, split: start, center",
                               "type": "string",
                               "enum": [
                                 "start",
@@ -19119,6 +19147,11 @@
                                 "huge"
                               ]
                             },
+                            "by": {
+                              "description": "quote: Who said it",
+                              "type": "string",
+                              "maxLength": 120
+                            },
                             "flip": {
                               "description": "split: Image on the left",
                               "type": "boolean"
@@ -19142,12 +19175,13 @@
                               ]
                             },
                             "layout": {
-                              "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+                              "description": "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                               "type": "string",
                               "enum": [
                                 "cards",
                                 "list",
                                 "stats",
+                                "steps",
                                 "checklist",
                                 "tree",
                                 "pairs",
@@ -19155,6 +19189,7 @@
                                 "rows",
                                 "bento",
                                 "carousel",
+                                "strip",
                                 "collage",
                                 "crops",
                                 "masonry",
@@ -19283,7 +19318,7 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "query": {
-                              "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
+                              "description": "collection, icons: q=poster&type=image&tag=campaign",
                               "type": "string",
                               "maxLength": 2000
                             },
@@ -19452,7 +19487,7 @@
                     "description": "The whole page, top to bottom"
                   },
                   "parent": {
-                    "description": "Its parent page; null for the top. Three levels at most",
+                    "description": "Parent page; null for the top; three levels",
                     "anyOf": [
                       {
                         "type": "string",
@@ -19545,7 +19580,7 @@
                     "type": "boolean"
                   },
                   "layout": {
-                    "description": "landing: no nav or pager, for a home or campaign; book when left out",
+                    "description": "landing: no nav or pager; book when left out",
                     "type": "string",
                     "enum": [
                       "book",
@@ -20504,7 +20539,7 @@
                               "type": "object",
                               "properties": {
                                 "id": {
-                                  "description": "Kept across edits; made up when left out",
+                                  "description": "Kept across edits",
                                   "type": "string",
                                   "pattern": "^[a-z0-9_-]{1,40}$"
                                 },
@@ -20518,7 +20553,7 @@
                                   "maxLength": 20000
                                 },
                                 "width": {
-                                  "description": "text: a reading column; the template's when left out",
+                                  "description": "text: a reading column",
                                   "type": "string",
                                   "enum": [
                                     "text",
@@ -20532,7 +20567,7 @@
                                   "maximum": 4
                                 },
                                 "tone": {
-                                  "description": "panel: the second surface; color and image: set in background; pattern: the theme's device",
+                                  "description": "panel: second surface; color, image: see background",
                                   "type": "string",
                                   "enum": [
                                     "plain",
@@ -20588,6 +20623,15 @@
                                     "loose"
                                   ]
                                 },
+                                "size": {
+                                  "description": "Title size",
+                                  "type": "string",
+                                  "enum": [
+                                    "medium",
+                                    "large",
+                                    "huge"
+                                  ]
+                                },
                                 "background": {
                                   "description": "For tone color and tone image",
                                   "type": "object",
@@ -20626,7 +20670,7 @@
                                   "additionalProperties": false
                                 },
                                 "items": {
-                                  "description": "What the template lists; list_templates says which take items",
+                                  "description": "What the template lists (list_templates)",
                                   "maxItems": 60,
                                   "type": "array",
                                   "items": {
@@ -20729,7 +20773,7 @@
                                   ]
                                 },
                                 "contexts": {
-                                  "description": "A tab per context: [\"default\", \"dark-background\"]; default: no context",
+                                  "description": "A tab per context: [\"default\", \"dark-background\"]",
                                   "minItems": 2,
                                   "maxItems": 8,
                                   "type": "array",
@@ -20815,6 +20859,8 @@
                                     "cover",
                                     "header",
                                     "text",
+                                    "statement",
+                                    "quote",
                                     "split",
                                     "cards",
                                     "palette",
@@ -20843,7 +20889,7 @@
                                   "type": "object",
                                   "properties": {
                                     "image": {
-                                      "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
+                                      "description": "cover: Over the color; header: In the band; quote: A portrait; split: Beside the words; annotated",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -20855,7 +20901,7 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "align": {
-                                      "description": "cover: start, center, end; split: start, center",
+                                      "description": "cover: start, center, end; statement, split: start, center",
                                       "type": "string",
                                       "enum": [
                                         "start",
@@ -20911,6 +20957,11 @@
                                         "huge"
                                       ]
                                     },
+                                    "by": {
+                                      "description": "quote: Who said it",
+                                      "type": "string",
+                                      "maxLength": 120
+                                    },
                                     "flip": {
                                       "description": "split: Image on the left",
                                       "type": "boolean"
@@ -20934,12 +20985,13 @@
                                       ]
                                     },
                                     "layout": {
-                                      "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+                                      "description": "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                                       "type": "string",
                                       "enum": [
                                         "cards",
                                         "list",
                                         "stats",
+                                        "steps",
                                         "checklist",
                                         "tree",
                                         "pairs",
@@ -20947,6 +20999,7 @@
                                         "rows",
                                         "bento",
                                         "carousel",
+                                        "strip",
                                         "collage",
                                         "crops",
                                         "masonry",
@@ -21075,7 +21128,7 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "query": {
-                                      "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
+                                      "description": "collection, icons: q=poster&type=image&tag=campaign",
                                       "type": "string",
                                       "maxLength": 2000
                                     },
@@ -21271,7 +21324,7 @@
                                 "type": "string"
                               },
                               "additionalProperties": {},
-                              "description": "What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"
+                              "description": "What changes: { title, keys, props, template }; null clears; props replaced whole"
                             }
                           },
                           "required": [
@@ -21353,7 +21406,7 @@
                                   "description": "Renames it; the old slug keeps working"
                                 },
                                 "parent": {
-                                  "description": "Its parent page; null for the top. Three levels at most",
+                                  "description": "Parent page; null for the top; three levels",
                                   "anyOf": [
                                     {
                                       "type": "string",
@@ -21446,7 +21499,7 @@
                                   "type": "boolean"
                                 },
                                 "layout": {
-                                  "description": "landing: no nav or pager, for a home or campaign; book when left out",
+                                  "description": "landing: no nav or pager; book when left out",
                                   "type": "string",
                                   "enum": [
                                     "book",
@@ -22294,6 +22347,23 @@
                                 "side",
                                 "inline",
                                 "none"
+                              ]
+                            },
+                            "titles": {
+                              "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                              "type": "string",
+                              "enum": [
+                                "medium",
+                                "large",
+                                "huge"
+                              ]
+                            },
+                            "grounds": {
+                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "alternate"
                               ]
                             },
                             "languages": {
@@ -23187,6 +23257,37 @@
                       }
                     ]
                   },
+                  "titles": {
+                    "anyOf": [
+                      {
+                        "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                        "type": "string",
+                        "enum": [
+                          "medium",
+                          "large",
+                          "huge"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "grounds": {
+                    "anyOf": [
+                      {
+                        "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                        "type": "string",
+                        "enum": [
+                          "plain",
+                          "alternate"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "languages": {
                     "anyOf": [
                       {
@@ -23225,6 +23326,18 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "look": {
+                    "description": "A look sets the layout at once (documentation: dense, quiet, easy to scan; editorial: a book: airy, numbered, big titles; swiss: grid, hairlines, no corners, headlines; bold: every chapter opens on the brand color; cinematic: pictures first, dark, wide, airy; playful: round, warm, alternating grounds); keys named beside it win",
+                    "type": "string",
+                    "enum": [
+                      "documentation",
+                      "editorial",
+                      "swiss",
+                      "bold",
+                      "cinematic",
+                      "playful"
                     ]
                   }
                 },
@@ -23477,6 +23590,23 @@
                                 "side",
                                 "inline",
                                 "none"
+                              ]
+                            },
+                            "titles": {
+                              "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                              "type": "string",
+                              "enum": [
+                                "medium",
+                                "large",
+                                "huge"
+                              ]
+                            },
+                            "grounds": {
+                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                              "type": "string",
+                              "enum": [
+                                "plain",
+                                "alternate"
                               ]
                             },
                             "languages": {
@@ -24819,6 +24949,23 @@
                                     "side",
                                     "inline",
                                     "none"
+                                  ]
+                                },
+                                "titles": {
+                                  "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                  "type": "string",
+                                  "enum": [
+                                    "medium",
+                                    "large",
+                                    "huge"
+                                  ]
+                                },
+                                "grounds": {
+                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                  "type": "string",
+                                  "enum": [
+                                    "plain",
+                                    "alternate"
                                   ]
                                 },
                                 "languages": {
@@ -37246,6 +37393,23 @@
                                             "side",
                                             "inline",
                                             "none"
+                                          ]
+                                        },
+                                        "titles": {
+                                          "description": "Section titles: headings (medium), or headlines (large, huge); a section's own size wins",
+                                          "type": "string",
+                                          "enum": [
+                                            "medium",
+                                            "large",
+                                            "huge"
+                                          ]
+                                        },
+                                        "grounds": {
+                                          "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                          "type": "string",
+                                          "enum": [
+                                            "plain",
+                                            "alternate"
                                           ]
                                         },
                                         "languages": {

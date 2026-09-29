@@ -8,10 +8,10 @@ test("a new brand starts at its colors, with every step to do", () => {
   const r = readiness(EMPTY);
   assert.equal(r.next, "colors");
   assert.equal(r.done, 0);
-  assert.equal(r.total, 7);
+  assert.equal(r.total, 8);
   assert.deepEqual(
     r.steps.map((s) => s.id),
-    ["colors", "type", "logo", "voice", "pages", "publish", "portal"],
+    ["colors", "type", "logo", "voice", "look", "pages", "publish", "portal"],
   );
 });
 
@@ -50,5 +50,10 @@ test("publish state: a carried baseline or an older publish leaves changes unpub
 test("a caller who can't list portals isn't told to share, nor counted for it", () => {
   const r = readiness({ ...EMPTY, portals: null });
   assert.equal(r.steps.find((s) => s.id === "portal")!.done, null);
-  assert.equal(r.total, 6);
+  assert.equal(r.total, 7);
+});
+
+test("a look is chosen once any layout setting is set; the colors alone are not one", () => {
+  assert.equal(readiness({ ...EMPTY, theme: { accent: "color.primary" } }).steps.find((s) => s.id === "look")!.done, false);
+  assert.equal(readiness({ ...EMPTY, theme: { header: "band" } }).steps.find((s) => s.id === "look")!.done, true);
 });

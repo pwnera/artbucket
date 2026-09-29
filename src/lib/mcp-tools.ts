@@ -37,7 +37,7 @@ import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
 const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
-const page = pageSlug.describe("The page's slug, e.g. logo; list_pages names them");
+const page = pageSlug.describe("Its slug, e.g. logo (list_pages)");
 const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
 const version = z.number().int().min(1).describe("The version's number, from list_versions");
 const portal = z.string().min(1).max(64).describe("Its address (slug), as list_portals names it");

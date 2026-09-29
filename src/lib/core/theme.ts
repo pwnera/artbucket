@@ -4,7 +4,7 @@ import { assets, brands } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { listRules, refuse, tracked, type BrandRule } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
-import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, ThemeSettings } from "@/lib/brand-theme";
+import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, LOOKS, ThemeSettings } from "@/lib/brand-theme";
 import { issues } from "@/lib/pages";
 
 /**
@@ -14,7 +14,7 @@ import { issues } from "@/lib/pages";
  */
 
 /** A change to the settings: a key left out keeps its value, and null clears it. */
-export type ThemePatch = { [K in keyof ThemeSettings]?: ThemeSettings[K] | null };
+export type ThemePatch = { [K in keyof ThemeSettings]?: ThemeSettings[K] | null } & { look?: string };
 
 /** Each setting that names what isn't there, or isn't the kind it needs, as [setting, problem]. */
 async function unmet(ws: string, s: ThemeSettings, rules: BrandRule[]): Promise<[string, string][]> {
@@ -48,6 +48,7 @@ async function view(ws: string, brand: string, settings: ThemeSettings, rules: B
     settings,
     theme,
     checks: theme.checks,
+    looks: Object.entries(LOOKS).map(([id, l]) => ({ id, name: l.name, about: l.about, fits: l.fits })),
     warnings: [...(await unmet(ws, settings, rules)).map(([, problem]) => `${problem}; the default is used`), ...checkWarnings(theme.checks)],
   };
 }
@@ -62,8 +63,10 @@ export async function getTheme(ws: string, slug?: string) {
  * the patch names is checked against the rules: a mapping whose rule went since
  * falls back to the default with a warning, and never blocks an unrelated change.
  */
-export async function setTheme(caller: Caller, slug: string | undefined, patch: ThemePatch) {
+export async function setTheme(caller: Caller, slug: string | undefined, { look, ...own }: ThemePatch) {
   const ws = caller.workspace.id;
+  // A look is applied, not stored: its layout settings, under whatever the patch names beside it.
+  const patch: Omit<ThemePatch, "look"> = look ? { ...LOOKS[look].patch, ...own } : own;
   const brand = await resolveBrand(ws, slug);
   const rules = await listRules(ws, { brand: brand.slug });
   return tracked(brand.id, caller.actor, [], async (tx) => {

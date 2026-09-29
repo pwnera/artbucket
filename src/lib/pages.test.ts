@@ -522,11 +522,13 @@ test("W2 templates: layouts merge into one enum on the wire, each template's val
     "pairs",
     "rows",
     "stats",
+    "steps",
+    "strip",
     "tree",
   ]);
   assert.equal(
     layout.description,
-    "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+    "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
   );
   // What every template it names says alike, it says once.
   assert.equal(mergedProps().shape.collection.description, "collection, icons: A collection's id");
@@ -572,7 +574,7 @@ test("W4 props: palette, type, logos, gallery and diagram settings, and a galler
     ]).errors,
     [
       'sections[0].props.show[0]: Invalid option: expected one of "hex"|"rgb"|"hsl"|"cmyk"|"pantone"|"ral"|"token"|"css"',
-      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"|"collage"|"crops"',
+      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"|"strip"|"collage"|"crops"',
       "sections[2].items[0].span: Too big: expected number to be <=2",
       "sections[3].items[0].span: only gallery items span",
       "sections[4].items[0].verdict: a logos item marks a pair never to use: dont",
@@ -673,13 +675,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 25 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 27 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 25);
+  assert.equal(templates.length, 27);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);

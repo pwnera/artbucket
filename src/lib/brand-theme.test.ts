@@ -7,12 +7,15 @@ import {
   deriveTheme,
   fontFaceCss,
   fontRoles,
+  LAYOUT_KEYS,
+  LOOKS,
   renameThemeKey,
   sectionGround,
   stack,
-  type Theme,
+  ThemePatch,
   ThemeSettings,
   themeVars,
+  type Theme,
 } from "./brand-theme.ts";
 import { contrast, luminance, mix, rgb } from "./color.ts";
 import { FIXTURES } from "./fixtures/brand-book.ts";
@@ -383,4 +386,24 @@ test("fontFaceCss: one @font-face per file, with its weight and style, under the
   assert.equal(v["--brand-label"], '"Space Mono", var(--font-sans), sans-serif');
   assert.deepEqual([t.faces.label?.case, t.faces.label?.tracking, v["--brand-label-tracking"]], ["small-caps", 0.12, "0.12em"], "labels are small: the smallest size's tracking");
   assert.equal(fontFaceCss({}, String), "");
+});
+
+test("looks: each sets every layout setting and clears band, and set_theme's patch names them all", () => {
+  for (const [id, look] of Object.entries(LOOKS)) {
+    for (const k of LAYOUT_KEYS) assert.notEqual(look.patch[k], undefined, `${id}.${k}`);
+    assert.equal(look.patch.band, null, id);
+    assert.ok(ThemeSettings.safeParse(Object.fromEntries(Object.entries(look.patch).filter(([, v]) => v !== null))).success, id);
+  }
+  assert.ok(ThemePatch.safeParse({ look: "bold", radius: 0 }).success);
+  assert.ok(!ThemePatch.safeParse({ look: "brutalist" }).success);
+});
+
+test("titles: section titles step down from the h1 at medium, and meet it at huge; a theme with none is medium", () => {
+  const rules: Rule[] = [];
+  const at = (titles?: "medium" | "large" | "huge") => themeVars(deriveTheme(rules, { scale: 1.25, ...(titles && { titles }) }), (id) => id);
+  assert.equal(at()["--brand-h2"], at("medium")["--brand-h2"]);
+  assert.equal(at("medium")["--brand-h2"], at()["--brand-h2-medium"]);
+  assert.equal(at("huge")["--brand-h2"], at()["--brand-h1"]);
+  assert.equal(deriveTheme(rules, {}).grounds, "plain");
+  assert.equal(deriveTheme(rules, { grounds: "alternate" }).grounds, "alternate");
 });

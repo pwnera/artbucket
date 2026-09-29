@@ -34,7 +34,7 @@ const GRID: Record<number, string> = {
 };
 
 /** A tile's box: a bento's rows are one height, so a tile two cells wide lines up with its neighbours. A collage's is the picture's own. */
-const SHAPE = { grid: "aspect-[4/3]", bento: "h-56 @3xl:h-72", carousel: "aspect-video", collage: "", crops: "" };
+const SHAPE = { grid: "aspect-[4/3]", bento: "h-56 @3xl:h-72", carousel: "aspect-video", strip: "h-56 w-auto @3xl:h-72", collage: "", crops: "" };
 
 /** A collage's columns: CSS columns fill top to bottom, so pictures of different heights pack without gaps. */
 const COLUMNS: Record<number, string> = {
@@ -154,7 +154,16 @@ export function GallerySection({ section: s, rules }: SectionProps) {
       {pictures.length > 0 && (
         // Its own container: the frame's is the whole section, wider than a reading column or one beside an aside.
         <div className="@container">
-          {layout === "carousel" ? (
+          {layout === "strip" ? (
+            // A band of pictures at one height, each as wide as its shape makes it, scrolling sideways past the frame.
+            <ul className="-mx-6 flex snap-x gap-4 overflow-x-auto px-6 pb-2 @3xl:-mx-10 @3xl:px-10 [scrollbar-width:thin]">
+              {pictures.map((p, n) => (
+                <li key={p.m.id} {...itemRoot(p.i)} id={p.anchor} className="shrink-0 snap-start scroll-mt-20 [&_img]:w-auto [&_figure]:h-56 @3xl:[&_figure]:h-72">
+                  {figure(p, n)}
+                </li>
+              ))}
+            </ul>
+          ) : layout === "carousel" ? (
             <Carousel count={pictures.length}>
               {pictures.map((p, n) => (
                 <div

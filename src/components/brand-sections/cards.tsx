@@ -18,9 +18,9 @@ import { cn } from "@/lib/utils";
 /**
  * A card per point: each entry of the lists it binds, each text rule, then
  * each item, in that order. `layout: list` sets them as rows instead, one
- * under the other. `stats`, `checklist` and `tree` set the items their own
- * way (a big figure over its label, a line to tick, the brand's family),
- * under the rules as rows.
+ * under the other. `stats`, `steps`, `checklist` and `tree` set the items their
+ * own way (a big figure over its label, a numbered process, a line to tick,
+ * the brand's family), under the rules as rows.
  */
 
 /** As many across as `columns` asks, once the section has the room. */
@@ -67,6 +67,8 @@ export function CardsSection({ section: s, rules }: SectionProps) {
   const own =
     layout === "stats" ? (
       <Stats n={items.length} columns={s.columns} />
+    ) : layout === "steps" ? (
+      <Steps n={items.length} columns={s.columns} />
     ) : layout === "checklist" ? (
       <Checklist items={items} section={s.id} />
     ) : layout === "tree" ? (
@@ -165,6 +167,23 @@ function Stats({ n, columns }: { n: number; columns: number }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** A numbered process: the step's number big in the accent, its title and text beside or under it. */
+function Steps({ n, columns }: { n: number; columns: number }) {
+  return (
+    <ol className={cn("grid gap-x-8 gap-y-8", GRID[columns])}>
+      {Array.from({ length: n }, (_, i) => (
+        <li key={i} {...itemRoot(i)} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+          <span aria-hidden className={cn(HEAD, "text-(--brand-accent) row-span-2 text-4xl leading-none tabular-nums @3xl:text-5xl")}>
+            {String(i + 1).padStart(2, "0")}
+          </span>
+          <ItemTitle i={i} className="text-lg leading-snug" />
+          <ItemText i={i} className="text-muted-foreground text-base" />
+        </li>
+      ))}
+    </ol>
   );
 }
 
