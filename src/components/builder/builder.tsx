@@ -304,7 +304,8 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       <TopBar b={b} />
       {b.state.preview ? (
         <div className="flex min-w-0 flex-1">
-          <Fit on={theming}>
+          {/* Floating, the panel sits over the site: it keeps its own width. */}
+          <Fit on={theming && !b.floating}>
             {readable.page ? (
               <SiteView view={readable} href={href} onNavigate={navigate} />
             ) : (

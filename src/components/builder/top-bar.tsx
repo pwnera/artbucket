@@ -88,7 +88,7 @@ export function TopBar({ b }: TopBarProps) {
     const theming = b.dock === "theme";
     return (
       // Clear of the Theme panel (w-80) while it is open beside the site.
-      <div className={cn("app-tokens fixed bottom-4 z-40 flex gap-2", theming ? "end-84" : "end-4")}>
+      <div className={cn("app-tokens fixed bottom-4 z-40 flex gap-2", theming && !b.floating ? "end-84" : "end-4")}>
         <Button variant="secondary" size="sm" className="shadow-lg" aria-pressed={theming} onClick={() => b.setDock(theming ? null : "theme")}>
           <IconPalette /> {theming ? "Hide theme" : "Theme"}
         </Button>

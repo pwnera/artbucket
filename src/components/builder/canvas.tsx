@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
  * hover or selection, a Seam between, and a right click menu (SectionMenu)
  * on it or on one of its items, and a standing way in at the page's end. The
  * page list (PagesPanel) sits before it when open. A clicked specimen opens its RuleCard,
- * anchored there (the canvas holds which). The section panel (b.dock) sits
+ * floating beside it (the canvas holds which rule). The section panel (b.dock) sits
  * beside it. A width toggle of its own narrows the container to 390 or
  * 768px (D11). b.state.preview shows the page as readers see it, no chrome.
  * b.view.page is null while a page loads.

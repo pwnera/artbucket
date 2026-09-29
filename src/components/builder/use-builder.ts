@@ -73,6 +73,7 @@ export function unclip(text: string): Record<string, unknown> | null {
 const SAVE = "builder-save";
 /** Where the page list's open or closed is remembered. */
 const PAGES = "artbucket:builder-pages";
+const FLOAT = "artbucket:builder-panel-float";
 
 /** The last section copied from a menu, for a paste the clipboard won't give back (permission refused). */
 let copied: string | null = null;
@@ -86,6 +87,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [item, setItem] = useState<{ section: string; i: number } | null>(null);
   // The page list beside the canvas: open unless the person closed it in this browser.
   const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
+  // The panel (b.dock) floats over the canvas instead of beside it: kept in this browser, as the page list's is.
+  const [floating, setFloating] = usePref(FLOAT, false);
   // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
   const [pageSettings, setPageSettings] = useState<string | null>(null);
   const { status, refresh: refreshStatus } = useStatus(brand, transport);
@@ -384,6 +387,9 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     /** Whether the page list shows beside the canvas. */
     pagesOpen,
     setPagesOpen,
+    /** Whether the panel floats over the canvas (floating-panel.tsx) rather than docking beside it. */
+    floating,
+    setFloating,
     pageSettings,
     setPageSettings,
     /** The launch checklist and whether readers see the latest (use-status.ts); null until read. */

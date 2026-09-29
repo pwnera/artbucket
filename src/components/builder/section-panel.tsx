@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconEye, IconGripVertical, IconPalette, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { endDrag, startDrag } from "@/components/builder/drag";
+import { FloatingPanel } from "@/components/builder/floating-panel";
 import { ITEM_FIELDS, PICTURED } from "@/components/builder/items";
 import { PictureField } from "@/components/builder/picture-field";
 import {
@@ -36,7 +37,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The panel docked beside the canvas (b.dock), which never covers the page,
- * so a change shows as it is made. "Section" sets the picked section up:
+ * so a change shows as it is made; or, with b.floating, a FloatingPanel over
+ * it, dragged anywhere and folded to its header. "Section" sets the picked section up:
  * its template, width, columns and ground, the options its template takes
  * (every prop in TEMPLATE_PROPS, through lib/template-fields.ts), the
  * rules it shows, the item a right click asked for, and where it shows.
@@ -58,52 +60,76 @@ export function SectionPanel({ b }: SectionPanelProps) {
   // Previewing the whole site, only the theme is set here: there is no section to pick, and nothing to add.
   const { preview } = b.state;
   const tab = preview ? "theme" : (b.dock ?? "section");
+  const label = tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : "Theme";
+  const head = preview ? (
+    <span className="flex items-center gap-2 text-sm font-medium">
+      {!b.floating && <IconPalette className="size-4" />} Theme
+    </span>
+  ) : (
+    <ToggleGroup type="single" size="sm" variant="outline" value={tab} onValueChange={(v) => v && b.setDock(v as Dock)} aria-label="Panel">
+      <ToggleGroupItem value="section">Section</ToggleGroupItem>
+      <ToggleGroupItem value="insert">Add</ToggleGroupItem>
+      <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
+    </ToggleGroup>
+  );
+  const pop = (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={b.floating ? "Dock beside the page" : "Float over the page"}
+      title={b.floating ? "Dock beside the page" : "Float over the page"}
+      onClick={() => b.setFloating(!b.floating)}
+    >
+      {b.floating ? <IconLayoutSidebarRight /> : <IconPictureInPictureOn />}
+    </Button>
+  );
+  const body =
+    tab === "section" ? (
+      <Settings b={b} />
+    ) : tab === "insert" ? (
+      <Insert b={b} />
+    ) : (
+      <div className="grid gap-4 px-3 py-4">
+        {preview ? (
+          <p className="text-muted-foreground text-xs">The whole site as readers get it once published. Each change shows here as it is made.</p>
+        ) : (
+          // The canvas is the page alone: the nav, on this page and the site's mark show around it only in the preview.
+          <div className="bg-muted/50 grid gap-2 rounded-md border p-3">
+            <p className="text-muted-foreground text-xs">Navigation, on this page and the site&apos;s mark show around the page, in the preview.</p>
+            <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => b.setPreview(true)}>
+              <IconEye /> Preview the whole site
+            </Button>
+          </div>
+        )}
+        <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
+      </div>
+    );
+
+  // Floating, it is a window over the page: dragged anywhere, folded to its header, the whole canvas left to the page.
+  if (b.floating)
+    return (
+      <FloatingPanel id="builder-panel" title={head} label={label} actions={pop} width={340} onClose={() => b.setDock(null)}>
+        {body}
+      </FloatingPanel>
+    );
+
   return (
     <aside
-      aria-label={tab === "section" ? "Section settings" : tab === "insert" ? "Add to the page" : "Theme"}
+      aria-label={label}
       className={cn(
         "app-tokens bg-background text-foreground sticky flex w-80 shrink-0 flex-col border-s font-sans",
         preview ? "top-0 h-dvh" : "top-12 h-[calc(100dvh-3rem)]",
       )}
     >
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2">
-        {preview ? (
-          <h2 className="flex items-center gap-2 px-1 text-sm font-medium">
-            <IconPalette className="size-4" /> Theme
-          </h2>
-        ) : (
-          <ToggleGroup type="single" size="sm" variant="outline" value={tab} onValueChange={(v) => v && b.setDock(v as Dock)} aria-label="Panel">
-            <ToggleGroupItem value="section">Section</ToggleGroupItem>
-            <ToggleGroupItem value="insert">Add</ToggleGroupItem>
-            <ToggleGroupItem value="theme">Theme</ToggleGroupItem>
-          </ToggleGroup>
-        )}
-        <Button variant="ghost" size="icon-sm" className="ms-auto" aria-label="Close the panel" title="Close" onClick={() => b.setDock(null)}>
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b px-2">
+        {head}
+        <span className="ms-auto" />
+        {pop}
+        <Button variant="ghost" size="icon-sm" aria-label="Close the panel" title="Close" onClick={() => b.setDock(null)}>
           <IconX />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {tab === "section" ? (
-          <Settings b={b} />
-        ) : tab === "insert" ? (
-          <Insert b={b} />
-        ) : (
-          <div className="grid gap-4 px-3 py-4">
-            {preview ? (
-              <p className="text-muted-foreground text-xs">The whole site as readers get it once published. Each change shows here as it is made.</p>
-            ) : (
-              // The canvas is the page alone: the nav, on this page and the site's mark show around it only in the preview.
-              <div className="bg-muted/50 grid gap-2 rounded-md border p-3">
-                <p className="text-muted-foreground text-xs">Navigation, on this page and the site&apos;s mark show around the page, in the preview.</p>
-                <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => b.setPreview(true)}>
-                  <IconEye /> Preview the whole site
-                </Button>
-              </div>
-            )}
-            <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
-          </div>
-        )}
-      </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{body}</div>
     </aside>
   );
 }
