@@ -59,7 +59,8 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
       href: "/settings/organization/general",
     },
     { id: "brand", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: brand.custom, href: "/settings/organization/branding" },
-    { id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: me.email, href: "/settings/organization/email" },
+    // A server that sends everyone's email has nothing here to turn on, nor a page to do it on.
+    ...(me.auth.serverEmail ? [] : [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: me.email, href: "/settings/organization/email" }]),
     { id: "upload", label: "Upload your first assets", why: "Logos, photos, fonts: anything the brand uses.", done: uploaded, run: onUpload },
     { id: "guidelines", label: "Set up your brand", why: "Colors, type, logo and voice, as pages people and agents read.", done: visited.has("guidelines"), href: "/brand" },
     { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: visited.has("team"), href: "/team" },
