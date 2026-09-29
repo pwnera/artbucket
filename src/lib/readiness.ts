@@ -8,7 +8,7 @@
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export type StepId = "colors" | "type" | "logo" | "voice" | "pages" | "publish" | "portal";
+export type StepId = "colors" | "type" | "logo" | "voice" | "look" | "pages" | "publish" | "portal";
 
 export type Step = {
   id: StepId;
@@ -33,6 +33,8 @@ export type Readiness = {
 export type ReadinessInput = {
   /** Every rule, context versions included: only keys, types and whether a rule has assets are read. */
   rules: { key: string; type: string; assets?: readonly unknown[] }[];
+  /** The brand's theme settings, as stored: only what was set. */
+  theme?: Record<string, unknown>;
   /** Each page's section count. */
   pages: { sections: number }[];
   /** The brand's history, newest first, as GET .../versions lists it; empty before the first edit. */
@@ -58,7 +60,10 @@ export function publishState(versions: ReadinessInput["versions"]): PublishState
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-export function readiness({ rules, pages, versions, portals }: ReadinessInput): Readiness {
+/** The layout settings a look sets (lib/brand-theme.ts LAYOUT_KEYS): any of them set, and the pages don't wear the default look. */
+const LAYOUT = ["width", "density", "scale", "radius", "nav", "toc", "header", "separation", "numbering", "motion", "titles", "grounds"];
+
+export function readiness({ rules, theme = {}, pages, versions, portals }: ReadinessInput): Readiness {
   const keys = new Map<string, ReadinessInput["rules"]>();
   for (const r of rules) keys.set(r.key, [...(keys.get(r.key) ?? []), r]);
   const of = (test: (key: string, type: string) => boolean) => [...keys.entries()].filter(([k, rs]) => test(k, rs[0].type));
@@ -66,6 +71,7 @@ export function readiness({ rules, pages, versions, portals }: ReadinessInput): 
   const faces = of((_, t) => t === "font");
   const logos = of((k) => k.startsWith("logo.")).filter(([, rs]) => rs.some((r) => r.assets?.length));
   const voice = of((k) => k.startsWith("tone.") || k.startsWith("voice."));
+  const looked = LAYOUT.some((k) => theme[k] !== undefined && theme[k] !== null);
   const sections = pages.reduce((n, p) => n + p.sections, 0);
   const state = publishState(versions);
 
@@ -99,6 +105,13 @@ export function readiness({ rules, pages, versions, portals }: ReadinessInput): 
       agent: 'set_rules with { key: "tone.voice", type: "text", value }, and lists like tone.avoid.',
     },
     {
+      id: "look",
+      title: "Look",
+      done: looked,
+      detail: looked ? "The pages have a look of their own" : "The pages wear the default look, the same as every brand's: pick one that fits how the brand feels.",
+      agent: 'get_theme lists the looks; set_theme with { look: "editorial" } (or documentation, swiss, bold, cinematic, playful), then any setting beside it. Read the playbook first.',
+    },
+    {
       id: "pages",
       title: "Pages",
       done: sections >= THIN,
@@ -108,8 +121,8 @@ export function readiness({ rules, pages, versions, portals }: ReadinessInput): 
           ? "The pages hold little beyond a cover: add sections that show the rules."
           : `${plural(pages.length, "page")}, ${plural(sections, "section")}`,
       agent: pages.length
-        ? "list_templates, then edit_page or save_page to add sections that bind the rules by key."
-        : "generate_pages lays them out from the rules; then edit_page.",
+        ? "list_templates, then edit_page or save_page to add sections that bind the rules by key. The playbook (brand_playbook) says what a good page is."
+        : "Read brand_playbook, then save_page each page it describes; generate_pages lays out a plain start from the rules instead.",
     },
     {
       id: "publish",

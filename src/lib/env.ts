@@ -28,6 +28,12 @@ const schema = z.object({
    */
   INTERNAL_URL: z.string().url().optional(),
   /**
+   * A Chromium the server may run headless, to draw brand pages as pictures
+   * (preview_page): /usr/bin/chromium-browser in the Docker image. Unset:
+   * the machine's Google Chrome, or none, and previews say so.
+   */
+  CHROMIUM_PATH: z.string().min(1).optional(),
+  /**
    * The host name an organization's own domain should CNAME to, shown beside
    * its TXT record: this server's, or a hosting provider's (Cloudflare for
    * SaaS's fallback origin). Unset: "point it at this server".

@@ -19,6 +19,7 @@
     "check:logical": "! (git grep --untracked -nE '(^|[^a-z-])(ml|mr|pl|pr|left|right|border-l|border-r|rounded-l|rounded-r)-|text-(left|right)\\b' -- src/components/brand-sections src/components/site src/components/builder | grep -v 'physical:')",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "docs:playbook": "node --experimental-strip-types --no-warnings -e \"import('./src/lib/playbook.ts').then((m) => process.stdout.write(m.PLAYBOOK_MDX))\" > docs/guides/playbook.mdx",
     "docs:openapi": "node --experimental-strip-types --no-warnings -e \"import('./src/lib/openapi.ts').then((m) => process.stdout.write(JSON.stringify(m.openapi(m.DOCS_SERVER), null, 2) + '\\\\n'))\" > docs/openapi.json",
     "contract:freeze": "node --experimental-strip-types --no-warnings scripts/contract.ts freeze",
     "contract:check": "node --experimental-strip-types --no-warnings scripts/contract.ts check",
@@ -29,6 +30,7 @@
     "artbucket": "node --experimental-strip-types --no-warnings bin/artbucket.ts",
     "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts",
     "bench": "node --experimental-strip-types --no-warnings scripts/bench.ts",
+    "bench:brand": "node --experimental-strip-types --no-warnings --env-file-if-exists=.env scripts/bench-brand.ts",
     "eval:mcp": "node --experimental-strip-types --no-warnings --env-file-if-exists=.env scripts/mcp-eval.ts"
   },
   "dependencies": {
@@ -60,6 +62,7 @@
     "mupdf": "^1.28.1",
     "next": "^16.3.6",
     "next-themes": "^0.4.6",
+    "playwright-core": "^1.63.0",
     "postgres": "^3.4.9",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
@@ -70,6 +73,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",

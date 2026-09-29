@@ -46,6 +46,8 @@ import { can, needs, type Action } from "@/lib/permissions";
 import { allows } from "@/lib/scopes";
 import { normalizeTags } from "@/lib/search";
 import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
+import { PLAYBOOK } from "@/lib/playbook";
+import { printPage } from "@/lib/core/print";
 import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -64,7 +66,7 @@ const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe 
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
-To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, a look, pages, a publish, a portal) and how to add each, next step first. Before the first page, read brand_playbook (also the artbucket://playbook resource): what a good brand site is, and a worked example; a site built without it reads like a document. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
@@ -126,6 +128,7 @@ const rulesUri = (brand: { slug: string; default: boolean }) =>
   brand.default ? RULES_URI : `artbucket://brands/${brand.slug}/rules`;
 /** A page as Markdown, what get_page returns in `markdown`. */
 const pageUri = (brand: string, page: string) => `artbucket://brands/${brand}/pages/${page}`;
+const PLAYBOOK_URI = "artbucket://playbook";
 
 /** Tools that reach outside artbucket: a public URL, Google Fonts, Iconify. */
 const OPEN_WORLD = new Set(["ingest_asset", "import_google_font", "find_icons", "import_icons"]);
@@ -436,6 +439,31 @@ const TOOLS: Record<ToolName, Tool> = {
   }),
 
   // ---- brand pages: guidelines laid out for people, over the rules (lib/pages.ts)
+
+  brand_playbook: tool({
+    description:
+      "What a good brand site is, before you build one: research the brand, assets before pages, a look that fits, " +
+      "the overview as a landing page, one idea per section with varied blocks, titles as claims, how to review. " +
+      "With a worked example in calls. Read it once, before the first save_page.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_playbook,
+    run: async () => ({ markdown: PLAYBOOK }),
+  }),
+
+  preview_page: tool({
+    description:
+      "The page as readers see it now, as a picture (JPEG, the whole page, up to 10000px tall): look at your work " +
+      "the way a person would, after save_page or set_theme. `url` opens the same in the app. Needs the server's " +
+      "browser; without one it says so.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.preview_page,
+    run: async ({ brand, page, width, context }, caller) => {
+      const p = await printPage(caller, brand, page, { width, context });
+      return { image: { data: p.jpeg.toString("base64"), mimeType: "image/jpeg" }, width: p.width, height: p.height, bytes: p.jpeg.length, url: p.url };
+    },
+  }),
 
   list_templates: tool({
     description:
@@ -1028,8 +1056,9 @@ const Message = z.object({
 const result = (id: Id, r: unknown) => ({ jsonrpc: "2.0", id, result: r });
 const error = (id: Id, code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-const toolResult = (data: Record<string, unknown>, isError = false) => ({
-  content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+/** A tool's answer as MCP content: its JSON, and a picture first when it drew one (preview_page). */
+const toolResult = ({ image, ...data }: Record<string, unknown> & { image?: { data: string; mimeType: string } }, isError = false) => ({
+  content: [...(image ? [{ type: "image", data: image.data, mimeType: image.mimeType }] : []), { type: "text", text: JSON.stringify(data, null, 2) }],
   ...(isError ? { isError } : { structuredContent: data }),
 });
 
@@ -1068,7 +1097,9 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       });
     // Brand rules and pages as resources, for clients that attach context by hand.
     case "resources/list": {
-      const resources = [];
+      const resources: Record<string, string>[] = [
+        { uri: PLAYBOOK_URI, name: "brand-playbook", title: "Building a brand site: the playbook", description: "What a good brand site is, and a worked example in calls", mimeType: "text/markdown" },
+      ];
       for (const b of await listBrands(caller.workspace.id)) {
         const uri = rulesUri(b);
         const all = { uri, name: `brand-rules-${b.slug}`, title: `${b.name}: brand rules`, mimeType: "application/json" };
@@ -1116,6 +1147,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       });
     case "resources/read": {
       const uri = String(params.uri ?? "");
+      if (uri === PLAYBOOK_URI) return result(id, { contents: [{ uri, mimeType: "text/markdown", text: PLAYBOOK }] });
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
       const page = uri.match(/^artbucket:\/\/brands\/([^/?#]+)\/pages\/([^/?#]+)$/);
       try {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COLLECTION_ICONS, type CollectionIcon } from "./collection-icons.ts";
-import { SITE_PATH } from "./markdown.ts";
+import { plainText, SITE_PATH } from "./markdown.ts";
 import { fontValue, listStyle, resolve, ruleContext, ruleKey, ruleLabel, section, type Rule, type RuleType } from "./rules.ts";
 
 /**
@@ -22,6 +22,8 @@ export const TEMPLATES = [
   "cover",
   "header",
   "text",
+  "statement",
+  "quote",
   "split",
   "cards",
   "palette",
@@ -79,6 +81,8 @@ export const TEMPLATE_INFO: Record<
     width: (typeof WIDTHS)[number];
     columns: number;
     tone: Tone;
+    /** Its title's size when the section sets none: a statement is a headline. The theme's `titles` otherwise. */
+    size?: Section["size"];
     /** A section that shows the template off, for the catalog, the builder and the fixtures. */
     example: SectionInput;
   }
@@ -123,6 +127,29 @@ export const TEMPLATE_INFO: Record<
       keys: ["tone.always", "tone.avoid"],
       aside: "Unsure? Read it out loud, or see how [the mark](/logo) speaks.",
     },
+  },
+  statement: {
+    name: "Statement",
+    use: "One line at headline size on a ground: the mission, the tagline, a claim, as the title; a small line under it as the body. Between two dense sections, to let the page breathe.",
+    binds: "a text rule, said under the title",
+    accepts: (r) => r.type === "text",
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "brand",
+    size: "huge",
+    example: { template: "statement", eyebrow: "Our mission", title: "Free to use, for any purpose, forever.", body: "Made by everyone who uses it, for everyone who will." },
+  },
+  quote: {
+    name: "Quote",
+    use: "A pull quote: the body set large in the heading face, who said it (props.by), and a portrait (props.image).",
+    binds: "a text rule, quoted",
+    accepts: (r) => r.type === "text",
+    items: null,
+    width: "text",
+    columns: 1,
+    tone: "panel",
+    example: { template: "quote", body: "We make the tools we wished we had, and give them away.", props: { by: "Ton Roosendaal, founder" } },
   },
   split: {
     name: "Split",
@@ -175,7 +202,7 @@ export const TEMPLATE_INFO: Record<
     width: "wide",
     columns: 1,
     tone: "plain",
-    example: { template: "type", title: "Typefaces", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way", roles: true } },
+    example: { template: "type", title: "Two faces, one voice", keys: ["type.heading", "type.primary", "type.scale"], props: { sample: "Blend it your way", roles: true } },
   },
   logos: {
     name: "Logo showcase",
@@ -516,7 +543,7 @@ const LIVE = {
     .string()
     .max(2000)
     .optional()
-    .describe("A library query string: q=poster&type=image&tag=campaign"),
+    .describe("q=poster&type=image&tag=campaign"),
   sort: z.enum(["newest", "oldest", "name"]).optional(),
   limit: z.number().int().min(1).max(200).optional(),
   downloads: z.boolean().optional().describe("true when left out"),
@@ -524,7 +551,7 @@ const LIVE = {
 
 export const TEMPLATE_PROPS = {
   cover: z.strictObject({
-    image: image.describe("In place of the brand color"),
+    image: image.describe("Over the color"),
     video: z.uuid().optional().describe("A muted loop over the image, its poster"),
     align: z.enum(["start", "center", "end"]).optional(),
     height: z.enum(["auto", "tall", "screen"]).optional(),
@@ -536,14 +563,16 @@ export const TEMPLATE_PROPS = {
   }),
   header: z.strictObject({ image: image.describe("In the band") }),
   text: z.strictObject({}),
+  statement: z.strictObject({ align: z.enum(["start", "center"]).optional() }),
+  quote: z.strictObject({ by: z.string().trim().max(120).optional().describe("Who said it"), image: image.describe("A portrait") }),
   split: z.strictObject({
-    image: image.describe("Beside the words; else the first rule's picture"),
+    image: image.describe("Beside the words"),
     flip: z.boolean().optional().describe("Image on the left"),
     ratio: z.enum(["even", "words", "picture"]).optional().describe("The wider side"),
     align: z.enum(["start", "center"]).optional(),
     fit: z.enum(["auto", "fill", "whole"]).optional(),
   }),
-  cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "checklist", "tree"]).optional() }),
+  cards: z.strictObject({ layout: z.enum(["cards", "list", "stats", "steps", "checklist", "tree"]).optional() }),
   // Booleans are off when left out, kit aside. Descriptions stay short: each is in every page tool's schema.
   palette: z.strictObject({
     show: z
@@ -573,7 +602,7 @@ export const TEMPLATE_PROPS = {
     backdrop: z.enum(["checker", "light", "dark"]).optional(),
   }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
-  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),
+  gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "strip", "collage", "crops"]).optional() }),
   collection: z
     .strictObject({
       collection: LIVE.collection,
@@ -670,15 +699,15 @@ export const SectionText = z
 export type SectionText = z.output<typeof SectionText>;
 
 const base = {
-  id: sectionId.optional().describe("Kept across edits; made up when left out"),
+  id: sectionId.optional().describe("Kept across edits"),
   title: TEXT.title.optional(),
   body: TEXT.body.optional().describe("Markdown (GFM), shown under the title"),
-  width: z.enum(WIDTHS).optional().describe("text: a reading column; the template's when left out"),
+  width: z.enum(WIDTHS).optional().describe("text: a reading column"),
   columns: z.number().int().min(1).max(4).optional(),
   tone: z
     .enum(TONES)
     .optional()
-    .describe("panel: the second surface; color and image: set in background; pattern: the theme's device"),
+    .describe("panel: second surface; color, image: see background"),
   hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
   keys: z.array(ruleKey).max(100).refine(unique, "Each key once").optional().describe("The rules it shows, by key, in order"),
   eyebrow: TEXT.eyebrow.optional().describe("Above the title: a number, a chapter"),
@@ -686,8 +715,9 @@ const base = {
   aside: TEXT.aside.optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
   space: z.enum(["tight", "loose"]).optional().describe("Room above it"),
+  size: z.enum(["medium", "large", "huge"]).optional().describe("Title size"),
   background: Background.optional().describe("For tone color and tone image"),
-  items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
+  items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists (list_templates)"),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   contexts: z
     .array(ruleContext)
@@ -695,13 +725,13 @@ const base = {
     .max(8)
     .refine(unique, "Each context once")
     .optional()
-    .describe('A tab per context: ["default", "dark-background"]; default: no context'),
+    .describe('A tab per context: ["default", "dark-background"]'),
   only: ruleContext.optional().describe("Shown only in this context"),
   translations: z.record(LANG, SectionText).optional().describe("By language tag; what is left out falls back"),
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
-const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "space", "background", "items", "audience", "contexts", "only", "translations"] as const;
+const OPTIONAL = ["eyebrow", "lede", "aside", "tab", "space", "size", "background", "items", "audience", "contexts", "only", "translations"] as const;
 
 // Props come in as their own type parameter: indexing TEMPLATE_PROPS by a generic template typed every prop as never.
 const variant = <T extends Template, P extends z.ZodType>(t: T, props: P) =>
@@ -712,6 +742,8 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("cover", TEMPLATE_PROPS.cover),
   variant("header", TEMPLATE_PROPS.header),
   variant("text", TEMPLATE_PROPS.text),
+  variant("statement", TEMPLATE_PROPS.statement),
+  variant("quote", TEMPLATE_PROPS.quote),
   variant("split", TEMPLATE_PROPS.split),
   variant("cards", TEMPLATE_PROPS.cards),
   variant("palette", TEMPLATE_PROPS.palette),
@@ -806,6 +838,7 @@ export type Section = {
   aside: string;
   tab: string;
   space: "tight" | "loose";
+  size: "medium" | "large" | "huge";
   background: Background;
   items: Item[];
   audience: Audience;
@@ -824,14 +857,14 @@ export type PageText = z.output<typeof PageText>;
 
 /** A page's own fields beside its title and sections. On save, left out keeps a value and null clears it. */
 const PageMeta = {
-  parent: pageSlug.nullable().optional().describe("Its parent page; null for the top. Three levels at most"),
+  parent: pageSlug.nullable().optional().describe("Parent page; null for the top; three levels"),
   eyebrow: z.string().trim().max(120).nullable().optional(),
   lede: z.string().trim().max(1000).nullable().optional(),
   cover: z.uuid().nullable().optional().describe("Its header and card image"),
   icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   tabs: z.boolean().optional().describe("Its child pages as tabs across its top"),
-  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav or pager, for a home or campaign; book when left out"),
+  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav or pager; book when left out"),
   translations: z.record(LANG, PageText).nullable().optional().describe("Its words by language tag"),
 };
 
@@ -859,7 +892,7 @@ export const PageOp = z.discriminatedUnion("op", [
     id: sectionRef,
     set: z
       .record(z.string(), z.unknown())
-      .describe("What changes, e.g. { title, keys, props }; null clears a field. props is replaced whole; template can change too"),
+      .describe("What changes: { title, keys, props, template }; null clears; props replaced whole"),
   }),
   z.strictObject({ op: z.literal("move"), id: sectionRef, after: sectionRef.nullable().describe("After this section; null for the top") }),
   z.strictObject({ op: z.literal("remove"), id: sectionRef }),
@@ -1213,7 +1246,7 @@ export function applyOps(stored: Section[], ops: PageOp[], slug: string): { sect
   return { sections, page, errors };
 }
 
-type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null };
+type Linked = { slug: string; sections: Section[]; hidden?: boolean; aliases?: string[] | null; position?: number; parent?: string | null };
 type Warned = Pick<Rule, "key"> & Partial<Pick<Rule, "type" | "context" | "spec" | "assets">>;
 
 /** Lengths a reader compares; x, %, em and ms are of something else, so they mix with anything. */
@@ -1271,12 +1304,42 @@ export function pageWarnings(page: Linked, pages: Linked[], rules: Warned[]): st
     for (const b of bindings(s)) if (!keys.has(b.key)) out.push(`sections[${i}].${b.at}: no rule "${b.key}"; readers see nothing for it`);
     out.push(...ruleWarnings(s, `sections[${i}]`, rules));
   });
-  for (const d of designWarnings(page.sections)) out.push(`${d.at === null ? "page" : `sections[${d.at}]`}: ${d.text}`);
+  // The page readers land on: the first shown at the top of the tree. A picture there is what makes a site.
+  const first = [...pages].filter((p) => !p.hidden && (p.parent ?? null) === null).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0];
+  const withAssets = new Set(rules.filter((r) => r.assets?.length).map((r) => r.key));
+  const pictured = (s: Section) => hasPicture(s) || boundKeys(s).some((k) => withAssets.has(k));
+  for (const d of designWarnings(page.sections, { opens: first?.slug === page.slug, pictured })) out.push(`${d.at === null ? "page" : `sections[${d.at}]`}: ${d.text}`);
   return out;
 }
 
+/** Templates that draw pictures of their own, before any rule they bind: a cover draws the mark and the palette strip. */
+const PICTURED = new Set<Template>(["cover", "split", "gallery", "logos", "annotated", "pattern", "collection", "icons", "diagram"]);
+
+/** Whether a section shows a picture as written: a pictured template, an image ground, a cover or header image, an item with an asset. */
+export const hasPicture = (s: Section) =>
+  PICTURED.has(s.template) || s.tone === "image" || !!s.props.image || !!s.props.video || !!s.props.asset || !!s.items?.some((it) => it.asset);
+
+const words = (text: string) => (plainText(text).match(/\S+/g) ?? []).length;
+
+/** Titles that name the block instead of saying something: what a label reads like on each template. */
+const LABELS: Partial<Record<Template, string[]>> = {
+  palette: ["color", "colors", "colour", "colours", "palette", "color palette", "our colors", "the colors"],
+  type: ["type", "typography", "typefaces", "typeface", "fonts", "our type", "the type"],
+  logos: ["logo", "logos", "the logo", "our logo", "logo showcase"],
+  gallery: ["gallery", "examples", "images", "pictures"],
+  icons: ["icons", "icon set", "iconography"],
+};
+
+/** A page holds this many shown sections before it reads better as two; a run of this many on the page's own ground reads as one list. */
+const LONG_PAGE = 16;
+const PLAIN_RUN = 6;
+const LONG_BODY = 300;
+const LONG_LEDE = 25;
+
 /** Grounds that read as a block of their own: two in a row run together. */
 const BLOCKS: Tone[] = ["tint", "panel", "dark", "brand", "pattern", "color"];
+/** Templates that draw their own ground and heading: not part of a run of blocks. */
+const OWN_GROUND = new Set<Template>(["cover", "header"]);
 
 /**
  * Where a page reads but doesn't look designed: nothing on it, two grounds
@@ -1284,14 +1347,39 @@ const BLOCKS: Tone[] = ["tint", "panel", "dark", "brand", "pattern", "color"];
  * starter text left in. `at` is the section's index, null for the page. The
  * builder lists them as checks; agents get them with a save's warnings.
  */
-export function designWarnings(sections: Section[]): { at: number | null; text: string }[] {
+export function designWarnings(
+  sections: Section[],
+  /** `opens`: the page readers land on. `alternate`: the theme alternates grounds. `pictured`: whether a section shows a picture, rules it binds included; as written, when left out. */
+  ctx: { opens?: boolean; alternate?: boolean; pictured?: (s: Section) => boolean } = {},
+): { at: number | null; text: string }[] {
   const out: { at: number | null; text: string }[] = [];
   const shown = sections.flatMap((s, at) => (s.hidden ? [] : [{ s, at }]));
   if (!shown.length) return [{ at: null, text: "nothing shows on this page; readers see only its title" }];
+  const pictured = ctx.pictured ?? hasPicture;
   const covers = shown.filter(({ s }) => s.template === "cover");
   if (covers.length > 1) out.push({ at: covers[1].at, text: "a second cover; a page opens once, so open its parts with a header section" });
+  if (shown.length > LONG_PAGE) out.push({ at: null, text: `${shown.length} sections; a page reads best under 12: move the rest to pages under this one` });
+  if (ctx.opens && shown.length > 3 && !shown.slice(0, 3).some(({ s }) => pictured(s)))
+    out.push({ at: null, text: "no picture in the first three sections of the page readers land on; a cover image, a split or a gallery makes it a site, not a document" });
   shown.forEach(({ s, at }, n) => {
     const prev = shown[n - 1]?.s;
+    // Three of one block in a row, or five on the page's own ground: the page reads as one long list.
+    const run = (same: (x: Section) => boolean) => {
+      let k = 0;
+      for (let i = n; i >= 0 && same(shown[i].s) && (shown[i].s.tab ?? null) === (s.tab ?? null); i--) k++;
+      return k;
+    };
+    // The same block three times: template, ground and layout or kind alike; four diagrams of four kinds are not a run.
+    const alike = (x: Section) => x.template === s.template && x.tone === s.tone && x.props.layout === s.props.layout && x.props.kind === s.props.kind;
+    if (run(alike) === 3 && !OWN_GROUND.has(s.template))
+      out.push({ at, text: `the third ${TEMPLATE_INFO[s.template].name} section in a row; vary the block: a statement, a quote, a split or a gallery between them` });
+    if (!ctx.alternate && run((x) => x.tone === "plain" && !OWN_GROUND.has(x.template)) === PLAIN_RUN)
+      out.push({ at, text: `the ${PLAIN_RUN}th section in a row on the page's own ground; give one a ground (tint, panel, brand), or set the theme's grounds to alternate` });
+    const label = LABELS[s.template];
+    if (label && s.title && label.includes(s.title.trim().toLowerCase()))
+      out.push({ at, text: `the title "${s.title}" names the block; say what the reader should take from it, as a claim` });
+    if (s.lede && words(s.lede) > LONG_LEDE) out.push({ at, text: `the lede is ${words(s.lede)} words; under 20 reads in one breath` });
+    if (s.body && words(s.body) > LONG_BODY) out.push({ at, text: `the body runs to ${words(s.body)} words; cut it, or move the rest to a page of its own` });
     const same = prev && s.tone === prev.tone && (s.tone !== "color" || (s.background?.color === prev.background?.color && s.background?.to === prev.background?.to));
     if (same && BLOCKS.includes(s.tone) && !s.tab && !prev.tab) out.push({ at, text: `a second ${s.tone} ground in a row runs into the one before; make one of them plain` });
     const title = s.title ?? "";
@@ -1414,8 +1502,8 @@ export function initialPages(all: Bindable[], brand: string): Draft[] {
     const add = (template: Template, keys: string[], title: string) => {
       if (keys.length) sections.push({ template, keys, title } as SectionInput);
     };
-    add("palette", take(TEMPLATE_INFO.palette.accepts!), "Palette");
-    add("type", take(TEMPLATE_INFO.type.accepts!), "Typefaces");
+    add("palette", take(TEMPLATE_INFO.palette.accepts!), "The colors, and what each is for");
+    add("type", take(TEMPLATE_INFO.type.accepts!), "Set in these faces");
     add(s === "logo" ? "logos" : "gallery", take(hasAssets), s === "logo" ? "The marks" : "In use");
     add("text", take((r) => TEMPLATE_INFO.text.accepts!(r) && !(r.type === "list" && ["do", "dont"].includes(listStyle(r.key, r.value as (string | number)[])))), "Rules");
     add("dodont", take(TEMPLATE_INFO.dodont.accepts!), "Do and don't");

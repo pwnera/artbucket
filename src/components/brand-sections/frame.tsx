@@ -27,8 +27,13 @@ const WIDTH: Record<Section["width"], string> = {
   full: "max-w-none",
 };
 
-/** Section titles on the theme's scale, held to the container on a phone. */
+/** Section titles on the theme's scale (its `titles`), or the section's own size, held to the container on a phone. */
 const H2 = "text-[length:min(var(--brand-h2),8cqi)] @3xl:text-[length:min(var(--brand-h2),8cqi)] leading-tight";
+const SIZED: Record<NonNullable<Section["size"]>, string> = {
+  medium: "text-[length:min(var(--brand-h2-medium),8cqi)] @3xl:text-[length:min(var(--brand-h2-medium),8cqi)] leading-tight",
+  large: "text-[length:min(var(--brand-h2-large),9cqi)] @3xl:text-[length:min(var(--brand-h2-large),9cqi)] leading-[1.1]",
+  huge: "text-[length:min(var(--brand-h2-huge),10cqi)] @3xl:text-[length:min(var(--brand-h2-huge),10cqi)] leading-[1.05]",
+};
 
 export type Ground = { className?: string; style?: React.CSSProperties };
 
@@ -77,19 +82,50 @@ const PAD_TOP = {
 /** Templates that draw their own ground (cover, header): what follows one starts afresh. */
 const OWN_GROUND = new Set<Section["template"]>(["cover", "header"]);
 
+/** The sections readers see on this page, in the context being read. */
+function useDrawn(): Section[] {
+  const { view, context } = useSite();
+  return useMemo(
+    () => view.page?.sections.filter((x) => !x.hidden && (!x.only || (x.only === "default" ? null : x.only) === context)) ?? [],
+    [view.page, context],
+  );
+}
+
+/**
+ * A section's ground as drawn: its tone, unless the theme alternates grounds,
+ * when every second section on the page's own ground sits on the panel
+ * instead. Covers and headers draw their own and don't count.
+ */
+export function useTone(s: Section): Section["tone"] {
+  const { view } = useSite();
+  const drawn = useDrawn();
+  if (view.theme.grounds !== "alternate" || s.tone !== "plain" || OWN_GROUND.has(s.template)) return s.tone;
+  // A plain section takes the panel when the one drawn before it sits on the page's own ground; a section with a ground of its own resets the count.
+  const before = drawn[drawn.findIndex((x) => x.id === s.id) - 1];
+  if (!before || OWN_GROUND.has(before.template) || before.tone !== "plain") return "plain";
+  const run = drawn.slice(0, drawn.indexOf(before) + 1).reverse();
+  let n = 0;
+  for (const x of run) {
+    if (x.tone !== "plain" || OWN_GROUND.has(x.template)) break;
+    n++;
+  }
+  return n % 2 === 1 ? "panel" : "plain";
+}
+
 /**
  * Two sections in a row on the page's own ground read as one flow: the second
  * takes no space above it, the first's below is enough, and with the theme's
  * `separation` a hairline marks the seam. A ground, a band, a cover or another
  * tab between them breaks the flow.
  */
-function useJoined(s: Section): "space" | "hairline" | null {
-  const { view, context } = useSite();
+function useJoined(s: Section, tone: Section["tone"]): "space" | "hairline" | null {
+  const { view } = useSite();
+  const drawn = useDrawn();
   // Loose sets it apart: its own room, never a seam.
-  if (s.tone !== "plain" || s.space === "loose") return null;
-  const drawn = view.page?.sections.filter((x) => !x.hidden && (!x.only || (x.only === "default" ? null : x.only) === context)) ?? [];
+  if (tone !== "plain" || s.space === "loose") return null;
   const prev = drawn[drawn.findIndex((x) => x.id === s.id) - 1];
-  if (!prev || prev.tone !== "plain" || OWN_GROUND.has(prev.template) || (prev.tab ?? null) !== (s.tab ?? null)) return null;
+  // Alternating grounds, the section before a plain one is on the panel: no seam to draw.
+  if (!prev || prev.tone !== "plain" || view.theme.grounds === "alternate" || OWN_GROUND.has(prev.template) || (prev.tab ?? null) !== (s.tab ?? null)) return null;
   return view.theme.separation;
 }
 
@@ -117,8 +153,12 @@ export function SectionFrame({
   tabs?: boolean;
 }) {
   const { view, context, idOf } = useSite();
-  const ground = useGround(s);
-  const joined = useJoined(s);
+  const tone = useTone(s);
+  // The section's own size, else its template's (a statement is a headline), else the theme's `titles`.
+  const size = s.size ?? TEMPLATE_INFO[s.template]?.size;
+  const center = s.template === "statement" && s.props.align === "center";
+  const ground = useGround(useMemo(() => ({ tone, background: s.background }), [tone, s.background]));
+  const joined = useJoined(s, tone);
   const id = idOf(s.id);
   const name = TEMPLATE_INFO[s.template]?.name ?? s.template;
   const scope = useMemo(() => ({ section: s, anchors: true }), [s]);
@@ -129,7 +169,7 @@ export function SectionFrame({
     "aria-labelledby": s.title ? titleOf(id) : undefined,
     "aria-label": s.title ? undefined : name,
     "data-template": s.template,
-    "data-tone": s.tone,
+    "data-tone": tone,
   };
 
   if (own)
@@ -178,11 +218,11 @@ export function SectionFrame({
           )}
         >
           {(s.eyebrow || s.title || s.lede) && (
-            <header className="group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3">
+            <header className={cn("group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3", center && "mx-auto max-w-4xl text-center")}>
               <Eyebrow />
               {s.title && (
-                <div className="flex items-center gap-1">
-                  <Title className={H2} />
+                <div className={cn("flex items-center gap-1", center && "justify-center")}>
+                  <Title className={size ? SIZED[size] : H2} />
                   <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
                 </div>
               )}

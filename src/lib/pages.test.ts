@@ -522,11 +522,13 @@ test("W2 templates: layouts merge into one enum on the wire, each template's val
     "pairs",
     "rows",
     "stats",
+    "steps",
+    "strip",
     "tree",
   ]);
   assert.equal(
     layout.description,
-    "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
+    "cards: cards, list, stats, steps, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, strip, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
   );
   // What every template it names says alike, it says once.
   assert.equal(mergedProps().shape.collection.description, "collection, icons: A collection's id");
@@ -572,7 +574,7 @@ test("W4 props: palette, type, logos, gallery and diagram settings, and a galler
     ]).errors,
     [
       'sections[0].props.show[0]: Invalid option: expected one of "hex"|"rgb"|"hsl"|"cmyk"|"pantone"|"ral"|"token"|"css"',
-      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"|"collage"|"crops"',
+      'sections[1].props.layout: Invalid option: expected one of "grid"|"bento"|"carousel"|"strip"|"collage"|"crops"',
       "sections[2].items[0].span: Too big: expected number to be <=2",
       "sections[3].items[0].span: only gallery items span",
       "sections[4].items[0].verdict: a logos item marks a pair never to use: dont",
@@ -673,13 +675,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 25 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 27 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 25);
+  assert.equal(templates.length, 27);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -1023,4 +1025,34 @@ test("an icon set is live like a collection: with no source of its own, what is 
   assert.deepEqual(liveProps({ template: "icons", props: { query: "tag=ui" } }), { query: "tag=ui", sort: "name", limit: 96 });
   // A collection section's props go as they are.
   assert.deepEqual(liveProps({ template: "collection", props: { limit: 3 } }), { limit: 3 });
+});
+
+test("designWarnings: monotony, a long page, no picture up top, label titles, long words; the theme's grounds and the page's place matter", () => {
+  const text = (id: string, extra: Partial<Section> = {}) => stored({ id, template: "text", title: `T ${id}`, body: "Words.", ...extra });
+  const texts = (n: number, extra: Partial<Section> = {}) => Array.from({ length: n }, (_, i) => text(`t${i}`, extra));
+  const at = (ws: { at: number | null; text: string }[]) => ws.map((w) => `${w.at}: ${w.text.split(";")[0]}`);
+  // Three alike in a row flag the third, once; a different ground or layout between them breaks the run.
+  assert.deepEqual(at(designWarnings(texts(4))), ["2: the third Text section in a row"]);
+  assert.deepEqual(designWarnings([text("a"), text("b", { tone: "panel" }), text("c")]), []);
+  const cards = (id: string, layout?: string) => stored({ id, template: "cards", title: id, items: [{ title: "x" }], props: layout ? { layout } : {} });
+  assert.deepEqual(designWarnings([cards("a"), cards("b", "stats"), cards("c")]), []);
+  // Six on the page's own ground, unless the theme alternates them.
+  const six = [text("a", { tone: "panel" }), ...texts(3), cards("s", "stats"), text("z", { tone: "panel" }), text("y"), text("x")];
+  assert.deepEqual(at(designWarnings([...texts(3), cards("s", "stats"), stored({ id: "g", template: "gallery", items: [{ asset: "00000000-0000-4000-8000-000000000001" }] }), text("y")])), [
+    "2: the third Text section in a row",
+    "5: the 6th section in a row on the page's own ground",
+  ]);
+  assert.ok(!designWarnings(six, { alternate: true }).some((w) => /own ground/.test(w.text)));
+  // A long page.
+  assert.ok(designWarnings([...texts(9), ...Array.from({ length: 8 }, (_, i) => cards(`c${i}`, i % 2 ? "stats" : undefined))]).some((w) => w.at === null && /17 sections/.test(w.text)));
+  // The page readers land on opens on words alone; a cover, a pictured template or a rule with a picture counts.
+  const landing = [text("a"), cards("b"), text("c", { tone: "panel" }), cards("d", "stats")];
+  assert.deepEqual(at(designWarnings(landing, { opens: true })), ["null: no picture in the first three sections of the page readers land on"]);
+  assert.deepEqual(designWarnings(landing), []);
+  assert.deepEqual(designWarnings([stored({ id: "c", template: "cover", title: "X" }), ...landing.slice(1)], { opens: true }), []);
+  assert.deepEqual(designWarnings(landing, { opens: true, pictured: (s) => s.id === "b" }), []);
+  // Titles that name the block, ledes and bodies that run on.
+  assert.deepEqual(at(designWarnings([stored({ id: "p", template: "palette", title: "Colors", keys: ["color.primary"] })])), ['0: the title "Colors" names the block']);
+  assert.deepEqual(at(designWarnings([text("l", { lede: Array(26).fill("word").join(" ") })])), ["0: the lede is 26 words"]);
+  assert.deepEqual(at(designWarnings([text("b", { body: Array(301).fill("word").join(" ") })])), ["0: the body runs to 301 words"]);
 });

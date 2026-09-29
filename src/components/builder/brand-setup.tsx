@@ -221,7 +221,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
     }
   };
 
-  const prompt = `Set up the ${name} brand in Artbucket: call brand_status and work through its steps, starting with the rules. Ask me before you publish.`;
+  const prompt = `Set up the ${name} brand in Artbucket: read brand_playbook, then call brand_status and work through its steps, starting with the rules. Research the brand's own site first. Ask me before you publish.`;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

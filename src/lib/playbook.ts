@@ -1,0 +1,125 @@
+import { LOOKS } from "./brand-theme.ts";
+import { TEMPLATES } from "./pages.ts";
+
+/**
+ * The playbook: what a good brand site is, for an agent about to build one.
+ * The tools say how; this says what to make. Served by the brand_playbook
+ * tool, the artbucket://playbook resource, GET /api/v1/brand/playbook and
+ * the docs. Short on purpose: it is read once, before the first save_page.
+ *
+ * Pure: `pnpm test` runs it under plain Node.
+ */
+
+const looks = Object.entries(LOOKS)
+  .map(([id, l]) => `- \`${id}\`: ${l.about.toLowerCase()}. For ${l.fits}.`)
+  .join("\n");
+
+export const PLAYBOOK = `# Building a brand site with Artbucket
+
+A brand site is a site, not a document. The rules are its content; the pages
+are how it looks. Anyone can list the colors. The job is to make a page that
+feels like the brand before a word is read. Work in this order.
+
+## 1. Research before you write
+
+Fetch the brand's own website, and its existing guidelines if it has any. Read
+how it talks. Then write down, for yourself: three adjectives it feels like,
+and the one thing it is not (Rust: earnest, exact, warm; not corporate). Every
+choice below follows from those four words, not from the colors.
+
+## 2. Assets before pages
+
+Ingest the marks (ingest_asset, versionOf for a redrawn one), the mascot if
+there is one, and at least five real pictures of the brand in use: screens,
+print, events, product. A page with no picture in its first screens is a
+document, and the lint will say so. Import the faces (import_google_font) so
+the pages are set in them.
+
+## 3. Rules, then the theme, then the look
+
+set_rules: colors with a usage line each and a \`spec.pair\` for what reads on
+them; the faces with a role; the logo rules with their files; the voice as
+text and lists (tone.voice, tone.always, tone.avoid). Then set_theme: which
+rule is the accent, the surface, the heading and text face, the logo. Then a
+look, from the four words:
+
+${looks}
+
+A look sets a dozen layout settings at once (header, nav, scale, density,
+title size, alternating grounds, corners, numbering, motion). Adjust any of
+them beside it. Never leave the default look: it is the same as every other
+brand's.
+
+## 4. The overview is a landing page
+
+The first page is what people land on. It is not the rules. In order:
+
+1. A cover: the brand's picture or its color, the mark, a title of at most
+   five words, one line under it.
+2. One statement: the mission or the tagline, at headline size (\`statement\`).
+3. The mascot or the marks, large: a \`split\` with words beside the picture,
+   or a \`gallery\` on a ground.
+4. The palette as proportion (\`palette\` with weights in the rules' spec), not
+   as a grid of cards.
+5. Where to go next (\`pages\`), then what's new (\`updates\`).
+
+## 5. One idea per section, and vary the block
+
+Each section says one thing. Never three of the same block in a row; the lint
+flags the third. Alternate grounds down the page (\`tone\`, or the look's
+\`grounds: alternate\`). Put a \`statement\` or a \`quote\` between two dense
+sections. Big things (the marks, the mascot, a specimen) take \`width: full\`.
+Use the blocks a designed site is made of: ${TEMPLATES.filter((t) => ["statement", "quote", "split", "gallery", "cards", "specimen", "pattern", "annotated"].includes(t)).join(", ")};
+cards take \`layout: stats\` for big numbers and \`layout: steps\` for a process;
+gallery takes \`layout: strip\` for a band of pictures.
+
+## 6. Words
+
+Titles are claims, not labels: "Charcoal carries the weight", not "Colors".
+Ledes under 20 words. Every rule has a usage line: where it goes, and where
+it never does. Body text is short; what runs long moves to a page of its own.
+No exclamation marks unless the brand uses them.
+
+## 7. Close, and review
+
+Every page ends on where to go next (\`pages\`) or the resources (\`links\`),
+never on a table. After each save_page, read \`warnings\` and fix every design
+warning before moving on. Then look at the page: preview_page returns it as a
+picture, and \`url\` opens it in the app. Ask: would a designer be proud of
+this screen? If a section looks like every other, change its block or its
+ground. Publish only when the person asks.
+
+## A worked example, in calls
+
+Rust, from its site: earnest, exact, warm; not corporate. Slab headings over a
+humanist sans, charcoal and a signal yellow, a mascot everyone loves.
+
+1. \`ingest_asset\` the gear logo (SVG), Ferris (SVG), five community photos.
+2. \`import_google_font\` Alfa Slab One, Fira Sans. \`set_rules\`: color.charcoal
+   (#2a3439, "Text, headers, the logo on light grounds"), color.yellow
+   (#ffc832, pair color.charcoal, "The accent and every call to action"),
+   color.ferris (#f74c00, "Ferris's shell"), type.heading (Alfa Slab One,
+   role display), type.body (Fira Sans, role body), logo.primary with its
+   file, tone.voice ("Inclusive, earnest and precise..."), tone.avoid.
+3. \`set_theme\` { look: "bold", accent: "color.yellow", head: "type.heading",
+   body: "type.body", logo: "logo.primary" }.
+4. \`save_page\` overview: cover (image: a community photo, titleSize huge,
+   lede "A language empowering everyone to build reliable and efficient
+   software."); statement ("Rust belongs to its community", keys
+   [tone.voice]); split (Ferris large on a color ground, keys [mascot.ferris],
+   width full); palette (tone panel); pages (Inside the guide); updates.
+5. \`save_page\` logo, color, typography, voice, mascots, resources: each with a
+   header (size huge), then two to four sections in different blocks, a
+   dodont where there are rules to break, a quote or a statement between, and
+   links or pages to close.
+6. \`get_page\` each; fix the warnings; \`preview_page\`; then ask before
+   \`publish\`.
+`;
+
+/** The docs page (docs/guides/playbook.mdx), written by `pnpm docs:playbook`: the same text under the docs' front matter. */
+export const PLAYBOOK_MDX = `---
+title: The brand site playbook
+description: What a good brand site is, for an agent (or a person) about to build one in Artbucket.
+---
+
+${PLAYBOOK.replace(/^# .*\n\n/, "")}`;

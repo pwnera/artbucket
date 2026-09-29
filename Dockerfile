@@ -14,11 +14,13 @@ RUN DATABASE_URL=postgres://build@localhost/build S3_ENDPOINT=http://localhost S
     NEXT_TELEMETRY_DISABLED=1 STANDALONE=1 pnpm build
 
 FROM node:24-alpine
-# ffmpeg: video thumbnails. LibreOffice (office previews beyond a file's own
-# thumbnail) is left out for size: `FROM` this image and `apk add libreoffice`.
-RUN apk add --no-cache ffmpeg
+# ffmpeg: video thumbnails. chromium: brand pages drawn as pictures for agents
+# (lib/core/print.ts), 130 MB the previews earn. LibreOffice (office previews
+# beyond a file's own thumbnail) is left out for size: `FROM` this image and
+# `apk add libreoffice`.
+RUN apk add --no-cache ffmpeg chromium
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 CHROMIUM_PATH=/usr/bin/chromium-browser
 COPY --from=build --chown=node:node /app/.next/standalone ./
 # The standalone build leaves out public/ and .next/static: without public/, /icon.svg is a 404.
 COPY --from=build --chown=node:node /app/public ./public

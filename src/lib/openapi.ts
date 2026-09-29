@@ -171,6 +171,28 @@ export function openapi(serverUrl: string) {
           ok: [200, "The templates", data(S.Templates)],
         }),
       },
+      "/api/v1/brand/playbook": {
+        get: op({
+          summary: "The brand site playbook",
+          scope: "read",
+          description:
+            "What a good brand site is, for an agent about to build one: research, assets before pages, a look that fits, " +
+            "the overview as a landing page, varied blocks, titles as claims, review; with a worked example in calls. " +
+            "Markdown. The MCP tool brand_playbook and the artbucket://playbook resource serve the same.",
+          ok: [200, "The playbook", data(z.object({ markdown: z.string() }))],
+        }),
+      },
+      "/api/v1/brands/{slug}/pages/{page}/preview": {
+        get: op({
+          summary: "A page as a picture",
+          scope: "read",
+          description:
+            "The draft page as readers see it, drawn by the server's browser: a JPEG of the whole page, up to 10000px tall. " +
+            "`width` is desktop (1280px, the default) or phone (390px); `context` draws it in a context. " +
+            "503 when the server has no browser (CHROMIUM_PATH). The MCP tool preview_page serves the same, as an image.",
+          ok: [200, "The page, as image/jpeg (binary)"],
+        }),
+      },
       "/api/v1/brand/tokens": {
         get: op({
           summary: "Export the brand as design tokens",

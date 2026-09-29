@@ -58,9 +58,12 @@ export function uploadStore() {
 }
 export type UploadStore = ReturnType<typeof uploadStore>;
 
+/** The server's rows: none, and the same none each time, or React warns that the server snapshot isn't cached. */
+const NONE: Upload[] = [];
+
 /** What a component needs of the store, as a value that only changes when it does. */
 export function useUploads<T = Upload[]>(store: UploadStore, pick: (rows: Upload[]) => T = (r) => r as T) {
-  return useSyncExternalStore(store.subscribe, () => pick(store.get()), () => pick([]));
+  return useSyncExternalStore(store.subscribe, () => pick(store.get()), () => pick(NONE));
 }
 
 /**

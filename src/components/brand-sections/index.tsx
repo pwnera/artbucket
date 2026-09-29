@@ -20,11 +20,13 @@ import { LogosSection } from "@/components/brand-sections/logos";
 import { PagesSection } from "@/components/brand-sections/pages";
 import { PaletteSection } from "@/components/brand-sections/palette";
 import { PatternSection } from "@/components/brand-sections/pattern";
+import { QuoteSection } from "@/components/brand-sections/quote";
 import { RequestSection } from "@/components/brand-sections/request";
 import { Body } from "@/components/brand-sections/slots";
 import { SpecimenSection } from "@/components/brand-sections/specimen";
 import { SpecsSection } from "@/components/brand-sections/specs";
 import { SplitSection } from "@/components/brand-sections/split";
+import { StatementSection } from "@/components/brand-sections/statement";
 import { TextSection } from "@/components/brand-sections/text";
 import { TypeSection } from "@/components/brand-sections/type";
 import { UpdatesSection } from "@/components/brand-sections/updates";
@@ -53,6 +55,8 @@ export const RENDERERS: Record<Template, Renderer> = {
   cover: { View: CoverSection, own: true },
   header: { View: HeaderSection, own: true },
   text: { View: TextSection },
+  statement: { View: StatementSection },
+  quote: { View: QuoteSection },
   split: { View: SplitSection },
   cards: { View: CardsSection },
   palette: { View: PaletteSection },
