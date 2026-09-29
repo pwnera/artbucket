@@ -3765,6 +3765,1231 @@
       }
     }
   },
+  "/api/v1/icons": {
+    "get": {
+      "summary": "Search open source icon sets",
+      "description": "Iconify's icon sets (Tabler, Lucide, Material Symbols, Simple Icons and some 200 more), the popular ones first, each with its author, license and a few sample names. Sets their authors no longer maintain are left out.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Words in the set's name, author or license"
+        },
+        {
+          "name": "group",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "Interface",
+              "Logos",
+              "Emoji",
+              "Flags",
+              "Other"
+            ]
+          },
+          "description": "Only this kind of set"
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 60
+          },
+          "description": "Page size"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Matching sets",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "prefix": {
+                          "type": "string",
+                          "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Icons in it"
+                        },
+                        "author": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "license": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "spdx": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "A few of its icons' names"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "palette": {
+                          "type": "boolean",
+                          "description": "Its icons carry their own colors; false: drawn in one color"
+                        },
+                        "height": {
+                          "description": "The grid it is drawn on, in px",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "prefix",
+                        "name",
+                        "total",
+                        "author",
+                        "license",
+                        "samples",
+                        "category",
+                        "palette",
+                        "height"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Matches before `limit`"
+                  }
+                },
+                "required": [
+                  "data",
+                  "total"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "post": {
+      "summary": "Import icons from a set",
+      "description": "One SVG asset per icon, at the size it is drawn at, titled from its name, credited to the set's author, with the set's license in its rights and tagged `icon` and the set's name. Fetched once and served from /a/{id} after, so nobody's browser calls Iconify. Icons already here dedupe.\n\nScope: `propose`.",
+      "x-scope": "propose",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "prefix": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "The set, as Iconify names it: tabler, lucide, simple-icons"
+                },
+                "icons": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "pattern": "^[a-z0-9]+([-_][a-z0-9]+)*$"
+                  },
+                  "description": "Its icons' names, 100 at a time"
+                },
+                "fields": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {},
+                  "description": "Custom field values, keyed by field key"
+                },
+                "collections": {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "tags": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                }
+              },
+              "required": [
+                "prefix",
+                "icons"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "The icons, in the order asked",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "set": {
+                    "type": "object",
+                    "properties": {
+                      "prefix": {
+                        "type": "string",
+                        "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Icons in it"
+                      },
+                      "author": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "license": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "spdx": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "samples": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "A few of its icons' names"
+                      },
+                      "category": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "palette": {
+                        "type": "boolean",
+                        "description": "Its icons carry their own colors; false: drawn in one color"
+                      },
+                      "height": {
+                        "description": "The grid it is drawn on, in px",
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "prefix",
+                      "name",
+                      "total",
+                      "author",
+                      "license",
+                      "samples",
+                      "category",
+                      "palette",
+                      "height"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "workspaceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sha256": {
+                          "type": "string"
+                        },
+                        "filename": {
+                          "type": "string"
+                        },
+                        "mime": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "width": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "height": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "probe": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "metadata": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "keywords": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "creator": {
+                                  "type": "string"
+                                },
+                                "copyright": {
+                                  "type": "string"
+                                },
+                                "capturedAt": {
+                                  "type": "string"
+                                },
+                                "camera": {
+                                  "type": "string"
+                                },
+                                "lens": {
+                                  "type": "string"
+                                },
+                                "gps": {
+                                  "type": "object",
+                                  "properties": {
+                                    "lat": {
+                                      "type": "number"
+                                    },
+                                    "lon": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "lat",
+                                    "lon"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "focus": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number"
+                                    },
+                                    "y": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "x",
+                                    "y"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "The point crops keep in frame, 0 to 1 from the top left"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "fields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "The asset's own values"
+                        },
+                        "inherited": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Values inherited from its collections; own values win"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "proposed",
+                            "active",
+                            "archived",
+                            "rejected"
+                          ],
+                          "description": "draft, proposed (in review), active (approved), archived or rejected"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "proposed",
+                            "active",
+                            "expired",
+                            "archived",
+                            "rejected",
+                            "deleted"
+                          ],
+                          "description": "The status; expired for an approved asset past its last day of use; deleted, until restored or purged"
+                        },
+                        "deletedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When it was deleted: restorable for 30 days, then purged"
+                        },
+                        "stackId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Versions of one thing share a stack; null when it has one version"
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Its number in the stack"
+                        },
+                        "current": {
+                          "type": "boolean",
+                          "description": "Its stack's current approved version: the others are superseded by it"
+                        },
+                        "proposedBy": {
+                          "description": "For a proposal: who made it, a person's or an API key's name",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reviewNote": {
+                          "description": "Why a person rejected it",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "proposedTags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "proposedFields": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          },
+                          "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                        },
+                        "rights": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "license": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "territories": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "ISO 3166-1 alpha-2; empty: anywhere"
+                                },
+                                "channels": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "empty: any use"
+                                },
+                                "embargo": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Not before this day"
+                                },
+                                "expires": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The last day it may be used"
+                                },
+                                "modelRelease": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "released",
+                                        "missing",
+                                        "not-needed"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "license",
+                                "territories",
+                                "channels",
+                                "embargo",
+                                "expires",
+                                "modelRelease"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "origin": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "shot",
+                                "licensed",
+                                "generated"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parentAssetId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "generator": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "prompt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "c2pa": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "manifests": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "generator": {
+                                  "description": "The app that signed it",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "title": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "signedBy": {
+                                  "description": "The signing certificate's organization, as the file claims it; not verified",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "digitalSourceType": {
+                                  "description": "IPTC: digitalCapture, trainedAlgorithmicMedia...",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "softwareAgent": {
+                                  "description": "The tool the actions name, often the model",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "ingredients": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "manifests",
+                                "generator",
+                                "title",
+                                "signedBy",
+                                "actions",
+                                "digitalSourceType",
+                                "softwareAgent",
+                                "ingredients"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                        },
+                        "supersededBy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The asset that replaces this one"
+                        },
+                        "private": {
+                          "type": "boolean",
+                          "description": "Its own flag; it is private too when every collection it is in is"
+                        },
+                        "public": {
+                          "type": "boolean",
+                          "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                        },
+                        "collections": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "workspaceId",
+                        "sha256",
+                        "filename",
+                        "mime",
+                        "size",
+                        "width",
+                        "height",
+                        "probe",
+                        "metadata",
+                        "tags",
+                        "fields",
+                        "inherited",
+                        "status",
+                        "state",
+                        "deletedAt",
+                        "stackId",
+                        "version",
+                        "current",
+                        "proposedBy",
+                        "reviewNote",
+                        "proposedTags",
+                        "proposedFields",
+                        "rights",
+                        "origin",
+                        "parentAssetId",
+                        "generator",
+                        "prompt",
+                        "c2pa",
+                        "supersededBy",
+                        "private",
+                        "public",
+                        "collections",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "missing": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names the set doesn't have"
+                  }
+                },
+                "required": [
+                  "set",
+                  "data",
+                  "missing"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/icons/{prefix}": {
+    "parameters": [
+      {
+        "name": "prefix",
+        "in": "path",
+        "required": true,
+        "description": "The set, as Iconify names it: tabler, lucide, simple-icons",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "Browse an icon set",
+      "description": "A page of the set's icons, each drawn as the SVG an import would store, and its categories to narrow by.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Words in the icon's name"
+        },
+        {
+          "name": "category",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "One of the set's categories"
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "description": "Icons to skip"
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 96
+          },
+          "description": "Page size"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The set and a page of its icons",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "set": {
+                    "type": "object",
+                    "properties": {
+                      "prefix": {
+                        "type": "string",
+                        "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Icons in it"
+                      },
+                      "author": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "license": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "spdx": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "samples": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "A few of its icons' names"
+                      },
+                      "category": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "palette": {
+                        "type": "boolean",
+                        "description": "Its icons carry their own colors; false: drawn in one color"
+                      },
+                      "height": {
+                        "description": "The grid it is drawn on, in px",
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "prefix",
+                      "name",
+                      "total",
+                      "author",
+                      "license",
+                      "samples",
+                      "category",
+                      "palette",
+                      "height"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The set's own categories, to narrow by"
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Matching icons before `offset` and `limit`"
+                  },
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "svg": {
+                          "type": "string",
+                          "description": "The file an import stores"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "svg"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "set",
+                  "categories",
+                  "total",
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/assets/{id}": {
     "parameters": [
       {
@@ -17656,6 +18881,7 @@
                           "dodont",
                           "gallery",
                           "collection",
+                          "icons",
                           "links",
                           "pages",
                           "diagram",
@@ -17740,7 +18966,7 @@
                             ]
                           },
                           "layout": {
-                            "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                            "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                             "type": "string",
                             "enum": [
                               "cards",
@@ -17851,7 +19077,7 @@
                             "type": "boolean"
                           },
                           "size": {
-                            "description": "logos: How much of its tile a mark fills",
+                            "description": "logos, icons: How big each is drawn in its tile",
                             "type": "string",
                             "enum": [
                               "medium",
@@ -17869,24 +19095,24 @@
                             ]
                           },
                           "collection": {
-                            "description": "collection: A collection's id",
+                            "description": "collection, icons: A collection's id",
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
                           "search": {
-                            "description": "collection: A saved search's id",
+                            "description": "collection, icons: A saved search's id",
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
                           "query": {
-                            "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                            "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                             "type": "string",
                             "maxLength": 2000
                           },
                           "sort": {
-                            "description": "collection",
+                            "description": "collection, icons: newest, oldest, name",
                             "type": "string",
                             "enum": [
                               "newest",
@@ -17895,13 +19121,13 @@
                             ]
                           },
                           "limit": {
-                            "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                            "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 200
                           },
                           "downloads": {
-                            "description": "collection: Offer downloads; true when left out",
+                            "description": "collection, icons: Offer downloads; true when left out",
                             "type": "boolean"
                           },
                           "from": {
@@ -19397,6 +20623,7 @@
                                   "dodont",
                                   "gallery",
                                   "collection",
+                                  "icons",
                                   "links",
                                   "pages",
                                   "diagram",
@@ -19481,7 +20708,7 @@
                                     ]
                                   },
                                   "layout": {
-                                    "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                                    "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                                     "type": "string",
                                     "enum": [
                                       "cards",
@@ -19592,7 +20819,7 @@
                                     "type": "boolean"
                                   },
                                   "size": {
-                                    "description": "logos: How much of its tile a mark fills",
+                                    "description": "logos, icons: How big each is drawn in its tile",
                                     "type": "string",
                                     "enum": [
                                       "medium",
@@ -19610,24 +20837,24 @@
                                     ]
                                   },
                                   "collection": {
-                                    "description": "collection: A collection's id",
+                                    "description": "collection, icons: A collection's id",
                                     "type": "string",
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
                                   "search": {
-                                    "description": "collection: A saved search's id",
+                                    "description": "collection, icons: A saved search's id",
                                     "type": "string",
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
                                   "query": {
-                                    "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                                    "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                                     "type": "string",
                                     "maxLength": 2000
                                   },
                                   "sort": {
-                                    "description": "collection",
+                                    "description": "collection, icons: newest, oldest, name",
                                     "type": "string",
                                     "enum": [
                                       "newest",
@@ -19636,13 +20863,13 @@
                                     ]
                                   },
                                   "limit": {
-                                    "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                                    "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                                     "type": "integer",
                                     "minimum": 1,
                                     "maximum": 200
                                   },
                                   "downloads": {
-                                    "description": "collection: Offer downloads; true when left out",
+                                    "description": "collection, icons: Offer downloads; true when left out",
                                     "type": "boolean"
                                   },
                                   "from": {

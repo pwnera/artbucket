@@ -2,7 +2,8 @@
 
 import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
 import { FontThumb } from "@/components/font-preview";
-import { stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
+import { GLYPH_INK, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
+import { IconGlyph } from "@/components/icon-glyph";
 import { stem } from "@/components/renditions";
 import { Can, useCan } from "@/components/can";
 import { AssetMenu, type ActionContext } from "@/components/asset-menu";
@@ -15,7 +16,7 @@ import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { hasPreview } from "@/lib/preview";
+import { hasPreview, isIcon, isMono } from "@/lib/preview";
 
 /**
  * The library as rows, PostHog style: denser than the grid, and the right
@@ -141,7 +142,11 @@ export function AssetTable({
                   <td className="px-3 py-2">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className={cn("relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border", wellClass(a))}>
-                        {hasPreview(a) ? (
+                        {isIcon(a) ? (
+                          <span className={cn("flex", GLYPH_INK)}>
+                            <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className="size-5" />
+                          </span>
+                        ) : hasPreview(a) ? (
                           <Thumb src={`/a/${a.id}/w_40,f_webp`} alt="" className="p-0.5" />
                         ) : isFont(a.mime, a.filename) ? (
                           <FontThumb id={a.id} className="text-base" />

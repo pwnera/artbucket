@@ -24,10 +24,11 @@ const chipButton = "grid size-5 place-items-center rounded-full outline-none foc
 
 /**
  * Inside a property row (fields.tsx) a control reads as text until it is
- * hovered or focused; the ring still shows where the keyboard is.
+ * hovered (its outline shows) or focused; the ring still shows where the
+ * keyboard is.
  */
 const ghost =
-  "in-data-[slot=property]:border-transparent in-data-[slot=property]:bg-transparent in-data-[slot=property]:shadow-none in-data-[slot=property]:hover:bg-muted/60 in-data-[slot=property]:dark:bg-transparent";
+  "in-data-[slot=property]:border-transparent in-data-[slot=property]:bg-transparent in-data-[slot=property]:shadow-none in-data-[slot=property]:hover:border-input in-data-[slot=property]:hover:bg-background in-data-[slot=property]:dark:bg-transparent";
 
 const labelOf = (options: Option[], v: string) => options.find((o) => o.value === v)?.label ?? v;
 

@@ -10,13 +10,12 @@ import type { Caller } from "@/lib/core/access";
 import { collectionItems, presentAsset, type Sign } from "@/lib/core/section-assets";
 import { deriveTheme } from "@/lib/brand-theme";
 import { planView, type Level, type Source } from "@/lib/page-view";
-import { assetRefs, type TEMPLATE_PROPS } from "@/lib/pages";
+import { assetRefs, liveProps } from "@/lib/pages";
 import type { PortalPreset } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
 import { ruleContext } from "@/lib/rules";
 import { signUrlsIn } from "@/lib/signed";
 import type { PageView, ViewRule } from "@/lib/site";
-import type { z } from "zod";
 
 /**
  * A brand page as a reader gets it (lib/site.ts PageView): planned by
@@ -116,7 +115,7 @@ export async function viewPage(
   const collections = Object.fromEntries(
     await Promise.all(
       plan.collections.map(async (s) => {
-        const got = await collectionItems(ws, s.props as z.output<(typeof TEMPLATE_PROPS)["collection"]>, o);
+        const got = await collectionItems(ws, liveProps(s), o);
         // The reason is for editors: it can name the workspace's collections.
         return [s.id, editor ? got : { ...got, error: null }] as const;
       }),

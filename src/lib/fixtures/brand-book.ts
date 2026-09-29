@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { checkWarnings, deriveTheme, type ThemeSettings } from "../brand-theme.ts";
 import type { Update } from "../history.ts";
-import { assetRefs, type PageInput, parseSections, pickText } from "../pages.ts";
+import { assetRefs, isLive, type PageInput, parseSections, pickText } from "../pages.ts";
 import { RuleInput } from "../rules.ts";
 import type { Media, NavPage, PageView, ViewAsset, ViewRule } from "../site.ts";
 
@@ -263,6 +263,7 @@ export function blender(a: BookAssets = PLACEHOLDERS): BrandBook {
             props: { url: "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ", aspect: "16:9" },
           },
           { id: "library", template: "collection", title: "From the library", props: { query: "type=image", limit: 12 } },
+          { id: "icons", template: "icons", title: "Icons", body: "Drawn on a 24px grid, in the text's color.", props: { size: "medium" } },
           {
             id: "contents",
             template: "pages",
@@ -935,7 +936,7 @@ export function fixtureView(name: string, slug?: string | null, lang?: string | 
     rules,
     media: Object.fromEntries([...ids].map((id) => [id, media(id)])),
     collections: Object.fromEntries(
-      at.sections.filter((s) => s.template === "collection").map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
+      at.sections.filter((s) => isLive(s.template)).map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
     ),
     ...(at.sections.some((s) => s.template === "updates") && { updates: UPDATES }),
     signed: {},

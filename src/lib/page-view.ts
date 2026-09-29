@@ -1,6 +1,6 @@
 import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, fontRoles, type ThemeSettings } from "./brand-theme.ts";
 import type { SnapRule } from "./history.ts";
-import { assetRefs, type Audience, boundKeys, hiddenSlugs, initialPages, pageWarnings, parseSections, pickText, type Section, type SnapPage } from "./pages.ts";
+import { assetRefs, type Audience, boundKeys, hiddenSlugs, initialPages, isLive, pageWarnings, parseSections, pickText, type Section, type SnapPage } from "./pages.ts";
 import { type RuleAsset, section as keySection, specAssets, specKeys } from "./rules.ts";
 import { assetIdsIn } from "./signed.ts";
 import { depthFirst, type NavPage, order, type PageView, scriptOf, tree, type ViewPage, type ViewRule } from "./site.ts";
@@ -192,7 +192,7 @@ export function planView(src: Source, slug: string | null, o: { context?: string
       missing: editor ? [...new Set(sections.flatMap(boundKeys))].filter(bindsNothing) : [],
     },
     assets,
-    collections: sections.filter((s) => s.template === "collection"),
+    collections: sections.filter((s) => isLive(s.template)),
     updates: Math.max(0, ...sections.filter((s) => s.template === "updates").map((s) => (s.props.limit as number | undefined) ?? 5)),
   };
 }

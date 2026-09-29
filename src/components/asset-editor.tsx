@@ -13,9 +13,12 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconDots,
+  IconCode,
   IconDownload,
+  IconEye,
   IconInfoCircle,
   IconLock,
+  IconPencil,
   IconPhoto,
   IconShare,
   IconSparkles,
@@ -32,6 +35,7 @@ import { CopyButton } from "@/components/copy-button";
 import { describedBy, fieldFormValue, FieldInputs, Fold, formatFieldValue, ghost, Property, readFieldValues } from "@/components/fields";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { FontPlayground } from "@/components/font-preview";
+import { IconGlyph } from "@/components/icon-glyph";
 import { LibraryPicker } from "@/components/asset-picker";
 import { Renditions } from "@/components/renditions";
 import { approveBody } from "@/components/review-actions";
@@ -39,6 +43,7 @@ import { SaveStatus } from "@/components/save-status";
 import { Thumb, type Asset } from "@/components/gallery";
 import { Lottie } from "@/components/media";
 import { ReadOnly } from "@/components/brand-values";
+import { usePref } from "@/components/sidebar-prefs";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +72,7 @@ import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
-import { embedUrl, hasPreview, isLottie } from "@/lib/preview";
+import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
@@ -494,8 +499,11 @@ export function AssetEditor({
 
   const embed = embedUrl(asset);
   const svg = asset.mime === "image/svg+xml";
-  const image = !embed && hasPreview(asset) && !asset.mime.startsWith("video/") && !asset.mime.startsWith("audio/") && !isLottie(asset);
+  // An icon is drawn at glyph sizes, not fit to the pane; actual pixels of a 24px icon say nothing.
+  const icon = !embed && isIcon(asset);
+  const image = !embed && !icon && hasPreview(asset) && !asset.mime.startsWith("video/") && !asset.mime.startsWith("audio/") && !isLottie(asset);
   const zoomable = image;
+  const backdrop = image || icon;
 
   const control_: EditorControl = {
     flush: () => flush().then((ok) => ok !== false),
@@ -559,6 +567,13 @@ export function AssetEditor({
     m.capturedAt?.slice(0, 10),
   ].filter(Boolean);
   const name = m.title || asset.filename;
+  // Anything a reader would see under Details: without it, they're told so rather than shown a bare heading.
+  const described =
+    !!(m.description || m.creator || m.copyright) ||
+    asset.tags.length > 0 ||
+    asset.collections.length > 0 ||
+    Object.keys(asset.fields).length > 0 ||
+    Object.keys(asset.inherited).length > 0;
   const pending = asset.proposedTags.length > 0 || Object.keys(asset.proposedFields ?? {}).length > 0;
   const link = () => new URL(`/?asset=${asset.id}`, location.origin).href;
 
@@ -605,8 +620,8 @@ export function AssetEditor({
       <div
         className={cn(
           "animate-in fade-in-0 flex min-h-64 flex-col border-b duration-150 max-md:h-[45dvh] md:min-h-0 md:border-r md:border-b-0",
-          // The picked background is for images; a video, a font or a file keeps the plain well.
-          PREVIEW_BG[image ? bg : "auto"],
+          // The picked background is for images and icons; a video, a font or a file keeps the plain well.
+          PREVIEW_BG[backdrop ? bg : "auto"],
           theater && "max-md:h-dvh md:col-span-2 md:border-r-0",
         )}
       >
@@ -636,6 +651,10 @@ export function AssetEditor({
             <audio src={`/a/${asset.id}`} controls preload="metadata" className="w-full px-6" />
           ) : isLottie(asset) ? (
             <Lottie src={`/a/${asset.id}`} className="absolute inset-0 p-6" />
+          ) : icon ? (
+            <div draggable onDragStart={dragOut} className="absolute inset-0">
+              <IconStage asset={asset} bg={bg} name={name} />
+            </div>
           ) : image ? (
             <div
               draggable
@@ -683,7 +702,7 @@ export function AssetEditor({
 
           {/* How it is looked at: behind it, how big, how much of the window. */}
           <div className="bg-background/80 absolute top-3 left-3 flex items-center gap-1 rounded-md border p-0.5 shadow-xs backdrop-blur">
-            {image && (
+            {backdrop && (
               <ToggleGroup
                 type="single"
                 size="sm"
@@ -777,6 +796,17 @@ export function AssetEditor({
           <span ref={copyRef} className="contents">
             <CopyButton label="Copy link" what="the link" size="icon-sm" variant="outline" shortcut={["⇧", "C"]} text={async () => link()} />
           </span>
+          {/* An SVG pastes into Figma or code as markup: copied, not downloaded. */}
+          {svg && (
+            <CopyButton
+              label="Copy SVG"
+              what="the SVG"
+              size="icon-sm"
+              variant="outline"
+              icon={IconCode}
+              text={() => fetch(`/a/${asset.id}`).then((r) => (r.ok ? r.text() : null))}
+            />
+          )}
           {hasPreview(asset) && <Renditions asset={asset} />}
           {/* The file as stored, with the fields written in: what is typed is saved first. */}
           <IconButton label="Download the original" shortcut={["D"]} asChild>
@@ -844,7 +874,7 @@ export function AssetEditor({
                 {asset.filename}. {editable ? "Changes save as you go." : "You can look at this one, not change it."}
               </DialogDescription>
               {editable ? (
-                <div data-prop="title">
+                <div data-prop="title" className="group/title relative">
                   <textarea
                     key={keyOf("title")}
                     name="title"
@@ -860,29 +890,49 @@ export function AssetEditor({
                       }
                     }}
                     className={cn(
-                      "hover:bg-muted/60 focus-visible:bg-background focus-visible:ring-ring/50 placeholder:text-foreground -mx-1.5 block w-[calc(100%+0.75rem)] resize-none rounded-md bg-transparent px-1.5 py-0.5 text-lg leading-snug font-semibold outline-none field-sizing-content focus-visible:ring-2",
+                      // The pencil's room on the right, so a long title never runs under it.
+                      "hover:bg-muted/60 hover:ring-input focus-visible:bg-background focus-visible:ring-ring/50 placeholder:text-foreground/75 -mx-1.5 block w-[calc(100%+0.75rem)] resize-none rounded-md bg-transparent py-0.5 pr-7 pl-1.5 text-lg leading-snug font-semibold outline-none field-sizing-content hover:ring-1 focus-visible:ring-2",
                       m.title ? "break-words" : "break-all",
                     )}
+                  />
+                  <IconPencil
+                    aria-hidden
+                    className="text-muted-foreground pointer-events-none absolute top-1.5 -right-1 size-4 opacity-40 transition-opacity group-focus-within/title:opacity-0 group-hover/title:opacity-100 motion-reduce:transition-none"
                   />
                 </div>
               ) : (
                 <p className={cn("text-lg leading-snug font-semibold", m.title ? "break-words" : "break-all")}>{name}</p>
               )}
-              {m.title && <p className="text-muted-foreground mt-0.5 truncate text-xs">{asset.filename}</p>}
+              {m.title ? (
+                <p className="text-muted-foreground mt-0.5 truncate text-xs">{asset.filename}</p>
+              ) : (
+                editable && <p className="text-muted-foreground mt-0.5 text-xs">No title yet: click the name to give it one.</p>
+              )}
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {/* Under the title, not beside it: the title keeps the header's width. */}
+                <SaveStatus
+                  className="order-last ml-auto"
+                  fallback={
+                    <span suppressHydrationWarning title={new Date(asset.updatedAt).toLocaleString()}>
+                      Edited {ago(asset.updatedAt)}
+                    </span>
+                  }
+                />
                 <StatusBadges asset={asset} />
+                {!editable && asset.state !== "deleted" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" tabIndex={0} className="text-muted-foreground">
+                        <IconEye /> View only
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-64">You can look at this one, not change it. Ask an editor of its collection for edit access.</TooltipContent>
+                  </Tooltip>
+                )}
                 <BrandRules assetId={asset.id} leave={leave} />
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <SaveStatus
-                className="max-sm:hidden"
-                fallback={
-                  <span suppressHydrationWarning title={new Date(asset.updatedAt).toLocaleString()}>
-                    Edited {ago(asset.updatedAt)}
-                  </span>
-                }
-              />
               <ForAgents
                 subject="This asset"
                 about="What an agent reads before using this asset: its title, credit and fields, the brand rules that point at it, and ready-made sizes."
@@ -944,7 +994,8 @@ export function AssetEditor({
             )}
 
             <Writable do="asset.edit" on={asset} when={editable}>
-              <div className="grid gap-1">
+              {editable && <EditHint />}
+              <Group title="Details">
                 {editable ? (
                   <div data-prop="description">
                     <Textarea
@@ -955,7 +1006,7 @@ export function AssetEditor({
                       maxLength={2000}
                       rows={1}
                       aria-label="Description"
-                      placeholder="Add a description"
+                      placeholder="Add a description: what it shows, where it is used"
                       className={cn(ghost, "-mx-3 min-h-9 w-[calc(100%+1.5rem)] resize-none field-sizing-content")}
                       {...field("description")}
                     />
@@ -965,12 +1016,11 @@ export function AssetEditor({
                       </p>
                     )}
                   </div>
+                ) : m.description ? (
+                  <p className="pb-1 text-sm whitespace-pre-wrap">{m.description}</p>
                 ) : (
-                  m.description && <p className="text-sm whitespace-pre-wrap">{m.description}</p>
+                  !described && <p className="text-muted-foreground text-sm">Nothing written about it yet.</p>
                 )}
-              </div>
-
-              <div className="grid gap-0.5">
                 <Property label="Tags" htmlFor={`${id}-tags`} error={errors.tags} text={asset.tags.length ? <ChipList values={asset.tags} /> : null}>
                   <div data-prop="tags">
                     <MultiCombobox
@@ -979,7 +1029,7 @@ export function AssetEditor({
                       name="tags"
                       options={tags}
                       defaultValue={asset.tags}
-                      placeholder="Empty"
+                      placeholder="Add tags"
                       creatable
                       onSearch={searchTags}
                       onChange={() => setTimeout(() => void flush())}
@@ -990,33 +1040,6 @@ export function AssetEditor({
                 {collections.length > 0 && (
                   <CollectionsProperty asset={asset} collections={collections} id={`${id}-collections`} onSaved={onSaved} />
                 )}
-                <Property
-                  label={
-                    <>
-                      <IconLock className="size-3.5" /> Private
-                    </>
-                  } htmlFor={`${id}-private`} text={asset.private ? "Yes" : null}>
-                  <div data-prop="private" className="flex min-h-9 items-center gap-2">
-                    <Switch
-                      key={keyOf("private")}
-                      id={`${id}-private`}
-                      name="private"
-                      defaultChecked={!!asset.private}
-                      onCheckedChange={() => setTimeout(() => void flush())}
-                    />
-                    <span className="text-muted-foreground text-xs">Only people you add, and admins, can see it.</span>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button type="button" aria-label="More about private" className="text-muted-foreground hover:text-foreground rounded-full">
-                          <IconInfoCircle className="size-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-64">
-                        People added to one of its collections see it too. In only private collections, it is private anyway.
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Property>
                 {fields.length > 0 && (
                   <FieldInputs
                     rows
@@ -1038,18 +1061,54 @@ export function AssetEditor({
                         name={k}
                         defaultValue={m[k] ?? ""}
                         maxLength={2000}
-                        placeholder="Empty"
+                        placeholder={k === "creator" ? "Who made it" : "Add a copyright line"}
                         className={ghost}
                         {...field(k)}
                       />
                     </div>
                   </Property>
                 ))}
-              </div>
+              </Group>
+
+              {(editable || asset.private) && (
+                <Group title="Access">
+                  <Property
+                    label={
+                      <>
+                        <IconLock className="size-3.5" /> Private
+                      </>
+                    }
+                    htmlFor={`${id}-private`}
+                    text={asset.private ? "Yes: only people added, and admins" : null}
+                  >
+                    <div data-prop="private" className="flex min-h-9 items-center gap-2">
+                      <Switch
+                        key={keyOf("private")}
+                        id={`${id}-private`}
+                        name="private"
+                        defaultChecked={!!asset.private}
+                        onCheckedChange={() => setTimeout(() => void flush())}
+                      />
+                      <span className="text-muted-foreground text-xs">Only people you add, and admins, see it.</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label="More about private" className="text-muted-foreground hover:text-foreground rounded-full">
+                            <IconInfoCircle className="size-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-64">
+                          People added to one of its collections see it too. In only private collections, it is private anyway.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </Property>
+                </Group>
+              )}
 
               <div className="grid gap-3">
                 <RightsInputs asset={asset} k={keyOf("rights")} errors={errors} onChange={() => setTimeout(() => void flush())} />
                 <ProvenanceInputs asset={asset} k={keyOf} errors={errors} onOpen={(to) => leave(() => onOpen(to))} onChange={() => setTimeout(() => void flush())} />
+                <FileFacts asset={asset} />
               </div>
             </Writable>
             <Versions asset={asset} onChanged={onReviewed} onOpen={(v) => leave(() => onOpen(v))} />
@@ -1057,6 +1116,117 @@ export function AssetEditor({
         </ReadOnly.Provider>
       </form>
     </>
+  );
+}
+
+/** A titled part of the panel: what is in it says itself, before anything is opened. */
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="grid gap-0.5">
+      <h3 id={id} className="py-1 text-sm font-medium">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Said once, until dismissed: every value in the panel is a field, and what
+ * is typed saves itself. A ghost field reads as text, so without this the
+ * panel reads as a record to look at.
+ */
+function EditHint() {
+  const [seen, setSeen] = usePref("artbucket:tip:asset-edit", false);
+  if (seen) return null;
+  return (
+    <div role="note" className="bg-muted/50 animate-in fade-in-0 flex items-start gap-2.5 rounded-lg border p-3 text-xs">
+      <IconPencil className="text-muted-foreground mt-px size-3.5 shrink-0" />
+      <p className="text-muted-foreground flex-1">
+        <span className="text-foreground font-medium">Click any value to change it.</span> Each saves as you leave it, and goes out
+        with the file when it is downloaded.
+      </p>
+      <button
+        type="button"
+        onClick={() => setSeen(true)}
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -my-0.5 rounded px-1 font-medium outline-none focus-visible:ring-2"
+      >
+        Got it
+      </button>
+    </div>
+  );
+}
+
+/** What the file itself says, and when it came: read, never edited. */
+function FileFacts({ asset }: { asset: Asset }) {
+  const m = asset.metadata ?? {};
+  const type = fileTypeBadge(asset.filename, asset.mime, asset.probe);
+  const size = asset.width && asset.height ? `${asset.width} × ${asset.height}` : null;
+  const when = (d: string) => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  const rows: [string, React.ReactNode][] = [
+    ["File name", <span key="f" className="break-all">{asset.filename}</span>],
+    ["Type", `${type} (${asset.mime})`],
+    ["Dimensions", size && `${size} px`],
+    ["Size", formatBytes(asset.size)],
+    ["Taken", m.capturedAt && new Date(m.capturedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })],
+    ["Camera", m.camera],
+    ["Lens", m.lens],
+    [
+      "Location",
+      m.gps && (
+        <a
+          key="gps"
+          href={`https://www.openstreetmap.org/?mlat=${m.gps.lat}&mlon=${m.gps.lon}#map=15/${m.gps.lat}/${m.gps.lon}`}
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+        >
+          {m.gps.lat.toFixed(4)}, {m.gps.lon.toFixed(4)}
+        </a>
+      ),
+    ],
+    ["Added", <span key="a" suppressHydrationWarning>{when(asset.createdAt)}</span>],
+    ["Last changed", <span key="u" suppressHydrationWarning>{when(asset.updatedAt)}</span>],
+  ];
+  return (
+    <Fold title="File" summary={[type, size, formatBytes(asset.size)].filter(Boolean).join(" · ")} remember="file">
+      <dl className="grid gap-x-2 gap-y-1.5 text-sm [grid-template-columns:7rem_minmax(0,1fr)]">
+        {rows
+          .filter(([, v]) => v)
+          .map(([k, v]) => (
+            <Fragment key={k}>
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="min-w-0">{v}</dd>
+            </Fragment>
+          ))}
+      </dl>
+    </Fold>
+  );
+}
+
+/**
+ * An icon, looked at: big, and at the sizes it runs at, crisp as the vector.
+ * One drawn in one ink takes the color of what is around it, so it is shown
+ * in the text's color on the chosen background, and says so.
+ */
+function IconStage({ asset, bg, name }: { asset: Asset; bg: PreviewBg | "auto"; name: string }) {
+  const src = `/a/${asset.id}`;
+  const mono = isMono(asset);
+  const ink = bg === "dark" ? "text-white" : bg === "light" ? "text-neutral-900" : "text-foreground";
+  return (
+    <div className={cn("absolute inset-0 flex flex-col items-center justify-center gap-8 p-6", ink)}>
+      <IconGlyph src={src} mono={mono} label={name} className="size-32 md:size-48" />
+      <div className="flex items-end gap-6" role="group" aria-label="At the sizes it runs at">
+        {[16, 24, 32, 48].map((px) => (
+          <figure key={px} className="flex flex-col items-center gap-1.5">
+            <IconGlyph src={src} mono={mono} style={{ width: px, height: px }} />
+            <figcaption className="text-2xs tabular-nums opacity-60">{px}</figcaption>
+          </figure>
+        ))}
+      </div>
+      {mono && <p className="text-2xs max-w-56 text-center opacity-60">One color: it takes the color of the text around it.</p>}
+    </div>
   );
 }
 
@@ -1135,7 +1305,7 @@ function CollectionsProperty({
   return (
     <Property label="Collections" htmlFor={id} text={inCols.length ? <ChipList values={inCols.map(nameOf)} /> : null}>
       <div data-prop="collection">
-        <MultiCombobox id={id} options={options} value={inCols} onChange={(v) => void change(v)} placeholder="Empty" />
+        <MultiCombobox id={id} options={options} value={inCols} onChange={(v) => void change(v)} placeholder="Add to a collection" />
       </div>
     </Property>
   );
@@ -1516,7 +1686,7 @@ function AssetRef({
       <div data-prop={name}>
         <input type="hidden" name={name} value={id ?? ""} />
         <div className="flex items-center gap-2">
-          {chip || <span className="text-muted-foreground/70 flex min-h-9 flex-1 items-center px-3 text-sm">Empty</span>}
+          {chip || <span className="text-muted-foreground flex min-h-9 flex-1 items-center px-3 text-sm">None</span>}
           <Button type="button" variant="ghost" size="sm" onClick={() => setPicking(true)}>
             {id ? "Change" : "Pick"}
           </Button>

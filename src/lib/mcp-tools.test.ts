@@ -14,7 +14,10 @@ import { TOOL_INPUTS, toolSchemas } from "./mcp-tools.ts";
 // share one set of bounds; what is left is shape, so the line moved to 12000. W7's nine templates, their props,
 // the new layouts and kinds, Item.at and Item.level took edit_page to 13596; hotspot, formula, scales and embed
 // words cut to a phrase or to nothing (list_templates says the rest) brought it to 13354 (save_page 12158), so
-// the line moved to 14000. Raise it only after the same hunt.
+// the line moved to 14000. The icons template took edit_page to 14455; saying a description once for every
+// template that shares it (collection and icons share their source), one size description for logos and icons,
+// and leaving the icons' defaults to list_templates brought it to 13997 (save_page 12801). Raise it only after
+// the same hunt.
 test("the page tools' schemas stay under 14000 characters", () => {
   const s = toolSchemas();
   for (const name of ["save_page", "edit_page"]) {

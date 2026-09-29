@@ -1764,6 +1764,7 @@
                 "dodont",
                 "gallery",
                 "collection",
+                "icons",
                 "links",
                 "pages",
                 "diagram",
@@ -1846,7 +1847,7 @@
                   ]
                 },
                 "layout": {
-                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                   "type": "string",
                   "enum": [
                     "cards",
@@ -1957,7 +1958,7 @@
                   "type": "boolean"
                 },
                 "size": {
-                  "description": "logos: How much of its tile a mark fills",
+                  "description": "logos, icons: How big each is drawn in its tile",
                   "type": "string",
                   "enum": [
                     "medium",
@@ -1975,22 +1976,22 @@
                   ]
                 },
                 "collection": {
-                  "description": "collection: A collection's id",
+                  "description": "collection, icons: A collection's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "search": {
-                  "description": "collection: A saved search's id",
+                  "description": "collection, icons: A saved search's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "query": {
-                  "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                  "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                   "type": "string",
                   "maxLength": 2000
                 },
                 "sort": {
-                  "description": "collection",
+                  "description": "collection, icons: newest, oldest, name",
                   "type": "string",
                   "enum": [
                     "newest",
@@ -1999,13 +2000,13 @@
                   ]
                 },
                 "limit": {
-                  "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                  "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 200
                 },
                 "downloads": {
-                  "description": "collection: Offer downloads; true when left out",
+                  "description": "collection, icons: Offer downloads; true when left out",
                   "type": "boolean"
                 },
                 "from": {
@@ -2641,6 +2642,7 @@
                         "dodont",
                         "gallery",
                         "collection",
+                        "icons",
                         "links",
                         "pages",
                         "diagram",
@@ -2723,7 +2725,7 @@
                           ]
                         },
                         "layout": {
-                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                           "type": "string",
                           "enum": [
                             "cards",
@@ -2834,7 +2836,7 @@
                           "type": "boolean"
                         },
                         "size": {
-                          "description": "logos: How much of its tile a mark fills",
+                          "description": "logos, icons: How big each is drawn in its tile",
                           "type": "string",
                           "enum": [
                             "medium",
@@ -2852,22 +2854,22 @@
                           ]
                         },
                         "collection": {
-                          "description": "collection: A collection's id",
+                          "description": "collection, icons: A collection's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "search": {
-                          "description": "collection: A saved search's id",
+                          "description": "collection, icons: A saved search's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "query": {
-                          "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                          "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                           "type": "string",
                           "maxLength": 2000
                         },
                         "sort": {
-                          "description": "collection",
+                          "description": "collection, icons: newest, oldest, name",
                           "type": "string",
                           "enum": [
                             "newest",
@@ -2876,13 +2878,13 @@
                           ]
                         },
                         "limit": {
-                          "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                          "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 200
                         },
                         "downloads": {
-                          "description": "collection: Offer downloads; true when left out",
+                          "description": "collection, icons: Offer downloads; true when left out",
                           "type": "boolean"
                         },
                         "from": {

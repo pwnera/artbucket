@@ -137,6 +137,17 @@ Transforms: `w` `h` (1-8000), `fit` (cover, contain, inside, outside, fill),
 cached. The bytes are private: the URLs work with your key or session, and for
 anyone else once signed (`POST /api/v1/assets/{id}/signed-url`) or made public.
 
+Fonts and icons come in without a file to hand: Upload's menu imports a Google
+Fonts family, or icons from an open source pack (Tabler, Lucide, Material
+Symbols, Simple Icons and some 200 more, through Iconify). Each icon lands as an
+SVG tagged `icon`, credited to the set's author, with its license in its rights:
+
+```bash
+curl -X POST localhost:3000/api/v1/icons \
+  -H 'content-type: application/json' \
+  -d '{"prefix":"tabler","icons":["home","search","brand-github"]}'
+```
+
 ### 3. Connect your agents
 
 `/api/v1/mcp` is an MCP server over Streamable HTTP. Give the URL to any
