@@ -5,13 +5,15 @@ import { toast } from "sonner";
 import { History } from "@/components/brand-history";
 import { BrandSetup } from "@/components/builder/brand-setup";
 import { Canvas } from "@/components/builder/canvas";
+import { builderCommands } from "@/components/builder/commands";
+import { reveal } from "@/components/builder/layers";
 import { PageSettings } from "@/components/builder/page-tree";
 import { PublishDialog } from "@/components/builder/publish-dialog";
 import { RulesSheet } from "@/components/builder/rules-sheet";
 import { SectionPanel } from "@/components/builder/section-panel";
 import { TopBar } from "@/components/builder/top-bar";
 import { type Panel, type Transport, unclip, useBuilder } from "@/components/builder/use-builder";
-import { useSqueeze } from "@/components/shell";
+import { usePageCommands, useSqueeze } from "@/components/shell";
 import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
 import { TokensDialog } from "@/components/tokens-dialog";
@@ -65,6 +67,8 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
   useEffect(() => {
     live.current = b;
   });
+  // ⌘K offers the builder's own commands first, read from the builder as it is when the palette opens.
+  usePageCommands(useCallback(() => builderCommands(live.current), []));
 
   /** A section into view. The canvas prefixes ids (SiteProvider idPrefix), so the id is matched at the end. */
   const show = useCallback((id: string) => {
@@ -172,6 +176,19 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       // G then a letter goes somewhere (components/shortcuts.tsx): G T is Team, not Tokens.
       if (!mod && !e.altKey && key === "g") return void (afterG.current = Date.now());
       if (Date.now() - afterG.current < 1000) return;
+      // As a design tool steps through layers: Enter goes into the picked section's items, Tab and Shift+Tab walk them, Esc comes back out.
+      // Only from the section itself (or the page), so Tab still walks the buttons and fields it reaches.
+      const onBlock = !t || t === document.body || t.hasAttribute("data-canvas-block");
+      const n = section?.items?.length ?? 0;
+      if (!mod && !e.altKey && editing && !b.state.lang && onBlock && id && n) {
+        const to = e.key === "Enter" && item === null && !e.shiftKey ? 0 : e.key === "Tab" && item !== null ? (item + (e.shiftKey ? n - 1 : 1)) % n : null;
+        if (to !== null) {
+          e.preventDefault();
+          b.setItem({ section: id, i: to });
+          reveal(id, to);
+          return;
+        }
+      }
       if (mod) {
         if (e.altKey || e.shiftKey || key !== "d" || !id || !editing) return;
         e.preventDefault();

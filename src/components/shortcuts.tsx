@@ -45,6 +45,8 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["T"], label: "Tokens", group: "Guidelines" },
   { keys: ["Esc"], label: "Leave the preview, or deselect: the item, then its section", group: "Guidelines" },
   { keys: ["⇧", "Click"], label: "Add a section to the ones picked", group: "Guidelines" },
+  { keys: ["Enter"], label: "Go into the picked section's items", group: "Guidelines" },
+  { keys: ["Tab"], label: "Next item (Shift+Tab: the one before)", group: "Guidelines" },
   { keys: ["J"], label: "Next section", group: "Guidelines" },
   { keys: ["K"], label: "Previous section", group: "Guidelines" },
   { keys: ["⌫"], label: "Delete the picked item, else the sections picked", group: "Guidelines" },

@@ -117,6 +117,22 @@ const THEMES = [
 ];
 
 /**
+ * What the page on show adds to ⌘K (the builder: its section's actions,
+ * blocks to insert, where to go on the page), first in the list. With
+ * nothing typed only those marked `top` show, so the list stays short.
+ */
+export type PageCommand = {
+  id: string;
+  label: string;
+  group: string;
+  icon?: React.ReactNode;
+  shortcut?: string[];
+  keywords?: string[];
+  top?: boolean;
+  run(): void;
+};
+
+/**
  * ⌘K: find anything (assets, brand pages and rules, collections, saved searches,
  * brands, settings), go anywhere, or do the common things, from any page.
  * Empty, it opens on what you had lately; everything else waits for a query,
@@ -131,7 +147,10 @@ export function CommandPalette({
   onUpload,
   onNewCollection,
   onShortcuts,
+  commands,
 }: {
+  /** The page's own commands, asked for as it opens. */
+  commands?: () => PageCommand[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   collections: Collection[];
@@ -214,6 +233,9 @@ export function CommandPalette({
   const team = can("member.manage") || can("share.manage");
   const sections = me ? allowedFor(me) : [];
   const readable = can("brand.edit") ? pages : pages.filter((p) => !hidden(p, pages));
+  // Asked for as it opens and on each key: they read the page as it is now.
+  const own = open && commands ? commands().filter((c) => term || c.top) : [];
+  const ownGroups = [...new Set(own.map((c) => c.group))];
 
   return (
     <CommandDialog
@@ -243,6 +265,22 @@ export function CommandPalette({
         />
       </div>
       <CommandList className="max-h-[min(60vh,28rem)]">
+        {ownGroups.map((g) => (
+          <CommandGroup key={g} heading={g}>
+            {own
+              .filter((c) => c.group === g)
+              .map((c) => (
+                <CommandItem key={c.id} value={`${g} ${c.label} ${c.id}`} keywords={c.keywords} onSelect={run(c.run)}>
+                  {c.icon} <span className="truncate">{c.label}</span>
+                  {c.shortcut && (
+                    <CommandShortcut className="tracking-normal">
+                      <Kbd keys={c.shortcut} />
+                    </CommandShortcut>
+                  )}
+                </CommandItem>
+              ))}
+          </CommandGroup>
+        ))}
         {pending && (
           <CommandLoading label="Searching assets">
             <div className="grid gap-1 p-2" aria-hidden>
