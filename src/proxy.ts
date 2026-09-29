@@ -51,8 +51,7 @@ const csp = (nonce: string) => [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // The app's own address too: on an organization's domain, asset URLs from the API still point at APP_URL.
-  // Iconify: the icon pack picker's set samples (components/icon-packs.tsx); imported icons are served from here.
-  `img-src 'self' data: blob: https://api.iconify.design ${app}`.trim(),
+  `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
   "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",

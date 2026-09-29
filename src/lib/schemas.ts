@@ -1316,6 +1316,10 @@ const IconSetInfo = z.object({
   height: z.number().nullable().describe("The grid it is drawn on, in px"),
 });
 export const IconSets = z.object({ data: z.array(IconSetInfo), total: z.number().int().describe("Matches before `limit`") });
+export const IconSamples = z.object({
+  data: z.array(z.object({ name: z.string(), svg: z.string().describe("The file an import stores") })).describe("The set's samples, those it has"),
+});
+
 export const IconBrowse = z.object({
   set: IconSetInfo,
   categories: z.array(z.string()).describe("The set's own categories, to narrow by"),

@@ -91,6 +91,29 @@ export async function searchIconSets({ q, group, limit = 60 }: { q?: string; gro
   return { data: found.slice(0, limit), total: found.length };
 }
 
+/**
+ * A set's few samples, each drawn as the SVG an import would store: what the
+ * picker shows a set by, so a viewer's browser never calls Iconify for them.
+ * A few KB a set, held a day for every set asked about.
+ */
+const samplesHeld = new Map<string, { at: number; data: Promise<{ name: string; svg: string }[]> }>();
+export async function iconSetSamples(prefix: string) {
+  const got = samplesHeld.get(prefix);
+  if (got && Date.now() - got.at < DAY) return { data: await got.data };
+  const list = await iconCatalog().catch((err) => Promise.reject(reach(err)));
+  const set = list.find((s) => s.prefix === prefix);
+  if (!set) throw new AssetError("not_found", `Iconify has no icon set "${prefix}"`);
+  const data = (set.samples.length ? iconData(prefix, set.samples) : Promise.resolve(null)).then((icons) =>
+    set.samples.flatMap((name) => {
+      const svg = icons && iconSvg(icons, name);
+      return svg ? [{ name, svg }] : [];
+    }),
+  );
+  samplesHeld.set(prefix, { at: Date.now(), data });
+  data.catch(() => samplesHeld.delete(prefix)); // a failed fetch is retried next time, not cached
+  return { data: await data.catch((err) => Promise.reject(reach(err, prefix))) };
+}
+
 type IconQuery = { q?: string; category?: string; offset?: number; limit?: number };
 
 /** A set, its categories, and a page of its icons' names (matching `q`): no icon data, so no second request. */

@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ICON_GROUP_NAMES, ICONIFY, type IconGroup, type IconSet } from "@/lib/icons";
+import { ICON_GROUP_NAMES, type IconGroup, type IconSet } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 /** Icons asked for at once; the API takes up to 100 per import. */
@@ -50,7 +50,8 @@ function useSearch<T>(url: string | null) {
  * Lucide, Material Symbols, Simple Icons for brands...), look through its
  * icons, pick the ones the brand uses and import them. Each becomes an SVG
  * asset tagged `icon`, credited to the set's author, its license in its
- * rights. Only the set cards' samples load from Iconify.
+ * rights. Nothing here loads from Iconify: the set cards' samples come
+ * through the API too.
  */
 export function IconPackImport({
   into,
@@ -149,19 +150,7 @@ function SetsView({ open, onPick }: { open: boolean; onPick: (s: IconSet) => voi
                   onClick={() => onPick(s)}
                   className="hover:border-foreground/20 hover:bg-muted/40 focus-visible:ring-ring/50 grid h-full w-full gap-3 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2"
                 >
-                  <span className="flex items-center gap-3" aria-hidden>
-                    {s.samples.map((n) => (
-                      // Only these load from Iconify: a set's look before it is opened.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={n}
-                        src={`${ICONIFY}/${s.prefix}/${n}.svg?height=24`}
-                        alt=""
-                        loading="lazy"
-                        className={cn("size-6", !s.palette && "dark:invert")}
-                      />
-                    ))}
-                  </span>
+                  <SetSamples set={s} />
                   <span className="grid gap-0.5">
                     <span className="text-sm font-medium">{s.name}</span>
                     <span className="text-muted-foreground text-xs">
@@ -181,6 +170,44 @@ function SetsView({ open, onPick }: { open: boolean; onPick: (s: IconSet) => voi
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * A set's samples, asked for once its card comes near the view: a list of
+ * 120 sets asking for all of theirs at once is 120 requests.
+ */
+function SetSamples({ set }: { set: IconSet }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [near, setNear] = useState(false);
+  const [icons, setIcons] = useState<{ name: string; svg: string }[] | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || near) return;
+    const seen = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setNear(true);
+      },
+      { rootMargin: "200px" },
+    );
+    seen.observe(el);
+    return () => seen.disconnect();
+  }, [near]);
+  useEffect(() => {
+    if (!near || !set.samples.length) return;
+    const ctl = new AbortController();
+    fetch(`/api/v1/icons/${set.prefix}/samples`, { signal: ctl.signal })
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((body: { data: { name: string; svg: string }[] }) => setIcons(body.data))
+      .catch(() => !ctl.signal.aborted && setIcons([]));
+    return () => ctl.abort();
+  }, [near, set.prefix, set.samples.length]);
+  return (
+    <span ref={ref} className="flex h-6 items-center gap-3" aria-hidden>
+      {icons
+        ? icons.map((i) => <IconGlyph key={i.name} src={svgDataUri(i.svg)} mono={!set.palette} className="size-6" />)
+        : set.samples.map((n) => <Skeleton key={n} className="size-6" />)}
+    </span>
   );
 }
 

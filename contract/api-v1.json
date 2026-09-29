@@ -4990,6 +4990,96 @@
       }
     }
   },
+  "/api/v1/icons/{prefix}/samples": {
+    "parameters": [
+      {
+        "name": "prefix",
+        "in": "path",
+        "required": true,
+        "description": "The set, as Iconify names it: tabler, lucide, simple-icons",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "An icon set's samples",
+      "description": "The few icons a set is shown by (its `samples`), each drawn as the SVG an import would store.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The set's samples",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "svg": {
+                          "type": "string",
+                          "description": "The file an import stores"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "svg"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "The set's samples, those it has"
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/assets/{id}": {
     "parameters": [
       {

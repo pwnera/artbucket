@@ -265,6 +265,15 @@ export function openapi(serverUrl: string) {
           ok: [200, "The set and a page of its icons", S.IconBrowse],
         }),
       },
+      "/api/v1/icons/{prefix}/samples": {
+        parameters: [path("prefix", "The set, as Iconify names it: tabler, lucide, simple-icons")],
+        get: op({
+          summary: "An icon set's samples",
+          scope: "read",
+          description: "The few icons a set is shown by (its `samples`), each drawn as the SVG an import would store.",
+          ok: [200, "The set's samples", S.IconSamples],
+        }),
+      },
       "/api/v1/assets/{id}": {
         parameters: [path("id", "Asset id")],
         get: op({ summary: "Fetch one asset", scope: "read", ok: [200, "The asset", data(S.Asset)] }),
