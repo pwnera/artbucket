@@ -41,7 +41,7 @@ import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
-import { makeSignedUrl } from "@/lib/core/signing";
+import { fetchUrl, outsideReach, outsideUrl } from "@/lib/core/outside";
 import { can, needs, type Action } from "@/lib/permissions";
 import { allows } from "@/lib/scopes";
 import { normalizeTags } from "@/lib/search";
@@ -62,7 +62,7 @@ import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/l
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest, import or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. When your own fetch can't send the key (a web fetch, a sandbox), open fetchUrl from describe_asset or rendition_url: signed for a few minutes, for you, not to hand on. For anyone else, ask rendition_url with expiresIn: it answers when the asset is public, shown on a public portal, or your key may share; otherwise it says what the person can do, so tell them. What you ingest, import or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
@@ -234,6 +234,7 @@ const TOOLS: Record<ToolName, Tool> = {
   describe_asset: tool({
     description:
       "Everything known about one asset: title, credit, tags, field values, suggestions waiting on review, the URLs it is served at, " +
+      "a fetchUrl to open it yourself, whether people outside can see it (public, or the public portals showing it), " +
       "what renditions it allows, ready-made rendition URLs, and the brand rules that point at it " +
       "(for a logo: how it may and may not be used). Read this before using an asset.",
     action: "asset.read",
@@ -243,6 +244,8 @@ const TOOLS: Record<ToolName, Tool> = {
       const a = await found(caller, id);
       return {
         ...describeAsset(a),
+        fetchUrl: fetchUrl(a),
+        outside: await outsideReach(caller, a),
         proposedTags: a.proposedTags,
         proposedFields: a.proposedFields,
         brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
@@ -263,27 +266,31 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
       "image is made on first request and cached. A raster image is never upscaled: asking for more pixels than the " +
-      `original has returns the original size. An SVG is drawn sharp at the size asked, up to ${MAX_DIMENSION}px. The URL works for people who can see the asset; with expiresIn, ` +
-      "it is signed and works for anyone until then.",
+      `original has returns the original size. An SVG is drawn sharp at the size asked, up to ${MAX_DIMENSION}px. The URL works for people who can see the asset; ` +
+      "fetchUrl opens it for you for a few minutes, when your fetch can't send your key. With expiresIn, the URL works for anyone until then: " +
+      "an asset that is public (its plain URL, no end), or shown on a public portal (a day at most, as the portal signs it; ask again for a " +
+      "fresh one), or with a key that may share. Anything else is refused with what the person can do.",
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.rendition_url,
     run: async ({ id, width, height, fit, format, quality, expiresIn }, caller) => {
       const a = await found(caller, id);
-      if (!hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; use ${base(a.id)}`);
       const spec = serializeTransform({ w: width, h: height, fit, f: format, q: quality });
+      if (spec && !hasPreview(a)) throw new AssetError("unsupported", `${a.mime} can't be transformed; ask without a size or format for the original`);
       if (spec && !parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
-      const signed = expiresIn ? await makeSignedUrl(caller, a.id, expiresIn, spec ? `/${spec}` : "") : null;
-      const url = signed?.url ?? (spec ? `${base(a.id)}/${spec}` : base(a.id));
-      const expiresAt = signed?.expiresAt ?? null;
-      if (!spec) return { url, expiresAt, transform: null, note: "No transform asked for: this is the original." };
+      const rest = spec ? `/${spec}` : "";
+      const out = expiresIn ? await outsideUrl(caller, a, expiresIn, rest) : null;
+      const url = out?.url ?? `${base(a.id)}${rest}`;
+      const expiresAt = out?.expiresAt ?? null;
+      const reach = { fetchUrl: fetchUrl(a, rest), ...(out && { via: out.via, portals: out.portals }) };
+      if (!spec) return { url, expiresAt, ...reach, transform: null, note: "No transform asked for: this is the original." };
       const raster = !isVector(a.mime);
       const notes = [
         raster && width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
         raster && height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
         fit && !(width && height) ? "fit only matters with both width and height." : null,
       ].filter(Boolean);
-      return { url, expiresAt, transform: spec, source: { width: a.width, height: a.height }, notes };
+      return { url, expiresAt, ...reach, transform: spec, source: { width: a.width, height: a.height }, notes };
     },
   }),
 
