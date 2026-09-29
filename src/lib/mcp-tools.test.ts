@@ -46,6 +46,14 @@ test("set_theme merges: null clears any setting, and a misspelled one is refused
   assert.ok(!TOOL_INPUTS.set_theme.safeParse({ radius: 41 }).success);
 });
 
+test("find_icons takes nothing; import_icons wants a set and each icon once, as POST /icons does", () => {
+  assert.ok(TOOL_INPUTS.find_icons.safeParse({}).success);
+  assert.ok(TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: ["home", "arrow-right"] }).success);
+  assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: ["home", "home"] }).success);
+  assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "Tabler Icons", icons: ["home"] }).success);
+  assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: [] }).success);
+});
+
 test("create_portal takes members or public, never a password, and refuses a misspelled field", () => {
   const ok = { name: "Press kit", access: "members", brands: ["default"] };
   assert.ok(TOOL_INPUTS.create_portal.safeParse(ok).success);

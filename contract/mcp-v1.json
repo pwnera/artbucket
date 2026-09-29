@@ -372,6 +372,93 @@
       "family"
     ]
   },
+  "find_icons": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "description": "Words in a set's name, author or license; with prefix, in an icon's name",
+        "type": "string",
+        "maxLength": 80
+      },
+      "prefix": {
+        "description": "A set, e.g. tabler: search its icons instead of the sets",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "group": {
+        "description": "Interface, Logos, Emoji, Flags or Other",
+        "type": "string",
+        "enum": [
+          "Interface",
+          "Logos",
+          "Emoji",
+          "Flags",
+          "Other"
+        ]
+      },
+      "category": {
+        "description": "With prefix: one of the set's categories",
+        "type": "string",
+        "maxLength": 80
+      },
+      "offset": {
+        "default": 0,
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000
+      },
+      "limit": {
+        "description": "20 sets or 100 icons when left out",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200
+      }
+    }
+  },
+  "import_icons": {
+    "type": "object",
+    "properties": {
+      "prefix": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The set, as Iconify names it: tabler, lucide, simple-icons"
+      },
+      "icons": {
+        "minItems": 1,
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[a-z0-9]+([-_][a-z0-9]+)*$"
+        },
+        "description": "Its icons' names, 100 at a time"
+      },
+      "tags": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "collections": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "required": [
+      "prefix",
+      "icons"
+    ]
+  },
   "brand_rules": {
     "type": "object",
     "properties": {

@@ -19,6 +19,8 @@ import { brandStatus } from "@/lib/core/brand-status";
 import { listCollections } from "@/lib/core/collections";
 import { listFields } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
+import { findIconNames, importIcons, searchIconSets } from "@/lib/core/icons";
+import type { IconSet } from "@/lib/icons";
 import { createPortal, listPortals, portalsShowing, updatePortal } from "@/lib/core/portals";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
@@ -41,7 +43,7 @@ import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/l
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest, import or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
 To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address.`;
 
@@ -68,6 +70,9 @@ const summary = (a: Asset) => ({
   url: base(a.id),
   thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
 });
+
+/** An icon set as a model needs it to pick one and credit it. */
+const aboutSet = (s: IconSet) => ({ prefix: s.prefix, name: s.name, license: s.license, author: s.author });
 
 /** Rules as a model reads them: referenced assets come with URLs it can use as is. */
 const forAgent = (rules: BrandRule[]) =>
@@ -102,6 +107,9 @@ const rulesUri = (brand: { slug: string; default: boolean }) =>
   brand.default ? RULES_URI : `artbucket://brands/${brand.slug}/rules`;
 /** A page as Markdown, what get_page returns in `markdown`. */
 const pageUri = (brand: string, page: string) => `artbucket://brands/${brand}/pages/${page}`;
+
+/** Tools that reach outside artbucket: a public URL, Google Fonts, Iconify. */
+const OPEN_WORLD = new Set(["ingest_asset", "import_google_font", "find_icons", "import_icons"]);
 
 /** Computed once: the schemas are code, and the size guard (mcp-tools.test.ts) measures exactly these. */
 const SCHEMAS = toolSchemas();
@@ -261,6 +269,37 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async (input, caller) => {
       const { family, assets } = await importGoogleFont(caller, input);
       return { family, assets: assets.map(summary) };
+    },
+  }),
+
+  find_icons: tool({
+    description:
+      "Find open source icons to import, through Iconify. Without prefix, the icon sets matching q, each with its license, " +
+      "author and a few sample names. With prefix, that set's icons matching q, by name. Next: import_icons.",
+    action: "library.read",
+    readOnly: true,
+    input: TOOL_INPUTS.find_icons,
+    run: async ({ q, prefix, group, category, offset, limit }) => {
+      if (!prefix) {
+        const { data, total } = await searchIconSets({ q, group, limit: limit ?? 20 });
+        return { sets: data.map((s) => ({ ...aboutSet(s), total: s.total, samples: s.samples, category: s.category, palette: s.palette })), total };
+      }
+      const { set, categories, total, names } = await findIconNames(prefix, { q, category, offset, limit: limit ?? 100 });
+      return { set: { ...aboutSet(set), total: set.total, palette: set.palette }, categories, total, offset, icons: names };
+    },
+  }),
+
+  import_icons: tool({
+    description:
+      "Add icons from an open source set to the library, one SVG each, carrying the set's license and author. " +
+      "Like ingest_asset, they are proposed until a person approves them, and icons already here dedupe. " +
+      "`missing` names any the set doesn't have.",
+    action: "asset.upload",
+    readOnly: false,
+    input: TOOL_INPUTS.import_icons,
+    run: async (input, caller) => {
+      const { set, assets, missing } = await importIcons(caller, input);
+      return { set: aboutSet(set), assets: assets.map(summary), missing };
     },
   }),
 
@@ -618,7 +657,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
               name,
               description: typeof t.description === "string" ? t.description : await t.description(caller),
               inputSchema: SCHEMAS[name],
-              annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
+              annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: OPEN_WORLD.has(name) },
             })),
         ),
       });
