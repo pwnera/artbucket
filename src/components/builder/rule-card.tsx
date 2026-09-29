@@ -13,7 +13,7 @@ import { usePref } from "@/components/sidebar-prefs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { contrast, grade, hexOf, inkOn } from "@/lib/color";
+import { APP_BG, contrast, grade, hexOf, inkOn } from "@/lib/color";
 import { contextLabel, fontValue, resolve, RULE_SPEC, ruleLabel, ruleName, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -109,7 +109,7 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
         >
           <QuickColor
             rule={rule}
-            surface={b.view.theme.surface ?? "#ffffff"}
+            surface={b.view.theme.surface ?? APP_BG.light}
             ink={b.view.theme.ink}
             onSet={(value) => set({ value })}
             onMore={() => setOpened(anchor)}

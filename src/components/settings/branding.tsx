@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
-import { contrast, grade } from "@/lib/color";
+import { APP_BG, contrast, grade } from "@/lib/color";
 import { send } from "@/lib/send";
 
 type Source = "organization" | "environment" | "default";
@@ -139,8 +139,8 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Legibility color={accent ?? OWN_ACCENT} on="#ffffff" theme="light" />
-            <Legibility color={accent ?? OWN_ACCENT} on="#111111" theme="dark" />
+            <Legibility color={accent ?? OWN_ACCENT} on={APP_BG.light} theme="light" />
+            <Legibility color={accent ?? OWN_ACCENT} on={APP_BG.dark} theme="dark" />
           </div>
           <Hint text={env("accent")} />
         </div>

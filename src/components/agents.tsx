@@ -106,7 +106,7 @@ export function Agents({
           <p className="text-primary-ink flex items-center gap-2 text-sm font-medium">
             <IconRobot className="size-4" /> Any agent you already use
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">Give an agent the brand</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Give an agent the brand</h1>
           <p className="text-muted-foreground text-lg text-pretty">
             A connected agent searches the library, reads the brand rules before it makes anything, and hands out
             assets at the right size. What it adds is only a suggestion: it waits in Review until you approve it.
@@ -182,7 +182,7 @@ export function Agents({
         )}
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Try it</h2>
+          <h2 className="font-display text-lg font-semibold">Try it</h2>
           <p className="text-muted-foreground text-sm">
             Ask something only the brand can answer. Every page here has a For agents button with the exact call for what it shows.
           </p>
@@ -364,7 +364,7 @@ function SetupPart({ part }: { part: Part }) {
 function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) => void }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Connected agents</h2>
+      <h2 className="font-display text-lg font-semibold">Connected agents</h2>
       {!keys.length ? <p className="text-muted-foreground text-sm">None yet. Pick one above.</p> : <KeyList keys={keys} onRevoked={onRevoked} />}
     </section>
   );
@@ -380,7 +380,7 @@ function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) =>
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">API keys</h2>
+        <h2 className="font-display text-lg font-semibold">API keys</h2>
         <p className="text-muted-foreground text-sm">
           For what can&apos;t sign in on its own: n8n, scripts, CI. One per use, so you can revoke one without the others.
         </p>

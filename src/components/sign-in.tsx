@@ -122,7 +122,7 @@ export function Card({ title, lead, brand, children }: { title: React.ReactNode;
     <Shell>
       <div className="space-y-3">
         <BrandMark brand={brand} />
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
         {lead && <div className="text-muted-foreground text-sm text-pretty">{lead}</div>}
       </div>
       {children}

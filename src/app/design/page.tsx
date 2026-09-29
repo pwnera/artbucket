@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IconAdjustments,
   IconArrowLeft,
@@ -26,6 +26,7 @@ import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { SaveStatus } from "@/components/save-status";
 import { Kbd } from "@/components/ui/kbd";
+import { contrast } from "@/lib/color";
 import { track } from "@/lib/saving";
 import { undoable } from "@/lib/undo";
 import { AppIcon, Logo, ThemeToggle } from "@/components/brand";
@@ -93,7 +94,52 @@ const COLORS = [
   "border",
   "input",
   "ring",
+  "highlight",
 ];
+
+const TEXT = ["foreground", "muted-foreground", "primary-ink", "success", "warning"];
+const SURFACES = ["background", "card", "muted", "sidebar"];
+
+/** Each text token on each surface it sits on, in one mode whatever the app's, with its ratio (lib/color.test.ts holds them at 4.5). */
+function Grades({ mode }: { mode: "light" | "dark" }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [v, setV] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const s = getComputedStyle(ref.current!);
+    setV(Object.fromEntries([...TEXT, ...SURFACES].map((k) => [k, s.getPropertyValue(`--${k}`).trim()])));
+  }, []);
+  return (
+    <div ref={ref} className={`${mode} bg-background text-foreground overflow-x-auto rounded-md border p-3 text-xs`}>
+      <table className="w-full">
+        <caption className="pb-2 text-start font-medium">{mode === "light" ? "Light" : "Dark"}</caption>
+        <thead>
+          <tr>
+            <th />
+            {SURFACES.map((s) => (
+              <th key={s} scope="col" className="text-muted-foreground px-2 pb-1 text-start font-normal">
+                {s}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {TEXT.map((t) => (
+            <tr key={t}>
+              <th scope="row" className="pe-2 text-start font-mono font-normal">
+                --{t}
+              </th>
+              {SURFACES.map((s) => (
+                <td key={s} className="px-2 py-1 font-medium tabular-nums" style={{ background: `var(--${s})`, color: `var(--${t})` }}>
+                  {v[t] && v[s] ? `${contrast(v[t], v[s]).toFixed(1)}:1` : "..."}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const ICONS = [
   IconBucketDroplet,
@@ -196,7 +242,7 @@ export default function DesignSystem() {
         </Button>
         <AppIcon className="size-7" />
         <h1 className="text-sm font-semibold">Design system</h1>
-        <span className="text-muted-foreground hidden text-sm sm:inline">shadcn/ui · Tabler icons · DM Sans</span>
+        <span className="text-muted-foreground hidden text-sm sm:inline">shadcn/ui · Tabler icons · Funnel Sans</span>
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -231,7 +277,7 @@ export default function DesignSystem() {
             </div>
           </Section>
 
-          <Section id="color" title="Color" description="Brand black and cool neutrals, violet (#6D4AFF) as the primary, in globals.css. Switch theme to see dark.">
+          <Section id="color" title="Color" description="White and faintly violet greys with green-black ink in light, neutral greys in dark. Violet (#6D4AFF) is the primary and marks where you are; lime highlights. In globals.css. Switch theme to see dark.">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {COLORS.map((c) => (
                 <div key={c} className="grid gap-1.5">
@@ -240,12 +286,16 @@ export default function DesignSystem() {
                 </div>
               ))}
             </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <Grades mode="light" />
+              <Grades mode="dark" />
+            </div>
           </Section>
 
-          <Section id="type" title="Typography" description="DM Sans for text, Geist Mono for counts and codes.">
+          <Section id="type" title="Typography" description="Funnel Display for page titles and section headings (font-display), Funnel Sans for text, Geist Mono for counts and codes.">
             <div className="grid gap-3">
-              <p className="text-3xl font-semibold tracking-tight">Your art, all in one bucket</p>
-              <p className="text-xl font-semibold tracking-tight">Section heading</p>
+              <p className="font-display text-3xl font-semibold tracking-tight">Your art, all in one bucket</p>
+              <p className="font-display text-xl font-semibold tracking-tight">Section heading</p>
               <p className="text-sm font-medium">Label and control text</p>
               <p className="text-sm">Body copy reads at 14px with comfortable line height.</p>
               <p className="text-muted-foreground text-sm">Muted supporting text for descriptions.</p>

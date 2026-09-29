@@ -547,7 +547,7 @@ function Stage({ b }: { b: BuilderApi }) {
                   />
                 )}
                 {change && (
-                  <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-success text-white" : "bg-warning text-white")}>
+                  <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-highlight text-highlight-foreground" : "bg-warning text-white")}>
                     {CHANGE_LABEL[change]}
                     <span className="sr-only"> since the last publish</span>
                   </span>

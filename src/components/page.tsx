@@ -129,7 +129,7 @@ export function PageHeader({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2.5">
           <span className="text-muted-foreground [&_svg]:size-5">{icon}</span>
-          <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="font-display truncate text-xl font-semibold tracking-tight">{title}</h1>
           {aside}
         </div>
         {description && <p className="text-muted-foreground text-sm text-pretty">{description}</p>}

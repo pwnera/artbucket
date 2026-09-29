@@ -29,7 +29,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
           // Sonner sets the system font on its own unlayered rule; only inline style outranks it.
-          fontFamily: "var(--font-dm-sans)",
+          fontFamily: "var(--font-funnel-sans)",
         } as React.CSSProperties
       }
       {...props}
