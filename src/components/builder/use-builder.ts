@@ -89,6 +89,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [also, setAlso] = useState<string[]>([]);
   // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
   const [library, setLibrary] = useState(false);
+  // Marking what changed since the last publish on the canvas (changes.tsx).
+  const [changes, setChanges] = useState(false);
   // The page list beside the canvas: open unless the person closed it in this browser.
   const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
   // The panel (b.dock) floats over the canvas instead of beside it: kept in this browser, as the page list's is.
@@ -424,6 +426,9 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     /** Whether the library panel floats over the canvas. */
     library,
     setLibrary,
+    /** Whether the canvas marks what changed since the last publish. */
+    changes,
+    setChanges,
     /** Whether the page list shows beside the canvas. */
     pagesOpen,
     setPagesOpen,

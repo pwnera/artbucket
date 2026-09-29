@@ -7,6 +7,7 @@ import {
   IconDeviceDesktop,
   IconDeviceMobile,
   IconDeviceTablet,
+  IconGitCompare,
   IconGripVertical,
   IconPhoto,
   IconPlus,
@@ -17,6 +18,7 @@ import { SectionView } from "@/components/brand-sections";
 import { useSiteLook } from "@/components/brand-sections/look";
 import { asMedia as libraryMedia, upload } from "@/components/brand-sections/slots";
 import { AssetPicker } from "@/components/builder/asset-picker";
+import { CHANGE_LABEL, type Changes, ChangesContext, useChanges, usePublishedChanges } from "@/components/builder/changes";
 import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builder/drag";
 import { ADD_LABEL, blankItem, PICTURED } from "@/components/builder/items";
 import { RuleCard } from "@/components/builder/rule-card";
@@ -110,8 +112,11 @@ export function Canvas({ b }: CanvasProps) {
     [apply, select, addMedia, slug, lang],
   );
 
+  const changes = usePublishedChanges(b, b.changes && !preview);
+
   return (
     <SiteProvider view={b.view} href={href} mode={preview ? "read" : "edit"} idPrefix={PREFIX}>
+      <ChangesContext.Provider value={changes}>
       <EditContext.Provider value={preview ? null : edit}>
         {/* No min-h-full here: it would override a flex item's own minimum, and the row would stop at the viewport, taking the sticky panels with it. */}
         <div className="flex min-w-0 flex-1">
@@ -166,6 +171,7 @@ export function Canvas({ b }: CanvasProps) {
           {b.dock && !preview && <SectionPanel b={b} />}
         </div>
       </EditContext.Provider>
+      </ChangesContext.Provider>
     </SiteProvider>
   );
 }
@@ -196,6 +202,7 @@ const imageProp = (s: Section) => fieldsOf(s.template).some((f) => f.kind === "a
 function Stage({ b }: { b: BuilderApi }) {
   const { view, context, url } = useSite();
   const look = useSiteLook();
+  const changes = useChanges();
   const page = view.page!;
   const { preview } = b.state;
   const { page: slug, section: selected } = b.state.selection;
@@ -390,6 +397,7 @@ function Stage({ b }: { b: BuilderApi }) {
     // The bar sits on the picked item; with none picked, on the one under the pointer.
     const handle = picked ?? hovered;
     const iline = itemOver?.section === s.id ? itemOver : null;
+    const change = changes?.bySection.get(s.id);
     return (
       <ContextMenu
         key={s.id}
@@ -513,9 +521,24 @@ function Stage({ b }: { b: BuilderApi }) {
                 "group-focus-visible/block:ring-ring group-focus-visible/block:ring-3",
               )}
             />
-            {s.hidden && (
-              <span className="app-tokens bg-foreground text-background pointer-events-none absolute end-4 top-3 z-20 rounded-full px-2 py-0.5 font-sans text-xs">
-                Hidden from readers
+            {change && (
+              <div
+                aria-hidden
+                className={cn(
+                  "app-tokens pointer-events-none absolute inset-1 z-10 rounded-sm outline-2 outline-dashed",
+                  change === "new" ? "outline-success" : "outline-warning",
+                )}
+              />
+            )}
+            {(s.hidden || change) && (
+              <span className="app-tokens pointer-events-none absolute end-4 top-3 z-20 flex gap-1 font-sans text-xs">
+                {change && (
+                  <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-success text-white" : "bg-warning text-white")}>
+                    {CHANGE_LABEL[change]}
+                    <span className="sr-only"> since the last publish</span>
+                  </span>
+                )}
+                {s.hidden && <span className="bg-foreground text-background rounded-full px-2 py-0.5">Hidden from readers</span>}
               </span>
             )}
             {hovered && hovered.i !== picked?.i && !moving && (
@@ -672,6 +695,7 @@ function Stage({ b }: { b: BuilderApi }) {
       {look.faces && <style>{look.faces}</style>}
       {overTab !== null && <style>{`[data-tab-name="${CSS.escape(overTab)}"]{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}`}</style>}
       <article className="@container pb-16">
+        {changes && !preview && <ChangesStrip changes={changes} onHide={() => b.setChanges(false)} />}
         <PageHeader page={page} roots={roots} />
         {!preview && shown.length > 0 && (
           <div className="relative">
@@ -818,6 +842,33 @@ function ItemBar({
           </ItemTool>
         </>
       )}
+    </div>
+  );
+}
+
+/** Over the page while changes are marked: since which publish, how many sections are new or changed, and which are gone. */
+function ChangesStrip({ changes, onHide }: { changes: Changes; onHide(): void }) {
+  const count = (c: string) => [...changes.bySection.values()].filter((x) => x === c).length;
+  const [fresh, changed, rule] = [count("new"), count("changed"), count("rule")];
+  const said = changes.loading
+    ? "Reading the last publish…"
+    : changes.error
+      ? changes.error
+      : changes.since === null
+        ? "Never published: everything here is new to readers."
+        : [
+            `Since version ${changes.since}:`,
+            [fresh && `${fresh} new`, changed && `${changed} changed`, rule && `${rule} with a rule changed`, changes.removed.length && `${changes.removed.length} removed (${changes.removed.join(", ")})`]
+              .filter(Boolean)
+              .join(", ") || "nothing on this page.",
+          ].join(" ");
+  return (
+    <div role="status" className="app-tokens bg-muted/80 text-foreground sticky top-12 z-20 flex items-center gap-2 border-b px-4 py-1.5 font-sans text-sm backdrop-blur">
+      <IconGitCompare aria-hidden className="text-muted-foreground size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{said}</span>
+      <button type="button" onClick={onHide} className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 rounded-sm text-xs outline-none focus-visible:ring-2">
+        Stop marking
+      </button>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   IconEye,
   IconEyeOff,
   IconFocusCentered,
+  IconGitCompare,
   IconHistory,
   IconLayoutSidebarLeftExpand,
   IconListDetails,
@@ -143,6 +144,7 @@ export function builderCommands(b: BuilderApi): PageCommand[] {
     { id: "b-float", group: g, label: b.floating ? "Dock the panel beside the page" : "Float the panel over the page", icon: <IconPictureInPictureOn />, run: () => b.setFloating(!b.floating) },
     { id: "b-history", group: g, label: "History", icon: <IconHistory />, shortcut: ["H"], run: () => b.setPanel("history") },
     { id: "b-tokens", group: g, label: "Design tokens", icon: <IconCode />, shortcut: ["T"], run: () => b.setPanel("tokens") },
+    { id: "b-changes", group: g, label: b.changes ? "Stop marking changes" : "Mark what changed since the last publish", icon: <IconGitCompare />, keywords: ["diff", "compare", "review"], run: () => b.setChanges(!b.changes) },
     { id: "b-publish", group: g, label: "Publish", icon: <IconWorldUpload />, top: true, run: () => b.setPanel("publish") },
   );
   return out;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconChevronRight, IconEye, IconEyeOff, IconPhoto, IconTrash } from "@tabler/icons-react";
+import { CHANGE_LABEL, useChanges } from "@/components/builder/changes";
 import { endDrag, payloadOf, startDrag } from "@/components/builder/drag";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
@@ -31,6 +32,7 @@ export function Layers({ b }: { b: BuilderApi }) {
   const [itemDrag, setItemDrag] = useState<{ section: string; i: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const picked = new Set(b.picked);
+  const changes = useChanges();
   const set = (s: Section, patch: Record<string, unknown>) => b.apply({ kind: "page", page, op: { op: "update", id: s.id, set: patch } });
 
   if (!sections.length) return <p className="text-muted-foreground px-2 py-1 text-xs">No sections on this page yet.</p>;
@@ -127,6 +129,12 @@ export function Layers({ b }: { b: BuilderApi }) {
                 >
                   {s.title || <span className="text-muted-foreground">{TEMPLATE_INFO[s.template].name}</span>}
                   {s.tab && <span className="text-muted-foreground ms-1.5 text-xs">in {s.tab}</span>}
+                  {changes?.bySection.get(s.id) && (
+                    <span
+                      title={`${CHANGE_LABEL[changes.bySection.get(s.id)!]} since the last publish`}
+                      className={cn("ms-1.5 inline-block size-1.5 rounded-full align-middle", changes.bySection.get(s.id) === "new" ? "bg-success" : "bg-warning")}
+                    />
+                  )}
                 </button>
               )}
               <button

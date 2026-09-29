@@ -11,6 +11,7 @@ import {
   IconDots,
   IconEye,
   IconEyeOff,
+  IconGitCompare,
   IconHistory,
   IconListCheck,
   IconListDetails,
@@ -46,7 +47,7 @@ import { cn } from "@/lib/utils";
  * Library (assets to drag onto the page, b.setLibrary),
  * Rules (b.setPanel) and Theme, which previews the whole site with the theme
  * panel beside it (b.setPreview, b.setDock). Then the launch checklist (b.status and the
- * page's own checks), For agents, Preview (b.setPreview), More (the section
+ * page's own checks), what changed since the last publish (b.setChanges), For agents, Preview (b.setPreview), More (the section
  * panel, History, Design tokens) and Publish, which says whether readers see
  * the latest (b.status.publish).
  *
@@ -163,6 +164,9 @@ export function TopBar({ b }: TopBarProps) {
           }}
         />
         <Sep />
+        <IconButton variant="ghost" label="Mark what changed since the last publish" aria-pressed={b.changes} className="aria-pressed:bg-accent" onClick={() => b.setChanges(!b.changes)}>
+          <IconGitCompare />
+        </IconButton>
         <Checklist b={b} />
         <ForAgents
           about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand; brand_status tells an agent what the brand still lacks.`}
