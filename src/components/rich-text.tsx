@@ -291,10 +291,11 @@ export default function RichText({
     };
   }, [editor]);
 
-  // What the server saved comes back; take it unless you are mid-edit.
+  // What the server saved comes back; take it unless you are mid-edit. A destroyed editor (strict mode
+  // remounts it) is skipped: its replacement runs this again.
   useEffect(() => {
     saved.current = value.trim();
-    if (editor && !editor.isFocused && editor.getMarkdown().trim() !== value.trim())
+    if (editor && !editor.isDestroyed && !editor.isFocused &&editor.getMarkdown().trim() !== value.trim())
       editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
   }, [editor, value]);
 

@@ -49,6 +49,8 @@ test("withProp: a default or an empty value leaves the prop out", () => {
   const strip = fieldsOf("cover").find((f) => f.name === "strip")!;
   assert.deepEqual(withProp({}, strip, false), { strip: false });
   assert.deepEqual(withProp({ strip: false }, strip, true), {});
+  const titleSize = fieldsOf("cover").find((f) => f.name === "titleSize")!;
+  assert.deepEqual(withProp({ titleSize: "huge" }, titleSize, "large"), {});
   const show = fieldsOf("palette")[0];
   assert.deepEqual(withProp({ show: ["hex"] }, show, []), {});
 });

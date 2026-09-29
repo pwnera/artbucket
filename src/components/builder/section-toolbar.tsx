@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IconAdjustmentsHorizontal,
   IconArrowAutofitWidth,
   IconArrowDown,
+  IconArrowDownLeft,
+  IconArrowDownRight,
+  IconArrowRight,
   IconArrowUp,
   IconCheck,
   IconChevronDown,
@@ -405,6 +408,31 @@ function VariantMenu({ s, set }: Pick<Part, "s" | "set">) {
   );
 }
 
+/**
+ * The color picker people know, at the end of the palette: the browser's own,
+ * whose change fires once, when it closes (React's onChange fires on every
+ * move of it).
+ */
+function AddColor({ onPick }: { onPick(hex: string): void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const done = () => onPick(el.value);
+    el.addEventListener("change", done);
+    return () => el.removeEventListener("change", done);
+  }, [onPick]);
+  return (
+    <span
+      title="Add a color"
+      className="text-muted-foreground focus-within:ring-ring/50 relative flex size-8 items-center justify-center rounded-full border border-dashed focus-within:ring-3"
+    >
+      <IconPlus className="size-4" aria-hidden />
+      <input ref={ref} type="color" defaultValue="#888888" aria-label="Add a color" className="absolute inset-0 size-full cursor-pointer rounded-full opacity-0" />
+    </span>
+  );
+}
+
 /** A ground to pick, drawn as it would read. */
 function Swatch({ on, label, bg, onClick, children }: { on: boolean; label: string; bg: string; onClick(): void; children?: React.ReactNode }) {
   return (
@@ -422,17 +450,37 @@ function Swatch({ on, label, bg, onClick, children }: { on: boolean; label: stri
   );
 }
 
-/** The ground: the theme's tones, the palette's colors, a picture, the theme's pattern. */
+/** A fade's directions, in degrees: 180, down, is the default and is left out. */
+const FADES = [
+  [90, IconArrowRight, "Left to right"],
+  [135, IconArrowDownRight, "To the bottom right"],
+  [180, IconArrowDown, "Top to bottom"],
+  [225, IconArrowDownLeft, "To the bottom left"],
+] as const;
+
+/** The ground: the theme's tones, the palette's colors and fades between two, a picture, the theme's pattern. */
 export function TonePicker({ b, s, set }: Part) {
   const { view, context, url } = useSite();
   const [picking, setPicking] = useState<"image" | "pattern" | null>(null);
   const colorOf = (key: string) => resolve(view.rules.filter((r) => r.key === key), context ?? "")[0];
-  const paint = (tone: Tone, background?: Section["background"]) =>
-    sectionGround(view.theme, { tone, background }, colorOf).background ?? view.theme.surface ?? "var(--background)";
+  const paint = (tone: Tone, background?: Section["background"]) => {
+    const g = sectionGround(view.theme, { tone, background }, colorOf);
+    return g.gradient ?? g.background ?? view.theme.surface ?? "var(--background)";
+  };
   const colors = [...byKey(view.rules).values()].filter((r) => r.type === "color" && typeof r.value === "string");
   const image = s.background?.image ? view.media[s.background.image] : undefined;
   const device = view.theme.device;
   const current = s.tone === "image" ? "#000" : paint(s.tone, s.background);
+  const fade = s.tone === "color" ? s.background : undefined;
+  // A color picked by hand joins the palette (or is the palette's own, at that value), then grounds the section.
+  const addColor = (hex: string) => {
+    const same = colors.find((r) => (r.value as string).toLowerCase() === hex.toLowerCase());
+    const key = same?.key ?? keyFor("color", "custom", new Set(b.state.rules.map((r) => r.key)));
+    if (!key) return;
+    const rule: ViewRule = { key, context: null, type: "color", label: null, value: hex, usage: null, spec: null, assets: [] };
+    if (!same && !b.apply({ kind: "rules", set: [rule], remove: [] })) return;
+    set({ tone: "color", background: { color: key } });
+  };
 
   return (
     <>
@@ -459,20 +507,58 @@ export function TonePicker({ b, s, set }: Part) {
               {!image?.thumbnail && <IconPhoto className="size-4" />}
             </Swatch>
           </div>
-          {colors.length > 0 && (
+          <p className="text-muted-foreground text-xs">Palette</p>
+          <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-1">
+            {colors.map((r) => (
+              <Swatch
+                key={r.key}
+                on={s.tone === "color" && s.background?.color === r.key}
+                label={ruleName(r)}
+                bg={paint("color", { color: r.key })}
+                onClick={() => set({ tone: "color", background: { color: r.key } })}
+              />
+            ))}
+            <AddColor onPick={addColor} />
+          </div>
+          <p className="text-muted-foreground -mt-1 text-xs">A color you add joins the brand&apos;s palette. Change its value in Rules and every page follows.</p>
+          {fade?.color && colors.length > 1 && (
             <>
-              <p className="text-muted-foreground text-xs">Palette</p>
+              <p className="text-muted-foreground text-xs">Fade into</p>
               <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-1">
-                {colors.map((r) => (
-                  <Swatch
-                    key={r.key}
-                    on={s.tone === "color" && s.background?.color === r.key}
-                    label={ruleName(r)}
-                    bg={paint("color", { color: r.key })}
-                    onClick={() => set({ tone: "color", background: { color: r.key } })}
-                  />
-                ))}
+                <Swatch on={!fade.to} label="No fade" bg="var(--muted)" onClick={() => set({ background: { color: fade.color } })}>
+                  <IconX className="size-4" />
+                </Swatch>
+                {colors
+                  .filter((r) => r.key !== fade.color)
+                  .map((r) => (
+                    <Swatch
+                      key={r.key}
+                      on={fade.to === r.key}
+                      label={`Fade into ${ruleName(r)}`}
+                      bg={paint("color", { color: fade.color, to: r.key, angle: fade.angle })}
+                      onClick={() => set({ background: { ...fade, to: r.key } })}
+                    />
+                  ))}
               </div>
+              {fade.to && (
+                <div className="flex gap-1" role="radiogroup" aria-label="Fade direction">
+                  {FADES.map(([angle, I, label]) => (
+                    <Button
+                      key={angle}
+                      type="button"
+                      variant={(fade.angle ?? 180) === angle ? "secondary" : "ghost"}
+                      size="icon-xs"
+                      role="radio"
+                      aria-checked={(fade.angle ?? 180) === angle}
+                      aria-label={label}
+                      title={label}
+                      onClick={() => set({ background: { ...fade, angle: angle === 180 ? undefined : angle } })}
+                    >
+                      <I />
+                    </Button>
+                  ))}
+                </div>
+              )}
             </>
           )}
           <div className="flex flex-wrap gap-2">
@@ -483,7 +569,24 @@ export function TonePicker({ b, s, set }: Part) {
               <IconTexture aria-hidden /> {device ? "Change pattern" : "Pick a pattern"}
             </Button>
           </div>
-          {s.tone === "pattern" && !device && <p className="text-muted-foreground text-xs">The pattern is the theme&apos;s: pick an SVG for every page.</p>}
+          {s.tone === "image" && s.background?.image && (
+            <Label className="grid gap-1.5 font-normal">
+              <span className="text-muted-foreground text-xs">Darken the picture</span>
+              {/* Commits on letting go, so a drag is one undo step. The text on it is graded again at each. */}
+              <input
+                key={s.background.scrim ?? 0.45}
+                type="range"
+                min={0}
+                max={0.9}
+                step={0.05}
+                defaultValue={s.background.scrim ?? 0.45}
+                onPointerUp={(e) => set({ background: { ...s.background, scrim: Number(e.currentTarget.value) } })}
+                onKeyUp={(e) => set({ background: { ...s.background, scrim: Number(e.currentTarget.value) } })}
+                className="accent-primary w-full"
+              />
+            </Label>
+          )}
+          {s.tone === "pattern" && !device &&<p className="text-muted-foreground text-xs">The pattern is the theme&apos;s: pick an SVG for every page.</p>}
         </PopoverContent>
       </Popover>
       <AssetPicker

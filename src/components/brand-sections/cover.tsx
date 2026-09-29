@@ -43,6 +43,13 @@ const ALIGN: Record<NonNullable<Props["align"]>, string> = {
   end: "items-end text-end",
 };
 
+/** The title on the theme's h1, held to the cover's width so a long name never overflows. */
+const TITLE: Record<NonNullable<Props["titleSize"]>, string> = {
+  medium: "text-[length:min(calc(var(--brand-h1)*0.75),8cqi)]",
+  large: "text-[length:min(var(--brand-h1),10cqi)]",
+  huge: "text-[length:min(calc(var(--brand-h1)*1.6),16cqi)]",
+};
+
 /** What a picture says to someone who can't see it. */
 const altOf = (m: Media) => m.title ?? m.description ?? m.filename;
 
@@ -65,7 +72,7 @@ export function CoverSection({ section: s }: SectionProps) {
   const home = view.page?.home ?? true;
   const mark = p.mark === "always" || (p.mark !== "never" && home);
   const heading = home ? view.brand.name : (view.page?.title ?? view.brand.name);
-  const big = "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] break-words";
+  const big = cn(TITLE[p.titleSize ?? "large"], "leading-[1.1] break-words");
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
 
@@ -96,7 +103,7 @@ export function CoverSection({ section: s }: SectionProps) {
       {(still || video) && <div aria-hidden className="absolute inset-0 -z-10 bg-black" style={{ opacity: scrim }} />}
 
       <div className={cn("mx-auto flex w-full flex-col gap-8 px-6 py-16 @3xl:px-10 @3xl:py-24", WIDTH[s.width], ALIGN[p.align ?? "start"])}>
-        {mark && <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} />}
+        {mark && <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
         <div className="space-y-4">
           <Eyebrow />
           {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{heading}</H>}

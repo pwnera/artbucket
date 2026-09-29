@@ -179,6 +179,8 @@ test("renameKey: all three places, null when nothing bound it, and never a key t
   assert.deepEqual(got[0].background, { color: "color.new" });
   assert.equal(got[1], sections[1]);
   assert.equal(renameKey(sections, "color.gone", "color.x"), null);
+  const fade = stored({ id: "c", template: "text", tone: "color", background: { color: "color.a", to: "color.old" } });
+  assert.deepEqual(renameKey([fade], "color.old", "color.new")![0].background, { color: "color.a", to: "color.new" });
 });
 
 test("assetRefs: every asset a page names, with its path", () => {
@@ -235,6 +237,11 @@ test("checkSection: grounds need their parameter, items go where the template li
   assert.deepEqual(check({ template: "text", tone: "image" }), ["sections[0].background.image: tone image needs a picture"]);
   assert.deepEqual(check({ template: "text", tone: "dark", background: { scrim: 0.3 } }), ["sections[0].background.scrim: only for tone image"]);
   assert.deepEqual(check({ template: "text", tone: "image", background: { image: A, scrim: 0.3 } }), []);
+  assert.deepEqual(check({ template: "text", tone: "color", background: { color: "color.a", to: "color.b", angle: 90 } }), []);
+  assert.deepEqual(check({ template: "text", tone: "dark", background: { to: "color.b" } }), ["sections[0].background.to: only for tone color"]);
+  assert.deepEqual(check({ template: "text", tone: "color", background: { color: "color.a", angle: 90 } }), [
+    "sections[0].background.angle: only with background.to, the color it fades into",
+  ]);
   assert.deepEqual(check({ template: "palette", items: [{ title: "x" }] }), ["sections[0].items: a Color palette section takes no items"]);
   assert.deepEqual(check({ template: "gallery", items: [{ asset: A, verdict: "do" }, { title: "no picture" }] }), [
     "sections[0].items[0].verdict: only do/don't and logos items take a verdict",

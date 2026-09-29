@@ -51,6 +51,7 @@ export function useGround({ tone, background }: Pick<Section, "tone" | "backgrou
     if (g.background === null) return {};
     const style: Record<string, string> = { ...g.vars, backgroundColor: g.background, color: g.vars["--brand-ink"] };
     if (g.rule) style.borderBlockStart = `2px solid ${g.rule}`;
+    if (g.gradient) style.backgroundImage = g.gradient;
     if (g.scrim !== undefined && image?.preview) {
       const scrim = `rgb(0 0 0 / ${g.scrim})`;
       style.backgroundImage = `linear-gradient(${scrim}, ${scrim}), url(${JSON.stringify(url(image.id, "/w_2400,f_webp"))})`;

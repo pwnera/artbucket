@@ -251,6 +251,7 @@ test("every ground meets 4.5 for text and 3 for marks, and is dark when its text
     const sections: Parameters<typeof sectionGround>[1][] = [
       ...TONES.map((tone) => ({ tone })),
       { tone: "color", background: { color: "color.secondary" } },
+      { tone: "color", background: { color: "color.secondary", to: "color.primary" } },
       { tone: "color", background: { color: "color.gone" } },
       { tone: "image", background: { image: "x", scrim: 0 } },
     ];
@@ -291,6 +292,15 @@ test("grounds: tones take the theme's colors, a pair when it reads, and a hairli
   const blue = g({ tone: "color", background: { color: "color.secondary" } });
   assert.deepEqual([blue.background, blue.vars["--brand-ink"], blue.dark], ["#265787", "#ffffff", true]);
   assert.deepEqual(g({ tone: "color", background: { color: "color.gone" } }).background, t.accent, "a gone color: the brand ground");
+  // A fade: its ink reads on both ends, so on everything between them.
+  // Blender blue into its orange: no ink reads on both, so the orange end darkens until white does.
+  const fade = g({ tone: "color", background: { color: "color.secondary", to: "color.primary", angle: 90 } });
+  const [, from, into] = fade.gradient!.match(/^linear-gradient\(90deg, (#\w+), (#\w+)\)$/)!;
+  assert.equal(from, "#265787");
+  assert.notEqual(into, (colorOf("color.primary")!.value as string).toLowerCase());
+  for (const end of [from, into]) assert.ok(contrast(fade.vars["--brand-ink"], end) >= 4.5, end);
+  assert.ok(fade.checks.some((c) => c.pair === "fade end under text" && !c.ok), "the darkened end shows as a contrast note");
+  assert.equal(g({ tone: "color", background: { color: "color.secondary", to: "color.gone" } }).gradient, undefined, "a gone second color: no fade");
   assert.equal(g({ tone: "image", background: { image: "x", scrim: 0.8 } }).scrim, 0.8);
   assert.equal(g({ tone: "image", background: { image: "x" } }).scrim, 0.54, "raised until white reads on any picture");
 

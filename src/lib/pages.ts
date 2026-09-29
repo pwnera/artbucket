@@ -455,7 +455,7 @@ export const Item = z.strictObject({
   title: z.string().trim().max(200).optional(),
   text: z.string().trim().max(4000).optional().describe("Markdown"),
   verdict: z.enum(["do", "dont"]).optional().describe("A do (green) or a don't (red)"),
-  caption: z.string().trim().max(500).optional().describe("Under the media; the asset's description when left out"),
+  caption: z.string().trim().max(500).optional().describe("The asset's description when left out"),
   link: siteLink.optional(),
   label: z.string().trim().max(40).optional().describe("A small tag: Figma, PDF, Partners only"),
   // Checked like a page's icon, but advertised as a string: the tool schemas list the icons once, on the page.
@@ -464,7 +464,7 @@ export const Item = z.strictObject({
     .refine((v) => (COLLECTION_ICONS as readonly string[]).includes(v), "One of the icons a page takes")
     .optional()
     .describe("One of the icons a page takes"),
-  download: z.boolean().optional().describe("false: for reference, never offered as a download"),
+  download: z.boolean().optional().describe("false: never offered as a download"),
   span: z.number().int().min(1).max(2).optional().describe("gallery bento: 2 takes two cells"),
   at: z.tuple([pct, pct]).optional().describe("annotated: [x, y], % from the top left"),
   level: z.number().int().min(0).max(2).optional().describe("cards tree: 0 at the top"),
@@ -506,7 +506,7 @@ export const fillSlots = (template: string, values: Record<string, string>) => t
 
 /** Each template's own settings. Strict: a misspelled one is an error, not ignored. */
 /** Logos' and icons' size: said once, it goes into the page tools' schemas once. */
-const SIZE = "How big each is drawn in its tile";
+const SIZE = "In its tile";
 
 /** A live section's source (collection, icons): the library, narrowed. */
 const LIVE = {
@@ -516,25 +516,28 @@ const LIVE = {
     .string()
     .max(2000)
     .optional()
-    .describe("Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search"),
+    .describe("A library query string: q=poster&type=image&tag=campaign"),
   sort: z.enum(["newest", "oldest", "name"]).optional(),
   limit: z.number().int().min(1).max(200).optional(),
-  downloads: z.boolean().optional().describe("Offer downloads; true when left out"),
+  downloads: z.boolean().optional().describe("true when left out"),
 };
 
 export const TEMPLATE_PROPS = {
   cover: z.strictObject({
-    image: image.describe("A background image instead of the brand color"),
+    image: image.describe("In place of the brand color"),
     video: z.uuid().optional().describe("A muted loop over the image, its poster"),
     align: z.enum(["start", "center", "end"]).optional(),
     height: z.enum(["auto", "tall", "screen"]).optional(),
-    strip: z.boolean().optional().describe("The palette as a strip; true when left out"),
+    strip: z.boolean().optional().describe("true when left out"),
     mark: z.enum(["home", "always", "never"]).optional().describe("Logo above the title"),
+    markFrame: z.enum(["tile", "bare"]).optional(),
+    markSize: z.enum(["small", "medium", "large"]).optional(),
+    titleSize: z.enum(["medium", "large", "huge"]).optional(),
   }),
-  header: z.strictObject({ image: image.describe("A picture in the band") }),
+  header: z.strictObject({ image: image.describe("In the band") }),
   text: z.strictObject({}),
   split: z.strictObject({
-    image: image.describe("Shown beside the words; else the first bound rule's picture"),
+    image: image.describe("Beside the words; else the first rule's picture"),
     flip: z.boolean().optional().describe("Image on the left"),
     ratio: z.enum(["even", "words", "picture"]).optional().describe("The wider side"),
     align: z.enum(["start", "center"]).optional(),
@@ -577,7 +580,7 @@ export const TEMPLATE_PROPS = {
       search: LIVE.search,
       query: LIVE.query,
       sort: LIVE.sort,
-      limit: LIVE.limit.describe("At most this many; 24 when left out"),
+      limit: LIVE.limit.describe("24 when left out"),
       layout: z.enum(["grid", "masonry", "list"]).optional(),
       downloads: LIVE.downloads,
     })
@@ -596,9 +599,9 @@ export const TEMPLATE_PROPS = {
     .refine((p) => !(p.collection && p.search), "A collection or a saved search, not both"),
   links: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
   pages: z.strictObject({
-    from: pageSlug.optional().describe("The page whose children it shows; this page when left out"),
+    from: pageSlug.optional().describe("Whose children; this page when left out"),
     layout: z.enum(["cards", "list"]).optional(),
-    depth: z.number().int().min(1).max(3).optional().describe("How many levels a list goes down: a table of contents"),
+    depth: z.number().int().min(1).max(3).optional().describe("Levels down"),
   }),
   diagram: z.strictObject({
     kind: z.enum(DIAGRAMS).optional().describe("clearspace when left out"),
@@ -607,7 +610,7 @@ export const TEMPLATE_PROPS = {
     separator: z.enum(["line", "x", "none"]).optional().describe("cobrand: line when left out"),
   }),
   // collection's limit, so the prop keeps one kind (mergedProps); checkSection holds it to 20 here.
-  updates: z.strictObject({ limit: z.number().int().min(1).max(200).optional().describe("How many publishes; 5 when left out, 20 at most") }),
+  updates: z.strictObject({ limit: z.number().int().min(1).max(200).optional().describe("5 when left out, 20 at most") }),
   annotated: z.strictObject({ image: z.uuid().optional() }),
   specs: z.strictObject({}),
   specimen: z.strictObject({ kind: z.enum(["spacing", "radius", "shadow", "motion", "grid"]).optional() }),
@@ -639,8 +642,10 @@ export const TEMPLATE_PROPS = {
 
 const Background = z.strictObject({
   color: ruleKey.optional().describe("tone color: the color rule it is set on"),
+  to: ruleKey.optional().describe("tone color: a color rule to fade into"),
+  angle: z.number().int().min(0).max(359).optional().describe("With to: degrees, 180 when left out"),
   image: z.uuid().optional().describe("tone image: the picture"),
-  scrim: z.number().min(0).max(0.9).optional().describe("tone image: how much to darken it; 0.45 when left out"),
+  scrim: z.number().min(0).max(0.9).optional().describe("tone image: darkening, 0.45 when left out"),
 });
 
 /** A section's words, bounded once for the section and for its translations. */
@@ -668,31 +673,31 @@ const base = {
   id: sectionId.optional().describe("Kept across edits; made up when left out"),
   title: TEXT.title.optional(),
   body: TEXT.body.optional().describe("Markdown (GFM), shown under the title"),
-  width: z.enum(WIDTHS).optional().describe("text (a reading column), wide, or full bleed; the template's default when left out"),
+  width: z.enum(WIDTHS).optional().describe("text: a reading column; the template's when left out"),
   columns: z.number().int().min(1).max(4).optional(),
   tone: z
     .enum(TONES)
     .optional()
-    .describe("The ground. panel: the second surface; color and image: set in background; pattern: the theme's device"),
+    .describe("panel: the second surface; color and image: set in background; pattern: the theme's device"),
   hidden: z.boolean().optional().describe("Kept, but not shown to readers"),
   keys: z.array(ruleKey).max(100).refine(unique, "Each key once").optional().describe("The rules it shows, by key, in order"),
-  eyebrow: TEXT.eyebrow.optional().describe("A small line above the title: a number, a chapter"),
-  lede: TEXT.lede.optional().describe("A line or two under the title, set large; plain text"),
+  eyebrow: TEXT.eyebrow.optional().describe("Above the title: a number, a chapter"),
+  lede: TEXT.lede.optional().describe("Under the title, set large; plain text"),
   aside: TEXT.aside.optional().describe("Markdown in a ruled column beside the body"),
   tab: z.string().trim().min(1).max(40).optional().describe("Sections sharing a tab name show under one tab"),
   space: z.enum(["tight", "loose"]).optional().describe("Room above it"),
   background: Background.optional().describe("For tone color and tone image"),
   items: z.array(Item).max(MAX_ITEMS).optional().describe("What the template lists; list_templates says which take items"),
-  audience: z.enum(AUDIENCES).optional().describe("On portals: everyone let in, partners (by a password or an approved request) or members"),
+  audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   contexts: z
     .array(ruleContext)
     .min(2)
     .max(8)
     .refine(unique, "Each context once")
     .optional()
-    .describe('A tab per context, rules resolved for each: ["default", "dark-background"]; default: no context'),
+    .describe('A tab per context: ["default", "dark-background"]; default: no context'),
   only: ruleContext.optional().describe("Shown only in this context"),
-  translations: z.record(LANG, SectionText).optional().describe("Its words by language tag; what is left out falls back"),
+  translations: z.record(LANG, SectionText).optional().describe("By language tag; what is left out falls back"),
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
@@ -826,7 +831,7 @@ const PageMeta = {
   icon: z.enum(COLLECTION_ICONS).nullable().optional(),
   audience: z.enum(AUDIENCES).optional().describe("On portals: who may read it"),
   tabs: z.boolean().optional().describe("Its child pages as tabs across its top"),
-  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out"),
+  layout: z.enum(PAGE_LAYOUTS).optional().describe("landing: no nav or pager, for a home or campaign; book when left out"),
   translations: z.record(LANG, PageText).nullable().optional().describe("Its words by language tag"),
 };
 
@@ -847,7 +852,7 @@ export const PageOp = z.discriminatedUnion("op", [
   z.strictObject({
     op: z.literal("add"),
     section: SectionWire,
-    after: sectionRef.nullable().optional().describe("Add it after this section; null for the top; the end when left out"),
+    after: sectionRef.nullable().optional().describe("null for the top; the end when left out"),
   }),
   z.strictObject({
     op: z.literal("update"),
@@ -993,6 +998,8 @@ export function checkSection(s: Section, at: string): string[] {
   const errors: string[] = [];
   if (s.tone === "color" && !bg.color) errors.push(`${at}.background.color: tone color needs the color rule it is set on`);
   if (s.tone !== "color" && bg.color) errors.push(`${at}.background.color: only for tone color`);
+  if (s.tone !== "color" && bg.to) errors.push(`${at}.background.to: only for tone color`);
+  if (!bg.to && bg.angle !== undefined) errors.push(`${at}.background.angle: only with background.to, the color it fades into`);
   if (s.tone === "image" && !bg.image) errors.push(`${at}.background.image: tone image needs a picture`);
   if (s.tone !== "image" && (bg.image || bg.scrim !== undefined)) errors.push(`${at}.background.${bg.image ? "image" : "scrim"}: only for tone image`);
   if (s.contexts && !info.accepts) errors.push(`${at}.contexts: ${an(info.name)} section binds no rules, so it has no contexts to show`);
@@ -1026,16 +1033,17 @@ export function checkSection(s: Section, at: string): string[] {
 
 // ---- what sections point at -------------------------------------------------
 
-/** Every key a section binds, with where: its keys, its items' keys, its background color. */
+/** Every key a section binds, with where: its keys, its items' keys, its background colors. */
 function bindings(s: Section): { key: string; at: string }[] {
   return [
     ...s.keys.map((key, j) => ({ key, at: `keys[${j}]` })),
     ...(s.items ?? []).flatMap((it, k) => (it.key ? [{ key: it.key, at: `items[${k}].key` }] : [])),
     ...(s.background?.color ? [{ key: s.background.color, at: "background.color" }] : []),
+    ...(s.background?.to ? [{ key: s.background.to, at: "background.to" }] : []),
   ];
 }
 
-/** The keys a section binds: keys, then items' keys, then the background color; each once, in order. */
+/** The keys a section binds: keys, then items' keys, then the background colors; each once, in order. */
 export const boundKeys = (s: Section): string[] => [...new Set(bindings(s).map((b) => b.key))];
 
 /** A rule's key changed: sections show it under its new name, in all three places. Null when no section bound it. */
@@ -1048,7 +1056,9 @@ export function renameKey(sections: Section[], from: string, to: string): Sectio
       // A key the page kept after its rule went could already be `to`; a section binds each key once.
       keys: [...new Set(s.keys.map((k) => (k === from ? to : k)))],
       ...(s.items && { items: s.items.map((it) => (it.key === from ? { ...it, key: to } : it)) }),
-      ...(s.background?.color === from && { background: { ...s.background, color: to } }),
+      ...((s.background?.color === from || s.background?.to === from) && {
+        background: { ...s.background, ...(s.background.color === from && { color: to }), ...(s.background.to === from && { to }) },
+      }),
     };
   });
 }
@@ -1116,8 +1126,8 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
           const near = [...byKey.keys()].filter((x) => section(x) === section(k));
           errors.push(`${prefix}[${i}].${at}: no rule "${k}"${near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
         }
-      } else if (at === "background.color" || (s.template === "logos" && at.startsWith("items["))) {
-        const what = at === "background.color" ? "a background" : "a logos item's key";
+      } else if (at.startsWith("background.") || (s.template === "logos" && at.startsWith("items["))) {
+        const what = at.startsWith("background.") ? "a background" : "a logos item's key";
         if (r.type !== "color") errors.push(`${prefix}[${i}].${at}: ${what} is a color rule; ${k} is ${TYPE_WORD[r.type]}`);
       } else if (at.startsWith("keys[") && info.accepts && !info.accepts(r)) {
         errors.push(
@@ -1282,7 +1292,7 @@ export function designWarnings(sections: Section[]): { at: number | null; text: 
   if (covers.length > 1) out.push({ at: covers[1].at, text: "a second cover; a page opens once, so open its parts with a header section" });
   shown.forEach(({ s, at }, n) => {
     const prev = shown[n - 1]?.s;
-    const same = prev && s.tone === prev.tone && (s.tone !== "color" || s.background?.color === prev.background?.color);
+    const same = prev && s.tone === prev.tone && (s.tone !== "color" || (s.background?.color === prev.background?.color && s.background?.to === prev.background?.to));
     if (same && BLOCKS.includes(s.tone) && !s.tab && !prev.tab) out.push({ at, text: `a second ${s.tone} ground in a row runs into the one before; make one of them plain` });
     const title = s.title ?? "";
     if (title.length > 24 && /\p{Lu}/u.test(title) && title === title.toUpperCase())

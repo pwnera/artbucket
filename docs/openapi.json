@@ -16549,6 +16549,12 @@
                                             "color": {
                                               "type": "string"
                                             },
+                                            "to": {
+                                              "type": "string"
+                                            },
+                                            "angle": {
+                                              "type": "number"
+                                            },
                                             "image": {
                                               "type": "string",
                                               "format": "uuid",
@@ -18123,6 +18129,12 @@
                                       "color": {
                                         "type": "string"
                                       },
+                                      "to": {
+                                        "type": "string"
+                                      },
+                                      "angle": {
+                                        "type": "number"
+                                      },
                                       "image": {
                                         "type": "string",
                                         "format": "uuid",
@@ -18624,7 +18636,7 @@
                           "maxLength": 20000
                         },
                         "width": {
-                          "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+                          "description": "text: a reading column; the template's when left out",
                           "type": "string",
                           "enum": [
                             "text",
@@ -18638,7 +18650,7 @@
                           "maximum": 4
                         },
                         "tone": {
-                          "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+                          "description": "panel: the second surface; color and image: set in background; pattern: the theme's device",
                           "type": "string",
                           "enum": [
                             "plain",
@@ -18666,12 +18678,12 @@
                           }
                         },
                         "eyebrow": {
-                          "description": "A small line above the title: a number, a chapter",
+                          "description": "Above the title: a number, a chapter",
                           "type": "string",
                           "maxLength": 120
                         },
                         "lede": {
-                          "description": "A line or two under the title, set large; plain text",
+                          "description": "Under the title, set large; plain text",
                           "type": "string",
                           "maxLength": 1000
                         },
@@ -18704,6 +18716,18 @@
                               "maxLength": 120,
                               "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
                             },
+                            "to": {
+                              "description": "tone color: a color rule to fade into",
+                              "type": "string",
+                              "maxLength": 120,
+                              "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                            },
+                            "angle": {
+                              "description": "With to: degrees, 180 when left out",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 359
+                            },
                             "image": {
                               "description": "tone image: the picture",
                               "type": "string",
@@ -18711,7 +18735,7 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "scrim": {
-                              "description": "tone image: how much to darken it; 0.45 when left out",
+                              "description": "tone image: darkening, 0.45 when left out",
                               "type": "number",
                               "minimum": 0,
                               "maximum": 0.9
@@ -18756,7 +18780,7 @@
                                 ]
                               },
                               "caption": {
-                                "description": "Under the media; the asset's description when left out",
+                                "description": "The asset's description when left out",
                                 "type": "string",
                                 "maxLength": 500
                               },
@@ -18775,7 +18799,7 @@
                                 "type": "string"
                               },
                               "download": {
-                                "description": "false: for reference, never offered as a download",
+                                "description": "false: never offered as a download",
                                 "type": "boolean"
                               },
                               "span": {
@@ -18814,7 +18838,7 @@
                           }
                         },
                         "audience": {
-                          "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+                          "description": "On portals: who may read it",
                           "type": "string",
                           "enum": [
                             "everyone",
@@ -18823,7 +18847,7 @@
                           ]
                         },
                         "contexts": {
-                          "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+                          "description": "A tab per context: [\"default\", \"dark-background\"]; default: no context",
                           "minItems": 2,
                           "maxItems": 8,
                           "type": "array",
@@ -18840,7 +18864,7 @@
                           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                         },
                         "translations": {
-                          "description": "Its words by language tag; what is left out falls back",
+                          "description": "By language tag; what is left out falls back",
                           "type": "object",
                           "propertyNames": {
                             "type": "string",
@@ -18937,7 +18961,7 @@
                           "type": "object",
                           "properties": {
                             "image": {
-                              "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                              "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -18967,7 +18991,7 @@
                               ]
                             },
                             "strip": {
-                              "description": "cover: The palette as a strip; true when left out",
+                              "description": "cover: true when left out",
                               "type": "boolean"
                             },
                             "mark": {
@@ -18977,6 +19001,32 @@
                                 "home",
                                 "always",
                                 "never"
+                              ]
+                            },
+                            "markFrame": {
+                              "description": "cover",
+                              "type": "string",
+                              "enum": [
+                                "tile",
+                                "bare"
+                              ]
+                            },
+                            "markSize": {
+                              "description": "cover",
+                              "type": "string",
+                              "enum": [
+                                "small",
+                                "medium",
+                                "large"
+                              ]
+                            },
+                            "titleSize": {
+                              "description": "cover",
+                              "type": "string",
+                              "enum": [
+                                "medium",
+                                "large",
+                                "huge"
                               ]
                             },
                             "flip": {
@@ -19113,7 +19163,7 @@
                               "type": "boolean"
                             },
                             "size": {
-                              "description": "logos, icons: How big each is drawn in its tile",
+                              "description": "logos, icons: In its tile",
                               "type": "string",
                               "enum": [
                                 "medium",
@@ -19143,7 +19193,7 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "query": {
-                              "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
+                              "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
                               "type": "string",
                               "maxLength": 2000
                             },
@@ -19157,23 +19207,23 @@
                               ]
                             },
                             "limit": {
-                              "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
+                              "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                               "type": "integer",
                               "minimum": 1,
                               "maximum": 200
                             },
                             "downloads": {
-                              "description": "collection, icons: Offer downloads; true when left out",
+                              "description": "collection, icons: true when left out",
                               "type": "boolean"
                             },
                             "from": {
-                              "description": "pages: The page whose children it shows; this page when left out",
+                              "description": "pages: Whose children; this page when left out",
                               "type": "string",
                               "maxLength": 60,
                               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                             },
                             "depth": {
-                              "description": "pages: How many levels a list goes down: a table of contents",
+                              "description": "pages: Levels down",
                               "type": "integer",
                               "minimum": 1,
                               "maximum": 3
@@ -19405,7 +19455,7 @@
                     "type": "boolean"
                   },
                   "layout": {
-                    "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+                    "description": "landing: no nav or pager, for a home or campaign; book when left out",
                     "type": "string",
                     "enum": [
                       "book",
@@ -19664,6 +19714,12 @@
                                     "properties": {
                                       "color": {
                                         "type": "string"
+                                      },
+                                      "to": {
+                                        "type": "string"
+                                      },
+                                      "angle": {
+                                        "type": "number"
                                       },
                                       "image": {
                                         "type": "string",
@@ -20081,6 +20137,12 @@
                                       "color": {
                                         "type": "string"
                                       },
+                                      "to": {
+                                        "type": "string"
+                                      },
+                                      "angle": {
+                                        "type": "number"
+                                      },
                                       "image": {
                                         "type": "string",
                                         "format": "uuid",
@@ -20366,7 +20428,7 @@
                                   "maxLength": 20000
                                 },
                                 "width": {
-                                  "description": "text (a reading column), wide, or full bleed; the template's default when left out",
+                                  "description": "text: a reading column; the template's when left out",
                                   "type": "string",
                                   "enum": [
                                     "text",
@@ -20380,7 +20442,7 @@
                                   "maximum": 4
                                 },
                                 "tone": {
-                                  "description": "The ground. panel: the second surface; color and image: set in background; pattern: the theme's device",
+                                  "description": "panel: the second surface; color and image: set in background; pattern: the theme's device",
                                   "type": "string",
                                   "enum": [
                                     "plain",
@@ -20408,12 +20470,12 @@
                                   }
                                 },
                                 "eyebrow": {
-                                  "description": "A small line above the title: a number, a chapter",
+                                  "description": "Above the title: a number, a chapter",
                                   "type": "string",
                                   "maxLength": 120
                                 },
                                 "lede": {
-                                  "description": "A line or two under the title, set large; plain text",
+                                  "description": "Under the title, set large; plain text",
                                   "type": "string",
                                   "maxLength": 1000
                                 },
@@ -20446,6 +20508,18 @@
                                       "maxLength": 120,
                                       "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
                                     },
+                                    "to": {
+                                      "description": "tone color: a color rule to fade into",
+                                      "type": "string",
+                                      "maxLength": 120,
+                                      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+                                    },
+                                    "angle": {
+                                      "description": "With to: degrees, 180 when left out",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 359
+                                    },
                                     "image": {
                                       "description": "tone image: the picture",
                                       "type": "string",
@@ -20453,7 +20527,7 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "scrim": {
-                                      "description": "tone image: how much to darken it; 0.45 when left out",
+                                      "description": "tone image: darkening, 0.45 when left out",
                                       "type": "number",
                                       "minimum": 0,
                                       "maximum": 0.9
@@ -20498,7 +20572,7 @@
                                         ]
                                       },
                                       "caption": {
-                                        "description": "Under the media; the asset's description when left out",
+                                        "description": "The asset's description when left out",
                                         "type": "string",
                                         "maxLength": 500
                                       },
@@ -20517,7 +20591,7 @@
                                         "type": "string"
                                       },
                                       "download": {
-                                        "description": "false: for reference, never offered as a download",
+                                        "description": "false: never offered as a download",
                                         "type": "boolean"
                                       },
                                       "span": {
@@ -20556,7 +20630,7 @@
                                   }
                                 },
                                 "audience": {
-                                  "description": "On portals: everyone let in, partners (by a password or an approved request) or members",
+                                  "description": "On portals: who may read it",
                                   "type": "string",
                                   "enum": [
                                     "everyone",
@@ -20565,7 +20639,7 @@
                                   ]
                                 },
                                 "contexts": {
-                                  "description": "A tab per context, rules resolved for each: [\"default\", \"dark-background\"]; default: no context",
+                                  "description": "A tab per context: [\"default\", \"dark-background\"]; default: no context",
                                   "minItems": 2,
                                   "maxItems": 8,
                                   "type": "array",
@@ -20582,7 +20656,7 @@
                                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                                 },
                                 "translations": {
-                                  "description": "Its words by language tag; what is left out falls back",
+                                  "description": "By language tag; what is left out falls back",
                                   "type": "object",
                                   "propertyNames": {
                                     "type": "string",
@@ -20679,7 +20753,7 @@
                                   "type": "object",
                                   "properties": {
                                     "image": {
-                                      "description": "cover: A background image instead of the brand color; header: A picture in the band; split: Shown beside the words; else the first bound rule's picture; annotated",
+                                      "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -20709,7 +20783,7 @@
                                       ]
                                     },
                                     "strip": {
-                                      "description": "cover: The palette as a strip; true when left out",
+                                      "description": "cover: true when left out",
                                       "type": "boolean"
                                     },
                                     "mark": {
@@ -20719,6 +20793,32 @@
                                         "home",
                                         "always",
                                         "never"
+                                      ]
+                                    },
+                                    "markFrame": {
+                                      "description": "cover",
+                                      "type": "string",
+                                      "enum": [
+                                        "tile",
+                                        "bare"
+                                      ]
+                                    },
+                                    "markSize": {
+                                      "description": "cover",
+                                      "type": "string",
+                                      "enum": [
+                                        "small",
+                                        "medium",
+                                        "large"
+                                      ]
+                                    },
+                                    "titleSize": {
+                                      "description": "cover",
+                                      "type": "string",
+                                      "enum": [
+                                        "medium",
+                                        "large",
+                                        "huge"
                                       ]
                                     },
                                     "flip": {
@@ -20855,7 +20955,7 @@
                                       "type": "boolean"
                                     },
                                     "size": {
-                                      "description": "logos, icons: How big each is drawn in its tile",
+                                      "description": "logos, icons: In its tile",
                                       "type": "string",
                                       "enum": [
                                         "medium",
@@ -20885,7 +20985,7 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "query": {
-                                      "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
+                                      "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
                                       "type": "string",
                                       "maxLength": 2000
                                     },
@@ -20899,23 +20999,23 @@
                                       ]
                                     },
                                     "limit": {
-                                      "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
+                                      "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                                       "type": "integer",
                                       "minimum": 1,
                                       "maximum": 200
                                     },
                                     "downloads": {
-                                      "description": "collection, icons: Offer downloads; true when left out",
+                                      "description": "collection, icons: true when left out",
                                       "type": "boolean"
                                     },
                                     "from": {
-                                      "description": "pages: The page whose children it shows; this page when left out",
+                                      "description": "pages: Whose children; this page when left out",
                                       "type": "string",
                                       "maxLength": 60,
                                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                                     },
                                     "depth": {
-                                      "description": "pages: How many levels a list goes down: a table of contents",
+                                      "description": "pages: Levels down",
                                       "type": "integer",
                                       "minimum": 1,
                                       "maximum": 3
@@ -21052,7 +21152,7 @@
                               "additionalProperties": false
                             },
                             "after": {
-                              "description": "Add it after this section; null for the top; the end when left out",
+                              "description": "null for the top; the end when left out",
                               "type": [
                                 "string",
                                 "null"
@@ -21256,7 +21356,7 @@
                                   "type": "boolean"
                                 },
                                 "layout": {
-                                  "description": "landing: no nav column, on-this-page or pager, for a home or campaign page; book when left out",
+                                  "description": "landing: no nav or pager, for a home or campaign; book when left out",
                                   "type": "string",
                                   "enum": [
                                     "book",
@@ -21525,6 +21625,12 @@
                                     "properties": {
                                       "color": {
                                         "type": "string"
+                                      },
+                                      "to": {
+                                        "type": "string"
+                                      },
+                                      "angle": {
+                                        "type": "number"
                                       },
                                       "image": {
                                         "type": "string",
@@ -24959,6 +25065,12 @@
                                         "properties": {
                                           "color": {
                                             "type": "string"
+                                          },
+                                          "to": {
+                                            "type": "string"
+                                          },
+                                          "angle": {
+                                            "type": "number"
                                           },
                                           "image": {
                                             "type": "string",
@@ -37380,6 +37492,12 @@
                                                 "properties": {
                                                   "color": {
                                                     "type": "string"
+                                                  },
+                                                  "to": {
+                                                    "type": "string"
+                                                  },
+                                                  "angle": {
+                                                    "type": "number"
                                                   },
                                                   "image": {
                                                     "type": "string",
