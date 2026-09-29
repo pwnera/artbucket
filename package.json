@@ -30,6 +30,7 @@
     "artbucket": "node --experimental-strip-types --no-warnings bin/artbucket.ts",
     "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts",
     "bench": "node --experimental-strip-types --no-warnings scripts/bench.ts",
+    "bench:brand": "node --experimental-strip-types --no-warnings --env-file-if-exists=.env scripts/bench-brand.ts",
     "eval:mcp": "node --experimental-strip-types --no-warnings --env-file-if-exists=.env scripts/mcp-eval.ts"
   },
   "dependencies": {
@@ -72,6 +73,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
