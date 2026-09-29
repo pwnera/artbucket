@@ -46,7 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { DEFAULT_PRESETS, PORTAL_PRESETS, PRESET_IDS, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
+import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 
 export type Portal = {
@@ -133,9 +133,10 @@ const upsert = (rows: Portal[], p: Portal) =>
  * Brand portals: a front door for people outside the team onto chosen
  * collections and brand guidelines, themed, with downloads made for a
  * purpose. Each from /api/v1/portals like any client's; `?open={id}` opens
- * one's requests.
+ * one's requests. `portalDomain`: the server's PORTAL_DOMAIN, where each
+ * portal answers at {slug}.{portalDomain} too.
  */
-export function Portals({ portals }: { portals: Portal[] }) {
+export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDomain?: string }) {
   const { collections, brands, openCollection } = useShell();
   const router = useRouter();
   const params = useSearchParams();
@@ -249,6 +250,7 @@ export function Portals({ portals }: { portals: Portal[] }) {
           collections={collections}
           brands={brands}
           showing={editing === "new" && freshBrand ? freshBrand : undefined}
+          portalDomain={portalDomain}
           onClose={() => {
             setEditing(null);
             // Off the address, or a reload would open it again.
@@ -480,6 +482,7 @@ function PortalDialog({
   collections,
   brands,
   showing,
+  portalDomain,
   onClose,
   onSaved,
   onDeleted,
@@ -489,6 +492,7 @@ function PortalDialog({
   brands: { slug: string; name: string }[];
   /** A new portal for this brand: it starts picked, and the portal named for it. */
   showing?: { slug: string; name: string };
+  portalDomain?: string;
   onClose: () => void;
   /** `said`: made or saved here, to toast; without, it changed elsewhere (a domain verified). */
   onSaved: (saved: Portal, said?: "made" | "saved") => void;
@@ -517,7 +521,32 @@ function PortalDialog({
   const dirty = JSON.stringify(f) !== JSON.stringify(start);
   const expiryChanged = f.expires !== start.expires;
   const ready = !!f.name.trim() && (f.picked.length > 0 || f.pickedBrands.length > 0);
-  const address = f.domain !== NO_DOMAIN ? `https://${f.domain}` : `${typeof window === "undefined" ? "" : window.location.origin}/p/${f.slug}`;
+  // With no domain of its own: {slug}.{portalDomain}, but for a members portal (sessions stay on the app's) or an old address refused there.
+  const sub = portalDomain && f.access !== "members" && !(f.slug === current?.slug && subdomainRefusal(f.slug)) ? portalDomain : null;
+  const here = typeof window === "undefined" ? null : window.location;
+  const address =
+    f.domain !== NO_DOMAIN
+      ? `https://${f.domain}`
+      : sub
+        ? `${here?.protocol ?? "https:"}//${f.slug}.${sub}${here?.port ? `:${here.port}` : ""}`
+        : `${here?.origin ?? ""}/p/${f.slug}`;
+  const byDefault = sub ? `${f.slug || "its-address"}.${sub}` : `/p/${f.slug || "its-address"}`;
+  // Whether a new address is free, asked as it is typed; the portal's own is.
+  const [check, setCheck] = useState<{ slug: string; reason: string | null } | null>(null);
+  useEffect(() => {
+    if (!PORTAL_SLUG.test(f.slug) || f.slug === current?.slug) return;
+    const ask = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/v1/portals/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }) })}`, { signal: ask.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((b) => b && setCheck({ slug: b.data.slug, reason: b.data.reason }), () => {});
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ask.abort();
+    };
+  }, [f.slug, current]);
+  const verdict = check && check.slug === f.slug && f.slug !== current?.slug ? check : null;
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
@@ -595,17 +624,29 @@ function PortalDialog({
           <div className="grid gap-2">
             <Label htmlFor={`${id}-slug`}>Address</Label>
             <div className="flex items-center gap-1">
-              <span className="text-muted-foreground text-sm">/p/</span>
+              {!sub && <span className="text-muted-foreground text-sm">/p/</span>}
               <Input
                 id={`${id}-slug`}
                 value={f.slug}
                 required
                 pattern="[a-z0-9](?:[a-z0-9\-]{0,46}[a-z0-9])?"
                 title="Lowercase letters, digits and dashes, not ending in a dash"
-                aria-describedby={`${id}-slug-hint`}
+                aria-describedby={`${id}-slug-hint ${id}-slug-check`}
+                aria-invalid={!!verdict?.reason || undefined}
                 onChange={(e) => (setSlugTouched(true), set({ slug: typedSlug(e.target.value) }))}
               />
+              {sub && <span className="text-muted-foreground shrink-0 text-sm">.{sub}</span>}
             </div>
+            <p id={`${id}-slug-check`} aria-live="polite" className="text-xs empty:hidden">
+              {verdict &&
+                (verdict.reason ? (
+                  <span className="text-destructive">{verdict.reason}</span>
+                ) : (
+                  <span className="text-success flex items-center gap-1.5">
+                    <IconCheck className="size-3.5" /> Available
+                  </span>
+                ))}
+            </p>
             <div id={`${id}-slug-hint`} className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs">
               {f.slug ? (
                 <>
@@ -787,7 +828,7 @@ function PortalDialog({
             </Fold>
             <Fold
               title="Domain"
-              summary={f.domain === NO_DOMAIN ? `/p/${f.slug || "its-address"}` : f.domain}
+              summary={f.domain === NO_DOMAIN ? byDefault : f.domain}
               open={!!current?.domain && !current.domain.verified}
             >
           <div className="grid gap-2">
@@ -797,7 +838,7 @@ function PortalDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_DOMAIN}>None: /p/{f.slug || "its-address"}</SelectItem>
+                <SelectItem value={NO_DOMAIN}>None: {byDefault}</SelectItem>
                 {current?.domain && !current.domain.verified && <SelectItem value={current.domain.host}>{current.domain.host} (not verified)</SelectItem>}
                 {hosts?.map((h) => (
                   <SelectItem key={h.host} value={h.host} disabled={!!h.portal && h.portal !== current?.slug}>

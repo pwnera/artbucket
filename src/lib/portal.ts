@@ -54,6 +54,30 @@ export function downloadsFor(asset: { id: string; filename: string; mime: string
 /** Lowercase letters, digits and dashes: the portal's address, /p/{slug}. */
 export const PORTAL_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
+/**
+ * Addresses kept back when portals answer at {slug}.PORTAL_DOMAIN too: names
+ * a visitor would read as the service's own, or its DNS may need.
+ */
+export const RESERVED_SLUGS = new Set([
+  "abuse", "account", "admin", "api", "app", "artbucket", "assets", "auth", "billing", "blog", "cdn", "dev", "docs",
+  "email", "ftp", "help", "hostmaster", "imap", "login", "mail", "mx", "ns1", "ns2", "pop", "postmaster", "root",
+  "security", "signin", "signup", "smtp", "staging", "static", "status", "support", "test", "webmaster", "www",
+]);
+
+/** Why a slug can't be a subdomain, or null when it can: reserved, or `ab--`, the shape of a look-alike (xn--, punycode). */
+export function subdomainRefusal(slug: string): string | null {
+  if (RESERVED_SLUGS.has(slug)) return `"${slug}" is kept for the service: pick another address`;
+  if (slug.slice(2, 4) === "--") return "An address can't have dashes as its third and fourth characters";
+  return null;
+}
+
+/** The portal slug a host names as a subdomain of `domain` (PORTAL_DOMAIN): one label, a portal's shape, not refused. */
+export function slugAtHost(host: string, domain: string | undefined) {
+  if (!domain || !host.endsWith(`.${domain}`)) return null;
+  const slug = host.slice(0, -domain.length - 1);
+  return PORTAL_SLUG.test(slug) && !subdomainRefusal(slug) ? slug : null;
+}
+
 export const PORTAL_ACCESS = ["public", "password", "members"] as const;
 export type PortalAccess = (typeof PORTAL_ACCESS)[number];
 

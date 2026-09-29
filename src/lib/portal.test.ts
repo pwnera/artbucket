@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { downloadsFor, hostname, PORTAL_SLUG, PortalSite } from "./portal.ts";
+import { downloadsFor, hostname, PORTAL_SLUG, PortalSite, slugAtHost, subdomainRefusal } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -35,6 +35,19 @@ test("host names: lowercased and bare, or refused", () => {
 test("slugs", () => {
   for (const ok of ["press", "partner-hub", "a", "2027"]) assert.ok(PORTAL_SLUG.test(ok), ok);
   for (const bad of ["-press", "press-", "Press", "a_b", ""]) assert.ok(!PORTAL_SLUG.test(bad), bad);
+});
+
+test("subdomains: one label under the portal domain, never a reserved name or a look-alike", () => {
+  const d = "artbucket.page";
+  assert.equal(slugAtHost("blender.artbucket.page", d), "blender");
+  assert.equal(slugAtHost("press-kit.artbucket.page", d), "press-kit");
+  for (const host of ["artbucket.page", "a.b.artbucket.page", "blender.artbucket.site", "blenderartbucket.page", "www.artbucket.page", "xn--pple-43d.artbucket.page", "-x.artbucket.page"]) {
+    assert.equal(slugAtHost(host, d), null, host);
+  }
+  assert.equal(slugAtHost("blender.artbucket.page", undefined), null);
+  assert.equal(subdomainRefusal("press"), null);
+  assert.match(subdomainRefusal("api")!, /kept/);
+  assert.match(subdomainRefusal("ab--c")!, /dashes/);
 });
 
 test("site: footer, quick grab, terms and listing; links go to the web, mail or a path, never a script", () => {

@@ -2,14 +2,14 @@ import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname, resolveTxt } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { domains, portals } from "@/lib/db/schema";
+import { domains, portals, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { can, needs } from "@/lib/permissions";
-import { challengeName, hostname } from "@/lib/portal";
+import { challengeName, hostname, slugAtHost } from "@/lib/portal";
 
 /**
  * Host names this server answers for besides APP_URL's: an organization's
@@ -19,6 +19,8 @@ import { challengeName, hostname } from "@/lib/portal";
  * at the server when it says where (DOMAIN_TARGET), before anything is served
  * at it or a TLS certificate asked for it (GET /api/v1/domains/check).
  * src/proxy.ts asks on every request to another host, so lookups are cached.
+ * With PORTAL_DOMAIN set, {slug}.PORTAL_DOMAIN serves that portal too, with
+ * nothing to claim: the server owns the domain.
  */
 
 const appHost = new URL(env.APP_URL).host.replace(/:\d+$/, "");
@@ -43,10 +45,21 @@ async function verified() {
   return hostCache.map;
 }
 
-/** What a verified host serves: its organization, and the portal when it is a portal's. */
+/** What a verified host serves: its organization, and the portal when it is a portal's, or the portal a subdomain of PORTAL_DOMAIN names. */
 export async function hostTarget(rawHost: string): Promise<Target | null> {
   const host = hostname(rawHost);
-  return host ? ((await verified()).get(host) ?? null) : null;
+  if (!host) return null;
+  const t = (await verified()).get(host);
+  if (t) return t;
+  const slug = slugAtHost(host, env.PORTAL_DOMAIN);
+  if (!slug) return null;
+  // Not cached: a portal made or renamed on another instance answers at once.
+  const [p] = await db
+    .select({ organizationId: workspaces.organizationId })
+    .from(portals)
+    .innerJoin(workspaces, eq(workspaces.id, portals.workspaceId))
+    .where(eq(portals.slug, slug));
+  return p ? { organizationId: p.organizationId, portal: slug, primary: false } : null;
 }
 
 /** The portal a verified host name serves, for the proxy; null for any other host. */
@@ -103,6 +116,10 @@ export async function claimable(raw: string) {
   const host = hostname(raw);
   if (!host) throw new AssetError("invalid", `Not a host name: "${raw}". Say assets.example.com`);
   if (host === appHost) throw new AssetError("invalid", "That is this server's own address");
+  const under = env.PORTAL_DOMAIN;
+  if (under && (host === under || host.endsWith(`.${under}`))) {
+    throw new AssetError("invalid", `${under} is this server's: every portal already answers at {address}.${under}`);
+  }
   const stale = and(eq(domains.host, host), isNull(domains.verifiedAt), lt(domains.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`));
   await db.delete(domains).where(stale);
   const [other] = await db.select().from(domains).where(eq(domains.host, host));

@@ -33,7 +33,7 @@ import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, PortalSite, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
+import { challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
@@ -79,9 +79,17 @@ async function domainOf(portalId: string) {
   return d ?? null;
 }
 
-/** Its own domain once verified; else /p/{slug}, on the organization's domain when it has one. */
-const urlOf = async (p: Pick<Row, "slug" | "workspaceId">, d: { host: string; verifiedAt: Date | null } | null) => {
-  if (d?.verifiedAt) return `${new URL(env.APP_URL).protocol}//${d.host}`;
+/**
+ * Its own domain once verified; else {slug}.PORTAL_DOMAIN when the server has
+ * one; else /p/{slug}, on the organization's domain when it has one. A members
+ * portal stays on the app's: sessions don't reach another domain.
+ */
+const urlOf = async (p: Pick<Row, "slug" | "workspaceId" | "access">, d: { host: string; verifiedAt: Date | null } | null) => {
+  const app = new URL(env.APP_URL);
+  if (d?.verifiedAt) return `${app.protocol}//${d.host}`;
+  if (env.PORTAL_DOMAIN && p.access !== "members" && !subdomainRefusal(p.slug)) {
+    return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
+  }
   const ws = await workspaceById(p.workspaceId);
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
 };
@@ -221,9 +229,26 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
   return next;
 }
 
+/** A new address: free, and with PORTAL_DOMAIN, one that may be a subdomain. One already held keeps working. */
 async function slugFree(slug: string, except?: string) {
+  const refused = env.PORTAL_DOMAIN && subdomainRefusal(slug);
+  if (refused) throw new AssetError("invalid", refused);
   const [taken] = await db.select({ id: portals.id }).from(portals).where(eq(portals.slug, slug));
-  if (taken && taken.id !== except) throw new AssetError("conflict", `/p/${slug} is taken: pick another address`);
+  if (taken && taken.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
+}
+
+/** GET /api/v1/portals/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
+export async function portalAddress(caller: Caller, slug: string, except?: string) {
+  mayManage(caller);
+  if (!PORTAL_SLUG.test(slug)) throw new AssetError("invalid", "An address is lowercase letters, digits and dashes, e.g. press-kit");
+  let reason: string | null = null;
+  try {
+    await slugFree(slug, except);
+  } catch (err) {
+    if (!(err instanceof AssetError)) throw err;
+    reason = err.message;
+  }
+  return { slug, available: !reason, reason, url: await urlOf({ slug, workspaceId: caller.workspace.id, access: "public" }, null) };
 }
 
 /** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
@@ -765,7 +790,7 @@ export async function portalUpdates(slug: string, pass: Pass, brandSlug?: string
 /** Where a brand is published: the portals showing it, for publish to name (1.10). */
 export async function portalsShowing(ws: string, brandId: string) {
   const rows = await db
-    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId })
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId, access: portals.access })
     .from(portalBrands)
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
     .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))

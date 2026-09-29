@@ -191,6 +191,27 @@ titled after the page and its brand, with the page's lede as the description
 and its cover as the preview image. A portal behind a password or for members
 is never listed.
 
+## A subdomain for every portal
+
+With `PORTAL_DOMAIN` set, say `portals.example.com`, every portal also
+answers at `{address}.portals.example.com`, with nothing to claim or prove:
+the server owns the domain. That is the address the app shows and copies,
+but for a **members** portal, which stays at `/p/{address}` (sessions belong
+to the app's own address), and a portal with a verified domain of its own.
+
+Renaming a portal moves it at once: the old subdomain stops answering, as
+the old `/p/` address does. While you type an address, the form says whether
+it is free (`GET /api/v1/portals/address?slug=...`). Some addresses are kept
+for the service, like `www`, `api` or `mail`, and so is any with dashes as its
+third and fourth characters (`xn--`, the shape of a look-alike name).
+
+It takes a wildcard DNS record, `*.portals.example.com`, pointing at the
+server, and a wildcard certificate, or on-demand TLS as below:
+`/api/v1/domains/check` answers `200` for a subdomain whose portal exists.
+On a domain of its own rather than a subdomain of the app's, a portal can't
+touch the app's cookies; list it on the [Public Suffix
+List](https://publicsuffix.org) too, so portals can't touch each other's.
+
 ## A domain of its own
 
 Domains are the organization's, added in Settings, Domains, like
