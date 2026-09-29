@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { chromium, type Browser } from "playwright-core";
+import type { Browser } from "playwright-core";
 import { db } from "@/lib/db";
 import { brandPages } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -24,8 +24,11 @@ const QUALITY = 80;
 // ponytail: one browser for the process, launched on first use and kept; a pool if previews queue up.
 let browser: Promise<Browser> | null = null;
 const launch = () => {
-  browser ??= chromium
-    .launch(env.CHROMIUM_PATH ? { executablePath: env.CHROMIUM_PATH, args: ["--no-sandbox", "--disable-dev-shm-usage"] } : { channel: "chrome" })
+  // Loaded on first use: lib/mcp.ts imports this file, and a broken playwright-core must fail a preview, not every tool.
+  browser ??= import("playwright-core")
+    .then(({ chromium }) =>
+      chromium.launch(env.CHROMIUM_PATH ? { executablePath: env.CHROMIUM_PATH, args: ["--no-sandbox", "--disable-dev-shm-usage"] } : { channel: "chrome" }),
+    )
     .then((b) => {
       b.on("disconnected", () => (browser = null));
       return b;
