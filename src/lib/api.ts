@@ -25,6 +25,7 @@ const STATUS: Record<AssetError["code"], number> = {
   limit_reached: 403,
   read_only: 403,
   rate_limited: 429,
+  unavailable: 503,
 };
 
 /** One place that turns thrown errors into the API's error shape. */

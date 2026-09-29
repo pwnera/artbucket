@@ -193,6 +193,13 @@ export const TOOL_INPUTS = {
 
   brand_playbook: z.object({}),
 
+  preview_page: z.object({
+    brand,
+    page,
+    width: z.enum(["desktop", "phone"]).optional().describe("desktop (1280px) when left out"),
+    context: z.string().max(64).optional().describe("Draw it in this context, e.g. dark-background"),
+  }),
+
   list_pages: z.object({ brand }),
 
   get_page: z.object({

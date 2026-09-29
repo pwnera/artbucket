@@ -3002,6 +3002,51 @@
         }
       }
     },
+    "/api/v1/brands/{slug}/pages/{page}/preview": {
+      "get": {
+        "summary": "A page as a picture",
+        "description": "The draft page as readers see it, drawn by the server's browser: a JPEG of the whole page, up to 10000px tall. `width` is desktop (1280px, the default) or phone (390px); `context` draws it in a context. 503 when the server has no browser (CHROMIUM_PATH). The MCP tool preview_page serves the same, as an image.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "The page, as image/jpeg (binary)"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/brand/tokens": {
       "get": {
         "summary": "Export the brand as design tokens",
@@ -42830,7 +42875,7 @@
     "/api/v1/mcp": {
       "post": {
         "summary": "MCP (Streamable HTTP, stateless)",
-        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, delete_brand, list_templates, brand_playbook, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
         "x-scope": "read",
         "requestBody": {
           "required": true,

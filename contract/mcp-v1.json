@@ -959,6 +959,38 @@
     "type": "object",
     "properties": {}
   },
+  "preview_page": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "Its slug, e.g. logo (list_pages)"
+      },
+      "width": {
+        "description": "desktop (1280px) when left out",
+        "type": "string",
+        "enum": [
+          "desktop",
+          "phone"
+        ]
+      },
+      "context": {
+        "description": "Draw it in this context, e.g. dark-background",
+        "type": "string",
+        "maxLength": 64
+      }
+    },
+    "required": [
+      "page"
+    ]
+  },
   "list_pages": {
     "type": "object",
     "properties": {

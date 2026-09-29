@@ -17,7 +17,9 @@ export class AssetError extends Error {
       /** The organization is read-only. */
       | "read_only"
       /** Too many tries: a share link's password. */
-      | "rate_limited",
+      | "rate_limited"
+      /** The server lacks what this needs (a browser to draw pages): a 503, not the caller's fault. */
+      | "unavailable",
     message: string,
     readonly detail?: unknown,
   ) {

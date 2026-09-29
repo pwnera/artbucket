@@ -47,6 +47,7 @@ import { allows } from "@/lib/scopes";
 import { normalizeTags } from "@/lib/search";
 import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
 import { PLAYBOOK } from "@/lib/playbook";
+import { printPage } from "@/lib/core/print";
 import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
@@ -448,6 +449,20 @@ const TOOLS: Record<ToolName, Tool> = {
     readOnly: true,
     input: TOOL_INPUTS.brand_playbook,
     run: async () => ({ markdown: PLAYBOOK }),
+  }),
+
+  preview_page: tool({
+    description:
+      "The page as readers see it now, as a picture (JPEG, the whole page, up to 10000px tall): look at your work " +
+      "the way a person would, after save_page or set_theme. `url` opens the same in the app. Needs the server's " +
+      "browser; without one it says so.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.preview_page,
+    run: async ({ brand, page, width, context }, caller) => {
+      const p = await printPage(caller, brand, page, { width, context });
+      return { image: { data: p.jpeg.toString("base64"), mimeType: "image/jpeg" }, width: p.width, height: p.height, bytes: p.jpeg.length, url: p.url };
+    },
   }),
 
   list_templates: tool({
@@ -1041,8 +1056,9 @@ const Message = z.object({
 const result = (id: Id, r: unknown) => ({ jsonrpc: "2.0", id, result: r });
 const error = (id: Id, code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-const toolResult = (data: Record<string, unknown>, isError = false) => ({
-  content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+/** A tool's answer as MCP content: its JSON, and a picture first when it drew one (preview_page). */
+const toolResult = ({ image, ...data }: Record<string, unknown> & { image?: { data: string; mimeType: string } }, isError = false) => ({
+  content: [...(image ? [{ type: "image", data: image.data, mimeType: image.mimeType }] : []), { type: "text", text: JSON.stringify(data, null, 2) }],
   ...(isError ? { isError } : { structuredContent: data }),
 });
 

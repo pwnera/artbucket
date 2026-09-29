@@ -182,6 +182,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The playbook", data(z.object({ markdown: z.string() }))],
         }),
       },
+      "/api/v1/brands/{slug}/pages/{page}/preview": {
+        get: op({
+          summary: "A page as a picture",
+          scope: "read",
+          description:
+            "The draft page as readers see it, drawn by the server's browser: a JPEG of the whole page, up to 10000px tall. " +
+            "`width` is desktop (1280px, the default) or phone (390px); `context` draws it in a context. " +
+            "503 when the server has no browser (CHROMIUM_PATH). The MCP tool preview_page serves the same, as an image.",
+          ok: [200, "The page, as image/jpeg (binary)"],
+        }),
+      },
       "/api/v1/brand/tokens": {
         get: op({
           summary: "Export the brand as design tokens",
