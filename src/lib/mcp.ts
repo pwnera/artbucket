@@ -14,7 +14,6 @@ import {
   type AssetPatch,
 } from "@/lib/core/assets";
 import {
-  createBrand,
   getVersion,
   listContexts,
   listRules,
@@ -25,6 +24,7 @@ import {
   setRules,
   type BrandRule,
 } from "@/lib/core/brand";
+import { makeBrand } from "@/lib/core/templates";
 import { createComment, deleteComment, listComments, updateComment } from "@/lib/core/brand-comments";
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
@@ -402,13 +402,13 @@ const TOOLS: Record<ToolName, Tool> = {
   create_brand: tool({
     description:
       "Make a brand: its own rules, pages, theme and history, beside the others in the workspace. Empty, or with " +
-      "`from`, a copy of that brand's current rules, pages and theme. `slug` is made from the name when left out. " +
+      "`from`, a copy of that brand's current rules, pages and theme, or `template`, a showcase brand (Firefox, Rust, Blender) to edit. `slug` is made from the name when left out. " +
       "Returns the brand and its url. Next: brand_status with its slug, which says what it lacks.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.create_brand,
     run: async (input, caller) => {
-      const made = await createBrand(caller, input);
+      const made = await makeBrand(caller, input);
       return { ...made, url: brandUrl(made.slug) };
     },
   }),

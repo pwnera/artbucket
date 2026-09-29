@@ -1,0 +1,257 @@
+{
+  "name": "Firefox",
+  "fonts": ["Inter"],
+  "assets": {
+    "87f54351-26e5-4edc-b78f-2b08ff56315e": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-word-hor.svg", "filename": "firefox-lockup-horizontal.svg" },
+    "fbfb96be-88ea-4be8-868c-a0b95ce5cfbe": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-word-hor-white.svg", "filename": "firefox-lockup-horizontal-white.svg" },
+    "45a62e18-be41-4af6-ad85-42e44576244d": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-word-ver.svg", "filename": "firefox-lockup-vertical.svg" },
+    "d064ec35-c47f-40d5-8a69-7a14d9771b5f": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo.svg", "filename": "firefox-logo.svg" },
+    "ff1bce5f-925a-40e3-9e7a-e94c5a158951": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-flat.svg", "filename": "firefox-logo-flat.svg" },
+    "d6c795d9-8e38-4459-8ca2-1f5a20b90a0b": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-flat-white.svg", "filename": "firefox-logo-flat-white.svg" },
+    "ac28f817-3406-4e71-9b08-c01061787126": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/logo.svg", "filename": "firefox-parent-brand-logo.svg" },
+    "543847a6-eaa6-4502-adad-cb155ec3cf7a": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/mozilla/logo-lockup-hor.svg", "filename": "mozilla-lockup.svg" },
+    "e40d315a-8a2e-4b51-91ff-f8d37ae8cc4a": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/firefox-new-refresh/hero-high-res.png", "filename": "firefox-hero.png" },
+    "88870289-69c3-48d5-973f-e696ad59caf1": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/firefox-new-tab-2000-v2.png", "filename": "firefox-new-tab-dark.png" },
+    "a76ecf42-2169-4c90-b8b5-db5f3c74ab18": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/firefox-browser-light-1200-v2.png", "filename": "firefox-new-tab-light.png" },
+    "ffd37348-bfbd-40cb-9b11-12c2294ac484": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/devices-high-res.jpg", "filename": "firefox-devices.jpg" },
+    "cb2b6180-a882-4138-b746-5364bde231c1": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/ios-high-res.png", "filename": "firefox-ios.png" },
+    "3950a895-06d4-4784-a068-c4e0a6989ebb": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/new/desktop/android-high-res.png", "filename": "firefox-android.png" },
+    "197fa1d3-cd00-44ec-b108-045bf2f82cbe": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/firefox-20th/firefox-20th-social-share.png", "filename": "firefox-20th-social.png" },
+    "890d439b-ee26-4f27-85ae-6fd7c7171969": { "url": "https://raw.githubusercontent.com/mozilla/bedrock/main/media/img/firefox/firefox-20th/fan-art-high-res.png", "filename": "firefox-fan-art.png" },
+    "08af6db9-e0d5-4b7a-ba06-0e7fd6a0d840": { "url": "https://raw.githubusercontent.com/mozilla/protocol/main/assets/fonts/Metropolis-Bold.woff2", "filename": "Metropolis-Bold.woff2" },
+    "b8dea423-2c98-4cea-9a98-1a2d039cc266": { "url": "https://raw.githubusercontent.com/mozilla/protocol/main/assets/fonts/Metropolis-Medium.woff2", "filename": "Metropolis-Medium.woff2" }
+  },
+  "rules": [
+    { "key": "color.primary", "label": "Orange 50", "type": "color", "value": "#ff7139", "spec": { "pair": "color.ink", "group": "Logo", "tints": [80, 60, 40, 20], "token": "Orange 50", "weight": 22 }, "usage": "The fox's fur and Firefox's signature. Calls to action, highlights, the first color in any set. Carries Ink text, never white." },
+    { "key": "color.yellow", "label": "Yellow 40", "type": "color", "value": "#ffbd4f", "spec": { "pair": "color.ink", "group": "Logo", "token": "Yellow 40", "weight": 8 }, "usage": "The light side of the fox: the gradient's bright start." },
+    { "key": "color.red", "label": "Red 50", "type": "color", "value": "#ff4f5e", "spec": { "pair": "color.ink", "group": "Logo", "token": "Red 50", "weight": 6 }, "usage": "The warm gradient's middle. Emphasis and alerts." },
+    { "key": "color.pink", "label": "Pink 60", "type": "color", "value": "#e31587", "spec": { "pair": "color.white", "group": "Logo", "token": "Pink 60", "weight": 5 }, "usage": "Where the fox's tail turns to magenta." },
+    { "key": "color.violet", "label": "Violet 50", "type": "color", "value": "#9059ff", "spec": { "pair": "color.white", "group": "Logo", "token": "Violet 50", "weight": 9 }, "usage": "The globe's violet: the cool side of the brand, for depth and night scenes." },
+    { "key": "color.blue", "label": "Blue 50", "type": "color", "value": "#0060df", "spec": { "pair": "color.white", "group": "Interface", "token": "Blue 50", "weight": 5 }, "usage": "Links and interface actions, as in the browser itself." },
+    { "key": "color.green", "label": "Green 50", "type": "color", "value": "#3fe1b0", "spec": { "pair": "color.ink", "group": "Interface", "token": "Green 50", "weight": 3 }, "usage": "Success and privacy protections turning on." },
+    { "key": "color.ink", "label": "Ink 80", "type": "color", "value": "#20123a", "spec": { "pair": "color.white", "group": "Neutrals", "token": "Ink 80", "weight": 22 }, "usage": "Headings, text and the dark ground. A deep violet, never pure black." },
+    { "key": "color.gray", "label": "Marketing Gray 80", "type": "color", "value": "#42425a", "spec": { "pair": "color.white", "group": "Neutrals", "token": "Marketing Gray 80", "weight": 6 }, "usage": "Body text and secondary copy." },
+    { "key": "color.background", "label": "Light Gray 10", "type": "color", "value": "#f9f9fb", "spec": { "pair": "color.ink", "group": "Neutrals", "token": "Light Gray 10", "weight": 12 }, "usage": "The light ground of Firefox pages." },
+    { "key": "color.white", "label": "White", "type": "color", "value": "#ffffff", "spec": { "group": "Neutrals", "weight": 2 } },
+    { "key": "color.warm", "label": "Warm gradient", "type": "color", "value": "#ff7139", "spec": { "group": "Gradients", "gradient": { "kind": "linear", "angle": 45, "stops": [{ "at": 0, "color": "#f5156c" }, { "at": 25, "color": "#ff3750" }, { "at": 50, "color": "color.red" }, { "at": 75, "color": "color.primary" }, { "at": 100, "color": "#ff980e" }] } }, "usage": "The fox's fire, from magenta to amber. Hero bands and big moments; the solid is Orange 50 where a gradient can't go." },
+    { "key": "color.cool", "label": "Cool gradient", "type": "color", "value": "#9059ff", "spec": { "group": "Gradients", "gradient": { "kind": "linear", "angle": 90, "stops": [{ "at": 0, "color": "#3a8ee6" }, { "at": 50, "color": "color.violet" }, { "at": 100, "color": "#c139e6" }] } }, "usage": "The globe, from blue through violet to purple. Night, depth and product moments; the solid is Violet 50." },
+    { "key": "type.heading", "label": "Headings", "type": "font", "value": { "family": "Metropolis", "weight": 700 }, "spec": { "role": "headline", "source": "files", "license": "SIL Open Font License 1.1, Chris Simpson", "fallback": "Inter, system-ui, sans-serif", "tracking": -0.01 }, "usage": "Metropolis, a geometric sans, for Firefox headings and buttons. Not on Google Fonts: the files are here.", "assets": ["08af6db9-e0d5-4b7a-ba06-0e7fd6a0d840", "b8dea423-2c98-4cea-9a98-1a2d039cc266"] },
+    { "key": "type.body", "label": "Text", "type": "font", "value": { "family": "Inter", "weight": 400 }, "spec": { "role": "body", "source": "google", "license": "SIL Open Font License 1.1", "fallback": "system-ui, sans-serif", "lineHeight": 1.6 }, "usage": "Inter for everything read." },
+    { "key": "logo.primary", "label": "The lockup", "type": "text", "value": "The horizontal lockup: the fox and globe beside the word **Firefox**. The default everywhere there is room.", "usage": "A Mozilla trademark. Use it to refer to Firefox, unmodified, never as your own mark.", "assets": ["87f54351-26e5-4edc-b78f-2b08ff56315e"] },
+    { "key": "logo.reversed", "label": "On dark", "type": "text", "value": "The lockup with a white word, for Ink and photography.", "assets": ["fbfb96be-88ea-4be8-868c-a0b95ce5cfbe"] },
+    { "key": "logo.vertical", "label": "Vertical", "type": "text", "value": "The fox stacked over the word, for square spaces.", "assets": ["45a62e18-be41-4af6-ad85-42e44576244d"] },
+    { "key": "logo.mark", "label": "The logo", "type": "text", "value": "The fox and globe alone: app icons, favicons, and anywhere the word already appears.", "assets": ["d064ec35-c47f-40d5-8a69-7a14d9771b5f"] },
+    { "key": "logo.mono", "label": "One color", "type": "text", "value": "One color, for single-ink print and embossing.", "assets": ["ff1bce5f-925a-40e3-9e7a-e94c5a158951", "d6c795d9-8e38-4459-8ca2-1f5a20b90a0b"] },
+    { "key": "logo.parent", "label": "Parent brand", "type": "text", "value": "The Firefox parent brand: the abstract flame that stands for the whole family of products, not the browser.", "assets": ["ac28f817-3406-4e71-9b08-c01061787126"] },
+    { "key": "logo.mozilla", "label": "Mozilla", "type": "text", "value": "Mozilla, the maker, as the endorser: **Firefox by Mozilla**.", "assets": ["543847a6-eaa6-4502-adad-cb155ec3cf7a"] },
+    { "key": "logo.clearSpace", "label": "Clear space", "type": "number", "value": 1, "spec": { "of": "the x-height of the word", "unit": "x" }, "usage": "Around the lockup, at least the height of the lowercase x in Firefox. Around the logo alone, a quarter of its width." },
+    { "key": "logo.minSize", "label": "Smallest on screen", "type": "number", "value": 20, "spec": { "unit": "px" }, "usage": "The logo's height; 3.8 mm in print." },
+    { "key": "logo.always", "label": "Always", "type": "list", "value": ["Use the files as they are", "Keep the fox and globe whole", "Give it clear space", "Refer to Firefox, truthfully"] },
+    { "key": "logo.never", "label": "Never", "type": "list", "value": ["Recolor, rotate or redraw it", "Separate the fox from the globe", "Put anything on top of it", "Combine it with your own name or mark", "Imply Mozilla endorses you"] },
+    { "key": "brand.name", "label": "The name", "type": "text", "value": "Firefox", "spec": { "max": 7, "copy": true }, "usage": "One word, capital F. **Firefox by Mozilla** when the maker matters. Never FireFox, Fire Fox or FF." },
+    { "key": "brand.mission", "label": "Why it exists", "type": "text", "value": "The internet is a global public resource that must remain open and accessible to all.", "spec": { "max": 120, "copy": true }, "usage": "From the Mozilla Manifesto: the reason Firefox is made." },
+    { "key": "tone.voice", "label": "Voice", "type": "text", "value": "A trusted guide. Firefox shares its point of view with calm confidence and never dictates it: it doesn't oversell, doesn't use fear, and is for something rather than against something." },
+    { "key": "tone.pillars", "label": "Four pillars", "type": "list", "value": ["Opinionated", "Encouraging", "Values-driven", "Sincere"] },
+    { "key": "tone.always", "label": "Always", "type": "list", "value": ["Take a clear point of view", "Encourage people to take control", "Say what Firefox stands for", "Match the moment: neutral for tasks, warm for celebrations"] },
+    { "key": "tone.avoid", "label": "Avoid", "type": "list", "value": ["Overselling", "Fear tactics about privacy", "Defining ourselves against others", "Jargon people have to look up"] },
+    { "key": "imagery.product", "label": "Product", "type": "text", "value": "The browser as people see it: new tab, desktop and phone, in light and dark.", "assets": ["e40d315a-8a2e-4b51-91ff-f8d37ae8cc4a", "88870289-69c3-48d5-973f-e696ad59caf1", "a76ecf42-2169-4c90-b8b5-db5f3c74ab18", "ffd37348-bfbd-40cb-9b11-12c2294ac484", "cb2b6180-a882-4138-b746-5364bde231c1", "3950a895-06d4-4784-a068-c4e0a6989ebb"] },
+    { "key": "imagery.community", "label": "Community", "type": "text", "value": "Twenty years of Firefox, drawn by the people who use it.", "assets": ["197fa1d3-cd00-44ec-b108-045bf2f82cbe", "890d439b-ee26-4f27-85ae-6fd7c7171969"] }
+  ],
+  "theme": {
+    "ink": "color.ink",
+    "nav": "overlay",
+    "toc": "side",
+    "body": "type.body",
+    "dark": "color.ink",
+    "head": "type.heading",
+    "logo": "logo.primary",
+    "muted": "color.gray",
+    "panel": "color.white",
+    "scale": 1.414,
+    "width": "wide",
+    "accent": "color.primary",
+    "device": "d064ec35-c47f-40d5-8a69-7a14d9771b5f",
+    "header": "band",
+    "motion": "subtle",
+    "radius": 16,
+    "titles": "huge",
+    "density": "normal",
+    "grounds": "alternate",
+    "surface": "color.background",
+    "numbering": false,
+    "separation": "space"
+  },
+  "pages": [
+    {
+      "slug": "overview",
+      "title": "Overview",
+      "icon": "world",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "landing",
+      "sections": [
+        { "template": "cover", "title": "Firefox", "eyebrow": "Brand guidelines, an unofficial showcase", "lede": "The browser backed by a non-profit. How the fox looks, sounds and shows up.", "tone": "color", "background": { "color": "color.ink" }, "width": "full", "columns": 1, "props": { "mark": "never", "align": "start", "strip": true, "height": "screen", "titleSize": "huge" } },
+        { "template": "statement", "title": "The internet is a global public resource that must remain open and accessible to all.", "eyebrow": "Why Firefox exists", "body": "From the Mozilla Manifesto.", "tone": "color", "background": { "color": "color.cool" }, "width": "wide", "columns": 1 },
+        { "template": "split", "title": "A fox wrapped around the world", "eyebrow": "01", "body": "The logo is the brand: a fox of fire curled around a violet globe. Warm meets cool, speed meets depth.", "aside": "An unofficial showcase built on Artbucket from Mozilla's public assets. Firefox and the Firefox logo are trademarks of Mozilla; this guide is not made or endorsed by Mozilla.", "keys": ["logo.mark"], "tone": "plain", "width": "full", "columns": 1, "props": { "fit": "whole", "align": "center", "ratio": "even" } },
+        { "template": "gallery", "title": "Where people meet the fox", "eyebrow": "02", "keys": ["imagery.product"], "tone": "plain", "width": "full", "columns": 3, "props": { "layout": "strip" } },
+        { "template": "palette", "title": "Warm fox, cool globe", "eyebrow": "03", "keys": ["color.primary", "color.yellow", "color.red", "color.pink", "color.violet", "color.ink", "color.background"], "tone": "panel", "width": "wide", "columns": 3, "props": { "show": ["hex", "token"] } },
+        {
+          "template": "pages",
+          "title": "Inside the guide",
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "items": [
+            { "link": "/logo", "text": "Six marks, one fox.", "asset": "87f54351-26e5-4edc-b78f-2b08ff56315e", "title": "Logo" },
+            { "link": "/color", "text": "Two gradients and the solids they are made of.", "asset": "197fa1d3-cd00-44ec-b108-045bf2f82cbe", "title": "Color" },
+            { "link": "/typography", "text": "Metropolis over Inter.", "asset": "a76ecf42-2169-4c90-b8b5-db5f3c74ab18", "title": "Typography" },
+            { "link": "/voice", "text": "A trusted guide, never a lecturer.", "asset": "88870289-69c3-48d5-973f-e696ad59caf1", "title": "Voice" },
+            { "link": "/in-use", "text": "Product shots and twenty years of fan art.", "asset": "890d439b-ee26-4f27-85ae-6fd7c7171969", "title": "In use" },
+            { "link": "/resources", "text": "Files, policy, and where to ask.", "asset": "ffd37348-bfbd-40cb-9b11-12c2294ac484", "title": "Resources" }
+          ],
+          "props": { "layout": "cards" }
+        },
+        { "template": "updates", "title": "What's new", "tone": "plain", "width": "text", "columns": 1, "props": { "limit": 3 } }
+      ]
+    },
+    {
+      "slug": "logo",
+      "title": "Logo",
+      "lede": "Six marks, one fox. Pick by the space, never by taste.",
+      "icon": "sparkles",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "logos",
+          "title": "Six marks, one fox",
+          "keys": ["logo.primary", "logo.reversed", "logo.vertical", "logo.mark", "logo.mono", "logo.parent", "color.background", "color.ink", "color.violet"],
+          "items": [{ "key": "color.primary", "asset": "d064ec35-c47f-40d5-8a69-7a14d9771b5f", "caption": "On Orange 50 the fox disappears into its own fur.", "verdict": "dont" }],
+          "tone": "plain",
+          "width": "full",
+          "columns": 2,
+          "props": { "kit": true, "size": "large" }
+        },
+        { "template": "diagram", "title": "Room to breathe", "body": "Clear space around the lockup is the x-height of its own word; around the logo alone, a quarter of its width.", "keys": ["logo.primary", "logo.clearSpace"], "tone": "plain", "width": "wide", "columns": 1, "props": { "kind": "clearspace" } },
+        { "template": "statement", "title": "Never split the fox from its globe.", "body": "The logo is one drawing. Parts of it are not a pattern, an icon set or a sticker.", "tone": "color", "background": { "color": "color.warm" }, "width": "wide", "columns": 1 },
+        { "template": "diagram", "title": "Twenty pixels, no less", "keys": ["logo.mark", "logo.minSize"], "tone": "plain", "width": "wide", "columns": 1, "props": { "kind": "minsize" } },
+        { "template": "dodont", "title": "What the trademark allows", "keys": ["logo.always", "logo.never"], "tone": "plain", "width": "wide", "columns": 2, "props": { "layout": "grid" } },
+        { "template": "split", "title": "Firefox by Mozilla", "body": "Mozilla signs as the maker, smaller and after: the fox leads.", "keys": ["logo.mozilla"], "tone": "panel", "width": "wide", "columns": 1, "props": { "fit": "whole", "flip": true } },
+        {
+          "template": "links",
+          "title": "Take the files",
+          "keys": ["logo.primary", "logo.reversed", "logo.vertical", "logo.mark", "logo.mono"],
+          "items": [{ "link": "https://www.mozilla.org/en-US/foundation/trademarks/policy/", "text": "What Mozilla allows, and what needs permission.", "label": "Policy", "title": "Trademark policy" }],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": { "layout": "cards" }
+        }
+      ]
+    },
+    {
+      "slug": "color",
+      "title": "Color",
+      "lede": "Every color comes out of the logo, and Ink holds them together.",
+      "icon": "palette",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        { "template": "palette", "title": "Pulled from the fox", "keys": ["color.primary", "color.yellow", "color.red", "color.pink", "color.violet", "color.blue", "color.green", "color.ink", "color.gray", "color.background", "color.white"], "tone": "plain", "width": "wide", "columns": 3, "props": { "ase": true, "show": ["hex", "rgb", "token", "css"], "matrix": true, "simulate": true } },
+        { "template": "statement", "title": "Orange carries Ink, never white.", "body": "White on Orange 50 stays under 3:1. Ink on Orange 50 passes at over 6:1.", "tone": "color", "background": { "color": "color.primary" }, "width": "wide", "columns": 1 },
+        { "template": "palette", "title": "Two gradients, one fox", "body": "Warm for the fox's fire, cool for the globe. Both start from the logo's own stops.", "keys": ["color.warm", "color.cool"], "tone": "dark", "width": "full", "columns": 3, "props": { "show": ["hex", "css"] } },
+        { "template": "chart", "title": "Charts read left to right, warm to cool", "keys": ["color.primary", "color.red", "color.pink", "color.violet", "color.blue"], "tone": "plain", "width": "wide", "columns": 1, "props": { "kind": "bar" } },
+        { "template": "pages", "title": "", "items": [{ "link": "/typography", "title": "Typography" }, { "link": "/in-use", "title": "In use" }], "tone": "plain", "width": "wide", "columns": 3, "props": { "layout": "list" } }
+      ]
+    },
+    {
+      "slug": "typography",
+      "title": "Typography",
+      "lede": "A geometric headline over a humanist workhorse.",
+      "icon": "brush",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        { "template": "type", "title": "Metropolis speaks, Inter explains", "keys": ["type.heading", "type.body"], "tone": "plain", "width": "full", "columns": 1, "props": { "embed": true, "roles": true, "glyphs": true, "sample": "Firefox by Mozilla", "formula": { "base": 17, "ratio": 1.414, "steps": 6 } } },
+        { "template": "statement", "title": "Not on Google Fonts, still one click away.", "body": "Metropolis is open source (OFL) but self-hosted. Its files live in this library, served with the page.", "tone": "color", "background": { "color": "color.ink" }, "width": "wide", "columns": 1 },
+        {
+          "template": "cards",
+          "title": "Three habits",
+          "items": [
+            { "text": "Metropolis Bold at large sizes only. Under 20px, set Inter.", "title": "Headlines short" },
+            { "text": "Headlines read like sentences, not shouts.", "title": "Sentence case" },
+            { "text": "Text is Ink 80 on light grounds, White on Ink.", "title": "Ink, not black" }
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 3,
+          "props": { "layout": "steps" }
+        },
+        { "template": "pages", "title": "", "items": [{ "link": "/voice", "title": "Voice" }, { "link": "/color", "title": "Color" }], "tone": "plain", "width": "wide", "columns": 3, "props": { "layout": "list" } }
+      ]
+    },
+    {
+      "slug": "voice",
+      "title": "Voice",
+      "lede": "Calm confidence: a point of view, shared, never imposed.",
+      "icon": "speakerphone",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        { "template": "statement", "title": "A trusted guide, never a lecturer.", "eyebrow": "Voice", "keys": ["tone.voice"], "tone": "color", "background": { "color": "color.warm" }, "width": "wide", "columns": 1 },
+        { "template": "cards", "title": "Four pillars hold it up", "keys": ["tone.pillars"], "tone": "plain", "width": "wide", "columns": 3, "props": { "layout": "cards" } },
+        { "template": "dodont", "title": "Say it like this", "keys": ["tone.always", "tone.avoid"], "tone": "plain", "width": "wide", "columns": 2, "props": { "layout": "rows" } },
+        { "template": "copy", "title": "Words to paste", "keys": ["brand.name", "brand.mission"], "tone": "panel", "width": "text", "columns": 1 },
+        { "template": "pages", "title": "", "items": [{ "link": "/in-use", "title": "In use" }, { "link": "/resources", "title": "Resources" }], "tone": "plain", "width": "wide", "columns": 3, "props": { "layout": "list" } }
+      ]
+    },
+    {
+      "slug": "in-use",
+      "title": "In use",
+      "lede": "The product first, and the people who love it close behind.",
+      "icon": "photo",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        { "template": "gallery", "title": "The browser, as people see it", "keys": ["imagery.product"], "tone": "plain", "width": "full", "columns": 3, "props": { "layout": "bento" } },
+        { "template": "split", "title": "One fox, every screen", "body": "Desktop, iOS and Android share one look: the new tab, the toolbar, the fox in the corner.", "tone": "panel", "width": "wide", "columns": 1, "props": { "fit": "whole", "image": "ffd37348-bfbd-40cb-9b11-12c2294ac484", "ratio": "even" } },
+        { "template": "statement", "title": "Twenty years of Firefox, drawn by the people who use it.", "tone": "brand", "width": "wide", "columns": 1 },
+        { "template": "gallery", "title": "Twenty years of fan art", "keys": ["imagery.community"], "tone": "color", "background": { "color": "color.cool" }, "width": "full", "columns": 3, "props": { "layout": "grid" } },
+        { "template": "collection", "title": "Everything in the library", "tone": "plain", "width": "full", "columns": 4, "props": { "limit": 24, "query": "type=image", "layout": "masonry" } },
+        { "template": "pages", "title": "", "items": [{ "link": "/resources", "title": "Resources" }], "tone": "plain", "width": "wide", "columns": 3, "props": { "layout": "list" } }
+      ]
+    },
+    {
+      "slug": "resources",
+      "title": "Resources",
+      "lede": "The files, the rules behind them, and where to ask.",
+      "icon": "archive",
+      "audience": "everyone",
+      "tabs": false,
+      "layout": "book",
+      "sections": [
+        {
+          "template": "links",
+          "title": "Where it all comes from",
+          "items": [
+            { "link": "https://github.com/mozilla/protocol-assets", "text": "Mozilla's own logo files, the source of every mark here.", "label": "GitHub", "title": "protocol-assets" },
+            { "link": "https://protocol.mozilla.org/", "text": "Mozilla's design system: tokens, themes and the Firefox palette.", "label": "Docs", "title": "Protocol" },
+            { "link": "https://acorn.firefox.com/latest/content-guidelines/voice-and-tone/voice-pillars.html", "text": "How Firefox writes, from its product design system.", "label": "Guide", "title": "Acorn voice and tone" },
+            { "link": "https://www.mozilla.org/en-US/foundation/trademarks/policy/", "text": "What you may do with the name and the logo.", "label": "Policy", "title": "Trademark policy" }
+          ],
+          "tone": "plain",
+          "width": "wide",
+          "columns": 2,
+          "props": { "layout": "cards" }
+        },
+        { "template": "request", "title": "Not sure it's allowed?", "tone": "panel", "width": "text", "columns": 1, "props": { "kind": "question", "prompt": "Using the fox somewhere new? Ask before it ships." } },
+        { "template": "updates", "title": "What's new", "tone": "plain", "width": "text", "columns": 1, "props": { "limit": 5 } }
+      ]
+    }
+  ]
+}

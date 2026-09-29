@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconExternalLink, IconKey, IconLoader2, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconKey, IconLoader2, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Initials } from "@/components/activity";
-import { Snippet } from "@/components/agent-access";
-import { AGENTS, GROUPS, type Agent, type Part } from "@/components/agent-catalog";
+import { SetupPart, Snippet } from "@/components/agent-access";
+import { AGENTS, GROUPS, type Agent } from "@/components/agent-catalog";
 import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { scopeLabel, SCOPE_LABELS } from "@/components/consent";
@@ -344,20 +344,6 @@ function Setup({
       )}
     </>
   );
-}
-
-function SetupPart({ part }: { part: Part }) {
-  if (typeof part === "string") return <p className="text-muted-foreground text-sm">{part}</p>;
-  if ("href" in part) {
-    return (
-      <Button asChild>
-        <a href={part.href}>
-          <IconExternalLink /> {part.label}
-        </a>
-      </Button>
-    );
-  }
-  return <Snippet text={part.copy} what={part.what} multiline={part.multiline} prose={part.prose} />;
 }
 
 /** Agents people connected (OAuth, `artbucket login`): the workspace's for an admin, yours for anyone else. */

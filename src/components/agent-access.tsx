@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { IconPlugConnected, IconRobot } from "@tabler/icons-react";
+import { IconExternalLink, IconPlugConnected, IconRobot } from "@tabler/icons-react";
+import type { Part } from "@/components/agent-catalog";
 import { IconButton } from "@/components/icon-button";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -110,4 +111,19 @@ function Panel({ subject, about, reads, origin }: { subject: string; about: stri
       </Button>
     </>
   );
+}
+
+/** One step of an agent's setup (agent-catalog): a sentence, something to copy, or a one-click install. */
+export function SetupPart({ part }: { part: Part }) {
+  if (typeof part === "string") return <p className="text-muted-foreground text-sm">{part}</p>;
+  if ("href" in part) {
+    return (
+      <Button asChild>
+        <a href={part.href}>
+          <IconExternalLink /> {part.label}
+        </a>
+      </Button>
+    );
+  }
+  return <Snippet text={part.copy} what={part.what} multiline={part.multiline} prose={part.prose} />;
 }

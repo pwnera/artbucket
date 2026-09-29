@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NewBrand } from "@/components/new-brand";
 import { DropLine, MoveItems, SectionAdd, SidebarSection, useSortable, type SortableItem } from "@/components/sidebar-prefs";
 import {
   SidebarMenu,
@@ -48,7 +48,7 @@ export const brandHref = (b: { slug: string; default: boolean }, context?: strin
   return `/brand${q.size ? `?${q}` : ""}`;
 };
 
-type Editing = { kind: "new" } | { kind: "rename"; brand: BrandInfo } | { kind: "copy"; brand: BrandInfo };
+type Editing = { kind: "rename"; brand: BrandInfo } | { kind: "copy"; brand: BrandInfo };
 
 /**
  * A dialog's subject, kept after it closes: the dialog fades out still
@@ -77,6 +77,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   const { setOpenMobile } = useSidebar();
   const [editing, setEditing] = useState<Kept<Editing>>(null);
   const [deleting, setDeleting] = useState<Kept<BrandInfo>>(null);
+  const [creating, setCreating] = useState<Kept<true>>(null);
 
   async function makeDefault(b: BrandInfo) {
     const was = brands.find((x) => x.default);
@@ -111,7 +112,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
       sortable={section}
       action={
         <Can do="brand.edit">
-          <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setEditing(opening<Editing>({ kind: "new" }))} />
+          <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setCreating(opening(true))} />
         </Can>
       }
     >
@@ -168,12 +169,25 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
 
       {/* Both stay mounted once opened, so they fade out whole; a new opening starts a fresh form.
           Outside the section: its folded content unmounts, and "New brand" stays clickable then. */}
+      {creating && (
+        <NewBrand
+          key={creating.n}
+          open={creating.open}
+          onClose={() => setCreating(closing)}
+          onDone={(b) => {
+            setCreating(closing);
+            toast.success(`Created ${b.name}`);
+            router.push(brandHref(b));
+            router.refresh();
+          }}
+        />
+      )}
+
       {editing && (
         <BrandDialog
           key={editing.n}
           open={editing.open}
           editing={editing.of}
-          brands={brands}
           onClose={() => setEditing(closing)}
           onDone={(b) => {
             setEditing(closing);
@@ -201,21 +215,18 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
 function BrandDialog({
   open,
   editing,
-  brands,
   onClose,
   onDone,
 }: {
   open: boolean;
   editing: Editing;
-  brands: BrandInfo[];
   onClose: () => void;
   onDone: (b: BrandInfo) => void;
 }) {
   const id = useId();
   const renaming = editing.kind === "rename";
-  const [initial] = useState(editing.kind === "rename" ? editing.brand.name : editing.kind === "copy" ? `${editing.brand.name} copy` : "");
+  const [initial] = useState(renaming ? editing.brand.name : `${editing.brand.name} copy`);
   const [name, setName] = useState(initial);
-  const [from, setFrom] = useState(editing.kind === "copy" ? editing.brand.slug : "");
   const [busy, setBusy] = useState(false);
 
   async function save(e: React.FormEvent) {
@@ -223,7 +234,7 @@ function BrandDialog({
     setBusy(true);
     const b: BrandInfo | null = renaming
       ? await send("PATCH", `/api/v1/brands/${editing.brand.slug}`, { name })
-      : await send("POST", "/api/v1/brands", { name, ...(from && { from }) });
+      : await send("POST", "/api/v1/brands", { name, from: editing.brand.slug });
     setBusy(false);
     if (b) onDone(b);
   }
@@ -234,36 +245,18 @@ function BrandDialog({
         <form onSubmit={save} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>
-              {renaming ? "Rename brand" : editing.kind === "copy" ? `Duplicate ${editing.brand.name}` : "New brand"}
+              {renaming ? "Rename brand" : `Duplicate ${editing.brand.name}`}
             </DialogTitle>
             <DialogDescription>
               {renaming
                 ? "The name shows everywhere; the brand's address stays the same."
-                : "A brand has its own rules and its own history. Start empty, or from a copy of another."}
+                : "A copy of its rules, pages and theme, with a history of its own."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             <Label htmlFor={`${id}-name`}>Name</Label>
             <Input id={`${id}-name`} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </div>
-          {!renaming && (
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-from`}>Start from</Label>
-              <Select value={from || "*"} onValueChange={(v) => setFrom(v === "*" ? "" : v)}>
-                <SelectTrigger id={`${id}-from`} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="*">Nothing: an empty brand</SelectItem>
-                  {brands.map((b) => (
-                    <SelectItem key={b.slug} value={b.slug}>
-                      A copy of {b.name} ({b.rules} rules)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
