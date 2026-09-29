@@ -27,6 +27,18 @@ agents then get that exact URL.
 
 ## Brand pages
 
+A brand with no pages opens on its setup: the main color (and a second and a
+dark one), a heading face and a text face from Google Fonts, the logo and a
+sentence of voice, with the cover beside them as it will look. They become the
+rules `color.primary`, `color.secondary`, `color.dark`, `type.heading`,
+`type.body`, `logo.primary` and `tone.voice`, and the pages are laid out from
+them; a blank page or a topic's six pages are the other starts. In the builder,
+the page list sits beside the canvas, and the bar names what an editor reaches
+for: Add, Rules and Theme, then the launch checklist, Preview and Publish. The
+checklist is the brand's steps to being worth sharing (colors, typefaces, logo,
+voice, pages, a publish, a portal), each with where it is done; agents read the
+same list with `brand_status`, or `GET /api/v1/brands/{slug}/status`.
+
 The rules are the content; pages lay them out for people. A brand's pages
 form a tree, up to three levels deep (Overview, then Identity with Color, Logo
 and Type under it), and each page is sections built from templates: a cover,
