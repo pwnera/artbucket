@@ -15,6 +15,7 @@ import {
   IconListCheck,
   IconListDetails,
   IconPalette,
+  IconPhoto,
   IconPlus,
   IconWorldUpload,
 } from "@tabler/icons-react";
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils";
  * (b.undo, b.redo), the context and language switches (b.setContext,
  * b.setLang) when the brand has more than one, then the three things an
  * editor reaches for, named: Add (a panel beside the canvas, b.setDock),
+ * Library (assets to drag onto the page, b.setLibrary),
  * Rules (b.setPanel) and Theme, which previews the whole site with the theme
  * panel beside it (b.setPreview, b.setDock). Then the launch checklist (b.status and the
  * page's own checks), For agents, Preview (b.setPreview), More (the section
@@ -149,6 +151,7 @@ export function TopBar({ b }: TopBarProps) {
 
         <Sep />
         <Tool label="Add" icon={<IconPlus />} pressed={b.dock === "insert"} onClick={() => b.setDock(b.dock === "insert" ? null : "insert")} />
+        <Tool label="Library" icon={<IconPhoto />} pressed={b.library} onClick={() => b.setLibrary(!b.library)} />
         <Tool label="Rules" icon={<IconListDetails />} aria-haspopup="dialog" onClick={() => b.setPanel("rules")} />
         <Tool
           label="Theme"

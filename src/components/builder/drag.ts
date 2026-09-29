@@ -1,9 +1,10 @@
 import type { Template } from "@/lib/pages";
+import type { Media } from "@/lib/site";
 
 /**
  * What is being dragged in the builder, for the places it can land: a
  * section by its handle, an item by its grip, a block or a rule from the
- * Add panel, files from the desktop. A drop target can only read a drag's
+ * Add panel, assets from the library panel, files from the desktop. A drop target can only read a drag's
  * types until the drop, so the builder's own drags also leave their
  * payload here while they last (one window, one drag at a time).
  */
@@ -12,6 +13,8 @@ export type Payload =
   | { kind: "item"; section: string; i: number }
   | { kind: "template"; template: Template }
   | { kind: "rule"; key: string }
+  /** Assets from the library panel, already in the library: they land as dropped files do, with nothing to upload. */
+  | { kind: "assets"; media: Media[] }
   | { kind: "files" };
 
 /** The builder's drags carry this type, so nothing else (a link, a picture) is taken for one. */

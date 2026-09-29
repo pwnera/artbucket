@@ -87,6 +87,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   const [item, setItem] = useState<{ section: string; i: number } | null>(null);
   // Sections picked besides the one selected, with Shift or Cmd (b.pick), for changes to all of them at once.
   const [also, setAlso] = useState<string[]>([]);
+  // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
+  const [library, setLibrary] = useState(false);
   // The page list beside the canvas: open unless the person closed it in this browser.
   const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
   // The panel (b.dock) floats over the canvas instead of beside it: kept in this browser, as the page list's is.
@@ -419,6 +421,9 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     setItem,
     /** Every section picked on the page, the selection first: more than one after Shift or Cmd clicks (pick). */
     picked,
+    /** Whether the library panel floats over the canvas. */
+    library,
+    setLibrary,
     /** Whether the page list shows beside the canvas. */
     pagesOpen,
     setPagesOpen,

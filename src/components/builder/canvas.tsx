@@ -21,6 +21,7 @@ import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builde
 import { ADD_LABEL, blankItem, PICTURED } from "@/components/builder/items";
 import { RuleCard } from "@/components/builder/rule-card";
 import { BLOCK, END, Seam, starter } from "@/components/builder/seam";
+import { LibraryPanel } from "@/components/builder/library-panel";
 import { MultiBar } from "@/components/builder/multi-bar";
 import { PagesPanel } from "@/components/builder/page-tree";
 import { SectionMenu } from "@/components/builder/section-menu";
@@ -34,7 +35,7 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { duplicateItem, insertItems, moveItem, removeItem } from "@/lib/builder-ops";
 import { boundKeys, type Item, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
-import { groupTabs, tree, type ViewAsset } from "@/lib/site";
+import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
 import { fieldsOf, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
@@ -265,7 +266,7 @@ function Stage({ b }: { b: BuilderApi }) {
       const rule = b.state.rules.find((x) => x.key === p.key);
       return rule && !s.keys.includes(p.key) && TEMPLATE_INFO[s.template].accepts?.(rule) ? "into" : null;
     }
-    if (p.kind === "files") return blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s) ? "into" : half;
+    if (p.kind === "files" || p.kind === "assets") return blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s) ? "into" : half;
     return null;
   };
 
@@ -278,8 +279,21 @@ function Stage({ b }: { b: BuilderApi }) {
     const failed = done.find((x): x is PromiseRejectedResult => x.status === "rejected");
     if (!assets.length) return void toast.error((failed?.reason as Error)?.message ?? "Upload failed", { id });
     toast.success(`${assets.length === 1 ? assets[0].filename : `${assets.length} files`} in the library`, { id, description: failed && "Some didn't upload." });
+    placeMedia(
+      assets.map((a) => libraryMedia(a, url)),
+      target,
+    );
+  };
+
+  /**
+   * Library assets onto the page where they were dropped (or clicked in the
+   * library panel): into a section of pictures as items, as the picture of
+   * a section that takes one, else a gallery of them between sections, or
+   * after the picked one.
+   */
+  const placeMedia = (media: Media[], target: Over | null) => {
+    if (!media.length) return;
     const l = live.current;
-    const media = assets.map((a) => libraryMedia(a, url));
     l.addMedia(media);
     const at = l.state.selection.page;
     const s = target && l.state.pages.get(at)?.find((x) => x.id === target.id);
@@ -310,6 +324,8 @@ function Stage({ b }: { b: BuilderApi }) {
       b.select({ section: o.id, rule: null });
     } else if (p.kind === "files") {
       void dropFiles(pictureFiles(e), o);
+    } else if (p.kind === "assets") {
+      placeMedia(p.media, o);
     }
   };
 
@@ -627,7 +643,7 @@ function Stage({ b }: { b: BuilderApi }) {
         if (overTab !== null) setOverTab(null);
         // An empty page takes a block or pictures anywhere; a page with sections, on the way in at its end.
         const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
-        if (last && (p?.kind === "template" || p?.kind === "files")) {
+        if (last && (p?.kind === "template" || p?.kind === "files" || p?.kind === "assets")) {
           e.preventDefault();
           e.dataTransfer.dropEffect = "copy";
         }
@@ -640,9 +656,10 @@ function Stage({ b }: { b: BuilderApi }) {
         if (p.kind === "section" && overTab !== null) {
           const s = storedOf(p.id);
           if (s && s.tab !== overTab) b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { tab: overTab } } });
-        } else if (p.kind === "template" || p.kind === "files") {
+        } else if (p.kind === "template" || p.kind === "files" || p.kind === "assets") {
           const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
           if (last && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), stored.at(-1)?.id ?? null);
+          else if (last && p.kind === "assets") placeMedia(p.media, null);
           else if (last) void dropFiles(pictureFiles(e), null);
         }
         clear();
@@ -666,6 +683,18 @@ function Stage({ b }: { b: BuilderApi }) {
         {after.map(draw)}
         {!preview && <Seam b={b} after={stored.at(-1)?.id ?? null} always={shown.length ? "end" : "empty"} />}
       </article>
+      {b.library && !preview && (
+        <LibraryPanel
+          b={b}
+          onClose={() => b.setLibrary(false)}
+          onPlace={(media) => {
+            // Onto the picked section: into it where it takes pictures, else as a gallery after it (at the page's end with none picked).
+            const s = selected ? storedOf(selected) : undefined;
+            const into = s && (blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s));
+            placeMedia(media, s ? { id: s.id, mode: into ? "into" : "after" } : null);
+          }}
+        />
+      )}
       <AssetPicker
         open={pictures !== null}
         rule={standIn(pictures?.replace ? "Picture" : "Pictures", undefined)}

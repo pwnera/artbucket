@@ -137,6 +137,7 @@ export function builderCommands(b: BuilderApi): PageCommand[] {
       },
     },
     { id: "b-rules", group: g, label: "Rules", icon: <IconListDetails />, run: () => b.setPanel("rules") },
+    { id: "b-library", group: g, label: b.library ? "Close the library" : "Library: drag assets onto the page", icon: <IconPhoto />, keywords: ["assets", "pictures", "images"], top: true, run: () => b.setLibrary(!b.library) },
     { id: "b-add", group: g, label: "Add panel: blocks and rules", icon: <IconAdjustmentsHorizontal />, run: () => b.setDock("insert") },
     { id: "b-pages", group: g, label: b.pagesOpen ? "Hide pages and layers" : "Show pages and layers", icon: <IconLayoutSidebarLeftExpand />, run: () => b.setPagesOpen(!b.pagesOpen) },
     { id: "b-float", group: g, label: b.floating ? "Dock the panel beside the page" : "Float the panel over the page", icon: <IconPictureInPictureOn />, run: () => b.setFloating(!b.floating) },
