@@ -629,6 +629,34 @@ export const verifications = pgTable("verifications", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * An organization's own single sign-on (lib/core/sso.ts): one OpenID Connect
+ * provider for the people at one email domain, which it proves by a TXT
+ * record. better-auth's sso plugin reads it to sign them in (lib/auth.ts);
+ * its column names are the plugin's. `providerId` is the organization's id,
+ * so the redirect URI the provider holds never changes.
+ */
+export const ssoProviders = pgTable("sso_providers", {
+  id: text("id").primaryKey(),
+  providerId: text("provider_id").notNull().unique(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .unique()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  /** Who set it up. */
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  issuer: text("issuer").notNull(),
+  /** JSON: the client, and the endpoints discovered from the issuer when it was saved. */
+  oidcConfig: text("oidc_config").notNull(),
+  samlConfig: text("saml_config"),
+  /** One organization's at a time: sign-in finds the provider by it. */
+  domain: text("domain").notNull().unique(),
+  domainVerified: boolean("domain_verified").notNull().default(false),
+  /** What the TXT record holds. Nullable only because better-auth refuses a required column it never writes. */
+  token: text("token"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---- tenancy and access -----------------------------------------------------
 
 /** A team, or a client of an agency: people, and the workspaces they share. */

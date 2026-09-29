@@ -1,3 +1,4 @@
+import { sso } from "@better-auth/sso";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -9,28 +10,34 @@ import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
+import { joinThroughSso, providerFor } from "@/lib/core/sso";
 import { localPath } from "@/lib/markdown";
 import { lockedBy } from "@/lib/settings";
 
 /**
- * Who someone is: better-auth, mounted at /api/auth. Email and password, and
- * any OpenID Connect provider when OIDC_* is set. Single sign-on is not a paid
- * tier here, and never will be.
+ * Who someone is: better-auth, mounted at /api/auth. Email and password, any
+ * OpenID Connect provider when OIDC_* is set, and each organization's own
+ * (lib/core/sso.ts). Single sign-on is not a paid tier here, and never will be.
  *
  * What someone may do is not better-auth's business: that is `grants`
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
  *
- * Sign-up is closed but for three doors: the first account on a fresh install
- * (which becomes the admin of everything), someone holding an invitation, and
+ * Sign-up is closed but for four doors: the first account on a fresh install
+ * (which becomes the admin of everything), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
- * admin grants some. SIGNUP=open opens it to anyone, each with an
- * organization of their own.
+ * admin grants some, and anyone at an organization's verified domain its own
+ * provider vouches for, who joins it able to read. SIGNUP=open opens it to
+ * anyone, each with an organization of their own.
  */
 
 export const OIDC_PROVIDER = "oidc";
 export const oidc = env.OIDC_ISSUER ? { provider: OIDC_PROVIDER, name: env.OIDC_NAME } : null;
 
 const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? null;
+
+/** The organization provider a request came back from (lib/core/sso.ts), if it did. */
+const ssoCallback = (ctx: { path?: string; params?: Record<string, string | undefined> } | null | undefined) =>
+  (ctx?.path?.startsWith("/sso/callback/") && ctx.params?.providerId) || null;
 
 /**
  * With the server's own email (EMAIL_*), an address is proved before its
@@ -81,6 +88,17 @@ export const auth = betterAuth({
     "/email-otp/reset-password",
     "/email-otp/request-email-change",
     "/email-otp/change-email",
+    // Of the sso plugin, only signing in and its callback: providers are the organization's, set up through
+    // /api/v1/sso by its admins, never through the plugin's own endpoints, which know nothing of grants.
+    "/sso/register",
+    "/sso/providers",
+    "/sso/get-provider",
+    "/sso/update-provider",
+    "/sso/delete-provider",
+    "/sso/request-domain-verification",
+    "/sso/verify-domain",
+    "/sso/callback",
+    "/sso/saml2/sp/metadata",
   ],
   telemetry: { enabled: false },
   // Single sign-on errors land on the sign-in page, which says so (app/(auth)/login), not on better-auth's own unbranded one.
@@ -117,18 +135,35 @@ export const auth = betterAuth({
           }),
         ]
       : []),
+    sso({
+      // Signing in refuses a provider whose domain isn't proved yet (lib/core/sso.ts verifySso).
+      domainVerification: { enabled: true },
+      provisionUser: async ({ user, provider }) => joinThroughSso(user, provider.providerId),
+      // Someone who had an account before the provider did joins at their next sign-in through it.
+      provisionUserOnEveryLogin: true,
+    }),
     nextCookies(),
   ],
   databaseHooks: {
     user: {
       create: {
         before: async (user, ctx) => {
+          const providerId = ssoCallback(ctx);
+          if (providerId) {
+            // The organization's provider vouches for its own domain only; the address is proved by it, no code.
+            if (!(await providerFor(providerId, user.email))) {
+              // With a code, the plugin sends them back to the sign-in page rather than showing this bare.
+              throw new APIError("FORBIDDEN", { code: "SSO_OUTSIDE_DOMAIN", message: `This sign-in is for addresses at the organization's own domain, not ${user.email}.` });
+            }
+            return { data: { ...user, emailVerified: true } };
+          }
           const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
         },
-        after: async (user, ctx) => welcome(user, cookieOf(ctx?.headers)),
+        // Through an organization's provider, the organization is theirs already (joinThroughSso): none of their own.
+        after: async (user, ctx) => welcome(user, cookieOf(ctx?.headers), !!ssoCallback(ctx)),
       },
     },
     session: { create: { after: async (session) => signedIn(session) } },

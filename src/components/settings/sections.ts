@@ -2,6 +2,7 @@ import {
   IconAdjustments,
   IconChartBar,
   IconBuilding,
+  IconKey,
   IconLayoutGrid,
   IconMail,
   IconBrush,
@@ -114,6 +115,14 @@ export const SECTIONS: Section[] = [
     label: "Domains",
     icon: IconWorldWww,
     description: "Addresses of your own, for the app and for portals, each proved by a DNS record.",
+    action: "organization.manage",
+  },
+  {
+    context: "organization",
+    id: "sso",
+    label: "Single sign-on",
+    icon: IconKey,
+    description: "Your people sign in through your own identity provider, by the domain of their work email.",
     action: "organization.manage",
   },
   {
