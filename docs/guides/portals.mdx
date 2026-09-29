@@ -193,15 +193,17 @@ is never listed.
 
 ## A subdomain for every portal
 
-With `PORTAL_DOMAIN` set, say `portals.example.com`, every portal also
+With `PORTAL_DOMAIN` set, say `portals.example.com`, every portal
 answers at `{address}.portals.example.com`, with nothing to claim or prove:
 the server owns the domain. That is the address the app shows and copies,
 but for a **members** portal, which stays at `/p/{address}` (sessions belong
 to the app's own address), and a portal with a verified domain of its own.
 
-Renaming a portal moves it at once: the old subdomain stops answering, as
-the old `/p/` address does. While you type an address, the form says whether
-it is free (`GET /api/v1/portals/address?slug=...`). Some addresses are kept
+`/p/{address}` redirects there for good, so links shared before keep working.
+Renaming a portal keeps its old address, `/p/` and subdomain alike, leading
+to the new one, and nobody else may take it while the portal stands; deleting
+the portal frees it. While you type an address, the form says whether it is
+free (`GET /api/v1/portals/address?slug=...`). Some addresses are kept
 for the service, like `www`, `api` or `mail`, and so is any with dashes as its
 third and fourth characters (`xn--`, the shape of a look-alike name).
 

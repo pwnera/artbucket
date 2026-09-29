@@ -643,7 +643,7 @@ function PortalDialog({
                   <span className="text-destructive">{verdict.reason}</span>
                 ) : (
                   <span className="text-success flex items-center gap-1.5">
-                    <IconCheck className="size-3.5" /> Available
+                    <IconCheck className="size-3.5" /> Available{current && `: ${current.slug} will keep leading here`}
                   </span>
                 ))}
             </p>

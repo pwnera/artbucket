@@ -2,14 +2,14 @@ import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname, resolveTxt } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { domains, portals, workspaces } from "@/lib/db/schema";
+import { domains, portalAliases, portals, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { can, needs } from "@/lib/permissions";
-import { challengeName, hostname, slugAtHost } from "@/lib/portal";
+import { challengeName, hostname, slugAtHost, subdomainRefusal } from "@/lib/portal";
 
 /**
  * Host names this server answers for besides APP_URL's: an organization's
@@ -52,14 +52,46 @@ export async function hostTarget(rawHost: string): Promise<Target | null> {
   const t = (await verified()).get(host);
   if (t) return t;
   const slug = slugAtHost(host, env.PORTAL_DOMAIN);
-  if (!slug) return null;
   // Not cached: a portal made or renamed on another instance answers at once.
-  const [p] = await db
-    .select({ organizationId: workspaces.organizationId })
-    .from(portals)
-    .innerJoin(workspaces, eq(workspaces.id, portals.workspaceId))
-    .where(eq(portals.slug, slug));
-  return p ? { organizationId: p.organizationId, portal: slug, primary: false } : null;
+  const named = slug ? await portalNamed(slug) : null;
+  return named && { organizationId: named.organizationId, portal: slug, primary: false };
+}
+
+/** The portal a slug names, now or before a rename (portal_aliases), with its organization. */
+export async function portalNamed(slug: string) {
+  const q = () =>
+    db.select({ p: portals, organizationId: workspaces.organizationId }).from(portals).innerJoin(workspaces, eq(workspaces.id, portals.workspaceId));
+  const [now] = await q().where(eq(portals.slug, slug));
+  if (now) return now;
+  const [was] = await q().innerJoin(portalAliases, eq(portalAliases.portalId, portals.id)).where(eq(portalAliases.slug, slug));
+  return was ?? null;
+}
+
+type PortalRef = { slug: string; access: string; workspaceId: string };
+
+/**
+ * Where a portal answers: its own domain once verified; else
+ * {slug}.PORTAL_DOMAIN when the server has one; else /p/{slug}, on the
+ * organization's domain when it has one. A members portal stays on the app's:
+ * sessions don't reach another domain.
+ */
+export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: Date | null } | null) {
+  const app = new URL(env.APP_URL);
+  if (own?.verifiedAt) return `${app.protocol}//${own.host}`;
+  if (env.PORTAL_DOMAIN && p.access !== "members" && !subdomainRefusal(p.slug)) {
+    return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
+  }
+  const [ws] = await db.select({ organizationId: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, p.workspaceId));
+  return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
+}
+
+/** The portal a slug names, now or before a rename: its slug now, who it is for, and where it answers. For src/proxy.ts's redirects. */
+export async function portalHome(slug: string) {
+  const named = await portalNamed(slug);
+  if (!named) return null;
+  const { p } = named;
+  const [own] = await db.select({ host: domains.host, verifiedAt: domains.verifiedAt }).from(domains).where(eq(domains.portalId, p.id));
+  return { slug: p.slug, access: p.access, url: await portalUrl(p, own ?? null) };
 }
 
 /** The portal a verified host name serves, for the proxy; null for any other host. */

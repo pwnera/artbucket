@@ -12,6 +12,7 @@ import {
   grants,
   organizations,
   portalBrands,
+  portalAliases,
   portalCollections,
   portalRequests,
   portals,
@@ -27,7 +28,7 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, proveHost } from "@/lib/core/domains";
+import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
@@ -79,20 +80,6 @@ async function domainOf(portalId: string) {
   return d ?? null;
 }
 
-/**
- * Its own domain once verified; else {slug}.PORTAL_DOMAIN when the server has
- * one; else /p/{slug}, on the organization's domain when it has one. A members
- * portal stays on the app's: sessions don't reach another domain.
- */
-const urlOf = async (p: Pick<Row, "slug" | "workspaceId" | "access">, d: { host: string; verifiedAt: Date | null } | null) => {
-  const app = new URL(env.APP_URL);
-  if (d?.verifiedAt) return `${app.protocol}//${d.host}`;
-  if (env.PORTAL_DOMAIN && p.access !== "members" && !subdomainRefusal(p.slug)) {
-    return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
-  }
-  const ws = await workspaceById(p.workspaceId);
-  return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
-};
 
 /**
  * A portal's brands, in tab order, each with its latest publish. `shown`:
@@ -144,7 +131,7 @@ async function present(p: Row) {
     collections: cols,
     brands: brandList.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token }, cname: cnameFor(d.host) },
-    url: await urlOf(p, d),
+    url: await portalUrl(p, d),
     pending,
     createdBy: p.createdBy,
     createdAt: p.createdAt,
@@ -233,8 +220,8 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
 async function slugFree(slug: string, except?: string) {
   const refused = env.PORTAL_DOMAIN && subdomainRefusal(slug);
   if (refused) throw new AssetError("invalid", refused);
-  const [taken] = await db.select({ id: portals.id }).from(portals).where(eq(portals.slug, slug));
-  if (taken && taken.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
+  const named = await portalNamed(slug);
+  if (named && named.p.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
 }
 
 /** GET /api/v1/portals/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
@@ -248,7 +235,7 @@ export async function portalAddress(caller: Caller, slug: string, except?: strin
     if (!(err instanceof AssetError)) throw err;
     reason = err.message;
   }
-  return { slug, available: !reason, reason, url: await urlOf({ slug, workspaceId: caller.workspace.id, access: "public" }, null) };
+  return { slug, available: !reason, reason, url: await portalUrl({ slug, workspaceId: caller.workspace.id, access: "public" }, null) };
 }
 
 /** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
@@ -345,6 +332,11 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     .returning();
   if (ids) await setCollections(p.id, ids);
   if (brandIds) await setBrands(p.id, brandIds);
+  if (next.slug !== p.slug) {
+    // The old address keeps leading here, and stays this portal's; renaming back takes one up again.
+    await db.insert(portalAliases).values({ slug: p.slug, portalId: p.id }).onConflictDoNothing();
+    await db.delete(portalAliases).where(eq(portalAliases.slug, next.slug));
+  }
   if (input.domain !== undefined) await setDomain(caller, p.id, input.domain);
   forgetHosts();
   const changed = Object.keys(input).filter((k) => k !== "password" || input.password);
@@ -464,7 +456,7 @@ async function keyValid(p: Row, key: string | null | undefined) {
  * naming how to get in otherwise.
  */
 async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience }> {
-  const [p] = await db.select().from(portals).where(eq(portals.slug, slug));
+  const p = (await portalNamed(slug))?.p;
   if (!p) throw new AssetError("not_found", "There is no portal here");
   if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
   if (await keyValid(p, pass.key)) return { p, level: "partners" };
@@ -795,7 +787,7 @@ export async function portalsShowing(ws: string, brandId: string) {
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
     .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
     .orderBy(asc(portals.name));
-  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await urlOf(p, await domainOf(p.id)) })));
+  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await portalUrl(p, await domainOf(p.id)) })));
 }
 
 /** Admins who hear about a request: the workspace's and the organization's. */
@@ -901,7 +893,7 @@ const presentRequest = async (p: Row, d: { host: string; verifiedAt: Date | null
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
     createdAt: r.createdAt,
-    url: key ? `${await urlOf(p, d)}?key=${key}` : null,
+    url: key ? `${await portalUrl(p, d)}?key=${key}` : null,
   };
 };
 

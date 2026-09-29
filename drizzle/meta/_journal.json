@@ -239,6 +239,13 @@
       "when": 1790676090890,
       "tag": "0033_brand_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790697435214,
+      "tag": "0034_portal_aliases",
+      "breakpoints": true
     }
   ]
 }

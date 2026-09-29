@@ -71,6 +71,21 @@ export function subdomainRefusal(slug: string): string | null {
   return null;
 }
 
+/**
+ * Where a request for a portal goes instead, or null to serve it where it is:
+ * `home` is the portal now (its slug, and where it answers), `at` what was
+ * asked, a portal host or /p/{slug} on the app's. It goes home, but for a
+ * members portal at /p/ (its members sign in there) and an old slug on the
+ * app's, which only moves to the current one.
+ */
+export function portalRedirect(home: { url: string; slug: string; access: string }, at: { host?: string; slug: string }) {
+  const to = new URL(home.url);
+  const own = !to.pathname.startsWith("/p/"); // a subdomain, or a domain of its own
+  if (at.host) return own && to.host === at.host ? null : own ? to.origin : to.href;
+  if (own && home.access !== "members") return to.origin;
+  return at.slug !== home.slug ? `/p/${home.slug}` : null;
+}
+
 /** The portal slug a host names as a subdomain of `domain` (PORTAL_DOMAIN): one label, a portal's shape, not refused. */
 export function slugAtHost(host: string, domain: string | undefined) {
   if (!domain || !host.endsWith(`.${domain}`)) return null;

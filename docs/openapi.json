@@ -33247,7 +33247,7 @@
       },
       "patch": {
         "summary": "Change a brand portal",
-        "description": "Only what is given changes. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
+        "description": "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
