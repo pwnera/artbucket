@@ -2,6 +2,7 @@ import { z } from "zod";
 import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
+import { ICON_GROUP_NAMES } from "./icons.ts";
 import { STATES } from "./lifecycle.ts";
 import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
@@ -214,6 +215,54 @@ export function openapi(serverUrl: string) {
             "The family's styles, lightest first, roman before italic",
             z.object({ family: z.string().describe("As Google names it"), data: z.array(S.Asset) }),
           ],
+        }),
+      },
+      "/api/v1/icons": {
+        get: op({
+          summary: "Search open source icon sets",
+          scope: "read",
+          description:
+            "Iconify's icon sets (Tabler, Lucide, Material Symbols, Simple Icons and some 200 more), the popular ones first, " +
+            "each with its author, license and a few sample names. Sets their authors no longer maintain are left out.",
+          query: {
+            q: { schema: str, description: "Words in the set's name, author or license" },
+            group: { schema: { type: "string", enum: [...ICON_GROUP_NAMES] }, description: "Only this kind of set" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 300, default: 60 }, description: "Page size" },
+          },
+          ok: [200, "Matching sets", S.IconSets],
+        }),
+        post: op({
+          summary: "Import icons from a set",
+          scope: "propose",
+          description:
+            "One SVG asset per icon, at the size it is drawn at, titled from its name, credited to the set's author, " +
+            "with the set's license in its rights and tagged `icon` and the set's name. Fetched once and served from " +
+            "/a/{id} after, so nobody's browser calls Iconify. Icons already here dedupe.",
+          body: S.IconImport,
+          ok: [
+            201,
+            "The icons, in the order asked",
+            z.object({
+              set: S.IconSets.shape.data.element,
+              data: z.array(S.Asset),
+              missing: z.array(z.string()).describe("Names the set doesn't have"),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/icons/{prefix}": {
+        parameters: [path("prefix", "The set, as Iconify names it: tabler, lucide, simple-icons")],
+        get: op({
+          summary: "Browse an icon set",
+          scope: "read",
+          description: "A page of the set's icons, each drawn as the SVG an import would store, and its categories to narrow by.",
+          query: {
+            q: { schema: str, description: "Words in the icon's name" },
+            category: { schema: str, description: "One of the set's categories" },
+            offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Icons to skip" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 96 }, description: "Page size" },
+          },
+          ok: [200, "The set and a page of its icons", S.IconBrowse],
         }),
       },
       "/api/v1/assets/{id}": {
@@ -466,6 +515,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "Deleted", S.Deleted],
         }),
       },
+      "/api/v1/brands/{slug}/status": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's launch checklist",
+          scope: "read",
+          description:
+            "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in " +
+            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.",
+          ok: [200, "The checklist", data(S.BrandStatus)],
+        }),
+      },
       "/api/v1/brands/{slug}/versions": {
         parameters: [path("slug", "Brand slug")],
         get: op({
@@ -609,8 +669,53 @@ export function openapi(serverUrl: string) {
             context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
             lang: { schema: str, description: "The reader's language" },
             edit: { schema: { type: "string", enum: ["1"] }, description: "1: as the builder sees it" },
+            in: { schema: str, description: "A collection section's id, whose assets `find` narrows" },
+            find: { schema: str, description: "Words a reader searches that collection section for" },
           },
           ok: [200, "The page", data(S.PageView)],
+        }),
+      },
+      "/api/v1/brands/{slug}/comments": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "Review comments on a brand's pages",
+          scope: "read",
+          description:
+            "Threads, each a first comment with its replies (oldest first): open ones first, the one that moved last on " +
+            "top, then resolved ones, the last resolved first. A comment is on a page, or on one section of it by the " +
+            "section's id; `page` is the page's slug now, so comments follow a rename. A section deleted since leaves its " +
+            "comments on the page. Comments are never published and never in the brand's history. `mine`: the caller wrote it.",
+          query: { page: { schema: str, description: "That page's only; a slug it had before a rename finds it too" } },
+          ok: [200, "Threads", data(z.array(S.CommentThread))],
+        }),
+        post: op({
+          summary: "Comment on a brand page, or reply",
+          scope: "propose",
+          description:
+            "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. " +
+            "`parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a " +
+            "reply to a resolved thread reopens it. Takes propose on the workspace.",
+          body: S.CommentCreate,
+          ok: [201, "The comment", data(S.Comment)],
+        }),
+      },
+      "/api/v1/brands/{slug}/comments/{id}": {
+        parameters: [path("slug", "Brand slug"), path("id", "The comment's id")],
+        patch: op({
+          summary: "Edit a comment, or resolve its thread",
+          scope: "propose",
+          description:
+            "`body` changes the text, of your own comment only, and sets `editedAt`. `resolved` resolves the thread or " +
+            "reopens it, on a thread's first comment (a reply is a 422); anyone who may comment may. Resolving a " +
+            "resolved thread keeps who resolved it first.",
+          body: S.CommentPatch,
+          ok: [200, "The comment", data(S.Comment)],
+        }),
+        delete: op({
+          summary: "Delete a comment",
+          scope: "propose",
+          description: "Your own, or anyone's with write on the workspace. A thread's first comment takes its replies with it.",
+          ok: [200, "Deleted", S.Deleted],
         }),
       },
       "/api/v1/brands/{slug}/updates": {
@@ -861,6 +966,15 @@ export function openapi(serverUrl: string) {
           ok: [200, "Domains", data(z.array(S.PortalDomain))],
         }),
       },
+      "/api/v1/portals/{id}/close": {
+        parameters: [path("id", "Portal id")],
+        post: op({
+          summary: "Take a portal offline now",
+          scope: "write",
+          description: "It closes as a portal past its `expiresAt` does. PATCH `expiresAt: null` opens it again, as it was.",
+          ok: [200, "The portal", data(S.Portal)],
+        }),
+      },
       "/api/v1/portals/{id}/domain": {
         parameters: [path("id", "Portal id")],
         post: op({
@@ -947,6 +1061,8 @@ export function openapi(serverUrl: string) {
             path: { schema: str, description: "The portal path, e.g. logo or other-brand/logo" },
             context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
             lang: { schema: str, description: "The reader's language, a lowercase tag: ar, en-gb" },
+            in: { schema: str, description: "A collection section's id, whose assets `find` narrows" },
+            find: { schema: str, description: "Words a reader searches that collection section for" },
           },
           ok: [200, "The page", data(S.PortalSiteView)],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },

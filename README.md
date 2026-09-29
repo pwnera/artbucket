@@ -133,9 +133,22 @@ Then build any rendition URL you like, no API call needed:
 ```
 
 Transforms: `w` `h` (1-8000), `fit` (cover, contain, inside, outside, fill),
-`q` (1-100), `f` (jpeg, png, webp, avif). Renditions are generated once and
-cached. The bytes are private: the URLs work with your key or session, and for
+`q` (1-100), `f` (jpeg, png, webp, avif). A photo or other raster image is
+never enlarged: asking for more pixels than it has gives it at its own size.
+An SVG is drawn at the size asked, up to 8000px, so a 24px icon at `w_512,f_png`
+is a sharp 512px PNG. Renditions are generated once and cached. The bytes are private: the URLs work with your key or session, and for
 anyone else once signed (`POST /api/v1/assets/{id}/signed-url`) or made public.
+
+Fonts and icons come in without a file to hand: Upload's menu imports a Google
+Fonts family, or icons from an open source pack (Tabler, Lucide, Material
+Symbols, Simple Icons and some 200 more, through Iconify). Each icon lands as an
+SVG tagged `icon`, credited to the set's author, with its license in its rights:
+
+```bash
+curl -X POST localhost:3000/api/v1/icons \
+  -H 'content-type: application/json' \
+  -d '{"prefix":"tabler","icons":["home","search","brand-github"]}'
+```
 
 ### 3. Connect your agents
 
@@ -157,6 +170,8 @@ claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 | `brand_rules` | read | A brand's rules for a context, with the assets they point at |
 | `ingest_asset` | propose | Fetch a public URL into the library, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
+| `find_icons` | read | Open source icon sets through Iconify, or a set's icons by name, with license and author |
+| `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `list_fields` | read | The library's custom fields: keys, types, options |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |

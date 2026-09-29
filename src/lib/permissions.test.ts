@@ -15,6 +15,9 @@ test("workspace actions take the scope on the whole workspace", () => {
   assert.equal(can(editor, "collection.create"), true);
   assert.equal(can(editor, "member.manage"), false);
   assert.equal(can(contractor, "brand.edit"), false, "a collection grant doesn't reach the workspace");
+  assert.equal(can(viewer, "brand.comment"), false, "reading the guidelines isn't reviewing them");
+  assert.equal(can({ ...viewer, scope: "propose" }, "brand.comment"), true);
+  assert.equal(can(contractor, "brand.comment"), false);
 });
 
 test("organization actions take the scope on the organization", () => {

@@ -32,6 +32,8 @@ const FALLBACK: Record<string, string | boolean> = {
   "cover.titleSize": "large",
   "logos.kit": true,
   "collection.downloads": true,
+  "icons.downloads": true,
+  "icons.sort": "name",
 };
 
 /** Names readers of the panel know them by, where the prop's own name says less. */

@@ -30,6 +30,7 @@ export const TEMPLATES = [
   "dodont",
   "gallery",
   "collection",
+  "icons",
   "links",
   "pages",
   "diagram",
@@ -230,6 +231,17 @@ export const TEMPLATE_INFO: Record<
     columns: 4,
     tone: "plain",
     example: { template: "collection", title: "Posters", props: { query: "tag=poster&type=image", limit: 12, layout: "grid" } },
+  },
+  icons: {
+    name: "Icon set",
+    use: "The brand's icons from the library, live: a collection, a saved search or a query, and everything tagged icon when none is set; by name, 96 at most unless limit says. One-color icons take the section's text color; readers find one by name, copy its SVG or download it.",
+    binds: null,
+    accepts: null,
+    items: null,
+    width: "wide",
+    columns: 1,
+    tone: "plain",
+    example: { template: "icons", title: "Icons", body: "Drawn on a 24px grid with a 2px stroke.", props: { query: "tag=icon", size: "medium" } },
   },
   links: {
     name: "Links",
@@ -443,7 +455,7 @@ export const Item = z.strictObject({
   title: z.string().trim().max(200).optional(),
   text: z.string().trim().max(4000).optional().describe("Markdown"),
   verdict: z.enum(["do", "dont"]).optional().describe("A do (green) or a don't (red)"),
-  caption: z.string().trim().max(500).optional().describe("Under the media; the asset's description when left out"),
+  caption: z.string().trim().max(500).optional().describe("The asset's description when left out"),
   link: siteLink.optional(),
   label: z.string().trim().max(40).optional().describe("A small tag: Figma, PDF, Partners only"),
   // Checked like a page's icon, but advertised as a string: the tool schemas list the icons once, on the page.
@@ -493,6 +505,23 @@ const SLOT = /\{(\w+)\}/g;
 export const fillSlots = (template: string, values: Record<string, string>) => template.replace(SLOT, (slot, name: string) => values[name]?.trim() || slot);
 
 /** Each template's own settings. Strict: a misspelled one is an error, not ignored. */
+/** Logos' and icons' size: said once, it goes into the page tools' schemas once. */
+const SIZE = "In its tile";
+
+/** A live section's source (collection, icons): the library, narrowed. */
+const LIVE = {
+  collection: z.uuid().optional().describe("A collection's id"),
+  search: z.uuid().optional().describe("A saved search's id"),
+  query: z
+    .string()
+    .max(2000)
+    .optional()
+    .describe("A library query string: q=poster&type=image&tag=campaign"),
+  sort: z.enum(["newest", "oldest", "name"]).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  downloads: z.boolean().optional().describe("true when left out"),
+};
+
 export const TEMPLATE_PROPS = {
   cover: z.strictObject({
     image: image.describe("In place of the brand color"),
@@ -505,7 +534,7 @@ export const TEMPLATE_PROPS = {
     markSize: z.enum(["small", "medium", "large"]).optional(),
     titleSize: z.enum(["medium", "large", "huge"]).optional(),
   }),
-  header: z.strictObject({ image: image.describe("A picture in the band") }),
+  header: z.strictObject({ image: image.describe("In the band") }),
   text: z.strictObject({}),
   split: z.strictObject({
     image: image.describe("Beside the words; else the first rule's picture"),
@@ -540,24 +569,32 @@ export const TEMPLATE_PROPS = {
   logos: z.strictObject({
     kit: z.boolean().optional().describe("A zip of every mark; true when left out"),
     ask: z.boolean().optional().describe("Which mark for which context"),
-    size: z.enum(["medium", "small", "large"]).optional().describe("How much of its tile a mark fills"),
+    size: z.enum(["medium", "small", "large"]).optional().describe(SIZE),
     backdrop: z.enum(["checker", "light", "dark"]).optional(),
   }),
   dodont: z.strictObject({ layout: z.enum(["pairs", "grid", "rows"]).optional() }),
   gallery: z.strictObject({ layout: z.enum(["grid", "bento", "carousel", "collage", "crops"]).optional() }),
   collection: z
     .strictObject({
-      collection: z.uuid().optional().describe("A collection's id"),
-      search: z.uuid().optional().describe("A saved search's id"),
-      query: z
-        .string()
-        .max(2000)
-        .optional()
-        .describe("A library query string: q=poster&type=image&tag=campaign"),
-      sort: z.enum(["newest", "oldest", "name"]).optional(),
-      limit: z.number().int().min(1).max(200).optional().describe("24 when left out"),
+      collection: LIVE.collection,
+      search: LIVE.search,
+      query: LIVE.query,
+      sort: LIVE.sort,
+      limit: LIVE.limit.describe("24 when left out"),
       layout: z.enum(["grid", "masonry", "list"]).optional(),
-      downloads: z.boolean().optional().describe("Offer downloads; true when left out"),
+      downloads: LIVE.downloads,
+    })
+    .refine((p) => !(p.collection && p.search), "A collection or a saved search, not both"),
+  icons: z
+    .strictObject({
+      collection: LIVE.collection,
+      search: LIVE.search,
+      query: LIVE.query,
+      // Their defaults (by name, 96) are in list_templates: every word here goes into each page tool's schema.
+      sort: LIVE.sort,
+      limit: LIVE.limit,
+      size: z.enum(["medium", "small", "large"]).optional().describe(SIZE),
+      downloads: LIVE.downloads,
     })
     .refine((p) => !(p.collection && p.search), "A collection or a saved search, not both"),
   links: z.strictObject({ layout: z.enum(["cards", "list"]).optional() }),
@@ -660,7 +697,7 @@ const base = {
     .optional()
     .describe('A tab per context: ["default", "dark-background"]; default: no context'),
   only: ruleContext.optional().describe("Shown only in this context"),
-  translations: z.record(LANG, SectionText).optional().describe("Its words by language tag; what is left out falls back"),
+  translations: z.record(LANG, SectionText).optional().describe("By language tag; what is left out falls back"),
 };
 
 /** The optional fields a stored section carries only when set (D5): writing their defaults would change every page's canon. */
@@ -683,6 +720,7 @@ export const SectionInput = z.discriminatedUnion("template", [
   variant("dodont", TEMPLATE_PROPS.dodont),
   variant("gallery", TEMPLATE_PROPS.gallery),
   variant("collection", TEMPLATE_PROPS.collection),
+  variant("icons", TEMPLATE_PROPS.icons),
   variant("links", TEMPLATE_PROPS.links),
   variant("pages", TEMPLATE_PROPS.pages),
   variant("diagram", TEMPLATE_PROPS.diagram),
@@ -733,11 +771,16 @@ export function mergedProps(props: Record<string, z.ZodObject> = TEMPLATE_PROPS)
     }
   }
   // A merged enum no longer says which template takes which value; its description does.
-  const note = ({ t, about, values }: { t: string; about?: string; values?: string[] }, shared: boolean) =>
-    about ? `${t}: ${about}` : shared && values ? `${t}: ${values.join(", ")}` : t;
-  return z.strictObject(
-    Object.fromEntries([...merged].map(([name, m]) => [name, m.schema.optional().describe(m.from.map((f) => note(f, m.from.length > 1)).join("; "))])),
-  );
+  // Templates that say the same (collection and icons share their source) say it once.
+  const describe = (from: { t: string; about?: string; values?: string[] }[]) => {
+    const said = new Map<string, string[]>();
+    for (const { t, about, values } of from) {
+      const text = about ?? (from.length > 1 && values ? values.join(", ") : "");
+      said.set(text, [...(said.get(text) ?? []), t]);
+    }
+    return [...said].map(([text, ts]) => (text ? `${ts.join(", ")}: ${text}` : ts.join(", "))).join("; ");
+  };
+  return z.strictObject(Object.fromEntries([...merged].map(([name, m]) => [name, m.schema.optional().describe(describe(m.from))])));
 }
 
 /** What save_page, edit_page's add op, PUT and PATCH advertise. parseSections still checks each section against its own template. */
@@ -1263,6 +1306,20 @@ export function designWarnings(sections: Section[]): { at: number | null; text: 
 /** Query params a page never passes on: readers see approved, deliverable assets only, and the section sets its own limit. */
 const DROPPED = ["status", "review", "proposedBy", "limit", "offset"];
 
+/** Templates that list assets live from the library, as the server finds them (core/section-assets.ts). */
+export const isLive = (t: Template) => t === "collection" || t === "icons";
+
+/**
+ * What a live section asks the library for. An icon set with no source of its
+ * own lists what is tagged icon (what an icon pack import tags), by name.
+ */
+export function liveProps(s: Pick<Section, "template" | "props">): z.output<(typeof TEMPLATE_PROPS)["collection"]> {
+  const p = s.props as z.output<(typeof TEMPLATE_PROPS)["collection"]>;
+  if (s.template !== "icons") return p;
+  const own = p.collection || p.search || p.query;
+  return { ...p, sort: p.sort ?? "name", limit: p.limit ?? 96, query: own ? p.query : "tag=icon" };
+}
+
 /**
  * The library query a collection section runs: its saved search's query,
  * narrowed by `props.query`. Words in `q` join (every word must match), `tag`
@@ -1456,10 +1513,10 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
     if (s.template === "request") out.push("", `Readers ask here (${(s.props.kind as string | undefined) ?? "question"})${s.props.prompt ? `: ${s.props.prompt}` : "."}`);
     if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
     if (s.template === "pages" && !s.items?.length) out.push("", `The pages under ${typeof s.props.from === "string" ? `/${s.props.from}` : "this one"}.`);
-    if (s.template === "collection") {
-      const p = s.props as { collection?: string; search?: string; query?: string };
+    if (isLive(s.template)) {
+      const p = liveProps(s);
       const from = p.collection ? `collection ${p.collection}` : p.search ? `saved search ${p.search}` : "the library";
-      out.push("", `Assets from ${from}${p.query ? `, filtered by ${p.query}` : ""}.`);
+      out.push("", `${s.template === "icons" ? "Icons" : "Assets"} from ${from}${p.query ? `, filtered by ${p.query}` : ""}.`);
     }
     if (s.template === "updates") out.push("", `The latest ${(s.props.limit as number | undefined) ?? 5} publishes.`);
   }

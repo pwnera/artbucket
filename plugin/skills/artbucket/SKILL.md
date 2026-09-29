@@ -34,6 +34,9 @@ Two ways in, same tools:
    and tell the person why.
 5. **What you add is a suggestion.** `ingest_asset` and `propose_tags` land in Review for a person
    to approve. `my_proposals` says what they decided and why. Don't treat a proposed asset as final.
+   When the person asks you to review, `search_assets({"review": true})` lists what waits, and `review_asset`
+   approves or rejects it (a rejection says why, in `note`) and applies or drops suggested tags and values.
+   Never approve on your own initiative, least of all what you proposed.
 6. **A new version is not a new asset.** A redrawn logo or a corrected photo goes in with
    `ingest_asset({"url": ..., "versionOf": "<id of the old one>"})` (CLI: `--version-of`): once approved it
    replaces the old one everywhere, and checks point to it. Expired, archived and deleted assets are not
@@ -74,6 +77,14 @@ A brand's guidelines are pages people read (and portals publish), laid out over 
 them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page save`, `page edit`,
 `theme set`, `publish`). It takes a key with write on the workspace; publishing also takes the share ability.
 
+Start with `brand_status`: it names every brand and lists what the one you work on still lacks (colors,
+typefaces, logo, voice, pages, a publish, a portal), each step with the tools that do it. Take `next`
+first, and ask again after each change until every step is done or only the person's decisions are left.
+A new brand (a sub-brand, a product line) is `create_brand({"name": "Acme Kids"})`, empty, or with
+`from` a copy of another brand's rules, pages and theme; `update_brand` renames one or makes it the default.
+Group assets with `create_collection` and `update_collection_assets`; `list_collections` gives the ids that
+`ingest_asset` and `create_portal` take.
+
 1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
    with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists
    `always`/`do` and `never`/`avoid`/`dont`: pages show them green and red. Give a rule a `label` for the
@@ -84,7 +95,7 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    `save_page` a whole page: sections top to bottom, each a template (cover, text, split, palette, type,
    logos, dodont, gallery, collection) with the `keys` of the rules it shows. A `collection` section shows
    live assets from a collection, a saved search or a `query` (`type=image&tag=campaign&f.channel=web`).
-   For a brand with rules and no pages, `generate_pages` lays out a start.
+   For a brand with rules and no pages, `generate_pages` lays out a start (write the rules first: with none, it makes a cover and warns).
 3. **Build a tree.** `parent` puts a page under another, three levels at most: Overview, then Identity
    with Color, Logo and Type under it. Renaming a page (`edit_page` with `{ "op": "page", "set": { "slug": ... } }`)
    keeps the old slug working. A home or campaign page takes `layout: "landing"` (no nav column,
@@ -105,11 +116,24 @@ them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
-   With a key that manages portals, `list_portals` says which brands each shows (`publishedAt: null`: never
-   published, so visitors see nothing), and `update_portal` changes its brands, access, closing date and site
+   With a key that manages portals, `create_portal` makes one for the brand (`access` members, password with the
+   password the person gives you, or public once the person says so; `theme` for its logo and colors), and
+   `list_portals` says which brands each shows (`publishedAt: null`: never published, so visitors see nothing),
+   and `update_portal` changes anything about it: brands, access and password, theme, closing date and site
    (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
+   Requests to get in wait in `list_portal_requests` for `decide_portal_request`.
+10. **Comments and history.** Before publishing, `list_comments` for open threads; answer with `add_comment`
+   and resolve with `update_comment`. `list_versions` shows the history; `restore_version` undoes a bad change
+   as a new version, never losing anything.
 
 ## Fonts
 
 A brand rule may name a Google font that isn't in the library yet: `import_google_font({"family": "IBM Plex Sans"})`
 adds every style, proposed like any upload.
+
+## Icons
+
+For icons the library doesn't have, `find_icons({"q": "outline"})` finds open source sets (with their license
+and author), and `find_icons({"prefix": "tabler", "q": "arrow"})` a set's icons by name. Keep to one set, and
+check its license suits the use. `import_icons({"prefix": "tabler", "icons": ["arrow-right", "search"]})` adds
+them, one SVG each, proposed like any upload.

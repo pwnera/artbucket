@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { IconListDetails, IconPhoto, IconPlus, IconX } from "@tabler/icons-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { IconAlignLeft, IconChevronDown, IconHash, IconList, IconListDetails, IconPhoto, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { AssetPicker } from "@/components/builder/asset-picker";
 import { SpecForm } from "@/components/builder/spec-form";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { fieldIn, onceDrawn, RuleView, type Dnd, type Ed } from "@/components/brand-sections/rule-view";
 import { copy, Editable } from "@/components/brand-values";
 import { IconButton } from "@/components/icon-button";
+import { Thumb } from "@/components/thumb";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,7 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { RuleRef } from "@/lib/builder-ops";
 import { keyFor, PRESETS, type Preset } from "@/lib/presets";
-import { contextLabel, RULE_SPEC, ruleLabel, ruleName, section, type Rule } from "@/lib/rules";
+import { assetUrl } from "@/lib/asset-url";
+import { contextLabel, fontValue, RULE_SPEC, ruleLabel, ruleName, section, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
@@ -53,6 +56,19 @@ const titleOf = (s: string) => TITLES[s] ?? ruleLabel(`_.${s}`);
 type Group = [string | null, Preset[]];
 const ANY = PRESETS.filter((p) => !p.section);
 const EVERY = [...new Set(PRESETS.map((p) => p.section).filter(Boolean))].map((s): Group => [titleOf(s), PRESETS.filter((p) => p.section === s)]);
+/**
+ * What each missing essential of the launch checklist adds, in one click: the
+ * keys the setup screen and brand_status name (color.primary, type.heading,
+ * logo.primary, tone.voice), so the theme reads each part from them.
+ */
+const preset = (id: string) => PRESETS.find((p) => p.id === id)!;
+const ESSENTIALS = {
+  colors: { label: "The main color", preset: preset("color"), name: "Primary" },
+  type: { label: "A heading face", preset: preset("type-face"), name: "Heading" },
+  logo: { label: "The logo", preset: preset("logo-file"), name: "Primary" },
+  voice: { label: "The voice", preset: preset("tone-voice"), name: "Voice" },
+};
+
 /** A section's own presets, then the kinds that go anywhere. */
 function groupsFor(s: string): Group[] {
   const own = PRESETS.filter((p) => p.section === s);
@@ -81,9 +97,15 @@ const NO_DRAG: Dnd = { onDragStart() {}, onDragEnd() {}, onDragOver() {}, onDrop
 
 export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   const rules = b.state.rules;
-  const body = useRef<HTMLDivElement>(null);
-  // The version open in Details.
+  // The list, found by id when it is needed: a ref read from a handler that render hands on reads as read in render.
+  const bodyId = useId();
+  const root = () => document.getElementById(bodyId);
+  // The key whose row is open, to edit; and the version open in its Details.
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [details, setDetails] = useState<RuleRef | null>(null);
+  // What the list is narrowed to: words, and one section.
+  const [q, setQ] = useState("");
+  const [only, setOnly] = useState<string | null>(null);
   // The section whose add menu is open: from its button, a rule's + or / on a rule.
   const [adding, setAdding] = useState<string | null>(null);
   // A preset waiting for its name, which makes its key, in the section it goes to.
@@ -116,7 +138,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   };
   const reveal = (key: string, where: "block" | "value") =>
     onceDrawn(
-      () => (where === "block" ? blockIn(body.current, key) : fieldIn(blockIn(body.current, key), "value")),
+      () => (where === "block" ? blockIn(root(), key) : fieldIn(blockIn(root(), key), "value")),
       (el) => {
         el.scrollIntoView({ block: "nearest" });
         el.focus();
@@ -129,18 +151,23 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   if (target !== seen) {
     setSeen(target);
     const first = target ? versionsOf(target)[0] : undefined;
-    if (first) setDetails(refOf(first));
+    if (first) {
+      setDetails(refOf(first));
+      setExpanded(first.key);
+      setQ("");
+      setOnly(null);
+    }
   }
   useEffect(() => {
     if (!target) return;
     onceDrawn(
-      () => blockIn(body.current, target),
+      () => blockIn(document.getElementById(bodyId), target),
       (el) => {
         el.scrollIntoView({ block: "center" });
         el.focus({ preventScroll: true });
       },
     );
-  }, [target]);
+  }, [target, bodyId]);
 
   /** A heading for every version of a key: its label, never its key, which pages, agents and tokens know it by. */
   function rename(key: string, name: string) {
@@ -153,7 +180,12 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   function pick(p: Preset, at: string) {
     const home = p.section || at;
     const fixed = p.name && keyFor(home, p.name, new Set());
-    if (fixed && taken.has(fixed)) return reveal(fixed, "block");
+    setQ("");
+    setOnly(null);
+    if (fixed && taken.has(fixed)) {
+      setExpanded(fixed);
+      return reveal(fixed, "block");
+    }
     if (p.name) make(p, home, p.name);
     else setNaming({ preset: p, section: home });
   }
@@ -174,6 +206,8 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
       assets: [],
     };
     if (!change([r])) return false;
+    setExpanded(key);
+    setDetails(refOf(r));
     if (p.assets) setPicking({ ref: refOf(r), open: true });
     else reveal(key, "value");
     return true;
@@ -185,7 +219,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
     if (!r) return false;
     const rest = versionsOf(r.key).filter((v) => v !== r);
     // The key's last version: its block leaves with RuleView's animation, and RuleView moves focus on.
-    const el = rest.length ? null : blockIn(body.current, r.key);
+    const el = rest.length ? null : blockIn(root(), r.key);
     if (el) {
       el.setAttribute("data-leaving", "");
       await new Promise((ok) => setTimeout(ok, 150));
@@ -195,6 +229,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
       return false;
     }
     setDetails((d) => (d && same(d, r) ? (rest[0] ? refOf(rest[0]) : null) : d));
+    if (!rest.length) setExpanded((k) => (k === r.key ? null : k));
     const shown = rest.length ? 0 : b.shownOn(r.key).length;
     undoable(`Deleted ${ruleName(r)}${r.context ? ` for ${contextLabel(r.context)}` : ""}`, {
       description: shown ? `${shown === 1 ? "A page shows" : `${shown} pages show`} it as missing until it is back.` : undefined,
@@ -208,7 +243,10 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   function duplicate(key: string) {
     const vs = versionsOf(key);
     const to = keyFor(section(key), `${ruleName(vs[0])} copy`, taken);
-    if (to && change(vs.map((r) => ({ ...r, key: to, label: r.label && `${r.label} copy` })))) reveal(to, "block");
+    if (to && change(vs.map((r) => ({ ...r, key: to, label: r.label && `${r.label} copy` })))) {
+      setExpanded(to);
+      reveal(to, "block");
+    }
   }
 
   /** A version of `from` for a context, to change from there; one that exists is opened instead. */
@@ -231,7 +269,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
       const r = rules.find((x) => idOf(x) === id);
       if (!r) return;
       setDetails(refOf(r));
-      if (kb) onceDrawn(() => rowIn(body.current, key)?.querySelector<HTMLElement>("[data-details] textarea"), (f) => f.focus());
+      if (kb) onceDrawn(() => rowIn(root(), key)?.querySelector<HTMLElement>("[data-details] textarea"), (f) => f.focus());
     },
     onInsert: () => setAdding(section(key)),
     onDuplicate: () => duplicate(key),
@@ -252,6 +290,20 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
     );
   const picked = picking ? find(picking.ref) : undefined;
 
+  /** The sections and keys the search and the section chip leave. */
+  const needle = q.trim().toLowerCase();
+  const matches = (key: string) =>
+    !needle ||
+    versionsOf(key).some((r) => [r.key, ruleName(r), typeof r.value === "string" ? r.value : JSON.stringify(r.value)].some((t) => t.toLowerCase().includes(needle)));
+  const shownSections = [...sections]
+    .filter(([name]) => only === null || name === only)
+    .map(([name, keys]): [string, string[]] => [name, keys.filter(matches)])
+    .filter(([, keys]) => keys.length > 0);
+  /** The essentials the launch checklist still wants (b.status), each a preset a click away. */
+  const missing = (b.status?.steps ?? [])
+    .filter((st) => st.done === false && st.id in ESSENTIALS)
+    .map((st) => ({ id: st.id, ...ESSENTIALS[st.id as keyof typeof ESSENTIALS] }));
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -270,18 +322,59 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
           <SheetTitle className="flex items-center gap-2">
             <IconListDetails className="size-5" /> Rules
           </SheetTitle>
-          <SheetDescription>
-            Every rule of the brand, whether a page shows it or not. Click into one to edit it; its menu holds Details, its
-            versions and Delete.
-          </SheetDescription>
+          <SheetDescription>The brand&apos;s colors, type, logo and words. Pages show them by name, and agents read them as data. Open one to edit it.</SheetDescription>
         </SheetHeader>
 
-        {/* Start padding: room for RuleView's gutter, its + and handle. */}
-        <div ref={body} className="min-h-0 flex-1 space-y-10 overflow-y-auto py-6 ps-14 pe-6">
-          {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Add the first from the presets below.</p>}
-          {[...sections].map(([name, keys]) => (
+        <div className="grid gap-3 border-b px-6 py-3">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <IconSearch aria-hidden className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a rule by name or value" aria-label="Find a rule" className="h-8 ps-8" />
+            </div>
+            <AddMenu label="Add a rule" groups={EVERY} onPick={(p) => pick(p, p.section)} variant="default" />
+          </div>
+          {sections.size > 1 && (
+            <div role="group" aria-label="Show one section" className="flex flex-wrap gap-1.5">
+              {[null, ...sections.keys()].map((name) => (
+                <button
+                  key={name ?? "*"}
+                  type="button"
+                  aria-pressed={only === name}
+                  onClick={() => setOnly(name)}
+                  className="text-muted-foreground hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background focus-visible:ring-ring/50 rounded-full border px-2.5 py-0.5 text-xs outline-none focus-visible:ring-2"
+                >
+                  {name === null ? "All" : titleOf(name)} <span className="tabular-nums opacity-70">{name === null ? taken.size : sections.get(name)!.length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {missing.length > 0 && (
+            <div className="bg-muted/60 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Still missing:</span>
+              {missing.map((m) => (
+                <Button
+                  key={m.id}
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    setQ("");
+                    setOnly(null);
+                    make(m.preset, m.preset.section, m.name);
+                  }}
+                >
+                  <IconPlus /> {m.label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div id={bodyId} className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
+          {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with the brand&apos;s main color, its typefaces and its logo.</p>}
+          {rules.length > 0 && !shownSections.length && <p className="text-muted-foreground text-sm">No rule by that name or value.</p>}
+          {shownSections.map(([name, keys]) => (
             <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
-              <div className="flex items-center gap-2 border-b pb-2">
+              <div className="flex items-center gap-2">
                 <h3 id={`rules-${name}`} className="text-sm font-semibold">
                   {titleOf(name)}
                 </h3>
@@ -295,40 +388,53 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
                   className="ms-auto"
                 />
               </div>
-              {keys.map((key) => {
-                const shown = details?.key === key ? find(details) : undefined;
-                return (
-                  <div key={key} data-rule={key}>
-                    <RuleView
-                      rules={versionsOf(key).map((r) => ({ ...r, id: idOf(r) }))}
-                      selected={shown && idOf(shown)}
-                      line={null}
-                      dragging={false}
-                      ed={edFor(key)}
-                    />
-                    {shown && (
-                      <Details
-                        rule={shown}
-                        b={b}
-                        onHeading={(name) => rename(key, name)}
-                        onVersion={(c) => addVersion(shown, c)}
-                        onPatch={(fields) => patch(shown, fields)}
-                        onAssets={() => setPicking({ ref: refOf(shown), open: true })}
-                        onPage={(page) => {
-                          b.open(page);
-                          onOpenChange(false);
+              <ul className="divide-y rounded-lg border">
+                {keys.map((key) => {
+                  const vs = versionsOf(key);
+                  const open = expanded === key;
+                  const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
+                  return (
+                    <li key={key} data-rule={key}>
+                      <RuleRow
+                        rule={vs[0]}
+                        versions={vs.length}
+                        pages={b.shownOn(key).length}
+                        open={open}
+                        onToggle={() => {
+                          setExpanded(open ? null : key);
+                          setDetails(open ? null : refOf(vs[0]));
                         }}
-                        onClose={() => setDetails(null)}
                       />
-                    )}
-                  </div>
-                );
-              })}
+                      {open && (
+                        // Start padding: room for RuleView's gutter, its + and handle.
+                        <div className="bg-muted/20 border-t py-4 ps-12 pe-4">
+                          <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
+                          <Details
+                            rule={shown}
+                            b={b}
+                            onHeading={(name) => rename(key, name)}
+                            onVersion={(c) => addVersion(shown, c)}
+                            onPatch={(fields) => patch(shown, fields)}
+                            onAssets={() => setPicking({ ref: refOf(shown), open: true })}
+                            onPage={(page) => {
+                              b.open(page);
+                              onOpenChange(false);
+                            }}
+                            onClose={() => {
+                              setExpanded(null);
+                              setDetails(null);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
               {draft(name)}
             </section>
           ))}
           {naming && !sections.has(naming.section) && draft(naming.section)}
-          <AddMenu label="Add a rule" groups={EVERY} onPick={(p) => pick(p, p.section)} />
         </div>
 
         <datalist id="rule-contexts">
@@ -359,8 +465,10 @@ function AddMenu({
   onOpenChange,
   onPick,
   className,
+  variant = "ghost",
 }: {
   label: string;
+  variant?: "ghost" | "default";
   groups: Group[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -371,7 +479,7 @@ function AddMenu({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className={cn("text-muted-foreground", className)}>
+        <Button variant={variant} size="sm" className={cn(variant === "ghost" && "text-muted-foreground", className)}>
           <IconPlus /> {label}
         </Button>
       </DropdownMenuTrigger>
@@ -453,6 +561,82 @@ function NameDraft({
         )}
       </p>
     </form>
+  );
+}
+
+/** A rule's value in a line: what a row says under its name. */
+function summaryOf(r: ViewRule): string {
+  const v = r.value;
+  switch (r.type) {
+    case "color":
+      return String(v).toUpperCase() + (r.usage ? `, ${r.usage}` : "");
+    case "font": {
+      const f = fontValue(v);
+      return [f.family, f.weight].filter(Boolean).join(" ");
+    }
+    case "number":
+      return `${v}${(r.spec as { unit?: string } | null)?.unit ?? ""}${r.usage ? `, ${r.usage}` : ""}`;
+    case "list":
+      return (v as (string | number)[]).join(" · ");
+    default:
+      // Markdown to its words, in a line.
+      return String(v)
+        .replace(/[*_`#>[\]()]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+  }
+}
+
+/** A rule's thumbnail: its color, its face, its picture, or what kind it is. */
+function RulePreview({ r }: { r: ViewRule }) {
+  const box = "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border";
+  if (r.type === "color") return <span aria-hidden className={box} style={{ background: String(r.value) }} />;
+  if (r.type === "font")
+    return (
+      <span aria-hidden className={cn(box, "bg-background text-base")} style={{ fontFamily: `"${fontValue(r.value).family}", var(--font-sans)` }}>
+        Aa
+      </span>
+    );
+  const pic = r.assets.find((a) => a.preview);
+  if (pic)
+    return (
+      <span aria-hidden className={cn(box, "bg-checker")}>
+        <Thumb src={assetUrl(pic.id, "/w_80,f_webp")} alt="" />
+      </span>
+    );
+  const I = r.type === "list" ? IconList : r.type === "number" ? IconHash : IconAlignLeft;
+  return (
+    <span aria-hidden className={cn(box, "bg-muted text-muted-foreground")}>
+      <I className="size-4" />
+    </span>
+  );
+}
+
+/** One rule in the list, closed: its preview, name, value, versions and where it shows; a click opens it to edit. */
+function RuleRow({ rule: r, versions, pages, open, onToggle }: { rule: ViewRule; versions: number; pages: number; open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      title={r.key}
+      className="hover:bg-muted/50 focus-visible:ring-ring/50 flex w-full items-center gap-3 px-3 py-2 text-start outline-none focus-visible:ring-3 focus-visible:ring-inset"
+    >
+      <RulePreview r={r} />
+      <span className="grid min-w-0 flex-1">
+        <span className="truncate text-sm font-medium">{ruleName(r)}</span>
+        <span className="text-muted-foreground truncate text-xs">{summaryOf(r)}</span>
+      </span>
+      {versions > 1 && (
+        <Badge variant="outline" className="shrink-0">
+          {versions} versions
+        </Badge>
+      )}
+      <span className={cn("hidden shrink-0 text-xs sm:inline", pages ? "text-muted-foreground" : "text-warning")}>
+        {pages ? `On ${pages} ${pages === 1 ? "page" : "pages"}` : "On no page"}
+      </span>
+      <IconChevronDown aria-hidden className={cn("text-muted-foreground size-4 shrink-0 transition-transform", open && "rotate-180")} />
+    </button>
   );
 }
 

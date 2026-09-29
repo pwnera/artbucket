@@ -14,6 +14,7 @@ import { FaqSection } from "@/components/brand-sections/faq";
 import { SectionFrame } from "@/components/brand-sections/frame";
 import { GallerySection } from "@/components/brand-sections/gallery";
 import { HeaderSection } from "@/components/brand-sections/header";
+import { IconsSection } from "@/components/brand-sections/icons";
 import { LinksSection } from "@/components/brand-sections/links";
 import { LogosSection } from "@/components/brand-sections/logos";
 import { PagesSection } from "@/components/brand-sections/pages";
@@ -60,6 +61,7 @@ export const RENDERERS: Record<Template, Renderer> = {
   dodont: { View: DoDontSection },
   gallery: { View: GallerySection },
   collection: { View: CollectionSection },
+  icons: { View: IconsSection },
   links: { View: LinksSection },
   pages: { View: PagesSection },
   diagram: { View: DiagramSection },

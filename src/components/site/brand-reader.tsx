@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Can } from "@/components/can";
 import { AppHeader } from "@/components/page";
-import { useShell } from "@/components/shell";
+import { useSqueeze } from "@/components/shell";
 import { SiteView } from "@/components/site/site-view";
 import { ThemePanel } from "@/components/theme-panel";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,6 @@ const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.bran
 export function BrandReader({ initial }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const { setSqueeze } = useShell();
   const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
 
@@ -57,10 +56,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
   }
   const view = shown.view;
 
-  useEffect(() => {
-    setSqueeze(true);
-    return () => setSqueeze(false);
-  }, [setSqueeze]);
+  useSqueeze();
 
   useEffect(() => {
     if (want === shown.want) return;

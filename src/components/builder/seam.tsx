@@ -18,13 +18,18 @@ import { cn } from "@/lib/utils";
  * Props:
  * - b: the builder.
  * - after: the section it follows; null for the top of the page.
- * - always: shown without the pointer on it (an empty page's only way in).
+ * - always: shown without the pointer on it: "empty" as an empty page's only
+ *   way in, "end" as the standing way in under a page's last section, with the
+ *   blocks most pages take a click away.
  */
 export type SeamProps = {
   b: BuilderApi;
   after: string | null;
-  always?: boolean;
+  always?: "empty" | "end";
 };
+
+/** The blocks most pages reach for next, one click each under the last section. */
+const QUICK: Template[] = ["text", "split", "palette", "type", "dodont", "gallery"];
 
 /**
  * A template's example, made this brand's: its own name for Blender's, its
@@ -45,6 +50,9 @@ export function starter(t: Template, rules: ViewRule[], brand: string, pages: st
   return s;
 }
 
+/** Marks the standing way in at a page's end: a block or pictures dropped on it go last. */
+export const END = "data-seam-end";
+
 /** What marks a section's block on the canvas, which focus goes to once it is added. */
 export const BLOCK = "data-canvas-block";
 
@@ -52,6 +60,13 @@ export function Seam({ b, after, always }: SeamProps) {
   const [open, setOpen] = useState(false);
   const made = useRef<string | null>(null);
   const page = b.state.selection.page;
+
+  /** The section just added, once: where focus goes when the gallery closes. */
+  const take = () => {
+    const id = made.current;
+    made.current = null;
+    return id;
+  };
 
   const add = (t: Template) => {
     const tab = after ? b.state.pages.get(page)?.find((x) => x.id === after)?.tab : undefined;
@@ -62,6 +77,38 @@ export function Seam({ b, after, always }: SeamProps) {
     made.current = done.op.section.id!;
     b.select({ section: made.current, rule: null });
   };
+
+  if (always === "end")
+    return (
+      <div {...{ [END]: "" }} className="app-tokens mx-auto mt-12 grid max-w-3xl justify-items-center gap-3 rounded-xl border border-dashed px-4 py-8 font-sans">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="bg-primary text-primary-foreground focus-visible:ring-ring/50 flex h-8 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium shadow outline-none focus-visible:ring-3"
+            >
+              <IconPlus aria-hidden className="size-4" />
+              Add a section
+            </button>
+          </PopoverTrigger>
+          <Gallery add={add} take={take} />
+        </Popover>
+        <ul aria-label="Add quickly" className="flex flex-wrap justify-center gap-1.5">
+          {QUICK.map((t) => (
+            <li key={t}>
+              <button
+                type="button"
+                onClick={() => add(t)}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 rounded-full border px-2.5 py-1 text-xs outline-none focus-visible:ring-2"
+              >
+                {TEMPLATE_INFO[t].name}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="text-muted-foreground text-xs">Or drag pictures here from your computer.</p>
+      </div>
+    );
 
   return (
     <div className={cn("app-tokens group/seam z-20 flex items-center justify-center font-sans", always ? "py-16" : "absolute inset-x-0 -bottom-3 h-6")}>
@@ -84,38 +131,44 @@ export function Seam({ b, after, always }: SeamProps) {
             Add a section
           </button>
         </PopoverTrigger>
-        <PopoverContent
-          collisionPadding={8}
-          className="@container flex max-h-(--radix-popover-content-available-height) w-[min(40rem,calc(100vw-2rem))] flex-col p-3"
-          onCloseAutoFocus={(e) => {
-            // To the new section, not back to this seam's button, whose section would take the selection back.
-            const id = made.current;
-            made.current = null;
-            if (!id) return;
-            e.preventDefault();
-            document.querySelector<HTMLElement>(`[${BLOCK}="${CSS.escape(id)}"]`)?.focus();
-          }}
-        >
-          <p className="mb-2 px-1 text-sm font-medium">Add a section</p>
-          <ul className="grid max-h-[min(28rem,60vh)] min-h-0 grid-cols-2 gap-2 overflow-y-auto @lg:grid-cols-3">
-            {TEMPLATES.map((t) => (
-              <li key={t}>
-                <button
-                  type="button"
-                  onClick={() => add(t)}
-                  className="hover:border-primary hover:bg-primary/5 focus-visible:ring-ring/50 grid h-full w-full content-start gap-1.5 rounded-lg border p-2 text-start outline-none focus-visible:ring-3"
-                >
-                  <span className="bg-muted text-foreground block rounded-md p-1.5">
-                    <Thumbnail template={t} className="block aspect-[8/5] w-full" />
-                  </span>
-                  <span className="text-sm font-medium">{TEMPLATE_INFO[t].name}</span>
-                  <span className="text-muted-foreground line-clamp-2 text-xs">{TEMPLATE_INFO[t].use}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </PopoverContent>
+        <Gallery add={add} take={take} />
       </Popover>
     </div>
+  );
+}
+
+/** Every template, with its thumbnail and what it is for: the pick adds it. Focus goes to the new section after. */
+function Gallery({ add, take }: { add: (t: Template) => void; take: () => string | null }) {
+  return (
+    <PopoverContent
+      collisionPadding={8}
+      className="@container flex max-h-(--radix-popover-content-available-height) w-[min(40rem,calc(100vw-2rem))] flex-col p-3"
+      onCloseAutoFocus={(e) => {
+        // To the new section, not back to this seam's button, whose section would take the selection back.
+        const id = take();
+        if (!id) return;
+        e.preventDefault();
+        document.querySelector<HTMLElement>(`[${BLOCK}="${CSS.escape(id)}"]`)?.focus();
+      }}
+    >
+      <p className="mb-2 px-1 text-sm font-medium">Add a section</p>
+      <ul className="grid max-h-[min(28rem,60vh)] min-h-0 grid-cols-2 gap-2 overflow-y-auto @lg:grid-cols-3">
+        {TEMPLATES.map((t) => (
+          <li key={t}>
+            <button
+              type="button"
+              onClick={() => add(t)}
+              className="hover:border-primary hover:bg-primary/5 focus-visible:ring-ring/50 grid h-full w-full content-start gap-1.5 rounded-lg border p-2 text-start outline-none focus-visible:ring-3"
+            >
+              <span className="bg-muted text-foreground block rounded-md p-1.5">
+                <Thumbnail template={t} className="block aspect-[8/5] w-full" />
+              </span>
+              <span className="text-sm font-medium">{TEMPLATE_INFO[t].name}</span>
+              <span className="text-muted-foreground line-clamp-2 text-xs">{TEMPLATE_INFO[t].use}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </PopoverContent>
   );
 }

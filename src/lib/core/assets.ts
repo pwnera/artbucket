@@ -22,6 +22,7 @@ import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
 import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { fontMime } from "@/lib/font";
+import { isMonochromeSvg } from "@/lib/icons";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
@@ -31,7 +32,7 @@ import { gate } from "@/lib/pool";
 import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
-import { FITS, FORMATS, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
+import { FITS, FORMATS, isVector, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
 import { buildXmp, embedXmp } from "@/lib/xmp";
 import {
   BYTES_LOCK,
@@ -162,6 +163,9 @@ export async function finalizeUpload(caller: Caller, input: FinalizeInput): Prom
   return uploads.run(Math.min(size, MAX_UPLOAD_BYTES), () => promote(caller, input));
 }
 
+/** An SVG bigger than this is a drawing, not an icon: its colors aren't read. */
+const SVG_SCAN_BYTES = 1024 * 1024;
+
 // ponytail: per process, and the bytes of the file only: probes and previews take more on top.
 const UPLOAD_MEMORY = 2 * MAX_UPLOAD_BYTES;
 const uploads = gate(UPLOAD_MEMORY, 32);
@@ -179,6 +183,8 @@ type FinalizeInput = {
   versionOf?: string;
   /** `draft` keeps it out of the library until it is submitted and approved. */
   status?: "draft" | "active";
+  /** What the server knows to say about it (an imported icon's title and author); the file's own metadata wins. */
+  described?: Partial<Record<(typeof EDITABLE)[number], string>>;
 } & Provenance;
 
 async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
@@ -231,7 +237,12 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   // Anything but a web image gets a look for what it can show as: a still, an
   // animation, an embed. Even one sharp probes: it reads HEIC's header, not its pixels.
   const image = await probeImage(bytes);
-  const probe = isRenderable(mime) ? image : { ...image, ...(await previewOf(bytes, mime)) };
+  const probe = isRenderable(mime)
+    ? // An SVG in one ink can be drawn in any color: an icon shows in the text's (lib/icons.ts).
+      mime === "image/svg+xml" && bytes.byteLength <= SVG_SCAN_BYTES
+      ? { ...image, mono: isMonochromeSvg(bytes.toString("utf8")) }
+      : image
+    : { ...image, ...(await previewOf(bytes, mime)) };
   // Keywords move into tags, which own them from here on. Kept in metadata too,
   // a removed tag would stay searchable through its stale copy.
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
@@ -240,7 +251,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
 
   // A version keeps what a person wrote about the one before, where the file says nothing.
   const described = Object.fromEntries(EDITABLE.flatMap((k) => (prior?.metadata?.[k] ? [[k, prior.metadata[k]]] : [])));
-  const kept = { ...described, ...metadata };
+  const kept = { ...input.described, ...described, ...metadata };
   const stack = prior ? (prior.stackId ?? prior.id) : null;
   const { row, purged } = await db.transaction(async (tx) => {
     // The bytes and the row that holds them land together: lib/core/sweep.ts
@@ -368,6 +379,20 @@ export async function ingestFromUrl(
   });
 }
 
+/**
+ * Ingest bytes the server made or fetched itself (an icon built from its
+ * pack's data): staged and promoted like any upload, with the same checks.
+ */
+export async function ingestBytes(
+  caller: Caller,
+  input: Omit<FinalizeInput, "token" | "filename" | "mime"> & { bytes: Buffer; mime: string; filename: string },
+) {
+  const { bytes, mime, filename, ...rest } = input;
+  uploadScope(caller, rest.collections ?? []);
+  if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
+  return uploads.run(bytes.byteLength, () => stageAndFinalize(caller, rest, bytes, mime, filename));
+}
+
 async function stageAndFinalize(
   caller: Caller,
   rest: Omit<FinalizeInput, "token" | "filename" | "mime">,
@@ -458,7 +483,7 @@ export async function parseAssetQuery(caller: Caller, params: URLSearchParams): 
 }
 
 /** A collection by id, or by name (any case): agents and people remember names. */
-async function collectionId(caller: Caller, ref: string): Promise<string> {
+export async function collectionId(caller: Caller, ref: string): Promise<string> {
   const all = await listCollections(caller);
   const hit = all.find((c) => c.id === ref) ?? all.find((c) => c.name.toLowerCase() === ref.trim().toLowerCase());
   if (hit) return hit.id;
@@ -953,7 +978,8 @@ export function describeAsset(asset: Asset) {
           q: [1, 100] as [number, number],
           fit: [...FITS],
           f: [...FORMATS],
-          enlarges: false as const,
+          // An SVG is drawn at the size asked; a raster never comes out larger than it is.
+          enlarges: isVector(asset.mime),
         }
       : null,
     alternatives: renderable ? PRESETS.map((p) => ({ name: p.name, url: `${base}/${p.spec}` })) : [],

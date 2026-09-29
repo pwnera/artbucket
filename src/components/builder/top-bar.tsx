@@ -1,47 +1,62 @@
 "use client";
 
+import Link from "next/link";
 import {
+  IconAdjustmentsHorizontal,
   IconArrowBackUp,
   IconArrowForwardUp,
-  IconChecklist,
+  IconCircle,
+  IconCircleCheckFilled,
   IconCode,
+  IconDots,
   IconEye,
   IconEyeOff,
+  IconGitCompare,
   IconHistory,
-  IconLayoutGridAdd,
-  IconLayoutSidebarRight,
+  IconListCheck,
   IconListDetails,
   IconPalette,
+  IconPhoto,
+  IconPlus,
   IconWorldUpload,
 } from "@tabler/icons-react";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { IconButton } from "@/components/icon-button";
-import { PageTree } from "@/components/builder/page-tree";
+import { PageTrail } from "@/components/builder/page-tree";
 import type { BuilderApi, Panel } from "@/components/builder/use-builder";
 import { SaveStatus } from "@/components/save-status";
 import { tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { designWarnings } from "@/lib/pages";
+import type { StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
+import { cn } from "@/lib/utils";
 
 /**
- * The bar over the canvas (build spec 3.5.3, W6.3): the page tabs
- * (PageTree), add page, undo and redo (b.undo, b.redo, b.canUndo,
- * b.canRedo), the panel beside the canvas (b.setDock: blocks and rules to
- * add, the picked section's settings), the context switch (b.setContext) and the language switch
- * (b.setLang, from b.view.theme.settings.languages), Theme, Rules and
- * History and Tokens (b.setPanel), For agents, Preview (b.setPreview),
- * Publish (b.setPanel "publish"), and SaveStatus.
+ * The bar over the canvas (build spec 3.5.3, W6.3), in the order a page is
+ * made: where you are (PageTrail: the brand, the pages above, the page's
+ * title, which opens its settings), then SaveStatus, undo and redo
+ * (b.undo, b.redo), the context and language switches (b.setContext,
+ * b.setLang) when the brand has more than one, then the three things an
+ * editor reaches for, named: Add (a panel beside the canvas, b.setDock),
+ * Library (assets to drag onto the page, b.setLibrary),
+ * Rules (b.setPanel) and Theme, which previews the whole site with the theme
+ * panel beside it (b.setPreview, b.setDock). Then the launch checklist (b.status and the
+ * page's own checks), what changed since the last publish (b.setChanges), For agents, Preview (b.setPreview), More (the section
+ * panel, History, Design tokens) and Publish, which says whether readers see
+ * the latest (b.status.publish).
  *
  * The context switch only sets b.state.context: the canvas's site resolves
  * each bound rule for it (lib/rules.ts resolve, through useRule), with no
- * fetch. In preview the bar steps aside for one Exit preview button, so keep
- * it mounted then too. Its keys (Cmd+Z, P, H, T, Esc) are the builder's; the
- * bar only names them. Tools are icons with their name in a tooltip: the bar
- * holds many, and the page tabs get the room. Publish alone keeps its word.
+ * fetch. In preview the bar steps aside for a Theme toggle and an Exit
+ * preview button, so keep it mounted then too. Its keys (Cmd+Z, P, H, T, Esc) are the builder's; the
+ * bar only names them. Words drop to icons, with their name in a tooltip,
+ * when the bar is narrow.
  *
  * Props:
  * - b: the builder.
@@ -52,29 +67,51 @@ export type TopBarProps = {
 
 const DEFAULT = "*";
 
+/** A named tool on the bar: its word shows when there is room, its tooltip always. */
+function Tool({ label, icon, pressed, ...p }: Omit<React.ComponentProps<typeof Button>, "children"> & { label: string; icon: React.ReactNode; pressed?: boolean }) {
+  return (
+    <IconButton
+      variant="ghost"
+      size="sm"
+      label={label}
+      aria-pressed={pressed}
+      className="aria-pressed:bg-accent gap-1.5 px-2 @5xl/bar:px-2.5"
+      {...p}
+    >
+      {icon}
+      <span className="hidden @5xl/bar:inline">{label}</span>
+    </IconButton>
+  );
+}
+
+const Sep = () => <span aria-hidden className="bg-border mx-1 hidden h-5 w-px @3xl/bar:block" />;
+
 export function TopBar({ b }: TopBarProps) {
-  if (b.state.preview)
+  if (b.state.preview) {
+    const theming = b.dock === "theme";
     return (
-      <Button variant="secondary" size="sm" className="app-tokens fixed end-4 bottom-4 z-40 shadow-lg" onClick={() => b.setPreview(false)}>
-        <IconEyeOff /> Exit preview <Kbd keys={["Esc"]} />
-      </Button>
+      // Clear of the Theme panel (w-80) while it is open beside the site.
+      <div className={cn("app-tokens fixed bottom-4 z-40 flex gap-2", theming && !b.floating ? "end-84" : "end-4")}>
+        <Button variant="secondary" size="sm" className="shadow-lg" aria-pressed={theming} onClick={() => b.setDock(theming ? null : "theme")}>
+          <IconPalette /> {theming ? "Hide theme" : "Theme"}
+        </Button>
+        <Button variant="secondary" size="sm" className="shadow-lg" onClick={() => b.setPreview(false)}>
+          <IconEyeOff /> Exit preview <Kbd keys={["Esc"]} />
+        </Button>
+      </div>
     );
+  }
 
   const languages = b.view.theme.settings.languages ?? [];
   const contexts = b.view.contexts;
-  const panel = (p: Panel, label: string, icon: React.ReactNode, keys?: string[]) => (
-    <IconButton variant="ghost" label={label} shortcut={keys} aria-haspopup="dialog" onClick={() => b.setPanel(p)}>
-      {icon}
-    </IconButton>
-  );
   const context = b.state.context ?? undefined;
 
   return (
-    <header className="app-tokens bg-background text-foreground @container/bar sticky top-0 z-30 flex h-12 items-center gap-2 border-b px-3">
-      <PageTree b={b} />
+    <header className="app-tokens bg-background text-foreground @container/bar sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b px-3">
+      <PageTrail b={b} />
 
-      <div className="flex shrink-0 items-center gap-1">
-        <SaveStatus className="me-1" />
+      <div className="ms-auto flex shrink-0 items-center gap-0.5">
+        <SaveStatus className="me-1 hidden @4xl/bar:flex" />
         <IconButton variant="ghost" label="Undo" shortcut={["mod", "Z"]} disabled={!b.canUndo} onClick={b.undo}>
           <IconArrowBackUp />
         </IconButton>
@@ -84,7 +121,7 @@ export function TopBar({ b }: TopBarProps) {
 
         {contexts.length > 0 && (
           <Select value={b.state.context ?? DEFAULT} onValueChange={(c) => b.setContext(c === DEFAULT ? null : c)}>
-            <SelectTrigger size="sm" aria-label="Show the rules for a context" className="max-w-40">
+            <SelectTrigger size="sm" aria-label="Show the rules for a context" className="ms-1 max-w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end" className="app-tokens">
@@ -100,7 +137,7 @@ export function TopBar({ b }: TopBarProps) {
         {languages.length > 1 && (
           // The first language is the one the pages are written in: null shows them as written.
           <Select value={b.state.lang ?? languages[0].code} onValueChange={(l) => b.setLang(l === languages[0].code ? null : l)}>
-            <SelectTrigger size="sm" aria-label="Show the pages in a language" className="max-w-36">
+            <SelectTrigger size="sm" aria-label="Show the pages in a language" className="ms-1 max-w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end" className="app-tokens">
@@ -113,56 +150,122 @@ export function TopBar({ b }: TopBarProps) {
           </Select>
         )}
 
-        <IconButton
-          variant="ghost"
-          label="Add blocks and rules"
-          aria-pressed={b.dock === "insert"}
-          className="aria-pressed:bg-accent"
-          onClick={() => b.setDock(b.dock === "insert" ? null : "insert")}
-        >
-          <IconLayoutGridAdd />
+        <Sep />
+        <Tool label="Add" icon={<IconPlus />} pressed={b.dock === "insert"} onClick={() => b.setDock(b.dock === "insert" ? null : "insert")} />
+        <Tool label="Library" icon={<IconPhoto />} pressed={b.library} onClick={() => b.setLibrary(!b.library)} />
+        <Tool label="Rules" icon={<IconListDetails />} aria-haspopup="dialog" onClick={() => b.setPanel("rules")} />
+        <Tool
+          label="Theme"
+          icon={<IconPalette />}
+          onClick={() => {
+            // The theme is the whole site's look: shown on the whole site, the panel beside it.
+            b.setDock("theme");
+            b.setPreview(true);
+          }}
+        />
+        <Sep />
+        <IconButton variant="ghost" label="Mark what changed since the last publish" aria-pressed={b.changes} className="aria-pressed:bg-accent" onClick={() => b.setChanges(!b.changes)}>
+          <IconGitCompare />
         </IconButton>
-        <IconButton
-          variant="ghost"
-          label="Section settings"
-          aria-pressed={b.dock === "section"}
-          className="aria-pressed:bg-accent"
-          onClick={() => b.setDock(b.dock === "section" ? null : "section")}
-        >
-          <IconLayoutSidebarRight />
-        </IconButton>
-        <Checks b={b} />
-        {panel("theme", "Theme", <IconPalette />)}
-        {panel("rules", "Rules", <IconListDetails />)}
-        {panel("history", "History", <IconHistory />, ["H"])}
-        {panel("tokens", "Design tokens", <IconCode />, ["T"])}
+        <Checklist b={b} />
         <ForAgents
-          about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand.`}
+          about={`These rules as data, in this order${context ? `, resolved for ${contextLabel(context)}` : ", every variant included"}. Agents read them before making anything on-brand; brand_status tells an agent what the brand still lacks.`}
           reads={brandReads(b.view.brand.slug, context)}
         />
         <IconButton variant="ghost" label="Preview as readers see it" shortcut={["P"]} onClick={() => b.setPreview(true)}>
           <IconEye />
         </IconButton>
-        <Button size="sm" aria-haspopup="dialog" onClick={() => b.setPanel("publish")}>
-          <IconWorldUpload /> Publish
-        </Button>
+        <More b={b} />
+        <Publish b={b} />
       </div>
     </header>
   );
 }
 
+/** What the bar keeps out of the way: the section panel, History and Design tokens, with their keys. */
+function More({ b }: { b: BuilderApi }) {
+  const open = (p: Panel) => () => b.setPanel(p);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton variant="ghost" label="More">
+          <IconDots />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="app-tokens w-56">
+        <DropdownMenuItem onSelect={() => b.setDock(b.dock === "section" ? null : "section")}>
+          <IconAdjustmentsHorizontal /> {b.dock === "section" ? "Hide section settings" : "Section settings"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => b.setPageSettings(b.state.selection.page)}>
+          <IconAdjustmentsHorizontal /> Page settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={open("history")}>
+          <IconHistory /> History <DropdownMenuShortcut>H</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={open("tokens")}>
+          <IconCode /> Design tokens <DropdownMenuShortcut>T</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Publish, saying where readers stand: a dot while they don't see the latest, Published once they do. */
+function Publish({ b }: { b: BuilderApi }) {
+  const state = b.status?.publish;
+  const open = () => b.setPanel("publish");
+  if (state === "current")
+    return (
+      <Button size="sm" variant="outline" className="ms-1" aria-haspopup="dialog" title="Readers see the latest" onClick={open}>
+        <IconCircleCheckFilled className="text-success" /> Published
+      </Button>
+    );
+  return (
+    <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={state === "behind" ? "There are changes readers don't see yet" : state === "never" ? "Never published: portals show nothing of it" : undefined} onClick={open}>
+      <IconWorldUpload /> Publish
+      {state === "behind" && (
+        <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
+          <span className="sr-only">(changes not published)</span>
+        </span>
+      )}
+    </Button>
+  );
+}
+
+/** What each step of the launch checklist opens: the panel, dialog or page where it is done. */
+function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void; href?: string } {
+  switch (id) {
+    case "colors":
+    case "type":
+    case "logo":
+    case "voice":
+      return { label: "Add in Rules", run: () => b.setPanel("rules") };
+    case "pages":
+      return { label: "Add sections", run: () => b.setDock("insert") };
+    case "publish":
+      return { label: "Publish", run: () => b.setPanel("publish") };
+    case "portal":
+      return { label: "Share", href: `/portals?${new URLSearchParams({ new: b.view.brand.slug })}` };
+  }
+}
+
 /**
- * What keeps the page on show from looking designed (lib/pages.ts
- * designWarnings), and theme pairs that fail contrast: a count on the bar,
- * the list in a popover. Picking one selects its section and scrolls to it.
+ * The launch checklist (lib/readiness.ts, read through b.status), then what
+ * keeps the page on show from looking designed (lib/pages.ts
+ * designWarnings) and theme pairs that fail contrast. The bar shows how many
+ * steps are done, and a count of the page's own checks. Picking a check
+ * selects its section and scrolls to it; a step opens where it is done.
  */
-function Checks({ b }: { b: BuilderApi }) {
+function Checklist({ b }: { b: BuilderApi }) {
   const sections = b.view.page?.sections ?? [];
   const found = [
     ...designWarnings(sections).map((w) => ({ id: w.at === null ? null : sections[w.at].id, where: w.at === null ? "This page" : (sections[w.at].title ?? `Section ${w.at + 1}`), text: w.text })),
     ...b.view.warnings.map((text) => ({ id: null, where: "Theme", text })),
   ];
-  const label = found.length ? `${found.length} ${found.length === 1 ? "check" : "checks"} to look at` : "Checks: nothing to fix";
+  const status = b.status;
+  const steps = status?.steps.filter((s) => s.done !== null) ?? [];
+  const label = `Launch checklist${status ? `: ${status.done} of ${status.total} done` : ""}${found.length ? `, ${found.length} ${found.length === 1 ? "check" : "checks"} on this page` : ""}`;
   const go = (id: string) => {
     b.select({ section: id, rule: null });
     document.querySelector(`section[data-template][id$="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "start" });
@@ -170,8 +273,13 @@ function Checks({ b }: { b: BuilderApi }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <IconButton variant="ghost" label={label} className="relative">
-          <IconChecklist />
+        <IconButton variant="ghost" size="sm" label={label} className="relative gap-1.5 px-2">
+          <IconListCheck />
+          {status && (
+            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">
+              {status.done}/{status.total}
+            </span>
+          )}
           {found.length > 0 && (
             <span className="bg-warning text-background absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
               {found.length}
@@ -179,10 +287,52 @@ function Checks({ b }: { b: BuilderApi }) {
           )}
         </IconButton>
       </PopoverTrigger>
-      <PopoverContent align="end" className="app-tokens w-80 p-0">
-        <p className="border-b px-3 py-2 text-sm font-medium">{found.length ? "Before you publish" : "Nothing to fix on this page"}</p>
-        {found.length > 0 && (
-          <ul className="max-h-80 overflow-y-auto py-1">
+      <PopoverContent align="end" className="app-tokens w-88 p-0">
+        {status && (
+          <section aria-labelledby="launch-title" className="grid gap-3 border-b p-3">
+            <div className="grid gap-1.5">
+              <p id="launch-title" className="flex items-baseline justify-between text-sm font-medium">
+                {status.next ? "Launch checklist" : "Ready to share"}
+                <span className="text-muted-foreground text-xs font-normal tabular-nums">
+                  {status.done} of {status.total}
+                </span>
+              </p>
+              <Progress value={(status.done / Math.max(status.total, 1)) * 100} className="h-1.5" aria-label="Steps done" />
+            </div>
+            <ol className="grid gap-0.5">
+              {steps.map((s) => {
+                const a = actionOf(b, s.id);
+                const next = s.id === status.next;
+                return (
+                  <li key={s.id} className={cn("flex items-start gap-2 rounded-md px-1.5 py-1.5", next && "bg-muted")}>
+                    {s.done ? (
+                      <IconCircleCheckFilled aria-label="Done" className="text-success mt-0.5 size-4 shrink-0" />
+                    ) : (
+                      <IconCircle aria-label="To do" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                    )}
+                    <span className="grid min-w-0 flex-1 gap-0.5">
+                      <span className={cn("text-sm", s.done && "text-muted-foreground")}>{s.title}</span>
+                      {(!s.done || next) && <span className="text-muted-foreground text-xs">{s.detail}</span>}
+                    </span>
+                    {!s.done &&
+                      (a.href ? (
+                        <Button asChild size="xs" variant={next ? "default" : "outline"} className="shrink-0">
+                          <Link href={a.href}>{a.label}</Link>
+                        </Button>
+                      ) : (
+                        <Button size="xs" variant={next ? "default" : "outline"} className="shrink-0" onClick={a.run}>
+                          {a.label}
+                        </Button>
+                      ))}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+        <p className="px-3 pt-3 pb-1 text-sm font-medium">{found.length ? "On this page" : "Nothing to fix on this page"}</p>
+        {found.length > 0 ? (
+          <ul className="max-h-72 overflow-y-auto pb-1">
             {found.map((f, i) => (
               <li key={i}>
                 <button
@@ -197,6 +347,8 @@ function Checks({ b }: { b: BuilderApi }) {
               </li>
             ))}
           </ul>
+        ) : (
+          <p className="text-muted-foreground px-3 pb-3 text-xs">The checks look for starter text left in, grounds that run together, a second cover and titles in capitals.</p>
         )}
       </PopoverContent>
     </Popover>

@@ -1,29 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { IconDeviceDesktop, IconDeviceMobile, IconDeviceTablet, IconGripVertical, IconPlus } from "@tabler/icons-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  IconAdjustmentsHorizontal,
+  IconCopy,
+  IconDeviceDesktop,
+  IconDeviceMobile,
+  IconDeviceTablet,
+  IconGitCompare,
+  IconGripVertical,
+  IconPhoto,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import { SectionView } from "@/components/brand-sections";
 import { useSiteLook } from "@/components/brand-sections/look";
 import { asMedia as libraryMedia, upload } from "@/components/brand-sections/slots";
 import { AssetPicker } from "@/components/builder/asset-picker";
+import { CommentBadge, sectionKey } from "@/components/builder/comments";
+import { CHANGE_LABEL, type Changes, ChangesContext, useChanges, usePublishedChanges } from "@/components/builder/changes";
 import { endDrag, type Payload, payloadOf, startDrag } from "@/components/builder/drag";
-import { ADD_LABEL, blankItem } from "@/components/builder/items";
+import { ADD_LABEL, blankItem, PICTURED } from "@/components/builder/items";
 import { RuleCard } from "@/components/builder/rule-card";
-import { BLOCK, Seam, starter } from "@/components/builder/seam";
+import { BLOCK, END, Seam, starter } from "@/components/builder/seam";
+import { LibraryPanel } from "@/components/builder/library-panel";
+import { MultiBar } from "@/components/builder/multi-bar";
+import { PagesPanel } from "@/components/builder/page-tree";
 import { SectionMenu } from "@/components/builder/section-menu";
 import { SectionPanel } from "@/components/builder/section-panel";
-import { asMedia, HANDLE, SectionToolbar, standIn } from "@/components/builder/section-toolbar";
+import { asMedia, HANDLE, pictureFields, SectionToolbar, standIn } from "@/components/builder/section-toolbar";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { PageHeader } from "@/components/site/page-header";
 import { type Edit, EditContext, PickedContext, SiteProvider, useSite } from "@/components/site/site-context";
 import { PageTabs } from "@/components/site/tabs";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { insertItems, moveItem } from "@/lib/builder-ops";
+import { duplicateItem, insertItems, moveItem, removeItem } from "@/lib/builder-ops";
 import { boundKeys, type Item, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
-import { groupTabs, tree, type ViewAsset } from "@/lib/site";
-import { fieldsOf } from "@/lib/template-fields";
+import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
+import { fieldsOf, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,8 +48,9 @@ import { cn } from "@/lib/utils";
  * b: update is a `page` op on b.state.selection.page), in the brand's theme,
  * editor chrome in `.app-tokens`. Around each section: its SectionToolbar on
  * hover or selection, a Seam between, and a right click menu (SectionMenu)
- * on it or on one of its items. A clicked specimen opens its RuleCard,
- * anchored there (the canvas holds which). The section panel (b.dock) sits
+ * on it or on one of its items, and a standing way in at the page's end. The
+ * page list (PagesPanel) sits before it when open. A clicked specimen opens its RuleCard,
+ * floating beside it (the canvas holds which rule). The section panel (b.dock) sits
  * beside it. A width toggle of its own narrows the container to 390 or
  * 768px (D11). b.state.preview shows the page as readers see it, no chrome.
  * b.view.page is null while a page loads.
@@ -70,8 +87,8 @@ const WIDTHS = [
   [390, IconDeviceMobile, "Phone, 390 px"],
 ] as const;
 
-/** Pictures being picked for a section's items: new ones at `at`, or item `at`'s replaced. */
-type Pictures = { section: string; at: number; replace: boolean };
+/** Pictures being picked for a section's items: new ones at `at`, or item `at`'s replaced; or, with `prop`, the section's own picture. */
+type Pictures = { section: string; at: number; replace: boolean; prop?: string };
 
 export function Canvas({ b }: CanvasProps) {
   const [width, setWidth] = useState<number | null>(null);
@@ -96,10 +113,15 @@ export function Canvas({ b }: CanvasProps) {
     [apply, select, addMedia, slug, lang],
   );
 
+  const changes = usePublishedChanges(b, b.changes && !preview);
+
   return (
     <SiteProvider view={b.view} href={href} mode={preview ? "read" : "edit"} idPrefix={PREFIX}>
+      <ChangesContext.Provider value={changes}>
       <EditContext.Provider value={preview ? null : edit}>
-        <div className="flex min-h-full min-w-0 flex-1">
+        {/* No min-h-full here: it would override a flex item's own minimum, and the row would stop at the viewport, taking the sticky panels with it. */}
+        <div className="flex min-w-0 flex-1">
+          {b.pagesOpen && !preview && <PagesPanel b={b} />}
           <div className={cn("relative min-h-full min-w-0 flex-1", width && "bg-muted")}>
             <div className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
               {b.view.page ? (
@@ -123,29 +145,34 @@ export function Canvas({ b }: CanvasProps) {
                 </p>
               )}
             </div>
-            <div
-              role="group"
-              aria-label="Canvas width"
-              className="app-tokens bg-background sticky bottom-4 z-40 mx-auto mt-4 flex w-fit gap-0.5 rounded-lg border p-0.5 font-sans shadow-md"
-            >
-              {WIDTHS.map(([w, I, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  aria-label={label}
-                  title={label}
-                  aria-pressed={width === w}
-                  onClick={() => setWidth(w)}
-                  className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
-                >
-                  <I className="size-4" />
-                </button>
-              ))}
+            {/* Stuck at the viewport's foot with no height of its own, so it adds no scroll below the page and the panels beside stay put. */}
+            <div className="sticky bottom-4 z-40 h-0">
+              {!preview && <MultiBar b={b} />}
+              <div
+                role="group"
+                aria-label="Canvas width"
+                className="app-tokens bg-background absolute inset-x-0 bottom-0 mx-auto flex w-fit gap-0.5 rounded-lg border p-0.5 font-sans shadow-md"
+              >
+                {WIDTHS.map(([w, I, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={width === w}
+                    onClick={() => setWidth(w)}
+                    className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
+                  >
+                    <I className="size-4" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {b.dock && !preview && <SectionPanel b={b} />}
         </div>
       </EditContext.Provider>
+      </ChangesContext.Provider>
     </SiteProvider>
   );
 }
@@ -176,6 +203,7 @@ const imageProp = (s: Section) => fieldsOf(s.template).some((f) => f.kind === "a
 function Stage({ b }: { b: BuilderApi }) {
   const { view, context, url } = useSite();
   const look = useSiteLook();
+  const changes = useChanges();
   const page = view.page!;
   const { preview } = b.state;
   const { page: slug, section: selected } = b.state.selection;
@@ -188,12 +216,35 @@ function Stage({ b }: { b: BuilderApi }) {
   const [menu, setMenu] = useState<{ id: string; item: number | null } | null>(null);
   const [native, setNative] = useState(false);
   const [pictures, setPictures] = useState<Pictures | null>(null);
+  // The picked item (b.item, in the picked section) where it is drawn, for its ring and its bar.
+  const [chosen, setChosen] = useState<{ section: string; i: number; box: Box } | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const adding = useRef(false);
   const onPictures = (section: string, at: number, replace: boolean) => setPictures({ section, at, replace });
   // What an upload's end reads: the builder as it is then, not as it was at the drop.
   const live = useRef(b);
   useEffect(() => {
     live.current = b;
   });
+
+  // Measured after each render, and again as it or its section changes size (words typed, a picture loaded).
+  const item = !preview && b.item?.section === selected ? b.item : null;
+  const itemSection = item?.section;
+  const itemAt = item?.i;
+  useLayoutEffect(() => {
+    const block = itemSection && stage.current?.querySelector(`[${BLOCK}="${CSS.escape(itemSection)}"]`);
+    const el = block && block.querySelector(`[data-item-root="${itemAt}"]`);
+    const measure = () => {
+      const next = block && el ? { section: itemSection, i: itemAt!, box: boxOf(el, block) } : null;
+      setChosen((c) => (JSON.stringify(c) === JSON.stringify(next) ? c : next));
+    };
+    measure();
+    if (!block || !el) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    ro.observe(block);
+    return () => ro.disconnect();
+  }, [itemSection, itemAt, page.sections]);
 
   const roots = useMemo(() => tree(view.nav, view.theme.numbering), [view.nav, view.theme.numbering]);
   // As PageBody: one resolution for the page, so each section gets the same rule objects every time and its memo holds.
@@ -223,7 +274,7 @@ function Stage({ b }: { b: BuilderApi }) {
       const rule = b.state.rules.find((x) => x.key === p.key);
       return rule && !s.keys.includes(p.key) && TEMPLATE_INFO[s.template].accepts?.(rule) ? "into" : null;
     }
-    if (p.kind === "files") return blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s) ? "into" : half;
+    if (p.kind === "files" || p.kind === "assets") return blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s) ? "into" : half;
     return null;
   };
 
@@ -236,8 +287,21 @@ function Stage({ b }: { b: BuilderApi }) {
     const failed = done.find((x): x is PromiseRejectedResult => x.status === "rejected");
     if (!assets.length) return void toast.error((failed?.reason as Error)?.message ?? "Upload failed", { id });
     toast.success(`${assets.length === 1 ? assets[0].filename : `${assets.length} files`} in the library`, { id, description: failed && "Some didn't upload." });
+    placeMedia(
+      assets.map((a) => libraryMedia(a, url)),
+      target,
+    );
+  };
+
+  /**
+   * Library assets onto the page where they were dropped (or clicked in the
+   * library panel): into a section of pictures as items, as the picture of
+   * a section that takes one, else a gallery of them between sections, or
+   * after the picked one.
+   */
+  const placeMedia = (media: Media[], target: Over | null) => {
+    if (!media.length) return;
     const l = live.current;
-    const media = assets.map((a) => libraryMedia(a, url));
     l.addMedia(media);
     const at = l.state.selection.page;
     const s = target && l.state.pages.get(at)?.find((x) => x.id === target.id);
@@ -268,6 +332,8 @@ function Stage({ b }: { b: BuilderApi }) {
       b.select({ section: o.id, rule: null });
     } else if (p.kind === "files") {
       void dropFiles(pictureFiles(e), o);
+    } else if (p.kind === "assets") {
+      placeMedia(p.media, o);
     }
   };
 
@@ -309,6 +375,8 @@ function Stage({ b }: { b: BuilderApi }) {
     const s = storedOf(p.section);
     if (!s || !assets.length) return;
     b.addMedia(assets.map((a) => asMedia(a, url)));
+    const field = p.prop ? pictureFields(s.template).find((f) => f.name === p.prop) : undefined;
+    if (field) return void b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { props: withProp(s.props, field, assets[0].id) } } });
     const blank = blankItem(s, b.state.rules, pages);
     const set = p.replace
       ? { items: s.items!.map((x, k) => (k === p.at ? { ...x, asset: assets[0].id } : x)) }
@@ -320,11 +388,18 @@ function Stage({ b }: { b: BuilderApi }) {
     const rules = boundKeys(s).flatMap((k) => byKey.get(k) ?? []);
     if (preview) return <SectionView key={s.id} section={s} rules={rules} />;
     const on = selected === s.id;
+    // Picked with Shift or Cmd besides the selection: ringed too, for the bar that changes them all.
+    const also = !on && b.picked.includes(s.id);
     const line = over?.id === s.id ? over : null;
     const own = storedOf(s.id) ?? s;
     const blank = on ? blankItem(own, b.state.rules, pages) : null;
-    const handle = on && grip?.section === s.id ? grip : null;
+    const hovered = on && grip?.section === s.id ? grip : null;
+    const picked = on && chosen?.section === s.id && own.items?.[chosen.i] ? chosen : null;
+    // The bar sits on the picked item; with none picked, on the one under the pointer.
+    const handle = picked ?? hovered;
     const iline = itemOver?.section === s.id ? itemOver : null;
+    const change = changes?.bySection.get(s.id);
+    const threads = b.comments.bySection.get(sectionKey(slug, s.id)) ?? 0;
     return (
       <ContextMenu
         key={s.id}
@@ -357,13 +432,48 @@ function Stage({ b }: { b: BuilderApi }) {
               const a = document.activeElement;
               setNative(!!a?.matches(FIELD) && a.contains(e.target as Node));
             }}
-            onPointerDown={() => on || b.select({ section: s.id, rule: null })}
-            onFocus={() => on || b.select({ section: s.id, rule: null })}
+            onPointerDown={(e) => {
+              // Shift or Cmd adds the section to the ones picked (or takes it out), and does nothing else.
+              if (e.shiftKey || e.metaKey) {
+                adding.current = true;
+                b.pick(s.id, { add: true });
+                return;
+              }
+              // One click picks the section and, when it lands on one of its items, that item too; elsewhere in the section, the section alone.
+              const t = e.target as Element;
+              if (!on) b.select({ section: s.id, rule: null });
+              const el = t.closest?.("[data-item-root]");
+              if (el && e.currentTarget.contains(el)) {
+                const i = Number((el as HTMLElement).dataset.itemRoot);
+                if (b.item?.section !== s.id || b.item.i !== i) b.setItem({ section: s.id, i });
+              } else if (t.closest?.("section[data-template]") && b.item) b.setItem(null);
+            }}
+            onDoubleClick={(e) => {
+              // A picture in the picked section: another from the library, for the item it is in, else for the section.
+              const t = e.target as Element;
+              if (!on || b.state.lang || !t.closest?.("img, video")) return;
+              const el = t.closest("[data-item-root]");
+              if (el && e.currentTarget.contains(el)) {
+                const i = Number((el as HTMLElement).dataset.itemRoot);
+                if (own.items?.[i] && (PICTURED.has(own.template) || own.items[i].asset)) onPictures(s.id, i, true);
+                return;
+              }
+              const prop = pictureFields(own.template).find((f) => f.name === "image");
+              if (prop) setPictures({ section: s.id, at: 0, replace: true, prop: prop.name });
+            }}
+            onFocus={() => {
+              // The focus a Shift or Cmd click brings is not a pick of its own.
+              if (adding.current) return void (adding.current = false);
+              if (!on) b.select({ section: s.id, rule: null });
+            }}
             onContextMenuCapture={(e) => {
               if (native) return;
               const el = (e.target as Element).closest?.("[data-item-root]");
-              setMenu({ id: s.id, item: el && e.currentTarget.contains(el) ? Number((el as HTMLElement).dataset.itemRoot) : null });
+              const i = el && e.currentTarget.contains(el) ? Number((el as HTMLElement).dataset.itemRoot) : null;
+              setMenu({ id: s.id, item: i });
               if (!on) b.select({ section: s.id, rule: null });
+              // As a click: what is right clicked is what is picked.
+              if (i !== null) b.setItem({ section: s.id, i });
             }}
             onDragStart={(e) => {
               // Only the handle moves a section; a picture or a link dragged out stays the browser's.
@@ -409,37 +519,75 @@ function Stage({ b }: { b: BuilderApi }) {
               aria-hidden
               className={cn(
                 "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset",
-                line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
+                line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : also ? "ring-primary/70 bg-primary/5 ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
                 "group-focus-visible/block:ring-ring group-focus-visible/block:ring-3",
               )}
             />
-            {s.hidden && (
-              <span className="app-tokens bg-foreground text-background pointer-events-none absolute end-4 top-3 z-20 rounded-full px-2 py-0.5 font-sans text-xs">
-                Hidden from readers
+            {change && (
+              <div
+                aria-hidden
+                className={cn(
+                  "app-tokens pointer-events-none absolute inset-1 z-10 rounded-sm outline-2 outline-dashed",
+                  change === "new" ? "outline-success" : "outline-warning",
+                )}
+              />
+            )}
+            {(s.hidden || change || threads > 0 || on) && (
+              <span className="app-tokens pointer-events-none absolute end-4 top-3 z-20 flex items-center gap-1 font-sans text-xs">
+                {/* Its open threads, or, picked, a way in to the first one. */}
+                {(threads > 0 || on) && (
+                  <CommentBadge
+                    count={threads}
+                    className="pointer-events-auto"
+                    onClick={() => {
+                      b.pick(s.id);
+                      b.setCommentsOnPage(false);
+                      b.setDock("comments");
+                    }}
+                  />
+                )}
+                {change && (
+                  <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-success text-white" : "bg-warning text-white")}>
+                    {CHANGE_LABEL[change]}
+                    <span className="sr-only"> since the last publish</span>
+                  </span>
+                )}
+                {s.hidden && <span className="bg-foreground text-background rounded-full px-2 py-0.5">Hidden from readers</span>}
               </span>
             )}
-            {handle && !moving && (
-              <span
-                draggable
-                role="button"
-                tabIndex={-1}
-                title="Drag to move this item. Right click it for more."
-                aria-label={`Move item ${handle.i + 1}`}
-                style={{ left: handle.box.x - 10, top: handle.box.y - 10 }}
-                className="app-tokens bg-background text-muted-foreground hover:text-foreground absolute z-30 flex size-6 cursor-grab items-center justify-center rounded-md border shadow-sm active:cursor-grabbing"
+            {hovered && hovered.i !== picked?.i && !moving && (
+              <div
+                aria-hidden
+                className="app-tokens ring-primary/50 pointer-events-none absolute z-20 rounded-sm ring-1"
+                style={{ left: hovered.box.x - 2, top: hovered.box.y - 2, width: hovered.box.w + 4, height: hovered.box.h + 4 }}
+              />
+            )}
+            {picked && !moving && (
+              <div
+                aria-hidden
+                className="app-tokens ring-primary pointer-events-none absolute z-20 rounded-sm ring-2"
+                style={{ left: picked.box.x - 3, top: picked.box.y - 3, width: picked.box.w + 6, height: picked.box.h + 6 }}
+              />
+            )}
+            {handle && !moving && own.items?.[handle.i] && (
+              <ItemBar
+                b={b}
+                s={own}
+                i={handle.i}
+                box={handle.box}
+                onPictures={() => onPictures(s.id, handle.i, true)}
+                onDone={() => setGrip(null)}
                 onDragStart={(e) => {
                   e.stopPropagation();
                   startDrag(e, { kind: "item", section: s.id, i: handle.i });
-                  const el = e.currentTarget.parentElement?.querySelector(`[data-item-root="${handle.i}"]`);
+                  const el = e.currentTarget.closest(`[${BLOCK}]`)?.querySelector(`[data-item-root="${handle.i}"]`);
                   if (el) e.dataTransfer.setDragImage(el, 16, 16);
                 }}
                 onDragEnd={() => {
                   clear();
                   endDrag();
                 }}
-              >
-                <IconGripVertical className="size-4" />
-              </span>
+              />
             )}
             {iline && (
               <div
@@ -484,6 +632,7 @@ function Stage({ b }: { b: BuilderApi }) {
             s={own}
             item={menu.item !== null && own.items?.[menu.item] ? menu.item : null}
             onPictures={(at, replace) => onPictures(s.id, at, replace)}
+            onSectionPicture={(prop) => setPictures({ section: s.id, at: 0, replace: true, prop })}
           />
         )}
       </ContextMenu>
@@ -492,6 +641,7 @@ function Stage({ b }: { b: BuilderApi }) {
 
   return (
     <div
+      ref={stage}
       style={look.style}
       lang={look.lang}
       dir={look.dir}
@@ -528,8 +678,12 @@ function Stage({ b }: { b: BuilderApi }) {
           return;
         }
         if (overTab !== null) setOverTab(null);
-        // An empty page takes a block or pictures anywhere.
-        if (!shown.length && (p?.kind === "template" || p?.kind === "files")) e.preventDefault();
+        // An empty page takes a block or pictures anywhere; a page with sections, on the way in at its end.
+        const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
+        if (last && (p?.kind === "template" || p?.kind === "files" || p?.kind === "assets")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
       }}
       onDrop={(e) => {
         if (preview || e.defaultPrevented) return;
@@ -539,8 +693,12 @@ function Stage({ b }: { b: BuilderApi }) {
         if (p.kind === "section" && overTab !== null) {
           const s = storedOf(p.id);
           if (s && s.tab !== overTab) b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { tab: overTab } } });
-        } else if (!shown.length && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), null);
-        else if (!shown.length && p.kind === "files") void dropFiles(pictureFiles(e), null);
+        } else if (p.kind === "template" || p.kind === "files" || p.kind === "assets") {
+          const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
+          if (last && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), stored.at(-1)?.id ?? null);
+          else if (last && p.kind === "assets") placeMedia(p.media, null);
+          else if (last) void dropFiles(pictureFiles(e), null);
+        }
         clear();
         endDrag();
       }}
@@ -551,6 +709,7 @@ function Stage({ b }: { b: BuilderApi }) {
       {look.faces && <style>{look.faces}</style>}
       {overTab !== null && <style>{`[data-tab-name="${CSS.escape(overTab)}"]{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}`}</style>}
       <article className="@container pb-16">
+        {changes && !preview && <ChangesStrip changes={changes} onHide={() => b.setChanges(false)} />}
         <PageHeader page={page} roots={roots} />
         {!preview && shown.length > 0 && (
           <div className="relative">
@@ -560,13 +719,31 @@ function Stage({ b }: { b: BuilderApi }) {
         {before.map(draw)}
         {tabs.length > 0 && <PageTabs tabs={tabs} render={draw} />}
         {after.map(draw)}
-        {!preview && !shown.length && <Seam b={b} after={null} always />}
+        {!preview && <Seam b={b} after={stored.at(-1)?.id ?? null} always={shown.length ? "end" : "empty"} />}
       </article>
+      {b.library && !preview && (
+        <LibraryPanel
+          b={b}
+          onClose={() => b.setLibrary(false)}
+          onPlace={(media) => {
+            // Onto the picked section: into it where it takes pictures, else as a gallery after it (at the page's end with none picked).
+            const s = selected ? storedOf(selected) : undefined;
+            const into = s && (blankItem(s, b.state.rules, pages)?.kind === "asset" || imageProp(s));
+            placeMedia(media, s ? { id: s.id, mode: into ? "into" : "after" } : null);
+          }}
+        />
+      )}
       <AssetPicker
         open={pictures !== null}
         rule={standIn(pictures?.replace ? "Picture" : "Pictures", undefined)}
         title={pictures?.replace ? "Pick a picture" : "Pick pictures"}
-        description={pictures?.replace ? "From the library, for this item." : "From the library: each one becomes an item here, in the order picked."}
+        description={
+          pictures?.prop
+            ? "From the library, for this section."
+            : pictures?.replace
+              ? "From the library, for this item."
+              : "From the library: each one becomes an item here, in the order picked."
+        }
         transport={b.transport}
         onClose={() => setPictures(null)}
         onSave={(assets) => {
@@ -575,6 +752,137 @@ function Stage({ b }: { b: BuilderApi }) {
           if (p) savePictures(p, assets);
         }}
       />
+    </div>
+  );
+}
+
+/** An item bar's button: small, named in its tooltip. */
+function ItemTool({ label, className, ...p }: React.ComponentProps<"button"> & { label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cn("hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 flex size-6 items-center justify-center rounded outline-none focus-visible:ring-2 [&_svg]:size-3.5", className)}
+      {...p}
+    />
+  );
+}
+
+/**
+ * On the item under the pointer, in the picked section: the grip that drags
+ * it among its section's items, then what is done to one item most, in view
+ * rather than behind a right click: its picture (where its template's items
+ * carry one), its settings in the section panel, a copy, and away with it.
+ */
+function ItemBar({
+  b,
+  s,
+  i,
+  box,
+  onPictures,
+  onDone,
+  onDragStart,
+  onDragEnd,
+}: {
+  b: BuilderApi;
+  s: Section;
+  i: number;
+  box: Box;
+  onPictures(): void;
+  /** The item is gone or moved: the bar lets go of it. */
+  onDone(): void;
+  onDragStart(e: React.DragEvent<HTMLElement>): void;
+  onDragEnd(): void;
+}) {
+  const page = b.state.selection.page;
+  const it = s.items![i];
+  const set = (patch: Record<string, unknown>) => b.apply({ kind: "page", page, op: { op: "update", id: s.id, set: patch } });
+  return (
+    <div
+      role="toolbar"
+      aria-label={`Item ${i + 1}`}
+      // Just above the item, as a design tool labels a selection, so it never covers what it acts on.
+      style={{ left: box.x - 3, top: box.y - 34 }}
+      className="app-tokens bg-background text-muted-foreground absolute z-30 flex items-center gap-px rounded-md border p-px font-sans shadow-sm"
+    >
+      <span
+        draggable
+        role="button"
+        tabIndex={-1}
+        title="Drag to move this item. Right click it for more."
+        aria-label={`Move item ${i + 1}`}
+        className="hover:text-foreground flex size-6 cursor-grab items-center justify-center rounded active:cursor-grabbing"
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        <IconGripVertical className="size-3.5" />
+      </span>
+      {!b.state.lang && (
+        <>
+          {(PICTURED.has(s.template) || it.asset) && (
+            <ItemTool label={it.asset ? "Change picture" : "Add a picture"} onClick={onPictures}>
+              <IconPhoto />
+            </ItemTool>
+          )}
+          <ItemTool
+            label="Item settings"
+            onClick={() => {
+              b.setItem({ section: s.id, i });
+              b.setDock("section");
+            }}
+          >
+            <IconAdjustmentsHorizontal />
+          </ItemTool>
+          <ItemTool
+            label="Duplicate item (Cmd+D)"
+            onClick={() => {
+              set(duplicateItem(s, i));
+              onDone();
+            }}
+          >
+            <IconCopy />
+          </ItemTool>
+          <ItemTool
+            label="Remove item (Delete)"
+            className="hover:text-destructive"
+            onClick={() => {
+              set(removeItem(s, i));
+              if (b.item?.section === s.id) b.setItem(null);
+              onDone();
+            }}
+          >
+            <IconTrash />
+          </ItemTool>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Over the page while changes are marked: since which publish, how many sections are new or changed, and which are gone. */
+function ChangesStrip({ changes, onHide }: { changes: Changes; onHide(): void }) {
+  const count = (c: string) => [...changes.bySection.values()].filter((x) => x === c).length;
+  const [fresh, changed, rule] = [count("new"), count("changed"), count("rule")];
+  const said = changes.loading
+    ? "Reading the last publish…"
+    : changes.error
+      ? changes.error
+      : changes.since === null
+        ? "Never published: everything here is new to readers."
+        : [
+            `Since version ${changes.since}:`,
+            [fresh && `${fresh} new`, changed && `${changed} changed`, rule && `${rule} with a rule changed`, changes.removed.length && `${changes.removed.length} removed (${changes.removed.join(", ")})`]
+              .filter(Boolean)
+              .join(", ") || "nothing on this page.",
+          ].join(" ");
+  return (
+    <div role="status" className="app-tokens bg-muted/80 text-foreground sticky top-12 z-20 flex items-center gap-2 border-b px-4 py-1.5 font-sans text-sm backdrop-blur">
+      <IconGitCompare aria-hidden className="text-muted-foreground size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{said}</span>
+      <button type="button" onClick={onHide} className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 rounded-sm text-xs outline-none focus-visible:ring-2">
+        Stop marking
+      </button>
     </div>
   );
 }

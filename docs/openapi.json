@@ -3801,6 +3801,1231 @@
         }
       }
     },
+    "/api/v1/icons": {
+      "get": {
+        "summary": "Search open source icon sets",
+        "description": "Iconify's icon sets (Tabler, Lucide, Material Symbols, Simple Icons and some 200 more), the popular ones first, each with its author, license and a few sample names. Sets their authors no longer maintain are left out.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words in the set's name, author or license"
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Interface",
+                "Logos",
+                "Emoji",
+                "Flags",
+                "Other"
+              ]
+            },
+            "description": "Only this kind of set"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300,
+              "default": 60
+            },
+            "description": "Page size"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching sets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "prefix": {
+                            "type": "string",
+                            "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "total": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Icons in it"
+                          },
+                          "author": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "license": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "spdx": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "samples": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "A few of its icons' names"
+                          },
+                          "category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "palette": {
+                            "type": "boolean",
+                            "description": "Its icons carry their own colors; false: drawn in one color"
+                          },
+                          "height": {
+                            "description": "The grid it is drawn on, in px",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "prefix",
+                          "name",
+                          "total",
+                          "author",
+                          "license",
+                          "samples",
+                          "category",
+                          "palette",
+                          "height"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Matches before `limit`"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Import icons from a set",
+        "description": "One SVG asset per icon, at the size it is drawn at, titled from its name, credited to the set's author, with the set's license in its rights and tagged `icon` and the set's name. Fetched once and served from /a/{id} after, so nobody's browser calls Iconify. Icons already here dedupe.\n\nScope: `propose`.",
+        "x-scope": "propose",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prefix": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                    "description": "The set, as Iconify names it: tabler, lucide, simple-icons"
+                  },
+                  "icons": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "pattern": "^[a-z0-9]+([-_][a-z0-9]+)*$"
+                    },
+                    "description": "Its icons' names, 100 at a time"
+                  },
+                  "fields": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {},
+                    "description": "Custom field values, keyed by field key"
+                  },
+                  "collections": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "tags": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 64
+                    }
+                  }
+                },
+                "required": [
+                  "prefix",
+                  "icons"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The icons, in the order asked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "set": {
+                      "type": "object",
+                      "properties": {
+                        "prefix": {
+                          "type": "string",
+                          "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Icons in it"
+                        },
+                        "author": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "license": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "spdx": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "A few of its icons' names"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "palette": {
+                          "type": "boolean",
+                          "description": "Its icons carry their own colors; false: drawn in one color"
+                        },
+                        "height": {
+                          "description": "The grid it is drawn on, in px",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "prefix",
+                        "name",
+                        "total",
+                        "author",
+                        "license",
+                        "samples",
+                        "category",
+                        "palette",
+                        "height"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "workspaceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "mime": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "width": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "height": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "probe": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "metadata": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "type": "string"
+                                  },
+                                  "keywords": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "creator": {
+                                    "type": "string"
+                                  },
+                                  "copyright": {
+                                    "type": "string"
+                                  },
+                                  "capturedAt": {
+                                    "type": "string"
+                                  },
+                                  "camera": {
+                                    "type": "string"
+                                  },
+                                  "lens": {
+                                    "type": "string"
+                                  },
+                                  "gps": {
+                                    "type": "object",
+                                    "properties": {
+                                      "lat": {
+                                        "type": "number"
+                                      },
+                                      "lon": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "lat",
+                                      "lon"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "focus": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "The point crops keep in frame, 0 to 1 from the top left"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "fields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "The asset's own values"
+                          },
+                          "inherited": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Values inherited from its collections; own values win"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "proposed",
+                              "active",
+                              "archived",
+                              "rejected"
+                            ],
+                            "description": "draft, proposed (in review), active (approved), archived or rejected"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "proposed",
+                              "active",
+                              "expired",
+                              "archived",
+                              "rejected",
+                              "deleted"
+                            ],
+                            "description": "The status; expired for an approved asset past its last day of use; deleted, until restored or purged"
+                          },
+                          "deletedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "When it was deleted: restorable for 30 days, then purged"
+                          },
+                          "stackId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Versions of one thing share a stack; null when it has one version"
+                          },
+                          "version": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Its number in the stack"
+                          },
+                          "current": {
+                            "type": "boolean",
+                            "description": "Its stack's current approved version: the others are superseded by it"
+                          },
+                          "proposedBy": {
+                            "description": "For a proposal: who made it, a person's or an API key's name",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reviewNote": {
+                            "description": "Why a person rejected it",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "proposedTags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "proposedFields": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                          },
+                          "rights": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "license": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "territories": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "ISO 3166-1 alpha-2; empty: anywhere"
+                                  },
+                                  "channels": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "empty: any use"
+                                  },
+                                  "embargo": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Not before this day"
+                                  },
+                                  "expires": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The last day it may be used"
+                                  },
+                                  "modelRelease": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "released",
+                                          "missing",
+                                          "not-needed"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "license",
+                                  "territories",
+                                  "channels",
+                                  "embargo",
+                                  "expires",
+                                  "modelRelease"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "origin": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "shot",
+                                  "licensed",
+                                  "generated"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "parentAssetId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "generator": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "c2pa": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "manifests": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "generator": {
+                                    "description": "The app that signed it",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "signedBy": {
+                                    "description": "The signing certificate's organization, as the file claims it; not verified",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "digitalSourceType": {
+                                    "description": "IPTC: digitalCapture, trainedAlgorithmicMedia...",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "softwareAgent": {
+                                    "description": "The tool the actions name, often the model",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "ingredients": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "manifests",
+                                  "generator",
+                                  "title",
+                                  "signedBy",
+                                  "actions",
+                                  "digitalSourceType",
+                                  "softwareAgent",
+                                  "ingredients"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                          },
+                          "supersededBy": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The asset that replaces this one"
+                          },
+                          "private": {
+                            "type": "boolean",
+                            "description": "Its own flag; it is private too when every collection it is in is"
+                          },
+                          "public": {
+                            "type": "boolean",
+                            "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                          },
+                          "collections": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "sha256",
+                          "filename",
+                          "mime",
+                          "size",
+                          "width",
+                          "height",
+                          "probe",
+                          "metadata",
+                          "tags",
+                          "fields",
+                          "inherited",
+                          "status",
+                          "state",
+                          "deletedAt",
+                          "stackId",
+                          "version",
+                          "current",
+                          "proposedBy",
+                          "reviewNote",
+                          "proposedTags",
+                          "proposedFields",
+                          "rights",
+                          "origin",
+                          "parentAssetId",
+                          "generator",
+                          "prompt",
+                          "c2pa",
+                          "supersededBy",
+                          "private",
+                          "public",
+                          "collections",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Names the set doesn't have"
+                    }
+                  },
+                  "required": [
+                    "set",
+                    "data",
+                    "missing"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/icons/{prefix}": {
+      "parameters": [
+        {
+          "name": "prefix",
+          "in": "path",
+          "required": true,
+          "description": "The set, as Iconify names it: tabler, lucide, simple-icons",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Browse an icon set",
+        "description": "A page of the set's icons, each drawn as the SVG an import would store, and its categories to narrow by.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words in the icon's name"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "One of the set's categories"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Icons to skip"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 96
+            },
+            "description": "Page size"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The set and a page of its icons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "set": {
+                      "type": "object",
+                      "properties": {
+                        "prefix": {
+                          "type": "string",
+                          "description": "Iconify's name for it: tabler, lucide, simple-icons"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Icons in it"
+                        },
+                        "author": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "license": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "spdx": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "samples": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "A few of its icons' names"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "palette": {
+                          "type": "boolean",
+                          "description": "Its icons carry their own colors; false: drawn in one color"
+                        },
+                        "height": {
+                          "description": "The grid it is drawn on, in px",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "prefix",
+                        "name",
+                        "total",
+                        "author",
+                        "license",
+                        "samples",
+                        "category",
+                        "palette",
+                        "height"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The set's own categories, to narrow by"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Matching icons before `offset` and `limit`"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "svg": {
+                            "type": "string",
+                            "description": "The file an import stores"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "svg"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "set",
+                    "categories",
+                    "total",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assets/{id}": {
       "parameters": [
         {
@@ -9064,7 +10289,7 @@
                             },
                             "enlarges": {
                               "type": "boolean",
-                              "const": false
+                              "description": "An SVG is drawn at the size asked, up to the w and h caps; any other image never comes out larger than it is"
                             }
                           },
                           "required": [
@@ -14606,6 +15831,245 @@
         }
       }
     },
+    "/api/v1/brands/{slug}/status": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A brand's launch checklist",
+        "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "The checklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "brand": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "default": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "name",
+                            "default"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "brands": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "default": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name",
+                              "default"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Every brand, the default first"
+                        },
+                        "steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "enum": [
+                                  "colors",
+                                  "type",
+                                  "logo",
+                                  "voice",
+                                  "pages",
+                                  "publish",
+                                  "portal"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "done": {
+                                "description": "null: the caller can't tell",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "detail": {
+                                "type": "string"
+                              },
+                              "agent": {
+                                "type": "string",
+                                "description": "How an agent does it, with the tools by name"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "done",
+                              "detail",
+                              "agent"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "In the order to take them"
+                        },
+                        "done": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "next": {
+                          "description": "The first step not done; null when the brand is ready",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "publish": {
+                          "type": "string",
+                          "enum": [
+                            "never",
+                            "behind",
+                            "current"
+                          ],
+                          "description": "never published, changes since the last publish, or up to date"
+                        },
+                        "portals": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "name",
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The portals showing it; null without the right to manage portals"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The brand in the app"
+                        }
+                      },
+                      "required": [
+                        "brand",
+                        "brands",
+                        "steps",
+                        "done",
+                        "total",
+                        "next",
+                        "publish",
+                        "portals",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/brands/{slug}/versions": {
       "parameters": [
         {
@@ -17316,7 +18780,7 @@
                                 ]
                               },
                               "caption": {
-                                "description": "Under the media; the asset's description when left out",
+                                "description": "The asset's description when left out",
                                 "type": "string",
                                 "maxLength": 500
                               },
@@ -17400,7 +18864,7 @@
                           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                         },
                         "translations": {
-                          "description": "Its words by language tag; what is left out falls back",
+                          "description": "By language tag; what is left out falls back",
                           "type": "object",
                           "propertyNames": {
                             "type": "string",
@@ -17477,6 +18941,7 @@
                             "dodont",
                             "gallery",
                             "collection",
+                            "icons",
                             "links",
                             "pages",
                             "diagram",
@@ -17496,7 +18961,7 @@
                           "type": "object",
                           "properties": {
                             "image": {
-                              "description": "cover: In place of the brand color; header: A picture in the band; split: Beside the words; else the first rule's picture; annotated",
+                              "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -17587,7 +19052,7 @@
                               ]
                             },
                             "layout": {
-                              "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                              "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                               "type": "string",
                               "enum": [
                                 "cards",
@@ -17698,7 +19163,7 @@
                               "type": "boolean"
                             },
                             "size": {
-                              "description": "logos: How much of its tile a mark fills",
+                              "description": "logos, icons: In its tile",
                               "type": "string",
                               "enum": [
                                 "medium",
@@ -17716,24 +19181,24 @@
                               ]
                             },
                             "collection": {
-                              "description": "collection: A collection's id",
+                              "description": "collection, icons: A collection's id",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "search": {
-                              "description": "collection: A saved search's id",
+                              "description": "collection, icons: A saved search's id",
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
                             "query": {
-                              "description": "collection: A library query string: q=poster&type=image&tag=campaign",
+                              "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
                               "type": "string",
                               "maxLength": 2000
                             },
                             "sort": {
-                              "description": "collection",
+                              "description": "collection, icons: newest, oldest, name",
                               "type": "string",
                               "enum": [
                                 "newest",
@@ -17742,13 +19207,13 @@
                               ]
                             },
                             "limit": {
-                              "description": "collection: 24 when left out; updates: 5 when left out, 20 at most",
+                              "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                               "type": "integer",
                               "minimum": 1,
                               "maximum": 200
                             },
                             "downloads": {
-                              "description": "collection: Offer downloads; true when left out",
+                              "description": "collection, icons: true when left out",
                               "type": "boolean"
                             },
                             "from": {
@@ -19107,7 +20572,7 @@
                                         ]
                                       },
                                       "caption": {
-                                        "description": "Under the media; the asset's description when left out",
+                                        "description": "The asset's description when left out",
                                         "type": "string",
                                         "maxLength": 500
                                       },
@@ -19191,7 +20656,7 @@
                                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                                 },
                                 "translations": {
-                                  "description": "Its words by language tag; what is left out falls back",
+                                  "description": "By language tag; what is left out falls back",
                                   "type": "object",
                                   "propertyNames": {
                                     "type": "string",
@@ -19268,6 +20733,7 @@
                                     "dodont",
                                     "gallery",
                                     "collection",
+                                    "icons",
                                     "links",
                                     "pages",
                                     "diagram",
@@ -19287,7 +20753,7 @@
                                   "type": "object",
                                   "properties": {
                                     "image": {
-                                      "description": "cover: In place of the brand color; header: A picture in the band; split: Beside the words; else the first rule's picture; annotated",
+                                      "description": "cover: In place of the brand color; header: In the band; split: Beside the words; else the first rule's picture; annotated",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -19378,7 +20844,7 @@
                                       ]
                                     },
                                     "layout": {
-                                      "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                                      "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                                       "type": "string",
                                       "enum": [
                                         "cards",
@@ -19489,7 +20955,7 @@
                                       "type": "boolean"
                                     },
                                     "size": {
-                                      "description": "logos: How much of its tile a mark fills",
+                                      "description": "logos, icons: In its tile",
                                       "type": "string",
                                       "enum": [
                                         "medium",
@@ -19507,24 +20973,24 @@
                                       ]
                                     },
                                     "collection": {
-                                      "description": "collection: A collection's id",
+                                      "description": "collection, icons: A collection's id",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "search": {
-                                      "description": "collection: A saved search's id",
+                                      "description": "collection, icons: A saved search's id",
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
                                     "query": {
-                                      "description": "collection: A library query string: q=poster&type=image&tag=campaign",
+                                      "description": "collection, icons: A library query string: q=poster&type=image&tag=campaign",
                                       "type": "string",
                                       "maxLength": 2000
                                     },
                                     "sort": {
-                                      "description": "collection",
+                                      "description": "collection, icons: newest, oldest, name",
                                       "type": "string",
                                       "enum": [
                                         "newest",
@@ -19533,13 +20999,13 @@
                                       ]
                                     },
                                     "limit": {
-                                      "description": "collection: 24 when left out; updates: 5 when left out, 20 at most",
+                                      "description": "collection: 24 when left out; icons; updates: 5 when left out, 20 at most",
                                       "type": "integer",
                                       "minimum": 1,
                                       "maximum": 200
                                     },
                                     "downloads": {
-                                      "description": "collection: Offer downloads; true when left out",
+                                      "description": "collection, icons: true when left out",
                                       "type": "boolean"
                                     },
                                     "from": {
@@ -22542,6 +24008,22 @@
               ]
             },
             "description": "1: as the builder sees it"
+          },
+          {
+            "name": "in",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A collection section's id, whose assets `find` narrows"
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words a reader searches that collection section for"
           }
         ],
         "responses": {
@@ -24583,6 +26065,805 @@
                         "signed",
                         "warnings",
                         "missing"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brands/{slug}/comments": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Review comments on a brand's pages",
+        "description": "Threads, each a first comment with its replies (oldest first): open ones first, the one that moved last on top, then resolved ones, the last resolved first. A comment is on a page, or on one section of it by the section's id; `page` is the page's slug now, so comments follow a rename. A section deleted since leaves its comments on the page. Comments are never published and never in the brand's history. `mine`: the caller wrote it.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "That page's only; a slug it had before a rename finds it too"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Threads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "page": {
+                            "type": "string",
+                            "description": "The page's slug now: a comment on a page renamed since follows it"
+                          },
+                          "section": {
+                            "description": "The section's id; null for the page as a whole",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "parent": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The thread it replies in; null for a thread's first comment"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": "string",
+                            "description": "Their name when they wrote it"
+                          },
+                          "authorId": {
+                            "description": "The person's id; null for an agent's, or once they are gone",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mine": {
+                            "type": "boolean",
+                            "description": "Written by the caller: theirs to edit and delete"
+                          },
+                          "resolvedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "When its thread was resolved; null while open, and always on a reply"
+                          },
+                          "resolvedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "editedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "When its text last changed; null if never"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "replies": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "page": {
+                                  "type": "string",
+                                  "description": "The page's slug now: a comment on a page renamed since follows it"
+                                },
+                                "section": {
+                                  "description": "The section's id; null for the page as a whole",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "parent": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The thread it replies in; null for a thread's first comment"
+                                },
+                                "body": {
+                                  "type": "string"
+                                },
+                                "author": {
+                                  "type": "string",
+                                  "description": "Their name when they wrote it"
+                                },
+                                "authorId": {
+                                  "description": "The person's id; null for an agent's, or once they are gone",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "mine": {
+                                  "type": "boolean",
+                                  "description": "Written by the caller: theirs to edit and delete"
+                                },
+                                "resolvedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "When its thread was resolved; null while open, and always on a reply"
+                                },
+                                "resolvedBy": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "editedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "When its text last changed; null if never"
+                                },
+                                "createdAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "page",
+                                "section",
+                                "parent",
+                                "body",
+                                "author",
+                                "authorId",
+                                "mine",
+                                "resolvedAt",
+                                "resolvedBy",
+                                "editedAt",
+                                "createdAt",
+                                "updatedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Oldest first"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "page",
+                          "section",
+                          "parent",
+                          "body",
+                          "author",
+                          "authorId",
+                          "mine",
+                          "resolvedAt",
+                          "resolvedBy",
+                          "editedAt",
+                          "createdAt",
+                          "updatedAt",
+                          "replies"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Comment on a brand page, or reply",
+        "description": "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. `parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a reply to a resolved thread reopens it. Takes propose on the workspace.\n\nScope: `propose`.",
+        "x-scope": "propose",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "description": "The page it is on; a slug it had before a rename finds it too",
+                    "type": "string",
+                    "maxLength": 60,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  },
+                  "section": {
+                    "description": "A section's id on the page; left out or null: the page as a whole",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_-]{1,40}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parent": {
+                    "description": "Reply to this thread instead; its page and section are the reply's. A reply to a reply joins its thread",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000,
+                    "description": "Plain text"
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The comment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "page": {
+                          "type": "string",
+                          "description": "The page's slug now: a comment on a page renamed since follows it"
+                        },
+                        "section": {
+                          "description": "The section's id; null for the page as a whole",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The thread it replies in; null for a thread's first comment"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": "string",
+                          "description": "Their name when they wrote it"
+                        },
+                        "authorId": {
+                          "description": "The person's id; null for an agent's, or once they are gone",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mine": {
+                          "type": "boolean",
+                          "description": "Written by the caller: theirs to edit and delete"
+                        },
+                        "resolvedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When its thread was resolved; null while open, and always on a reply"
+                        },
+                        "resolvedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "editedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When its text last changed; null if never"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "page",
+                        "section",
+                        "parent",
+                        "body",
+                        "author",
+                        "authorId",
+                        "mine",
+                        "resolvedAt",
+                        "resolvedBy",
+                        "editedAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brands/{slug}/comments/{id}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The comment's id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "Edit a comment, or resolve its thread",
+        "description": "`body` changes the text, of your own comment only, and sets `editedAt`. `resolved` resolves the thread or reopens it, on a thread's first comment (a reply is a 422); anyone who may comment may. Resolving a resolved thread keeps who resolved it first.\n\nScope: `propose`.",
+        "x-scope": "propose",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "description": "Your own comment's new text",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "resolved": {
+                    "description": "Resolve the thread, or reopen it; a thread's first comment only",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The comment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "page": {
+                          "type": "string",
+                          "description": "The page's slug now: a comment on a page renamed since follows it"
+                        },
+                        "section": {
+                          "description": "The section's id; null for the page as a whole",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The thread it replies in; null for a thread's first comment"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": "string",
+                          "description": "Their name when they wrote it"
+                        },
+                        "authorId": {
+                          "description": "The person's id; null for an agent's, or once they are gone",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mine": {
+                          "type": "boolean",
+                          "description": "Written by the caller: theirs to edit and delete"
+                        },
+                        "resolvedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When its thread was resolved; null while open, and always on a reply"
+                        },
+                        "resolvedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "editedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When its text last changed; null if never"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "page",
+                        "section",
+                        "parent",
+                        "body",
+                        "author",
+                        "authorId",
+                        "mine",
+                        "resolvedAt",
+                        "resolvedBy",
+                        "editedAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a comment",
+        "description": "Your own, or anyone's with write on the workspace. A thread's first comment takes its replies with it.\n\nScope: `propose`.",
+        "x-scope": "propose",
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "deleted"
                       ],
                       "additionalProperties": false
                     }
@@ -29538,10 +31819,10 @@
                     }
                   },
                   "theme": {
+                    "description": "Left out, a setting stays; null clears it",
                     "type": "object",
                     "properties": {
                       "logo": {
-                        "default": null,
                         "description": "An approved image asset, shown in the header",
                         "anyOf": [
                           {
@@ -29555,7 +31836,6 @@
                         ]
                       },
                       "accent": {
-                        "default": null,
                         "description": "Buttons and links",
                         "anyOf": [
                           {
@@ -29568,7 +31848,6 @@
                         ]
                       },
                       "background": {
-                        "default": null,
                         "description": "The page behind everything",
                         "anyOf": [
                           {
@@ -30693,10 +32972,10 @@
                     }
                   },
                   "theme": {
+                    "description": "Left out, a setting stays; null clears it",
                     "type": "object",
                     "properties": {
                       "logo": {
-                        "default": null,
                         "description": "An approved image asset, shown in the header",
                         "anyOf": [
                           {
@@ -30710,7 +32989,6 @@
                         ]
                       },
                       "accent": {
-                        "default": null,
                         "description": "Buttons and links",
                         "anyOf": [
                           {
@@ -30723,7 +33001,6 @@
                         ]
                       },
                       "background": {
-                        "default": null,
                         "description": "The page behind everything",
                         "anyOf": [
                           {
@@ -31415,6 +33692,461 @@
                         ],
                         "additionalProperties": false
                       }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portals/{id}/close": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Portal id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Take a portal offline now",
+        "description": "It closes as a portal past its `expiresAt` does. PATCH `expiresAt: null` opens it again, as it was.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "The portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "public",
+                            "password",
+                            "members"
+                          ]
+                        },
+                        "password": {
+                          "type": "boolean"
+                        },
+                        "expiresAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expired": {
+                          "type": "boolean"
+                        },
+                        "presets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "web",
+                              "social",
+                              "story",
+                              "print",
+                              "png",
+                              "original"
+                            ]
+                          }
+                        },
+                        "theme": {
+                          "type": "object",
+                          "properties": {
+                            "logo": {
+                              "default": null,
+                              "description": "An approved image asset, shown in the header",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "accent": {
+                              "default": null,
+                              "description": "Buttons and links",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^#[0-9a-fA-F]{6}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "background": {
+                              "default": null,
+                              "description": "The page behind everything",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^#[0-9a-fA-F]{6}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "logo",
+                            "accent",
+                            "background"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "collections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "brands": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "publishedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Its latest publish; null: never published, so visitors see nothing of it"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name",
+                              "publishedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Brands whose guidelines it publishes, in tab order"
+                        },
+                        "site": {
+                          "type": "object",
+                          "properties": {
+                            "footer": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "description": "Markdown",
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "links": {
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      },
+                                      "href": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "href"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "credit": {
+                                  "type": "string",
+                                  "maxLength": 120
+                                },
+                                "feedback": {
+                                  "description": "A URL or mailto:",
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "quick": {
+                              "description": "Quick grab: pinned links in the header",
+                              "maxItems": 6,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "brand": {
+                                    "description": "With page: a brand the portal carries; the first when left out",
+                                    "type": "string",
+                                    "maxLength": 60
+                                  },
+                                  "page": {
+                                    "type": "string",
+                                    "maxLength": 60,
+                                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                  },
+                                  "asset": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "href": {
+                                    "type": "string",
+                                    "maxLength": 2000
+                                  }
+                                },
+                                "required": [
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "terms": {
+                              "description": "Markdown readers accept once before their first download",
+                              "type": "string",
+                              "maxLength": 10000
+                            },
+                            "listed": {
+                              "description": "Search engines may index it; public portals only",
+                              "type": "boolean"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "domain": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "host": {
+                                  "type": "string"
+                                },
+                                "verified": {
+                                  "type": "boolean"
+                                },
+                                "record": {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "const": "TXT"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "name",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "What proves it: add this record at your DNS host"
+                                },
+                                "cname": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "const": "CNAME"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "name",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
+                                }
+                              },
+                              "required": [
+                                "host",
+                                "verified",
+                                "record",
+                                "cname"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "Where visitors go: its domain once verified, else /p/{slug}"
+                        },
+                        "pending": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Access requests waiting"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "name",
+                        "intro",
+                        "access",
+                        "password",
+                        "expiresAt",
+                        "expired",
+                        "presets",
+                        "theme",
+                        "collections",
+                        "brands",
+                        "site",
+                        "domain",
+                        "url",
+                        "pending",
+                        "createdBy",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -33477,6 +36209,22 @@
               "type": "string"
             },
             "description": "The reader's language, a lowercase tag: ar, en-gb"
+          },
+          {
+            "name": "in",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A collection section's id, whose assets `find` narrows"
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Words a reader searches that collection section for"
           }
         ],
         "responses": {
@@ -39758,7 +42506,7 @@
     "/api/v1/mcp": {
       "post": {
         "summary": "MCP (Streamable HTTP, stateless)",
-        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, brand_rules, my_proposals, propose_tags, list_fields, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, publish, list_portals, update_portal, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, delete_brand, list_templates, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
         "x-scope": "read",
         "requestBody": {
           "required": true,

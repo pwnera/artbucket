@@ -1,32 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { History } from "@/components/brand-history";
+import { BrandSetup } from "@/components/builder/brand-setup";
 import { Canvas } from "@/components/builder/canvas";
+import { builderCommands } from "@/components/builder/commands";
+import { reveal } from "@/components/builder/layers";
+import { PageSettings } from "@/components/builder/page-tree";
 import { PublishDialog } from "@/components/builder/publish-dialog";
 import { RulesSheet } from "@/components/builder/rules-sheet";
+import { SectionPanel } from "@/components/builder/section-panel";
 import { TopBar } from "@/components/builder/top-bar";
 import { type Panel, type Transport, unclip, useBuilder } from "@/components/builder/use-builder";
+import { usePageCommands, useSqueeze } from "@/components/shell";
 import { behavior, TYPING } from "@/components/site/anchors";
 import { SiteView } from "@/components/site/site-view";
-import { ThemePanel } from "@/components/theme-panel";
 import { TokensDialog } from "@/components/tokens-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Init } from "@/lib/builder-ops";
+import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
-import { sendResult } from "@/lib/send";
 import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
  * see it, in the brand's theme. /brand renders it keyed by brand slug, and
- * /design/builder on fixtures. It lays out TopBar over Canvas and draws the
- * panel b.panel names; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
+ * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
+ * beside it) and draws the panel b.panel names and the page settings
+ * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
  * and the address: the page on show is `?page=`, and a v1 link
  * (#rule-{key}, #section-{name}) lands where lib/site.ts legacyAnchor says.
  * A phone gets the reader, with "Edit on a larger screen".
@@ -48,8 +49,8 @@ export type BuilderProps = {
 };
 
 export function Builder(props: BuilderProps) {
-  // A brand from before pages has nothing to edit until they are laid out.
-  return props.init.nav.length ? <Editor {...props} /> : <NoPages {...props} />;
+  // A brand with no pages starts from its essentials, then the builder opens on the pages they make.
+  return props.init.nav.length ? <Editor {...props} /> : <BrandSetup {...props} />;
 }
 
 /** A field's own undo comes first (as lib/undo.ts has it). */
@@ -58,12 +59,16 @@ const FIELD = "input, textarea, select, [contenteditable]:not([contenteditable=f
 function Editor({ brand, init, transport, header }: BuilderProps) {
   const b = useBuilder(brand, init, transport);
   const mobile = useIsMobile();
+  // The canvas and its panels want the room: the app's sidebar folds to its rail while editing, as it does for the reader.
+  useSqueeze(!mobile);
   const root = useRef<HTMLDivElement>(null);
   // What keys, links and answers read after a render: always the latest.
   const live = useRef(b);
   useEffect(() => {
     live.current = b;
   });
+  // ⌘K offers the builder's own commands first, read from the builder as it is when the palette opens.
+  usePageCommands(useCallback(() => builderCommands(live.current), []));
 
   /** A section into view. The canvas prefixes ids (SiteProvider idPrefix), so the id is matched at the end. */
   const show = useCallback((id: string) => {
@@ -152,6 +157,11 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       const key = e.key.toLowerCase();
       const id = b.state.selection.section;
       const editing = !b.state.preview;
+      // The item picked in the picked section, as Figma picks a layer inside a frame: the keys act on it before its section.
+      const page = b.state.selection.page;
+      const section = id ? b.state.pages.get(page)?.find((s) => s.id === id) : undefined;
+      const item = editing && !b.state.lang && section && b.item?.section === id && section.items?.[b.item.i] ? b.item.i : null;
+      const setItems = (set: Record<string, unknown>) => b.apply({ kind: "page", page, op: { op: "update", id: id!, set } });
       if (mod && !e.altKey && key === "z") {
         if (t?.closest(FIELD)) return;
         // Prevented, so an undo toast's own ⌘Z (lib/undo.ts) doesn't undo it twice.
@@ -161,18 +171,41 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
         return;
       }
       if (e.repeat || t?.closest(TYPING)) return;
+      // Previewing, the site's own keys move between its sections and pages (site-view.tsx).
+      if (b.state.preview && !mod && ["j", "k", "[", "]"].includes(key)) return;
       // G then a letter goes somewhere (components/shortcuts.tsx): G T is Team, not Tokens.
       if (!mod && !e.altKey && key === "g") return void (afterG.current = Date.now());
       if (Date.now() - afterG.current < 1000) return;
+      // As a design tool steps through layers: Enter goes into the picked section's items, Tab and Shift+Tab walk them, Esc comes back out.
+      // Only from the section itself (or the page), so Tab still walks the buttons and fields it reaches.
+      const onBlock = !t || t === document.body || t.hasAttribute("data-canvas-block");
+      const n = section?.items?.length ?? 0;
+      if (!mod && !e.altKey && editing && !b.state.lang && onBlock && id && n) {
+        const to = e.key === "Enter" && item === null && !e.shiftKey ? 0 : e.key === "Tab" && item !== null ? (item + (e.shiftKey ? n - 1 : 1)) % n : null;
+        if (to !== null) {
+          e.preventDefault();
+          b.setItem({ section: id, i: to });
+          reveal(id, to);
+          return;
+        }
+      }
       if (mod) {
         if (e.altKey || e.shiftKey || key !== "d" || !id || !editing) return;
         e.preventDefault();
-        b.duplicate(id);
+        if (item !== null) setItems(duplicateItem(section!, item));
+        else b.duplicate(id);
         return;
       }
       if (e.altKey) {
         if ((e.key !== "ArrowUp" && e.key !== "ArrowDown") || !id || !editing) return;
         e.preventDefault();
+        if (item !== null) {
+          const to = item + (e.key === "ArrowUp" ? -1 : 1);
+          if (to < 0 || to >= section!.items!.length) return;
+          setItems(moveItem(section!, item, to));
+          b.setItem({ section: id, i: to });
+          return;
+        }
         b.nudge(id, e.key === "ArrowUp" ? -1 : 1);
         // Where it moved to, once drawn there.
         requestAnimationFrame(() => show(id));
@@ -180,11 +213,18 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       }
       if (e.key === "Escape") {
         if (b.state.preview) b.setPreview(false);
+        // Up a level at a time: the item, the other sections picked, then the section.
+        else if (b.item) b.setItem(null);
+        else if (b.picked.length > 1) b.unpickOthers();
         else if (id || b.state.selection.rule) b.select({ section: null, rule: null });
         else return;
-      } else if (e.key === "Backspace") {
+      } else if (e.key === "Backspace" || e.key === "Delete") {
         if (!id || !editing) return;
-        b.removeSection(id);
+        if (item !== null) {
+          setItems(removeItem(section!, item));
+          b.setItem(null);
+        } else if (b.picked.length > 1) b.removeSections(b.picked);
+        else b.removeSection(id);
       } else if (key === "p") {
         b.setPreview(!b.state.preview);
       } else if (key === "h" || key === "t") {
@@ -275,108 +315,61 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
       </div>
     );
 
+  // Preview is the whole site as readers will get it once published: its nav, on-this-page and pager around the page, in the draft's theme.
+  // Theme stays open beside it, so a change to the nav or the page's opening shows as it is made.
+  const theming = b.state.preview && b.dock === "theme";
   return (
     <div ref={root} className="flex min-w-0 flex-1 flex-col">
       <TopBar b={b} />
-      <Canvas b={b} />
-      <ThemePanel
-        slug={brand}
-        theme={b.view.theme}
-        {...panel("theme")}
-        onPatch={(set) => b.apply({ kind: "theme", set })}
-        rules={b.state.rules}
-      />
+      {b.state.preview ? (
+        <div className="flex min-w-0 flex-1">
+          {/* Floating, the panel sits over the site: it keeps its own width. */}
+          <Fit on={theming && !b.floating}>
+            {readable.page ? (
+              <SiteView view={readable} href={href} onNavigate={navigate} />
+            ) : (
+              <p role="status" className="text-muted-foreground px-6 py-16 text-center text-sm">
+                Opening the page…
+              </p>
+            )}
+          </Fit>
+          {theming && <SectionPanel b={b} />}
+        </div>
+      ) : (
+        <Canvas b={b} />
+      )}
       <RulesSheet b={b} {...panel("rules")} />
       {/* The sheet is modal: nothing is edited while it's open, so it keeps up by fetching on open. */}
       <History brand={b.view.brand} {...panel("history")} edits={0} onRestored={() => location.reload()} />
       <TokensDialog brand={b.view.brand} context={b.state.context ?? undefined} {...panel("tokens")} />
       <PublishDialog b={b} {...panel("publish")} />
+      <PageSettings b={b} />
     </div>
   );
 }
 
-/** Starter topics for a template: generate_pages `set`, six pages on one topic. ponytail: four fixed topics, a gallery of real templates later. */
-const TOPICS = ["Logo", "Color", "Typography", "Voice"];
+/** The width the site is previewed at beside the Theme panel: past 72rem, where its nav and on-this-page take their own columns. */
+const DESKTOP = 1280;
 
-type Start = "blank" | "guided" | "template";
-const STARTS: { id: Start; title: string; text: string }[] = [
-  { id: "blank", title: "Blank", text: "One empty page to build on, section by section." },
-  { id: "guided", title: "From your rules", text: "An overview, then a page per group of rules, each in the templates it fits." },
-  { id: "template", title: "Template", text: "Six pages on one topic: ours, using it, in product, in marketing, best practices, showcase." },
-];
-
-/** A brand with no pages yet: a dialog to start blank, from its rules, or from a template; then the builder opens on them. */
-function NoPages({ brand, transport = sendResult, header }: BuilderProps) {
-  const router = useRouter();
-  const [open, setOpen] = useState(true);
-  const [start, setStart] = useState<Start>("guided");
-  const [topic, setTopic] = useState(TOPICS[0]);
-  const [busy, setBusy] = useState(false);
-  const pages = `/api/v1/brands/${encodeURIComponent(brand)}/pages`;
-  const create = async () => {
-    setBusy(true);
-    const res =
-      start === "blank"
-        ? await transport("PUT", `${pages}/overview`, { title: "Overview", sections: [] })
-        : await transport("POST", pages, start === "template" ? { set: { topic } } : undefined);
-    setBusy(false);
-    if (res.ok) router.refresh();
-  };
+/**
+ * The site at a desktop's width, scaled down to the room it has while `on`,
+ * so the Theme panel beside it never folds its columns into the phone's
+ * layout. The whole of it is one CSS zoom: its sticky chrome and anchors
+ * still work, only smaller.
+ */
+function Fit({ on, children }: { on: boolean; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !on) return;
+    const ro = new ResizeObserver(([e]) => setZoom(Math.min(1, e.contentRect.width / DESKTOP)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [on]);
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      {header}
-      <div className="mx-auto grid max-w-md gap-3 px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">No pages yet</h1>
-        <p className="text-muted-foreground">Start the brand&apos;s pages: blank, from its rules, or from a template.</p>
-        <Button className="justify-self-center" onClick={() => setOpen(true)}>
-          Create pages
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create the brand&apos;s pages</DialogTitle>
-            <DialogDescription>Pick a start. Everything stays editable, and nothing shows to readers until you publish.</DialogDescription>
-          </DialogHeader>
-          <div role="radiogroup" aria-label="Start" className="grid gap-2">
-            {STARTS.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                role="radio"
-                aria-checked={start === o.id}
-                onClick={() => setStart(o.id)}
-                className="hover:bg-accent aria-checked:border-primary aria-checked:bg-primary/5 focus-visible:ring-ring/50 grid gap-0.5 rounded-lg border p-3 text-start outline-none focus-visible:ring-3"
-              >
-                <span className="text-sm font-medium">{o.title}</span>
-                <span className="text-muted-foreground text-sm">{o.text}</span>
-              </button>
-            ))}
-          </div>
-          {start === "template" && (
-            <Select value={topic} onValueChange={setTopic}>
-              <SelectTrigger aria-label="Topic" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TOPICS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={create} pending={busy}>
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    <div ref={box} className="min-w-0 flex-1">
+      <div style={on && zoom < 1 ? { zoom } : undefined}>{children}</div>
     </div>
   );
 }

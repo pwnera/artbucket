@@ -3,6 +3,7 @@ import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
+import { ICON_GROUP_NAMES, ICON_NAME, ICON_PREFIX } from "./icons.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
@@ -11,9 +12,10 @@ import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { FITS, FORMATS } from "./transform.ts";
-import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PRESET_IDS } from "./portal.ts";
+import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, PRESET_IDS } from "./portal.ts";
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
+import { MAX_COMMENT } from "./comments.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -86,6 +88,33 @@ export const Finalize = z.union([
 
 export const GoogleFontImport = z.strictObject({
   family: z.string().trim().regex(GOOGLE_FAMILY, "A Google Fonts family, e.g. Playfair Display").describe("As Google Fonts names it"),
+  ...promote,
+});
+
+const iconPrefix = z.string().regex(ICON_PREFIX, "An Iconify set's prefix, e.g. tabler").max(60);
+
+export const IconSetQuery = z.object({
+  q: z.string().max(80).optional().describe("Words in the set's name, author or license"),
+  group: z.enum(ICON_GROUP_NAMES).optional().describe("Interface, Logos, Emoji, Flags or Other"),
+  limit: z.coerce.number().int().min(1).max(300).default(60),
+});
+
+export const IconBrowseQuery = z.object({
+  prefix: iconPrefix,
+  q: z.string().max(80).optional().describe("Words in the icon's name"),
+  category: z.string().max(80).optional().describe("One of the set's categories"),
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(96),
+});
+
+export const IconImport = z.strictObject({
+  prefix: iconPrefix.describe("The set, as Iconify names it: tabler, lucide, simple-icons"),
+  icons: z
+    .array(z.string().regex(ICON_NAME, "An icon's name, e.g. arrow-right").max(120))
+    .min(1)
+    .max(100)
+    .refine((a) => new Set(a).size === a.length, "Each icon once")
+    .describe("Its icons' names, 100 at a time"),
   ...promote,
 });
 
@@ -216,6 +245,23 @@ export const PublishInput = z.strictObject({
   image: uuid.optional().describe("An asset shown beside the note"),
 });
 
+const commentBody = z.string().trim().min(1).max(MAX_COMMENT);
+export const CommentCreate = z
+  .strictObject({
+    page: pageSlug.optional().describe("The page it is on; a slug it had before a rename finds it too"),
+    section: sectionId.nullable().optional().describe("A section's id on the page; left out or null: the page as a whole"),
+    parent: uuid.optional().describe("Reply to this thread instead; its page and section are the reply's. A reply to a reply joins its thread"),
+    body: commentBody.describe("Plain text"),
+  })
+  .refine((c) => !c.parent !== !c.page, "Send `page` for a new thread, or `parent` for a reply, not both")
+  .refine((c) => !c.parent || c.section === undefined, "A reply is on its thread's section: leave `section` out");
+export const CommentPatch = z
+  .strictObject({
+    body: commentBody.optional().describe("Your own comment's new text"),
+    resolved: z.boolean().optional().describe("Resolve the thread, or reopen it; a thread's first comment only"),
+  })
+  .refine((p) => p.body !== undefined || p.resolved !== undefined, "Send `body`, `resolved`, or both");
+
 export const CreateKey = z.strictObject({
   name: z.string().trim().min(1).max(120),
   scope: z.enum(SCOPES),
@@ -264,7 +310,7 @@ const portal = {
   password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
   expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
   presets: z.array(z.enum(PRESET_IDS)).max(PRESET_IDS.length).optional().describe("What images download as; web, print and social when left out"),
-  theme: PortalTheme.partial().optional(),
+  theme: PortalThemePatch.optional().describe("Left out, a setting stays; null clears it"),
   collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
   brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
   site: PortalSite.optional().describe("Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set"),
@@ -697,6 +743,30 @@ export const Published = VersionMeta.extend({
   unchanged: z.boolean().describe("Nothing changed since the last publish, which stands"),
   portals: z.array(z.object({ slug: z.string(), name: z.string(), url: z.url() })).optional().describe("The portals showing it, where visitors now read it"),
 });
+export const BrandStatus = z.object({
+  brand: z.object({ slug: z.string(), name: z.string(), default: z.boolean() }),
+  brands: z.array(z.object({ slug: z.string(), name: z.string(), default: z.boolean() })).describe("Every brand, the default first"),
+  steps: z
+    .array(
+      z.object({
+        id: z.enum(["colors", "type", "logo", "voice", "pages", "publish", "portal"]),
+        title: z.string(),
+        done: z.boolean().nullable().describe("null: the caller can't tell"),
+        detail: z.string(),
+        agent: z.string().describe("How an agent does it, with the tools by name"),
+      }),
+    )
+    .describe("In the order to take them"),
+  done: z.number().int(),
+  total: z.number().int(),
+  next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
+  publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
+  portals: z
+    .array(z.object({ slug: z.string(), name: z.string(), url: z.url() }))
+    .nullable()
+    .describe("The portals showing it; null without the right to manage portals"),
+  url: z.url().describe("The brand in the app"),
+});
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
 const keys = z.array(z.string());
 export const Update = z.object({
@@ -712,6 +782,24 @@ export const Update = z.object({
     })
     .describe("What it changed for readers since the publish before it"),
 });
+/** A review comment on a brand page (lib/core/brand-comments.ts). */
+export const Comment = z.object({
+  id: uuid,
+  page: z.string().describe("The page's slug now: a comment on a page renamed since follows it"),
+  section: z.string().nullable().describe("The section's id; null for the page as a whole"),
+  parent: uuid.nullable().describe("The thread it replies in; null for a thread's first comment"),
+  body: z.string(),
+  author: z.string().describe("Their name when they wrote it"),
+  authorId: z.string().nullable().describe("The person's id; null for an agent's, or once they are gone"),
+  mine: z.boolean().describe("Written by the caller: theirs to edit and delete"),
+  resolvedAt: date.nullable().describe("When its thread was resolved; null while open, and always on a reply"),
+  resolvedBy: z.string().nullable(),
+  editedAt: date.nullable().describe("When its text last changed; null if never"),
+  createdAt: date,
+  updatedAt: date,
+});
+export const CommentThread = Comment.extend({ replies: z.array(Comment).describe("Oldest first") });
+
 export const Restored = z.object({
   restored: z.number().int(),
   version: z.number().int().describe("The new version the restore made"),
@@ -773,7 +861,7 @@ export const Description = z.object({
       q: z.tuple([z.number(), z.number()]).describe("Snaps to a multiple of 5"),
       fit: z.array(z.enum(FITS)),
       f: z.array(z.enum(FORMATS)),
-      enlarges: z.literal(false),
+      enlarges: z.boolean().describe("An SVG is drawn at the size asked, up to the w and h caps; any other image never comes out larger than it is"),
     })
     .nullable()
     .describe("What a rendition of this asset may ask for; null when it can't be transformed"),
@@ -1214,4 +1302,23 @@ export const GoogleFamilies = z.object({
     }),
   ),
   total: z.number().int().describe("Matches before `limit`"),
+});
+
+const IconSetInfo = z.object({
+  prefix: z.string().describe("Iconify's name for it: tabler, lucide, simple-icons"),
+  name: z.string(),
+  total: z.number().int().describe("Icons in it"),
+  author: z.object({ name: z.string(), url: z.string().optional() }).nullable(),
+  license: z.object({ title: z.string(), spdx: z.string().optional(), url: z.string().optional() }).nullable(),
+  samples: z.array(z.string()).describe("A few of its icons' names"),
+  category: z.string().nullable(),
+  palette: z.boolean().describe("Its icons carry their own colors; false: drawn in one color"),
+  height: z.number().nullable().describe("The grid it is drawn on, in px"),
+});
+export const IconSets = z.object({ data: z.array(IconSetInfo), total: z.number().int().describe("Matches before `limit`") });
+export const IconBrowse = z.object({
+  set: IconSetInfo,
+  categories: z.array(z.string()).describe("The set's own categories, to narrow by"),
+  total: z.number().int().describe("Matching icons before `offset` and `limit`"),
+  data: z.array(z.object({ name: z.string(), svg: z.string().describe("The file an import stores") })),
 });

@@ -327,6 +327,21 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
   return present(next);
 }
 
+/**
+ * Take a portal offline now: it closes as a portal past its date does, and
+ * visitors are told so. Reopening is a change of expiresAt to null (or a later
+ * day), so nothing about it is lost meanwhile.
+ */
+export async function closePortal(caller: Caller, id: string) {
+  mayManage(caller);
+  const p = await row(caller, id);
+  if (!p) return null;
+  const [next] = await db.update(portals).set({ expiresAt: new Date(), updatedAt: new Date() }).where(eq(portals.id, p.id)).returning();
+  forgetHosts();
+  await recordAudit(caller, "portal.updated", next.name, { changed: ["expiresAt"] });
+  return present(next);
+}
+
 export async function deletePortal(caller: Caller, id: string) {
   mayManage(caller);
   const p = await row(caller, id);
@@ -652,7 +667,11 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
  * send the reader to `canonical`. A portal showing no brand has no pages:
  * `view` is null, and its Assets view is the portal.
  */
-export async function viewPortalSite(slug: string, pass: Pass, o: { path?: string | null; context?: string | null; lang?: string | null } = {}) {
+export async function viewPortalSite(
+  slug: string,
+  pass: Pass,
+  o: { path?: string | null; context?: string | null; lang?: string | null; find?: { section: string; q: string } } = {},
+) {
   const { p, level: door } = await open(slug, pass);
   const lang = checkLang(o.lang);
   const path = (o.path ?? "").split("/").filter(Boolean);
@@ -693,6 +712,7 @@ export async function viewPortalSite(slug: string, pass: Pass, o: { path?: strin
     // Never `as`: collections read as the workspace's reader, not as whoever is signed in.
     sign: (id) => pageSig(id, p.expiresAt),
     presets: p.presets,
+    find: o.find,
   });
   const at = view.page?.slug ?? view.redirect ?? to.page;
   const canonical = `/${(at ? canonicalPath(first, to.brand, at) : to.brand === first ? [] : [to.brand]).join("/")}`;

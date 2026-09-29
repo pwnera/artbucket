@@ -18,6 +18,8 @@ import {
   framed,
   hiddenSlugs,
   initialPages,
+  isLive,
+  liveProps,
   issues,
   mergedProps,
   pageMarkdown,
@@ -524,8 +526,10 @@ test("W2 templates: layouts merge into one enum on the wire, each template's val
   ]);
   assert.equal(
     layout.description,
-    "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+    "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
   );
+  // What every template it names says alike, it says once.
+  assert.equal(mergedProps().shape.collection.description, "collection, icons: A collection's id");
 });
 
 test("W2 templates: a pages section's from is a link, so a missing page warns and markdown says whose pages", () => {
@@ -669,13 +673,13 @@ test("mergedProps: one copy of each prop; enums merge; any other clash throws", 
   assert.throws(() => mergedProps({ a: z.strictObject({ n: z.number().max(10) }), b: z.strictObject({ n: z.number().max(20) }) }), /props\.n/);
 });
 
-test("templateCatalog: the 24 templates, each with an example that parses as itself and passes its checks", () => {
+test("templateCatalog: the 25 templates, each with an example that parses as itself and passes its checks", () => {
   const { templates, common } = templateCatalog();
   assert.deepEqual(
     templates.map((t) => t.template),
     [...TEMPLATES],
   );
-  assert.equal(templates.length, 24);
+  assert.equal(templates.length, 25);
   for (const t of templates) {
     assert.equal(t.example.template, t.template);
     const { sections, errors } = parseSections([t.example]);
@@ -1004,4 +1008,19 @@ test("markdown: what a W7 section draws, embeds, generates and asks", () => {
   ]) {
     assert.ok(md.includes(`\n${line}`), line);
   }
+});
+
+test("an icon set is live like a collection: with no source of its own, what is tagged icon, by name", () => {
+  assert.ok(isLive("collection") && isLive("icons") && !isLive("gallery"));
+  assert.deepEqual(liveProps({ template: "icons", props: {} }), { sort: "name", limit: 96, query: "tag=icon" });
+  // A source of its own replaces the tag; its own sort and limit stay.
+  assert.deepEqual(liveProps({ template: "icons", props: { collection: A, sort: "newest", limit: 10 } }), {
+    collection: A,
+    sort: "newest",
+    limit: 10,
+    query: undefined,
+  });
+  assert.deepEqual(liveProps({ template: "icons", props: { query: "tag=ui" } }), { query: "tag=ui", sort: "name", limit: 96 });
+  // A collection section's props go as they are.
+  assert.deepEqual(liveProps({ template: "collection", props: { limit: 3 } }), { limit: 3 });
 });

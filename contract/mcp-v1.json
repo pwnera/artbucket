@@ -372,6 +372,93 @@
       "family"
     ]
   },
+  "find_icons": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "description": "Words in a set's name, author or license; with prefix, in an icon's name",
+        "type": "string",
+        "maxLength": 80
+      },
+      "prefix": {
+        "description": "A set, e.g. tabler: search its icons instead of the sets",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "group": {
+        "description": "Interface, Logos, Emoji, Flags or Other",
+        "type": "string",
+        "enum": [
+          "Interface",
+          "Logos",
+          "Emoji",
+          "Flags",
+          "Other"
+        ]
+      },
+      "category": {
+        "description": "With prefix: one of the set's categories",
+        "type": "string",
+        "maxLength": 80
+      },
+      "offset": {
+        "default": 0,
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000
+      },
+      "limit": {
+        "description": "20 sets or 100 icons when left out",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200
+      }
+    }
+  },
+  "import_icons": {
+    "type": "object",
+    "properties": {
+      "prefix": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "The set, as Iconify names it: tabler, lucide, simple-icons"
+      },
+      "icons": {
+        "minItems": 1,
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[a-z0-9]+([-_][a-z0-9]+)*$"
+        },
+        "description": "Its icons' names, 100 at a time"
+      },
+      "tags": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "collections": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "required": [
+      "prefix",
+      "icons"
+    ]
+  },
   "brand_rules": {
     "type": "object",
     "properties": {
@@ -433,9 +520,436 @@
       "tags"
     ]
   },
+  "review_asset": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      },
+      "decision": {
+        "description": "approve puts a proposed asset in the library; reject turns it down and keeps it, with `note` saying why",
+        "type": "string",
+        "enum": [
+          "approve",
+          "reject"
+        ]
+      },
+      "note": {
+        "description": "Why, read back by whoever proposed it in my_proposals; asked for with reject",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "fields": {
+        "description": "Field values to set, merged; null clears one. Required fields must be set before approve",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "acceptTags": {
+        "description": "Suggested tags to apply",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "dismissTags": {
+        "description": "Suggested tags to drop",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "acceptFields": {
+        "description": "Keys of suggested field values to apply",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,39}$"
+        }
+      },
+      "dismissFields": {
+        "description": "Keys of suggested field values to drop",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,39}$"
+        }
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  },
   "list_fields": {
     "type": "object",
     "properties": {}
+  },
+  "create_field": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,39}$"
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "text",
+          "number",
+          "date",
+          "boolean",
+          "select"
+        ]
+      },
+      "options": {
+        "default": [],
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": {
+        "default": false,
+        "type": "boolean"
+      },
+      "position": {
+        "default": 0,
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "key",
+      "label",
+      "type"
+    ],
+    "additionalProperties": false
+  },
+  "update_field": {
+    "type": "object",
+    "properties": {
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "options": {
+        "minItems": 1,
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": {
+        "type": "boolean"
+      },
+      "position": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "key": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,39}$",
+        "description": "The field's key, as list_fields names it"
+      }
+    },
+    "required": [
+      "key"
+    ],
+    "additionalProperties": false
+  },
+  "delete_field": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,39}$",
+        "description": "The field's key, as list_fields names it"
+      }
+    },
+    "required": [
+      "key"
+    ]
+  },
+  "list_collections": {
+    "type": "object",
+    "properties": {}
+  },
+  "create_collection": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "folder",
+              "photo",
+              "palette",
+              "brush",
+              "camera",
+              "movie",
+              "music",
+              "star",
+              "heart",
+              "flag",
+              "bookmark",
+              "briefcase",
+              "building-store",
+              "speakerphone",
+              "rocket",
+              "sparkles",
+              "leaf",
+              "world",
+              "users",
+              "archive"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fields": {
+        "description": "Values its members inherit",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "private": {
+        "description": "Only people with a grant on it and admins see it; assets only in private collections are private too",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "update_collection": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "folder",
+              "photo",
+              "palette",
+              "brush",
+              "camera",
+              "movie",
+              "music",
+              "star",
+              "heart",
+              "flag",
+              "bookmark",
+              "briefcase",
+              "building-store",
+              "speakerphone",
+              "rocket",
+              "sparkles",
+              "leaf",
+              "world",
+              "users",
+              "archive"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fields": {
+        "description": "Merges; null clears; members re-inherit",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "private": {
+        "description": "Only people with a grant on it and admins see it; assets only in private collections are private too",
+        "type": "boolean"
+      },
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ],
+    "additionalProperties": false
+  },
+  "update_collection_assets": {
+    "type": "object",
+    "properties": {
+      "add": {
+        "description": "Asset ids to put in it, from search_assets",
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "remove": {
+        "description": "Asset ids to take out; the assets stay in the library",
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ],
+    "additionalProperties": false
+  },
+  "delete_collection": {
+    "type": "object",
+    "properties": {
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Its id, or its name in any case, as list_collections names it"
+      }
+    },
+    "required": [
+      "collection"
+    ]
+  },
+  "brand_status": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "create_brand": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "slug": {
+        "description": "Defaults to the name, as a slug",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "from": {
+        "description": "Start as a copy of this brand's rules",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "update_brand": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "slug": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "default": {
+        "description": "Make this the default brand",
+        "type": "boolean",
+        "const": true
+      },
+      "brand": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60,
+        "description": "The brand's slug, as brand_status names it"
+      }
+    },
+    "required": [
+      "brand"
+    ],
+    "additionalProperties": false
+  },
+  "delete_brand": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60,
+        "description": "The brand's slug, as brand_status names it"
+      }
+    },
+    "required": [
+      "brand"
+    ]
   },
   "list_templates": {
     "type": "object",
@@ -1525,6 +2039,14 @@
               "minLength": 1,
               "maxLength": 40
             },
+            "space": {
+              "description": "Room above it",
+              "type": "string",
+              "enum": [
+                "tight",
+                "loose"
+              ]
+            },
             "background": {
               "description": "For tone color and tone image",
               "type": "object",
@@ -1746,6 +2268,7 @@
                 "dodont",
                 "gallery",
                 "collection",
+                "icons",
                 "links",
                 "pages",
                 "diagram",
@@ -1775,7 +2298,7 @@
                   "format": "uuid"
                 },
                 "align": {
-                  "description": "cover",
+                  "description": "cover: start, center, end; split: start, center",
                   "type": "string",
                   "enum": [
                     "start",
@@ -1796,12 +2319,39 @@
                   "description": "cover: The palette as a strip; true when left out",
                   "type": "boolean"
                 },
+                "mark": {
+                  "description": "cover: Logo above the title",
+                  "type": "string",
+                  "enum": [
+                    "home",
+                    "always",
+                    "never"
+                  ]
+                },
                 "flip": {
                   "description": "split: Image on the left",
                   "type": "boolean"
                 },
+                "ratio": {
+                  "description": "split: The wider side",
+                  "type": "string",
+                  "enum": [
+                    "even",
+                    "words",
+                    "picture"
+                  ]
+                },
+                "fit": {
+                  "description": "split",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "fill",
+                    "whole"
+                  ]
+                },
                 "layout": {
-                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                  "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                   "type": "string",
                   "enum": [
                     "cards",
@@ -1911,23 +2461,41 @@
                   "description": "logos: Which mark for which context",
                   "type": "boolean"
                 },
+                "size": {
+                  "description": "logos, icons: How big each is drawn in its tile",
+                  "type": "string",
+                  "enum": [
+                    "medium",
+                    "small",
+                    "large"
+                  ]
+                },
+                "backdrop": {
+                  "description": "logos",
+                  "type": "string",
+                  "enum": [
+                    "checker",
+                    "light",
+                    "dark"
+                  ]
+                },
                 "collection": {
-                  "description": "collection: A collection's id",
+                  "description": "collection, icons: A collection's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "search": {
-                  "description": "collection: A saved search's id",
+                  "description": "collection, icons: A saved search's id",
                   "type": "string",
                   "format": "uuid"
                 },
                 "query": {
-                  "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                  "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                   "type": "string",
                   "maxLength": 2000
                 },
                 "sort": {
-                  "description": "collection",
+                  "description": "collection, icons: newest, oldest, name",
                   "type": "string",
                   "enum": [
                     "newest",
@@ -1936,13 +2504,13 @@
                   ]
                 },
                 "limit": {
-                  "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                  "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 200
                 },
                 "downloads": {
-                  "description": "collection: Offer downloads; true when left out",
+                  "description": "collection, icons: Offer downloads; true when left out",
                   "type": "boolean"
                 },
                 "from": {
@@ -2349,6 +2917,14 @@
                       "minLength": 1,
                       "maxLength": 40
                     },
+                    "space": {
+                      "description": "Room above it",
+                      "type": "string",
+                      "enum": [
+                        "tight",
+                        "loose"
+                      ]
+                    },
                     "background": {
                       "description": "For tone color and tone image",
                       "type": "object",
@@ -2570,6 +3146,7 @@
                         "dodont",
                         "gallery",
                         "collection",
+                        "icons",
                         "links",
                         "pages",
                         "diagram",
@@ -2599,7 +3176,7 @@
                           "format": "uuid"
                         },
                         "align": {
-                          "description": "cover",
+                          "description": "cover: start, center, end; split: start, center",
                           "type": "string",
                           "enum": [
                             "start",
@@ -2620,12 +3197,39 @@
                           "description": "cover: The palette as a strip; true when left out",
                           "type": "boolean"
                         },
+                        "mark": {
+                          "description": "cover: Logo above the title",
+                          "type": "string",
+                          "enum": [
+                            "home",
+                            "always",
+                            "never"
+                          ]
+                        },
                         "flip": {
                           "description": "split: Image on the left",
                           "type": "boolean"
                         },
+                        "ratio": {
+                          "description": "split: The wider side",
+                          "type": "string",
+                          "enum": [
+                            "even",
+                            "words",
+                            "picture"
+                          ]
+                        },
+                        "fit": {
+                          "description": "split",
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "fill",
+                            "whole"
+                          ]
+                        },
                         "layout": {
-                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links: cards, list; pages: cards, list; faq: accordion, definitions",
+                          "description": "cards: cards, list, stats, checklist, tree; dodont: pairs, grid, rows; gallery: grid, bento, carousel, collage, crops; collection: grid, masonry, list; links, pages: cards, list; faq: accordion, definitions",
                           "type": "string",
                           "enum": [
                             "cards",
@@ -2735,23 +3339,41 @@
                           "description": "logos: Which mark for which context",
                           "type": "boolean"
                         },
+                        "size": {
+                          "description": "logos, icons: How big each is drawn in its tile",
+                          "type": "string",
+                          "enum": [
+                            "medium",
+                            "small",
+                            "large"
+                          ]
+                        },
+                        "backdrop": {
+                          "description": "logos",
+                          "type": "string",
+                          "enum": [
+                            "checker",
+                            "light",
+                            "dark"
+                          ]
+                        },
                         "collection": {
-                          "description": "collection: A collection's id",
+                          "description": "collection, icons: A collection's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "search": {
-                          "description": "collection: A saved search's id",
+                          "description": "collection, icons: A saved search's id",
                           "type": "string",
                           "format": "uuid"
                         },
                         "query": {
-                          "description": "collection: Filters, as the library's query string: q=poster&type=image&tag=campaign&f.channel=web. Narrows the collection or saved search",
+                          "description": "collection, icons: Library query string: q=poster&type=image&tag=campaign&f.channel=web; narrows the collection or search",
                           "type": "string",
                           "maxLength": 2000
                         },
                         "sort": {
-                          "description": "collection",
+                          "description": "collection, icons: newest, oldest, name",
                           "type": "string",
                           "enum": [
                             "newest",
@@ -2760,13 +3382,13 @@
                           ]
                         },
                         "limit": {
-                          "description": "collection: At most this many; 24 when left out; updates: How many publishes; 5 when left out, 20 at most",
+                          "description": "collection: At most this many; 24 when left out; icons; updates: How many publishes; 5 when left out, 20 at most",
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 200
                         },
                         "downloads": {
-                          "description": "collection: Offer downloads; true when left out",
+                          "description": "collection, icons: Offer downloads; true when left out",
                           "type": "boolean"
                         },
                         "from": {
@@ -3476,8 +4098,39 @@
       "band": {
         "anyOf": [
           {
-            "description": "Every page opens on a band of the brand color",
+            "description": "Every page opens on a band of the brand color; header band says the same",
             "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "header": {
+        "anyOf": [
+          {
+            "description": "A page's opening: on the page, on a band of the brand color, or beside its cover",
+            "type": "string",
+            "enum": [
+              "plain",
+              "band",
+              "split"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "separation": {
+        "anyOf": [
+          {
+            "description": "Between two sections on the page's own ground: space alone, or a hairline too",
+            "type": "string",
+            "enum": [
+              "space",
+              "hairline"
+            ]
           },
           {
             "type": "null"
@@ -3569,6 +4222,208 @@
     },
     "additionalProperties": false
   },
+  "list_versions": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "get_version": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "description": "The version's number, from list_versions"
+      },
+      "against": {
+        "description": "Diff against this version, or current for this one to now; the version before when left out",
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "string",
+            "const": "current"
+          }
+        ]
+      }
+    },
+    "required": [
+      "number"
+    ]
+  },
+  "name_version": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Keep this version as a named checkpoint; null clears it"
+      },
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "description": "The version's number, from list_versions"
+      }
+    },
+    "required": [
+      "name",
+      "number"
+    ],
+    "additionalProperties": false
+  },
+  "restore_version": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "description": "The version's number, from list_versions"
+      }
+    },
+    "required": [
+      "number"
+    ]
+  },
+  "list_comments": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "page": {
+        "description": "That page's only; an old slug finds it too",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    }
+  },
+  "add_comment": {
+    "type": "object",
+    "properties": {
+      "page": {
+        "description": "The page it is on; a slug it had before a rename finds it too",
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "section": {
+        "description": "A section's id on the page; left out or null: the page as a whole",
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,40}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parent": {
+        "description": "Reply to this thread instead; its page and section are the reply's. A reply to a reply joins its thread",
+        "type": "string",
+        "format": "uuid"
+      },
+      "body": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000,
+        "description": "Plain text"
+      },
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "additionalProperties": false
+  },
+  "update_comment": {
+    "type": "object",
+    "properties": {
+      "body": {
+        "description": "Your own comment's new text",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      },
+      "resolved": {
+        "description": "Resolve the thread, or reopen it; a thread's first comment only",
+        "type": "boolean"
+      },
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The comment's id, from list_comments"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  },
+  "delete_comment": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The comment's id, from list_comments"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
   "publish": {
     "type": "object",
     "properties": {
@@ -3596,15 +4451,28 @@
   "update_portal": {
     "type": "object",
     "properties": {
-      "brands": {
-        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
-        "maxItems": 20,
-        "type": "array",
-        "items": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
-        }
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "What visitors see it called, e.g. Press kit"
+      },
+      "slug": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$",
+        "description": "Its address: /p/{slug}. Lowercase letters, digits and dashes"
+      },
+      "intro": {
+        "description": "A few paragraphs under the name",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 4000
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "access": {
         "type": "string",
@@ -3614,6 +4482,12 @@
           "members"
         ],
         "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+      },
+      "password": {
+        "description": "For access: password. Left out on a change, it stays",
+        "type": "string",
+        "minLength": 4,
+        "maxLength": 200
       },
       "expiresAt": {
         "description": "It closes then",
@@ -3626,6 +4500,83 @@
             "type": "null"
           }
         ]
+      },
+      "presets": {
+        "description": "What images download as; web, print and social when left out",
+        "maxItems": 6,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "web",
+            "social",
+            "story",
+            "print",
+            "png",
+            "original"
+          ]
+        }
+      },
+      "theme": {
+        "description": "Left out, a setting stays; null clears it",
+        "type": "object",
+        "properties": {
+          "logo": {
+            "description": "An approved image asset, shown in the header",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accent": {
+            "description": "Buttons and links",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background": {
+            "description": "The page behind everything",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "collections": {
+        "description": "Collections it shows, in this order. With brands, at least one of the two",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "brands": {
+        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
       },
       "site": {
         "description": "Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set",
@@ -3723,6 +4674,18 @@
         },
         "additionalProperties": false
       },
+      "domain": {
+        "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 253
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "portal": {
         "type": "string",
         "minLength": 1,
@@ -3732,6 +4695,322 @@
     },
     "required": [
       "portal"
+    ],
+    "additionalProperties": false
+  },
+  "create_portal": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "What visitors see it called, e.g. Press kit"
+      },
+      "slug": {
+        "description": "Its address, /p/{slug}; made from the name when left out",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
+      },
+      "intro": {
+        "description": "A few paragraphs under the name",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 4000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "public",
+          "password",
+          "members"
+        ],
+        "description": "members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"
+      },
+      "password": {
+        "description": "For access: password. Left out on a change, it stays",
+        "type": "string",
+        "minLength": 4,
+        "maxLength": 200
+      },
+      "expiresAt": {
+        "description": "It closes then",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "presets": {
+        "description": "What images download as; web, print and social when left out",
+        "maxItems": 6,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "web",
+            "social",
+            "story",
+            "print",
+            "png",
+            "original"
+          ]
+        }
+      },
+      "theme": {
+        "description": "Left out, a setting stays; null clears it",
+        "type": "object",
+        "properties": {
+          "logo": {
+            "description": "An approved image asset, shown in the header",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accent": {
+            "description": "Buttons and links",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background": {
+            "description": "The page behind everything",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "collections": {
+        "description": "Collections it shows, in this order. With brands, at least one of the two",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "brands": {
+        "description": "Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "site": {
+        "description": "Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set",
+        "type": "object",
+        "properties": {
+          "footer": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "Markdown",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "links": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "href": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "href"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "credit": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "feedback": {
+                "description": "A URL or mailto:",
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "additionalProperties": false
+          },
+          "quick": {
+            "description": "Quick grab: pinned links in the header",
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "brand": {
+                  "description": "With page: a brand the portal carries; the first when left out",
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "page": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "asset": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "href": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "terms": {
+            "description": "Markdown readers accept once before their first download",
+            "type": "string",
+            "maxLength": 10000
+          },
+          "listed": {
+            "description": "Search engines may index it; public portals only",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "domain": {
+        "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 253
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "name",
+      "access"
+    ],
+    "additionalProperties": false
+  },
+  "close_portal": {
+    "type": "object",
+    "properties": {
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      }
+    },
+    "required": [
+      "portal"
+    ]
+  },
+  "delete_portal": {
+    "type": "object",
+    "properties": {
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      }
+    },
+    "required": [
+      "portal"
+    ]
+  },
+  "list_portal_requests": {
+    "type": "object",
+    "properties": {
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      }
+    },
+    "required": [
+      "portal"
+    ]
+  },
+  "decide_portal_request": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "approved",
+          "denied"
+        ]
+      },
+      "portal": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "Its address (slug), as list_portals names it"
+      },
+      "request": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The request's id, from list_portal_requests"
+      }
+    },
+    "required": [
+      "status",
+      "portal",
+      "request"
     ],
     "additionalProperties": false
   },

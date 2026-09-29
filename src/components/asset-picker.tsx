@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import type { Asset } from "@/components/gallery";
+import { IconGlyph } from "@/components/icon-glyph";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { hasPreview } from "@/lib/preview";
+import { hasPreview, isIcon, isMono } from "@/lib/preview";
 
 /**
  * Pick one asset from the library: an image, unless `filter` says what
@@ -101,7 +102,12 @@ export function LibraryPicker({
                       onClick={() => onPick(a)}
                       className="bg-muted hover:ring-primary relative aspect-square overflow-hidden rounded-md border hover:ring-2"
                     >
-                      {hasPreview(a) ? (
+                      {isIcon(a) ? (
+                        // The vector, at a glyph's size: a 24px icon's rendition would blur.
+                        <span className="text-foreground absolute inset-0 flex items-center justify-center">
+                          <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} label={a.filename} className="size-10" />
+                        </span>
+                      ) : hasPreview(a) ? (
                         <Thumb src={`/a/${a.id}/w_160,f_webp`} alt={a.filename} />
                       ) : (
                         <span className="text-muted-foreground absolute inset-0 flex items-center justify-center p-2 text-center text-xs break-all">

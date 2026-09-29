@@ -261,7 +261,7 @@ _~6 weekends. The unglamorous one that decides adoption._
 - Access via v0.7 share-link rules: expiry, password, guest request-access
 - Built as a plain API client, same as the main UI - no private endpoints
 
-**Not in this one:** portal page builder. Portal usage lands in v1.3 analytics.
+**Not in this one:** portal page builder. Portal usage lands in v1.7 analytics.
 _~3 weekends._
 
 ---
@@ -282,24 +282,56 @@ _~3 weekends._
 
 ---
 
-## v1.2.5 - Backup and restore
-**Question:** can a lost file or a dropped table come back?
+## v1.3 - Server email and brands in portals
+**Question:** can a hosted server keep its email, and can portals carry a brand?
 
-- Postgres first: without it the bucket is a pile of hashes. Point-in-time
-  recovery where the host offers it, plus a nightly `pg_dump` to another provider
-- Originals only: they are content-addressed and never overwritten, so a nightly
-  `rclone copy` of `assets/` to a second provider is incremental. `copy`, not
-  `sync`, with a key that cannot delete, so a deletion never propagates.
-  Renditions regenerate and staging is transient, so neither is backed up
-- Deleted originals pruned from the backup after the soft-delete window, so
-  erasure has a stated deadline
-- A restore that is actually tested, documented step by step
-
-_~2 weekends._
+- Email set on the server is the server's alone; no organization overrides it
+- Sign-up confirms the address with a six-digit code
+- Portals publish brands beside collections: each brand's guidelines, read-only
+- v1.3.1: `DOMAIN_TARGET`, the CNAME an organization's domain points to
 
 ---
 
-## v1.3 - Analytics
+## v1.4 - Private assets
+**Question:** can an asset be seen only by the people it is meant for?
+
+- `/a/{id}` serves people who can see the asset; anyone else needs a signed URL
+  or the asset made public. Share links and portals sign what they show
+- Domains verified by TXT and CNAME, several per organization, one per portal
+- Agents propose custom field values, reviewed like tags
+
+---
+
+## v1.5 - Brand editing in place
+**Question:** can the guidelines be edited where they are read?
+
+- Notion-style editing: no Edit mode, "/" adds a rule or block, drag to
+  reorder, autosave, undo
+- Specimens: swatches, contrast pairings, type specimens, logo tiles
+- A UX pass over the whole app
+- v1.5.1 security fixes, v1.5.2 hardening
+
+---
+
+## v1.6 - Brand pages and the builder
+**Question:** can a brand's guidelines become a site people read, built by a
+person or an agent?
+
+In progress on `feat/builder-editing`.
+
+- Pages over the rules: a page tree of sections from templates that show rules
+  by key, so a rule changed once changes on every page
+- The site wears the brand: theme with contrast guardrails, rules in depth
+  (print palettes, type roles, logo kits, diagrams), icons
+- The builder: edit pages where they read, layers, multi-select, a library
+  panel, Cmd+K, changes since the last publish, review comments on sections
+- Start blank, from the rules, or from a template
+- Portals publish pages; publishing is a version, drafts never leak
+- Buildable end to end over MCP
+
+---
+
+## v1.7 - Analytics
 **Question:** which assets actually get used, where, and by whom?
 
 Modeled on [DataFast](https://datafa.st): one screen, real-time, cookieless,
@@ -335,7 +367,7 @@ _~3 weekends._
 
 ---
 
-## v1.4 - Migration
+## v1.8 - Migration
 **Question:** can a team leave their current DAM in an afternoon?
 
 A complete switching strategy, not a pile of one-off scripts.
@@ -364,6 +396,26 @@ A complete switching strategy, not a pile of one-off scripts.
 **Done when:** a 10k-asset Brandfolder export imports with zero lost metadata
 and a clean dry-run diff on rerun.
 _~4 weekends._
+
+---
+
+## Later - Backup and restore
+**Question:** can a lost file or a dropped table come back?
+Planned, not scheduled. Picked up when a hosted server holds data someone
+cannot lose.
+
+
+- Postgres first: without it the bucket is a pile of hashes. Point-in-time
+  recovery where the host offers it, plus a nightly `pg_dump` to another provider
+- Originals only: they are content-addressed and never overwritten, so a nightly
+  `rclone copy` of `assets/` to a second provider is incremental. `copy`, not
+  `sync`, with a key that cannot delete, so a deletion never propagates.
+  Renditions regenerate and staging is transient, so neither is backed up
+- Deleted originals pruned from the backup after the soft-delete window, so
+  erasure has a stated deadline
+- A restore that is actually tested, documented step by step
+
+_~2 weekends._
 
 ---
 

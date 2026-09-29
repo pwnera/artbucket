@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AssetError } from "@/lib/core/errors";
 import {
+  collectionId,
   describeAsset,
   getAsset,
   ingestFromUrl,
@@ -8,25 +9,44 @@ import {
   proposeFields,
   proposeTags,
   searchAssets,
+  updateAsset,
   type Asset,
+  type AssetPatch,
 } from "@/lib/core/assets";
-import { listContexts, listRules, publishBrand, setRules, type BrandRule } from "@/lib/core/brand";
+import {
+  createBrand,
+  getVersion,
+  listContexts,
+  listRules,
+  listVersions,
+  nameVersion,
+  publishBrand,
+  restoreVersion,
+  setRules,
+  type BrandRule,
+} from "@/lib/core/brand";
+import { createComment, deleteComment, listComments, updateComment } from "@/lib/core/brand-comments";
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
-import { listBrands, resolveBrand } from "@/lib/core/brands";
-import { listCollections } from "@/lib/core/collections";
-import { listFields } from "@/lib/core/fields";
+import { deleteBrand, listBrands, resolveBrand, slugify, updateBrand } from "@/lib/core/brands";
+import { brandStatus } from "@/lib/core/brand-status";
+import { createCollection, deleteCollection, getCollection, listCollections, setMembers, updateCollection } from "@/lib/core/collections";
+import { createField, deleteField, listFields, updateField } from "@/lib/core/fields";
 import { importGoogleFont } from "@/lib/core/fonts";
-import { listPortals, portalsShowing, updatePortal } from "@/lib/core/portals";
+import { findIconNames, importIcons, searchIconSets } from "@/lib/core/icons";
+import type { IconSet } from "@/lib/icons";
+import { closePortal, createPortal, decideRequest, deletePortal, listPortals, listRequests, portalsShowing, updatePortal } from "@/lib/core/portals";
 import type { Caller } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { makeSignedUrl } from "@/lib/core/signing";
 import { can, needs, type Action } from "@/lib/permissions";
+import { allows } from "@/lib/scopes";
+import { normalizeTags } from "@/lib/search";
 import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
-import { parseTransform, serializeTransform } from "@/lib/transform";
+import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 
 /**
  * The MCP adapter: a second front door onto lib/core, beside REST. Stateless
@@ -40,13 +60,15 @@ import { parseTransform, serializeTransform } from "@/lib/transform";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format. Asset URLs are private: they work with your key, and for people who can see the asset. For anyone else, ask rendition_url with expiresIn for a signed URL, unless describe_asset says it is public. What you ingest, import or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets are not served: their URLs answer 410.
 
-To build a brand's guidelines for people, write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed.`;
+Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
+
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, pages, a publish, a portal) and how to add each, next step first. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
-  "\n\nThis key can't edit brands: set_rules, save_page, edit_page, generate_pages, set_theme and publish need write on the workspace, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
+  "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the workspace, and publish needs write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -67,6 +89,9 @@ const summary = (a: Asset) => ({
   url: base(a.id),
   thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
 });
+
+/** An icon set as a model needs it to pick one and credit it. */
+const aboutSet = (s: IconSet) => ({ prefix: s.prefix, name: s.name, license: s.license, author: s.author });
 
 /** Rules as a model reads them: referenced assets come with URLs it can use as is. */
 const forAgent = (rules: BrandRule[]) =>
@@ -102,6 +127,9 @@ const rulesUri = (brand: { slug: string; default: boolean }) =>
 /** A page as Markdown, what get_page returns in `markdown`. */
 const pageUri = (brand: string, page: string) => `artbucket://brands/${brand}/pages/${page}`;
 
+/** Tools that reach outside artbucket: a public URL, Google Fonts, Iconify. */
+const OPEN_WORLD = new Set(["ingest_asset", "import_google_font", "find_icons", "import_icons"]);
+
 /** Computed once: the schemas are code, and the size guard (mcp-tools.test.ts) measures exactly these. */
 const SCHEMAS = toolSchemas();
 
@@ -130,6 +158,35 @@ const found = async (caller: Caller, assetId: string) => {
   if (!a) throw new AssetError("not_found", `No asset ${assetId}`);
   return a;
 };
+
+/** A collection this caller can see, by id or by name, as search_assets takes one. */
+const collectionOf = async (caller: Caller, ref: string) => {
+  const c = await getCollection(caller, await collectionId(caller, ref));
+  if (!c) throw new AssetError("not_found", `No collection "${ref}": list_collections names them`);
+  return c;
+};
+
+/**
+ * Making a collection private keeps it in reach of the person who did it (core/people.ts keepReach); a key
+ * with nobody behind it and short of admin would lose sight of it at once. Refused, rather than lost.
+ */
+const mayHide = (caller: Caller, hide?: boolean) => {
+  if (hide && !caller.user && !allows(caller.scope, "admin"))
+    throw new AssetError(
+      "forbidden",
+      "This key belongs to no person, so it could not see a private collection once it made one. A person makes it private in the app, or connects over OAuth as themselves.",
+    );
+};
+
+/** A portal by its slug (or id), as list_portals names it. */
+const portalOf = async (caller: Caller, ref: string) => {
+  // ponytail: finds it among every portal presented; a lookup by slug in core when a workspace has hundreds.
+  const p = (await listPortals(caller)).find((x) => x.slug === ref || x.id === ref);
+  if (!p) throw new AssetError("not_found", `No portal "${ref}": list_portals names them`);
+  return p;
+};
+
+const brandUrl = (slug: string) => `${env.APP_URL}/brand?${new URLSearchParams({ brand: slug })}`;
 
 /** Every tool in lib/mcp-tools.ts, and nothing else: their signatures are frozen there. */
 const TOOLS: Record<ToolName, Tool> = {
@@ -173,32 +230,37 @@ const TOOLS: Record<ToolName, Tool> = {
 
   describe_asset: tool({
     description:
-      "Everything known about one asset: title, credit, tags, field values, the URLs it is served at, " +
+      "Everything known about one asset: title, credit, tags, field values, suggestions waiting on review, the URLs it is served at, " +
       "what renditions it allows, ready-made rendition URLs, and the brand rules that point at it " +
       "(for a logo: how it may and may not be used). Read this before using an asset.",
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.describe_asset,
-    run: async ({ id }, caller) => ({
-      ...describeAsset(await found(caller, id)),
-      brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
-        brand,
-        key,
-        label,
-        context,
-        type,
-        value,
-        spec,
-        usage,
-      })),
-    }),
+    run: async ({ id }, caller) => {
+      const a = await found(caller, id);
+      return {
+        ...describeAsset(a),
+        proposedTags: a.proposedTags,
+        proposedFields: a.proposedFields,
+        brandRules: (await listRules(caller.workspace.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
+          brand,
+          key,
+          label,
+          context,
+          type,
+          value,
+          spec,
+          usage,
+        })),
+      };
+    },
   }),
 
   rendition_url: tool({
     description:
       "The URL of an asset at a given size and format, to embed or hand over. Building it costs nothing; the " +
-      "image is made on first request and cached. Renditions never upscale: asking for more pixels than the " +
-      "original has returns the original size. The URL works for people who can see the asset; with expiresIn, " +
+      "image is made on first request and cached. A raster image is never upscaled: asking for more pixels than the " +
+      `original has returns the original size. An SVG is drawn sharp at the size asked, up to ${MAX_DIMENSION}px. The URL works for people who can see the asset; with expiresIn, ` +
       "it is signed and works for anyone until then.",
     action: "asset.read",
     readOnly: true,
@@ -212,9 +274,10 @@ const TOOLS: Record<ToolName, Tool> = {
       const url = signed?.url ?? (spec ? `${base(a.id)}/${spec}` : base(a.id));
       const expiresAt = signed?.expiresAt ?? null;
       if (!spec) return { url, expiresAt, transform: null, note: "No transform asked for: this is the original." };
+      const raster = !isVector(a.mime);
       const notes = [
-        width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
-        height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
+        raster && width && a.width && width > a.width ? `The original is ${a.width}px wide; it will not be upscaled.` : null,
+        raster && height && a.height && height > a.height ? `The original is ${a.height}px tall; it will not be upscaled.` : null,
         fit && !(width && height) ? "fit only matters with both width and height." : null,
       ].filter(Boolean);
       return { url, expiresAt, transform: spec, source: { width: a.width, height: a.height }, notes };
@@ -262,6 +325,37 @@ const TOOLS: Record<ToolName, Tool> = {
     },
   }),
 
+  find_icons: tool({
+    description:
+      "Find open source icons to import, through Iconify. Without prefix, the icon sets matching q, each with its license, " +
+      "author and a few sample names. With prefix, that set's icons matching q, by name. Next: import_icons.",
+    action: "library.read",
+    readOnly: true,
+    input: TOOL_INPUTS.find_icons,
+    run: async ({ q, prefix, group, category, offset, limit }) => {
+      if (!prefix) {
+        const { data, total } = await searchIconSets({ q, group, limit: limit ?? 20 });
+        return { sets: data.map((s) => ({ ...aboutSet(s), total: s.total, samples: s.samples, category: s.category, palette: s.palette })), total };
+      }
+      const { set, categories, total, names } = await findIconNames(prefix, { q, category, offset, limit: limit ?? 100 });
+      return { set: { ...aboutSet(set), total: set.total, palette: set.palette }, categories, total, offset, icons: names };
+    },
+  }),
+
+  import_icons: tool({
+    description:
+      "Add icons from an open source set to the library, one SVG each, carrying the set's license and author. " +
+      "Like ingest_asset, they are proposed until a person approves them, and icons already here dedupe. " +
+      "`missing` names any the set doesn't have.",
+    action: "asset.upload",
+    readOnly: false,
+    input: TOOL_INPUTS.import_icons,
+    run: async (input, caller) => {
+      const { set, assets, missing } = await importIcons(caller, input);
+      return { set: aboutSet(set), assets: assets.map(summary), missing };
+    },
+  }),
+
   brand_rules: tool({
     // Built per call: the brands and their contexts are the library's own.
     description: async (caller) => {
@@ -288,6 +382,57 @@ const TOOLS: Record<ToolName, Tool> = {
     readOnly: true,
     input: TOOL_INPUTS.brand_rules,
     run: async ({ brand, context }, caller) => rulesFor(caller.workspace.id, context, brand),
+  }),
+
+  brand_status: tool({
+    description:
+      "What a brand still lacks before it is worth sharing, as steps in order: colors, typefaces, logo and voice in " +
+      "the rules, pages worth reading, a publish readers see, and a portal. Each step says whether it is done, what " +
+      "it stands at, and `agent`: how to do it, with the tools by name. `next` is the step to take now; `brands` " +
+      "names every brand; `url` opens the brand in the app. Start here, and ask again after a change.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_status,
+    run: async ({ brand }, caller) => brandStatus(caller, brand),
+  }),
+
+  create_brand: tool({
+    description:
+      "Make a brand: its own rules, pages, theme and history, beside the others in the workspace. Empty, or with " +
+      "`from`, a copy of that brand's current rules, pages and theme. `slug` is made from the name when left out. " +
+      "Returns the brand and its url. Next: brand_status with its slug, which says what it lacks.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.create_brand,
+    run: async (input, caller) => {
+      const made = await createBrand(caller, input);
+      return { ...made, url: brandUrl(made.slug) };
+    },
+  }),
+
+  update_brand: tool({
+    description:
+      "Rename a brand, change its slug, or make it the default (`default: true`; the old default lets go). A new " +
+      "slug changes its address in the app; portals showing it keep showing it. Returns the brand.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.update_brand,
+    run: async ({ brand, ...patch }, caller) => {
+      const b = await updateBrand(caller.workspace.id, brand, patch);
+      return { ...b, url: brandUrl(b.slug) };
+    },
+  }),
+
+  delete_brand: tool({
+    description:
+      "Delete a brand with its rules, pages, theme and history, which can't be had back; portals stop showing it. " +
+      "The assets stay in the library. The default brand can't go: make another the default first with update_brand. " +
+      "Only when the person asks.",
+    action: "brand.edit",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_brand,
+    run: async ({ brand }, caller) => ({ deleted: await deleteBrand(caller.workspace.id, brand), brand }),
   }),
 
   // ---- brand pages: guidelines laid out for people, over the rules (lib/pages.ts)
@@ -385,13 +530,23 @@ const TOOLS: Record<ToolName, Tool> = {
   generate_pages: tool({
     description:
       "Lay out a brand that has no pages from its rules: an Overview (cover, palette), then a page per section of " +
-      "keys (color, logo, type, tone...) with the templates its rules fit. A start to edit from; a brand with pages is left alone. " +
+      "keys (color, logo, type, tone...) with the templates its rules fit. Write the rules first: with none it makes one cover, and " +
+      "warns. A start to edit from; a brand with pages is left alone. " +
       "With `set`, add one topic's pages beside the ones there are: Our X, Using X, In product, In marketing, Best practices " +
       "and Showcase, with starter sections, under `parent` (or a page named for the topic). Refused when a slug is taken.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.generate_pages,
-    run: async ({ brand, set }, caller) => generatePages(caller, brand, set),
+    run: async ({ brand, set }, caller) => {
+      const made = await generatePages(caller, brand, set);
+      if (set) return made;
+      // A brand with no rules gets a cover and nothing else: say so, and what makes it more.
+      const rules = await listRules(caller.workspace.id, { brand: made.brand });
+      const warnings = rules.length
+        ? []
+        : ["The brand has no rules, so its pages are one cover. set_rules adds colors, typefaces, a logo and a voice; then save_page lays them out, or delete the overview and generate_pages again."];
+      return { ...made, warnings, url: brandUrl(made.brand) };
+    },
   }),
 
   get_theme: tool({
@@ -417,6 +572,111 @@ const TOOLS: Record<ToolName, Tool> = {
     readOnly: false,
     input: TOOL_INPUTS.set_theme,
     run: async ({ brand, ...patch }, caller) => setTheme(caller, brand, patch),
+  }),
+
+  // ---- history and review comments
+
+  list_versions: tool({
+    description:
+      "A brand's history, newest first: every edit to its rules, pages and theme is a version, with who made it, " +
+      "what it changed, its name if someone kept it as a checkpoint, and whether (and when) it was published. " +
+      "get_version reads one; restore_version brings one back.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_versions,
+    run: async ({ brand }, caller) => {
+      const b = await resolveBrand(caller.workspace.id, brand);
+      return { brand: b.slug, versions: await listVersions(caller.workspace.id, b.slug) };
+    },
+  }),
+
+  get_version: tool({
+    description:
+      "One version of a brand: its rules as they were, and what changed, rule by rule, from the version before " +
+      "(or from `against`; `against: current` shows what changed since it, what restoring it would undo).",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_version,
+    run: async ({ brand, number, against }, caller) => {
+      const b = await resolveBrand(caller.workspace.id, brand);
+      const v = await getVersion(caller.workspace.id, b.slug, number, against);
+      if (!v) throw new AssetError("not_found", `${b.slug} has no version ${number}: list_versions names them`);
+      return v;
+    },
+  }),
+
+  name_version: tool({
+    description: "Keep a version as a named checkpoint (e.g. Before the rebrand), easy to find and restore later; `name: null` clears it.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.name_version,
+    run: async ({ brand, number, name }, caller) => {
+      const b = await resolveBrand(caller.workspace.id, brand);
+      const v = await nameVersion(caller.workspace.id, b.slug, number, name);
+      if (!v) throw new AssetError("not_found", `${b.slug} has no version ${number}: list_versions names them`);
+      return v;
+    },
+  }),
+
+  restore_version: tool({
+    description:
+      "Bring a brand's rules, pages and theme back to an earlier version. Nothing is lost: the restore is itself a " +
+      "new version, so it can be undone the same way. A draft like any edit, until publish. `droppedAssets` counts " +
+      "assets its rules pointed at that are gone since. get_version with `against: current` says what it would change.",
+    action: "brand.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.restore_version,
+    run: async ({ brand, number }, caller) => {
+      const b = await resolveBrand(caller.workspace.id, brand);
+      const r = await restoreVersion(caller, b.slug, number);
+      if (!r) throw new AssetError("not_found", `${b.slug} has no version ${number}: list_versions names them`);
+      return { brand: b.slug, ...r, url: brandUrl(b.slug) };
+    },
+  }),
+
+  list_comments: tool({
+    description:
+      "Review comments on a brand's pages, as threads, open ones first: each pinned to a page and maybe a section " +
+      "(its id, as get_page gives), with its replies, author, and whether it is resolved. `mine` marks yours. " +
+      "Read the open ones before publishing.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_comments,
+    run: async ({ brand, page }, caller) => ({ threads: await listComments(caller, brand, { page }) }),
+  }),
+
+  add_comment: tool({
+    description:
+      "Comment on a brand page: `page` (and a `section` id, from get_page) starts a thread; `parent` replies in one. " +
+      "Plain text. Comments are about the guidelines, never in them: readers don't see them. Returns the comment.",
+    action: "brand.comment",
+    readOnly: false,
+    input: TOOL_INPUTS.add_comment,
+    run: async ({ brand, ...input }, caller) => createComment(caller, brand, input),
+  }),
+
+  update_comment: tool({
+    description:
+      "Resolve a thread once it is dealt with (`resolved: true` on its first comment), or reopen it; or change " +
+      "your own comment's `body`. Returns the comment.",
+    action: "brand.comment",
+    readOnly: false,
+    input: TOOL_INPUTS.update_comment,
+    run: async ({ brand, id, ...patch }, caller) => updateComment(caller, brand, id, patch),
+  }),
+
+  delete_comment: tool({
+    description:
+      "Delete a comment: your own, or anyone's with a key that edits the brand. A thread's first comment takes its " +
+      "replies with it. Resolving keeps the conversation; delete only what shouldn't be there.",
+    action: "brand.comment",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_comment,
+    run: async ({ brand, id }, caller) => {
+      await deleteComment(caller, brand, id);
+      return { deleted: true, id };
+    },
   }),
 
   publish: tool({
@@ -448,10 +708,38 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async (_input, caller) => ({ portals: await listPortals(caller) }),
   }),
 
+  create_portal: tool({
+    description:
+      "Make a portal: an address of its own (/p/{slug}) where people read the brands it shows, and browse the " +
+      "collections it shows, as last published. `brands` by slug and `collections` by id (list_collections), in order; " +
+      "at least one of the two. `access` is members (people with access to the workspace), password (whoever has " +
+      "`password`, which the person gives you) or public (anyone with the address): ask the person before a public " +
+      "one. `theme` is its look: logo (an approved image asset), accent and background (#rrggbb). `domain`, one of " +
+      "the organization's verified domains. `slug` is made from the name when left out, with a number when that one " +
+      "is taken. Returns the portal and its url; a brand never published shows nothing there until publish.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_portal,
+    run: async ({ slug, ...input }, caller) => {
+      if (slug) return (await createPortal(caller, { ...input, slug })) as Record<string, unknown>;
+      const base = slugify(input.name).slice(0, 40).replace(/-+$/, "") || "portal";
+      for (const s of [base, ...[2, 3, 4, 5].map((n) => `${base}-${n}`)]) {
+        try {
+          return (await createPortal(caller, { ...input, slug: s })) as Record<string, unknown>;
+        } catch (e) {
+          if (!(e instanceof AssetError && e.code === "conflict")) throw e;
+        }
+      }
+      throw new AssetError("conflict", `/p/${base} and the next four are taken: pass a slug`);
+    },
+  }),
+
   update_portal: tool({
     description:
-      "Change a portal: the brands it shows (by slug, in order, the whole list), who gets in (a password is set in " +
-      "the app), when it closes (expiresAt; null keeps it open), and its site. `site` replaces the whole set, so " +
+      "Change a portal: its name, intro and slug; the brands (by slug) and collections (by id) it shows, each the " +
+      "whole list, in order; who gets in (`access`, and `password` to set or change one; left out, it stays); " +
+      "`theme` (logo, an approved image asset; accent and background, #rrggbb; null clears one); `presets`; " +
+      "`domain` (null takes it off); when it closes (expiresAt, a future date; null opens it again); and its site. `site` replaces the whole set, so " +
       "send back what list_portals gave, changed: footer { text (Markdown), links [{ label, href }], credit, " +
       "feedback (a URL or mailto:) }; quick, up to 6 links pinned in the header, each { label } with one of page " +
       "(and brand, else the first), asset or href; terms (Markdown) readers accept before their first download; " +
@@ -461,9 +749,66 @@ const TOOLS: Record<ToolName, Tool> = {
     input: TOOL_INPUTS.update_portal,
     run: async ({ portal, ...input }, caller) => {
       // ponytail: finds it among every portal presented; a lookup by slug in core when a workspace has hundreds.
-      const p = (await listPortals(caller)).find((x) => x.slug === portal || x.id === portal);
-      if (!p) throw new AssetError("not_found", `No portal "${portal}": list_portals names them`);
+      const p = await portalOf(caller, portal);
       return (await updatePortal(caller, p.id, input))!;
+    },
+  }),
+
+  delete_portal: tool({
+    description:
+      "Delete a portal: its address and domain stop answering at once, and links given to people who asked in stop " +
+      "working. The brands and collections it showed stay. To take it offline for now, close_portal instead. " +
+      "Only when the person asks.",
+    action: "portal.manage",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_portal,
+    run: async ({ portal }, caller) => {
+      const p = await portalOf(caller, portal);
+      await deletePortal(caller, p.id);
+      return { deleted: true, portal: p.slug };
+    },
+  }),
+
+  close_portal: tool({
+    description:
+      "Take a portal offline now: visitors are told it is closed, and nothing about it is lost. update_portal with " +
+      "`expiresAt: null` opens it again. Returns the portal.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.close_portal,
+    run: async ({ portal }, caller) => {
+      const p = await portalOf(caller, portal);
+      return (await closePortal(caller, p.id))!;
+    },
+  }),
+
+  list_portal_requests: tool({
+    description:
+      "Who asked to get into a password or members portal, or asked for something through a request section, " +
+      "newest first: their email, name, note, what they asked for, and what became of it. decide_portal_request answers.",
+    action: "portal.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_portal_requests,
+    run: async ({ portal }, caller) => {
+      const p = await portalOf(caller, portal);
+      return { portal: p.slug, requests: (await listRequests(caller, p.id)) ?? [] };
+    },
+  }),
+
+  decide_portal_request: tool({
+    description:
+      "Approve or deny a request. Approving someone's access gives them a link of their own, emailed to them when " +
+      "the organization's email works (`emailed`), and in `url` either way; approving an ask marks it done. On a " +
+      "person's say-so.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.decide_portal_request,
+    run: async ({ portal, request, status }, caller) => {
+      const p = await portalOf(caller, portal);
+      const out = await decideRequest(caller, p.id, request, status);
+      if (!out) throw new AssetError("not_found", `No request ${request} on ${p.slug}: list_portal_requests names them`);
+      return { ...out.data, emailed: out.emailed };
     },
   }),
 
@@ -499,12 +844,160 @@ const TOOLS: Record<ToolName, Tool> = {
     },
   }),
 
+  review_asset: tool({
+    description:
+      "Decide what waits on review, as a person with approve would: `decision` approve puts a proposed asset in " +
+      "the library (its required fields set first, in `fields` if need be), reject turns it down with a `note` " +
+      "saying why, which its proposer reads in my_proposals. Suggested tags and field values (describe_asset shows " +
+      "them) are applied with acceptTags and acceptFields, or dropped with dismissTags and dismissFields, on any " +
+      "asset. All in one change. search_assets with review: true lists what waits. Only on a person's say-so.",
+    action: "asset.review",
+    readOnly: false,
+    input: TOOL_INPUTS.review_asset,
+    run: async ({ id, decision, note, fields, acceptTags, dismissTags, acceptFields, dismissFields }, caller) => {
+      const a = await found(caller, id);
+      if (decision === "reject" && !note) throw new AssetError("invalid", "Say why in `note`: whoever proposed it reads it in my_proposals");
+      const [accept, dismiss] = [normalizeTags(acceptTags ?? []), normalizeTags(dismissTags ?? [])];
+      const strayTags = [...accept, ...dismiss].filter((t) => !a.proposedTags.includes(t));
+      if (strayTags.length) {
+        throw new AssetError("invalid", `Not suggested: ${strayTags.join(", ")}. Suggested tags: ${a.proposedTags.join(", ") || "none"}`);
+      }
+      const [take, drop] = [acceptFields ?? [], dismissFields ?? []];
+      const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));
+      if (strayKeys.length) {
+        throw new AssetError("invalid", `No suggested value for ${strayKeys.join(", ")}. Suggested: ${Object.keys(a.proposedFields).join(", ") || "none"}`);
+      }
+      const patch: AssetPatch = {};
+      if (accept.length) patch.tags = [...a.tags, ...accept];
+      if (accept.length || dismiss.length) patch.proposedTags = a.proposedTags.filter((t) => !accept.includes(t) && !dismiss.includes(t));
+      if (take.length || drop.length) {
+        patch.proposedFields = Object.fromEntries(Object.entries(a.proposedFields).filter(([k]) => !take.includes(k) && !drop.includes(k)));
+      }
+      const values = { ...Object.fromEntries(take.map((k) => [k, a.proposedFields[k]])), ...fields };
+      if (Object.keys(values).length) patch.fields = values;
+      if (decision) patch.status = decision === "approve" ? "active" : "rejected";
+      if (note) patch.reviewNote = note;
+      if (!Object.keys(patch).length) throw new AssetError("invalid", "Nothing to do: pass a decision, fields, or suggestions to accept or dismiss");
+      const next = (await updateAsset(caller, id, patch))!;
+      return { ...summary(next), reviewNote: next.reviewNote, proposedTags: next.proposedTags, proposedFields: next.proposedFields };
+    },
+  }),
+
   list_fields: tool({
     description: "The library's custom fields: each one's key, label, type, the options a choice takes, and whether it is required. For propose_fields.",
     action: "field.read",
     readOnly: true,
     input: TOOL_INPUTS.list_fields,
     run: async (_input, caller) => ({ fields: await listFields(caller.workspace.id) }),
+  }),
+
+  create_field: tool({
+    description:
+      "Define a custom field every asset can carry: a `key` (lowercase, digits and _) and a `type`, which never " +
+      "change, a `label` people see, `options` for a select (and only for one), whether it is `required` before an " +
+      "asset is approved, and its `position` in the list. Returns the field.",
+    action: "field.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_field,
+    run: async (input, caller) => createField(caller.workspace.id, input),
+  }),
+
+  update_field: tool({
+    description:
+      "Change a custom field's label, options (the whole list), whether it is required, or its position. Its key " +
+      "and type can't change: make another field for that. Returns the field.",
+    action: "field.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.update_field,
+    run: async ({ key, ...patch }, caller) => {
+      const f = await updateField(caller.workspace.id, key, patch);
+      if (!f) throw new AssetError("not_found", `No field "${key}": list_fields names them`);
+      return f;
+    },
+  }),
+
+  delete_field: tool({
+    description: "Delete a custom field and every value stored under it, on assets and collections alike. Only when the person asks.",
+    action: "field.manage",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_field,
+    run: async ({ key }, caller) => {
+      if (!(await deleteField(caller.workspace.id, key))) throw new AssetError("not_found", `No field "${key}": list_fields names them`);
+      return { deleted: true, key };
+    },
+  }),
+
+  // ---- collections: groups of assets whose field values their members inherit (lib/core/collections.ts)
+
+  list_collections: tool({
+    description:
+      "The collections you can see: each one's id, name, icon, whether it is private, the field values its assets " +
+      "inherit, and how many assets it holds. ingest_asset, import_icons, import_google_font and create_portal take " +
+      "their ids; search_assets narrows to one by name or id.",
+    action: "collection.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_collections,
+    run: async (_input, caller) => ({ collections: await listCollections(caller) }),
+  }),
+
+  create_collection: tool({
+    description:
+      "Make a collection. `fields` are custom field values (list_fields names them) that every asset in it " +
+      "inherits, where the asset has none of its own. `private`: only people with a grant on it and admins see " +
+      "it; a key that belongs to no person can't make one private. Returns it with its id; update_collection_assets " +
+      "puts assets in it.",
+    action: "collection.create",
+    readOnly: false,
+    input: TOOL_INPUTS.create_collection,
+    run: async (input, caller) => {
+      mayHide(caller, input.private);
+      return createCollection(caller, input);
+    },
+  }),
+
+  update_collection: tool({
+    description:
+      "Change a collection: its name, icon, whether it is private, and `fields`, which merge into its values (null " +
+      "clears one); its assets inherit the change at once. Returns it.",
+    action: "collection.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.update_collection,
+    run: async ({ collection, ...patch }, caller) => {
+      mayHide(caller, patch.private);
+      const c = await collectionOf(caller, collection);
+      const changed = await updateCollection(caller, c.id, patch);
+      if (!changed) throw new AssetError("not_found", `No collection "${collection}": list_collections names them`);
+      return changed;
+    },
+  }),
+
+  update_collection_assets: tool({
+    description:
+      "Put assets in a collection and take others out, in one call. An asset can be in many collections; taking " +
+      "one out leaves it in the library. An id you can't see is refused, not skipped. Returns the collection.",
+    action: "collection.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.update_collection_assets,
+    run: async ({ collection, add, remove }, caller) => {
+      const c = await collectionOf(caller, collection);
+      await setMembers(caller, c.id, { add, remove });
+      return (await getCollection(caller, c.id)) ?? c;
+    },
+  }),
+
+  delete_collection: tool({
+    description:
+      "Delete a collection. Its assets stay in the library and stop inheriting its field values; portals stop " +
+      "showing it, and grants on it go. Only when the person asks.",
+    action: "collection.delete",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_collection,
+    run: async ({ collection }, caller) => {
+      const c = await collectionOf(caller, collection);
+      return { deleted: await deleteCollection(caller.workspace.id, c.id), collection: { id: c.id, name: c.name } };
+    },
   }),
 
   propose_fields: tool({
@@ -569,7 +1062,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
               name,
               description: typeof t.description === "string" ? t.description : await t.description(caller),
               inputSchema: SCHEMAS[name],
-              annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: name === "ingest_asset" || name === "import_google_font" },
+              annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: OPEN_WORLD.has(name) },
             })),
         ),
       });

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconExternalLink, IconLoader2, IconWorldUpload } from "@tabler/icons-react";
+import { IconExternalLink, IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { useAssetUrl } from "@/components/site/asset-url";
@@ -19,8 +20,13 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /**
  * Publish (build spec 3.5.3, W6.3): a note, an image, and what changed since
- * the last publish (lib/history.ts whatsNew against the draft); the result
- * lists the portals it now shows on. Requests go through b.transport, so the
+ * the last publish (lib/history.ts whatsNew against the draft), with the
+ * open review comments one click away; the result
+ * lists the portals it now shows on. Publishing and sharing are two things (a
+ * version readers get, and a door with an address and who gets in; one brand
+ * can be on several portals, one portal can show several brands), but a
+ * brand no portal shows yet can get one in the same step: named for the
+ * brand, showing it, open to the workspace's members or to anyone. Requests go through b.transport, so the
  * dev page records them.
  *
  * The draft is the brand's latest version, which is what a publish
@@ -44,6 +50,20 @@ type Snapshot = { rules: SnapRule[]; pages: SnapPage[] | null };
 /** POST .../publish's answer. */
 type Published = { number?: number; unchanged?: boolean; portals?: { slug: string; name: string; url: string }[] };
 
+/** Who a portal made here lets in; a password portal is set up on the Portals page, where the password is typed. */
+type Door = "members" | "public" | "none";
+const DOORS: Record<Door, string> = { members: "People in this workspace", public: "Anyone with the address", none: "Not now" };
+
+/** A portal's address from the brand's name, as the Portals page makes one. */
+const slugOf = (name: string) =>
+  name
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 40)
+    .replace(/^-+|-+$/g, "") || "brand";
+
 type News = { error: string } | { draft: number | null; since: number | null; changes: WhatsNew | null };
 
 export function PublishDialog({ b, open, onOpenChange }: PublishDialogProps) {
@@ -65,6 +85,9 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Published | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  // Offered only when the brand is on no portal and this person may make one (b.status.portals is [] then, null when they can't tell).
+  const offer = b.status?.portals?.length === 0;
+  const [door, setDoor] = useState<Door>("members");
   const url = useAssetUrl();
 
   useEffect(() => {
@@ -97,12 +120,33 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
       ...(note.trim() && { note: note.trim() }),
       ...(image && { image }),
     });
+    if (!res.ok) {
+      setBusy(false);
+      return setFailed(res.network ? "Couldn't reach the server. Nothing was published." : (res.error?.message ?? "Couldn't publish."));
+    }
+    const published = res.data as Published;
+    if (offer && door !== "none") {
+      // The address from the name, then with a number, should another portal have it.
+      const base = slugOf(b.view.brand.name);
+      for (const slug of [base, `${base}-guidelines`, `${base}-2`, `${base}-3`]) {
+        const made = await transport("POST", "/api/v1/portals", { name: b.view.brand.name, slug, access: door, brands: [brand] });
+        if (made.ok) {
+          const p = made.data as { slug: string; name: string; url: string };
+          published.portals = [...(published.portals ?? []), { slug: p.slug, name: p.name, url: p.url }];
+          break;
+        }
+        if (made.network || made.status !== 409) {
+          toast.error("Published, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
+          break;
+        }
+      }
+    }
     setBusy(false);
-    if (res.ok) setDone(res.data as Published);
-    else setFailed(res.network ? "Couldn't reach the server. Nothing was published." : (res.error?.message ?? "Couldn't publish."));
+    setDone(published);
+    void b.refreshStatus();
   };
 
-  if (done) return <Result done={done} onClose={onClose} />;
+  if (done) return <Result done={done} brand={brand} onClose={onClose} />;
 
   const current = news && "draft" in news && news.draft !== null && news.draft === news.since;
   return (
@@ -134,6 +178,27 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
         )}
       </section>
 
+      {b.comments.openCount > 0 && (
+        // Review before readers get it: the open threads, one click away.
+        <p role="note" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+          <IconMessageCircle aria-hidden className="text-warning size-4 shrink-0" />
+          <span className="flex-1">
+            {b.comments.openCount} open {b.comments.openCount === 1 ? "comment" : "comments"} on these pages.
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              onClose();
+              b.setCommentsOnPage(true);
+              b.setDock("comments");
+            }}
+          >
+            Review
+          </Button>
+        </p>
+      )}
+
       <div className="grid gap-1.5">
         <Label htmlFor="publish-note">Note for readers</Label>
         <Textarea id="publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} placeholder="What changed, and why" />
@@ -157,6 +222,21 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
           )}
         </div>
       </div>
+
+      {offer && (
+        <fieldset className="grid gap-2 rounded-lg border p-3">
+          <legend className="px-1 text-sm font-medium">Also share it on a portal</legend>
+          <p className="text-muted-foreground text-xs">No portal shows {b.view.brand.name} yet. A portal is its own address for it, which you can style and close later.</p>
+          <div role="radiogroup" aria-label="Who gets in" className="grid gap-1">
+            {(Object.keys(DOORS) as Door[]).map((d) => (
+              <label key={d} className="flex items-center gap-2 text-sm">
+                <input type="radio" name="publish-door" value={d} checked={door === d} onChange={() => setDoor(d)} className="accent-primary" />
+                {DOORS[d]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {failed && (
         <p role="alert" className="text-destructive text-sm">
@@ -220,7 +300,7 @@ function Changes({ changes, rules }: { changes: WhatsNew; rules: BuilderApi["sta
 }
 
 /** What publishing did: the version readers now get, and the portals that show it. */
-function Result({ done, onClose }: { done: Published; onClose: () => void }) {
+function Result({ done, brand, onClose }: { done: Published; brand: string; onClose: () => void }) {
   const portals = done.portals ?? [];
   return (
     <>
@@ -249,13 +329,13 @@ function Result({ done, onClose }: { done: Published; onClose: () => void }) {
           </ul>
         </div>
       ) : (
-        <p className="text-muted-foreground text-sm">
-          No portal shows this brand yet.{" "}
-          <Link href="/portals" className="text-foreground underline underline-offset-2">
-            Add it to one
-          </Link>{" "}
-          to share it outside the workspace.
-        </p>
+        <div className="bg-muted grid gap-2 rounded-lg p-3">
+          <p className="text-sm font-medium">Share it outside the team</p>
+          <p className="text-muted-foreground text-sm">No portal shows this brand yet. A portal is its own address, with your look and who may read it.</p>
+          <Button asChild size="sm" variant="outline" className="justify-self-start">
+            <Link href={`/portals?${new URLSearchParams({ new: brand })}`}>Create a portal for it</Link>
+          </Button>
+        </div>
       )}
       <DialogFooter>
         <Button onClick={onClose}>Done</Button>

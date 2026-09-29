@@ -25,6 +25,7 @@ import {
   IconLock,
   IconShare,
   IconSparkles,
+  IconIcons,
   IconTypography,
   IconUpload,
   IconLink,
@@ -42,6 +43,8 @@ import { CopyButton } from "@/components/copy-button";
 import { FacetFilter, type Count } from "@/components/facet-filter";
 import { UploadFieldsDialog } from "@/components/fields";
 import { FontThumb, GoogleFontImport } from "@/components/font-preview";
+import { IconGlyph } from "@/components/icon-glyph";
+import { IconPackImport } from "@/components/icon-packs";
 import { LinkImport, Lottie } from "@/components/media";
 import type { SavedSearch } from "@/components/app-sidebar";
 import { deciding, SelectionBar, useBulk, type Patch } from "@/components/selection-bar";
@@ -82,7 +85,7 @@ import type { Origin, Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
-import { hasPreview, isLottie, parseLink } from "@/lib/preview";
+import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -141,7 +144,9 @@ export type Asset = {
     creator?: string;
     copyright?: string;
     camera?: string;
+    lens?: string;
     capturedAt?: string;
+    gps?: { lat: number; lon: number };
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -240,9 +245,13 @@ export type Well = (typeof WELLS)[number];
 /** The well behind an asset's art, overridden by the `data-well` of an enclosing `group/well`. */
 export const wellClass = (a: Asset) =>
   cn(
-    a.probe?.hasAlpha === true ? "bg-checker" : "bg-muted",
+    // An icon is a glyph on a plain ground; a grid behind a small shape is noise.
+    a.probe?.hasAlpha === true && !isIcon(a) ? "bg-checker" : "bg-muted",
     "group-data-[well=light]/well:bg-white group-data-[well=dark]/well:bg-neutral-900 group-data-[well=checker]/well:bg-checker",
   );
+
+/** A one-ink icon's color on each well: the theme's text, and what reads on a white or a black one. */
+export const GLYPH_INK = "text-foreground group-data-[well=light]/well:text-neutral-900 group-data-[well=dark]/well:text-white";
 
 /** A per-viewer preference, also in a cookie so the server paints it first. */
 const remember = (name: string, value: string) => {
@@ -318,6 +327,7 @@ export function Gallery({
   const [sharing, setSharing] = useState<{ target: ShareTarget; open: boolean } | null>(null);
   const share = (target: ShareTarget) => setSharing({ target, open: true });
   const [fonts, setFonts] = useState(false);
+  const [icons, setIcons] = useState(false);
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
@@ -1046,6 +1056,10 @@ export function Gallery({
                 <DropdownMenuItem onSelect={() => setFonts(true)}>
                   <IconTypography /> Import a Google font
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIcons(true)}>
+                  <IconIcons /> Import icons
+                  <span className="text-muted-foreground ml-auto pl-4 text-xs">open source packs</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setLinking({ open: true, url: "" })}>
                   <IconLink /> Add a link
                   <span className="text-muted-foreground ml-auto pl-4 text-xs">Figma, Google</span>
@@ -1062,6 +1076,7 @@ export function Gallery({
               </DropdownMenuContent>
             </DropdownMenu>
             <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={refreshSoon} />
+            <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={refreshSoon} />
             <LinkImport
               open={linking.open}
               defaultValue={linking.url}
@@ -1749,7 +1764,14 @@ export const AssetCard = memo(function AssetCard({
         )}
       >
         <div className={cn("relative aspect-square overflow-hidden", wellClass(a), selected && "bg-primary/5")}>
-          {hasPreview(a) ? (
+          {isIcon(a) ? (
+            // The vector at a glyph's size: a 24px icon's rendition, blown up to the tile, would blur.
+            seen && (
+              <span className={cn("flex size-full items-center justify-center", GLYPH_INK)}>
+                <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className={large ? "size-20" : "size-14"} />
+              </span>
+            )
+          ) : hasPreview(a) ? (
             // Rendition URLs are pure functions of the asset id: no export step,
             // no signing, no prior round trip.
             <Thumb src={`/a/${a.id}/${large ? "w_400" : "w_260"},f_webp`} alt="" />

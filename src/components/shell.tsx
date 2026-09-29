@@ -8,7 +8,7 @@ import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
-import { CommandPalette } from "@/components/command-palette";
+import { CommandPalette, type PageCommand } from "@/components/command-palette";
 import { ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { FieldDef } from "@/lib/fields";
@@ -33,6 +33,8 @@ type ShellValue = {
   openCollection: (c: Collection | "new") => void;
   /** The page's upload picker, offered in ⌘K while one is registered. */
   setUpload: (fn: (() => void) | null) => void;
+  /** The page's own commands for ⌘K, asked for as it opens (usePageCommands). */
+  setCommands: (fn: (() => PageCommand[]) | null) => void;
   /** Bumped after a collection is saved or deleted here, so a page showing its assets can refetch them. */
   collectionEdits: number;
 };
@@ -43,6 +45,34 @@ export function useShell() {
   const shell = useContext(ShellContext);
   if (!shell) throw new Error("useShell must be used within the (app) layout's Shell.");
   return shell;
+}
+
+/**
+ * The caller's commands in ⌘K while it is mounted: `fn` is asked for them
+ * each time the palette opens or is typed in, so it reads the page as it is
+ * then (keep it stable). Nothing where no Shell is around.
+ */
+export function usePageCommands(fn: () => PageCommand[]) {
+  const setCommands = useContext(ShellContext)?.setCommands;
+  useEffect(() => {
+    if (!setCommands) return;
+    setCommands(fn);
+    return () => setCommands(null);
+  }, [setCommands, fn]);
+}
+
+/**
+ * Folds the app's sidebar to its rail while the caller is mounted and `on`,
+ * as the brand's reader and builder do to give the page room. Nothing where
+ * no Shell is around (the /design pages).
+ */
+export function useSqueeze(on = true) {
+  const setSqueeze = useContext(ShellContext)?.setSqueeze;
+  useEffect(() => {
+    if (!setSqueeze || !on) return;
+    setSqueeze(true);
+    return () => setSqueeze(false);
+  }, [setSqueeze, on]);
 }
 
 /**
@@ -80,6 +110,8 @@ export function Shell({ sidebar, defaultOpen, children }: { sidebar: SidebarData
   // Held in a box: a function handed to useState's setter would be called as an updater.
   const [upload, setUploadBox] = useState<{ fn: () => void } | null>(null);
   const setUpload = useCallback((fn: (() => void) | null) => setUploadBox(fn && { fn }), []);
+  const [commands, setCommandsBox] = useState<{ fn: () => PageCommand[] } | null>(null);
+  const setCommands = useCallback((fn: (() => PageCommand[]) | null) => setCommandsBox(fn && { fn }), []);
   const [editing, setEditing] = useState<{ collection?: Collection; fields: FieldDef[] } | null>(null);
   // The last one opened stays mounted, so the dialog animates out instead of vanishing.
   const [lastEditing, setLastEditing] = useState(editing);
@@ -194,9 +226,10 @@ export function Shell({ sidebar, defaultOpen, children }: { sidebar: SidebarData
       openPalette: () => setSearching(true),
       openCollection: (c) => void openCollection(c),
       setUpload,
+      setCommands,
       collectionEdits,
     }),
-    [collections, searches, reviewCount, brands, setUpload, openCollection, collectionEdits],
+    [collections, searches, reviewCount, brands, setUpload, setCommands, openCollection, collectionEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
@@ -235,6 +268,7 @@ export function Shell({ sidebar, defaultOpen, children }: { sidebar: SidebarData
           onUpload={upload?.fn}
           onNewCollection={newCollection}
           onShortcuts={() => setHelp(true)}
+          commands={commands?.fn}
         />
         <ShortcutsDialog open={help} onOpenChange={setHelp} />
         {lastEditing && (

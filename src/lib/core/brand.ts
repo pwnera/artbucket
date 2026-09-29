@@ -10,7 +10,7 @@ import { checkLimit } from "@/lib/core/usage";
 import { hasPreview } from "@/lib/preview";
 import { renameThemeKey, type ThemeSettings } from "@/lib/brand-theme";
 import { diffRules, extendsLatest, summarize, updatesOf, type SnapRule, type VersionKind } from "@/lib/history";
-import { canon, changedPages, samePages, type SnapPage } from "@/lib/pages";
+import { canon, changedPages, isLive, samePages, type SnapPage } from "@/lib/pages";
 import { can, needs } from "@/lib/permissions";
 import {
   renameInSpec,
@@ -794,7 +794,7 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
     if (latest.publishedAt && latest.publishedBy !== SYSTEM) return { brand: brand.slug, ...meta(latest), unchanged: true };
     const errors = (latest.pages ?? []).flatMap((p) =>
       p.sections.flatMap((s, i) => {
-        const id = s.template === "collection" && (s.props as { collection?: string }).collection;
+        const id = isLive(s.template) && (s.props as { collection?: string }).collection;
         if (!id || can(caller, "collection.share", { id })) return [];
         return [`pages.${p.slug}.sections[${i}].props.collection: collection ${id} goes to portal visitors, which takes ${needs("collection.share")}`];
       }),
