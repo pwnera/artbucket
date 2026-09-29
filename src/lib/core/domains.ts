@@ -9,7 +9,7 @@ import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { can, needs } from "@/lib/permissions";
-import { challengeName, hostname, slugAtHost, subdomainRefusal } from "@/lib/portal";
+import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } from "@/lib/portal";
 
 /**
  * Host names this server answers for besides APP_URL's: an organization's
@@ -148,9 +148,8 @@ export async function claimable(raw: string) {
   const host = hostname(raw);
   if (!host) throw new AssetError("invalid", `Not a host name: "${raw}". Say assets.example.com`);
   if (host === appHost) throw new AssetError("invalid", "That is this server's own address");
-  const under = env.PORTAL_DOMAIN;
-  if (under && (host === under || host.endsWith(`.${under}`))) {
-    throw new AssetError("invalid", `${under} is this server's: every portal already answers at {address}.${under}`);
+  if (underDomain(host, env.PORTAL_DOMAIN)) {
+    throw new AssetError("invalid", `${env.PORTAL_DOMAIN} is this server's: every portal already answers at {address}.${env.PORTAL_DOMAIN}`);
   }
   const stale = and(eq(domains.host, host), isNull(domains.verifiedAt), lt(domains.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`));
   await db.delete(domains).where(stale);
