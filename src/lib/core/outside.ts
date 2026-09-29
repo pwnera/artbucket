@@ -54,15 +54,15 @@ export async function outsideReach(caller: Caller, a: Asset) {
     public: a.public && deliverable(a),
     portals: portals.map(({ name, url }) => ({ name, url })),
     /** This key may make a signed URL of any length. */
-    canShare: share,
-    note: a.public && deliverable(a) ? null : share || portals.length ? null : privateNote(a),
+    canShare: share && deliverable(a),
+    note: !deliverable(a) || !(a.public || share || portals.length) ? privateNote(a) : null,
   };
 }
 
 /**
  * A URL anyone can open for about `expiresIn` seconds. Public: its plain URL.
  * With share: signed as asked. Shown on a public portal: signed as the portal
- * signs it for visitors, a day at most and never past the portal's end.
+ * signs it for visitors: a day, rounded up to the hour, never past the portal's end.
  * Otherwise refused, saying what the person can do.
  */
 export async function outsideUrl(caller: Caller, a: Asset, expiresIn: number, rest = "") {

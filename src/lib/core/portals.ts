@@ -834,7 +834,10 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
       )
     : new Set<string>();
   const shows = async (p: Row) => {
-    if (inCollections.has(p.id)) return true;
+    if (inCollections.has(p.id) || p.theme.logo === asset.id) return true;
+    // Its header, as shownTheme draws it: the organization's logo, when the portal has none of its own, and icon.
+    const brand = await brandOfWorkspace(p.workspaceId);
+    if (assetIdsIn(JSON.stringify([p.theme.logo ? null : brand.logo, brand.icon])).includes(asset.id)) return true;
     const quick = PortalSite.safeParse(p.site);
     if (quick.success && quick.data.quick?.some((q) => q.asset === asset.id)) return true;
     for (const src of await publishes(p)) {

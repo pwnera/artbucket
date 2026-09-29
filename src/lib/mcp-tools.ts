@@ -79,7 +79,7 @@ export const TOOL_INPUTS = {
       .max(365 * 86400)
       .optional()
       .describe(
-        "For someone without access to the library: a URL that works this many seconds. A public asset gets its plain URL; one on a public portal, a day at most; anything else takes share on it",
+        "For someone without access to the library: a URL that works this many seconds. A public asset gets its plain URL; one on a public portal, about a day, as the portal signs it; anything else takes share on it",
       ),
   }),
 

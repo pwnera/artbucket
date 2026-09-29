@@ -268,7 +268,7 @@ const TOOLS: Record<ToolName, Tool> = {
       "image is made on first request and cached. A raster image is never upscaled: asking for more pixels than the " +
       `original has returns the original size. An SVG is drawn sharp at the size asked, up to ${MAX_DIMENSION}px. The URL works for people who can see the asset; ` +
       "fetchUrl opens it for you for a few minutes, when your fetch can't send your key. With expiresIn, the URL works for anyone until then: " +
-      "an asset that is public (its plain URL, no end), or shown on a public portal (a day at most, as the portal signs it; ask again for a " +
+      "an asset that is public (its plain URL, no end), or shown on a public portal (about a day, as the portal signs it; ask again for a " +
       "fresh one), or with a key that may share. Anything else is refused with what the person can do.",
     action: "asset.read",
     readOnly: true,
