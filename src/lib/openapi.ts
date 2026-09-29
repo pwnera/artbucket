@@ -139,7 +139,8 @@ export function openapi(serverUrl: string) {
             "Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, " +
             "and required fields may be left for the person who approves it. C2PA Content Credentials in the file " +
             "are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version " +
-            "of that asset: filed where it is, with its tags and fields, and current once approved.",
+            "of that asset: filed where it is, with its tags and fields, and current once approved; public when the version " +
+            "it takes over from is, if whoever uploads or approves it may share it.",
           body: S.Finalize,
           ok: [201, "Created", z.object({ data: S.Asset, deduped: z.boolean() })],
           extra: { 200: { description: "Deduped to an existing asset", content: json(z.object({ data: S.Asset, deduped: z.boolean() })) } },

@@ -927,7 +927,7 @@
     },
     "post": {
       "summary": "Promote an upload, or ingest from a URL",
-      "description": "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, and required fields may be left for the person who approves it. C2PA Content Credentials in the file are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version of that asset: filed where it is, with its tags and fields, and current once approved.\n\nScope: `propose`.",
+      "description": "With `token`: promote a staged upload. With `url`: the server fetches it (public addresses only). Identical bytes dedupe to the existing asset (200). Without the write scope the new asset is `proposed`, and required fields may be left for the person who approves it. C2PA Content Credentials in the file are read into `c2pa`, and set `origin` and `generator` unless given. With `versionOf`, it is a new version of that asset: filed where it is, with its tags and fields, and current once approved; public when the version it takes over from is, if whoever uploads or approves it may share it.\n\nScope: `propose`.",
       "x-scope": "propose",
       "requestBody": {
         "required": true,
