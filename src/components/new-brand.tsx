@@ -199,12 +199,12 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             </DialogHeader>
             {made ? (
               <div className="grid min-w-0 gap-3">
-                <p className="text-sm font-medium">1. Sign the CLI in to this server</p>
-                <Snippet text={`npx artbucket login ${origin}`} what="the command" />
-                <p className="text-sm font-medium">2. From your repository, push the folder holding brand.yaml</p>
-                <Snippet text={`npx artbucket brand push brand --brand ${made.slug}`} what="the command" />
+                <p className="text-sm font-medium">1. In a checkout of Artbucket, sign the CLI in to this server</p>
+                <Snippet text={`ARTBUCKET_URL=${origin} pnpm artbucket login`} what="the command" />
+                <p className="text-sm font-medium">2. Push your repository&apos;s folder holding brand.yaml</p>
+                <Snippet text={`pnpm artbucket brand push path/to/your-repo/brand --brand ${made.slug}`} what="the command" />
                 <p className="text-muted-foreground text-sm">
-                  No brand.yaml yet? <code>npx artbucket brand pull brand --brand {made.slug}</code> writes this brand as files to start from.
+                  No brand.yaml yet? <code>pnpm artbucket brand pull path/to/your-repo/brand --brand {made.slug}</code> writes this brand as files to start from.
                 </p>
               </div>
             ) : (
