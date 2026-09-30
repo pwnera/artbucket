@@ -142,6 +142,19 @@ masked. `ARTBUCKET_URL` is your own server when you host one. Without
 or merge request, `artbucket brand diff brand --brand acme` exits 1 on any
 problem in the files, at its line, which makes it a check.
 
+## A README badge
+
+A public, released brand has a badge on BrandHub with the release that is
+live, "brand @4", at `/{org}/{brand}/badge.svg`. The brand's Settings,
+under BrandHub, give its Markdown:
+
+```md
+[![Brand on BrandHub](https://hub.artbucket.io/acme/acme/badge.svg)](https://hub.artbucket.io/acme/acme)
+```
+
+It follows each release, answers for public brands only, and showing it is
+not counted as a read of the brand.
+
 ## Both ways
 
 A brand kept in a repository remembers where (`PUT /api/v1/brands/{slug}/source`)
@@ -188,5 +201,20 @@ there too: "My brand is already in a repository" brings it in.
 
 Artbucket Cloud connects a GitHub repository to a brand from any of those
 places, and does all of the above itself: pull requests get a check, a
-preview link and a comment listing what they change, merges come in, and
-edits made here go back as a commit or a pull request.
+preview link and a comment listing what they change and what merging does,
+merges come in, and edits made here go back as a commit or a pull request.
+
+The connection also decides what a change that reaches the branch does:
+
+- **From Artbucket:** a merge updates the draft, and someone releases it here.
+- **When a change is merged:** each push to the branch, a merged pull request
+  too, is released, with its commit's first line as the note.
+- **On a GitHub release:** a merge updates the draft, and publishing a
+  release on GitHub releases its tag, with the release's title as the note.
+
+Neither releases while edits made here wait to reach the repository: the
+check says so, and the next merge or release carries both. Each release
+from the repository posts a GitHub deployment (environment `Artbucket`)
+linking to the brand on BrandHub or its portal, so the repository's
+sidebar shows what is live. Without the App, [a CI job](#from-ci) does the
+push.

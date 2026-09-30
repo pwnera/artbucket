@@ -4,12 +4,19 @@ description: artbucket, a thin client over the same API.
 ---
 
 ```bash
-ARTBUCKET_URL=https://assets.example.com pnpm artbucket login
+npx artbucket login app.artbucket.io
+npx artbucket brand push brand --publish
 ```
 
-`login` signs in through the browser with the device flow and keeps a key in
-`~/.config/artbucket/credentials.json`. Or set `ARTBUCKET_KEY`. From a clone,
-`pnpm link --global` puts `artbucket` on your path.
+The CLI is the `artbucket` package on npm, for Node 22 and later: `npx
+artbucket` runs it anywhere, `npm install -g artbucket` keeps it. `login`
+takes your server (`https://` is assumed without a scheme; give
+`http://localhost:3000` in full), signs in through the browser with the
+device flow, and keeps a key in `~/.config/artbucket/credentials.json`,
+with that server as the default: later commands go there without
+`ARTBUCKET_URL`, which still wins when set. Or set `ARTBUCKET_KEY`. From a
+clone, `pnpm artbucket` runs the same CLI, and `pnpm link --global` puts it
+on your path.
 
 ```bash
 artbucket search sintel poster
