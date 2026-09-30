@@ -6,7 +6,8 @@ import type { Download } from "./portal.ts";
 import { fontLabel, fontValue, type RuleAsset, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
 /** A brand in the app: its Overview. */
-export const brandPath = (slug: string) => `/brands/${encodeURIComponent(slug)}`;
+/** A brand's page in the app, or one of its tabs by `tail` ("/releases", "/insights"). */
+export const brandPath = (slug: string, tail = "") => `/brands/${encodeURIComponent(slug)}${tail}`;
 
 /** A brand's guidelines in the app: the builder, or with `view: "read"` its pages as readers see them; `panel` opens one of the builder's. */
 export function guidelinesPath(slug: string, q: Record<string, string | null | undefined> = {}) {

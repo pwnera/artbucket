@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import type { Rule } from "@/lib/rules";
-import { guidelinesPath } from "@/lib/site";
+import { brandPath } from "@/lib/site";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
@@ -43,7 +43,7 @@ export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(und
 export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHeaderProps) {
   const can = useCan();
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
-  const line = [hub?.ref, release && `release @${release.number}`, release && releaseDate(release.publishedAt)].filter(Boolean);
+  const line = [hub?.ref, release ? `release @${release.number}` : "never released", release && releaseDate(release.publishedAt)].filter(Boolean);
   return (
     <>
       <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 pt-6 md:px-6">
@@ -72,7 +72,7 @@ export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHea
               )}
             </div>
             <p className="text-muted-foreground truncate text-sm">
-              {line.length ? line.join(" · ") : "Never released"}
+              {line.join(" · ")}
               {release?.note && <> · &ldquo;{release.note.split("\n")[0]}&rdquo;</>}
             </p>
           </div>
@@ -81,7 +81,7 @@ export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHea
           <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} />
           {can("brand.edit") && (
             <Button asChild size="sm">
-              <Link href={guidelinesPath(brand.slug, { panel: "publish" })}>
+              <Link href={brandPath(brand.slug, "/releases/new")}>
                 <IconWorldUpload aria-hidden /> Publish release
               </Link>
             </Button>

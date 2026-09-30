@@ -11,9 +11,9 @@ export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "release
 
 /**
  * A brand's tabs (PRD section 13, "In the app"), as a repository's are. Each
- * is a link: Overview and Guidelines are the brand's own pages, the rest
- * open the page each concern already has, on this brand where it can be
- * (the builder's rules or history, the portals showing it, its row on the
+ * is a link: Overview, Guidelines and Releases are the brand's own pages,
+ * the rest open the page each concern already has, on this brand where it
+ * can be (the builder's rules, the portals showing it, its row on the
  * Brands page). The library and Insights are the workspace's: assets are not
  * a brand's, and its own signals are on Overview. Left out for whoever may
  * not use the page behind a tab.
@@ -25,7 +25,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
     { id: "rules", label: "Tokens and rules", href: guidelinesPath(brand.slug, { panel: "rules" }) },
     { id: "assets", label: "Assets", href: "/" },
-    { id: "releases", label: "Releases", href: guidelinesPath(brand.slug, { panel: "history" }) },
+    { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: `/portals?${new URLSearchParams({ brand: brand.slug })}` }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: "/insights" }] : []),
     ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: `/brands?${new URLSearchParams({ q: brand.name })}` }] : []),

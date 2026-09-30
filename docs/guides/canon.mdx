@@ -95,6 +95,14 @@ added, changed and removed. The answer names the portals showing the brand.
 Publishing with nothing changed does nothing. It takes write on the
 workspace, with sharing not turned off.
 
+In the app, a publish is a release, numbered as its version (`@5`). The
+brand's **Releases** tab (`/brands/{slug}/releases`) lists them, each with its
+note and what it changed; **Publish release** in the brand's header, or
+Release in the builder, opens the form (`/brands/{slug}/releases/new`): the
+note, what changes since the last release line by line (a color's value
+before and after, a page's sections edited), and the Brand Agent Score before
+and after.
+
 ## Design tokens
 
 `GET /api/v1/brand/tokens?format=css` is the brand as CSS custom properties

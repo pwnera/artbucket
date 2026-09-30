@@ -158,7 +158,7 @@ export function PageTrail({ b }: { b: BuilderApi }) {
         </IconButton>
       )}
       {/* Focus mode: the brand's tabs, folded into a menu on its name. Rules and History open here, on the page on show. */}
-      <BrandTabMenu brand={b.view.brand} at="guidelines" here={{ guidelines: () => {}, rules: () => b.setPanel("rules"), releases: () => b.setPanel("history") }} />
+      <BrandTabMenu brand={b.view.brand} at="guidelines" here={{ guidelines: () => {}, rules: () => b.setPanel("rules") }} />
       {path.slice(0, -1).map((n) => (
         <span key={n.slug} className="text-muted-foreground hidden min-w-0 items-center gap-1 @3xl/bar:flex">
           <IconChevronRight aria-hidden className="size-3.5 shrink-0" />
