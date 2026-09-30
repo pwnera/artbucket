@@ -108,29 +108,29 @@
 }
 
 .dark, .dark .app-tokens {
-  /* Neutral greys: tinted neutrals turn muddy on near-black. */
-  --background: #141414;
-  --foreground: #fafafa;
-  --card: #1c1c1c;
-  --card-foreground: #fafafa;
-  --popover: #1c1c1c;
-  --popover-foreground: #fafafa;
+  /* Blue slate, like a browser's dark chrome at night: the ground a hair of blue, the sidebar a touch deeper and bluer. */
+  --background: #141c23;
+  --foreground: #f2f5f8;
+  --card: #1a232b;
+  --card-foreground: #f2f5f8;
+  --popover: #1a232b;
+  --popover-foreground: #f2f5f8;
   --primary: #6d4aff;
   --primary-foreground: #ffffff;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #fafafa;
+  --secondary: #222c35;
+  --secondary-foreground: #f2f5f8;
+  --muted: #222c35;
+  --muted-foreground: #9aa6b2;
+  --accent: #222c35;
+  --accent-foreground: #f2f5f8;
   --destructive: oklch(0.704 0.191 22.216);
   --success: #6fd08f;
   --warning: #f0b54a;
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
   --ring: #6d4aff;
-  --sidebar: #171717;
-  --sidebar-foreground: #fafafa;
+  --sidebar: #15232e;
+  --sidebar-foreground: #f2f5f8;
   --sidebar-primary: #6d4aff;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: color-mix(in srgb, var(--primary) 20%, var(--sidebar));
