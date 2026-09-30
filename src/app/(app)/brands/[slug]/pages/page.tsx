@@ -42,7 +42,7 @@ export default async function BrandPagesPage({ params, searchParams }: Props) {
     <BrandReader
       key={slug}
       initial={read}
-      embed={{ path, head: { brand, origin: env.APP_URL, rules, hub: status?.hub ?? null, release } }}
+      embed={{ path, head: { brand, origin: env.APP_URL, rules, status, release } }}
     />
   );
 }

@@ -16729,6 +16729,19 @@
                           ],
                           "description": "never published, changes since the last publish, or up to date"
                         },
+                        "live": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The release readers see, by number; null before the first"
+                        },
                         "portals": {
                           "anyOf": [
                             {
@@ -16911,6 +16924,7 @@
                         "score",
                         "next",
                         "publish",
+                        "live",
                         "portals",
                         "hub",
                         "url"

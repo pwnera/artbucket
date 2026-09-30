@@ -30,6 +30,7 @@ export async function brandStatus(caller: Caller, slug?: string) {
     brands: brands.map((b) => ({ slug: b.slug, name: b.name, default: b.default })),
     ...readiness({ rules, theme: brand.theme, pages, versions, portals }),
     publish: publishState(versions),
+    live: versions.find((v) => v.publishedAt)?.number ?? null,
     portals,
     hub: await hubOf(brand),
     url: `${env.APP_URL}${guidelinesPath(brand.slug)}`,

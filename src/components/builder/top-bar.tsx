@@ -34,7 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { boundKeys, designWarnings, hasPicture } from "@/lib/pages";
-import type { StepId } from "@/lib/readiness";
+import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +49,8 @@ import { cn } from "@/lib/utils";
  * Rules (b.setPanel) and Theme, which previews the whole site with the theme
  * panel beside it (b.setPreview, b.setDock). Then the Brand Agent Score (b.status and the
  * page's own checks), what changed since the last publish (b.setChanges), For agents, Preview (b.setPreview), More (the section
- * panel, History, Design tokens) and Publish, which says whether readers see
- * the latest (b.status.publish).
+ * panel, History, Design tokens) and Release, which says what is live and
+ * whether readers see the latest (b.status.publish), as the brand's header does.
  *
  * The context switch only sets b.state.context: the canvas's site resolves
  * each bound rule for it (lib/rules.ts resolve, through useRule), with no
@@ -269,25 +269,33 @@ function Repository({ b }: { b: BuilderApi }) {
   );
 }
 
-/** Publish, saying where readers stand: a dot while they don't see the latest, Published once they do. */
+/**
+ * Release, saying where readers stand in the brand header's words (lib/readiness.ts
+ * liveLine): "@4 live · Up to date" once they see the latest, else the line
+ * beside Release, with a dot while there are changes they don't see.
+ */
 function Publish({ b }: { b: BuilderApi }) {
   const state = b.status?.publish;
+  const line = b.status && liveLine(b.status.publish, b.status.live);
   const open = () => b.setPanel("publish");
   if (state === "current")
     return (
       <Button size="sm" variant="outline" className="ms-1" aria-haspopup="dialog" title="Readers see the latest" onClick={open}>
-        <IconCircleCheckFilled className="text-success" /> Released
+        <IconCircleCheckFilled className="text-success" /> {line}
       </Button>
     );
   return (
-    <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={state === "behind" ? "There are changes readers don't see yet" : state === "never" ? "Never released: portals show nothing of it" : undefined} onClick={open}>
-      <IconWorldUpload /> Release
-      {state === "behind" && (
-        <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
-          <span className="sr-only">(changes not released)</span>
-        </span>
-      )}
-    </Button>
+    <>
+      {line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
+      <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={line ?? undefined} onClick={open}>
+        <IconWorldUpload /> Release
+        {state === "behind" && (
+          <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
+            <span className="sr-only">(changes not released)</span>
+          </span>
+        )}
+      </Button>
+    </>
   );
 }
 

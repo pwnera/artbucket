@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
+import { liveLine } from "@/lib/readiness";
 import type { Rule } from "@/lib/rules";
 import { brandPath, guidelinesPath } from "@/lib/site";
 
@@ -24,16 +25,18 @@ import { brandPath, guidelinesPath } from "@/lib/site";
  * A brand's header, over every tab of its page (PRD section 12, the brand
  * card, as the prototype draws it): its mark, its name, whether its
  * organization is verified and whether it is public on BrandHub, then how
- * BrandHub names it, its release, when, and the release's note. Use this
- * brand, Edit (the builder) and Publish release sit at its end, the tabs
- * under it. The brand's page is read-only: Edit is the way into the builder.
+ * BrandHub names it, what is live and whether it is the latest (lib/readiness.ts
+ * liveLine), when it was released, and the release's note. Use this brand,
+ * Edit (the builder) and Release, while readers don't see the latest, sit
+ * at its end, the tabs under it. The brand's page is read-only: Edit is the way into the builder.
  */
 export type BrandHeaderProps = {
   brand: BrandInfo;
   /** This server's address (APP_URL): where agents reach it. */
   origin: string;
   rules: Rule[];
-  hub: Status["hub"];
+  /** Its BrandHub listing and where readers stand (GET .../status); null when it couldn't be read. */
+  status: Pick<Status, "hub" | "publish"> | null;
   release: Release | null;
   at: BrandTab;
 };
@@ -41,10 +44,11 @@ export type BrandHeaderProps = {
 /** "12 Sep 2026", as the header dates a release. */
 export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
-export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHeaderProps) {
+export function BrandHeader({ brand, origin, rules, status, release, at }: BrandHeaderProps) {
   const can = useCan();
+  const hub = status?.hub ?? null;
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
-  const line = [hub?.ref, release ? `release @${release.number}` : "never released", release && releaseDate(release.publishedAt)].filter(Boolean);
+  const line = [hub?.ref, status ? liveLine(status.publish, release?.number ?? null) : release ? `@${release.number} live` : "Never released", release && releaseDate(release.publishedAt)].filter(Boolean);
   return (
     <>
       <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 pt-6 md:px-6">
@@ -87,10 +91,10 @@ export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHea
               </Link>
             </Button>
           )}
-          {can("brand.edit") && (
+          {can("brand.edit") && status?.publish !== "current" && (
             <Button asChild size="sm">
               <Link href={brandPath(brand.slug, "/releases/new")}>
-                <IconWorldUpload aria-hidden /> Publish release
+                <IconWorldUpload aria-hidden /> Release
               </Link>
             </Button>
           )}

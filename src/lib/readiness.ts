@@ -64,6 +64,16 @@ export function publishState(versions: ReadinessInput["versions"]): PublishState
 }
 
 /**
+ * Where readers stand, in the words the brand's header and the builder's
+ * Release button both use: "@4 live · Unreleased changes", "@4 live · Up to
+ * date", or "Never released". `live`: the number of the release readers see.
+ */
+export function liveLine(state: PublishState, live: number | null) {
+  if (state === "never" || live === null) return "Never released";
+  return `@${live} live · ${state === "behind" ? "Unreleased changes" : "Up to date"}`;
+}
+
+/**
  * What each step weighs in the Brand Agent Score (PRD: it replaces the
  * launch checklist as the brand's health meter): how much an agent working
  * from the brand gains by it. The rules an agent reads before making

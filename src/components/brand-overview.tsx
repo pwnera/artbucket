@@ -58,7 +58,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name }]} />
-      <BrandHeader brand={brand} origin={origin} rules={rules} hub={status?.hub ?? null} release={release} at="overview" />
+      <BrandHeader brand={brand} origin={origin} rules={rules} status={status} release={release} at="overview" />
       <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 pt-6 pb-16 md:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="grid min-w-0 content-start gap-4">
           <Box title="About">

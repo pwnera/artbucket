@@ -830,6 +830,7 @@ export const BrandStatus = z.object({
   score: z.number().int().min(0).max(100).describe("The Brand Agent Score: the steps done, weighed by what each gives an agent"),
   next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
   publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
+  live: z.number().int().nullable().describe("The release readers see, by number; null before the first"),
   portals: z
     .array(z.object({ slug: z.string(), name: z.string(), access: z.enum(PORTAL_ACCESS), url: z.url() }))
     .nullable()

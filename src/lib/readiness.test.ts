@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentScore, publishState, readiness, WEIGHTS } from "./readiness.ts";
+import { agentScore, liveLine, publishState, readiness, WEIGHTS } from "./readiness.ts";
 
 const EMPTY = { rules: [], pages: [], versions: [], portals: [] };
 
@@ -73,4 +73,10 @@ test("a step the caller can't tell counts for nothing: the rest make the 100", (
   const r = readiness({ ...EMPTY, portals: null, rules: [{ key: "color.primary", type: "color" }] });
   assert.equal(r.steps.find((s) => s.id === "portal")!.points, 0);
   assert.equal(r.score, Math.round((100 * 15) / 95));
+});
+
+test("the live line names the release readers see, and whether it is the latest", () => {
+  assert.equal(liveLine("behind", 4), "@4 live · Unreleased changes");
+  assert.equal(liveLine("current", 4), "@4 live · Up to date");
+  assert.equal(liveLine("never", null), "Never released");
 });
