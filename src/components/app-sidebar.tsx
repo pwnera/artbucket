@@ -16,6 +16,7 @@ import {
   IconFolder,
   IconFolderUp,
   IconFolders,
+  IconInbox,
   IconLayoutSidebarLeftExpand,
   IconPalette,
   IconLock,
@@ -27,12 +28,11 @@ import {
   IconSettings,
   IconShare,
   IconTrash,
-  IconUsers,
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
 import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
-import { BrandTile, brandHref, Brands, type BrandInfo } from "@/components/brand-switcher";
+import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { useCan } from "@/components/can";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
@@ -70,6 +70,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { formatSize } from "@/lib/limits";
 import { short } from "@/lib/time";
 import { canonical, parseView, viewQuery } from "@/lib/view";
 
@@ -126,15 +127,14 @@ export function AppSidebar({
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
-  const shownBrand = currentBrand ? brands.find((b) => b.slug === currentBrand) : undefined;
   const at = {
-    agents: pathname === "/connections",
-    team: pathname === "/team",
+    connections: pathname === "/connections",
     portals: pathname === "/portals",
-    insights: pathname === "/insights",
+    insights: pathname.startsWith("/insights"),
+    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
+    review: inLibrary && view.review,
     // A collection or saved search is its own item, so none of these is lit for one.
-    // Review is a tab of Assets, so Assets stays lit on it.
-    assets: (inLibrary && !view.collection && !onSearch) || pathname === "/activity",
+    library: (inLibrary && !view.review && !view.collection && !onSearch) || pathname === "/activity",
   };
 
   const [stored] = useRecents();
@@ -198,29 +198,20 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* What waits in Review shows on Assets, whose tab it is. */}
-              <Place
-                href="/"
-                label="Assets"
-                icon={<IconPhoto />}
-                active={at.assets}
-                badge={reviewCount || undefined}
-                hint={reviewCount ? `${reviewCount} waiting in Review` : undefined}
-              />
-              {/* Brands are the Brands section's, each opening on its tabs. Folded to the rail, the section is gone: the brand on show stands in for its row, lit. */}
-              {shownBrand && (
-                <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-                  <SidebarMenuButton asChild isActive tooltip={shownBrand.name}>
-                    <NavLink href={brandHref(shownBrand)}>
-                      <BrandTile name={shownBrand.name} /> <span>{shownBrand.name}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.agents} />
+              {/* The places, in the prototype's order. Team lives in Settings; each brand opens on its tabs from Brands. */}
+              <Place href="/" label="Library" icon={<IconPhoto />} active={at.library} />
+              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
-              {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
+              <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />
+              <Place
+                href="/?review"
+                label="Review"
+                icon={<IconInbox />}
+                active={at.review}
+                badge={reviewCount || undefined}
+                hint={reviewCount ? `${reviewCount} waiting` : undefined}
+              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -235,6 +226,7 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter>
+        {can("organization.manage") && <StorageLine />}
         <SidebarMenu>
           <ExpandItem />
           <SidebarMenuItem>
@@ -254,6 +246,35 @@ export function AppSidebar({
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+/**
+ * What the organization's storage stands at, against its plan when it has
+ * one: "38 GB of 100 GB". Organization admins only, as GET /api/v1/usage is;
+ * hidden folded to the rail.
+ */
+function StorageLine() {
+  const [usage, setUsage] = useState<{ used: number; max: number | null } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/v1/usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => live && b && setUsage({ used: b.data.used.storage, max: b.data.limits?.storage ?? null }))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!usage) return null;
+  return (
+    <Link
+      href="/settings/organization/usage"
+      className="text-muted-foreground hover:text-foreground px-2 text-xs tabular-nums group-data-[collapsible=icon]:hidden"
+    >
+      {formatSize(usage.used)}
+      {usage.max !== null && ` of ${formatSize(usage.max)}`} used
+    </Link>
   );
 }
 
