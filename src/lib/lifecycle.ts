@@ -65,3 +65,15 @@ export function maxAge(a: Pick<Lived, "rights">, now = new Date()) {
  */
 export const isReview = (from: Status, to: Status) =>
   !(to === "draft" || to === "proposed") || from === "active" || from === "archived";
+
+/**
+ * "Expires in 5 days": how an approved asset's last day of use reads when it
+ * is close (within `within` days), so the library says so before a check has
+ * to refuse it. Null when it is not approved, has no end, or is far off.
+ */
+export function expiring(a: Lived, day = today(), within = 30): string | null {
+  const end = a.rights?.expires;
+  if (!end || stateOf(a, day) !== "active") return null;
+  const n = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000);
+  return n > within ? null : n === 0 ? "Expires today" : n === 1 ? "Expires tomorrow" : `Expires in ${n} days`;
+}
