@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BrandOverview, type BrandSignals, type Release } from "@/components/brand-overview";
 import type { Status } from "@/components/builder/use-status";
+import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import type { Rule } from "@/lib/rules";
 import { brands, get, whoami } from "@/lib/sidebar";
@@ -30,5 +31,5 @@ export default async function BrandOverviewPage({ params }: Props) {
     can(me, "insights.read") ? get(`brands/${b}/insights`, (x: { data: BrandSignals }) => x.data, null) : null,
   ]);
   const release = (versions.find((v) => v.publishedAt) as Release | undefined) ?? null;
-  return <BrandOverview brand={brand} rules={rules} status={status} release={release} signals={signals} />;
+  return <BrandOverview brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} signals={signals} />;
 }

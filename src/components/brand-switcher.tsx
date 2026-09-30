@@ -227,7 +227,8 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   );
 }
 
-function BrandDialog({
+/** Rename a brand, or duplicate it (POST /api/v1/brands with `from`): the sidebar's menu, and Use this brand's Duplicate. */
+export function BrandDialog({
   open,
   editing,
   onClose,

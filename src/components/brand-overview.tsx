@@ -1,10 +1,20 @@
 "use client";
 
-import { IconBook, IconChartBar, IconCircle, IconCircleCheckFilled, IconLock, IconStar, IconWorld } from "@tabler/icons-react";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { IconBook, IconChartBar, IconChevronDown, IconCircle, IconCircleCheckFilled, IconCopy, IconLock, IconRobot, IconStar, IconWorld } from "@tabler/icons-react";
+import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
 import { Preview } from "@/components/hub";
+import { useCan } from "@/components/can";
+import { CopyButton } from "@/components/copy-button";
 import { AppHeader } from "@/components/page";
+import { tokensPath } from "@/components/tokens-dialog";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { inkOn } from "@/lib/color";
 import { ago, logoOf, taglineOf, tintOf } from "@/lib/hub";
 import { ruleName, type Rule } from "@/lib/rules";
@@ -24,7 +34,9 @@ export type BrandSignals = { days: number; pulls: number; views: number };
 export type Release = { number: number; publishedAt: string; note: string | null };
 
 export type BrandOverviewProps = {
-  brand: { slug: string; name: string; default: boolean };
+  brand: BrandInfo;
+  /** This server's address (APP_URL): where agents reach it. */
+  origin: string;
   rules: Rule[];
   status: Status | null;
   release: Release | null;
@@ -34,7 +46,7 @@ export type BrandOverviewProps = {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
-export function BrandOverview({ brand, rules, status, release, signals }: BrandOverviewProps) {
+export function BrandOverview({ brand, origin, rules, status, release, signals }: BrandOverviewProps) {
   const own = rules.filter((r) => !r.context);
   const colors = own.filter((r) => r.type === "color" && typeof r.value === "string");
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
@@ -49,7 +61,9 @@ export function BrandOverview({ brand, rules, status, release, signals }: BrandO
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name }]} />
-      <BrandTabs brand={brand} at="overview" />
+      <BrandTabs brand={brand} at="overview">
+        <UseThisBrand brand={brand} origin={origin} hub={status?.hub && release ? status.hub : null} />
+      </BrandTabs>
       <div className="mx-auto grid w-full max-w-5xl gap-6 px-4 pt-6 pb-16 md:px-6 lg:grid-cols-[1fr_18rem]">
         <article className="bg-card min-w-0 overflow-hidden rounded-xl border">
           <Preview card={card} className="h-44">
@@ -164,5 +178,77 @@ function Signal({ label, value }: { label: string; value: number }) {
       <dt className="text-muted-foreground text-xs">{label}</dt>
       <dd className="font-display text-xl font-semibold tabular-nums">{value.toLocaleString()}</dd>
     </div>
+  );
+}
+
+/**
+ * Use this brand (PRD section 12), in the brand's header: the addresses an
+ * agent or a build reads it from, one to copy at a time. The MCP server the
+ * Agents page connects; on BrandHub, once public, its brand.json and
+ * llms.txt, and its tokens and DESIGN.md there without a key, else from the
+ * API with one. Duplicate starts another brand from a copy of this one.
+ * `hub`: the brand on BrandHub, once released there.
+ */
+function UseThisBrand({ brand, origin, hub }: { brand: BrandInfo; origin: string; hub: { visibility: "private" | "public"; url: string } | null }) {
+  const router = useRouter();
+  const can = useCan();
+  const [copying, setCopying] = useState<{ open: boolean; n: number } | null>(null);
+  const open = hub?.visibility === "public" ? hub.url : null;
+  const tokens = (format: "css" | "designmd") => (open ? `${open}/tokens?format=${format}` : `${origin}${tokensPath(brand, undefined, format)}`);
+  const rows = [
+    { label: "MCP server", text: `${origin}/api/v1/mcp` },
+    ...(open ? [{ label: "brand.json", text: `${open}/brand.json` }, { label: "llms.txt", text: `${open}/llms.txt` }] : []),
+    { label: "Design tokens", text: tokens("css") },
+    { label: "DESIGN.md", text: tokens("designmd") },
+  ];
+  return (
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" className="my-1.5 shrink-0">
+            <IconRobot aria-hidden /> Use this brand <IconChevronDown aria-hidden />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
+          <ul className="grid gap-2">
+            {rows.map((r) => (
+              <li key={r.label} className="grid gap-1">
+                <span className="text-muted-foreground text-xs">{r.label}</span>
+                <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
+                  <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{r.text}</code>
+                  <CopyButton text={r.text} label={`Copy the ${r.label} address`} what="the address" />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground text-xs">
+            {open ? "Its BrandHub files are public: no key. " : "With a key: "}
+            <Link href="/agents" className="text-foreground underline underline-offset-2">
+              connect an agent
+            </Link>{" "}
+            for the MCP server and the API.
+          </p>
+          {can("brand.edit") && (
+            <Button variant="outline" size="sm" onClick={() => setCopying((c) => ({ open: true, n: (c?.n ?? 0) + 1 }))}>
+              <IconCopy aria-hidden /> Duplicate as a new brand
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+      {copying && (
+        <BrandDialog
+          key={copying.n}
+          open={copying.open}
+          editing={{ kind: "copy", brand }}
+          onClose={() => setCopying((c) => c && { ...c, open: false })}
+          onDone={(b) => {
+            setCopying((c) => c && { ...c, open: false });
+            toast.success(`Created ${b.name}`);
+            router.push(brandHref(b));
+            router.refresh();
+          }}
+        />
+      )}
+    </>
   );
 }
