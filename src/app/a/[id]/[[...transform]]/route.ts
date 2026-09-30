@@ -4,6 +4,8 @@ import { validUntil } from "@/lib/core/signing";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { renderAsset } from "@/lib/core/renditions";
 import { countTraffic } from "@/lib/core/usage";
+import { record, referrerOf, who } from "@/lib/core/events";
+import type { Surface } from "@/lib/insights";
 import { deliverable, maxAge, retired, STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { getStream, originalKey } from "@/lib/storage";
@@ -34,14 +36,19 @@ export async function GET(req: Request, { params }: Ctx) {
 
     const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
-    const s = new URL(req.url).searchParams.get("s");
+    const url = new URL(req.url);
+    const s = url.searchParams.get("s");
     const open = deliverable(asset);
     const until = open && !asset.public ? validUntil(asset.id, s) : null;
     let cache: string;
+    // Who it went to, for Insights (lib/core/events.ts): a kind, never a name or an address.
+    let by: { surface: Surface } & ReturnType<typeof who> = { surface: "public", ...who(null) };
     if (open && asset.public) cache = `public, max-age=${maxAge(asset)}`;
     // Cached with its query, so for no longer than the signature lasts.
-    else if (until) cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
-    else {
+    else if (until) {
+      cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
+      by = { surface: "link", ...who(null) };
+    } else {
       // In the asset's workspace: someone in several sees each one's assets, whichever they have open.
       const caller = await callerFrom(req, asset.workspaceId);
       if (!(caller && (await getAsset(caller, id)))) {
@@ -53,13 +60,24 @@ export async function GET(req: Request, { params }: Ctx) {
       }
       // ponytail: a session lookup per request, thumbnails included; the browser keeps them for maxAge.
       cache = open ? `private, max-age=${maxAge(asset)}` : "private, no-cache";
+      by = { surface: caller.key ? "api" : "app", ...who(caller) };
     }
     // The bytes behind a URL never change, so the hash names them; whether they may be served does.
     const etag = `"${asset.sha256}"`;
 
-    const served = (bytes: number) => countTraffic(asset.workspaceId, bytes);
+    const download = !transform?.length && url.searchParams.has("download");
+    const referrer = referrerOf(req);
+    const range = req.headers.get("range");
+    // The app drawing its own pages (thumbnails, previews) answers nobody's question, and a video's later ranges are one play.
+    const counts = !(by.surface === "app" && referrer === url.hostname && !download) && !(range && !/^bytes=0-/.test(range));
+    const served = (bytes: number) => {
+      countTraffic(asset.workspaceId, bytes);
+      // Whether it was already replaced when it went out: release adoption counts what still loads an old version.
+      const verdict = asset.supersededBy ? "superseded" : "current";
+      if (counts) record({ workspaceId: asset.workspaceId, kind: "fetch", ...by, assetId: asset.id, version: asset.version, verdict, referrer });
+    };
 
-    if (!transform?.length && new URL(req.url).searchParams.has("download")) {
+    if (download) {
       const { body, embedded } = await downloadAsset(asset);
       served(body.byteLength);
       return new Response(new Uint8Array(body), {
@@ -81,7 +99,6 @@ export async function GET(req: Request, { params }: Ctx) {
 
     if (!transform?.length) {
       // Streamed from storage: a video is served without ever sitting in memory.
-      const range = req.headers.get("range");
       if (range && /^bytes=\d*-\d*$/.test(range)) {
         const part = await getStream(originalKey(asset.sha256), range).catch(() => null);
         if (!part) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${asset.size}` } });

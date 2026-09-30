@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { IconArrowUpRight, IconCircleCheckFilled, IconLock, IconUsersGroup } from "@tabler/icons-react";
+import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
 import type { HubCard } from "@/lib/core/hub";
-import { ago } from "@/lib/hub";
+import { ago, compact } from "@/lib/hub";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const PAPER = "#fafaf7";
 export const wash = (tint: string | null, strength = 14) => `color-mix(in oklab, ${tint ?? "#8a8a8a"} ${strength}%, ${PAPER})`;
 
-/** Verified: the organization proved it holds `verified`. Else a community listing: anyone may list a brand under any name. */
+/** Verified: the organization proved it holds `verified`, a domain or github.com/{login}. Else a community listing: anyone may list a brand under any name. */
 export function Owner({ verified, className }: { verified: string | null; className?: string }) {
   return verified ? (
     <span title={`The owner proved it holds ${verified}`} className={cn("text-success inline-flex items-center gap-1 text-xs font-medium", className)}>
@@ -37,6 +37,15 @@ export function Private({ className }: { className?: string }) {
   return (
     <span title="Only people in its workspace see it" className={cn("text-muted-foreground inline-flex items-center gap-1 text-xs font-medium", className)}>
       <IconLock aria-hidden className="size-3.5" /> Private
+    </span>
+  );
+}
+
+/** Its pulls (lib/core/events.ts pullCounts): its BrandHub files read in the last 30 days. */
+export function Pulls({ n, className }: { n: number; className?: string }) {
+  return (
+    <span title={`${n.toLocaleString("en")} reads of its brand.json, llms.txt and tokens in the last 30 days`} className={cn("inline-flex items-center gap-1", className)}>
+      <IconDownload aria-hidden className="size-3.5" /> {compact(n)} {n === 1 ? "pull" : "pulls"}
     </span>
   );
 }
@@ -108,6 +117,8 @@ function Card({ card, base }: { card: HubCard; base: string }) {
           </Link>
         </h3>
         {card.tagline && <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">{card.tagline}</p>}
+        {/* Anyone may list a brand under any name: a community listing says so where it is picked. */}
+        {card.visibility === "public" && !card.verified && <p className="text-muted-foreground mt-1 text-xs">May not come from the brand&apos;s owner.</p>}
         <p className="text-muted-foreground mt-auto pt-5 text-[11px] font-semibold tracking-[.12em] uppercase">
           {card.org} / {card.brand}
         </p>
@@ -117,7 +128,9 @@ function Card({ card, base }: { card: HubCard; base: string }) {
             {card.colors} {card.colors === 1 ? "color" : "colors"}
           </span>
           {card.families[0] && <span className="max-w-32 truncate">{card.families[0]}</span>}
-          <span>v{card.version}</span>
+          {/* The release it serves, as releases are named everywhere: @n. */}
+          <span className="font-mono">@{card.version}</span>
+          {card.pulls > 0 && <Pulls n={card.pulls} />}
           {card.publishedAt && <span>Updated {ago(card.publishedAt)}</span>}
         </div>
       </div>

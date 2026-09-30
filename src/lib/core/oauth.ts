@@ -55,7 +55,7 @@ export const serverMetadata = () => ({
   code_challenge_methods_supported: ["S256"],
   token_endpoint_auth_methods_supported: ["none"],
   scopes_supported: [...GRANTABLE],
-  service_documentation: `${env.APP_URL}/agents`,
+  service_documentation: `${env.APP_URL}/connections`,
 });
 
 /** RFC 9728: the MCP endpoint, and who hands out tokens for it. */
@@ -65,7 +65,7 @@ export const resourceMetadata = () => ({
   scopes_supported: [...GRANTABLE],
   bearer_methods_supported: ["header"],
   resource_name: "artbucket",
-  resource_documentation: `${env.APP_URL}/agents`,
+  resource_documentation: `${env.APP_URL}/connections`,
 });
 
 // ---- clients ----------------------------------------------------------------

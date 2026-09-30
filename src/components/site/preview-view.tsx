@@ -30,7 +30,7 @@ export function PreviewView({ token, preview, view }: { token: string; preview: 
         <span className="font-medium">Preview</span>
         <span className="text-muted-foreground truncate">
           {preview.title ? `${preview.title} (${preview.ref})` : preview.ref}
-          {preview.commit ? ` at ${preview.commit.slice(0, 7)}` : ""}. Not published: this is {preview.name} as the change would make it.
+          {preview.commit ? ` at ${preview.commit.slice(0, 7)}` : ""}. Not released: this is {preview.name} as the change would make it.
         </span>
       </div>
       <main>

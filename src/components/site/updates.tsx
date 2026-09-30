@@ -21,7 +21,7 @@ const NAMES = 8;
  */
 export function UpdateList({ updates, media, as: H = "h3" }: { updates: Update[]; media: Record<string, Media>; as?: "h2" | "h3" }) {
   const { view, href, url } = useSite();
-  if (!updates.length) return <p className="text-muted-foreground">Nothing published yet.</p>;
+  if (!updates.length) return <p className="text-muted-foreground">Nothing released yet.</p>;
   // A rule's heading, when the page carries it; else its key, as words.
   const rule = (key: string) => ruleName({ key, label: view.rules.find((r) => r.key === key && r.label)?.label });
   return (
@@ -42,7 +42,7 @@ export function UpdateList({ updates, media, as: H = "h3" }: { updates: Update[]
             <H className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
               <LocalDate at={u.publishedAt} />
             </H>
-            <p className="text-muted-foreground text-xs">Version {u.version}</p>
+            <p className="text-muted-foreground text-xs">Release @{u.version}</p>
             {u.note && <p className="max-w-(--brand-measure) whitespace-pre-line text-pretty">{u.note}</p>}
             {pic && (
               // The note says what it shows.
@@ -96,7 +96,7 @@ export function WhatsNew({ portal, headers }: { portal?: string; headers?: () =>
     <div className="mx-auto w-full max-w-280 space-y-8 px-6 py-[calc(var(--brand-gap)*2)] @3xl:px-10">
       <div className="space-y-3">
         <h1 className={cn(HEAD, "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance")}>What&apos;s new</h1>
-        <p className="text-muted-foreground text-lg text-pretty">What each publish of {view.brand.name} changed.</p>
+        <p className="text-muted-foreground text-lg text-pretty">What each release of {view.brand.name} changed.</p>
       </div>
       {!now ? (
         <div role="status" aria-label="Loading what's new" className="space-y-3">

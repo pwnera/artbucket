@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { diffRules, extendsLatest, MERGE_WINDOW_MS, summarize, type SnapRule, updatesOf, whatsNew } from "./history.ts";
+import { diffRules, extendsLatest, MERGE_WINDOW_MS, releaseLines, releaseSummary, summarize, type SnapRule, updatesOf, whatsNew } from "./history.ts";
 import type { Section, SnapPage } from "./pages.ts";
 
 const rule = (key: string, over: Partial<SnapRule> = {}): SnapRule => ({
@@ -209,4 +209,42 @@ test("updatesOf: each publish against the publish before it, newest first, acros
   assert.equal(got[0].image, "0b0e3c6a-5f6d-4c1e-9a53-7d1f6f2b8e01");
   // One more than the limit: the oldest listed still has what came before it.
   assert.deepEqual(updatesOf(versions.slice(1), 1)[0].changes.rules.removed, ["logo.mark"]);
+});
+
+// ---- what a release changes ---------------------------------------------------
+
+test("releaseLines: rules with a color's hexes, pages with the sections edited, moves left out", () => {
+  const before = {
+    rules: [rule("color.ember", { type: "color", value: "#E76F51" }), rule("logo.primary", { assets: [] }), rule("tone.old"), rule("a"), rule("b", { position: 1 })],
+    pages: [page("logo", { sections: [section("a"), section("b"), section("c")] }), page("old"), page("same")],
+  };
+  const after = {
+    rules: [
+      rule("color.ember", { type: "color", value: "#E4572E", usage: "Accents" }),
+      rule("logo.primary", { assets: [{ id: "x", rendition: null }] as SnapRule["assets"] }),
+      rule("button.ghost", { label: "Ghost button", position: 5 }),
+      rule("a", { position: 1 }),
+      rule("b", { position: 0 }),
+    ],
+    pages: [page("logo", { sections: [section("a"), section("b", { body: "new" }), section("d")] }), page("same"), page("new")],
+  };
+  const lines = releaseLines(before, after);
+  assert.deepEqual(
+    lines.map((l) => [l.kind, l.mark, l.kind === "rule" ? l.key : l.slug, l.what]),
+    [
+      ["rule", "changed", "color.ember", "usage edited"],
+      ["rule", "changed", "logo.primary", "new artwork"],
+      ["rule", "added", "button.ghost", "new rule"],
+      ["rule", "removed", "tone.old", "removed"],
+      ["page", "added", "new", "new page"],
+      // b edited, d new, c gone: a is the same.
+      ["page", "changed", "logo", "3 sections edited"],
+      ["page", "removed", "old", "removed"],
+    ],
+  );
+  const ember = lines[0];
+  assert.ok(ember.kind === "rule" && ember.before === "#E76F51" && ember.after === "#E4572E");
+  assert.deepEqual(releaseSummary(lines, 2), ["color.ember #E76F51 → #E4572E", "logo.primary new artwork", "2 more rules", "1 new page", "1 page edited", "1 page removed"]);
+  // The first release: everything is new.
+  assert.ok(releaseLines(null, after).every((l) => l.mark === "added"));
 });

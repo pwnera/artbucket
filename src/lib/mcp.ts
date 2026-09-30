@@ -29,6 +29,7 @@ import { createComment, deleteComment, listComments, updateComment } from "@/lib
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
+import { record, who } from "@/lib/core/events";
 import { deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
 import { createCollection, deleteCollection, getCollection, listCollections, setMembers, updateCollection } from "@/lib/core/collections";
@@ -49,6 +50,7 @@ import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
 import { PLAYBOOK } from "@/lib/playbook";
 import { printPage } from "@/lib/core/print";
 import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
+import { guidelinesPath } from "@/lib/site";
 
 /**
  * The MCP adapter: a second front door onto lib/core, beside REST. Stateless
@@ -66,7 +68,7 @@ const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe 
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
-To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, a look, pages, a publish, a portal) and how to add each, next step first. Before the first page, read brand_playbook (also the artbucket://playbook resource): what a good brand site is, and a worked example; a site built without it reads like a document. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. Every published brand is also on BrandHub, private to the workspace until set_brand_hub makes it public; ask first there too. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, a look, pages, a publish, a portal) and how to add each, next step first. Before the first page, read brand_playbook (also the artbucket://playbook resource): what a good brand site is, and a worked example; a site built without it reads like a document. create_brand makes another brand, empty, as a copy of one (from), or from a public BrandHub brand (from: "org/brand@n"). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. Every published brand is also on BrandHub, private to the workspace until set_brand_hub makes it public; ask first there too. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
@@ -189,7 +191,7 @@ const portalOf = async (caller: Caller, ref: string) => {
   return p;
 };
 
-const brandUrl = (slug: string) => `${env.APP_URL}/brand?${new URLSearchParams({ brand: slug })}`;
+const brandUrl = (slug: string) => `${env.APP_URL}${guidelinesPath(slug)}`;
 
 /** Every tool in lib/mcp-tools.ts, and nothing else: their signatures are frozen there. */
 const TOOLS: Record<ToolName, Tool> = {
@@ -226,7 +228,7 @@ const TOOLS: Record<ToolName, Tool> = {
         for (const one of [v].flat()) params.append(`f.${k}`, one);
       params.set("limit", String(limit));
       // The REST query parser, so a filter the API rejects is rejected here too.
-      const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params));
+      const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params), "mcp");
       return { results: data.map(summary), total, facets };
     },
   }),
@@ -304,7 +306,7 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.check_use,
-    run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }),
+    run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }, "mcp"),
   }),
 
   ingest_asset: tool({
@@ -399,7 +401,8 @@ const TOOLS: Record<ToolName, Tool> = {
       "What a brand still lacks before it is worth sharing, as steps in order: colors, typefaces, logo and voice in " +
       "the rules, pages worth reading, a publish readers see, and a portal. Each step says whether it is done, what " +
       "it stands at, and `agent`: how to do it, with the tools by name. `next` is the step to take now; `brands` " +
-      "names every brand; `url` opens the brand in the app. Start here, and ask again after a change.",
+      "names every brand; `url` opens the brand in the app; `score` is its Brand Agent Score, of 100, and each step's `points` " +
+      "what it adds. Start here, and ask again after a change.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.brand_status,
@@ -409,7 +412,8 @@ const TOOLS: Record<ToolName, Tool> = {
   create_brand: tool({
     description:
       "Make a brand: its own rules, pages, theme and history, beside the others in the workspace. Empty, or with " +
-      "`from`, a copy of that brand's current rules, pages and theme, or `template`, a showcase brand (Firefox, Rust, Blender) to edit. `slug` is made from the name when left out. " +
+      "`from`, a copy of that brand's current rules, pages and theme; `from` as \"{org}/{brand}@{n}\" (\"rust-lang/rust@12\", the latest without @n) starts from " +
+      "a public BrandHub brand, its files copied into this library; or `template`, a showcase brand (Firefox, Rust, Blender) to edit. `slug` is made from the name when left out. " +
       "Returns the brand and its url. Next: brand_status with its slug, which says what it lacks.",
     action: "brand.edit",
     readOnly: false,
@@ -1187,15 +1191,30 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       const name = String(params.name);
       const t = Object.hasOwn(TOOLS, name) ? TOOLS[name as ToolName] : undefined;
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
+      // For Connections (lib/core/insights.ts): the tool's name and how it came out, never its arguments.
+      const called = (verdict: "ok" | "refused" | "error") =>
+        record({ workspaceId: caller.workspace.id, kind: "tool", surface: "mcp", ...who(caller), subject: name, verdict });
       if (!can(caller, t.action)) {
+        called("refused");
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(params.arguments ?? {});
       // One line per problem with its path, as core's own refusals read: ops[1].section.props.chanel: Unrecognized key.
-      if (!args.success) return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
+      if (!args.success) {
+        called("error");
+        return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
+      }
+      // The brand context it works in (brand_rules, get_theme, preview_page); check_use records its own with the check.
+      const context = (args.data as { context?: unknown }).context;
+      if (typeof context === "string" && name !== "check_use") {
+        record({ workspaceId: caller.workspace.id, kind: "lookup", surface: "mcp", ...who(caller), subject: context });
+      }
       try {
-        return result(id, toolResult(await t.run(args.data as never, caller)));
+        const out = toolResult(await t.run(args.data as never, caller));
+        called("ok");
+        return result(id, out);
       } catch (err) {
+        called("error");
         // Expected failures go back to the model as tool errors it can act on.
         if (err instanceof AssetError) return result(id, toolResult({ error: err.message, code: err.code }, true));
         console.error(err);

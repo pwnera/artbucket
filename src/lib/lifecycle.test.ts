@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deliverable, isReview, maxAge, retired, stateOf } from "./lifecycle.ts";
+import { deliverable, expiring, isReview, maxAge, retired, stateOf } from "./lifecycle.ts";
 
 const rights = (r: { expires?: string; embargo?: string }) => ({ expires: r.expires ?? null, embargo: r.embargo ?? null });
 
@@ -46,4 +46,15 @@ test("changing what the library holds is a review decision; reworking a draft is
   assert.equal(isReview("active", "archived"), true);
   assert.equal(isReview("active", "draft"), true);
   assert.equal(isReview("archived", "proposed"), true);
+});
+
+test("an approved asset says when its last day is close", () => {
+  const a = { status: "active" as const, rights: rights({ expires: "2026-10-05" }) };
+  assert.equal(expiring(a, "2026-09-30"), "Expires in 5 days");
+  assert.equal(expiring(a, "2026-10-04"), "Expires tomorrow");
+  assert.equal(expiring(a, "2026-10-05"), "Expires today");
+  assert.equal(expiring(a, "2026-10-06"), null, "past it, it is expired, not expiring");
+  assert.equal(expiring(a, "2026-08-01"), null, "far off");
+  assert.equal(expiring({ ...a, status: "draft" }, "2026-09-30"), null);
+  assert.equal(expiring({ status: "active", rights: null }), null);
 });

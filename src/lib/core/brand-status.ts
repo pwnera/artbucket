@@ -6,6 +6,7 @@ import { portalsShowing } from "@/lib/core/portals";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import { publishState, readiness } from "@/lib/readiness";
+import { guidelinesPath } from "@/lib/site";
 
 /**
  * A brand's launch checklist (lib/readiness.ts) from what is stored: its
@@ -31,6 +32,6 @@ export async function brandStatus(caller: Caller, slug?: string) {
     publish: publishState(versions),
     portals,
     hub: await hubOf(brand),
-    url: `${env.APP_URL}/brand?${new URLSearchParams({ brand: brand.slug })}`,
+    url: `${env.APP_URL}${guidelinesPath(brand.slug)}`,
   };
 }

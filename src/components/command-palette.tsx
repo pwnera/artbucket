@@ -48,6 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebar } from "@/components/ui/sidebar";
 import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { guidelinesPath } from "@/lib/site";
 import { hasPreview } from "@/lib/preview";
 
 type RuleHit = Rule & { brandInfo: BrandInfo };
@@ -91,13 +92,10 @@ function hidden(p: PageHit, all: PageHit[]): boolean {
   return false;
 }
 
-/** A brand page in the app: /brand decides between the builder and the reader, and one being read stays read. */
+/** A brand page in the app: its guidelines decide between the builder and the reader, and one being read stays read. */
 function pageHref(p: PageHit) {
-  const q = new URLSearchParams();
-  if (!p.brandInfo.default) q.set("brand", p.brandInfo.slug);
-  q.set("page", p.slug);
-  if (location.pathname === "/brand" && new URLSearchParams(location.search).get("view") === "read") q.set("view", "read");
-  return `/brand?${q}`;
+  const reading = location.pathname.endsWith("/guidelines") && new URLSearchParams(location.search).get("view") === "read";
+  return guidelinesPath(p.brandInfo.slug, { page: p.slug, view: reading ? "read" : null });
 }
 
 // Values carry ids so each stays unique to cmdk, but hex ids would fuzzy-match
@@ -343,7 +341,7 @@ export function CommandPalette({
                 key={r.id}
                 value={`rule ${r.id} ${ruleLabel(r.key)} ${r.key} ${r.context ?? ""} ${several ? r.brandInfo.name : ""}`}
                 keywords={[String(r.value), r.usage ?? ""]}
-                onSelect={() => jump(`${brandHref(r.brandInfo, r.context ?? undefined)}#rule-${r.key}`)}
+                onSelect={() => jump(`${guidelinesPath(r.brandInfo.slug, { context: r.context })}#rule-${r.key}`)}
               >
                 {r.type === "color" ? (
                   <span className="size-4 shrink-0 rounded-sm border" style={{ background: String(r.value).slice(0, 7) }} />
@@ -379,7 +377,7 @@ export function CommandPalette({
               <IconFolderPlus /> New collection
             </CommandItem>
           )}
-          <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/agents")}>
+          <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
             <IconRobot /> Agents: connect one, manage keys
           </CommandItem>
           <CommandItem value="Keyboard shortcuts keys help" onSelect={run(onShortcuts)}>

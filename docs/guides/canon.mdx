@@ -18,7 +18,27 @@ the context's own where it has one, the default otherwise.
 
 ## The guidelines page
 
-Guidelines, in the sidebar, is drawn from those records and edited in place:
+Each brand, under Brands in the sidebar, opens on its page, a repository's:
+the header names it (its mark, whether its organization is verified, whether
+it is public on BrandHub, `{org}/{brand}`, its latest release and that
+release's note), with **Use this brand** (the MCP server, `brand.json` and
+`llms.txt` on BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand),
+**Edit** (the builder) and **Publish release** beside it. The page is
+read-only, and every tab stays in it, under the same header: Overview,
+Guidelines (the brand's pages as readers see them, at `/brands/{slug}/pages`),
+Tokens and rules (its rules read-only by section, and its tokens in every
+format, at `/brands/{slug}/rules`), Assets (the files its rules hold and its
+pages show, at `/brands/{slug}/assets`, from `GET /api/v1/brands/{slug}/assets`),
+Releases, Portals (the portals showing it, at `/brands/{slug}/portals`),
+Insights (at `/brands/{slug}/insights`) and Settings (its name and address,
+the default, BrandHub, its repository, deleting it, at
+`/brands/{slug}/settings`). The Overview says what the brand is (its line, the usage terms of
+the portal BrandHub links, the BrandHub brand it started from), its colors,
+its latest release with what it changed, the Brand Agent Score, its signals
+and its typefaces. Its
+guidelines, edited in the builder at `/brands/{slug}/guidelines`
+(`?view=read` there is the reader on its own), are drawn from those records
+and edited in place:
 click a value to change it, press `/` to add a rule from named building blocks
 (brand color, clear space, logo don'ts, type scale, words to avoid), drag to
 reorder. Colors show their contrast on white and black, a numeric `type.scale`
@@ -34,10 +54,15 @@ rules `color.primary`, `color.secondary`, `color.dark`, `type.heading`,
 `type.body`, `logo.primary` and `tone.voice`, and the pages are laid out from
 them; a blank page or a topic's six pages are the other starts. In the builder,
 the page list sits beside the canvas, and the bar names what an editor reaches
-for: Add, Rules and Theme, then the launch checklist, Preview and Publish. The
-checklist is the brand's steps to being worth sharing (colors, typefaces, logo,
-voice, pages, a publish, a portal), each with where it is done; agents read the
-same list with `brand_status`, or `GET /api/v1/brands/{slug}/status`.
+for: Add, Rules and Theme, then the Brand Agent Score, Preview and Release.
+The score, of 100, weighs the brand's steps to being worth sharing (colors,
+typefaces, logo, voice, a look, pages, a release, a portal) by what each gives
+an agent working from it; the builder and the brand's Overview show it, and
+its own page (`/brands/{slug}/score`, from the Overview) lists every step with
+what it gives, the two fixes worth the most, a prompt that hands them to an
+agent connected over MCP, and BrandHub's public score for the domain the
+organization proved. Agents read the same
+score and steps with `brand_status`, or `GET /api/v1/brands/{slug}/status`.
 
 The rules are the content; pages lay them out for people. A brand's pages
 form a tree, up to three levels deep (Overview, then Identity with Color, Logo
@@ -81,10 +106,20 @@ added, changed and removed. The answer names the portals showing the brand.
 Publishing with nothing changed does nothing. It takes write on the
 workspace, with sharing not turned off.
 
+In the app, a publish is a release, numbered as its version (`@5`). The
+brand's **Releases** tab (`/brands/{slug}/releases`) lists them, each with its
+note and what it changed; **Publish release** in the brand's header, or
+Release in the builder, opens the form (`/brands/{slug}/releases/new`): the
+note, what changes since the last release line by line (a color's value
+before and after, a page's sections edited), and the Brand Agent Score before
+and after.
+
 ## Design tokens
 
 `GET /api/v1/brand/tokens?format=css` is the brand as CSS custom properties
-with `@font-face`; `format=json` is W3C design tokens.
+with `@font-face`; `format=json` is W3C design tokens; `format=designmd` is a
+[DESIGN.md](https://github.com/google-labs-code/design.md) for coding agents,
+the tokens with the brand's guidance as prose, to keep at a repository's root.
 
 ## Brands and history
 

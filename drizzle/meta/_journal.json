@@ -267,6 +267,48 @@
       "when": 1790775549394,
       "tag": "0037_brand_hub",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790786861157,
+      "tag": "0038_asset_via",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790787659150,
+      "tag": "0039_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790791160968,
+      "tag": "0040_events_tool",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790792396849,
+      "tag": "0041_hub_trust",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790793478693,
+      "tag": "0042_hub_social",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790793630236,
+      "tag": "0043_brand_forked_from",
+      "breakpoints": true
     }
   ]
 }

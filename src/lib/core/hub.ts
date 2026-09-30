@@ -1,16 +1,25 @@
-import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, domains, organizations, portals, workspaces } from "@/lib/db/schema";
+import { assets, brands, brandVersions, hubCollections, hubFollows, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import type { Caller } from "@/lib/core/access";
+import { ingestBytes } from "@/lib/core/assets";
+import { createBrand } from "@/lib/core/brand";
+import { publishedSource } from "@/lib/core/page-view";
 import { deliverableSql } from "@/lib/core/assets";
 import { guidelinesPortal } from "@/lib/core/brands";
 import { portalHome } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { pullCounts } from "@/lib/core/events";
+import { proofsOf, publicListing } from "@/lib/core/hub-trust";
 import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { env } from "@/lib/env";
 import type { SnapRule } from "@/lib/history";
-import { cookieDomain, countsOf, hubHome, hubPath, logoOf, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { readablePages } from "@/lib/page-view";
+import { pool } from "@/lib/pool";
+import { getObject, originalKey } from "@/lib/storage";
+import { cookieDomain, countsOf, hubHome, hubPath, logoOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -21,9 +30,11 @@ import { withSignature } from "@/lib/signed";
  * signed in, on the app's own host (/hub); public, anyone and any agent,
  * on the hub's own host too. It links a portal as its guidelines.
  *
- * Who has it is its organization; `verified` is a domain that organization
- * proved it holds (Settings, Domains), else a public brand is a community
- * one: anyone may make public a brand of any name, so readers are told.
+ * Who has it is its organization; `verified` is what that organization
+ * proved it holds, a domain (Settings, Domains) or a GitHub account
+ * (lib/core/hub-trust.ts), else a public brand is a community one: anyone
+ * may make public a brand of any name, so readers are told, and may report
+ * or claim it.
  */
 
 export const hubOn = () => !!env.HUB_URL;
@@ -66,10 +77,12 @@ const latest = (col: SQL) =>
  * workspace is asked.
  */
 async function listings(where: SQL | undefined, limit: number, viewer: HubViewer) {
+  // Public, unless the server's operator delisted it (brands.hub_delisted): then its own people see it as private.
+  const open = and(eq(brands.visibility, "public"), isNull(brands.hubDelisted));
   const rows = await db
     .select({
       id: brands.id,
-      visibility: brands.visibility,
+      visibility: sql<Visibility>`case when ${brands.hubDelisted} is null then ${brands.visibility} else 'private' end`,
       hubPortalId: brands.hubPortalId,
       org: organizations.slug,
       owner: organizations.name,
@@ -87,7 +100,7 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
     .where(
       and(
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
-        viewer?.orgs.length ? or(eq(brands.visibility, "public"), inArray(workspaces.organizationId, viewer.orgs)) : eq(brands.visibility, "public"),
+        viewer?.orgs.length ? or(open, inArray(workspaces.organizationId, viewer.orgs)) : open,
         where,
       ),
     )
@@ -102,23 +115,10 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
 
 type Row = Awaited<ReturnType<typeof listings>>[number];
 
-/** Each organization's verified domain, the default one first: what a listing's badge names. */
-async function verifiedDomains(orgIds: string[]) {
-  if (!orgIds.length) return new Map<string, string>();
-  const rows = await db
-    .select({ orgId: domains.organizationId, host: domains.host })
-    .from(domains)
-    .where(and(inArray(domains.organizationId, [...new Set(orgIds)]), isNotNull(domains.verifiedAt)))
-    .orderBy(desc(domains.primary), asc(domains.createdAt));
-  const out = new Map<string, string>();
-  for (const r of rows) if (!out.has(r.orgId)) out.set(r.orgId, r.host);
-  return out;
-}
-
-/** Cards: who listed it, its version, its colors and its logo, signed for a day. */
+/** Cards: who listed it, its version, its pulls, its colors and its logo, signed for a day. */
 async function cards(rows: Row[]) {
   const ids = [...new Set(rows.flatMap((r) => (r.snapshot ?? []).flatMap((x) => x.assets.map((a) => a.id))))];
-  const [usable, verified] = await Promise.all([
+  const [usable, verified, pulls] = await Promise.all([
     ids.length
       ? db
           .select({ id: assets.id, mime: assets.mime, workspaceId: assets.workspaceId })
@@ -126,7 +126,8 @@ async function cards(rows: Row[]) {
           .where(and(inArray(assets.id, ids), deliverableSql))
           .then((xs) => new Map(xs.map((a) => [a.id, a])))
       : new Map<string, { id: string; mime: string; workspaceId: string }>(),
-    verifiedDomains(rows.map((r) => r.orgId)),
+    proofsOf(rows.map((r) => r.orgId)),
+    pullCounts(rows.map((r) => r.id)),
   ]);
   return rows.map((r) => {
     const rules = (r.snapshot ?? []).map((x) => ({
@@ -139,6 +140,8 @@ async function cards(rows: Row[]) {
     }));
     const logo = logoOf(rules);
     return {
+      /** The brand's id: for the viewer's own Following, never listed (index.json leaves it out). */
+      id: r.id,
       org: r.org,
       owner: r.owner,
       brand: r.brand,
@@ -148,6 +151,8 @@ async function cards(rows: Row[]) {
       version: r.version,
       publishedAt: r.publishedAt,
       verified: verified.get(r.orgId) ?? null,
+      /** Its BrandHub files read in the last PULL_DAYS days (lib/core/events.ts). */
+      pulls: pulls.get(r.id) ?? 0,
       tagline: taglineOf(rules),
       tint: tintOf(rules),
       swatches: swatches(rules),
@@ -159,12 +164,19 @@ async function cards(rows: Row[]) {
 
 export type HubCard = Awaited<ReturnType<typeof cards>>[number];
 
-export const HUB_SORTS = { recent: "Recently published", name: "Name" } as const;
+export const HUB_SORTS = { trending: "Trending this week", recent: "Recently released", name: "Name" } as const;
 export type HubSort = keyof typeof HUB_SORTS;
 
+/** How far back Trending looks: pulls in the last week. */
+const TRENDING_DAYS = 7;
+
 /**
- * Listings, newest publish first or by name: all of them, one
- * organization's, or those whose name or owner has `q` in it.
+ * Listings, newest publish first, by name, or trending (most pulled in the
+ * last TRENDING_DAYS, then newest): all of them, one organization's, or
+ * those whose name or owner has `q` in it.
+ *
+ * ponytail: trending ranks the newest `limit` listings, not every one; rank
+ * in SQL from a per-brand pull total once the hub outgrows 200 listings.
  */
 export async function hubListings({
   q,
@@ -179,14 +191,53 @@ export async function hubListings({
     like ? or(ilike(brands.name, like), ilike(brands.slug, like), ilike(organizations.name, like), ilike(organizations.slug, like)) : undefined,
   );
   const out = await cards(await listings(where, Math.min(Math.max(limit, 1), 200), viewer));
-  return sort === "name" ? out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })) : out;
+  if (sort === "name") return out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  if (sort === "trending") {
+    const week = await pullCounts(out.map((c) => c.id), TRENDING_DAYS);
+    // Stable: equal weeks keep the newest publish first.
+    return out.sort((a, b) => (week.get(b.id) ?? 0) - (week.get(a.id) ?? 0));
+  }
+  return out;
+}
+
+/** The brands someone follows on BrandHub, by id. */
+export async function followed(userId: string) {
+  const rows = await db.select({ id: hubFollows.brandId }).from(hubFollows).where(eq(hubFollows.userId, userId));
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Follow a public listing, or stop (PUT and DELETE
+ * /api/v1/hub/{org}/{brand}/follow): a person, signed in. Following puts it
+ * in their Following tab on the hub.
+ */
+export async function follow(caller: Caller, org: string, slug: string, on: boolean) {
+  if (!caller.user) throw new AssetError("forbidden", "A person follows a brand, signed in: not a key");
+  const b = await publicListing(org, slug);
+  if (on) await db.insert(hubFollows).values({ userId: caller.user.id, brandId: b.id }).onConflictDoNothing();
+  else await db.delete(hubFollows).where(and(eq(hubFollows.userId, caller.user.id), eq(hubFollows.brandId, b.id)));
+  return { following: on };
+}
+
+/**
+ * The server operator's curated collections (hub_collections), in order,
+ * each with the cards of `cards` it names, as {org}/{brand}: one that isn't
+ * among them (not public, or gone) is left out, and so is a collection left
+ * with none.
+ */
+export async function hubCollectionsOf(shown: HubCard[]) {
+  const rows = await db.select().from(hubCollections).orderBy(asc(hubCollections.position), asc(hubCollections.title));
+  const by = new Map(shown.filter((c) => c.visibility === "public").map((c) => [`${c.org}/${c.brand}`, c]));
+  return rows
+    .map((r) => ({ slug: r.slug, title: r.title, description: r.description, cards: r.brands.flatMap((ref) => by.get(ref.toLowerCase()) ?? []) }))
+    .filter((c) => c.cards.length);
 }
 
 /** An organization, as its hub page names it, when it lists anything. */
 export async function hubOwner(org: string) {
   const [o] = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.slug, org));
   if (!o) return null;
-  return { slug: o.slug, name: o.name, verified: (await verifiedDomains([o.id])).get(o.id) ?? null };
+  return { slug: o.slug, name: o.name, verified: (await proofsOf([o.id])).get(o.id) ?? null };
 }
 
 /**
@@ -211,15 +262,16 @@ export async function hubBrand(
   });
   if (!view?.version) return null;
   const door = await guidelinesPortal(row);
-  const [[card], versions, home, [site]] = await Promise.all([
+  const [[card], versions, home, [site], [follows]] = await Promise.all([
     cards([row]),
     db
-      .select({ number: brandVersions.number, publishedAt: brandVersions.publishedAt })
+      .select({ number: brandVersions.number, name: brandVersions.name, publishedAt: brandVersions.publishedAt })
       .from(brandVersions)
       .where(and(eq(brandVersions.brandId, row.id), isNotNull(brandVersions.publishedAt)))
       .orderBy(desc(brandVersions.number)),
     door && portalHome(door.slug),
     door ? db.select({ terms: sql<string | null>`${portals.site} ->> 'terms'` }).from(portals).where(eq(portals.id, door.id)) : [],
+    db.select({ n: sql<number>`count(*)::int` }).from(hubFollows).where(eq(hubFollows.brandId, row.id)),
   ]);
   const fileUrl = (a: { id: string; rendition: string | null }) =>
     withSignature(`${env.APP_URL}/a/${a.id}${a.rendition ? `/${a.rendition}` : ""}`, view.signed[a.id]);
@@ -236,10 +288,15 @@ export async function hubBrand(
   const path = hubPath(row.org, row.brand, version);
   return {
     ...card,
+    /** Whose it is, for Insights' count of reads; never shown. */
+    brandId: row.id,
+    workspaceId: row.workspaceId,
     version: view.version.number,
     publishedAt: view.version.publishedAt,
     latest: row.version,
-    versions: versions.map((v) => ({ number: v.number, publishedAt: v.publishedAt! })),
+    versions: versions.map((v) => ({ number: v.number, name: v.name, publishedAt: v.publishedAt! })),
+    /** How many people follow it on the hub: the Follow button's count. */
+    followers: follows?.n ?? 0,
     url: hubHome(row.visibility, env.APP_URL, env.HUB_URL!) + path,
     guidelines: home?.url ?? null,
     terms: site?.terms ?? null,
@@ -251,3 +308,56 @@ export async function hubBrand(
 }
 
 export type HubBrand = NonNullable<Awaited<ReturnType<typeof hubBrand>>>;
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+/** The most files a start copies: a brand's logos, faces and imagery, not its whole library. */
+const START_FILES = 200;
+
+/**
+ * "Start from this brand" (create_brand with `from: "rust-lang/rust@12"`,
+ * POST /api/v1/brands): a new brand in the caller's workspace from a public
+ * BrandHub brand's release (its latest without @n), as Duplicate does
+ * within a workspace. It takes what that release shows anyone: its rules,
+ * its theme, the pages and sections everyone may read (none hidden or for
+ * partners or members), and the files they use that may be delivered,
+ * copied into this library (same bytes, stored once). The brand keeps where
+ * it came from (`from`). A file that isn't copied is left out of its rules.
+ */
+export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string }) {
+  if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
+  const ref = parseHubRef(input.from);
+  // Public only, whoever asks: a private brand is its own workspace's to duplicate.
+  const hub = ref && (await hubBrand(ref.org, ref.slug, { version: ref.version }));
+  if (!hub || hub.visibility !== "public") throw new AssetError("invalid", `from: nothing public is listed at ${input.from}`);
+  const src = await publishedSource(hub.workspaceId, hub.brand, hub.version);
+  if (!src?.version) throw new AssetError("invalid", `from: ${input.from} has no release to start from`);
+  const pages = src.pages?.length ? readablePages(src, { level: "everyone" }) : [];
+  const text = JSON.stringify({ rules: src.rules, pages, theme: src.theme });
+  const own = src.rules.flatMap((r) => r.assets.map((a) => a.id));
+  const ids = [...new Set([...own, ...(text.match(UUID) ?? []).map((x) => x.toLowerCase())])];
+  const files = ids.length
+    ? (
+        await db
+          .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime, filename: assets.filename, rights: assets.rights })
+          .from(assets)
+          .where(
+            and(
+              inArray(assets.id, ids),
+              eq(assets.workspaceId, hub.workspaceId),
+              deliverableSql,
+              // A private file only when a rule holds it: the hub shows those to anyone already.
+              own.length ? or(eq(assets.private, false), inArray(assets.id, own)) : eq(assets.private, false),
+            ),
+          )
+      ).slice(0, START_FILES)
+    : [];
+  const copied = new Map<string, string>();
+  await pool(files, 4, async (a) => {
+    const bytes = await getObject(originalKey(a.sha256));
+    const made = await ingestBytes(caller, { bytes, mime: a.mime, filename: a.filename, rights: a.rights, tags: [ref!.slug], via: "import" });
+    copied.set(a.id, made.asset.id);
+  });
+  const seed = JSON.parse(text.replace(UUID, (id) => copied.get(id.toLowerCase()) ?? id)) as { rules: typeof src.rules; pages: typeof pages; theme: typeof src.theme };
+  const made = await createBrand(caller, { name: input.name, slug: input.slug }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
+  return made;
+}

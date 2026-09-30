@@ -5,32 +5,40 @@ import { IconExternalLink, IconLoader2, IconMessageCircle, IconWorldUpload } fro
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
-import type { BuilderApi } from "@/components/builder/use-builder";
+import type { BuilderApi, Transport } from "@/components/builder/use-builder";
+import type { Status } from "@/components/builder/use-status";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { Thumb } from "@/components/thumb";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { type SnapRule, whatsNew, type WhatsNew } from "@/lib/history";
+import { releaseLines, type ReleaseLine, type SnapRule } from "@/lib/history";
 import type { SnapPage } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /**
- * Publish (build spec 3.5.3, W6.3): a note, an image, and what changed since
- * the last publish (lib/history.ts whatsNew against the draft), with the
- * open review comments one click away; the result
+ * Publish a release (build spec 3.5.3, W6.3, and the prototype's "Publish a
+ * release"): the release's number and how long it has been a draft, a note,
+ * an image, what changes since the last release line by line (lib/history.ts
+ * releaseLines against the draft), and the Brand Agent Score before and
+ * after, with the open review comments one click away; the result
  * lists the portals it now shows on. Publishing and sharing are two things (a
  * version readers get, and a door with an address and who gets in; one brand
  * can be on several portals, one portal can show several brands), but a
  * brand no portal shows yet can get one in the same step: named for the
- * brand, showing it, open to the workspace's members or to anyone. Requests go through b.transport, so the
- * dev page records them.
+ * brand, showing it, open to the workspace's members or to anyone. Requests go through the host's
+ * transport, so the builder's dev page records them.
  *
  * The draft is the brand's latest version, which is what a publish
  * publishes, so it is read from the server once every write has landed.
+ *
+ * The form is ReleaseForm, drawn by the builder's dialog (PublishDialog) and
+ * by the release page (/brands/{slug}/releases/new) alike; `host` is what it
+ * needs from either.
  *
  * Props:
  * - b: the builder.
@@ -43,9 +51,22 @@ export type PublishDialogProps = {
   onOpenChange(open: boolean): void;
 };
 
+/** What the release form needs from where it is drawn. */
+export type ReleaseHost = {
+  brand: string;
+  name: string;
+  transport: Transport;
+  /** The brand's status (lib/core/brand-status.ts): its score, and whether a portal shows it. */
+  status: Status | null;
+  /** Open review comments, and how to go to them. */
+  comments: { open: number; review: (() => void) | string };
+  /** A release landed: read the status again. */
+  released(): void;
+};
+
 /** GET .../versions's rows, as far as publishing reads them. */
-type Version = { number: number; publishedAt: string | null };
-/** GET .../versions/{n}, as far as whatsNew reads it. */
+type Version = { number: number; publishedAt: string | null; createdAt: string };
+/** GET .../versions/{n}, as far as releaseLines reads it. */
 type Snapshot = { rules: SnapRule[]; pages: SnapPage[] | null };
 /** POST .../publish's answer. */
 type Published = {
@@ -70,18 +91,43 @@ const slugOf = (name: string) =>
     .slice(0, 40)
     .replace(/^-+|-+$/g, "") || "brand";
 
-type News = { error: string } | { draft: number | null; since: number | null; changes: WhatsNew | null };
+/** `draftSince`: when the first version after the last release was made, the draft's start. */
+type News = { error: string } | { draft: number | null; since: number | null; draftSince: string | null; changes: ReleaseLine[] | null };
 
 export function PublishDialog({ b, open, onOpenChange }: PublishDialogProps) {
+  const host: ReleaseHost = {
+    brand: b.brand,
+    name: b.view.brand.name,
+    transport: b.transport,
+    status: b.status,
+    comments: {
+      open: b.comments.openCount,
+      review: () => {
+        onOpenChange(false);
+        b.setCommentsOnPage(true);
+        b.setDock("comments");
+      },
+    },
+    released: () => void b.refreshStatus(),
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="app-tokens">{open && <Body b={b} onClose={() => onOpenChange(false)} />}</DialogContent>
+      <DialogContent className="app-tokens">
+        <DialogTitle className="sr-only">Release</DialogTitle>
+        {open && <ReleaseForm host={host} onClose={() => onOpenChange(false)} />}
+      </DialogContent>
     </Dialog>
   );
 }
 
-function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
-  const { brand, transport } = b;
+const draftDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+/**
+ * The release form, in a dialog or on a page: `onClose` is Cancel and, once
+ * released, Done; `onDone`, when given, is Done instead.
+ */
+export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onClose: () => void; onDone?: () => void }) {
+  const { brand, transport } = host;
   // What is still on its way to the server isn't in the version a publish would take.
   const saving = useSyncExternalStore(subscribe, snapshot, () => IDLE).inFlight > 0;
   const [news, setNews] = useState<News | null>(null);
@@ -92,7 +138,7 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
   const [done, setDone] = useState<Published | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   // Offered only when the brand is on no portal and this person may make one (b.status.portals is [] then, null when they can't tell).
-  const offer = b.status?.portals?.length === 0;
+  const offer = host.status?.portals?.length === 0;
   const [door, setDoor] = useState<Door>("members");
   const url = useAssetUrl();
 
@@ -107,11 +153,13 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
       const [draft] = versions;
       const since = versions.find((v) => v.publishedAt) ?? null;
       // No history yet: the publish makes the first version, and readers get everything.
-      if (!draft) return { draft: null, since: null, changes: null };
-      if (draft.publishedAt) return { draft: draft.number, since: draft.number, changes: null };
+      if (!draft) return { draft: null, since: null, draftSince: null, changes: null };
+      if (draft.publishedAt) return { draft: draft.number, since: draft.number, draftSince: null, changes: null };
+      const drafts = since ? versions.filter((v) => v.number > since.number) : versions;
+      const draftSince = drafts.at(-1)?.createdAt ?? null;
       const [was, is] = await Promise.all([since ? transport("GET", `${base}/${since.number}`) : null, transport("GET", `${base}/${draft.number}`)]);
       if (!is.ok || (was && !was.ok)) return { error: "Couldn't read what changed." };
-      return { draft: draft.number, since: since?.number ?? null, changes: whatsNew(was ? (was.data as Snapshot) : null, is.data as Snapshot) };
+      return { draft: draft.number, since: since?.number ?? null, draftSince, changes: releaseLines(was ? (was.data as Snapshot) : null, is.data as Snapshot) };
     };
     void read().then((n) => !gone && setNews(n));
     return () => {
@@ -128,45 +176,58 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
     });
     if (!res.ok) {
       setBusy(false);
-      return setFailed(res.network ? "Couldn't reach the server. Nothing was published." : (res.error?.message ?? "Couldn't publish."));
+      return setFailed(res.network ? "Couldn't reach the server. Nothing was released." : (res.error?.message ?? "Couldn't release."));
     }
     const published = res.data as Published;
     if (offer && door !== "none") {
       // The address from the name, then with a number, should another portal have it.
-      const base = slugOf(b.view.brand.name);
+      const base = slugOf(host.name);
       for (const slug of [base, `${base}-guidelines`, `${base}-2`, `${base}-3`]) {
-        const made = await transport("POST", "/api/v1/portals", { name: b.view.brand.name, slug, access: door, brands: [brand] });
+        const made = await transport("POST", "/api/v1/portals", { name: host.name, slug, access: door, brands: [brand] });
         if (made.ok) {
           const p = made.data as { slug: string; name: string; url: string };
           published.portals = [...(published.portals ?? []), { slug: p.slug, name: p.name, url: p.url }];
           break;
         }
         if (made.network || made.status !== 409) {
-          toast.error("Published, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
+          toast.error("Released, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
           break;
         }
       }
     }
     setBusy(false);
     setDone(published);
-    void b.refreshStatus();
+    host.released();
   };
 
-  if (done) return <Result done={done} brand={brand} onClose={onClose} />;
+  if (done) return <Result done={done} brand={brand} onClose={onDone ?? onClose} />;
 
-  const current = news && "draft" in news && news.draft !== null && news.draft === news.since;
+  const draft = news && "draft" in news ? news : null;
+  const current = draft && draft.draft !== null && draft.draft === draft.since;
+  // What releasing does to the Brand Agent Score: the Released step, done.
+  const step = host.status?.steps.find((s) => s.id === "publish");
+  const score = host.status && step && !step.done && !current ? { was: host.status.score, is: Math.min(100, host.status.score + step.points) } : null;
+  const n = draft?.draft;
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <IconWorldUpload className="size-5" /> Publish
-        </DialogTitle>
-        <DialogDescription>Portals show the latest publish. Until then, readers see what they saw before.</DialogDescription>
-      </DialogHeader>
+    <div className="grid gap-4">
+      <header className="grid gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
+            <IconWorldUpload aria-hidden className="size-5" /> {n && !current ? `Release @${n}` : "Release"}
+          </h2>
+          {draft?.draftSince && !current && <Badge variant="warning">Draft since {draftDate(draft.draftSince)}</Badge>}
+        </div>
+        <p className="text-muted-foreground text-sm">Portals and BrandHub show the latest release. Until then, readers see what they saw before.</p>
+      </header>
+
+      <div className="grid gap-1.5">
+        <Label htmlFor="publish-note">Note for readers</Label>
+        <Textarea id="publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} placeholder="What changed, and why" />
+      </div>
 
       <section aria-labelledby="publish-news" aria-busy={!news || saving} className="grid gap-2">
-        <h3 id="publish-news" className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {news && "draft" in news && news.since ? `New since version ${news.since}` : "What readers get"}
+        <h3 id="publish-news" className="text-sm font-medium">
+          {draft?.since ? `What changes since @${draft.since}` : "What readers get"}
         </h3>
         {!news || saving ? (
           <div className="grid gap-2">
@@ -174,41 +235,43 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
             <Skeleton className="h-4 w-1/2" />
           </div>
         ) : "error" in news ? (
-          <p className="text-muted-foreground text-sm">{news.error} You can still publish.</p>
+          <p className="text-muted-foreground text-sm">{news.error} You can still release.</p>
         ) : current ? (
-          <p className="text-muted-foreground text-sm">Nothing new: version {news.draft} is already what readers see.</p>
-        ) : news.changes ? (
-          <Changes changes={news.changes} rules={b.state.rules} />
+          <p className="text-muted-foreground text-sm">Nothing new: release @{news.draft} is already what readers see.</p>
+        ) : news.changes && news.since ? (
+          <Changes lines={news.changes} />
         ) : (
-          <p className="text-sm">The first publish: readers get every page and rule.</p>
+          <p className="text-sm">The first release: readers get every page and rule.</p>
         )}
       </section>
 
-      {b.comments.openCount > 0 && (
+      {score && (
+        <p className="bg-muted flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm">
+          <span>Brand Agent Score</span>
+          <b className="tabular-nums">
+            {score.was} → {score.is}
+          </b>
+        </p>
+      )}
+
+      {host.comments.open > 0 && (
         // Review before readers get it: the open threads, one click away.
         <p role="note" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
           <IconMessageCircle aria-hidden className="text-warning size-4 shrink-0" />
           <span className="flex-1">
-            {b.comments.openCount} open {b.comments.openCount === 1 ? "comment" : "comments"} on these pages.
+            {host.comments.open} open {host.comments.open === 1 ? "comment" : "comments"} on these pages.
           </span>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => {
-              onClose();
-              b.setCommentsOnPage(true);
-              b.setDock("comments");
-            }}
-          >
-            Review
-          </Button>
+          {typeof host.comments.review === "string" ? (
+            <Button variant="outline" size="xs" asChild>
+              <Link href={host.comments.review}>Review</Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="xs" onClick={host.comments.review}>
+              Review
+            </Button>
+          )}
         </p>
       )}
-
-      <div className="grid gap-1.5">
-        <Label htmlFor="publish-note">Note for readers</Label>
-        <Textarea id="publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} placeholder="What changed, and why" />
-      </div>
 
       <div className="grid gap-1.5">
         <p className="text-sm font-medium">Image</p>
@@ -232,7 +295,7 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
       {offer && (
         <fieldset className="grid gap-2 rounded-lg border p-3">
           <legend className="px-1 text-sm font-medium">Also share it on a portal</legend>
-          <p className="text-muted-foreground text-xs">No portal shows {b.view.brand.name} yet. A portal is its own address for it, which you can style and close later.</p>
+          <p className="text-muted-foreground text-xs">No portal shows {host.name} yet. A portal is its own address for it, which you can style and close later.</p>
           <div role="radiogroup" aria-label="Who gets in" className="grid gap-1">
             {(Object.keys(DOORS) as Door[]).map((d) => (
               <label key={d} className="flex items-center gap-2 text-sm">
@@ -250,15 +313,15 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
         </p>
       )}
 
-      <DialogFooter>
+      <footer className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button onClick={publish} disabled={busy || saving || !!current}>
           {busy || saving ? <IconLoader2 className="animate-spin" /> : <IconWorldUpload />}
-          {saving ? "Saving" : "Publish"}
+          {saving ? "Saving" : n && !current ? `Publish @${n}` : "Publish"}
         </Button>
-      </DialogFooter>
+      </footer>
 
       {picking && (
         <LibraryPicker
@@ -271,37 +334,64 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 
-/** Past this many names in one row, the rest are counted: a first publish is all new. */
-const NAMES = 6;
+/** Past this many lines, the rest are counted. */
+const LINES = 12;
+const MARK: Record<ReleaseLine["mark"], { sign: string; tone: string; say: string }> = {
+  added: { sign: "+", tone: "text-success", say: "added" },
+  changed: { sign: "~", tone: "text-warning", say: "changed" },
+  removed: { sign: "-", tone: "text-destructive", say: "removed" },
+};
 
-function Changes({ changes, rules }: { changes: WhatsNew; rules: BuilderApi["state"]["rules"] }) {
-  const { pages, rules: r } = changes;
-  const rule = (key: string) => ruleName({ key, label: rules.find((x) => x.key === key && x.label)?.label });
-  const rows: [string, string[]][] = [
-    ["New pages", pages.added.map((p) => p.title)],
-    ["Updated pages", pages.changed.map((p) => p.title)],
-    ["Removed pages", pages.removed.map((p) => p.title)],
-    ["New rules", r.added.map(rule)],
-    ["Changed rules", r.changed.map(rule)],
-    ["Removed rules", r.removed.map(rule)],
-  ].filter((row): row is [string, string[]] => row[1].length > 0);
-  if (!rows.length) return <p className="text-muted-foreground text-sm">Nothing readers would notice: only hidden pages, order or wording they don&apos;t see.</p>;
+/** What changes, a line each (lib/history.ts releaseLines): a mark, the rule or page, and how; a color's swatches before and after. */
+function Changes({ lines }: { lines: ReleaseLine[] }) {
+  if (!lines.length) return <p className="text-muted-foreground text-sm">Nothing readers would notice: only hidden pages, order or wording they don&apos;t see.</p>;
   return (
-    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-      {rows.map(([name, xs]) => (
-        <div key={name} className="contents">
-          <dt className="text-muted-foreground">{name}</dt>
-          <dd>
-            {xs.slice(0, NAMES).join(", ")}
-            {xs.length > NAMES && <span className="text-muted-foreground"> and {xs.length - NAMES} more</span>}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <ul className="grid gap-1.5 rounded-lg border p-3 text-sm">
+      {lines.slice(0, LINES).map((l) => {
+        const m = MARK[l.mark];
+        return (
+          <li key={l.kind === "rule" ? `r:${l.key}@${l.context ?? ""}` : `p:${l.slug}`} className="flex items-baseline gap-2">
+            <span aria-label={m.say} className={`${m.tone} w-3 shrink-0 font-mono font-semibold`}>
+              {m.sign}
+            </span>
+            <span className="min-w-0">
+              {l.kind === "rule" ? (
+                <>
+                  <code className="font-mono text-xs" title={ruleName({ key: l.key, label: l.label })}>
+                    {l.key}
+                  </code>
+                  {l.context && <span className="text-muted-foreground"> ({l.context})</span>}{" "}
+                  {l.before && l.after && (
+                    <span className="inline-flex items-center gap-1 align-middle">
+                      <Swatch hex={l.before} /> → <Swatch hex={l.after} />
+                    </span>
+                  )}{" "}
+                  <span className="text-muted-foreground">{l.what}</span>
+                </>
+              ) : (
+                <>
+                  page <b className="font-medium">{l.title}</b>: <span className="text-muted-foreground">{l.what}</span>
+                </>
+              )}
+            </span>
+          </li>
+        );
+      })}
+      {lines.length > LINES && <li className="text-muted-foreground ps-5">and {lines.length - LINES} more</li>}
+    </ul>
+  );
+}
+
+function Swatch({ hex }: { hex: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-xs">
+      <span className="inline-block size-3 rounded-sm ring-1 ring-black/10 dark:ring-white/10" style={{ background: hex }} />
+      {hex}
+    </span>
   );
 }
 
@@ -309,17 +399,17 @@ function Changes({ changes, rules }: { changes: WhatsNew; rules: BuilderApi["sta
 function Result({ done, brand, onClose }: { done: Published; brand: string; onClose: () => void }) {
   const portals = done.portals ?? [];
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <IconWorldUpload className="size-5" /> {done.unchanged ? "Already published" : "Published"}
-        </DialogTitle>
-        <DialogDescription>
+    <div className="grid gap-4">
+      <header className="grid gap-1.5">
+        <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
+          <IconWorldUpload aria-hidden className="size-5" /> {done.unchanged ? "Already released" : done.number ? `Released @${done.number}` : "Released"}
+        </h2>
+        <p className="text-muted-foreground text-sm">
           {done.unchanged
-            ? `Nothing changed since version ${done.number ?? "the last"}, so readers already see this.`
-            : `Readers now get ${done.number ? `version ${done.number}` : "this version"}.`}
-        </DialogDescription>
-      </DialogHeader>
+            ? `Nothing changed since release @${done.number ?? "the last"}, so readers already see this.`
+            : `Readers now get ${done.number ? `release @${done.number}` : "this release"}.`}
+        </p>
+      </header>
       {portals.length ? (
         <div className="grid gap-2">
           <p className="text-sm">It shows on:</p>
@@ -360,9 +450,9 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
           )}
         </p>
       )}
-      <DialogFooter>
+      <footer className="flex justify-end">
         <Button onClick={onClose}>Done</Button>
-      </DialogFooter>
-    </>
+      </footer>
+    </div>
   );
 }

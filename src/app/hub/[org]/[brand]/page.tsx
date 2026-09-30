@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
-import { Avatar, Owner, Preview, TabNav } from "@/components/hub";
-import { UseBrand } from "@/components/hub-client";
+import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
+import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
-import { hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
+import { followed, hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 import { isFont } from "@/lib/font";
 import { ago, hubPath, parseRef } from "@/lib/hub";
@@ -84,10 +84,11 @@ function Section({ id, title, icon: Icon, children }: { id: string; title: strin
 
 /** A listing, as GitHub shows a repository: who and what up top, the brand as its README, and About, releases and use beside it. */
 export default async function HubListing(props: Props) {
-  const b = await load(props);
+  const [b, viewer] = await Promise.all([load(props), hubViewer()]);
   if (!b) notFound();
-  const base = await hubBase();
+  const [base, mine] = await Promise.all([hubBase(), viewer ? followed(viewer.user.id) : null]);
   const open = b.visibility === "public";
+  const signIn = `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`;
   const pinned = b.version !== b.latest;
   const rules = b.rules.filter((r) => !r.context);
   const colors = rules.filter((r) => r.type === "color" && typeof r.value === "string");
@@ -115,11 +116,22 @@ export default async function HubListing(props: Props) {
                 {b.brand}
               </Link>
             </div>
-            <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
-              {!open && <IconLock aria-hidden className="size-3" />}
-              {!open ? "Private" : b.verified ? "Verified" : "Community"}
+            {open && b.verified ? (
+              // What was proved, as the prototype's "lumen.dev verified" says.
+              <span className="border-success/40 text-success inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
+                <IconCircleCheckFilled aria-hidden className="size-3" /> {b.verified} verified
+              </span>
+            ) : (
+              <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
+                {!open && <IconLock aria-hidden className="size-3" />}
+                {!open ? "Private" : "Community"}
+              </span>
+            )}
+            <span className="text-muted-foreground rounded-full border px-2 py-0.5 font-mono text-xs">
+              @{b.version}
+              {b.publishedAt && ` · ${new Date(b.publishedAt).toLocaleDateString("en", { day: "numeric", month: "short" })}`}
             </span>
-            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to v{b.version}</span>}
+            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release @{b.version}</span>}
             <div className="ms-auto flex flex-wrap items-center gap-2">
               {b.guidelines && (
                 <Button asChild variant="outline">
@@ -128,6 +140,18 @@ export default async function HubListing(props: Props) {
                   </a>
                 </Button>
               )}
+              {open &&
+                (mine ? (
+                  <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} count={b.followers} />
+                ) : (
+                  <Button asChild variant="outline">
+                    <a href={signIn}>
+                      <IconStar aria-hidden /> Follow
+                      {b.followers > 0 && <span className="text-muted-foreground tabular-nums">· {b.followers.toLocaleString("en")}</span>}
+                    </a>
+                  </Button>
+                ))}
+              {open && mine && <StartFrom from={`${b.org}/${b.brand}@${b.version}`} name={b.name} app={env.APP_URL} />}
               {open ? (
                 <UseBrand url={b.url} name={b.name} />
               ) : (
@@ -147,7 +171,7 @@ export default async function HubListing(props: Props) {
               ...(fonts.length ? [{ href: "#type", label: "Type", count: fonts.length }] : []),
               ...(logos.length ? [{ href: "#logos", label: "Logos", count: logos.length }] : []),
               ...(words.length ? [{ href: "#voice", label: "Voice" }] : []),
-              { href: "#versions", label: "Versions", count: b.versions.length },
+              { href: "#versions", label: "Releases", count: b.versions.length },
             ]}
           />
         </div>
@@ -158,8 +182,8 @@ export default async function HubListing(props: Props) {
           <div className="text-muted-foreground flex items-center gap-2 border-b px-5 py-3 text-sm">
             <IconBook aria-hidden className="size-4" /> {b.name}
             <span className="ms-auto text-xs">
-              v{b.version}
-              {b.publishedAt && ` · published ${ago(b.publishedAt)}`}
+              @{b.version}
+              {b.publishedAt && ` · released ${ago(b.publishedAt)}`}
             </span>
           </div>
           <Preview card={b} className="h-56 md:h-72">
@@ -190,8 +214,8 @@ export default async function HubListing(props: Props) {
               <p role="note" className="border-warning/40 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconAlertTriangle aria-hidden className="text-warning mt-0.5 size-4 shrink-0" />
                 <span>
-                  A community listing: {b.owner} hasn&apos;t proved it holds a domain, so this may not come from {b.name}&apos;s owner. Check their
-                  own guidelines before you rely on it.
+                  A community listing: {b.owner} hasn&apos;t proved it holds a domain or a GitHub account, so this may not come from {b.name}&apos;s
+                  owner. Check their own guidelines before you rely on it.
                 </span>
               </p>
             )}
@@ -293,7 +317,7 @@ export default async function HubListing(props: Props) {
           )}
 
           {b.terms && (
-            <Section id="terms" title="Terms of use" icon={IconBook}>
+            <Section id="terms" title="Usage terms" icon={IconBook}>
               {/* Raw HTML in it is escaped (lib/markdown.ts). */}
               <div className="rich text-sm" dangerouslySetInnerHTML={{ __html: renderMarkdown(b.terms, { demote: 2 }) }} />
             </Section>
@@ -320,12 +344,17 @@ export default async function HubListing(props: Props) {
               <li className="flex items-center gap-2">
                 <IconPhoto aria-hidden className="size-4" /> {b.logos} {b.logos === 1 ? "logo" : "logos"}
               </li>
+              {open && (
+                <li>
+                  <Pulls n={b.pulls} className="gap-2 [&_svg]:size-4" /> in 30 days
+                </li>
+              )}
             </ul>
           </section>
 
           <section id="versions" className="flex scroll-mt-20 flex-col gap-3 border-t pt-6">
             <h2 className="flex items-center gap-2 font-semibold">
-              Versions <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{b.versions.length}</span>
+              Releases <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{b.versions.length}</span>
             </h2>
             <ol className="grid gap-2">
               {b.versions.slice(0, 6).map((v) => (
@@ -336,7 +365,8 @@ export default async function HubListing(props: Props) {
                     className="hover:bg-muted aria-[current=page]:bg-muted flex items-center gap-2 rounded-md px-2 py-1.5"
                   >
                     <IconTag aria-hidden className="text-success size-4" />
-                    <span className="font-medium">v{v.number}</span>
+                    <span className="font-mono font-medium">@{v.number}</span>
+                    {v.name && <span className="text-muted-foreground min-w-0 truncate">{v.name}</span>}
                     {v.number === b.latest && <span className="border-success/40 text-success rounded-full border px-1.5 text-[11px] font-medium">Latest</span>}
                     <span className="text-muted-foreground ms-auto text-xs">{ago(v.publishedAt)}</span>
                   </Link>
@@ -344,6 +374,18 @@ export default async function HubListing(props: Props) {
               ))}
             </ol>
           </section>
+
+          {open && (
+            <section className="flex flex-col gap-3 border-t pt-6">
+              <ListingTrust
+                org={b.org}
+                brand={b.brand}
+                name={b.name}
+                // A community listing is its brand owner's to claim: signed in, where the session reaches.
+                claim={b.verified ? null : viewer ? true : { href: signIn, label: "Sign in" }}
+              />
+            </section>
+          )}
 
           {open && (
             <section className="flex flex-col gap-3 border-t pt-6">

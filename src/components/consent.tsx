@@ -320,7 +320,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
         <div className="grid gap-2">
           {!done.allowed && <Button onClick={again}>Enter another code</Button>}
           <Button variant="outline" asChild>
-            <Link href="/agents">Manage agents</Link>
+            <Link href="/connections">Manage agents</Link>
           </Button>
         </div>
       </Card>

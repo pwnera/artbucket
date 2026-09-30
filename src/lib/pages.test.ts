@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { z } from "zod";
 import {
+  idsIn,
   applyOps,
   assetRefs,
   boundKeys,
@@ -1055,4 +1056,11 @@ test("designWarnings: monotony, a long page, no picture up top, label titles, lo
   assert.deepEqual(at(designWarnings([stored({ id: "p", template: "palette", title: "Colors", keys: ["color.primary"] })])), ['0: the title "Colors" names the block']);
   assert.deepEqual(at(designWarnings([text("l", { lede: Array(26).fill("word").join(" ") })])), ["0: the lede is 26 words"]);
   assert.deepEqual(at(designWarnings([text("b", { body: Array(301).fill("word").join(" ") })])), ["0: the body runs to 301 words"]);
+});
+
+test("idsIn: a page's cover and every id its sections hold, once each", () => {
+  const a = "0b6f1c2e-6c8e-4f47-9a51-3c1f1f3a9d10";
+  const b = "7f0c5a8e-1d2b-4c3a-8e9f-0a1b2c3d4e5f";
+  assert.deepEqual(idsIn({ cover: a, sections: [{ props: { image: b.toUpperCase(), video: a } }, { body: "no id here" }] }), [a, b]);
+  assert.deepEqual(idsIn({ cover: null, sections: [] }), []);
 });

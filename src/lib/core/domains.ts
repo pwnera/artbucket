@@ -97,9 +97,13 @@ export async function portalHome(slug: string) {
 /** The portal a verified host name serves, for the proxy; null for any other host. */
 export const portalAtHost = async (host: string) => (await hostTarget(host))?.portal ?? null;
 
-/** Whether a browser origin is one of the app's own: APP_URL, or an organization's verified app domain. */
+/**
+ * Whether a browser origin is one of the app's own: APP_URL, BrandHub's own
+ * host (this server's too: following and claiming a brand there), or an
+ * organization's verified app domain.
+ */
 export async function isAppOrigin(origin: string) {
-  if (origin === new URL(env.APP_URL).origin) return true;
+  if (origin === new URL(env.APP_URL).origin || (env.HUB_URL && origin === new URL(env.HUB_URL).origin)) return true;
   try {
     const t = await hostTarget(new URL(origin).host);
     return !!t && !t.portal;

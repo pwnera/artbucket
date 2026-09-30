@@ -15,6 +15,14 @@ export function parseRef(raw: string): { slug: string; version?: number } | null
   return m[2] ? { slug: m[1], version: Number(m[2]) } : { slug: m[1] };
 }
 
+/** A hub brand's full address, as create_brand's `from` takes it: "rust-lang/rust@12", or the latest without @. */
+export const HUB_REF = /^([a-z0-9][a-z0-9-]*)\/([a-z0-9][a-z0-9-]*)(?:@([1-9]\d{0,8}))?$/;
+export function parseHubRef(raw: string): { org: string; slug: string; version?: number } | null {
+  const m = raw.trim().match(HUB_REF);
+  if (!m) return null;
+  return m[3] ? { org: m[1], slug: m[2], version: Number(m[3]) } : { org: m[1], slug: m[2] };
+}
+
 /**
  * The domain the app's session cookie is set for, when BrandHub's host and
  * APP_URL's share one: hub.example.com and app.example.com give example.com,
@@ -158,3 +166,34 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
   }
   return lines.join("\n") + "\n";
 }
+
+/** A GitHub account's login, lowercased, as GitHub allows one: null for anything else. */
+export function githubLogin(raw: string): string | null {
+  const login = raw.trim().replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\//i, "").replace(/\/+$/, "").toLowerCase();
+  return /^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){0,38}$/.test(login) ? login : null;
+}
+
+/**
+ * Where a GitHub account proves it is an organization's: a file in its
+ * `.github` repository (the one GitHub reads an account's profile and
+ * community files from), on its default branch. Only the account's own
+ * people can write there.
+ */
+export const GITHUB_PROOF_FILE = "artbucket-verification.txt";
+export const githubProofUrl = (login: string) => `https://raw.githubusercontent.com/${login}/.github/HEAD/${GITHUB_PROOF_FILE}`;
+
+/** How a proved GitHub account is named beside a verified domain: github.com/rust-lang. */
+export const githubProof = (login: string) => `github.com/${login}`;
+
+/** Why someone reports a listing: the first is what community listings are most often reported for. */
+export const REPORT_REASONS = {
+  impersonation: "It pretends to be the brand's owner",
+  trademark: "It uses a trademark without permission",
+  inaccurate: "Its rules or files are wrong or out of date",
+  abuse: "Spam, malware or offensive content",
+  other: "Something else",
+} as const;
+export type ReportReason = keyof typeof REPORT_REASONS;
+
+/** A count as a card shows it: 950, 1.2k, 3.4M. */
+export const compact = (n: number) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase();

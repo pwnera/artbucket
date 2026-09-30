@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * Agents, one way everywhere: every page has a "For agents" button that says
  * how an agent reads what the page shows (the MCP call and the REST request,
  * with this page's filters, asset or brand filled in), and the one URL every
- * agent connects to. The Agents page is where they get connected.
+ * agent connects to. The Connections page is where they get connected.
  */
 
 /** A line an agent (or its person) copies: an MCP call, a request, a command. */
@@ -105,7 +105,7 @@ function Panel({ subject, about, reads, origin }: { subject: string; about: stri
         <Snippet text={`${origin}/api/v1/mcp`} what="the URL" />
       </div>
       <Button variant="outline" size="sm" className="w-full" asChild>
-        <Link href="/agents">
+        <Link href="/connections">
           <IconPlugConnected /> Set up Claude, ChatGPT, Cursor and more
         </Link>
       </Button>

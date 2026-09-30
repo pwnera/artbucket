@@ -63,7 +63,7 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   made_current: { icon: IconStack2, says: "made current" },
   edited_rules: { icon: IconBook, says: "edited the guidelines of" },
   restored_rules: { icon: IconBook, says: "restored an earlier version of" },
-  published: { icon: IconBook, says: "published the guidelines of" },
+  published: { icon: IconBook, says: "released the guidelines of" },
 };
 // What an unknown verb from a newer server reads as, rather than a crash.
 const SOMETHING = { icon: IconActivity, says: "changed" };
@@ -222,7 +222,7 @@ export function ActivityFeed({ first }: { first: Page }) {
           about="The same feed for a script or an agent: who did what, newest first, one page at a time."
           reads={(origin) => [
             { label: "REST", text: curl(`${origin}/api/v1/activity`) },
-            { label: "An agent's own proposals, and your decisions", text: call("my_proposals") },
+            { label: "An agent's own suggestions, and your decisions", text: call("my_proposals") },
           ]}
         />
       </AppHeader>
@@ -323,7 +323,7 @@ function Actor({ item: i }: { item: Item }) {
 function Target({ item: i }: { item: Item }) {
   if (i.brand) {
     return (
-      <Link href={brandHref({ slug: i.brand.slug, default: false })} className="font-medium hover:underline">
+      <Link href={brandHref(i.brand)} className="font-medium hover:underline">
         {i.label}
       </Link>
     );
@@ -386,6 +386,8 @@ function Row({ item: i, restorable, restore, restoring }: { item: Item } & RowAc
       <div className="min-w-0 flex-1 space-y-1">
         <p className="leading-6">
           <Actor item={i} /> <span className="text-muted-foreground">{says}</span> <Target item={i} />
+          {/* A release is named @n, as everywhere. */}
+          {i.verb === "published" && i.brand && <span className="text-muted-foreground font-mono"> @{i.brand.version}</span>}
           {i.detail?.version && <span className="text-muted-foreground"> (version {i.detail.version})</span>}
         </p>
         <Detail item={i} />

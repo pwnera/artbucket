@@ -186,7 +186,7 @@ export function History({
                             </span>
                             {v.number === latest && <Badge variant="secondary">Current</Badge>}
                             {v.publishedAt && (
-                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Published"}</Badge>
+                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Released"}</Badge>
                             )}
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
@@ -194,7 +194,8 @@ export function History({
                             {v.name && ` · ${v.summary}`}
                           </div>
                         </div>
-                        <span className="text-muted-foreground pt-0.5 font-mono text-xs tabular-nums">v{v.number}</span>
+                        {/* A released version is a release, @n; a save is v{n}. */}
+                        <span className="text-muted-foreground pt-0.5 font-mono text-xs tabular-nums">{v.publishedAt ? `@${v.number}` : `v${v.number}`}</span>
                       </button>
                     </li>
                   ))}
@@ -302,7 +303,7 @@ function VersionDetail({
                 />
               </Can>
               <p className="text-muted-foreground text-sm">
-                v{number} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
+                {v.publishedAt ? `@${number}` : `v${number}`} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
                 {v.pages && ` · ${v.pages.length} pages`}
                 {v.kind === "restore" && v.restoredFrom && ` · restored version ${v.restoredFrom}`}
               </p>
@@ -386,7 +387,7 @@ function Published({ v }: { v: Detail }) {
   return (
     <div className="bg-success/10 space-y-2 rounded-lg p-3 text-sm">
       <p className="text-success flex items-center gap-1.5 font-medium">
-        <IconWorldUpload className="size-4" /> Published {stamp(v.publishedAt!)}
+        <IconWorldUpload className="size-4" /> Released {stamp(v.publishedAt!)}
         {v.publishedBy && ` · ${who(v.publishedBy, me)}`}
       </p>
       {/* An unnamed version takes the note as its name, so it already reads above. */}

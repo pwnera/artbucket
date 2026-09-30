@@ -6,15 +6,16 @@ import { SiteLink } from "@/components/site/nav-tree";
 import { onPortal } from "@/components/site/quick-grab";
 import { useSite } from "@/components/site/site-context";
 import type { SitePortal } from "@/components/site/site-view";
+import { PROJECT_URL } from "@/lib/branding";
 
 const LINK = "hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2";
 
 /**
  * The foot of a portal's site: its words (Markdown) and links, when the
  * brand being read was last published and what that changed, where to send
- * feedback, and the credit line.
+ * feedback, and the credit line; without white-label, "Made with Artbucket".
  */
-export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "site" | "brands">; base: string; onNavigate?: (href: string) => void }) {
+export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "site" | "brands" | "madeWith">; base: string; onNavigate?: (href: string) => void }) {
   const { view } = useSite();
   const f = portal.site.footer ?? {};
   const brand = view.brand.slug;
@@ -60,6 +61,13 @@ export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePort
             </p>
           )}
           {f.credit && <p>{f.credit}</p>}
+          {portal.madeWith && (
+            <p className="text-xs">
+              <a href={PROJECT_URL} target="_blank" rel="noreferrer" className={LINK}>
+                Made with Artbucket
+              </a>
+            </p>
+          )}
         </div>
       </div>
     </footer>

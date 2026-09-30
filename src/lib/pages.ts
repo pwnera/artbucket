@@ -1610,3 +1610,16 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
   }
   return out.join("\n");
 }
+
+// ---- the files a page shows -------------------------------------------------------
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/**
+ * Every id a page names, lowercased, once each: its cover, and whatever its
+ * sections hold (an image, a video, a file; a collection's or a saved
+ * search's id too, which a lookup of assets passes over). A brand's Assets
+ * tab reads its files this way (core/brand-assets.ts).
+ */
+export const idsIn = (page: { cover?: string | null; sections: unknown }) =>
+  [...new Set([...(page.cover ? [page.cover] : []), ...(JSON.stringify(page.sections ?? []).match(UUID) ?? [])].map((s) => s.toLowerCase()))];

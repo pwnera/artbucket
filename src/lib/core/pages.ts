@@ -32,6 +32,7 @@ import {
 } from "@/lib/pages";
 import { pageSet } from "@/lib/page-sets";
 import { resolve } from "@/lib/rules";
+import { guidelinesPath } from "@/lib/site";
 
 /**
  * A brand's pages (lib/pages.ts): read, saved whole, edited an operation at a
@@ -63,8 +64,7 @@ const present = (p: PageRow) => ({
 export type BrandPage = ReturnType<typeof present>;
 
 /** Where a member reads the page in the app (D18): get_page and every write return it. */
-const readerUrl = (brand: string, page: string, context?: string) =>
-  `${env.APP_URL}/brand?${new URLSearchParams({ brand, page, ...(context && { context }), view: "read" })}`;
+const readerUrl = (brand: string, page: string, context?: string) => `${env.APP_URL}${guidelinesPath(brand, { page, context, view: "read" })}`;
 
 const boundOf = (sections: Section[]) => new Set(sections.flatMap(boundKeys));
 

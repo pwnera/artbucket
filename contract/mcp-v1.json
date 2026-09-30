@@ -896,10 +896,19 @@
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
       },
       "from": {
-        "description": "Start as a copy of this brand's rules",
-        "type": "string",
-        "maxLength": 60,
-        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 60,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          {
+            "type": "string",
+            "maxLength": 130,
+            "pattern": "^([a-z0-9][a-z0-9-]*)\\/([a-z0-9][a-z0-9-]*)(?:@([1-9]\\d{0,8}))?$"
+          }
+        ]
       },
       "template": {
         "description": "Start from a showcase brand's rules, theme, pages and logos, to edit into your own",

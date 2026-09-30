@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconBook, IconDots, IconExternalLink, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
+import { IconBook, IconDots, IconExternalLink, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";
+import { Dots, Preview } from "@/components/hub";
 import { NewBrand } from "@/components/new-brand";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
+import { guidelinesPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,17 +42,43 @@ export type BrandHub = {
   chosen: boolean;
   portals: { slug: string; name: string; access: "public" | "password" | "members" }[] | null;
 };
-export type BrandRow = BrandInfo & { visibility: "private" | "public"; hub: BrandHub | null };
+/** How a brand looks on its card: its colors, the one it is tinted with, and its mark as a rendition URL. */
+export type BrandLook = { swatches: string[]; tint: string | null; logo: string | null };
+export type BrandRow = BrandInfo & { visibility: "private" | "public"; hub: BrandHub | null; look: BrandLook };
+
+type Layout = "cards" | "list";
+const LAYOUT_KEY = "artbucket:brands-layout";
 
 type Show = "all" | "public" | "private";
 const SHOW: Record<Show, string> = { all: "All", public: "Public", private: "Private" };
 
-export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; canShare: boolean; canEdit: boolean }) {
+export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { brands: BrandRow[]; canShare: boolean; canEdit: boolean; q?: string }) {
   const router = useRouter();
-  const [q, setQ] = useState("");
+  // A brand's Settings tab lands here with its name in the search.
+  const [q, setQ] = useState(initialQ);
   const [show, setShow] = useState<Show>("all");
   const [creating, setCreating] = useState(false);
   const [going, setGoing] = useState<BrandRow | null>(null);
+  // Cards until someone picks the list; kept per browser, like the library's layout. Storage may refuse.
+  const stored = useSyncExternalStore(
+    () => () => {},
+    () => {
+      try {
+        return localStorage.getItem(LAYOUT_KEY);
+      } catch {
+        return null;
+      }
+    },
+    () => null,
+  );
+  const [picked, setPicked] = useState<Layout | null>(null);
+  const layout: Layout = picked ?? (stored === "list" ? "list" : "cards");
+  const pickLayout = (l: Layout) => {
+    setPicked(l);
+    try {
+      localStorage.setItem(LAYOUT_KEY, l);
+    } catch {}
+  };
   const shown = useMemo(
     () => brands.filter((b) => (show === "all" || b.visibility === show) && b.name.toLowerCase().includes(q.trim().toLowerCase())),
     [brands, q, show],
@@ -68,14 +96,14 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
   return (
     <>
       <AppHeader trail={[{ label: "Brands" }]} />
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+      <div className={cn("mx-auto flex w-full flex-col gap-6 px-4 pt-6 pb-16 md:px-6", layout === "cards" ? "max-w-6xl" : "max-w-4xl")}>
         <PageHeader
           icon={<IconPalette />}
           title="Brands"
           aside={<span className="text-muted-foreground text-sm tabular-nums">{brands.length}</span>}
           description={
             hub
-              ? "Every published brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read."
+              ? "Every released brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read."
               : "The workspace's brands, each with its own rules, pages and history."
           }
         >
@@ -107,14 +135,44 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
               ))}
             </div>
           )}
+          <div role="radiogroup" aria-label="Layout" className="bg-muted flex rounded-md p-0.5">
+            {(
+              [
+                ["cards", "Cards", IconLayoutGrid],
+                ["list", "List", IconList],
+              ] as const
+            ).map(([l, label, Icon]) => (
+              <button
+                key={l}
+                type="button"
+                role="radio"
+                aria-checked={layout === l}
+                aria-label={label}
+                title={label}
+                onClick={() => pickLayout(l)}
+                className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2 py-1 aria-checked:shadow-sm"
+              >
+                <Icon className="size-4" />
+              </button>
+            ))}
+          </div>
         </div>
 
-        <ul className="divide-y rounded-lg border">
-          {shown.map((b) => (
-            <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
-          ))}
-          {!shown.length && <li className="text-muted-foreground p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</li>}
-        </ul>
+        {!shown.length ? (
+          <p className="text-muted-foreground rounded-lg border p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</p>
+        ) : layout === "cards" ? (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {shown.map((b) => (
+              <Card key={b.slug} b={b} />
+            ))}
+          </ul>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {shown.map((b) => (
+              <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
+            ))}
+          </ul>
+        )}
       </div>
 
       <Confirm
@@ -123,8 +181,8 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
         title={`Make ${going?.name ?? "it"} public?`}
         says={
           <>
-            Anyone, and any agent, will read its latest publish on BrandHub: its rules, logos, typefaces and voice, as a page, llms.txt, JSON and
-            design tokens, with its usable files. Later publishes show there too. You can make it private again.
+            Anyone, and any agent, will read its latest release on BrandHub: its rules, logos, typefaces and voice, as a page, llms.txt, JSON and
+            design tokens, with its usable files. Later releases show there too. You can make it private again.
           </>
         }
         action="Make public"
@@ -138,10 +196,50 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
         onClose={() => setCreating(false)}
         onDone={(b) => {
           setCreating(false);
-          router.push(brandHref(b));
+          // A new brand starts from its setup, in the guidelines.
+          router.push(guidelinesPath(b.slug));
         }}
       />
     </>
+  );
+}
+
+/** A brand as a card: its mark on its wash, then its name and where it stands. The whole card opens its Overview. */
+function Card({ b }: { b: BrandRow }) {
+  const hub = b.hub;
+  return (
+    <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
+      <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint }} className="h-32">
+        {hub && (
+          <span className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-black/70 backdrop-blur">
+            {b.visibility === "public" ? <IconWorld aria-hidden className="size-3" /> : <IconLock aria-hidden className="size-3" />}
+            {b.visibility === "public" ? "Public" : "Private"}
+          </span>
+        )}
+        {b.default && <IconStar aria-label="default" className="absolute end-3 top-3 size-4 text-black/50" />}
+      </Preview>
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        <h3 className="font-display truncate text-base font-semibold tracking-tight">
+          <Link href={brandHref(b)} className="outline-none after:absolute after:inset-0">
+            {b.name}
+          </Link>
+        </h3>
+        <p className="text-muted-foreground text-xs">
+          {hub?.published ? `@${hub.published.number}, released ${ago(hub.published.publishedAt)}` : hub ? "Never released" : "\u00a0"}
+        </p>
+        <div className="text-muted-foreground mt-auto flex items-center gap-3 border-t pt-3 text-xs">
+          <span className="inline-flex items-center gap-1.5">
+            <Dots colors={b.look.swatches} />
+            {b.rules} {b.rules === 1 ? "rule" : "rules"}
+          </span>
+          {hub?.portal && (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <IconBook aria-hidden className="size-3.5 shrink-0" /> <span className="truncate">{hub.portal.name}</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -160,6 +258,7 @@ function Row({
   const open = b.visibility === "public";
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
+      <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
       <div className="grid min-w-0 flex-1 gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <Link href={brandHref(b)} className="text-primary-ink truncate font-semibold hover:underline">
@@ -180,10 +279,10 @@ function Row({
           {hub &&
             (hub.published ? (
               <span>
-                v{hub.published.number} published {ago(hub.published.publishedAt)}
+                @{hub.published.number}, released {ago(hub.published.publishedAt)}
               </span>
             ) : (
-              <span>Never published: BrandHub shows it once it is</span>
+              <span>Never released: BrandHub shows it once it is</span>
             ))}
           {hub?.portal && (
             <span className="inline-flex items-center gap-1">
@@ -208,7 +307,7 @@ function Row({
                 <IconLock aria-hidden /> Make private
               </Button>
             ) : (
-              <Button size="sm" onClick={onPublic} disabled={!hub.published} title={hub.published ? undefined : "Publish it first"}>
+              <Button size="sm" onClick={onPublic} disabled={!hub.published} title={hub.published ? undefined : "Release it first"}>
                 <IconWorld aria-hidden /> Make public
               </Button>
             ))}

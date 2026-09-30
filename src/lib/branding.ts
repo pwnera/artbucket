@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** The open-source project every server runs, whoever hosts it: where "Made with Artbucket" and the fetcher's user agent point. */
+export const PROJECT_URL = "https://github.com/pwnera/artbucket";
+
 /**
  * White-labeling: what an organization calls the product and how it looks,
  * everywhere its people and guests see it: the app, the sign-in screen, share

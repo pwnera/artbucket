@@ -7,14 +7,29 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /** GET /api/v1/brands/{slug}/status, as the builder reads it (lib/core/brand-status.ts). */
 export type Status = {
-  steps: { id: StepId; title: string; done: boolean | null; detail: string }[];
+  /** `agent`: how an agent takes the step, with the tools by name. */
+  steps: { id: StepId; title: string; done: boolean | null; detail: string; agent?: string; points: number }[];
   done: number;
   total: number;
+  /** The Brand Agent Score, of 100. */
+  score: number;
   next: StepId | null;
   publish: "never" | "behind" | "current";
   portals: { slug: string; name: string; access: "public" | "password" | "members"; url: string }[] | null;
   /** Who sees it on BrandHub, and where; null when the server has none. */
-  hub: { visibility: "private" | "public"; url: string } | null;
+  hub: {
+    visibility: "private" | "public";
+    url: string;
+    pulls: number;
+    /** How BrandHub names it: {org}/{brand}. */
+    ref: string;
+    /** What its organization proved it holds; null: a community listing. */
+    verified: string | null;
+    /** Its guidelines portal's terms of use, in markdown. */
+    terms: string | null;
+    /** The portal BrandHub links as its guidelines. */
+    portal: { slug: string; name: string } | null;
+  } | null;
 };
 
 /**

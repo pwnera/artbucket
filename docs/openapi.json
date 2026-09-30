@@ -726,6 +726,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -796,6 +811,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -1854,6 +1870,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -1924,6 +1955,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -2421,6 +2453,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -2491,6 +2538,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -3050,7 +3098,7 @@
     "/api/v1/brand/tokens": {
       "get": {
         "summary": "Export the brand as design tokens",
-        "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out.\n\nScope: `read`.",
+        "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. `designmd`: DESIGN.md for coding agents, the tokens as YAML front matter and the guidance as prose. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out of every format but `designmd`.\n\nScope: `read`.",
         "x-scope": "read",
         "parameters": [
           {
@@ -3068,7 +3116,8 @@
                 "shadcn",
                 "mui",
                 "chakra",
-                "json"
+                "json",
+                "designmd"
               ],
               "default": "css"
             },
@@ -3790,6 +3839,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -3860,6 +3924,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -4762,6 +4827,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -4832,6 +4912,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -5723,6 +5804,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -5793,6 +5889,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -6627,6 +6724,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -6697,6 +6809,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -7312,6 +7425,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -7382,6 +7510,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -7930,6 +8059,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -8000,6 +8144,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -8009,6 +8154,252 @@
                         ],
                         "additionalProperties": false
                       }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{id}/insights": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Asset id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Where it is used",
+        "description": "The brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by referrer host.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Where it is used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back fetches go"
+                        },
+                        "rules": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "type": "string"
+                              },
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "context": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "key",
+                              "label",
+                              "context"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Brand rules that point at it"
+                        },
+                        "pages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "default": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "name",
+                                  "default"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "slug",
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Brand pages that show it, as they stand now"
+                        },
+                        "portals": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "url"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Open public portals that show it"
+                        },
+                        "fetches": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "surfaces": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "enum": [
+                                  "app",
+                                  "api",
+                                  "mcp",
+                                  "portal",
+                                  "share",
+                                  "hub",
+                                  "link",
+                                  "public"
+                                ]
+                              },
+                              "additionalProperties": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "surfaces"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "referrers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string"
+                              },
+                              "fetches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "last": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "fetches",
+                              "last"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "The hosts that loaded it, most first"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "rules",
+                        "pages",
+                        "portals",
+                        "fetches",
+                        "referrers"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -8558,6 +8949,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -8628,6 +9034,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -9201,6 +9608,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -9271,6 +9693,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -9841,6 +10264,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -9911,6 +10349,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -10357,6 +10796,21 @@
                             }
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                        },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
                         }
                       },
                       "required": [
@@ -10364,7 +10818,8 @@
                         "parentAssetId",
                         "generator",
                         "prompt",
-                        "c2pa"
+                        "c2pa",
+                        "via"
                       ],
                       "additionalProperties": false
                     },
@@ -15577,6 +16032,13 @@
                             ],
                             "description": "Who sees it on BrandHub"
                           },
+                          "from": {
+                            "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "rules": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -15666,10 +16128,19 @@
                     "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                   },
                   "from": {
-                    "description": "Start as a copy of this brand's rules",
-                    "type": "string",
-                    "maxLength": 60,
-                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 60,
+                        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 130,
+                        "pattern": "^([a-z0-9][a-z0-9-]*)\\/([a-z0-9][a-z0-9-]*)(?:@([1-9]\\d{0,8}))?$"
+                      }
+                    ]
                   },
                   "template": {
                     "description": "Start from a showcase brand's rules, theme, pages and logos, to edit into your own",
@@ -15716,6 +16187,13 @@
                             "public"
                           ],
                           "description": "Who sees it on BrandHub"
+                        },
+                        "from": {
+                          "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "rules": {
                           "type": "integer",
@@ -15826,6 +16304,13 @@
                             "public"
                           ],
                           "description": "Who sees it on BrandHub"
+                        },
+                        "from": {
+                          "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "rules": {
                           "type": "integer",
@@ -15951,6 +16436,13 @@
                             "public"
                           ],
                           "description": "Who sees it on BrandHub"
+                        },
+                        "from": {
+                          "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "createdAt": {
                           "type": "string",
@@ -16094,8 +16586,8 @@
         }
       ],
       "get": {
-        "summary": "A brand's launch checklist",
-        "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.\n\nScope: `read`.",
+        "summary": "A brand's launch checklist and Brand Agent Score",
+        "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done. `score` is the Brand Agent Score, 0 to 100, and each step's `points` what it adds once done.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -16185,6 +16677,12 @@
                               "agent": {
                                 "type": "string",
                                 "description": "How an agent does it, with the tools by name"
+                              },
+                              "points": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "What it adds to the Brand Agent Score once done; 0 when the caller can't tell"
                               }
                             },
                             "required": [
@@ -16192,7 +16690,8 @@
                               "title",
                               "done",
                               "detail",
-                              "agent"
+                              "agent",
+                              "points"
                             ],
                             "additionalProperties": false
                           },
@@ -16207,6 +16706,12 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "score": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "The Brand Agent Score: the steps done, weighed by what each gives an agent"
                         },
                         "next": {
                           "description": "The first step not done; null when the brand is ready",
@@ -16338,6 +16843,37 @@
                                 "chosen": {
                                   "type": "boolean",
                                   "description": "That portal was picked; false: it is the brand's first public portal"
+                                },
+                                "pulls": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                                },
+                                "delisted": {
+                                  "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "ref": {
+                                  "type": "string",
+                                  "description": "How BrandHub names it: {org}/{brand}"
+                                },
+                                "verified": {
+                                  "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "terms": {
+                                  "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -16345,7 +16881,12 @@
                                 "url",
                                 "published",
                                 "portal",
-                                "chosen"
+                                "chosen",
+                                "pulls",
+                                "delisted",
+                                "ref",
+                                "verified",
+                                "terms"
                               ],
                               "additionalProperties": false
                             },
@@ -16367,6 +16908,7 @@
                         "steps",
                         "done",
                         "total",
+                        "score",
                         "next",
                         "publish",
                         "portals",
@@ -16374,6 +16916,500 @@
                         "url"
                       ],
                       "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brands/{slug}/insights": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A brand's signals",
+        "description": "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals. Fetches and checks name a file, so the brand's are the files its rules held in its recent releases: from them, this week's answers and refusals, and release adoption, the fetches since the latest release on it or on an older one.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "The signals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back it counts"
+                        },
+                        "pulls": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Reads of its BrandHub files: brand.json, llms.txt, tokens"
+                        },
+                        "views": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Portal page views of its pages"
+                        },
+                        "week": {
+                          "type": "object",
+                          "properties": {
+                            "days": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "answers": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Its files served, uses of them checked, and its BrandHub files read"
+                            },
+                            "agents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Of those, asked by agents"
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Uses of its files refused"
+                            }
+                          },
+                          "required": [
+                            "days",
+                            "answers",
+                            "agents",
+                            "refused"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The last week. Its files are the ones its rules held in its recent releases"
+                        },
+                        "adoption": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "release": {
+                                  "type": "object",
+                                  "properties": {
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "publishedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "number",
+                                    "publishedAt"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "The latest release"
+                                },
+                                "days": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "day": {
+                                        "type": "string"
+                                      },
+                                      "current": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "older": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "day",
+                                      "current",
+                                      "older"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "Fetches of its files a day each since the release (30 days at most), on it or on an older release"
+                                },
+                                "share": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The share of those fetches on the latest release; null before any"
+                                },
+                                "older": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "asset": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          },
+                                          "version": {
+                                            "anyOf": [
+                                              {
+                                                "type": "integer",
+                                                "minimum": -9007199254740991,
+                                                "maximum": 9007199254740991
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ],
+                                            "description": "Its version in its stack; null for an asset with one"
+                                          },
+                                          "preview": {
+                                            "type": "boolean",
+                                            "description": "Whether /a/{id} can make a picture of it"
+                                          },
+                                          "supersededBy": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "title",
+                                          "version",
+                                          "preview",
+                                          "supersededBy"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "release": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "The newest release holding it"
+                                      },
+                                      "referrer": {
+                                        "description": "The host that loaded it",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "surface": {
+                                        "type": "string",
+                                        "enum": [
+                                          "app",
+                                          "api",
+                                          "mcp",
+                                          "portal",
+                                          "share",
+                                          "hub",
+                                          "link",
+                                          "public"
+                                        ]
+                                      },
+                                      "client": {
+                                        "description": "The agent's key name, for an agent",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "fetches": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "last": {
+                                        "type": "string",
+                                        "description": "The last day it was fetched"
+                                      }
+                                    },
+                                    "required": [
+                                      "asset",
+                                      "release",
+                                      "referrer",
+                                      "surface",
+                                      "client",
+                                      "fetches",
+                                      "last"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "Where files of an older release (or replaced in their stack) were still fetched this week, most first"
+                                }
+                              },
+                              "required": [
+                                "release",
+                                "days",
+                                "share",
+                                "older"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Release adoption; null before the first release"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "pulls",
+                        "views",
+                        "week",
+                        "adoption"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brands/{slug}/assets": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "Brand slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "The files a brand uses",
+        "description": "Its rules' files, in the rules' order, then the ones its pages show (a cover, an image, a video, a file), each with the rules and pages it is in. Only what the caller may see.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Its files",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "mime": {
+                            "type": "string"
+                          },
+                          "width": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "height": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "preview": {
+                            "type": "boolean",
+                            "description": "Has renditions: /a/{id}/w_320,f_webp draws it"
+                          },
+                          "rules": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "The keys of the rules that hold it"
+                          },
+                          "pages": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "title"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "The pages that show it"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "filename",
+                          "mime",
+                          "width",
+                          "height",
+                          "preview",
+                          "rules",
+                          "pages"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -28040,6 +29076,37 @@
                           "type": "boolean",
                           "description": "That portal was picked; false: it is the brand's first public portal"
                         },
+                        "pulls": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                        },
+                        "delisted": {
+                          "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "How BrandHub names it: {org}/{brand}"
+                        },
+                        "verified": {
+                          "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "terms": {
+                          "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "portals": {
                           "anyOf": [
                             {
@@ -28088,6 +29155,11 @@
                         "published",
                         "portal",
                         "chosen",
+                        "pulls",
+                        "delisted",
+                        "ref",
+                        "verified",
+                        "terms",
                         "portals"
                       ],
                       "additionalProperties": false
@@ -28247,6 +29319,37 @@
                         "chosen": {
                           "type": "boolean",
                           "description": "That portal was picked; false: it is the brand's first public portal"
+                        },
+                        "pulls": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                        },
+                        "delisted": {
+                          "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "How BrandHub names it: {org}/{brand}"
+                        },
+                        "verified": {
+                          "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "terms": {
+                          "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -28254,7 +29357,12 @@
                         "url",
                         "published",
                         "portal",
-                        "chosen"
+                        "chosen",
+                        "pulls",
+                        "delisted",
+                        "ref",
+                        "verified",
+                        "terms"
                       ],
                       "additionalProperties": false
                     }
@@ -32523,6 +33631,10 @@
                             "null"
                           ]
                         },
+                        "hub": {
+                          "type": "boolean",
+                          "description": "This server runs BrandHub (HUB_URL)"
+                        },
                         "notice": {
                           "anyOf": [
                             {
@@ -32640,6 +33752,7 @@
                         "features",
                         "upgrade",
                         "git",
+                        "hub",
                         "notice",
                         "auth"
                       ],
@@ -33292,6 +34405,927 @@
                         "billing",
                         "used",
                         "traffic"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insights": {
+      "get": {
+        "summary": "Insights",
+        "description": "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Insights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back the lists go"
+                        },
+                        "weeks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How many weeks the weekly charts have, oldest first, quiet weeks at zero"
+                        },
+                        "answers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "week": {
+                                "type": "string",
+                                "description": "The Monday (UTC) the week starts, YYYY-MM-DD"
+                              },
+                              "person": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "agent": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "anonymous": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "week",
+                              "person",
+                              "agent",
+                              "anonymous"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"
+                        },
+                        "adoption": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "week": {
+                                "type": "string",
+                                "description": "The Monday (UTC) the week starts, YYYY-MM-DD"
+                              },
+                              "current": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "superseded": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "week",
+                              "current",
+                              "superseded"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Fetches per week of a current version, and of one already replaced when it was fetched"
+                        },
+                        "stale": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Its version in its stack; null for an asset with one"
+                                  },
+                                  "preview": {
+                                    "type": "boolean",
+                                    "description": "Whether /a/{id} can make a picture of it"
+                                  },
+                                  "supersededBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "version",
+                                  "preview",
+                                  "supersededBy"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "replacement": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Its version in its stack; null for an asset with one"
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Whether /a/{id} can make a picture of it"
+                                      },
+                                      "supersededBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "version",
+                                      "preview",
+                                      "supersededBy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "What replaced it"
+                              },
+                              "referrer": {
+                                "description": "The host that loaded it; null when the request didn't say",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "fetches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "last": {
+                                "type": "string",
+                                "description": "The last day it was fetched"
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "replacement",
+                              "referrer",
+                              "fetches",
+                              "last"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Still on the old release: replaced versions fetched lately, by referrer, most first"
+                        },
+                        "top": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Its version in its stack; null for an asset with one"
+                                  },
+                                  "preview": {
+                                    "type": "boolean",
+                                    "description": "Whether /a/{id} can make a picture of it"
+                                  },
+                                  "supersededBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "version",
+                                  "preview",
+                                  "supersededBy"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "total": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "surfaces": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "enum": [
+                                    "app",
+                                    "api",
+                                    "mcp",
+                                    "portal",
+                                    "share",
+                                    "hub",
+                                    "link",
+                                    "public"
+                                  ]
+                                },
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "description": "Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public"
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "total",
+                              "surfaces"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "The ten most fetched assets, with their fetches by surface"
+                        },
+                        "gaps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "q": {
+                                "type": "string"
+                              },
+                              "searches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "last": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "q",
+                              "searches",
+                              "last"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Searches that found nothing, most asked first"
+                        },
+                        "checks": {
+                          "type": "object",
+                          "properties": {
+                            "allowed": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "reasons": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "count"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Refusals by blocking reason, most first; one refusal can have several"
+                            },
+                            "log": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  "asset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Its version in its stack; null for an asset with one"
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Whether /a/{id} can make a picture of it"
+                                      },
+                                      "supersededBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "version",
+                                      "preview",
+                                      "supersededBy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "surface": {
+                                    "type": "string",
+                                    "enum": [
+                                      "app",
+                                      "api",
+                                      "mcp",
+                                      "portal",
+                                      "share",
+                                      "hub",
+                                      "link",
+                                      "public"
+                                    ]
+                                  },
+                                  "client": {
+                                    "description": "The agent's key name; null for a person or nobody in particular",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "context": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "offered": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "asset": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "title": {
+                                              "type": "string"
+                                            },
+                                            "version": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "integer",
+                                                  "minimum": -9007199254740991,
+                                                  "maximum": 9007199254740991
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ],
+                                              "description": "Its version in its stack; null for an asset with one"
+                                            },
+                                            "preview": {
+                                              "type": "boolean",
+                                              "description": "Whether /a/{id} can make a picture of it"
+                                            },
+                                            "supersededBy": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "title",
+                                            "version",
+                                            "preview",
+                                            "supersededBy"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "taken": {
+                                          "type": "boolean",
+                                          "description": "The same client fetched it, or checked it and was allowed, afterwards"
+                                        }
+                                      },
+                                      "required": [
+                                        "asset",
+                                        "taken"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "What was offered instead"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "at",
+                                  "asset",
+                                  "surface",
+                                  "client",
+                                  "context",
+                                  "reasons",
+                                  "offered"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "The latest refusals, newest first"
+                            }
+                          },
+                          "required": [
+                            "allowed",
+                            "refused",
+                            "reasons",
+                            "log"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The use-check log: check_use and POST /api/v1/check answers"
+                        },
+                        "delivery": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "day": {
+                                "type": "string"
+                              },
+                              "requests": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "bytes": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "day",
+                              "requests",
+                              "bytes"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What /a/{id} served in this workspace, per day"
+                        },
+                        "pageViews": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "portal": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "brand": {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "page": {
+                                "type": "string"
+                              },
+                              "views": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "portal",
+                              "brand",
+                              "page",
+                              "views"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Portal pages read, most first"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "weeks",
+                        "answers",
+                        "adoption",
+                        "stale",
+                        "top",
+                        "gaps",
+                        "checks",
+                        "delivery",
+                        "pageViews"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insights/connections": {
+      "get": {
+        "summary": "Connections: what each agent asked for",
+        "description": "Per agent (an API key or OAuth client, by name), over the last 30 days: the MCP tools it called and how many failed, the brand contexts it asked for, the uses it was refused and why, and the files it fetched and searches it made. A tool call keeps its name and outcome, never its arguments.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back it goes"
+                        },
+                        "clients": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "client": {
+                                "type": "string",
+                                "description": "The agent, by its key's name"
+                              },
+                              "events": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Everything it did, counted"
+                              },
+                              "tools": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "calls": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "failed": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "Errors and refusals"
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "calls",
+                                    "failed"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "MCP tools it called, most first"
+                              },
+                              "contexts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "context": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "context",
+                                    "count"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Brand contexts it asked for, in checks and lookups"
+                              },
+                              "refusals": {
+                                "type": "object",
+                                "properties": {
+                                  "total": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "reasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "code": {
+                                          "type": "string"
+                                        },
+                                        "count": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "code",
+                                        "count"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "A check's blocking reasons; scope: a tool its key may not run"
+                                  }
+                                },
+                                "required": [
+                                  "total",
+                                  "reasons"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "fetches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "searches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "client",
+                              "events",
+                              "tools",
+                              "contexts",
+                              "refusals",
+                              "fetches",
+                              "searches"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Busiest first"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "clients"
                       ],
                       "additionalProperties": false
                     }
@@ -42041,6 +44075,10 @@
                           ],
                           "additionalProperties": false,
                           "description": "How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"
+                        },
+                        "madeWith": {
+                          "type": "boolean",
+                          "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
                         }
                       },
                       "required": [
@@ -42054,7 +44092,8 @@
                         "collections",
                         "brands",
                         "site",
-                        "look"
+                        "look",
+                        "madeWith"
                       ],
                       "additionalProperties": false
                     },
@@ -43059,6 +45098,10 @@
                               "type": "boolean",
                               "description": "It shows collections: its Assets view"
                             },
+                            "madeWith": {
+                              "type": "boolean",
+                              "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
+                            },
                             "level": {
                               "type": "string",
                               "enum": [
@@ -43076,6 +45119,7 @@
                             "site",
                             "brands",
                             "assets",
+                            "madeWith",
                             "level"
                           ],
                           "additionalProperties": false
@@ -45722,6 +47766,325 @@
         }
       }
     },
+    "/api/v1/portal/{slug}/check": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "The portal's address",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "May this portal file be used like this?",
+        "description": "POST /api/v1/check for a portal's visitor, behind the same door as the portal (see GET /api/v1/portal/{slug}): one of the files it shows, weighed for a use against its license window, territories, channels and model release. A file the portal doesn't show is a 404. It never suggests another file.\n\nNo key needed.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel": {
+                    "description": "Where it will run, e.g. paid-social",
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  },
+                  "territory": {
+                    "description": "The country it will run in, e.g. DE",
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "date": {
+                    "description": "The day it will run; today when left out",
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "asset": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "asset"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The verdict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allowed": {
+                      "type": "boolean",
+                      "description": "false when any reason is blocking"
+                    },
+                    "asset": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "use": {
+                      "type": "object",
+                      "properties": {
+                        "channel": {
+                          "type": "string"
+                        },
+                        "territory": {
+                          "type": "string"
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "context": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "not_approved",
+                              "deleted",
+                              "archived",
+                              "superseded",
+                              "embargoed",
+                              "expired",
+                              "territory",
+                              "channel",
+                              "model_release",
+                              "context"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "blocking": {
+                            "type": "boolean",
+                            "description": "false: go ahead, but know this"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "message",
+                          "blocking"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "Why not, and what to know"
+                    },
+                    "suggest": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "why": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "url",
+                          "why"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "What to use instead: the replacement, the brand's variant for the context"
+                    }
+                  },
+                  "required": [
+                    "allowed",
+                    "asset",
+                    "use",
+                    "reasons",
+                    "suggest"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not in yet: how to get in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "password"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "access": {
+                              "type": "string",
+                              "enum": [
+                                "password",
+                                "members"
+                              ]
+                            },
+                            "theme": {
+                              "type": "object",
+                              "properties": {
+                                "logo": {
+                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "accent": {
+                                  "description": "The portal's, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "background": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "icon": {
+                                  "description": "The organization's, for the browser tab",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "product": {
+                                  "type": "string",
+                                  "description": "What the organization calls the product"
+                                }
+                              },
+                              "required": [
+                                "logo",
+                                "accent",
+                                "background",
+                                "icon",
+                                "product"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "access",
+                            "theme"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "detail"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portal/{slug}/updates": {
       "parameters": [
         {
@@ -47158,6 +49521,1155 @@
                         "primary",
                         "portal",
                         "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs": {
+      "get": {
+        "summary": "The organization's GitHub accounts",
+        "description": "Named as its own, proved or not. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "GitHub accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "login": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean",
+                            "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "file": {
+                            "type": "object",
+                            "properties": {
+                              "repository": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              "token": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "repository",
+                              "path",
+                              "url",
+                              "token"
+                            ],
+                            "additionalProperties": false,
+                            "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                          }
+                        },
+                        "required": [
+                          "login",
+                          "verified",
+                          "url",
+                          "file"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Name a GitHub account",
+        "description": "A GitHub organization (or account) of the organization's. Put the file in `file` in its `.github` repository, holding `file.token`, then POST /api/v1/github-orgs/{login}/verify. Once proved, the organization's BrandHub listings are verified, as github.com/{login}, like a verified domain.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "login": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "description": "A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang"
+                  }
+                },
+                "required": [
+                  "login"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The account, not verified yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "repository": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "path",
+                            "url",
+                            "token"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                        }
+                      },
+                      "required": [
+                        "login",
+                        "verified",
+                        "url",
+                        "file"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs/{login}": {
+      "parameters": [
+        {
+          "name": "login",
+          "in": "path",
+          "required": true,
+          "description": "e.g. rust-lang",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove a GitHub account",
+        "description": "It proves nothing for the organization from then on.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs/{login}/verify": {
+      "parameters": [
+        {
+          "name": "login",
+          "in": "path",
+          "required": true,
+          "description": "e.g. rust-lang",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Verify a GitHub account",
+        "description": "Reads the proof file from the account's `.github` repository, on its default branch, now; a 422 says what is missing.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "repository": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "path",
+                            "url",
+                            "token"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                        }
+                      },
+                      "required": [
+                        "login",
+                        "verified",
+                        "url",
+                        "file"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/{org}/{brand}/reports": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Report a BrandHub listing",
+        "description": "Tell a public listing's owner, and this server's operator, what is wrong with it. Nothing about it is public. Anyone may report; a few an hour from one address, and the address is never kept.\n\nNo key needed.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "impersonation",
+                      "trademark",
+                      "inaccurate",
+                      "abuse",
+                      "other"
+                    ],
+                    "description": "impersonation: It pretends to be the brand's owner; trademark: It uses a trademark without permission; inaccurate: Its rules or files are wrong or out of date; abuse: Spam, malware or offensive content; other: Something else"
+                  },
+                  "note": {
+                    "description": "What is wrong, in your words",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "contact": {
+                    "description": "How the listing's owner may reach you, if you want them to: seen by them and this server's operator only",
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "received": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "received"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/{org}/{brand}/claims": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Claim a BrandHub listing",
+        "description": "Say a public listing is your organization's brand. It takes an organization admin, signed in, whose organization proved a domain or a GitHub account: the claim names it, with your email, for the listing's owner and this server's operator, who hand it over or take it down.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "description": "Who you are to the brand, and whether you want the listing handed over or taken down",
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "received": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "proof": {
+                          "type": "string",
+                          "description": "What the claim names you as holding"
+                        }
+                      },
+                      "required": [
+                        "received",
+                        "proof"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/{org}/{brand}/follow": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "summary": "Follow a BrandHub listing",
+        "description": "A person, signed in: the public listing shows in their Following tab on BrandHub. Following one already followed changes nothing.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "responses": {
+          "200": {
+            "description": "Following",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "following": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "following"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Stop following a BrandHub listing",
+        "description": "A person, signed in.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "responses": {
+          "200": {
+            "description": "Not following",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "following": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "following"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/reports": {
+      "get": {
+        "summary": "Reports and claims about your listings",
+        "description": "About the organization's BrandHub listings, open first, newest first, 200 at most. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Reports and claims",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "report",
+                              "claim"
+                            ],
+                            "description": "report: anyone's word about a listing; claim: an organization that proved a domain or a GitHub account says the brand is its"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "A report's reason; claim for a claim"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contact": {
+                            "description": "How to reach who sent it, as they gave it; a claimant's email",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "claimant": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "proof": {
+                                    "description": "What it proved it holds: a domain, or github.com/{login}",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "proof"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "resolved"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "brand": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "workspace": {
+                                "type": "string"
+                              },
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "private",
+                                  "public"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name",
+                              "workspace",
+                              "visibility"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "reason",
+                          "note",
+                          "contact",
+                          "claimant",
+                          "status",
+                          "createdAt",
+                          "brand"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/reports/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The report's id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "Act on a report or a claim",
+        "description": "Mark it resolved, or open again; `delist` takes its listing off BrandHub (the brand goes private).\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "resolved"
+                    ]
+                  },
+                  "delist": {
+                    "description": "Take the listing off BrandHub: the brand goes private",
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "open",
+                            "resolved"
+                          ]
+                        },
+                        "brand": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "visibility": {
+                              "type": "string",
+                              "enum": [
+                                "private",
+                                "public"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "visibility"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "status",
+                        "brand"
                       ],
                       "additionalProperties": false
                     }

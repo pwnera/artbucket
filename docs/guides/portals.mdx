@@ -101,7 +101,17 @@ Images download as renditions made for a purpose, not the raw original:
 | Original | The file as uploaded, with its metadata written in |
 
 Web, Print and Social unless you pick others. Anything that isn't an image (a
-PDF, a video, a font) downloads as itself.
+PDF, a video, a font) downloads as itself. Each file's card lists its presets,
+a download each.
+
+On each card and beside a file's downloads, **Can I use this?** asks its rights for a use, a
+country and a day ([the check](/guides/check), behind the portal's door:
+`POST /api/v1/portal/{slug}/check`). It only answers about files the portal
+shows, and counts in Insights as the portal's.
+
+The portal's header names what it shows: **Guidelines** (each brand by its
+name, when it carries several), **Assets**, **What's new** (`?view=updates`)
+and **Contact**, the footer's feedback address when one is set.
 
 ## Who gets in
 
@@ -226,8 +236,112 @@ A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 
 The last four answer for public brands only. Anyone may make public a brand
 of any name, so a page names who has it. An organization with a verified
-[domain](#a-domain-of-its-own) gets a badge with that domain; any other public
-brand is a community one, says so, and is kept out of search engines.
+[domain](#a-domain-of-its-own) or a verified GitHub account gets a badge with
+it; any other public brand is a community one, says so, and is kept out of
+search engines (`noindex` on its page, `X-Robots-Tag: noindex` on its files,
+and left out of the sitemap).
+
+### Verified by GitHub
+
+Beside a domain, an organization can prove it runs a GitHub organization, in
+Settings, **BrandHub** (`POST /api/v1/github-orgs`), which opens on whether
+its listings are verified and by which domains and accounts. Put the file it names,
+`artbucket-verification.txt` holding the token shown, in the account's
+`.github` repository on its default branch, then **Check now**
+(`POST /api/v1/github-orgs/{login}/verify`). The server reads it from
+`raw.githubusercontent.com`, following no redirect. Once proved, the
+organization's listings show as verified by `github.com/{login}`. Like a
+domain, one left unproved for 7 days may be named by another organization.
+
+### Report, claim and delist
+
+Every public listing has **Report**: anyone, signed in or not, says what is
+wrong (`POST /api/v1/hub/{org}/{brand}/reports`: a reason, a note, and a way
+to reach them if they want). A community listing also has **It's my brand**:
+an admin of an organization that proved a domain or a GitHub account claims
+it (`POST /api/v1/hub/{org}/{brand}/claims`), and the claim names what they
+proved and their email. Nothing of either is public, and no IP address is
+kept: an address only counts toward a few reports an hour.
+
+Both land in the listing's organization's Settings, **BrandHub**
+(`GET /api/v1/hub/reports`), where its admins resolve them, reach a claimant
+and hand the brand over (the claimant can start from it, below), or **Take off
+BrandHub**, which makes the brand private (`PATCH /api/v1/hub/reports/{id}`
+with `"delist": true`). The organization can always take its own brand off
+the hub the same way on the Brands page.
+
+Whoever runs the server reads every report in the database, and can delist a
+brand for good: while `hub_delisted` holds a reason, the brand is off the hub
+and its organization can't make it public again, which says why.
+
+```sql
+-- Open reports and claims, newest first
+select r.created_at, r.kind, r.reason, r.note, r.contact, r.proof, o.slug as org, b.slug as brand
+from hub_reports r
+join brands b on b.id = r.brand_id
+join workspaces w on w.id = b.workspace_id
+join organizations o on o.id = w.organization_id
+where r.status = 'open'
+order by r.created_at desc;
+
+-- Delist acme/firefox (setting null lists it again: its organization may then make it public)
+update brands set visibility = 'private', hub_delisted = 'A trademark complaint from its owner'
+where slug = 'firefox' and workspace_id in (select w.id from workspaces w join organizations o on o.id = w.organization_id where o.slug = 'acme');
+```
+
+### Start from this brand
+
+Signed in, **Start from this brand** on a public listing makes a new brand in
+the workspace you have open from that release: its rules, its theme, the pages
+and sections anyone may read (none hidden, or for partners or members), and
+the files they use that may be delivered, copied into your library (the same
+bytes, stored once). The new brand is yours to edit, with a history of its
+own, and keeps where it came from as `from`. An agent does the same with
+`create_brand` and `from: "rust-lang/rust@12"`, or `POST /api/v1/brands` with
+`{"name": "...", "from": "rust-lang/rust@12"}`; leave out `@12` for the
+latest release. A claimant a listing is handed over to starts from it the
+same way.
+
+### Pulls, follows, trending and collections
+
+A listing's **pulls** are its files (`brand.json`, `llms.txt`, `tokens`) read
+in the last 30 days, the same reads [Insights](/guides/insights) counts. Its
+card, its page and the brand's Overview show them ("1.2k pulls"), and
+`index.json` and `GET /api/v1/brands/{slug}/hub` carry them as `pulls`.
+
+Someone signed in can **Follow** a public listing
+(`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): the hub's front
+page then has a **Following** tab with the brands they follow. **Trending
+this week**, the order it opens in, sorts by pulls in the last 7 days. A
+community listing's card says it may not come from the brand's owner, and
+the front page ends with a domain box for the public Brand Agent Score.
+
+Curated collections, like "Open-source project brands", are the server
+operator's: each is a row in `hub_collections`, listing public brands as
+`{org}/{brand}` in order, and shows as a section on the hub's front page
+(lowest `position` first; a brand that isn't public is left out).
+
+```sql
+insert into hub_collections (slug, title, description, position, brands)
+values ('open-source', 'Open-source project brands', 'Projects that share their brand in the open.', 0,
+        array['blender/blender', 'mozilla/firefox', 'rust-lang/rust']);
+```
+
+### A public Brand Agent Score
+
+`/score` on BrandHub checks any domain the way an agent would find the brand
+there, for anyone, and scores it out of 100 on the scale of the Brand Agent
+Score in the app: colors (15), typefaces (15), a logo with its file (20) and a
+voice (15), read from the brand's rules; rules a machine reads (15), a
+`brand.json` its `llms.txt` links or at its root, or a public BrandHub listing
+of an organization that verified the domain; an `llms.txt` at its root (10);
+design tokens (5); and an MCP server its `llms.txt` names that answers (5).
+The report lists what raises the score, and offers to list the brand here.
+
+A stranger sets it off, so it is bounded: at most four fetches per domain,
+each to public addresses only, 256 KB and 6 seconds at most; a report is kept
+five minutes; and each address may ask ten times in ten minutes, everyone
+together two hundred. The address is never stored.
 
 ## A subdomain for every portal
 

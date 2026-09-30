@@ -7,6 +7,7 @@ import {
   IconMail,
   IconBrush,
   IconWorldWww,
+  IconWorld,
   IconPalette,
   IconUser,
   IconUsers,
@@ -121,6 +122,15 @@ export const SECTIONS: Section[] = [
     description: "Addresses of your own, for the app and for portals, each proved by a DNS record.",
     action: "organization.manage",
     feature: "domains",
+  },
+  {
+    context: "organization",
+    id: "hub",
+    label: "BrandHub",
+    icon: IconWorld,
+    description: "Prove your listings are yours with a GitHub account, and act on what people report or claim about them.",
+    action: "organization.manage",
+    hidden: (me) => !me.hub,
   },
   {
     context: "organization",

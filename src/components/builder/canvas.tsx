@@ -549,7 +549,7 @@ function Stage({ b }: { b: BuilderApi }) {
                 {change && (
                   <span className={cn("rounded-full px-2 py-0.5 font-medium", change === "new" ? "bg-highlight text-highlight-foreground" : "bg-warning text-white")}>
                     {CHANGE_LABEL[change]}
-                    <span className="sr-only"> since the last publish</span>
+                    <span className="sr-only"> since the last release</span>
                   </span>
                 )}
                 {s.hidden && <span className="bg-foreground text-background rounded-full px-2 py-0.5">Hidden from readers</span>}
@@ -865,13 +865,13 @@ function ChangesStrip({ changes, onHide }: { changes: Changes; onHide(): void })
   const count = (c: string) => [...changes.bySection.values()].filter((x) => x === c).length;
   const [fresh, changed, rule] = [count("new"), count("changed"), count("rule")];
   const said = changes.loading
-    ? "Reading the last publish…"
+    ? "Reading the last release…"
     : changes.error
       ? changes.error
       : changes.since === null
-        ? "Never published: everything here is new to readers."
+        ? "Never released: everything here is new to readers."
         : [
-            `Since version ${changes.since}:`,
+            `Since release @${changes.since}:`,
             [fresh && `${fresh} new`, changed && `${changed} changed`, rule && `${rule} with a rule changed`, changes.removed.length && `${changes.removed.length} removed (${changes.removed.join(", ")})`]
               .filter(Boolean)
               .join(", ") || "nothing on this page.",

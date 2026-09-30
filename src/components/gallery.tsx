@@ -80,7 +80,7 @@ import { useShell } from "@/components/shell";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
-import { STATE_LABEL, type State, type Status } from "@/lib/lifecycle";
+import { expiring, STATE_LABEL, type State, type Status } from "@/lib/lifecycle";
 import type { Origin, Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
@@ -130,6 +130,8 @@ export type Asset = {
   proposedFields?: Record<string, unknown>;
   rights: Rights | null;
   origin: Origin | null;
+  /** How it arrived when not from a person: through an API key, or imported by the server. */
+  via?: "agent" | "import" | null;
   /** The asset it was made from. */
   parentAssetId: string | null;
   generator: string | null;
@@ -287,12 +289,34 @@ function useInView<T extends Element>(margin = "200px") {
   return [setEl, seen] as const;
 }
 
+/** Where a suggestion came from, for the review queue: what a model made, what an agent sent, what was imported. */
+export const provenanceChips = (a: Pick<Asset, "origin" | "via">) =>
+  [a.origin === "generated" && "AI-made", a.via === "agent" && "By an agent", a.via === "import" && "Imported"].filter((c) => c !== false);
+
+/**
+ * What the review queue shows about an item before anyone opens it: where it
+ * came from, the evidence that came with it, and what is missing before it
+ * may run everywhere (`missing`, said as a warning).
+ */
+export const reviewChips = (a: Pick<Asset, "origin" | "via" | "generator" | "prompt" | "c2pa" | "rights">) => ({
+  from: [...provenanceChips(a), a.generator && `Made with ${a.generator}`, a.prompt && "Prompt recorded", a.c2pa && "Content Credentials"].filter(
+    (c): c is string => !!c,
+  ),
+  // Without one, lib/rights.ts refuses every use but editorial.
+  missing: a.rights?.modelRelease === "missing" ? "Missing: model release" : null,
+});
+
 /** What the grid and the list say about an asset beyond its type: its state, its version, what waits on it. */
 export function stateBadge(a: Asset) {
   const n = a.proposedTags.length + Object.keys(a.proposedFields ?? {}).length;
   return {
-    // What /api/v1/check would refuse whatever the use: said before anyone picks it.
-    state: a.supersededBy && a.state === "active" ? "Replaced" : !["active", "proposed"].includes(a.state) ? STATE_LABEL[a.state] : null,
+    // What /api/v1/check would refuse whatever the use, or soon will: said before anyone picks it.
+    state:
+      a.supersededBy && a.state === "active"
+        ? "Replaced"
+        : !["active", "proposed"].includes(a.state)
+          ? STATE_LABEL[a.state]
+          : expiring({ status: a.status, rights: a.rights }),
     version: a.version ? `v${a.version}` : null,
     suggested: a.status === "proposed" ? "Suggested" : n ? `${n} ${n === 1 ? "suggestion" : "suggestions"}` : null,
   };
@@ -966,8 +990,10 @@ export function Gallery({
   useEffect(() => {
     if (recentKey) rememberRecent(JSON.parse(recentKey));
   }, [recentKey, rememberRecent]);
-  const title = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? "All assets"));
-  const where = activeSearch?.name ?? (view.review ? "Review" : inCollection?.name);
+  // A search of the whole library is named by its words, as the prototype's “winter” is.
+  const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
+  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
+  const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : undefined)));
 
   // The tab says which view (or asset) it is; the history menu too.
   const tabTitle = open ? open.metadata?.title || open.filename : (where ?? "Assets");
@@ -1013,7 +1039,7 @@ export function Gallery({
 
   return (
     <>
-      <AppHeader trail={where ? [{ label: "Assets", href: "/" }, { label: where }] : [{ label: "Assets" }]}>
+      <AppHeader trail={where ? [{ label: "Library", href: "/" }, { label: where }] : [{ label: "Library" }]}>
         <div className="relative w-36 sm:w-64">
           {searching ? (
             <IconLoader2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 animate-spin" />
@@ -1165,7 +1191,9 @@ export function Gallery({
           description={
             view.review
               ? "What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it."
-              : activeSearch
+              : searched
+                ? `${total.toLocaleString()} ${total === 1 ? "result" : "results"}, approved and in date unless Status says otherwise.`
+                : activeSearch
                 ? "A saved search: this link always shows what matches now."
                 : inCollection
                   ? `${canUpload ? `Uploads made here land in ${inCollection.name}.` : ""}${
@@ -1388,7 +1416,7 @@ export function Gallery({
                 </Button>
               )}
               <Button variant="outline" asChild>
-                <Link href="/agents">
+                <Link href="/connections">
                   <IconRobot /> Connect an agent
                 </Link>
               </Button>
@@ -1424,10 +1452,12 @@ export function Gallery({
               <EmptyMedia variant="icon">
                 <IconSearch />
               </EmptyMedia>
-              <EmptyTitle>No matches</EmptyTitle>
+              <EmptyTitle>{view.q ? <>No results for &ldquo;{view.q}&rdquo;</> : "No matches"}</EmptyTitle>
               <EmptyDescription>
-                {view.q ? <>Nothing matches &ldquo;{view.q}&rdquo;</> : "Nothing matches these filters"}
+                {view.q ? "Nothing matches it" : "Nothing matches these filters"}
                 {inCollection ? ` in ${inCollection.name}` : ""}. Try fewer words or drop a filter.
+                {/* lib/core/assets.ts records the empty search; Insights lists them as search gaps. */}
+                {view.q && " The search is logged as a search gap, so the brand team sees what people look for."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center">
@@ -1816,9 +1846,10 @@ export const AssetCard = memo(function AssetCard({
               <span className="truncate">{badge.suggested}</span>
             </Badge>
           )}
-          {badge.state ? (
+          {/* Its state first (replaced, expired, expiring); else where it came from (AI-made, by an agent, imported). */}
+          {(badge.state ?? provenanceChips(a)[0]) ? (
             <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 max-w-[calc(50%-0.75rem)] truncate backdrop-blur">
-              {badge.state}
+              {badge.state ?? provenanceChips(a)[0]}
             </Badge>
           ) : (
             video &&
@@ -1850,7 +1881,9 @@ export const AssetCard = memo(function AssetCard({
           )}
         </div>
         <span id={about} className="sr-only">
-          {[fileTypeBadge(a.filename, a.mime, a.probe), formatBytes(a.size), badge.state, badge.suggested, selected ? "selected" : null].filter(Boolean).join(", ")}
+          {[fileTypeBadge(a.filename, a.mime, a.probe), formatBytes(a.size), badge.state, badge.suggested, ...provenanceChips(a), selected ? "selected" : null]
+            .filter(Boolean)
+            .join(", ")}
         </span>
       </button>
       {onPick && (

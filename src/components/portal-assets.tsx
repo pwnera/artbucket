@@ -34,6 +34,7 @@ export type AssetsView = {
     site: PortalSite;
     /** The first brand's look (lib/core/page-view.ts viewLook); with no brand, the portal's accent over the app's own. */
     look: BrandLook;
+    madeWith?: boolean;
   };
   data: Item[];
   total: number;
@@ -94,6 +95,12 @@ export function PortalAssets({
   /** The newest load: only it may say what shows. */
   const loads = useRef(0);
   const search = useRef<HTMLInputElement>(null);
+  /** "Can I use this?" on an open file, through the same door as the portal. */
+  const ask = (id: string, use: object) => {
+    const h = new Headers(headers());
+    h.set("Content-Type", "application/json");
+    return fetch(`/api/v1/portal/${slug}/check`, { method: "POST", headers: h, body: JSON.stringify({ asset: id, ...use }) });
+  };
 
   const fetchPage = useCallback(
     async (offset: number, signal?: AbortSignal) => {
@@ -222,7 +229,7 @@ export function PortalAssets({
             : `${total} ${total === 1 ? "file" : "files"}${inCollection ? ` in ${inCollection.name}` : ""}`}
         </p>
         {data.length ? (
-          <PublicGrid items={data.map(withOriginal)} asset={asset} busy={pending} />
+          <PublicGrid items={data.map(withOriginal)} asset={asset} busy={pending} ask={ask} />
         ) : (
           <Empty
             size="sm"

@@ -46,6 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { guidelinesPath } from "@/lib/site";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 
@@ -155,6 +156,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
   const any = collections.length > 0 || brands.length > 0;
+  // Arriving from a brand's Portals tab: only the portals showing it.
+  const only = brands.find((b) => b.slug === params.get("brand"));
+  const shown = only ? rows.filter((p) => p.brands.some((b) => b.slug === only.slug)) : rows;
 
   return (
     <>
@@ -169,6 +173,14 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             <IconPlus /> New portal
           </Button>
         </PageHeader>
+        {only && (
+          <p className="text-muted-foreground -mt-2 text-sm">
+            The portals showing {only.name}.{" "}
+            <Link href="/portals" className="text-foreground underline underline-offset-2">
+              Show all
+            </Link>
+          </p>
+        )}
         {rows.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
@@ -196,7 +208,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </Empty>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {rows.map((p) => (
+            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
+            {shown.map((p) => (
               <li key={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
                   className="size-8 shrink-0 rounded-md border"
@@ -667,7 +680,7 @@ function PortalDialog({
             >
               {f.pickedBrands.length > 0 && (
                 <div className="grid gap-1.5">
-                  <p className="text-muted-foreground text-xs">Visitors read each brand as last published, never the draft.</p>
+                  <p className="text-muted-foreground text-xs">Visitors read each brand as last released, never the draft.</p>
                   <ul aria-label="What visitors read" className="grid gap-1">
                     {f.pickedBrands.map((slug) => (
                       <PublishState key={slug} brand={brands.find((b) => b.slug === slug) ?? { slug, name: slug }} />
@@ -682,7 +695,15 @@ function PortalDialog({
               {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
             </Picks>
           )}
-          {current && current.brands.length > 0 && <PageViews portal={current} />}
+          {current && current.brands.length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              How often its pages are read is in{" "}
+              <Link href="/insights" className="text-foreground underline-offset-2 hover:underline">
+                Insights
+              </Link>
+              .
+            </p>
+          )}
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Who gets in</legend>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -955,8 +976,8 @@ function Unpublished({ brands }: { brands: Portal["brands"] }) {
   const none = brands.filter((b) => !b.publishedAt);
   if (!none.length) return null;
   return (
-    <Badge variant="warning" title={`Visitors see nothing of ${none.map((b) => b.name).join(", ")} until it is published`}>
-      {none.length === 1 ? `${none[0].name} not published` : `${none.length} brands not published`}
+    <Badge variant="warning" title={`Visitors see nothing of ${none.map((b) => b.name).join(", ")} until it is released`}>
+      {none.length === 1 ? `${none[0].name} not released` : `${none.length} brands not released`}
     </Badge>
   );
 }
@@ -980,61 +1001,18 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
       <span className="min-w-0 truncate font-medium">{brand.name}</span>
       {last === null && (
         <>
-          <Badge variant="warning">Not published: visitors see nothing</Badge>
-          <Link href={`/brand?${new URLSearchParams({ brand: brand.slug })}`} className="text-foreground underline underline-offset-2">
-            Open it to publish
+          <Badge variant="warning">Not released: visitors see nothing</Badge>
+          <Link href={guidelinesPath(brand.slug)} className="text-foreground underline underline-offset-2">
+            Open it to release
           </Link>
         </>
       )}
       {last && (
         <span className="text-muted-foreground" title={exact(last.publishedAt)}>
-          Version {last.version}, published {new Date(last.publishedAt).toLocaleDateString()}
+          Release @{last.version}, {new Date(last.publishedAt).toLocaleDateString()}
         </span>
       )}
     </li>
-  );
-}
-
-type Views = { days: number; pages: { brand: { slug: string; name: string }; page: string; views: number }[] };
-
-/** How often its pages were read lately (GET /portals/{id}/views), most read first, each page's brand named when it carries several. */
-function PageViews({ portal }: { portal: Portal }) {
-  // undefined while it loads; null when it couldn't, and nothing is said rather than something wrong.
-  const [got, setGot] = useState<Views | null>();
-  useEffect(() => {
-    let live = true;
-    fetch(`/api/v1/portals/${portal.id}/views`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((b: { data: Views }) => live && setGot(b.data))
-      .catch(() => live && setGot(null));
-    return () => {
-      live = false;
-    };
-  }, [portal.id]);
-  if (got === null) return null;
-  const pages = got?.pages ?? [];
-  const several = portal.brands.length > 1 || pages.some((p) => p.brand.slug !== pages[0].brand.slug);
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium">Page views, last {got?.days ?? 30} days</p>
-      {!got ? (
-        <Skeleton className="h-12 w-full" />
-      ) : pages.length === 0 ? (
-        <p className="text-muted-foreground text-xs">None yet. Each page a visitor opens counts here, a day at a time.</p>
-      ) : (
-        <ol aria-label="Page views" className="grid max-h-48 gap-1 overflow-y-auto rounded-md border p-2 text-sm">
-          {pages.map((p) => (
-            <li key={`${p.brand.slug}/${p.page}`} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate">
-                {several && <span className="text-muted-foreground">{p.brand.name}: </span>}
-                {p.page}
-              </span>
-              <span className="text-muted-foreground tabular-nums">{p.views.toLocaleString()}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
 import { FontThumb } from "@/components/font-preview";
-import { GLYPH_INK, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
+import { GLYPH_INK, reviewChips, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
 import { IconGlyph } from "@/components/icon-glyph";
 import { stem } from "@/components/renditions";
 import { Can, useCan } from "@/components/can";
@@ -111,6 +111,7 @@ export function AssetTable({
           {assets.map((a) => {
             const title = a.metadata?.title || a.filename;
             const badge = stateBadge(a);
+            const chips = reviewChips(a);
             return (
               <AssetMenu key={a.id} asset={a} {...menu(a)}>
                 <tr
@@ -213,8 +214,23 @@ export function AssetTable({
                           {a.proposedBy === "web" ? "Someone on the web" : (a.proposedBy ?? "an agent")}
                         </span>
                         <span className="text-muted-foreground text-xs" title={exact(a.updatedAt)} suppressHydrationWarning>
-                          {a.status === "proposed" ? "New asset" : suggestions(a)} · {ago(a.updatedAt)}
+                          {a.status !== "proposed" ? suggestions(a) : a.version && a.version > 1 ? `New version, v${a.version}` : "New asset"} ·{" "}
+                          {ago(a.updatedAt)}
                         </span>
+                        {(chips.from.length > 0 || chips.missing) && (
+                          <span className="flex flex-wrap gap-1">
+                            {chips.from.map((c) => (
+                              <Badge key={c} variant="outline" className="text-2xs h-4 px-1.5 font-normal">
+                                {c}
+                              </Badge>
+                            ))}
+                            {chips.missing && (
+                              <Badge variant="outline" className="text-2xs border-destructive/50 text-destructive h-4 px-1.5 font-normal">
+                                {chips.missing}
+                              </Badge>
+                            )}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>

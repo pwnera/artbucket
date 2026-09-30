@@ -5,6 +5,17 @@ import { type Audience, boundKeys, type PageLayout, type Section, slugOfSection,
 import type { Download } from "./portal.ts";
 import { fontLabel, fontValue, type RuleAsset, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
+/** A brand in the app: its Overview. */
+/** A brand's page in the app, or one of its tabs by `tail` ("/releases", "/insights"). */
+export const brandPath = (slug: string, tail = "") => `/brands/${encodeURIComponent(slug)}${tail}`;
+
+/** A brand's guidelines in the app: the builder, or with `view: "read"` its pages as readers see them; `panel` opens one of the builder's. */
+export function guidelinesPath(slug: string, q: Record<string, string | null | undefined> = {}) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
+  return `${brandPath(slug)}/guidelines${p.size ? `?${p}` : ""}`;
+}
+
 /**
  * A brand's pages as readers get them: one page at a time, with the nav of
  * every page around it, the rules it shows and the media it names, ready to

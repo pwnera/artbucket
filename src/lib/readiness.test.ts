@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { publishState, readiness } from "./readiness.ts";
+import { agentScore, publishState, readiness, WEIGHTS } from "./readiness.ts";
 
 const EMPTY = { rules: [], pages: [], versions: [], portals: [] };
 
@@ -56,4 +56,21 @@ test("a caller who can't list portals isn't told to share, nor counted for it", 
 test("a look is chosen once any layout setting is set; the colors alone are not one", () => {
   assert.equal(readiness({ ...EMPTY, theme: { accent: "color.primary" } }).steps.find((s) => s.id === "look")!.done, false);
   assert.equal(readiness({ ...EMPTY, theme: { header: "band" } }).steps.find((s) => s.id === "look")!.done, true);
+});
+
+test("the Brand Agent Score weighs the steps done, and says what each adds", () => {
+  assert.equal(Object.values(WEIGHTS).reduce((a, b) => a + b, 0), 100);
+  const empty = readiness(EMPTY);
+  assert.equal(empty.score, 0);
+  assert.equal(empty.steps.find((s) => s.id === "logo")!.points, 20);
+  const some = readiness({ ...EMPTY, rules: [{ key: "color.primary", type: "color" }, { key: "tone.voice", type: "text" }] });
+  assert.equal(some.score, 30);
+  const all = agentScore(empty.steps.map((s) => ({ id: s.id, done: true })));
+  assert.equal(all.score, 100);
+});
+
+test("a step the caller can't tell counts for nothing: the rest make the 100", () => {
+  const r = readiness({ ...EMPTY, portals: null, rules: [{ key: "color.primary", type: "color" }] });
+  assert.equal(r.steps.find((s) => s.id === "portal")!.points, 0);
+  assert.equal(r.score, Math.round((100 * 15) / 95));
 });

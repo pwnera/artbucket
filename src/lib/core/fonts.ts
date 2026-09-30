@@ -63,7 +63,7 @@ export async function importGoogleFont(
   const faces = parseFontFaces(css);
   const out: Asset[] = new Array(faces.length);
   await pool([...faces.entries()], 4, async ([i, face]) => {
-    out[i] = (await ingestFromUrl(caller, { ...rest, url: face.url, filename: fontFileName(name, face) })).asset;
+    out[i] = (await ingestFromUrl(caller, { ...rest, via: "import", url: face.url, filename: fontFileName(name, face) })).asset;
   });
   return { family: name, assets: out };
 }

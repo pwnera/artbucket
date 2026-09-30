@@ -10,6 +10,7 @@ import { record } from "@/lib/core/activity";
 import { recordAudit } from "@/lib/core/audit";
 import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
+import { recordSearch, who } from "@/lib/core/events";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
@@ -25,6 +26,7 @@ import { fontMime } from "@/lib/font";
 import { isMonochromeSvg } from "@/lib/icons";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
+import type { Surface } from "@/lib/insights";
 import { isEmpty, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { isReview, STATES, type State } from "@/lib/lifecycle";
@@ -185,6 +187,8 @@ type FinalizeInput = {
   status?: "draft" | "active";
   /** What the server knows to say about it (an imported icon's title and author); the file's own metadata wins. */
   described?: Partial<Record<(typeof EDITABLE)[number], string>>;
+  /** Brought in by the server from outside (an icon set, Google Fonts, a template), never said by a client. */
+  via?: "import";
 } & Provenance;
 
 async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
@@ -304,6 +308,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
         prompt: input.prompt ?? null,
         c2pa,
+        via: input.via ?? (caller.key ? "agent" : null),
         stackId: stack,
         version,
       })
@@ -582,7 +587,8 @@ export function assetWhere(
  * matching set. Fine at the v0.2 target (1,000 assets, <100ms); cache or
  * approximate past ~100k.
  */
-export async function searchAssets(caller: Caller, query: AssetQuery) {
+/** `surface`: where the search came in, for Insights; a search with words is recorded, found or not. */
+export async function searchAssets(caller: Caller, query: AssetQuery, surface: Surface = caller.key ? "api" : "app") {
   const { q, limit = 100, offset = 0 } = query;
   const tsq = q ? prefixQuery(q) : null;
   const where = (except?: string, anyType = false, anyState = false) => assetWhere(caller, query, except, anyType, anyState);
@@ -607,6 +613,7 @@ export async function searchAssets(caller: Caller, query: AssetQuery) {
     stateFacet(where(undefined, false, true)),
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
+  if (!offset) recordSearch(caller.workspace.id, q, total > 0, { surface, ...who(caller) });
   return {
     data,
     /** Every match, not just this page: page with `offset` until it is reached. */

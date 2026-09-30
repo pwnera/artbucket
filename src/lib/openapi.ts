@@ -204,8 +204,9 @@ export function openapi(serverUrl: string) {
             "`tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's " +
             "variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens " +
             "(DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are " +
-            "under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are " +
-            "guidance, not tokens, and are left out.",
+            "under `$extensions`. `designmd`: DESIGN.md for coding agents, the tokens as YAML front matter and the " +
+            "guidance as prose. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are " +
+            "guidance, not tokens, and are left out of every format but `designmd`.",
           query: {
             format: { schema: { type: "string", enum: TOKEN_FORMAT_IDS, default: "css" }, description: "The output" },
             brand: { schema: str, description: "A brand's slug; the default brand without it" },
@@ -336,6 +337,16 @@ export function openapi(serverUrl: string) {
           scope: "read",
           description: "Newest first. `current` marks the one the library shows and share links serve. An asset with one version lists itself.",
           ok: [200, "The versions", data(z.array(S.Asset))],
+        }),
+      },
+      "/api/v1/assets/{id}/insights": {
+        parameters: [path("id", "Asset id")],
+        get: op({
+          summary: "Where it is used",
+          scope: "write",
+          description:
+            "The brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by referrer host.",
+          ok: [200, "Where it is used", data(S.AssetInsights)],
         }),
       },
       "/api/v1/assets/{id}/versions/{number}/current": {
@@ -550,12 +561,36 @@ export function openapi(serverUrl: string) {
       "/api/v1/brands/{slug}/status": {
         parameters: [path("slug", "Brand slug")],
         get: op({
-          summary: "A brand's launch checklist",
+          summary: "A brand's launch checklist and Brand Agent Score",
           scope: "read",
           description:
             "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in " +
-            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.",
+            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done. " +
+            "`score` is the Brand Agent Score, 0 to 100, and each step's `points` what it adds once done.",
           ok: [200, "The checklist", data(S.BrandStatus)],
+        }),
+      },
+      "/api/v1/brands/{slug}/insights": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's signals",
+          scope: "write",
+          description:
+            "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals. " +
+            "Fetches and checks name a file, so the brand's are the files its rules held in its recent releases: from them, this " +
+            "week's answers and refusals, and release adoption, the fetches since the latest release on it or on an older one.",
+          ok: [200, "The signals", data(S.BrandInsights)],
+        }),
+      },
+      "/api/v1/brands/{slug}/assets": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "The files a brand uses",
+          scope: "read",
+          description:
+            "Its rules' files, in the rules' order, then the ones its pages show (a cover, an image, a video, a file), " +
+            "each with the rules and pages it is in. Only what the caller may see.",
+          ok: [200, "Its files", data(z.array(S.BrandAsset))],
         }),
       },
       "/api/v1/brands/{slug}/versions": {
@@ -941,6 +976,29 @@ export function openapi(serverUrl: string) {
           ok: [200, "Usage", data(S.Usage)],
         }),
       },
+      "/api/v1/insights": {
+        get: op({
+          summary: "Insights",
+          scope: "write",
+          description:
+            "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, " +
+            "the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), " +
+            "delivery traffic and portal page views. " +
+            "Events never hold an IP address, a person's name or a full URL, and never leave this server.",
+          ok: [200, "Insights", data(S.Insights)],
+        }),
+      },
+      "/api/v1/insights/connections": {
+        get: op({
+          summary: "Connections: what each agent asked for",
+          scope: "write",
+          description:
+            "Per agent (an API key or OAuth client, by name), over the last 30 days: the MCP tools it called and how many failed, " +
+            "the brand contexts it asked for, the uses it was refused and why, and the files it fetched and searches it made. " +
+            "A tool call keeps its name and outcome, never its arguments.",
+          ok: [200, "Connections", data(S.Connections)],
+        }),
+      },
       "/api/v1/workspaces": {
         get: op({
           summary: "Workspaces in this organization",
@@ -1251,6 +1309,20 @@ export function openapi(serverUrl: string) {
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },
+      "/api/v1/portal/{slug}/check": {
+        parameters: [path("slug", "The portal's address")],
+        post: op({
+          summary: "May this portal file be used like this?",
+          scope: "public",
+          description:
+            "POST /api/v1/check for a portal's visitor, behind the same door as the portal (see GET /api/v1/portal/{slug}): " +
+            "one of the files it shows, weighed for a use against its license window, territories, channels and model " +
+            "release. A file the portal doesn't show is a 404. It never suggests another file.",
+          body: S.PortalCheckInput,
+          ok: [200, "The verdict", S.PortalCheckResult],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
       "/api/v1/portal/{slug}/updates": {
         parameters: [path("slug", "The portal's address")],
         get: op({
@@ -1316,6 +1388,89 @@ export function openapi(serverUrl: string) {
       "/api/v1/domains/{host}/verify": {
         parameters: [path("host", "e.g. assets.example.com")],
         post: op({ summary: "Verify a domain", scope: "admin", description: "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.", ok: [200, "The domain", data(S.Domain)] }),
+      },
+      "/api/v1/github-orgs": {
+        get: op({ summary: "The organization's GitHub accounts", scope: "admin", description: "Named as its own, proved or not. Organization admin.", ok: [200, "GitHub accounts", data(z.array(S.GithubAccount))] }),
+        post: op({
+          summary: "Name a GitHub account",
+          scope: "admin",
+          description:
+            "A GitHub organization (or account) of the organization's. Put the file in `file` in its `.github` repository, " +
+            "holding `file.token`, then POST /api/v1/github-orgs/{login}/verify. Once proved, the organization's BrandHub " +
+            "listings are verified, as github.com/{login}, like a verified domain.",
+          body: S.GithubInput,
+          ok: [201, "The account, not verified yet", data(S.GithubAccount)],
+        }),
+      },
+      "/api/v1/github-orgs/{login}": {
+        parameters: [path("login", "e.g. rust-lang")],
+        delete: op({ summary: "Remove a GitHub account", scope: "admin", description: "It proves nothing for the organization from then on.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/github-orgs/{login}/verify": {
+        parameters: [path("login", "e.g. rust-lang")],
+        post: op({
+          summary: "Verify a GitHub account",
+          scope: "admin",
+          description: "Reads the proof file from the account's `.github` repository, on its default branch, now; a 422 says what is missing.",
+          ok: [200, "The account", data(S.GithubAccount)],
+        }),
+      },
+      "/api/v1/hub/{org}/{brand}/reports": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        post: op({
+          summary: "Report a BrandHub listing",
+          scope: "public",
+          description:
+            "Tell a public listing's owner, and this server's operator, what is wrong with it. Nothing about it is public. " +
+            "Anyone may report; a few an hour from one address, and the address is never kept.",
+          body: S.HubReportInput,
+          ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
+        }),
+      },
+      "/api/v1/hub/{org}/{brand}/claims": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        post: op({
+          summary: "Claim a BrandHub listing",
+          scope: "admin",
+          description:
+            "Say a public listing is your organization's brand. It takes an organization admin, signed in, whose organization " +
+            "proved a domain or a GitHub account: the claim names it, with your email, for the listing's owner and this " +
+            "server's operator, who hand it over or take it down.",
+          body: S.HubClaimInput,
+          ok: [202, "Received", data(z.object({ received: z.literal(true), proof: z.string().describe("What the claim names you as holding") }))],
+        }),
+      },
+      "/api/v1/hub/{org}/{brand}/follow": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        put: op({
+          summary: "Follow a BrandHub listing",
+          scope: "any",
+          description: "A person, signed in: the public listing shows in their Following tab on BrandHub. Following one already followed changes nothing.",
+          ok: [200, "Following", data(z.object({ following: z.literal(true) }))],
+        }),
+        delete: op({ summary: "Stop following a BrandHub listing", scope: "any", description: "A person, signed in.", ok: [200, "Not following", data(z.object({ following: z.literal(false) }))] }),
+      },
+      "/api/v1/hub/reports": {
+        get: op({
+          summary: "Reports and claims about your listings",
+          scope: "admin",
+          description: "About the organization's BrandHub listings, open first, newest first, 200 at most. Organization admin.",
+          ok: [200, "Reports and claims", data(z.array(S.HubReport))],
+        }),
+      },
+      "/api/v1/hub/reports/{id}": {
+        parameters: [path("id", "The report's id")],
+        patch: op({
+          summary: "Act on a report or a claim",
+          scope: "admin",
+          description: "Mark it resolved, or open again; `delist` takes its listing off BrandHub (the brand goes private).",
+          body: S.HubReportPatch,
+          ok: [
+            200,
+            "The report",
+            data(z.object({ id: z.uuid(), status: z.enum(["open", "resolved"]), brand: z.object({ slug: z.string(), visibility: z.enum(["private", "public"]) }) })),
+          ],
+        }),
       },
       "/api/v1/sso": {
         get: op({

@@ -35,18 +35,14 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { brandPath, guidelinesPath } from "@/lib/site";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
 
 export type BrandInfo = { slug: string; name: string; default: boolean; rules: number };
 
-/** The default brand lives at /brand; any other at /brand?brand={slug}. */
-export const brandHref = (b: { slug: string; default: boolean }, context?: string) => {
-  const q = new URLSearchParams();
-  if (!b.default) q.set("brand", b.slug);
-  if (context) q.set("context", context);
-  return `/brand${q.size ? `?${q}` : ""}`;
-};
+/** A brand in the app: its Overview, the tab it opens on. */
+export const brandHref = (b: { slug: string }) => brandPath(b.slug);
 
 type Editing = { kind: "rename"; brand: BrandInfo } | { kind: "copy"; brand: BrandInfo };
 
@@ -93,14 +89,12 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   async function makeDefault(b: BrandInfo) {
     const was = brands.find((x) => x.default);
     if (!(await send("PATCH", `/api/v1/brands/${b.slug}`, { default: true }))) return;
-    router.push(brandHref({ ...b, default: true }));
+    // A brand's address names it, default or not: only the star moves.
     router.refresh();
     if (!was) return void toast.success(`${b.name} is the default brand`);
     undoable(`${b.name} is the default brand`, {
-      // The old default back, and this brand still on screen, at its own address again.
       undo: async () => {
         if (!(await send("PATCH", `/api/v1/brands/${was.slug}`, { default: true }))) return false;
-        router.push(brandHref(b));
         router.refresh();
       },
     });
@@ -110,7 +104,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   async function remove(b: BrandInfo) {
     if (!(await send("DELETE", `/api/v1/brands/${b.slug}`))) return false;
     toast.success(`Deleted ${b.name}`);
-    if (b.slug === current) router.push("/brand");
+    if (b.slug === current) router.push("/brands");
     router.refresh();
     return true;
   }
@@ -197,7 +191,8 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
           onDone={(b) => {
             setCreating(closing);
             toast.success(`Created ${b.name}`);
-            router.push(brandHref(b));
+            // A new brand starts from its setup, in the guidelines.
+            router.push(guidelinesPath(b.slug));
             router.refresh();
           }}
         />
@@ -232,7 +227,8 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   );
 }
 
-function BrandDialog({
+/** Rename a brand, or duplicate it (POST /api/v1/brands with `from`): the sidebar's menu, and Use this brand's Duplicate. */
+export function BrandDialog({
   open,
   editing,
   onClose,

@@ -20,11 +20,11 @@ import { TokensDialog } from "@/components/tokens-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
-import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
+import { firstBinding, guidelinesPath, legacyAnchor, neighbors, tree } from "@/lib/site";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
- * see it, in the brand's theme. /brand renders it keyed by brand slug, and
+ * see it, in the brand's theme. /brands/{slug}/guidelines renders it keyed by brand slug, and
  * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
  * beside it) and draws the panel b.panel names and the page settings
  * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
@@ -40,12 +40,14 @@ import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
  *   (the route rendered again: a link, ⌘K, Back) says which page to show.
  * - transport: left out, fetch; the dev page records writes in memory.
  * - header: the host's bar over the reader on a phone (the app's AppHeader).
+ * - panel: a panel to open on arrival (`?panel=`, from a brand's tabs).
  */
 export type BuilderProps = {
   brand: string;
   init: Init;
   transport?: Transport;
   header?: React.ReactNode;
+  panel?: Panel;
 };
 
 export function Builder(props: BuilderProps) {
@@ -56,7 +58,7 @@ export function Builder(props: BuilderProps) {
 /** A field's own undo comes first (as lib/undo.ts has it). */
 const FIELD = "input, textarea, select, [contenteditable]:not([contenteditable=false])";
 
-function Editor({ brand, init, transport, header }: BuilderProps) {
+function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) {
   const b = useBuilder(brand, init, transport);
   const mobile = useIsMobile();
   // The canvas and its panels want the room: the app's sidebar folds to its rail while editing, as it does for the reader.
@@ -67,6 +69,14 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
   useEffect(() => {
     live.current = b;
   });
+  // Arriving from a brand's tab (Tokens and rules, Releases): its panel, open, and the address back to the page alone.
+  useEffect(() => {
+    if (!asked) return;
+    live.current.setPanel(asked);
+    const q = new URLSearchParams(location.search);
+    q.delete("panel");
+    window.history.replaceState(null, "", `?${q}${location.hash}`);
+  }, [asked]);
   // ⌘K offers the builder's own commands first, read from the builder as it is when the palette opens.
   usePageCommands(useCallback(() => builderCommands(live.current), []));
 
@@ -292,15 +302,15 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
     return { ...b.view, nav: b.view.nav.filter((p) => !gone.has(p.slug)), page: page && { ...page, sections: page.sections.filter((s) => !s.hidden) } };
   }, [b.view, b.state.nav]);
   const href = useCallback(
-    (page: string, section?: string) => `/brand?${new URLSearchParams({ brand, view: "read", page })}${section ? `#${section}` : ""}`,
+    (page: string, section?: string) => `${guidelinesPath(brand, { view: "read", page })}${section ? `#${section}` : ""}`,
     [brand],
   );
   const navigate = useCallback((to: string) => {
     const u = new URL(to, location.href);
-    const page = u.pathname === "/brand" && u.searchParams.get("page");
+    const page = u.pathname === guidelinesPath(brand) && u.searchParams.get("page");
     if (page) live.current.open(page);
     else location.assign(to);
-  }, []);
+  }, [brand]);
 
   const panel = (p: Panel) => ({ open: b.panel === p, onOpenChange: (open: boolean) => b.setPanel(open ? p : null) });
 

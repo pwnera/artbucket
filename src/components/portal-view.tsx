@@ -33,6 +33,7 @@ type SiteData = {
     /** It shows collections: an Assets view (?view=assets). */
     assets: boolean;
     level: Audience;
+    madeWith?: boolean;
   };
   canonical: string | null;
   redirect: boolean;
@@ -364,11 +365,7 @@ export function PortalView({
 
   if (state.at === "assets") {
     const { portal } = state.view;
-    const first = portal.brands[0]?.slug;
-    const tabs = [
-      ...portal.brands.map((b) => ({ id: b.slug, name: b.name, href: at(base, b.slug === first ? "/" : `/${b.slug}`) })),
-      { id: "", name: "Assets", href: `${at(base, "/")}?view=assets` },
-    ];
+    const tabs = portalTabs(portal, base, true);
     return (
       <Shell theme={portal.theme}>
         <PortalAssets
@@ -409,10 +406,7 @@ export function PortalView({
     if (!res.ok || !body.data?.view) throw new Error(body.error?.message ?? `No page ${page}`);
     return body.data.view;
   };
-  const tabs = [
-    ...portal.brands.map((b) => ({ id: b.slug, name: b.name, href: at(base, b.slug === first ? "/" : `/${b.slug}`) })),
-    ...(portal.assets ? [{ id: "", name: "Assets", href: `${at(base, "/")}?view=assets` }] : []),
-  ];
+  const tabs = portalTabs(portal, base, portal.assets);
   // Pages above this visitor show locked; someone of the team can sign in to read them, where signing in works.
   const signIn = !ownDomain && portal.level !== "members" && (view.locked || view.nav.some((p) => p.locked));
   const here = `/p/${slug}${state.data.canonical && state.data.canonical !== "/" ? state.data.canonical : ""}`;
@@ -433,7 +427,7 @@ export function PortalView({
             whatsNew={mode === "updates"}
             header={
               <PortalHeader name={portal.name} theme={portal.theme} home={at(base, "/")} onNavigate={navigate}>
-                {tabs.length > 1 && <PortalNav tabs={tabs} current={brand} onNavigate={navigate} />}
+                {tabs.length > 1 && <PortalNav tabs={tabs} current={mode === "updates" ? "updates" : brand} onNavigate={navigate} />}
                 <div className="ms-auto flex shrink-0 items-center gap-1">
                   {signIn && (
                     <Button variant="ghost" size="sm" asChild>
@@ -539,15 +533,34 @@ function PortalHeader({
   );
 }
 
-/** What the portal shows, as tabs: its brands, each at its first page, and its Assets view. */
-function PortalNav({ tabs, current, onNavigate }: { tabs: { id: string; name: string; href: string }[]; current: string; onNavigate: (href: string) => void }) {
+type PortalTab = { id: string; name: string; href: string; external?: boolean };
+
+/**
+ * What the portal shows, as the prototype's press portal names it: its
+ * guidelines (each brand's by its name when it carries several), its Assets
+ * view, What's new, and Contact, the footer's feedback address.
+ */
+function portalTabs(portal: { brands: { slug: string; name: string }[]; site: PortalSite }, base: string, assets: boolean): PortalTab[] {
+  const first = portal.brands[0]?.slug;
+  const one = portal.brands.length === 1;
+  const contact = portal.site.footer?.feedback;
+  return [
+    ...portal.brands.map((b) => ({ id: b.slug, name: one ? "Guidelines" : b.name, href: at(base, b.slug === first ? "/" : `/${b.slug}`) })),
+    ...(assets ? [{ id: "", name: "Assets", href: `${at(base, "/")}?view=assets` }] : []),
+    ...(portal.brands.length ? [{ id: "updates", name: "What's new", href: `${at(base, "/")}?view=updates` }] : []),
+    ...(contact ? [{ id: "contact", name: "Contact", href: contact, external: true }] : []),
+  ];
+}
+
+/** The portal's tabs (portalTabs), the one showing marked. */
+function PortalNav({ tabs, current, onNavigate }: { tabs: PortalTab[]; current: string; onNavigate: (href: string) => void }) {
   return (
     <nav aria-label="What this portal shows" className="-mb-px flex min-w-0 flex-1 gap-5 overflow-x-auto">
       {tabs.map((t) => (
         <SiteLink
           key={t.id || "assets"}
           href={t.href}
-          onNavigate={onNavigate}
+          onNavigate={t.external ? undefined : onNavigate}
           aria-current={current === t.id ? "page" : undefined}
           className={cn(
             "shrink-0 border-b-2 py-3 text-sm transition-colors outline-offset-[-2px]",

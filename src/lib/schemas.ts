@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
+import { SURFACES } from "./insights.ts";
 import { FEATURES } from "./limits.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
@@ -17,6 +18,7 @@ import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, 
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 import { MAX_COMMENT } from "./comments.ts";
+import { HUB_REF, REPORT_REASONS } from "./hub.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -120,7 +122,7 @@ export const IconImport = z.strictObject({
 });
 
 export const TokenQuery = z.object({
-  format: z.enum(TOKEN_FORMAT_IDS).default("css").describe("css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra or json (W3C design tokens)"),
+  format: z.enum(TOKEN_FORMAT_IDS).default("css").describe("css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens) or designmd (DESIGN.md, with guidance)"),
   context: z.string().regex(RULE_CONTEXT).optional().describe("Resolve for this context; otherwise the defaults"),
 });
 
@@ -167,6 +169,9 @@ export const CheckInput = Use.extend({
   context: z.string().regex(RULE_CONTEXT).max(64).optional().describe("The brand context it is for, e.g. dark-background"),
   brand: z.string().max(60).optional().describe("Only this brand's rules; every brand's when left out"),
 }).strict();
+
+/** POST /api/v1/portal/{slug}/check: one of the portal's files, for a use. No context: a portal's check weighs the rights alone. */
+export const PortalCheckInput = Use.extend({ asset: uuid }).strict();
 
 /** POST /api/v1/brands/{slug}/pages, and generate_pages: `set` adds one topic's pages beside the ones there are. */
 export const GeneratePagesInput = z.strictObject({
@@ -221,7 +226,10 @@ const brandSlug = z.string().max(60).regex(RULE_CONTEXT, "Use a slug, e.g. acme-
 export const BrandCreate = z.strictObject({
   name: z.string().trim().min(1).max(80),
   slug: brandSlug.optional().describe("Defaults to the name, as a slug"),
-  from: brandSlug.optional().describe("Start as a copy of this brand's rules"),
+  from: z
+    .union([brandSlug, z.string().max(130).regex(HUB_REF, "A BrandHub brand, e.g. rust-lang/rust@12")])
+    .optional()
+    .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace"),
   template: z
     .enum(["firefox", "rust", "blender"])
     .optional()
@@ -347,6 +355,19 @@ export const SsoInput = z.strictObject({
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
 });
+export const GithubInput = z.strictObject({ login: z.string().min(1).max(100).describe("A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang") });
+export const HubReportInput = z.strictObject({
+  reason: z.enum(Object.keys(REPORT_REASONS) as [keyof typeof REPORT_REASONS, ...(keyof typeof REPORT_REASONS)[]]).describe(Object.entries(REPORT_REASONS).map(([k, v]) => `${k}: ${v}`).join("; ")),
+  note: z.string().trim().max(2000).optional().describe("What is wrong, in your words"),
+  contact: z.string().trim().max(200).optional().describe("How the listing's owner may reach you, if you want them to: seen by them and this server's operator only"),
+});
+export const HubClaimInput = z.strictObject({
+  note: z.string().trim().max(2000).optional().describe("Who you are to the brand, and whether you want the listing handed over or taken down"),
+});
+export const HubReportPatch = z.strictObject({
+  status: z.enum(["open", "resolved"]).optional(),
+  delist: z.literal(true).optional().describe("Take the listing off BrandHub: the brand goes private"),
+});
 export const DomainPatch = z.strictObject({ primary: z.literal(true).describe("Make it the default: where links in email point") });
 export const SignedUrlInput = z.strictObject({
   expiresIn: z
@@ -402,6 +423,7 @@ const provenanceOut = {
   generator: z.string().nullable(),
   prompt: z.string().nullable(),
   c2pa: C2pa,
+  via: z.enum(["agent", "import"]).nullable().describe("How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"),
 };
 const fieldValues = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 
@@ -526,6 +548,7 @@ export const Brand = z.object({
   name: z.string(),
   default: z.boolean(),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
+  from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
   rules: z.number().int(),
   createdAt: date,
 });
@@ -759,6 +782,11 @@ export const BrandHub = z.object({
   published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
   portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
   chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
+  pulls: z.number().int().describe("Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"),
+  delisted: z.string().nullable().describe("Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again"),
+  ref: z.string().describe("How BrandHub names it: {org}/{brand}"),
+  verified: z.string().nullable().describe("What its organization proved it holds, a domain or github.com/{login}; null: a community listing"),
+  terms: z.string().nullable().describe("The terms of use its guidelines portal asks readers to accept, in markdown"),
 });
 export const BrandHubView = BrandHub.extend({
   portals: z
@@ -793,11 +821,13 @@ export const BrandStatus = z.object({
         done: z.boolean().nullable().describe("null: the caller can't tell"),
         detail: z.string(),
         agent: z.string().describe("How an agent does it, with the tools by name"),
+        points: z.number().int().describe("What it adds to the Brand Agent Score once done; 0 when the caller can't tell"),
       }),
     )
     .describe("In the order to take them"),
   done: z.number().int(),
   total: z.number().int(),
+  score: z.number().int().min(0).max(100).describe("The Brand Agent Score: the steps done, weighed by what each gives an agent"),
   next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
   publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
   portals: z
@@ -959,6 +989,9 @@ export const CheckResult = z.object({
     .describe("What to use instead: the replacement, the brand's variant for the context"),
 });
 
+/** A portal's check answers the same, less the library's address for the file, and never suggests another. */
+export const PortalCheckResult = CheckResult.extend({ asset: z.object({ id: uuid, title: z.string() }) });
+
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });
 
 const limit = (what: string) => z.number().nullable().describe(`${what}; null: no limit`);
@@ -1020,6 +1053,7 @@ export const Me = z.object({
     .string()
     .nullable()
     .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
+  hub: z.boolean().describe("This server runs BrandHub (HUB_URL)"),
   notice: z
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
@@ -1192,6 +1226,152 @@ export const PortalViews = z.object({
     .array(z.object({ brand: z.object({ slug: z.string(), name: z.string() }), page: z.string().describe("The page's slug when it was read"), views: z.number().int() }))
     .describe("Most read first; a page shown counts, not an error, a lock or a redirect"),
 });
+const InsightAsset = z.object({
+  id: uuid,
+  title: z.string(),
+  version: z.number().int().nullable().describe("Its version in its stack; null for an asset with one"),
+  preview: z.boolean().describe("Whether /a/{id} can make a picture of it"),
+  supersededBy: uuid.nullable(),
+});
+export const Connections = z.object({
+  days: z.number().int().describe("How far back it goes"),
+  clients: z
+    .array(
+      z.object({
+        client: z.string().describe("The agent, by its key's name"),
+        events: z.number().int().describe("Everything it did, counted"),
+        tools: z.array(z.object({ name: z.string(), calls: z.number().int(), failed: z.number().int().describe("Errors and refusals") })).describe("MCP tools it called, most first"),
+        contexts: z.array(z.object({ context: z.string(), count: z.number().int() })).describe("Brand contexts it asked for, in checks and lookups"),
+        refusals: z.object({
+          total: z.number().int(),
+          reasons: z.array(z.object({ code: z.string(), count: z.number().int() })).describe("A check's blocking reasons; scope: a tool its key may not run"),
+        }),
+        fetches: z.number().int(),
+        searches: z.number().int(),
+      }),
+    )
+    .describe("Busiest first"),
+});
+const Week = z.string().describe("The Monday (UTC) the week starts, YYYY-MM-DD");
+export const Insights = z.object({
+  days: z.number().int().describe("How far back the lists go"),
+  weeks: z.number().int().describe("How many weeks the weekly charts have, oldest first, quiet weeks at zero"),
+  answers: z
+    .array(z.object({ week: Week, person: z.number().int(), agent: z.number().int(), anonymous: z.number().int() }))
+    .describe("Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"),
+  adoption: z
+    .array(z.object({ week: Week, current: z.number().int(), superseded: z.number().int() }))
+    .describe("Fetches per week of a current version, and of one already replaced when it was fetched"),
+  stale: z
+    .array(
+      z.object({
+        asset: InsightAsset,
+        replacement: InsightAsset.nullable().describe("What replaced it"),
+        referrer: z.string().nullable().describe("The host that loaded it; null when the request didn't say"),
+        fetches: z.number().int(),
+        last: z.string().describe("The last day it was fetched"),
+      }),
+    )
+    .describe("Still on the old release: replaced versions fetched lately, by referrer, most first"),
+  top: z
+    .array(z.object({ asset: InsightAsset, total: z.number().int(), surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()).describe("Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public") }))
+    .describe("The ten most fetched assets, with their fetches by surface"),
+  gaps: z.array(z.object({ q: z.string(), searches: z.number().int(), last: z.string() })).describe("Searches that found nothing, most asked first"),
+  checks: z
+    .object({
+      allowed: z.number().int(),
+      refused: z.number().int(),
+      reasons: z.array(z.object({ code: z.string(), count: z.number().int() })).describe("Refusals by blocking reason, most first; one refusal can have several"),
+      log: z
+        .array(
+          z.object({
+            id: uuid,
+            at: date,
+            asset: InsightAsset,
+            surface: z.enum(SURFACES),
+            client: z.string().nullable().describe("The agent's key name; null for a person or nobody in particular"),
+            context: z.string().nullable(),
+            reasons: z.array(z.string()),
+            offered: z
+              .array(z.object({ asset: InsightAsset, taken: z.boolean().describe("The same client fetched it, or checked it and was allowed, afterwards") }))
+              .describe("What was offered instead"),
+          }),
+        )
+        .describe("The latest refusals, newest first"),
+    })
+    .describe("The use-check log: check_use and POST /api/v1/check answers"),
+  delivery: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })).describe("What /a/{id} served in this workspace, per day"),
+  pageViews: z
+    .array(
+      z.object({
+        portal: z.object({ id: uuid, name: z.string() }),
+        brand: z.object({ slug: z.string(), name: z.string() }),
+        page: z.string(),
+        views: z.number().int(),
+      }),
+    )
+    .describe("Portal pages read, most first"),
+});
+export const AssetInsights = z.object({
+  days: z.number().int().describe("How far back fetches go"),
+  rules: z.array(z.object({ brand: z.string(), key: z.string(), label: z.string().nullable(), context: z.string().nullable() })).describe("Brand rules that point at it"),
+  pages: z
+    .array(z.object({ brand: z.object({ slug: z.string(), name: z.string(), default: z.boolean() }), slug: z.string(), title: z.string() }))
+    .describe("Brand pages that show it, as they stand now"),
+  portals: z.array(z.object({ name: z.string(), url: z.string() })).describe("Open public portals that show it"),
+  fetches: z.object({
+    total: z.number().int(),
+    surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()),
+  }),
+  referrers: z.array(z.object({ host: z.string(), fetches: z.number().int(), last: z.string() })).describe("The hosts that loaded it, most first"),
+});
+export const BrandInsights = z.object({
+  days: z.number().int().describe("How far back it counts"),
+  pulls: z.number().int().describe("Reads of its BrandHub files: brand.json, llms.txt, tokens"),
+  views: z.number().int().describe("Portal page views of its pages"),
+  week: z
+    .object({
+      days: z.number().int(),
+      answers: z.number().int().describe("Its files served, uses of them checked, and its BrandHub files read"),
+      agents: z.number().int().describe("Of those, asked by agents"),
+      refused: z.number().int().describe("Uses of its files refused"),
+    })
+    .describe("The last week. Its files are the ones its rules held in its recent releases"),
+  adoption: z
+    .object({
+      release: z.object({ number: z.number().int(), publishedAt: date }).describe("The latest release"),
+      days: z
+        .array(z.object({ day: z.string(), current: z.number().int(), older: z.number().int() }))
+        .describe("Fetches of its files a day each since the release (30 days at most), on it or on an older release"),
+      share: z.number().int().min(0).max(100).nullable().describe("The share of those fetches on the latest release; null before any"),
+      older: z
+        .array(
+          z.object({
+            asset: InsightAsset,
+            release: z.number().int().nullable().describe("The newest release holding it"),
+            referrer: z.string().nullable().describe("The host that loaded it"),
+            surface: z.enum(SURFACES),
+            client: z.string().nullable().describe("The agent's key name, for an agent"),
+            fetches: z.number().int(),
+            last: z.string().describe("The last day it was fetched"),
+          }),
+        )
+        .describe("Where files of an older release (or replaced in their stack) were still fetched this week, most first"),
+    })
+    .nullable()
+    .describe("Release adoption; null before the first release"),
+});
+export const BrandAsset = z.object({
+  id: uuid,
+  title: z.string(),
+  filename: z.string(),
+  mime: z.string(),
+  width: z.number().int().nullable(),
+  height: z.number().int().nullable(),
+  preview: z.boolean().describe("Has renditions: /a/{id}/w_320,f_webp draws it"),
+  rules: z.array(z.string()).describe("The keys of the rules that hold it"),
+  pages: z.array(z.object({ slug: z.string(), title: z.string() })).describe("The pages that show it"),
+});
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
   expiresAt: date,
@@ -1204,6 +1384,25 @@ export const Sso = z.object({
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
+});
+export const GithubAccount = z.object({
+  login: z.string(),
+  verified: z.boolean().describe("Proved: its listings on BrandHub are verified, as github.com/{login}"),
+  url: z.url(),
+  file: z
+    .object({ repository: z.string(), path: z.string(), url: z.url(), token: z.string() })
+    .describe("What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"),
+});
+export const HubReport = z.object({
+  id: uuid,
+  kind: z.enum(["report", "claim"]).describe("report: anyone's word about a listing; claim: an organization that proved a domain or a GitHub account says the brand is its"),
+  reason: z.string().describe("A report's reason; claim for a claim"),
+  note: z.string().nullable(),
+  contact: z.string().nullable().describe("How to reach who sent it, as they gave it; a claimant's email"),
+  claimant: z.object({ name: z.string(), proof: z.string().nullable().describe("What it proved it holds: a domain, or github.com/{login}") }).nullable(),
+  status: z.enum(["open", "resolved"]),
+  createdAt: date,
+  brand: z.object({ slug: z.string(), name: z.string(), workspace: z.string(), visibility: z.enum(["private", "public"]) }),
 });
 export const Domain = domainState.extend({
   primary: z.boolean().describe("The app's default address: links in email point here"),
@@ -1234,6 +1433,7 @@ export const PortalView = z.object({
       .describe("Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"),
     site: PortalSite.describe("Footer, quick grab and terms, as its pages have them"),
     look: Look.describe("How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"),
+    madeWith: z.boolean().describe('Its pages carry "Made with Artbucket": its organization\'s plan has no white-label'),
   }),
   data: z.array(
     z.object({
@@ -1340,6 +1540,7 @@ export const PortalSiteView = z.object({
       "The brands it shows, in order; one never published is left out",
     ),
     assets: z.boolean().describe("It shows collections: its Assets view"),
+    madeWith: z.boolean().describe('Its pages carry "Made with Artbucket": its organization\'s plan has no white-label'),
     level: z.enum(AUDIENCES).describe("Who the visitor is to it: everyone, partners (its password or an approved request) or members"),
   }),
   canonical: z.string().nullable().describe("The page's path on the portal, what links use; null with no page"),

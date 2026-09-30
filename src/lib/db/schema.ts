@@ -11,6 +11,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  pgView,
   text,
   timestamp,
   unique,
@@ -25,6 +26,7 @@ import type { BrandState } from "@/lib/brand-files";
 import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
+import type { Actor, EventKind, Surface } from "@/lib/insights";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
@@ -109,6 +111,12 @@ export const assets = pgTable(
     prompt: text("prompt"),
     /** C2PA Content Credentials read on ingest (lib/c2pa.ts); the original keeps the manifest itself. */
     c2pa: jsonb("c2pa").$type<C2pa>(),
+    /**
+     * How it arrived, when not from a person: `agent`, through an API key;
+     * `import`, brought in from outside by the server (an icon set, Google
+     * Fonts, a template). The review queue's chips read it.
+     */
+    via: text("via").$type<"agent" | "import">(),
     /** The asset that replaces this one. /api/v1/check refuses a replaced asset and names this. */
     supersededBy: uuid("superseded_by").references((): AnyPgColumn => assets.id, { onDelete: "set null" }),
     /**
@@ -161,6 +169,7 @@ export const assets = pgTable(
     check("assets_status_check", sql`${t.status} in ('draft', 'proposed', 'active', 'archived', 'rejected')`),
     index("assets_proposed_by_idx").on(t.proposedBy),
     check("assets_origin_check", sql`${t.origin} in ('shot', 'licensed', 'generated')`),
+    check("assets_via_check", sql`${t.via} in ('agent', 'import')`),
     check("assets_not_superseded_by_self", sql`${t.supersededBy} <> ${t.id}`),
     unique("assets_stack_version_unique").on(t.stackId, t.version),
     uniqueIndex("assets_one_current").on(t.stackId).where(sql`${t.current}`),
@@ -306,6 +315,15 @@ export const brands = pgTable(
     visibility: text("visibility").$type<Visibility>().notNull().default("private"),
     /** The portal BrandHub links as its guidelines; null: its first public portal, if any. */
     hubPortalId: uuid("hub_portal_id").references((): AnyPgColumn => portals.id, { onDelete: "set null" }),
+    /**
+     * Taken off BrandHub by whoever runs the server, and why (docs: portals,
+     * BrandHub): while set, the brand can't be made public again. Written in
+     * the database only, never through the API, so its organization can't
+     * undo it on its own.
+     */
+    hubDelisted: text("hub_delisted"),
+    /** The BrandHub brand it started from, as {org}/{brand}@{n} (lib/core/hub.ts startFrom); null for any other start. */
+    forkedFrom: text("forked_from"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -1086,6 +1104,87 @@ export const domains = pgTable("domains", {
 ]);
 
 /**
+ * A GitHub account an organization says is its own (lib/core/hub-trust.ts),
+ * proved like a domain: a file in its `.github` repository holding `token`.
+ * Once proved, BrandHub names it beside a verified domain.
+ */
+export const githubOrgs = pgTable("github_orgs", {
+  /** The account's login, lowercased: rust-lang. */
+  login: text("login").primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type HubReportKind = "report" | "claim";
+
+/**
+ * What someone said about a public BrandHub listing (lib/core/hub-trust.ts):
+ * a report, from anyone, or a claim, from an organization that proved a
+ * domain or a GitHub account. For the listing's organization's admins
+ * (Settings, BrandHub) and whoever runs the server, never shown publicly.
+ * No IP address is kept.
+ */
+export const hubReports = pgTable(
+  "hub_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<HubReportKind>().notNull(),
+    /** A report's reason (lib/schemas.ts HubReportInput); a claim's is `claim`. */
+    reason: text("reason").notNull(),
+    note: text("note"),
+    /** How to reach whoever sent it, as they gave it: a report's optional contact, a claimant's email. */
+    contact: text("contact"),
+    /** A claim's organization, and what it proved it holds when it claimed. */
+    claimantId: uuid("claimant_id").references(() => organizations.id, { onDelete: "set null" }),
+    proof: text("proof"),
+    status: text("status").$type<"open" | "resolved">().notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("hub_reports_brand_idx").on(t.brandId, t.createdAt.desc()),
+    check("hub_reports_kind_check", sql`${t.kind} in ('report', 'claim')`),
+    check("hub_reports_status_check", sql`${t.status} in ('open', 'resolved')`),
+  ],
+);
+
+/** Who follows which BrandHub brand (lib/core/hub.ts): the hub's Following tab. A person, never a key. */
+export const hubFollows = pgTable(
+  "hub_follows",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.brandId] }), index("hub_follows_brand_idx").on(t.brandId)],
+);
+
+/**
+ * Curated collections on BrandHub's front page ("Open-source project
+ * brands"), set by whoever runs the server, in the database (docs: portals,
+ * BrandHub): each lists public brands as {org}/{brand}, in order.
+ */
+export const hubCollections = pgTable("hub_collections", {
+  slug: text("slug").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  /** Where it shows among the others, lowest first. */
+  position: integer("position").notNull().default(0),
+  /** Its brands, as {org}/{brand}: one that isn't public is left out. */
+  brands: text("brands").array().notNull().default(sql`'{}'::text[]`),
+});
+
+/**
  * This database, one row: its id marks the bucket as swept by it
  * (lib/bucket-owners.ts), so a second database on the same bucket is noticed
  * before either sweeps the other's files. Survives a dump and restore.
@@ -1109,3 +1208,102 @@ export const renditions = pgTable("renditions", {
   bytes: bigint("bytes", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---- insights -----------------------------------------------------------------
+
+/**
+ * What happened, a row each, for Insights (lib/core/events.ts, PRD INS-1): a
+ * file fetched, a use checked, a search, a BrandHub listing read. Appended
+ * and never changed. Never an IP address, a person's name or a full URL:
+ * who is a kind (lib/insights.ts) and an agent's key name; where from, only
+ * the referrer's host. The customer's own data, in their own database:
+ * nothing is sent anywhere. Kept EVENT_DAYS, then only its daily rollup.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** The brand it was about: a hub listing's, a check's. */
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<EventKind>().notNull(),
+    surface: text("surface").$type<Surface>().notNull(),
+    actor: text("actor").$type<Actor>().notNull(),
+    /** An agent's key name ("Claude Code"); never a person's. */
+    client: text("client"),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
+    /** What else it was about: a search's words, a hub file, a check's context, a rule's key. */
+    subject: text("subject"),
+    /** The asset's version in its stack, or the brand release a hub file came from. */
+    version: integer("version"),
+    /** How it came out: a check's `allowed` or `refused`, a search's `found` or `empty`, a fetch's `current` or `superseded` version. */
+    verdict: text("verdict"),
+    /** A refused check's blocking reasons (lib/rights.ts codes). */
+    reasons: text("reasons").array(),
+    /** The assets a refused check offered instead. */
+    offered: uuid("offered").array(),
+    referrer: text("referrer"),
+    day: date("day", { mode: "string" })
+      .notNull()
+      .default(sql`(now() at time zone 'utc')::date`),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("events_workspace_day_idx").on(t.workspaceId, t.day),
+    index("events_asset_idx").on(t.assetId, t.at.desc()),
+    check("events_kind_check", sql`${t.kind} in ('fetch', 'check', 'search', 'view', 'pull', 'lookup', 'tool')`),
+    check("events_actor_check", sql`${t.actor} in ('person', 'agent', 'anonymous')`),
+  ],
+);
+
+/**
+ * Events counted per day and everything they say but the moment and the
+ * offer, rolled up from `events` once a day is over (lib/core/events.ts
+ * rollUp), and kept after the raw rows go.
+ */
+const counted = {
+  workspaceId: uuid("workspace_id").notNull(),
+  brandId: uuid("brand_id"),
+  day: date("day", { mode: "string" }).notNull(),
+  kind: text("kind").$type<EventKind>().notNull(),
+  surface: text("surface").$type<Surface>().notNull(),
+  actor: text("actor").$type<Actor>().notNull(),
+  client: text("client"),
+  assetId: uuid("asset_id"),
+  subject: text("subject"),
+  version: integer("version"),
+  verdict: text("verdict"),
+  reasons: text("reasons").array(),
+  referrer: text("referrer"),
+  count: integer("count").notNull(),
+};
+
+export const eventDays = pgTable(
+  "event_days",
+  {
+    ...counted,
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
+  },
+  (t) => [index("event_days_workspace_day_idx").on(t.workspaceId, t.day), index("event_days_asset_idx").on(t.assetId), index("event_days_day_idx").on(t.day)],
+);
+
+const DIMS = sql.raw("workspace_id, brand_id, day, kind, surface, actor, client, asset_id, subject, version, verdict, reasons, referrer");
+
+/**
+ * What every chart reads: the rollup, and the raw events of the days not
+ * rolled up yet, counted the same way. Always current, whenever the rollup
+ * last ran.
+ */
+export const eventCounts = pgView("event_counts", counted).as(
+  sql`select ${DIMS}, count from ${eventDays}
+    union all
+    select ${DIMS}, count(*)::int from ${events}
+    where day > coalesce((select max(day) from ${eventDays}), '-infinity'::date)
+    group by ${DIMS}`,
+);

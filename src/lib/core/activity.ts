@@ -123,7 +123,7 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
       label: p.name,
       assetId: null,
       brand: { slug: p.slug, name: p.name, version: p.number },
-      detail: { summary: `Published version ${p.number}`, ...(p.note && { note: p.note }) },
+      detail: { summary: `Released @${p.number}`, ...(p.note && { note: p.note }) },
     })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())

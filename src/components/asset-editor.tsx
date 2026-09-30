@@ -48,6 +48,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
+import { UsedIn } from "@/components/used-in";
+import { CanIUse } from "@/components/can-i-use";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Lifecycle, PREVIEW_BG, StatusBadges, usePreviewBg, useVersionUpload, Versions, type PreviewBg } from "@/components/versions";
@@ -71,6 +73,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { guidelinesPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
@@ -994,6 +997,21 @@ export function AssetEditor({
               <Replaced by={asset.supersededBy} stacked={!!asset.stackId} onOpen={(to) => leave(() => onOpen(to))} />
             )}
 
+            {/*
+              What breaks if it changes, and what it may be used for, first, as the
+              prototype's asset page has them: both read-only, so outside Writable.
+              Whoever may look at a file may ask what it may be used for.
+            */}
+            {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
+            <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
+              <CanIUse
+                key={asset.id}
+                context
+                ask={(use) => fetch("/api/v1/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset: asset.id, ...use }) })}
+                onOpen={(to) => leave(() => onOpen(to))}
+              />
+            </Fold>
+
             <Writable do="asset.edit" on={asset} when={editable}>
               {editable && <EditHint />}
               <Group title="Details">
@@ -1762,7 +1780,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
       <PopoverContent align="start" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
-            const href = `/brand?brand=${r.brand}#rule-${r.key}`;
+            const href = `${guidelinesPath(r.brand!)}#rule-${r.key}`;
             return (
               <li key={r.id}>
                 <Link

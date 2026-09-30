@@ -2,7 +2,9 @@ import type { Caller } from "@/lib/core/access";
 import { currentVersion, getAsset, type Asset } from "@/lib/core/assets";
 import { listRules } from "@/lib/core/brand";
 import { AssetError } from "@/lib/core/errors";
+import { record, who } from "@/lib/core/events";
 import { env } from "@/lib/env";
+import type { Surface } from "@/lib/insights";
 import { rightsReasons, today, type Reason, type Use } from "@/lib/rights";
 
 /**
@@ -15,6 +17,9 @@ import { rightsReasons, today, type Reason, type Use } from "@/lib/rights";
  * - rights: license window, territory, channel, model release (lib/rights.ts)
  * - the brand: in a context with its own variant of a rule (logo on a dark
  *   background), the default's assets are the wrong ones
+ *
+ * Every answer is recorded for Insights' use-check log (lib/core/events.ts):
+ * the verdict, the blocking reasons and what was offered instead.
  */
 
 export type Check = Use & { asset: string; context?: string; brand?: string };
@@ -24,7 +29,7 @@ type Suggestion = { id: string; title: string; url: string; why: string };
 const title = (a: Pick<Asset, "filename" | "metadata">) => a.metadata?.title ?? a.filename;
 const url = (id: string, rendition?: string | null) => `${env.APP_URL}/a/${id}${rendition ? `/${rendition}` : ""}`;
 
-export async function checkUse(caller: Caller, { asset: id, context, brand, ...use }: Check) {
+export async function checkUse(caller: Caller, { asset: id, context, brand, ...use }: Check, surface: Surface = caller.key ? "api" : "app") {
   const ws = caller.workspace.id;
   const asset = await getAsset(caller, id);
   if (!asset) throw new AssetError("not_found", `No asset ${id}`);
@@ -79,8 +84,21 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
     }
   }
 
+  const allowed = !reasons.some((r) => r.blocking);
+  record({
+    workspaceId: ws,
+    kind: "check",
+    surface,
+    ...who(caller),
+    assetId: asset.id,
+    version: asset.version,
+    subject: context ?? null,
+    verdict: allowed ? "allowed" : "refused",
+    reasons: reasons.filter((r) => r.blocking).map((r) => r.code),
+    offered: suggest.map((s) => s.id),
+  });
   return {
-    allowed: !reasons.some((r) => r.blocking),
+    allowed,
     asset: { id: asset.id, title: title(asset), url: url(asset.id) },
     use: { ...use, date, ...(context ? { context } : {}) },
     reasons,

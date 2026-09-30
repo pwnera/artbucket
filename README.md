@@ -219,14 +219,15 @@ anything generated):
 /plugin install artbucket@artbucket
 ```
 
-Other agents: `npx skills add pwnera/artbucket`. [`/agents`](http://localhost:3000/agents)
+Other agents: `npx skills add pwnera/artbucket`. [`/connections`](http://localhost:3000/connections)
 in the app has the setup for each one, and lists what is connected. More in
 the [MCP docs](docs/developers/mcp.mdx).
 
 ### 4. Write down the brand, then check uses
 
-Brand rules live at [`/brand`](http://localhost:3000/brand): click a value to
-change it, press `/` to add a rule. Or from the CLI:
+Brand rules live in each brand's guidelines, at
+[`/brands/{slug}/guidelines`](http://localhost:3000/brand) (`/brand` opens the
+default brand's): click a value to change it, press `/` to add a rule. Or from the CLI:
 
 ```bash
 pnpm artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links"

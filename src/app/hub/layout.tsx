@@ -27,6 +27,9 @@ export default async function HubLayout({ children }: { children: React.ReactNod
           <HubSearch action={base || "/"} className="hidden w-full max-w-sm md:block" />
           <nav className="ms-auto flex shrink-0 items-center gap-1">
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Link href={`${base}/score`}>Agent Score</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
               <a href={`${base}/llms.txt`}>For agents</a>
             </Button>
             {!viewer && (
@@ -46,7 +49,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
           <span className="flex items-center gap-2">
             <AppIcon className="size-4" /> BrandHub by Artbucket
           </span>
-          <span>Brands are listed by their owners or their communities. A green check names a domain the owner proved it holds.</span>
+          <span>Brands are listed by their owners or their communities. A green check names a domain or GitHub account the owner proved it holds.</span>
           <a href={`${base}/llms.txt`} className="hover:text-foreground ms-auto underline-offset-2 hover:underline">
             llms.txt
           </a>
