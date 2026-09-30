@@ -142,7 +142,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
         <Showing view={view} status={status} onPick={(v) => navigate(at(view.page?.slug ?? null, { context, lang, version: v }) + location.hash)} />
         {contexts}
       </AppHeader>
-      <BrandHeader {...embed.head} at="guidelines" />
+      <BrandHeader {...embed.head} at="guidelines" compact />
     </>
   ) : (
     <AppHeader
