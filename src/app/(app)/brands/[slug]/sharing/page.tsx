@@ -36,7 +36,7 @@ export default async function BrandSharingPage({ params }: Props) {
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(slug) }, { label: "Sharing" }]} />
       <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} at="sharing" />
       <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
-        <BrandSharing key={brand.slug} brand={brand} origin={env.APP_URL} hub={hub} portals={portals} release={release} />
+        <BrandSharing key={brand.slug} brand={brand} origin={env.APP_URL} hub={hub} portals={portals} portalDomain={env.PORTAL_DOMAIN} release={release} />
       </div>
     </>
   );

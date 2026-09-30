@@ -1218,6 +1218,10 @@ export const PortalAddress = z.object({
   reason: z.string().nullable().describe("Why not: taken, or kept for the service"),
   url: z.url().describe("Where a public portal at it answers: {slug}.PORTAL_DOMAIN when the server has one, else /p/{slug}"),
 });
+export const PortalLook = z.object({
+  logo: z.string().nullable().describe("The brand's mark, an asset id: its logo rule named mark, icon or symbol, else its first logo with an image; null: none"),
+  accent: z.string().nullable().describe("The brand's color.primary, else its first color; null: none"),
+});
 export const PortalDomain = z.object({
   host: z.string(),
   portal: z.string().nullable().describe("The portal it serves, by slug; null: free to pick"),
@@ -1421,8 +1425,8 @@ export const PortalView = z.object({
     access: z.enum(PORTAL_ACCESS),
     expiresAt: date.nullable(),
     theme: z.object({
-      logo: z.string().nullable().describe("A URL on this host: the portal's, else its organization's"),
-      accent: z.string().nullable().describe("The portal's, else its organization's"),
+      logo: z.string().nullable().describe("A URL on this host: the portal's, else its first brand's mark, else its organization's"),
+      accent: z.string().nullable().describe("The portal's, else its first brand's color, else its organization's"),
       background: z.string().nullable(),
       icon: z.string().nullable().describe("The organization's, for the browser tab"),
       product: z.string().describe("What the organization calls the product"),

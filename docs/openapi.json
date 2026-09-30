@@ -41452,6 +41452,98 @@
         }
       }
     },
+    "/api/v1/portals/look": {
+      "get": {
+        "summary": "The look a portal borrows from its brand",
+        "description": "A portal's empty logo or accent is its first brand's when served, from the brand's live release: this is that logo and accent, for a form to show before the portal is saved. A portal sets its own to override them (white-label).\n\nScope: `write`.",
+        "x-scope": "write",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The brand the portal shows first, by slug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The look",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "logo": {
+                          "description": "The brand's mark, an asset id: its logo rule named mark, icon or symbol, else its first logo with an image; null: none",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent": {
+                          "description": "The brand's color.primary, else its first color; null: none",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "logo",
+                        "accent"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portals/domains": {
       "get": {
         "summary": "Domains a portal can be served at",
@@ -43149,14 +43241,14 @@
                           "type": "object",
                           "properties": {
                             "logo": {
-                              "description": "A URL on this host: the portal's, else its organization's",
+                              "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                               "type": [
                                 "string",
                                 "null"
                               ]
                             },
                             "accent": {
-                              "description": "The portal's, else its organization's",
+                              "description": "The portal's, else its first brand's color, else its organization's",
                               "type": [
                                 "string",
                                 "null"
@@ -44327,14 +44419,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -44778,14 +44870,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -44961,14 +45053,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -47285,14 +47377,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -47704,14 +47796,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -48023,14 +48115,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
@@ -48545,14 +48637,14 @@
                               "type": "object",
                               "properties": {
                                 "logo": {
-                                  "description": "A URL on this host: the portal's, else its organization's",
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
                                   "type": [
                                     "string",
                                     "null"
                                   ]
                                 },
                                 "accent": {
-                                  "description": "The portal's, else its organization's",
+                                  "description": "The portal's, else its first brand's color, else its organization's",
                                   "type": [
                                     "string",
                                     "null"

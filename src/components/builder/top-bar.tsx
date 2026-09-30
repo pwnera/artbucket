@@ -37,6 +37,7 @@ import { ExternalLink } from "@/components/external-link";
 import { boundKeys, designWarnings, hasPicture } from "@/lib/pages";
 import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
+import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -315,7 +316,7 @@ function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void;
     case "publish":
       return { label: "Release", run: () => b.setPanel("publish") };
     case "portal":
-      return { label: "Share", href: `/portals?${new URLSearchParams({ new: b.view.brand.slug })}` };
+      return { label: "Share", href: brandPath(b.view.brand.slug, "/sharing") };
   }
 }
 

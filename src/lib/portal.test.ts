@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain } from "./portal.ts";
+import { brandLook, downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain, wornTheme } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -103,4 +103,21 @@ test("site: footer, quick grab, terms and listing; links go to the web, mail or 
 test("a theme change keeps what it leaves out: the accent alone never clears the logo", () => {
   assert.deepEqual(PortalPatch.parse({ theme: { accent: "#00aa55" } }).theme, { accent: "#00aa55" });
   assert.deepEqual(PortalPatch.parse({ theme: { logo: null } }).theme, { logo: null });
+});
+
+test("a portal made for a brand wears its mark and color, unless it sets its own", () => {
+  const rules = [
+    { key: "color.secondary", type: "color" as const, value: "#222222", context: null, assets: [] },
+    { key: "color.primary", type: "color" as const, value: "#e87d0d", context: null, assets: [] },
+    { key: "logo.primary", type: "text" as const, value: "", context: null, assets: [{ id: "full", mime: "image/svg+xml" }] },
+    { key: "logo.mark", type: "text" as const, value: "", context: null, assets: [{ id: "guide", mime: "application/pdf" }, { id: "mark", mime: "image/png" }] },
+    { key: "logo.mark", type: "text" as const, value: "", context: "print", assets: [{ id: "print", mime: "image/png" }] },
+  ];
+  const look = brandLook(rules);
+  assert.deepEqual(look, { logo: "mark", accent: "#e87d0d" });
+  assert.deepEqual(brandLook([]), { logo: null, accent: null }, "a brand with nothing to lend");
+  assert.deepEqual(wornTheme({ logo: null, accent: null }, look), look, "empty: the brand's");
+  assert.deepEqual(wornTheme({ logo: "own", accent: "#000000" }, look), { logo: "own", accent: "#000000" }, "set: its own, for white-label");
+  assert.deepEqual(wornTheme({ logo: null, accent: "#000000" }, look), { logo: "mark", accent: "#000000" }, "each on its own");
+  assert.deepEqual(wornTheme({ logo: null, accent: null }, null), { logo: null, accent: null }, "no brand: the organization's");
 });

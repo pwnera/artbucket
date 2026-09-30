@@ -9,8 +9,9 @@ import { BrandAddresses } from "@/components/brand-header";
 import type { BrandHub } from "@/components/brands";
 import { useCan } from "@/components/can";
 import { ExternalLink } from "@/components/external-link";
-import type { Portal } from "@/components/portals";
+import { PortalDialog, toastSaved, type Portal } from "@/components/portals";
 import { Group } from "@/components/settings/panels";
+import { useShell } from "@/components/shell";
 import { TokensDialog } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,25 +29,35 @@ const ACCESS: Record<Portal["access"], { label: string; icon: React.ReactNode }>
  * (public or private, PATCH /api/v1/brands/{slug}/hub, for whoever may
  * publish), the portals showing it (for whoever manages portals: `portals`
  * is null otherwise), the one BrandHub links as its guidelines picked on its
- * row, and the addresses agents and code read. Portals are set up on the
- * Portals page, which Manage opens on this brand's.
+ * row, and the addresses agents and code read. A portal is made or changed
+ * here in the Portals page's dialog, the brand picked; Manage opens that page
+ * on this brand's.
  */
 export function BrandSharing({
   brand,
   origin,
   hub: initialHub,
   portals,
+  portalDomain,
   release,
 }: {
   brand: HeadBrand;
   origin: string;
   hub: BrandHub | null;
   portals: Portal[] | null;
+  /** The server's PORTAL_DOMAIN, for the portal dialog. */
+  portalDomain?: string;
   release: Release | null;
 }) {
   const router = useRouter();
   const can = useCan();
+  // Follows the server's, and takes a change at once rather than after a refresh.
   const [hub, setHub] = useState(initialHub);
+  const [seen, setSeen] = useState(initialHub);
+  if (initialHub !== seen) {
+    setSeen(initialHub);
+    setHub(initialHub);
+  }
   const [busy, setBusy] = useState<string | null>(null);
   const [tokens, setTokens] = useState(false);
   const share = async (body: { visibility?: "public" | "private"; portal?: string | null }, what: string) => {
@@ -104,7 +115,7 @@ export function BrandSharing({
         </Group>
       )}
 
-      {portals && <BrandPortals slug={brand.slug} portals={portals} hub={hub} busy={busy} onLink={link} />}
+      {portals && <BrandPortals brand={brand} portals={portals} portalDomain={portalDomain} hub={hub} busy={busy} onLink={link} />}
 
       <Group title="For agents and code" description="The addresses an agent or a build reads the brand from.">
         <BrandAddresses brand={brand} origin={origin} hub={hub?.published ? hub : null} release={release} onTokens={() => setTokens(true)} />
@@ -121,30 +132,33 @@ export function BrandSharing({
  * public one).
  */
 function BrandPortals({
-  slug,
+  brand,
   portals,
+  portalDomain,
   hub,
   busy,
   onLink,
 }: {
-  slug: string;
+  brand: HeadBrand;
   portals: Portal[];
+  portalDomain?: string;
   hub: BrandHub | null;
   busy: string | null;
   onLink?: (portal: string | null) => void;
 }) {
+  const router = useRouter();
+  const { collections, brands } = useShell();
+  const [editing, setEditing] = useState<Portal | "new" | null>(null);
   const linked = hub?.portal?.slug;
   return (
     <Group title="Portals" description="Where people outside the team read the brand and take its files.">
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" asChild>
-          <Link href={`/portals?${new URLSearchParams({ new: slug })}`}>
-            <IconPlus aria-hidden /> New portal
-          </Link>
+        <Button size="sm" onClick={() => setEditing("new")}>
+          <IconPlus aria-hidden /> New portal
         </Button>
         {portals.length > 0 && (
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/portals?${new URLSearchParams({ brand: slug })}`}>Manage</Link>
+            <Link href={`/portals?${new URLSearchParams({ brand: brand.slug })}`}>Manage</Link>
           </Button>
         )}
       </div>
@@ -156,7 +170,9 @@ function BrandPortals({
             <li key={p.id} className="flex flex-wrap items-center gap-3 p-3">
               <div className="grid min-w-0 flex-1 gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {p.name}
+                  <button type="button" onClick={() => setEditing(p)} className="truncate text-start hover:underline">
+                    {p.name}
+                  </button>
                   {p.expired && <Badge variant="outline">Offline</Badge>}
                   {p.slug === linked && <Badge variant="secondary">BrandHub links it</Badge>}
                 </span>
@@ -189,6 +205,21 @@ function BrandPortals({
             </li>
           ))}
         </ul>
+      )}
+      {editing && (
+        <PortalDialog
+          portal={editing === "new" ? null : editing}
+          collections={collections}
+          brands={brands}
+          showing={editing === "new" ? brand : undefined}
+          portalDomain={portalDomain}
+          onClose={() => setEditing(null)}
+          onSaved={(saved, said) => {
+            if (said) toastSaved(saved, said);
+            router.refresh();
+          }}
+          onDeleted={() => router.refresh()}
+        />
       )}
     </Group>
   );

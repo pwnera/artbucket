@@ -271,12 +271,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
-            if (said) {
-              toast.success(said === "made" ? `${saved.name} is live` : `Saved ${saved.name}`, {
-                action: { label: "Open", onClick: () => window.open(saved.url, "_blank", "noopener") },
-                cancel: { label: "Copy link", onClick: () => void copy(saved.url, "the address") },
-              });
-            }
+            if (said) toastSaved(saved, said);
           }}
           onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}
         />
@@ -294,6 +289,14 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
       )}
     </>
   );
+}
+
+/** A portal made or saved in its dialog, said with a way to open it and its link to copy. */
+export function toastSaved(saved: Portal, said: "made" | "saved") {
+  toast.success(said === "made" ? `${saved.name} is live` : `Saved ${saved.name}`, {
+    action: { label: "Open", onClick: () => window.open(saved.url, "_blank", "noopener") },
+    cancel: { label: "Copy link", onClick: () => void copy(saved.url, "the address") },
+  });
 }
 
 /**
@@ -352,19 +355,32 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
   );
 }
 
-function Color({ label, unset, value, onChange }: { label: string; unset: string; value: string | null; onChange: (v: string | null) => void }) {
+/** `inherited`: what it wears while unset, and whose it is ("From Fjord"); picking a color overrides it. */
+function Color({
+  label,
+  unset,
+  value,
+  inherited,
+  onChange,
+}: {
+  label: string;
+  unset: string;
+  value: string | null;
+  inherited?: { value: string; from: string } | null;
+  onChange: (v: string | null) => void;
+}) {
   const id = useId();
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-2">
-        <ColorField id={id} label={label} value={value ?? "#6d4aff"} onChange={onChange} />
+        <ColorField id={id} label={label} value={value ?? inherited?.value ?? "#6d4aff"} onChange={onChange} />
         {value ? (
           <IconButton variant="ghost" label={`Reset ${label.toLowerCase()}`} onClick={() => onChange(null)}>
             <IconX />
           </IconButton>
         ) : (
-          <span className="text-muted-foreground text-xs">{unset}</span>
+          <span className="text-muted-foreground text-xs">{inherited ? `From ${inherited.from}` : unset}</span>
         )}
       </div>
     </div>
@@ -489,8 +505,13 @@ function siteSummary(site: PortalSite) {
   return parts.length ? parts.join(", ") : "None";
 }
 
-/** Make or change a portal: what it shows, how it looks, who gets in, where it lives. */
-function PortalDialog({
+/**
+ * Make or change a portal: what it shows, how it looks, who gets in, where
+ * it lives. The Portals page and a brand's Sharing tab open it. An empty
+ * logo or accent is the first brand's when served (GET /api/v1/portals/look),
+ * shown here as "From {brand}".
+ */
+export function PortalDialog({
   portal,
   collections,
   brands,
@@ -526,6 +547,18 @@ function PortalDialog({
   const [checking, setChecking] = useState(false);
   /** The library picker, open for the logo or for a quick grab entry. */
   const [picking, setPicking] = useState<"logo" | number | null>(null);
+  // What an empty logo or accent borrows: the first brand's mark and color, from its live release.
+  const first = f.pickedBrands[0];
+  const [look, setLook] = useState<{ brand: string; logo: string | null; accent: string | null } | null>(null);
+  useEffect(() => {
+    if (!first) return;
+    const ask = new AbortController();
+    fetch(`/api/v1/portals/look?${new URLSearchParams({ brand: first })}`, { signal: ask.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => b && setLook({ brand: first, ...b.data }), () => {});
+    return () => ask.abort();
+  }, [first]);
+  const from = first && look?.brand === first ? { ...look, name: brands.find((b) => b.slug === first)?.name ?? first } : null;
   useEffect(() => {
     fetch("/api/v1/portals/domains")
       .then((r) => (r.ok ? r.json() : { data: [] }))
@@ -746,7 +779,10 @@ function PortalDialog({
           )}
           <div className="grid gap-2">
             <p className="text-sm font-medium">More options</p>
-            <Fold title="Look" summary={f.logo || f.accent || f.background ? "Its own" : "The organization's logo and color"}>
+            <Fold
+              title="Look"
+              summary={f.logo || f.accent || f.background ? "Its own" : from && (from.logo || from.accent) ? `From ${from.name}` : "The organization's logo and color"}
+            >
           <div className="grid gap-4">
             <div className="grid gap-2">
               <span className="text-sm leading-none font-medium">Logo</span>
@@ -757,7 +793,7 @@ function PortalDialog({
                   aria-label={f.logo ? "Change the logo" : "Choose a logo"}
                   className="bg-checker text-muted-foreground relative flex h-14 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border"
                 >
-                  {f.logo ? <Thumb key={f.logo} src={`/a/${f.logo}/w_160,f_webp`} alt="" /> : <IconPhoto className="size-5" />}
+                  {f.logo || from?.logo ? <Thumb key={f.logo ?? from!.logo!} src={`/a/${f.logo ?? from!.logo}/w_160,f_webp`} alt="" /> : <IconPhoto className="size-5" />}
                 </button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setPicking("logo")}>
                   {f.logo ? "Change" : "Choose from the library"}
@@ -768,10 +804,18 @@ function PortalDialog({
                   </IconButton>
                 )}
               </div>
-              <p className="text-muted-foreground text-xs">An approved image. Without one, the organization&apos;s own.</p>
+              <p className="text-muted-foreground text-xs">
+                {!f.logo && from?.logo ? `From ${from.name}: choose one to override it.` : `An approved image. Without one, ${from?.logo ? `${from.name}'s` : "the organization's"} own.`}
+              </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Color label="Accent" unset="The organization's" value={f.accent} onChange={(accent) => set({ accent })} />
+              <Color
+                label="Accent"
+                unset="The organization's"
+                value={f.accent}
+                inherited={from?.accent ? { value: from.accent, from: from.name } : null}
+                onChange={(accent) => set({ accent })}
+              />
               <Color label="Header background" unset="None" value={f.background} onChange={(background) => set({ background })} />
             </div>
           </div>
