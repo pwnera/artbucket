@@ -1,8 +1,8 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useId, useState } from "react";
 import { IconCopy, IconDots, IconLoader2, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
@@ -77,7 +77,17 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
   const { setOpenMobile } = useSidebar();
   const [editing, setEditing] = useState<Kept<Editing>>(null);
   const [deleting, setDeleting] = useState<Kept<BrandInfo>>(null);
-  const [creating, setCreating] = useState<Kept<true>>(null);
+  // ?new=brand opens New brand: a link from elsewhere (the Git integration) that means "start one here".
+  const params = useSearchParams();
+  const asked = params.get("new") === "brand";
+  const [creating, setCreating] = useState<Kept<true>>(() => (asked ? opening<true>(true)(null) : null));
+  // Asked once: a reload shouldn't open it again.
+  useEffect(() => {
+    if (!asked) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState(window.history.state, "", url);
+  }, [asked]);
 
   async function makeDefault(b: BrandInfo) {
     const was = brands.find((x) => x.default);

@@ -221,6 +221,8 @@ export async function describeCaller(caller: Caller) {
     hidden: caller.hidden,
     workspaces,
     upgrade: upgradeUrl(env.BILLING_URL, !!caller.user && caller.orgScope === "admin", limits.source),
+    // Connecting makes a key for the sync, so it takes admin on the workspace.
+    git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     auth: {
       signUp,
       open: env.SIGNUP === "open",

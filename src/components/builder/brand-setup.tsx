@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@tabler/icons-react";
+import { IconBrandGit, IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
+import { useMe } from "@/components/can";
 import { upload } from "@/components/brand-sections/slots";
 import type { Transport } from "@/components/builder/use-builder";
 import { ColorField } from "@/components/color-field";
@@ -20,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { assetUrl } from "@/lib/asset-url";
 import type { Init } from "@/lib/builder-ops";
 import { inkOn, isHex, mix } from "@/lib/color";
+import { gitLink } from "@/lib/git";
 import { fontValue } from "@/lib/rules";
 import { sendResult } from "@/lib/send";
 import type { ViewRule } from "@/lib/site";
@@ -35,7 +37,9 @@ import { cn } from "@/lib/utils";
  * them (POST .../pages, lib/pages.ts initialPages), or started blank, or from
  * a topic's six pages. What the brand already has fills the form, and only
  * what changed is written. An agent can do all of it instead: the card
- * beside says what to ask one.
+ * beside says what to ask one. Where the server has a Git integration
+ * (me.git), the brand can start from a repository's files instead, or keep
+ * its files there as it grows.
  *
  * Props:
  * - brand: the brand's slug.
@@ -178,6 +182,7 @@ function useFace(family: string) {
 
 export function BrandSetup({ brand, init, transport = sendResult, header }: BrandSetupProps) {
   const router = useRouter();
+  const git = useMe()?.git ?? null;
   const name = init.view.brand.name;
   const [from] = useState(() => fromRules(init.rules));
   const [e, setE] = useState<Essentials>(from.values);
@@ -237,6 +242,25 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
               Four essentials make every page look and sound like {name}. The pages are laid out from them, and all of it stays editable, and private until you publish.
             </p>
           </div>
+
+          {git && (
+            <div className="bg-card flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border p-4">
+              <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                <IconBrandGit aria-hidden className="size-5" />
+              </span>
+              <div className="grid min-w-0 flex-1 basis-64 gap-0.5">
+                <p className="text-sm font-medium">Keep {name} in a Git repository</p>
+                <p className="text-muted-foreground text-sm">
+                  Start from a repository that already has the brand&apos;s files, or keep these there as you build. Pull requests get a preview, and edits go both ways.
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <a href={gitLink(git, brand)}>
+                  <IconBrandGit /> Connect a repository
+                </a>
+              </Button>
+            </div>
+          )}
 
           <Step n={1} title="Colors" about="The main color is the pages' accent; the others set grounds and panels.">
             <div className="grid gap-4 sm:grid-cols-3">

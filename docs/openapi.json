@@ -28770,7 +28770,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "Where this server connects a brand to a Git repository (GIT_CONNECT_URL); null when it doesn't"
+                          "description": "Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a workspace admin, else null"
                         }
                       },
                       "required": [
@@ -31961,6 +31961,13 @@
                           ],
                           "description": "Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"
                         },
+                        "git": {
+                          "description": "Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "auth": {
                           "type": "object",
                           "properties": {
@@ -32049,6 +32056,7 @@
                         "hidden",
                         "workspaces",
                         "upgrade",
+                        "git",
                         "auth"
                       ],
                       "additionalProperties": false

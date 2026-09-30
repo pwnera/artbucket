@@ -985,6 +985,10 @@ export const Me = z.object({
     .url()
     .nullable()
     .describe("Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"),
+  git: z
+    .string()
+    .nullable()
+    .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
@@ -1451,7 +1455,7 @@ export const BrandSource = z.object({
 });
 export const BrandSourceView = z.object({
   source: BrandSource.nullable().describe("null: the brand lives here alone"),
-  connect: z.url().nullable().describe("Where this server connects a brand to a Git repository (GIT_CONNECT_URL); null when it doesn't"),
+  connect: z.url().nullable().describe("Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a workspace admin, else null"),
 });
 export const BrandExport = z.object({
   brand: z.string(),
