@@ -10,7 +10,7 @@ import { RuleInput, ruleContext, ruleKey, section as groupOf, specKeys } from ".
  * beside them. The same brand a version holds (core/brand.ts snapshot,
  * pageSnapshot, the theme), written out and read back.
  *
- *   brand.yaml          name, theme, the order of rules/ and the page tree
+ *   brand.yaml          slug, name, theme, the order of rules/ and the page tree
  *   rules/color.yaml    the rules whose key starts with color., in order
  *   pages/logo.yaml     a page: its fields and sections
  *   assets/logo.svg     files the rules and pages point at by path
@@ -39,7 +39,7 @@ const HEADER = "# An Artbucket brand: rules in rules/, pages in pages/, files in
 /** Stands in for a file the caller has not uploaded yet, so the rest still checks. Never written. */
 export const MISSING_ASSET = "00000000-0000-4000-8000-00000000f11e";
 
-const TOP = ["name", "theme", "rules", "pages"] as const;
+const TOP = ["slug", "name", "theme", "rules", "pages"] as const;
 const RULE_FIELDS = ["type", "label", "value", "usage", "spec", "assets", "contexts"] as const;
 const CONTEXT_FIELDS = ["type", "label", "value", "usage", "spec", "assets"] as const;
 const PAGE_FIELDS = ["title", "eyebrow", "lede", "cover", "icon", "audience", "layout", "tabs", "hidden", "aliases", "translations", "sections"] as const;
@@ -269,13 +269,13 @@ function pageFile(p: SnapPage) {
  * same as what would be written is kept as it is, so a sync rewrites only
  * what changed.
  */
-export function toFiles(state: BrandState, o: { paths?: Record<string, string>; previous?: Files } = {}): Files {
+export function toFiles(state: BrandState, o: { paths?: Record<string, string>; previous?: Files; slug?: string } = {}): Files {
   const paths = o.paths ?? {};
   const s = canonical(swapStrings(state, (x) => paths[x] ?? x));
   const groups = groupsOf(s.rules);
   const out: Files = {
     [BRAND_FILE]: yaml(
-      { name: s.name, ...(Object.keys(s.theme).length && { theme: s.theme }), ...(groups.length && { rules: groups }), ...(s.pages.length && { pages: treeOf(s.pages) }) },
+      { ...(o.slug && { slug: o.slug }), name: s.name, ...(Object.keys(s.theme).length && { theme: s.theme }), ...(groups.length && { rules: groups }), ...(s.pages.length && { pages: treeOf(s.pages) }) },
       HEADER,
       "pages",
     ),
@@ -386,7 +386,7 @@ function zodIssues(d: Doc, err: { issues: { path: PropertyKey[]; message: string
   }
 }
 
-type BrandData = { name: string; theme: ThemeSettings; groups: string[] | null; tree: Tree | null };
+type BrandData = { slug: string | null; name: string; theme: ThemeSettings; groups: string[] | null; tree: Tree | null };
 type RuleData = Omit<SnapRule, "position">[];
 type PageData = Omit<SnapPage, "position" | "parent" | "updatedAt">;
 type Read = { data: Json; problems: Found[]; doc: Doc };
@@ -403,10 +403,12 @@ function readFile(path: string, text: string, swap: (s: string) => string): Read
 
 function readBrand(d: Doc, raw: Json): BrandData | null {
   if (!isObj(raw)) {
-    d.add("error", [], "brand.yaml is a map: name, theme, rules, pages");
+    d.add("error", [], "brand.yaml is a map: slug, name, theme, rules, pages");
     return null;
   }
   unknownFields(d, raw, TOP, []);
+  const slug = raw.slug === undefined ? null : String(raw.slug);
+  if (slug !== null && !ruleContext.safeParse(slug).success) d.add("error", ["slug"], "the brand's slug, e.g. acme-studio");
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   if (!name || name.length > 120) d.add("error", ["name"], "the brand's name, 1 to 120 characters");
   let theme: ThemeSettings = {};
@@ -428,7 +430,7 @@ function readBrand(d: Doc, raw: Json): BrandData | null {
     if (!Array.isArray(raw.pages)) d.add("error", ["pages"], "the page tree: a list of slugs, a page with pages under it as { slug: [...] }");
     else tree = raw.pages as Tree;
   }
-  return { name, theme, groups, tree };
+  return { slug, name, theme, groups, tree };
 }
 
 function readRules(d: Doc, raw: Json): RuleData | null {
@@ -587,9 +589,10 @@ export type Parsed = {
  * (path to asset id, resolved by the caller from their content). Checks
  * everything the API would refuse, file by file with lines, and warns about
  * what readers would trip on; what needs the library (that an id is a live
- * asset, that a collection is there) is left to core/brand-sync.ts.
+ * asset, that a collection is there) is left to core/brand-sync.ts. `slug`:
+ * the brand they are read into, which a brand.yaml naming another refuses.
  */
-export function fromFiles(files: Files, o: { assets?: Record<string, string> } = {}): Parsed {
+export function fromFiles(files: Files, o: { assets?: Record<string, string>; slug?: string } = {}): Parsed {
   const assets = Object.fromEntries(Object.entries(o.assets ?? {}).map(([k, v]) => [norm(k), v]));
   const missing = new Set<string>();
   const used: Record<string, string> = {};
@@ -711,6 +714,7 @@ export function fromFiles(files: Files, o: { assets?: Record<string, string> } =
 
   // The theme names rules of the kind each part needs, and reads well.
   if (top && brand) {
+    if (o.slug && top.slug && top.slug !== o.slug) brand.doc.add("error", ["slug"], `names the brand ${top.slug}, not ${o.slug}`);
     const t = top.theme;
     const named = (slot: string, key: string | null | undefined, type: "color" | "font") => {
       if (key && !rules.some((r) => r.key === key && r.type === type)) brand.doc.add("error", ["theme", slot], `no ${type} rule ${key}`);

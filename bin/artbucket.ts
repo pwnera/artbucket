@@ -61,12 +61,15 @@ const HELP = `artbucket <command>
                           the brand as files in dir (brand/ by default): brand.yaml,
                           rules/, pages/; a file that says the same is left as it is.
                           --assets fetches the files it points at into assets/ too
-  brand push [dir] [--brand b] [--dry-run] [--replace] [--publish] [--note text]
+  brand push [dir] [--brand b] [--create] [--dry-run] [--replace] [--publish] [--note text]
                           take the brand from its files, uploading what assets/ adds:
                           merged with what changed here since the last push or pull
-                          (--replace takes the files whole), as one version
+                          (--replace takes the files whole), as one version.
+                          --create makes the brand when there is none by its slug
   brand diff [dir] [--brand b]
                           what push would change; exits 1 on problems in the files
+                          The brand is --brand, or the slug: in brand.yaml (pull
+                          writes it), never the workspace's default
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
@@ -128,6 +131,7 @@ const { values: opt, positionals } = parseArgs({
     "version-of": { type: "string" },
     assets: { type: "boolean" },
     "dry-run": { type: "boolean" },
+    create: { type: "boolean" },
     replace: { type: "boolean" },
     publish: { type: "boolean" },
     note: { type: "string" },
@@ -175,7 +179,7 @@ const need = (v: string | undefined, what: string) => {
 /** The brand a command acts on: --brand, or the workspace's default. */
 const brandSlug = async (): Promise<string> =>
   opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
-const brandPath = async () => `/api/v1/brands/${encodeURIComponent(await brandSlug())}`;
+const brandPath = async (slug?: string) => `/api/v1/brands/${encodeURIComponent(slug ?? (await brandSlug()))}`;
 const readJson = async (file: string | undefined, what: string) => JSON.parse(await readFile(need(file, what), "utf8"));
 
 /** What a page write answers: where to read it, then what a reader would trip on. */
@@ -234,6 +238,13 @@ async function brandFiles(dir: string): Promise<Record<string, string>> {
   return files;
 }
 
+/** The brand files are for: --brand, or the slug: in their brand.yaml. Never the workspace's default. */
+const filesBrand = (files: Record<string, string>, dir: string) =>
+  need(
+    opt.brand ?? /^slug:\s*["']?([a-z0-9-]+)["']?\s*(#.*)?$/m.exec(files["brand.yaml"] ?? files["brand.yml"] ?? "")?.[1],
+    `the brand: --brand acme, or slug: acme in ${join(dir, "brand.yaml")}`,
+  );
+
 /** Every file under assets/, by its path in the brand, with the SHA-256 of its bytes. */
 async function assetFiles(dir: string, sub = "assets"): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
@@ -280,7 +291,7 @@ async function post(path: string, body: unknown) {
 
 async function brandPull(dir: string) {
   const previous = await brandFiles(dir);
-  const r = await api("POST", `${await brandPath()}/files/export`, { previous, ...(opt.assets && { assets: "files" }) });
+  const r = await api("POST", `${await brandPath(filesBrand(previous, dir))}/files/export`, { previous, ...(opt.assets && { assets: "files" }) });
   const { files, assets } = r.data as { files: Record<string, string>; assets: Record<string, { sha256: string; url: string }> };
   const wrote: string[] = [];
   for (const [path, text] of Object.entries(files)) {
@@ -311,8 +322,14 @@ async function brandPull(dir: string) {
 async function brandPush(dir: string, dryRun: boolean) {
   const files = await brandFiles(dir);
   if (!files["brand.yaml"] && !files["brand.yml"]) throw new Error(`No brand.yaml in ${dir}. artbucket brand pull ${dir} writes one`);
+  const slug = filesBrand(files, dir);
+  if (opt.create && !dryRun && !(await api("GET", "/api/v1/brands")).data.some((b: { slug: string }) => b.slug === slug)) {
+    // Named by its slug for now: the import names it as brand.yaml does.
+    await api("POST", "/api/v1/brands", { name: slug, slug });
+    console.error(`  made brand ${slug}`);
+  }
   const assets = await assetFiles(dir);
-  const path = `${await brandPath()}/files/import`;
+  const path = `${await brandPath(slug)}/files/import`;
   const body = { files, assets, ...(opt.replace && { merge: false }) };
   let r = await post(path, { ...body, dryRun: true });
   // Upload what the library lacks, then ask again.

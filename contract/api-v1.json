@@ -29415,7 +29415,7 @@
     ],
     "get": {
       "summary": "A brand as files",
-      "description": "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (name, theme, the order of `rules/`, the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` (a page's fields and sections). Every default is left out, so the same brand is always the same bytes. Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives every asset a path, to fetch from `assets[path].url` and add beside the files.\n\nScope: `read`.",
+      "description": "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (slug, name, theme, the order of `rules/`, the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` (a page's fields and sections). Every default is left out, so the same brand is always the same bytes. Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives every asset a path, to fetch from `assets[path].url` and add beside the files.\n\nScope: `read`.",
       "x-scope": "read",
       "parameters": [
         {
@@ -29855,7 +29855,7 @@
     ],
     "post": {
       "summary": "Take a brand from its files",
-      "description": "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a source that remembers what both sides last agreed, what changed here since is kept: the files win only where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line (`detail.errors`) and the files to upload first (`detail.missing`). `dryRun` answers what would change. `pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.\n\nScope: `write`.",
+      "description": "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a source that remembers what both sides last agreed, what changed here since is kept: the files win only where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line (`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another brand is one. `dryRun` answers what would change. `pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.\n\nScope: `write`.",
       "x-scope": "write",
       "requestBody": {
         "required": true,

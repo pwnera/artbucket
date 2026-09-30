@@ -841,7 +841,7 @@ export function openapi(serverUrl: string) {
           summary: "A brand as files",
           scope: "read",
           description:
-            "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (name, theme, the order of `rules/`, " +
+            "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (slug, name, theme, the order of `rules/`, " +
             "the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` " +
             "(a page's fields and sections). Every default is left out, so the same brand is always the same bytes. " +
             "Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives " +
@@ -872,7 +872,8 @@ export function openapi(serverUrl: string) {
             "source that remembers what both sides last agreed, what changed here since is kept: the files win only " +
             "where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are " +
             "named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line " +
-            "(`detail.errors`) and the files to upload first (`detail.missing`). `dryRun` answers what would change. " +
+            "(`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another " +
+            "brand is one. `dryRun` answers what would change. " +
             "`pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.",
           body: S.BrandImportInput,
           ok: [200, "What changed", data(S.BrandImport)],

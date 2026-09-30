@@ -220,3 +220,16 @@ test("assetIds finds every id a brand points at", () => {
   assert.ok(ids.includes(MARK));
   assert.ok(ids.includes(WORDMARK));
 });
+
+test("brand.yaml's slug names the brand the files are for; another brand refuses them", () => {
+  const files = toFiles(blender(), { slug: "blender" });
+  assert.match(files["brand.yaml"], /^slug: blender$/m);
+  assert.deepEqual(fromFiles(files, { slug: "blender" }).errors, []);
+  assert.deepEqual(fromFiles(files).errors, []);
+  const e = fromFiles(files, { slug: "acme" }).errors.find((x) => x.file === "brand.yaml")!;
+  assert.match(e.message, /slug: names the brand blender, not acme/);
+  assert.equal(files["brand.yaml"].split("\n")[e.line! - 1], "slug: blender");
+  // A brand.yaml without one gets it on the next pull.
+  const without = toFiles(blender());
+  assert.notEqual(toFiles(blender(), { slug: "blender", previous: without })["brand.yaml"], without["brand.yaml"]);
+});

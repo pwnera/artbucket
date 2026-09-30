@@ -93,12 +93,13 @@ type Checked = { state: BrandState | null; used: Record<string, string>; errors:
 /**
  * Files read and checked as the API checks a write: lib/brand-files.ts for
  * what the files say, then the library for what they point at. `missing`:
- * files under assets/ the library does not have yet.
+ * files under assets/ the library does not have yet. `slug`: the brand they
+ * are for, which a brand.yaml naming another refuses.
  */
-async function check(caller: Caller, files: Files, given: Record<string, string>): Promise<Checked> {
+async function check(caller: Caller, slug: string, files: Files, given: Record<string, string>): Promise<Checked> {
   const ws = caller.workspace.id;
   const resolved = await resolveAssets(ws, given);
-  const parsed = fromFiles(files, { assets: resolved.map });
+  const parsed = fromFiles(files, { assets: resolved.map, slug });
   const missing = [...new Set([...parsed.missing, ...resolved.unknown.filter((p) => p.startsWith(ASSETS_DIR) && Object.values(files).some((t) => t.includes(p)))])].sort();
   const errors = [...parsed.errors];
   const s = parsed.state;
@@ -173,7 +174,7 @@ export async function exportBrand(ws: string, slug: string | undefined, o: { pre
       paths[r.id] = path;
     }
   }
-  const files = toFiles(state, { paths, previous: o.previous });
+  const files = toFiles(state, { paths, previous: o.previous, slug: brand.slug });
   const listed = Object.fromEntries(
     rows
       .filter((r) => paths[r.id])
@@ -259,7 +260,7 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
   const ws = caller.workspace.id;
   const brand = await resolveBrand(ws, slug);
   if (input.publish && !can(caller, "brand.publish")) throw new AssetError("forbidden", `Publishing takes ${needs("brand.publish")}`);
-  const checked = await check(caller, input.files, input.assets ?? {});
+  const checked = await check(caller, brand.slug, input.files, input.assets ?? {});
   refuseFiles(checked);
   const theirs = checked.state!;
   const source = await sourceRow(brand.id);
@@ -349,7 +350,7 @@ export async function setSource(caller: Caller, slug: string | undefined, input:
   const moved = !old || old.remote !== where.remote || old.branch !== where.branch || old.path !== where.path;
   let agreed: Partial<Source> = moved ? { base: null, commit: null, paths: {}, syncedAt: null } : {};
   if (input.synced) {
-    const checked = await check(caller, input.synced.files, input.synced.assets ?? {});
+    const checked = await check(caller, brand.slug, input.synced.files, input.synced.assets ?? {});
     refuseFiles(checked);
     agreed = { base: canonical(checked.state!), commit: input.synced.commit, paths: invert(checked.used), syncedAt: new Date() };
   }
@@ -381,7 +382,7 @@ export type PreviewInput = { ref: string; title?: string; commit?: string; files
  */
 export async function savePreview(caller: Caller, slug: string | undefined, input: PreviewInput) {
   const brand = await resolveBrand(caller.workspace.id, slug);
-  const checked = await check(caller, input.files, input.assets ?? {});
+  const checked = await check(caller, brand.slug, input.files, input.assets ?? {});
   refuseFiles(checked);
   const state = canonical(checked.state!);
   const expiresAt = new Date(Date.now() + PREVIEW_DAYS * 86_400_000);

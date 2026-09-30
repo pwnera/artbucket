@@ -13,7 +13,7 @@ made to the same rule is named, not lost.
 
 ```
 brand/
-  brand.yaml          name, theme, the order of rules/, the page tree
+  brand.yaml          slug, name, theme, the order of rules/, the page tree
   rules/color.yaml    the rules whose key starts with color.
   rules/logo.yaml
   pages/overview.yaml a page: its fields and sections
@@ -23,6 +23,7 @@ brand/
 
 ```yaml brand.yaml
 # An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+slug: acme
 name: Acme
 theme:
   accent: color.primary
@@ -72,9 +73,9 @@ Where an asset id goes, a path under `assets/` goes too.
 ## Pushing and pulling
 
 ```bash
-artbucket brand pull brand --assets   # the brand as files in brand/, with its assets
-artbucket brand diff brand            # what a push would change
-artbucket brand push brand            # take the brand from its files
+artbucket brand pull brand --brand acme --assets   # acme as files in brand/, with its assets
+artbucket brand diff brand                         # what a push would change
+artbucket brand push brand                         # take the brand from its files
 ```
 
 `push` uploads what `assets/` adds, checks every file, and writes the brand
@@ -87,6 +88,12 @@ pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has co
 
 `pull` writes only the files whose meaning changed: a file that says the same
 keeps its comments and its layout.
+
+Each command acts on the brand `--brand` names, or else the one `slug:` in
+`brand.yaml` names (`pull` writes it), never on the workspace's default. A
+`brand.yaml` whose slug names another brand is refused, so files pushed to
+the wrong brand never land. `push --create` makes the brand when there is
+none by that slug.
 
 ## Both ways
 
