@@ -7,6 +7,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { fetchPublic } from "@/lib/fetch-public";
 import { memo } from "@/lib/memo";
@@ -84,6 +85,8 @@ export async function saveSso(caller: Caller, input: SsoInput) {
   if (!domain) throw new AssetError("invalid", `Not a domain: "${input.domain}". Say the part after the @, e.g. acme.com`);
   const issuer = input.issuer.trim().replace(/\/$/, "");
   const [had] = await db.select().from(ssoProviders).where(own(caller));
+  // A new provider needs the feature (LIMIT_FEATURES, docs: configuration/limits); one already set up can still change.
+  if (!had) await checkLimit(organizationId, "sso");
   const clientSecret = input.clientSecret || (had && config(had).clientSecret);
   if (!clientSecret) throw new AssetError("invalid", "The client secret is needed to set it up");
   const oidc = await discover(issuer, { clientId: input.clientId.trim(), clientSecret });

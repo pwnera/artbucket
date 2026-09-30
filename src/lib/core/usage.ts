@@ -130,7 +130,11 @@ const n = (count: number, what: string) => `${count} ${what}${count === 1 ? "" :
 
 export type Limited = "storage" | "editors" | "workspaces" | "brands" | "domains" | Feature;
 
-const FEATURE_LABEL: Record<Feature, string> = { agents: "Connecting agents and making API keys", shares: "Share and upload links" };
+const FEATURE_LABEL: Record<Feature, string> = {
+  agents: "Connecting agents and making API keys",
+  shares: "Share and upload links",
+  sso: "Setting up single sign-on",
+};
 
 /**
  * Refuse, before anything moves, what would take the organization past a

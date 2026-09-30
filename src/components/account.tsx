@@ -60,6 +60,8 @@ export type Me = {
   off: Off;
   hidden: string[];
   workspaces: WorkspaceRef[];
+  /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
+  upgrade: string | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
 

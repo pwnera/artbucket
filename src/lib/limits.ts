@@ -13,7 +13,7 @@ import { z } from "zod";
  */
 
 /** What can be switched off for an organization. Off, nobody there can make new ones. */
-export const FEATURES = ["agents", "shares"] as const;
+export const FEATURES = ["agents", "shares", "sso"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
@@ -71,6 +71,14 @@ export function limitsFromEnv(env: Env): Limits | null {
   if (f) out.features = f === "none" ? [] : f.split(",").map((s) => s.trim()).filter(Boolean);
   return Object.keys(out).length ? Limits.parse({ ...UNLIMITED, ...out }) : null;
 }
+
+/**
+ * Where an organization's admin can take a plan (BILLING_URL), while the
+ * organization runs on the server's own limits: no limits row of its own,
+ * so no plan yet. Null for everyone else, and on a server that sells none.
+ */
+export const upgradeUrl = (billing: string | undefined, admin: boolean, limitsFrom: string) =>
+  billing && admin && limitsFrom !== "organization" ? billing : null;
 
 /**
  * LIMIT_ORGANIZATIONS, per person: how many organizations on the server's own

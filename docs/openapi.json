@@ -28079,6 +28079,18 @@
                           },
                           "description": "Every workspace you can switch to"
                         },
+                        "upgrade": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"
+                        },
                         "auth": {
                           "type": "object",
                           "properties": {
@@ -28166,6 +28178,7 @@
                         "off",
                         "hidden",
                         "workspaces",
+                        "upgrade",
                         "auth"
                       ],
                       "additionalProperties": false
@@ -28658,7 +28671,8 @@
                                     "type": "string",
                                     "enum": [
                                       "agents",
-                                      "shares"
+                                      "shares",
+                                      "sso"
                                     ]
                                   }
                                 },
