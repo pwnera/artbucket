@@ -1,0 +1,39 @@
+# Artbucket to try on any cluster (kind, k3d, minikube, Docker Desktop), with
+# nothing to set up first (docs/installation/kubernetes.mdx):
+#
+#   kubectl apply -k deploy/kubernetes/quickstart
+#   kubectl -n artbucket port-forward svc/artbucket 3000:80
+#   kubectl -n artbucket port-forward svc/s3 9000:9000   # browsers upload here
+#
+# then http://localhost:3000. Postgres and SeaweedFS run beside the app, with
+# no gateway, domain or certificate. Its passwords are in this file: to try the
+# app only, never on a server anyone else reaches. The base (..) is for that.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: artbucket
+labels:
+  - pairs:
+      app.kubernetes.io/name: artbucket
+    includeSelectors: true
+resources:
+  - ../app
+  - postgres.yaml
+  - s3.yaml
+configMapGenerator:
+  - name: artbucket-config
+    envs: [config.env]
+secretGenerator:
+  - name: artbucket-secret
+    literals:
+      - DATABASE_URL=postgres://artbucket:artbucket@postgres:5432/artbucket
+      - S3_ACCESS_KEY_ID=artbucket
+      - S3_SECRET_ACCESS_KEY=artbucket
+      - BETTER_AUTH_SECRET=artbucket-quickstart-secret-not-for-production
+  - name: postgres
+    literals:
+      - POSTGRES_USER=artbucket
+      - POSTGRES_PASSWORD=artbucket
+      - POSTGRES_DB=artbucket
+images:
+  - name: ghcr.io/pwnera/artbucket
+    newTag: "1"

@@ -9,6 +9,52 @@ replaces Ingress). `kubectl` applies it as is, no Helm. Bring Postgres 16 or
 later and S3-compatible storage: managed ones (RDS, Cloud SQL, Neon; S3, R2,
 B2), or in the cluster (CloudNativePG, SeaweedFS, Garage).
 
+To look around first, [Try it](#try-it) runs everything in the cluster with
+nothing to set up. Without Kubernetes at all,
+[Docker Compose](/installation/docker-compose) is quicker still.
+
+## Try it
+
+`deploy/kubernetes/quickstart/` runs the app with its own Postgres and
+SeaweedFS beside it, and no gateway, domain or certificate: you reach it
+through `kubectl port-forward`. Any cluster will do (kind, k3d, minikube,
+Docker Desktop), as long as it has a default storage class for its two
+volumes.
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket
+kubectl apply -k deploy/kubernetes/quickstart
+kubectl -n artbucket rollout status deployment/artbucket
+```
+
+Then, each in a terminal of its own:
+
+```bash
+kubectl -n artbucket port-forward svc/artbucket 3000:80
+```
+
+```bash
+kubectl -n artbucket port-forward svc/s3 9000:9000
+```
+
+Open `http://localhost:3000` and make the first account. The second
+port-forward is where browsers upload: files go from the browser straight to
+storage, not through the app.
+
+Its passwords and `BETTER_AUTH_SECRET` are written in
+`quickstart/kustomization.yaml`, so keep it to trying the app. When you are
+done:
+
+```bash
+kubectl delete -k deploy/kubernetes/quickstart
+```
+
+That deletes the namespace, its volumes and everything in them. The rest of
+this page sets up the real thing.
+
+## Install
+
 The cluster needs the Gateway API CRDs (v1.0 or later) and a controller that
 implements them: Envoy Gateway, Istio, Cilium, Traefik, NGINX Gateway Fabric,
 or your cloud's own. Most install the CRDs with them; otherwise:

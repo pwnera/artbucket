@@ -1,4 +1,5 @@
 # Artbucket on Kubernetes: `kubectl apply -k deploy/kubernetes` (docs/installation/kubernetes.mdx).
+# To try it first with nothing to set up, see quickstart/.
 #
 # Bring Postgres 16+ and S3-compatible storage (managed, or in the cluster with
 # an operator). Before applying:
@@ -15,9 +16,7 @@ labels:
       app.kubernetes.io/name: artbucket
     includeSelectors: true
 resources:
-  - namespace.yaml
-  - deployment.yaml
-  - service.yaml
+  - app
   - gateway.yaml
 configMapGenerator:
   - name: artbucket-config

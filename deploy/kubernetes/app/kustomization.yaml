@@ -1,0 +1,8 @@
+# What every setup shares: the namespace, the Deployment and its Service. The
+# setups beside it (.. and ../quickstart) add the settings and the way in.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
