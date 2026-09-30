@@ -22,9 +22,9 @@ export type Event = typeof events.$inferInsert;
  * every few seconds if delivery traffic makes this the hot path.
  */
 export function record(e: Event) {
-  void db
-    .insert(events)
-    .values(e)
+  // After the response's own work, and whatever goes wrong goes wrong there, not in it.
+  void Promise.resolve()
+    .then(() => db.insert(events).values(e))
     .catch((err) => console.error("event not recorded", err));
 }
 

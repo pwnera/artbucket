@@ -19,6 +19,10 @@ type Ctx = { params: Promise<{ id: string }> };
  * see it in the library. The asset it lands on answers as /a always does, so
  * a public embed keeps working only while the current version is public too.
  * No `?s=`: a signature pins one id, so a signed URL is an /a URL.
+ *
+ * Not recorded for Insights: the /a fetch it sends to is, as the current
+ * version, which is what release adoption asks. Counting both would count
+ * each fetch twice.
  */
 export async function GET(req: Request, { params }: Ctx) {
   try {
