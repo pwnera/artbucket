@@ -9,8 +9,10 @@ import type { BuilderApi, Transport } from "@/components/builder/use-builder";
 import type { Status } from "@/components/builder/use-status";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { Thumb } from "@/components/thumb";
+import { useCan } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +22,7 @@ import { releaseLines, type ReleaseLine, type SnapRule } from "@/lib/history";
 import type { SnapPage } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
+import { brandPath } from "@/lib/site";
 
 /**
  * Publish a release (build spec 3.5.3, W6.3, and the prototype's "Publish a
@@ -30,9 +33,11 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
  * lists the portals it now shows on. Publishing and sharing are two things (a
  * version readers get, and a door with an address and who gets in; one brand
  * can be on several portals, one portal can show several brands), but a
- * brand no portal shows yet can get one in the same step: named for the
- * brand, showing it, open to the workspace's members or to anyone. Requests go through the host's
- * transport, so the builder's dev page records them.
+ * brand only the team reads yet (on no portal, private on BrandHub) is asked
+ * who should see it in the same step: a portal named for the brand, showing
+ * it, open to the workspace's members or to anyone, and public on BrandHub
+ * (PATCH .../hub once released), each as far as the person may. Requests go
+ * through the host's transport, so the builder's dev page records them.
  *
  * The draft is the brand's latest version, which is what a publish
  * publishes, so it is read from the server once every write has landed.
@@ -57,7 +62,7 @@ export type ReleaseHost = {
   brand: string;
   name: string;
   transport: Transport;
-  /** The brand's status (lib/core/brand-status.ts): its score, and whether a portal shows it. */
+  /** The brand's status (lib/core/brand-status.ts): its score, and whether a portal shows it or BrandHub lists it publicly. */
   status: Status | null;
   /** Open review comments, and how to go to them. */
   comments: { open: number; review: (() => void) | string };
@@ -138,9 +143,15 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Published | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  // Offered only when the brand is on no portal and this person may make one (b.status.portals is [] then, null when they can't tell).
-  const offer = host.status?.portals?.length === 0;
+  // Who should see it, asked until the brand is shared somewhere: a portal when it is on none and this person may make one
+  // (b.status.portals is [] then, null when they can't tell), BrandHub when the server has one and they may publish there.
+  const can = useCan();
+  const status = host.status;
+  const shared = !!status?.portals?.length || status?.hub?.visibility === "public";
+  const portalOffer = !shared && status?.portals?.length === 0;
+  const hubOffer = !shared && status?.hub?.visibility === "private" && can("brand.publish");
   const [door, setDoor] = useState<Door>("members");
+  const [hubPublic, setHubPublic] = useState(false);
   const url = useAssetUrl();
 
   useEffect(() => {
@@ -180,7 +191,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
       return setFailed(res.network ? "Couldn't reach the server. Nothing was released." : (res.error?.message ?? "Couldn't release."));
     }
     const published = res.data as Published;
-    if (offer && door !== "none") {
+    if (portalOffer && door !== "none") {
       // The address from the name, then with a number, should another portal have it.
       const base = slugOf(host.name);
       for (const slug of [base, `${base}-guidelines`, `${base}-2`, `${base}-3`]) {
@@ -194,6 +205,15 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           toast.error("Released, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
           break;
         }
+      }
+    }
+    if (hubOffer && hubPublic) {
+      const shown = await transport("PATCH", `/api/v1/brands/${encodeURIComponent(brand)}/hub`, { visibility: "public" });
+      if (shown.ok) {
+        const h = shown.data as { visibility: "private" | "public"; url: string };
+        published.hub = { visibility: h.visibility, url: h.url };
+      } else {
+        toast.error("Released, but it isn't public on BrandHub", { description: (!shown.network && shown.error?.message) || "Make it public on its Sharing tab." });
       }
     }
     setBusy(false);
@@ -293,18 +313,32 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         </div>
       </div>
 
-      {offer && (
-        <fieldset className="grid gap-2 rounded-lg border p-3">
-          <legend className="px-1 text-sm font-medium">Also share it on a portal</legend>
-          <p className="text-muted-foreground text-xs">No portal shows {host.name} yet. A portal is its own address for it, which you can style and close later.</p>
-          <div role="radiogroup" aria-label="Who gets in" className="grid gap-1">
-            {(Object.keys(DOORS) as Door[]).map((d) => (
-              <label key={d} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="publish-door" value={d} checked={door === d} onChange={() => setDoor(d)} className="accent-primary" />
-                {DOORS[d]}
-              </label>
-            ))}
-          </div>
+      {(portalOffer || hubOffer) && (
+        <fieldset className="grid gap-3 rounded-lg border p-3">
+          <legend className="px-1 text-sm font-medium">Who should see it</legend>
+          <p className="text-muted-foreground text-xs">Only the team reads {host.name} yet.</p>
+          {portalOffer && (
+            <div className="grid gap-1.5">
+              <p className="text-sm">On a portal: its own address, which you can style and close later</p>
+              <div role="radiogroup" aria-label="Who gets in to the portal" className="grid gap-1">
+                {(Object.keys(DOORS) as Door[]).map((d) => (
+                  <label key={d} className="flex items-center gap-2 text-sm">
+                    <input type="radio" name="publish-door" value={d} checked={door === d} onChange={() => setDoor(d)} className="accent-primary" />
+                    {DOORS[d]}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {hubOffer && (
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox checked={hubPublic} onCheckedChange={(on) => setHubPublic(on === true)} className="mt-0.5" />
+              <span className="grid gap-0.5">
+                Public on BrandHub, for agents too
+                <span className="text-muted-foreground text-xs">Anyone and any agent reads the release there: its brand.json, llms.txt and tokens.</span>
+              </span>
+            </label>
+          )}
         </fieldset>
       )}
 
@@ -429,7 +463,7 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
           <p className="text-sm font-medium">Share it outside the team</p>
           <p className="text-muted-foreground text-sm">No portal shows this brand yet. A portal is its own address, with your look and who may read it.</p>
           <Button asChild size="sm" variant="outline" className="justify-self-start">
-            <Link href={`/portals?${new URLSearchParams({ new: brand })}`}>Create a portal for it</Link>
+            <Link href={brandPath(brand, "/sharing")}>Create a portal for it</Link>
           </Button>
         </div>
       )}
@@ -442,7 +476,7 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
           {done.hub.visibility === "private" && (
             <>
               {". "}
-              <Link href="/brands" className="text-foreground underline underline-offset-2">
+              <Link href={brandPath(brand, "/sharing")} className="text-foreground underline underline-offset-2">
                 Make it public
               </Link>
             </>
