@@ -236,6 +236,9 @@ export async function hubBrand(
   const path = hubPath(row.org, row.brand, version);
   return {
     ...card,
+    /** Whose it is, for Insights' count of reads; never shown. */
+    brandId: row.id,
+    workspaceId: row.workspaceId,
     version: view.version.number,
     publishedAt: view.version.publishedAt,
     latest: row.version,
