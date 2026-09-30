@@ -3,12 +3,11 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
+import { IconCheck, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +35,12 @@ const json = <T,>(url: string): Promise<T | null> =>
     .then((r) => (r.ok ? (r.json() as Promise<T>) : null))
     .catch(() => null);
 
-type Status = { steps: { id: string; done: boolean | null }[]; publish: "never" | "behind" | "current" };
+type Status = {
+  steps: { id: string; done: boolean | null }[];
+  publish: "never" | "behind" | "current";
+  portals: unknown[] | null;
+  hub: { visibility: "private" | "public" } | null;
+};
 
 /**
  * What a path's steps read (lib/onboarding.ts Facts) that the page doesn't
@@ -51,14 +55,14 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
   useEffect(() => {
     if (!path || !me) return;
     let live = true;
-    const brandy = path !== "agency";
+    const brandy = path !== "clients";
     void (async () => {
       const list = brandy ? await json<{ data: { slug: string; default: boolean }[] }>("/api/v1/brands") : null;
       const b = list?.data.find((x) => x.default) ?? list?.data[0];
       const [status, source, members, keys, asked] = await Promise.all([
         b ? json<{ data: Status }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/status`) : null,
-        b && path === "system" ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`) : null,
-        path === "brand" ? json<{ data: unknown[]; invitations: unknown[] }>("/api/v1/members") : null,
+        b && path === "product" ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`) : null,
+        path === "company" ? json<{ data: unknown[]; invitations: unknown[] }>("/api/v1/members") : null,
         path === "ai" ? json<{ data: unknown[] }>("/api/v1/keys") : null,
         path === "ai" ? json<{ data: { clients: { tools: unknown[] }[] } }>("/api/v1/insights/connections") : null,
       ]);
@@ -77,8 +81,11 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
                 tokens: done(["colors", "type"]),
                 published: !!status && status.data.publish !== "never",
                 git: !!source?.data.source,
+                public: status?.data.hub?.visibility === "public",
+                portal: !!status?.data.portals?.length,
               }
             : null,
+          hub: !!status?.data.hub || !!me.hub,
           team: !!members && members.data.length + members.invitations.length > 1,
           workspaces: me.workspaces.length,
           agent: !!keys?.data.length,
@@ -133,11 +140,11 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
       <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
         <div className="flex items-center gap-3">
           <h2 id="setup-title" className="flex-1 text-sm font-medium">
-            What brings you here?
+            What do you want to do?
           </h2>
           {hide}
         </div>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {PATHS.map((p) => (
             <li key={p.id}>
               <button
@@ -161,27 +168,108 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
   if (done === steps.length) return null;
   const chosen = PATHS.find((p) => p.id === path)!;
 
+  const next = steps.find((s) => !s.done)!;
+  const at = steps.indexOf(next);
+
   return (
-    <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
-      <div className="flex items-center gap-3">
-        <div className="grid flex-1 gap-1.5">
-          <h2 id="setup-title" className="text-sm font-medium">
-            {chosen.label}: on to {chosen.win}
+    <section aria-labelledby="setup-title" className="bg-card relative overflow-hidden rounded-xl border">
+      {/* A wash of the accent behind the head, so the card reads as the one thing to do next. */}
+      <div aria-hidden className="from-primary/10 pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b to-transparent" />
+      <div className="relative flex flex-wrap items-center gap-4 p-4 sm:flex-nowrap">
+        <Ring done={done} total={steps.length} />
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <p className="text-muted-foreground truncate text-xs font-medium">{chosen.label}</p>
+          <h2 id="setup-title" className="text-base font-semibold tracking-tight">
+            {next.win ? "Last step: " : "Next: "}
+            {next.label}
           </h2>
-          <div className="flex items-center gap-2">
-            <Progress value={(done / steps.length) * 100} aria-label="Setup progress" className="h-1.5 max-w-48" />
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {done} of {steps.length}
-            </span>
-          </div>
+          <p className="text-muted-foreground text-sm">{next.why}</p>
         </div>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => save({ ...stored, path: undefined })}>
-          Change
-        </Button>
-        {hide}
+        <div className="flex items-center gap-1">
+          <StepAction step={next} onUpload={onUpload} className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
+            {next.upload ? "Upload" : "Start"}
+          </StepAction>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => save({ ...stored, path: undefined })}>
+            Change
+          </Button>
+          {hide}
+        </div>
       </div>
-      <StepList steps={steps} onUpload={onUpload} className="mt-3 sm:grid-cols-2 lg:grid-cols-3" />
+      <ol className="relative flex gap-0 overflow-x-auto border-t px-4 py-3 [scrollbar-width:none]" aria-label={`Steps to ${chosen.win}`}>
+        {steps.map((s, i) => (
+          <li key={s.id} className="flex min-w-36 flex-1 items-center gap-2">
+            <StepAction step={s} onUpload={onUpload} className="group/step flex min-w-0 items-center gap-2 rounded-md py-1 pe-2 text-start outline-none focus-visible:ring-2">
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums transition-colors",
+                  s.done && "bg-primary border-primary text-primary-foreground",
+                  !s.done && i === at && "border-primary text-primary-ink ring-primary/25 ring-4",
+                  !s.done && i !== at && "text-muted-foreground",
+                )}
+              >
+                {s.done ? <IconCheck className="size-3.5" /> : s.win ? <IconTrophy className="size-3.5" /> : i + 1}
+              </span>
+              <span className={cn("truncate text-xs", s.done ? "text-muted-foreground" : i === at ? "font-medium" : "text-muted-foreground group-hover/step:text-foreground")}>
+                {s.label}
+              </span>
+            </StepAction>
+            {i < steps.length - 1 && <span aria-hidden className={cn("h-px min-w-4 flex-1", s.done ? "bg-primary/60" : "bg-border")} />}
+          </li>
+        ))}
+      </ol>
     </section>
+  );
+}
+
+/** How far along, as a ring: the fraction done, with the count inside. */
+function Ring({ done, total }: { done: number; total: number }) {
+  const r = 20;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative size-12 shrink-0" role="img" aria-label={`${done} of ${total} done`}>
+      <svg viewBox="0 0 48 48" className="size-12 -rotate-90">
+        <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4" className="stroke-muted" />
+        <circle
+          cx="24"
+          cy="24"
+          r={r}
+          fill="none"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - done / total)}
+          className="stroke-primary transition-[stroke-dashoffset] duration-500"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums">
+        {done}/{total}
+      </span>
+    </div>
+  );
+}
+
+/** Where a step is done: the library's own upload, the server's Git integration (outside the app), or a page of it. */
+function StepAction({ step: s, onUpload, onGo, className, children }: { step: OnboardingStep; onUpload?: () => void; onGo?: () => void; className?: string; children: React.ReactNode }) {
+  if (s.upload) {
+    return onUpload && !s.done ? (
+      <button type="button" onClick={() => (onGo?.(), onUpload())} className={className}>
+        {children}
+      </button>
+    ) : (
+      <span className={className}>{children}</span>
+    );
+  }
+  if (s.id === "git" && s.href && /^https?:/.test(s.href)) {
+    return (
+      <a href={s.href} className={className} onClick={onGo}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={s.href!} className={className} onClick={onGo}>
+      {children}
+    </Link>
   );
 }
 
@@ -255,11 +343,11 @@ function FirstRun({ stored, save, facts, onUpload, org }: { stored: Stored; save
         <div className="grid gap-2">
           <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Welcome to Artbucket</p>
           <h1 id="welcome-title" className="text-3xl font-semibold tracking-tight">
-            What brings you here?
+            What do you want to do?
           </h1>
           <p className="text-muted-foreground">We will set things up for that first. You can do the rest later.</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What brings you here">
+        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What do you want to do">
           {PATHS.map((p) => (
             <button
               key={p.id}

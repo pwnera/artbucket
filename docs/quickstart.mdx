@@ -38,11 +38,15 @@ Open http://localhost:3000 and make an account. The first one is the admin of
 everything, and until it exists nothing else works, in the app or the API.
 Then drop in a file.
 
-The library asks an admin what brings them: a brand to manage, a design
-system, an agency's clients, or building with AI. Each answer is a short
-list that ends in its first win (a published brand, the brand kept in a Git
-repository, a client workspace, an agent's first MCP call), and each step
-checks itself off once it is done.
+The first time an admin opens the library, it asks, over the whole page,
+what they want to do: manage their company's brand and assets, create a
+brand for an open-source project, manage brands for clients, build a brand
+and a design system for a product, or give AI agents the brand. Each answer
+is a short list that ends in its first win (a released brand, the brand in
+public, a client workspace, the brand in a Git repository, an agent's first
+MCP call), with connecting a Git repository where it fits, and each step
+checks itself off once it is done. Skipped or unfinished, the list stays
+at the top of the library.
 
 Optional extras for previews: `ffmpeg` on the path for video thumbnails (the
 Docker image has it), and LibreOffice (`soffice`) for Word, Excel and

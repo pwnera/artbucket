@@ -2,21 +2,49 @@ import { gitLink } from "./git.ts";
 import { brandPath, guidelinesPath } from "./site.ts";
 
 /**
- * Onboarding by path (PRD): who someone is decides what their first win is,
- * so each path is a short list that ends in it. A brand manager's is a
- * published brand; a design system's, the brand kept in its code (a Git
- * repository, from which its tokens and DESIGN.md go out with every push);
- * an agency's, a client workspace; an AI builder's, a first MCP call. Every
- * step is checked off from what the app knows, never by hand.
+ * Onboarding by use case (PRD): what someone came to do decides their first
+ * win, so each is a short list that ends in it. A company's brand and
+ * assets: a released brand. An open-source project's brand: public on
+ * BrandHub (a public portal where the server has no hub). A client's: a
+ * client workspace. A brand and design system for a product: the brand kept
+ * in its code (a Git repository, from which its tokens and DESIGN.md go out
+ * with every push). AI agents on the brand: a first MCP call. Every step is
+ * checked off from what the app knows, never by hand.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
 
 export const PATHS = [
-  { id: "brand", label: "I manage a brand", blurb: "Logo, colors, guidelines, and who may use what.", win: "a released brand" },
-  { id: "system", label: "I run a design system", blurb: "Tokens and rules kept in Git, exported to code.", win: "the brand in your code" },
-  { id: "agency", label: "I'm an agency", blurb: "A workspace per client, white-label portals.", win: "a client workspace" },
-  { id: "ai", label: "I build with AI", blurb: "One MCP URL for Claude, Cursor, n8n and others.", win: "a first MCP call" },
+  {
+    id: "company",
+    label: "Manage my company's brand and assets",
+    blurb: "One library and one set of guidelines for everyone who makes things for you.",
+    win: "a released brand",
+  },
+  {
+    id: "oss",
+    label: "Create a brand for my open-source project",
+    blurb: "Logo, colors and usage rules, public for contributors, press and agents.",
+    win: "your brand in public",
+  },
+  {
+    id: "clients",
+    label: "Manage brands and assets for my clients",
+    blurb: "A workspace per client, and portals under your name or theirs.",
+    win: "a client workspace",
+  },
+  {
+    id: "product",
+    label: "Build a brand and a design system for my product",
+    blurb: "Rules as tokens, kept in Git and exported to your code.",
+    win: "the brand in your code",
+  },
+  {
+    id: "ai",
+    label: "Give my AI agents our brand",
+    blurb: "One MCP URL for Claude, Cursor, n8n and others, with the rules they must follow.",
+    win: "a first MCP call",
+  },
 ] as const;
 export type PathId = (typeof PATHS)[number]["id"];
 
@@ -32,7 +60,19 @@ export type Facts = {
   noEmail: boolean;
   uploaded: boolean;
   /** The default brand, as its status says (lib/readiness.ts); null when there is none. */
-  brand: { slug: string; basics: boolean; tokens: boolean; published: boolean; git: boolean } | null;
+  brand: {
+    slug: string;
+    basics: boolean;
+    tokens: boolean;
+    published: boolean;
+    git: boolean;
+    /** Public on BrandHub. */
+    public: boolean;
+    /** A portal shows it. */
+    portal: boolean;
+  } | null;
+  /** This server runs BrandHub. */
+  hub: boolean;
   /** Someone else is in the organization, or invited. */
   team: boolean;
   workspaces: number;
@@ -68,29 +108,48 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
     done: !!b?.basics,
     href: builder,
   };
+  // Brand as code: the integration's connect page where the server has one, else the brand, whose Settings show the CLI way.
+  const git = {
+    id: "git",
+    label: "Connect your Git repository",
+    why: "The brand's files beside your code, reviewed in pull requests, in step both ways.",
+    done: !!b?.git,
+    href: b && f.git ? gitLink(f.git, b.slug) : b ? brandPath(b.slug) : "/brands",
+  };
+  const release = { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder };
   switch (path) {
-    case "brand":
+    case "company":
       return [
         { id: "upload", label: "Upload your first assets", why: "Logos, photos, fonts: anything the brand uses.", done: f.uploaded, upload: true },
         basics,
         ...(f.noEmail ? [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: false, href: "/settings/organization/email" }] : []),
         { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: f.team, href: "/team" },
+        git,
         { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder, win: true },
       ];
-    case "system":
+    case "oss":
+      return [
+        { ...basics, why: "Logo, colors, type and voice: start blank, from a template, or from your repository." },
+        git,
+        release,
+        f.hub
+          ? {
+              id: "public",
+              label: "Make it public on BrandHub",
+              why: "Contributors, press and agents read it without an account.",
+              done: !!b?.public,
+              href: b ? `${brandPath(b.slug)}/settings` : "/brands",
+              win: true,
+            }
+          : { id: "portal", label: "Open a public portal", why: "A press kit anyone can read, on its own address.", done: !!b?.portal, href: "/portals", win: true },
+      ];
+    case "product":
       return [
         { id: "tokens", label: "Put in your colors and type", why: "Each rule is a token: color, font, size.", done: !!b?.tokens, href: builder },
         { id: "publish", label: "Make a release", why: "Tokens and DESIGN.md serve what is released.", done: !!b?.published, href: builder },
-        {
-          id: "git",
-          label: "Keep it in your code",
-          why: "Brand as code: the brand's files in a Git repository, reviewed in pull requests.",
-          done: !!b?.git,
-          href: b && f.git ? gitLink(f.git, b.slug) : b ? brandPath(b.slug) : "/brands",
-          win: true,
-        },
+        { ...git, why: "Brand as code: tokens and DESIGN.md go out to your code with every push.", win: true as const },
       ];
-    case "agency":
+    case "clients":
       return [
         { id: "name", label: "Name your organization", why: "It heads every page, email and share link.", done: f.named, href: "/settings/organization/general" },
         { id: "look", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: f.branded, href: "/settings/organization/branding" },
