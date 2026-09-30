@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -264,5 +264,59 @@ export function FollowButton({ org, brand, following }: { org: string; brand: st
     <Button variant="outline" pending={busy} onClick={toggle} aria-pressed={on}>
       {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
     </Button>
+  );
+}
+
+/**
+ * Start from this brand (lib/core/hub.ts startFrom): a new brand in the
+ * workspace the person has open, from this release's rules, pages, theme and
+ * files, then on to it in the app.
+ */
+export function StartFrom({ from, name, app }: { from: string; name: string; app: string }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [title, setTitle] = useState(name);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const made = await send("POST", "/api/v1/brands", { name: title.trim(), from });
+    setBusy(false);
+    if (!made) return;
+    toast.success(`Created ${made.name}`);
+    // The app, which may be on another host than the hub's: a full load.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    location.assign(`${app}/brands/${encodeURIComponent(made.slug)}`);
+  };
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <IconGitFork aria-hidden /> Start from this brand
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Start from {name}</DialogTitle>
+            <DialogDescription>
+              A new brand in your workspace from {from}: its rules, pages, theme and files, copied, to make your own. It remembers where it came from.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-name`}>Name</Label>
+            <Input id={`${id}-name`} autoFocus value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" pending={busy} disabled={!title.trim()}>
+              Create brand
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

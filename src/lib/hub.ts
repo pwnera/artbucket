@@ -15,6 +15,14 @@ export function parseRef(raw: string): { slug: string; version?: number } | null
   return m[2] ? { slug: m[1], version: Number(m[2]) } : { slug: m[1] };
 }
 
+/** A hub brand's full address, as create_brand's `from` takes it: "rust-lang/rust@12", or the latest without @. */
+export const HUB_REF = /^([a-z0-9][a-z0-9-]*)\/([a-z0-9][a-z0-9-]*)(?:@([1-9]\d{0,8}))?$/;
+export function parseHubRef(raw: string): { org: string; slug: string; version?: number } | null {
+  const m = raw.trim().match(HUB_REF);
+  if (!m) return null;
+  return m[3] ? { org: m[1], slug: m[2], version: Number(m[3]) } : { org: m[1], slug: m[2] };
+}
+
 /**
  * The domain the app's session cookie is set for, when BrandHub's host and
  * APP_URL's share one: hub.example.com and app.example.com give example.com,

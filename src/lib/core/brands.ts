@@ -49,6 +49,7 @@ export const present = (b: Brand) => ({
   name: b.name,
   default: b.isDefault,
   visibility: b.visibility,
+  from: b.forkedFrom,
   createdAt: b.createdAt,
 });
 

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
-import { FollowButton, ListingTrust, UseBrand } from "@/components/hub-client";
+import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
 import { followed, hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
@@ -139,6 +139,7 @@ export default async function HubListing(props: Props) {
                     </a>
                   </Button>
                 ))}
+              {open && mine && <StartFrom from={`${b.org}/${b.brand}@${b.version}`} name={b.name} app={env.APP_URL} />}
               {open ? (
                 <UseBrand url={b.url} name={b.name} />
               ) : (

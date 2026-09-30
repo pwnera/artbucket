@@ -18,7 +18,7 @@ import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, 
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 import { MAX_COMMENT } from "./comments.ts";
-import { REPORT_REASONS } from "./hub.ts";
+import { HUB_REF, REPORT_REASONS } from "./hub.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -226,7 +226,10 @@ const brandSlug = z.string().max(60).regex(RULE_CONTEXT, "Use a slug, e.g. acme-
 export const BrandCreate = z.strictObject({
   name: z.string().trim().min(1).max(80),
   slug: brandSlug.optional().describe("Defaults to the name, as a slug"),
-  from: brandSlug.optional().describe("Start as a copy of this brand's rules"),
+  from: z
+    .union([brandSlug, z.string().max(130).regex(HUB_REF, "A BrandHub brand, e.g. rust-lang/rust@12")])
+    .optional()
+    .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace"),
   template: z
     .enum(["firefox", "rust", "blender"])
     .optional()
@@ -545,6 +548,7 @@ export const Brand = z.object({
   name: z.string(),
   default: z.boolean(),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
+  from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
   rules: z.number().int(),
   createdAt: date,
 });

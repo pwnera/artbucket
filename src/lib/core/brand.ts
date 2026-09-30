@@ -607,20 +607,33 @@ export async function writeRules(tx: Tx, ws: string, brandId: string, rules: Sna
  * A new brand, empty or as a copy of another's current rules, pages and
  * theme. Its history starts with that state as version 1.
  */
-export async function createBrand(caller: Caller, input: { name: string; slug?: string; from?: string }) {
+/**
+ * A new brand: empty, a copy of another of the workspace's (`from`), or
+ * `seed`, what a BrandHub brand's release holds, its files already copied
+ * here (lib/core/hub.ts startFrom).
+ */
+export async function createBrand(
+  caller: Caller,
+  input: { name: string; slug?: string; from?: string },
+  seed?: { rules: SnapRule[]; pages: SnapPage[]; theme: ThemeSettings; forkedFrom: string },
+) {
   const ws = caller.workspace.id;
   const slug = input.slug ?? slugify(input.name);
   if (!slug) throw new AssetError("invalid", "Give the brand a name with a letter or a number in it");
   await checkLimit(caller.workspace.organizationId, "brands");
-  const source = input.from ? await resolveBrand(ws, input.from) : null;
+  const source = input.from && !seed ? await resolveBrand(ws, input.from) : null;
   return db.transaction(async (tx) => {
-    const theme = source ? source.theme : {};
-    const [row] = await tx.insert(brands).values({ workspaceId: ws, slug, name: input.name, theme }).onConflictDoNothing().returning();
+    const theme = seed?.theme ?? (source ? source.theme : {});
+    const [row] = await tx
+      .insert(brands)
+      .values({ workspaceId: ws, slug, name: input.name, theme, forkedFrom: seed?.forkedFrom ?? null })
+      .onConflictDoNothing()
+      .returning();
     if (!row) throw new AssetError("conflict", `A brand "${slug}" exists`);
-    const rules = source ? await snapshot(tx, source.id) : [];
+    const rules = seed?.rules ?? (source ? await snapshot(tx, source.id) : []);
     await writeRules(tx, ws, row.id, rules);
     // Its pages too: they bind by key, and the keys came along.
-    const pages = source ? await pageSnapshot(tx, source.id) : [];
+    const pages = seed?.pages ?? (source ? await pageSnapshot(tx, source.id) : []);
     await writePages(tx, row.id, pages);
     await tx.insert(brandVersions).values({
       brandId: row.id,

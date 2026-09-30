@@ -3,6 +3,7 @@ import type { Caller } from "@/lib/core/access";
 import { ingestFromUrl } from "@/lib/core/assets";
 import { createBrand, setRules } from "@/lib/core/brand";
 import { deleteBrand } from "@/lib/core/brands";
+import { startFrom } from "@/lib/core/hub";
 import { importGoogleFont } from "@/lib/core/fonts";
 import { savePage } from "@/lib/core/pages";
 import { setTheme } from "@/lib/core/theme";
@@ -15,9 +16,11 @@ import { TEMPLATES } from "@/lib/templates";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
-/** A new brand: empty, a copy of another (`from`), or a template's rules, theme and pages (`template`). */
+/** A new brand: empty, a copy of another (`from`), a BrandHub brand's (`from`: {org}/{brand}@n), or a template's rules, theme and pages (`template`). */
 export async function makeBrand(caller: Caller, input: z.output<typeof BrandCreate>) {
   const { template, ...rest } = input;
+  // A public BrandHub brand: {org}/{brand}@n.
+  if (rest.from?.includes("/")) return startFrom(caller, { ...rest, from: rest.from });
   if (!template) return createBrand(caller, rest);
   const t = TEMPLATES[template];
 

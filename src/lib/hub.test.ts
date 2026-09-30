@@ -110,3 +110,10 @@ test("compact counts, as cards show pulls", async () => {
   const { compact } = await import("./hub.ts");
   assert.deepEqual([0, 950, 1234, 12_000, 3_400_000].map(compact), ["0", "950", "1.2k", "12k", "3.4m"]);
 });
+
+test("parseHubRef reads what create_brand's from names on BrandHub", async () => {
+  const { parseHubRef } = await import("./hub.ts");
+  assert.deepEqual(parseHubRef("rust-lang/rust@12"), { org: "rust-lang", slug: "rust", version: 12 });
+  assert.deepEqual(parseHubRef("mozilla/firefox"), { org: "mozilla", slug: "firefox" });
+  for (const bad of ["rust", "a/b/c", "a/b@0", "A/b", "a/b@x", "/b", "a/"]) assert.equal(parseHubRef(bad), null, bad);
+});

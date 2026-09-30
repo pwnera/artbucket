@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { assets, brands, brandVersions, hubCollections, hubFollows, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
+import { ingestBytes } from "@/lib/core/assets";
+import { createBrand } from "@/lib/core/brand";
+import { publishedSource } from "@/lib/core/page-view";
 import { deliverableSql } from "@/lib/core/assets";
 import { guidelinesPortal } from "@/lib/core/brands";
 import { portalHome } from "@/lib/core/domains";
@@ -13,7 +16,10 @@ import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { env } from "@/lib/env";
 import type { SnapRule } from "@/lib/history";
-import { cookieDomain, countsOf, hubHome, hubPath, logoOf, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { readablePages } from "@/lib/page-view";
+import { pool } from "@/lib/pool";
+import { getObject, originalKey } from "@/lib/storage";
+import { cookieDomain, countsOf, hubHome, hubPath, logoOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -299,3 +305,56 @@ export async function hubBrand(
 }
 
 export type HubBrand = NonNullable<Awaited<ReturnType<typeof hubBrand>>>;
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+/** The most files a start copies: a brand's logos, faces and imagery, not its whole library. */
+const START_FILES = 200;
+
+/**
+ * "Start from this brand" (create_brand with `from: "rust-lang/rust@12"`,
+ * POST /api/v1/brands): a new brand in the caller's workspace from a public
+ * BrandHub brand's release (its latest without @n), as Duplicate does
+ * within a workspace. It takes what that release shows anyone: its rules,
+ * its theme, the pages and sections everyone may read (none hidden or for
+ * partners or members), and the files they use that may be delivered,
+ * copied into this library (same bytes, stored once). The brand keeps where
+ * it came from (`from`). A file that isn't copied is left out of its rules.
+ */
+export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string }) {
+  if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
+  const ref = parseHubRef(input.from);
+  // Public only, whoever asks: a private brand is its own workspace's to duplicate.
+  const hub = ref && (await hubBrand(ref.org, ref.slug, { version: ref.version }));
+  if (!hub || hub.visibility !== "public") throw new AssetError("invalid", `from: nothing public is listed at ${input.from}`);
+  const src = await publishedSource(hub.workspaceId, hub.brand, hub.version);
+  if (!src?.version) throw new AssetError("invalid", `from: ${input.from} has no release to start from`);
+  const pages = src.pages?.length ? readablePages(src, { level: "everyone" }) : [];
+  const text = JSON.stringify({ rules: src.rules, pages, theme: src.theme });
+  const own = src.rules.flatMap((r) => r.assets.map((a) => a.id));
+  const ids = [...new Set([...own, ...(text.match(UUID) ?? []).map((x) => x.toLowerCase())])];
+  const files = ids.length
+    ? (
+        await db
+          .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime, filename: assets.filename, rights: assets.rights })
+          .from(assets)
+          .where(
+            and(
+              inArray(assets.id, ids),
+              eq(assets.workspaceId, hub.workspaceId),
+              deliverableSql,
+              // A private file only when a rule holds it: the hub shows those to anyone already.
+              own.length ? or(eq(assets.private, false), inArray(assets.id, own)) : eq(assets.private, false),
+            ),
+          )
+      ).slice(0, START_FILES)
+    : [];
+  const copied = new Map<string, string>();
+  await pool(files, 4, async (a) => {
+    const bytes = await getObject(originalKey(a.sha256));
+    const made = await ingestBytes(caller, { bytes, mime: a.mime, filename: a.filename, rights: a.rights, tags: [ref!.slug], via: "import" });
+    copied.set(a.id, made.asset.id);
+  });
+  const seed = JSON.parse(text.replace(UUID, (id) => copied.get(id.toLowerCase()) ?? id)) as { rules: typeof src.rules; pages: typeof pages; theme: typeof src.theme };
+  const made = await createBrand(caller, { name: input.name, slug: input.slug }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
+  return made;
+}

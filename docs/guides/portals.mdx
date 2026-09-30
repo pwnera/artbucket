@@ -283,6 +283,19 @@ update brands set visibility = 'private', hub_delisted = 'A trademark complaint 
 where slug = 'firefox' and workspace_id in (select w.id from workspaces w join organizations o on o.id = w.organization_id where o.slug = 'acme');
 ```
 
+### Start from this brand
+
+Signed in, **Start from this brand** on a public listing makes a new brand in
+the workspace you have open from that release: its rules, its theme, the pages
+and sections anyone may read (none hidden, or for partners or members), and
+the files they use that may be delivered, copied into your library (the same
+bytes, stored once). The new brand is yours to edit, with a history of its
+own, and keeps where it came from as `from`. An agent does the same with
+`create_brand` and `from: "rust-lang/rust@12"`, or `POST /api/v1/brands` with
+`{"name": "...", "from": "rust-lang/rust@12"}`; leave out `@12` for the
+latest release. A claimant a listing is handed over to starts from it the
+same way.
+
 ### Pulls, follows, trending and collections
 
 A listing's **pulls** are its files (`brand.json`, `llms.txt`, `tokens`) read

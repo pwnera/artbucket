@@ -322,6 +322,8 @@ export const brands = pgTable(
      * undo it on its own.
      */
     hubDelisted: text("hub_delisted"),
+    /** The BrandHub brand it started from, as {org}/{brand}@{n} (lib/core/hub.ts startFrom); null for any other start. */
+    forkedFrom: text("forked_from"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
