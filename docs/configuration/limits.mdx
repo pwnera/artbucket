@@ -40,6 +40,22 @@ LIMIT_DOMAINS=2
 LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso), or none
 ```
 
+## For every person
+
+Each new organization gets the server's limits, so with open sign-up anyone
+could make several to have them several times. `LIMIT_ORGANIZATIONS` caps
+that per person:
+
+```bash
+LIMIT_ORGANIZATIONS=1
+```
+
+Making an organization (`POST /api/v1/organizations`) is refused with
+`limit_reached` when the person is already admin of that many organizations
+on the server's limits: ones with no limits row of their own, so no plan. An
+organization with its own row does not count, and the one sign-up makes is
+never refused. Admin counts however it was given, invitations included.
+
 ## For one organization
 
 A row in `settings`, with the key `limits`. What it names overrides the

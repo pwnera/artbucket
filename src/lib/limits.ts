@@ -80,5 +80,15 @@ export function limitsFromEnv(env: Env): Limits | null {
 export const upgradeUrl = (billing: string | undefined, admin: boolean, limitsFrom: string) =>
   billing && admin && limitsFrom !== "organization" ? billing : null;
 
+/**
+ * LIMIT_ORGANIZATIONS, per person: how many organizations on the server's own
+ * limits (no limits row of their own, so no plan) someone may be admin of and
+ * still make another. Null: no limit. The one made at sign-up is never refused.
+ */
+export function organizationsFromEnv(env: Env): number | null {
+  const v = env.LIMIT_ORGANIZATIONS?.trim();
+  return v ? count.parse(Number(v)) : null;
+}
+
 /** Whether adding `adding` to `used` goes past `limit`; no limit is never over. */
 export const over = (limit: number | null, used: number, adding = 1) => limit !== null && used + adding > limit;
