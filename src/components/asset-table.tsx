@@ -2,7 +2,7 @@
 
 import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
 import { FontThumb } from "@/components/font-preview";
-import { GLYPH_INK, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
+import { GLYPH_INK, provenanceChips, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
 import { IconGlyph } from "@/components/icon-glyph";
 import { stem } from "@/components/renditions";
 import { Can, useCan } from "@/components/can";
@@ -215,6 +215,15 @@ export function AssetTable({
                         <span className="text-muted-foreground text-xs" title={exact(a.updatedAt)} suppressHydrationWarning>
                           {a.status === "proposed" ? "New asset" : suggestions(a)} · {ago(a.updatedAt)}
                         </span>
+                        {provenanceChips(a).length > 0 && (
+                          <span className="flex gap-1">
+                            {provenanceChips(a).map((c) => (
+                              <Badge key={c} variant="outline" className="text-2xs h-4 px-1.5 font-normal">
+                                {c}
+                              </Badge>
+                            ))}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-xs" title={exact(a.createdAt)} suppressHydrationWarning>

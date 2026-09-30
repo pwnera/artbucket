@@ -185,6 +185,8 @@ type FinalizeInput = {
   status?: "draft" | "active";
   /** What the server knows to say about it (an imported icon's title and author); the file's own metadata wins. */
   described?: Partial<Record<(typeof EDITABLE)[number], string>>;
+  /** Brought in by the server from outside (an icon set, Google Fonts, a template), never said by a client. */
+  via?: "import";
 } & Provenance;
 
 async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
@@ -304,6 +306,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
         prompt: input.prompt ?? null,
         c2pa,
+        via: input.via ?? (caller.key ? "agent" : null),
         stackId: stack,
         version,
       })

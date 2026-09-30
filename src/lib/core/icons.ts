@@ -173,6 +173,7 @@ export async function importIcons(
         bytes: Buffer.from(f.svg, "utf8"),
         mime: "image/svg+xml",
         filename: `${f.name}.svg`,
+        via: "import",
         tags: [...(rest.tags ?? []), "icon", set.name],
         described: { title: iconTitle(f.name), ...(set.author && { creator: set.author.name }) },
         origin: "licensed",

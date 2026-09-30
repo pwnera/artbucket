@@ -109,6 +109,12 @@ export const assets = pgTable(
     prompt: text("prompt"),
     /** C2PA Content Credentials read on ingest (lib/c2pa.ts); the original keeps the manifest itself. */
     c2pa: jsonb("c2pa").$type<C2pa>(),
+    /**
+     * How it arrived, when not from a person: `agent`, through an API key;
+     * `import`, brought in from outside by the server (an icon set, Google
+     * Fonts, a template). The review queue's chips read it.
+     */
+    via: text("via").$type<"agent" | "import">(),
     /** The asset that replaces this one. /api/v1/check refuses a replaced asset and names this. */
     supersededBy: uuid("superseded_by").references((): AnyPgColumn => assets.id, { onDelete: "set null" }),
     /**
@@ -161,6 +167,7 @@ export const assets = pgTable(
     check("assets_status_check", sql`${t.status} in ('draft', 'proposed', 'active', 'archived', 'rejected')`),
     index("assets_proposed_by_idx").on(t.proposedBy),
     check("assets_origin_check", sql`${t.origin} in ('shot', 'licensed', 'generated')`),
+    check("assets_via_check", sql`${t.via} in ('agent', 'import')`),
     check("assets_not_superseded_by_self", sql`${t.supersededBy} <> ${t.id}`),
     unique("assets_stack_version_unique").on(t.stackId, t.version),
     uniqueIndex("assets_one_current").on(t.stackId).where(sql`${t.current}`),

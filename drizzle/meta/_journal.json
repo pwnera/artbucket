@@ -267,6 +267,13 @@
       "when": 1790775549394,
       "tag": "0037_brand_hub",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790786861157,
+      "tag": "0038_asset_via",
+      "breakpoints": true
     }
   ]
 }

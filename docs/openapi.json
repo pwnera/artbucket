@@ -726,6 +726,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -796,6 +811,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -1854,6 +1870,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -1924,6 +1955,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -2421,6 +2453,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -2491,6 +2538,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -3791,6 +3839,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -3861,6 +3924,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -4763,6 +4827,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -4833,6 +4912,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -5724,6 +5804,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -5794,6 +5889,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -6628,6 +6724,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -6698,6 +6809,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -7313,6 +7425,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -7383,6 +7510,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -7931,6 +8059,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -8001,6 +8144,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -8559,6 +8703,21 @@
                             ],
                             "description": "Content Credentials read from the file; the original keeps the signed manifest"
                           },
+                          "via": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "import"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                          },
                           "supersededBy": {
                             "anyOf": [
                               {
@@ -8629,6 +8788,7 @@
                           "generator",
                           "prompt",
                           "c2pa",
+                          "via",
                           "supersededBy",
                           "private",
                           "public",
@@ -9202,6 +9362,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -9272,6 +9447,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -9842,6 +10018,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -9912,6 +10103,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -10358,6 +10550,21 @@
                             }
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                        },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
                         }
                       },
                       "required": [
@@ -10365,7 +10572,8 @@
                         "parentAssetId",
                         "generator",
                         "prompt",
-                        "c2pa"
+                        "c2pa",
+                        "via"
                       ],
                       "additionalProperties": false
                     },

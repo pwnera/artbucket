@@ -402,6 +402,7 @@ const provenanceOut = {
   generator: z.string().nullable(),
   prompt: z.string().nullable(),
   c2pa: C2pa,
+  via: z.enum(["agent", "import"]).nullable().describe("How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"),
 };
 const fieldValues = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 

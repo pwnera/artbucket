@@ -130,6 +130,8 @@ export type Asset = {
   proposedFields?: Record<string, unknown>;
   rights: Rights | null;
   origin: Origin | null;
+  /** How it arrived when not from a person: through an API key, or imported by the server. */
+  via?: "agent" | "import" | null;
   /** The asset it was made from. */
   parentAssetId: string | null;
   generator: string | null;
@@ -286,6 +288,10 @@ function useInView<T extends Element>(margin = "200px") {
   }, [el, seen, margin]);
   return [setEl, seen] as const;
 }
+
+/** Where a suggestion came from, for the review queue: what a model made, what an agent sent, what was imported. */
+export const provenanceChips = (a: Pick<Asset, "origin" | "via">) =>
+  [a.origin === "generated" && "AI-made", a.via === "agent" && "By an agent", a.via === "import" && "Imported"].filter((c) => c !== false);
 
 /** What the grid and the list say about an asset beyond its type: its state, its version, what waits on it. */
 export function stateBadge(a: Asset) {
@@ -1850,7 +1856,9 @@ export const AssetCard = memo(function AssetCard({
           )}
         </div>
         <span id={about} className="sr-only">
-          {[fileTypeBadge(a.filename, a.mime, a.probe), formatBytes(a.size), badge.state, badge.suggested, selected ? "selected" : null].filter(Boolean).join(", ")}
+          {[fileTypeBadge(a.filename, a.mime, a.probe), formatBytes(a.size), badge.state, badge.suggested, ...provenanceChips(a), selected ? "selected" : null]
+            .filter(Boolean)
+            .join(", ")}
         </span>
       </button>
       {onPick && (

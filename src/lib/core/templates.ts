@@ -24,7 +24,7 @@ export async function makeBrand(caller: Caller, input: z.output<typeof BrandCrea
   // The files first, into this workspace's library: one that won't fetch leaves no half-made brand behind.
   const ids = new Map<string, string>();
   await pool(Object.entries(t.assets), 4, async ([id, { url, filename }]) => {
-    ids.set(id, (await ingestFromUrl(caller, { url, filename, tags: [template] })).asset.id);
+    ids.set(id, (await ingestFromUrl(caller, { url, filename, tags: [template], via: "import" })).asset.id);
   });
   for (const family of t.fonts) await importGoogleFont(caller, { family });
   const book: Pick<typeof t, "rules" | "theme" | "pages"> = JSON.parse(
