@@ -204,8 +204,9 @@ export function openapi(serverUrl: string) {
             "`tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's " +
             "variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens " +
             "(DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are " +
-            "under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are " +
-            "guidance, not tokens, and are left out.",
+            "under `$extensions`. `designmd`: DESIGN.md for coding agents, the tokens as YAML front matter and the " +
+            "guidance as prose. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are " +
+            "guidance, not tokens, and are left out of every format but `designmd`.",
           query: {
             format: { schema: { type: "string", enum: TOKEN_FORMAT_IDS, default: "css" }, description: "The output" },
             brand: { schema: str, description: "A brand's slug; the default brand without it" },

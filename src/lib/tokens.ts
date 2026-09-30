@@ -2,18 +2,19 @@ import type { z } from "zod";
 import { fontRoles } from "./brand-theme.ts";
 import { inkOn, rgb } from "./color.ts";
 import { fontFace, fontStyle, isFont } from "./font.ts";
-import { type COLOR_SPEC, fontValue, listStyle, type Rule } from "./rules.ts";
+import { type COLOR_SPEC, fontLabel, fontValue, listStyle, type Rule, section } from "./rules.ts";
 
 /**
  * Brand rules as design tokens, for code: plain stylesheets (CSS custom
  * properties, Sass, Less), framework themes (Tailwind 4 and 3, a TypeScript
  * module), design-system themes (shadcn/ui, MUI, Chakra UI), and W3C Design
  * Tokens (DTCG 2025.10) JSON for Style Dictionary, Tokens Studio and Figma
- * importers. Colors, numbers, fonts (family, size, weight, and their files as
- * @font-face) and a type scale become tokens; a color with a gradient adds
- * the gradient beside its solid; a rule set in one of the brand's fonts (see
- * SetIn) aliases that font. Sentences and do/don't lists are guidance, not
- * values, and stay out.
+ * importers, and DESIGN.md for coding agents. Colors, numbers, fonts
+ * (family, size, weight, and their files as @font-face) and a type scale
+ * become tokens; a color with a gradient adds the gradient beside its solid;
+ * a rule set in one of the brand's fonts (see SetIn) aliases that font.
+ * Sentences and do/don't lists are guidance, not values, and stay out, but
+ * for DESIGN.md, whose prose is where guidance goes.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
@@ -443,6 +444,71 @@ export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
   return root;
 }
 
+// ---- DESIGN.md ---------------------------------------------------------------
+
+/**
+ * DESIGN.md (Google Labs, version alpha): tokens as YAML front matter, then
+ * the brand's guidance as prose, for coding agents. The one format that
+ * carries guidance: sentences and lists go under the section their key
+ * belongs to, do and don't lists under Do's and Don'ts. Colors keep their
+ * local names; the spec wants a `primary`, so the first color stands in by
+ * reference when none has that name. A number is a radius under `rounded`
+ * (in px, as the spec wants a unit) or a gap under `spacing` (plain, which
+ * it allows); other numbers stay in the prose.
+ */
+export function toDesignMd(rules: TokenRule[], { title }: Opts) {
+  const name = title.split(" design tokens")[0];
+  // "Primary" under Colors; "Logo primary" in the Overview, where rules of every section meet.
+  const label = (key: string, whole = false) => {
+    const l = (whole ? key.replace(/\./g, " ") : last(key)).replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+    return l[0].toUpperCase() + l.slice(1);
+  };
+  const line = (r: TokenRule, value: string) => `- **${label(r.key)} (${value}):** ${r.usage ?? ""}`.trimEnd();
+  const text = (r: TokenRule, whole = false) =>
+    r.type === "text"
+      ? [`- **${label(r.key, whole)}:** ${String(r.value)}`]
+      : [`- **${label(r.key, whole)}:**`, ...(r.value as (string | number)[]).map((v) => `  - ${v}`)];
+  const style = (r: TokenRule) => (r.type === "list" ? listStyle(r.key, r.value as (string | number)[]) : null);
+
+  const colors = rules.filter((r) => r.type === "color");
+  const faces = fonts(rules);
+  const doDont = rules.filter((r) => style(r) === "do" || style(r) === "dont");
+  const guide = rules.filter((r) => (r.type === "text" || style(r) === "bullets") && !doDont.includes(r));
+  const radius = rules.filter((r) => r.type === "number" && /radius|round|corner/i.test(r.key));
+  const spacing = rules.filter((r) => r.type === "number" && /spac|gap|gutter|margin|padding/i.test(r.key));
+  const plain = rules.filter((r) => r.type === "number" && !radius.includes(r) && !spacing.includes(r));
+
+  const front = ["---", "version: alpha", `name: ${str(name)}`, `description: ${str(title)}`];
+  if (colors.length) {
+    front.push("colors:", ...colors.map((r) => `  ${local(r.key, "color")}: ${str(String(r.value))}`));
+    if (!colors.some((r) => local(r.key, "color") === "primary")) front.push(`  primary: ${str(`{colors.${local(colors[0].key, "color")}}`)}`);
+  }
+  if (faces.length)
+    front.push(
+      "typography:",
+      ...faces.flatMap((r) => {
+        const { family, size, weight } = fontValue(r.value);
+        return [`  ${local(r.key, "type")}:`, `    fontFamily: ${str(family)}`, ...(size ? [`    fontSize: ${size}px`] : []), ...(weight ? [`    fontWeight: ${weight}`] : [])];
+      }),
+    );
+  if (radius.length) front.push("rounded:", ...radius.map((r) => `  ${kebab(r.key)}: ${r.value}px`));
+  if (spacing.length) front.push("spacing:", ...spacing.map((r) => `  ${kebab(r.key)}: ${r.value}`));
+  front.push("---", "");
+
+  const body = [`# ${name}`, ""];
+  const part = (heading: string, lines: string[]) => {
+    if (lines.length) body.push(`## ${heading}`, "", ...lines, "");
+  };
+  const under = (...sections: string[]) => guide.filter((r) => sections.includes(section(r.key))).flatMap((r) => text(r));
+  part("Overview", guide.filter((r) => !["color", "type", "layout", "spacing"].includes(section(r.key))).flatMap((r) => text(r, true)));
+  part("Colors", [...colors.map((r) => line(r, String(r.value))), ...under("color")]);
+  part("Typography", [...faces.map((r) => line(r, fontLabel(fontValue(r.value)))), ...rules.filter(isScale).map((r) => line(r, `${(r.value as number[]).join(", ")}px`)), ...under("type")]);
+  part("Layout", [...[...spacing, ...plain].map((r) => line(r, String(r.value))), ...under("layout", "spacing")]);
+  part("Shapes", radius.map((r) => line(r, `${r.value}px`)));
+  part("Do's and Don'ts", doDont.flatMap((r) => (r.value as (string | number)[]).map((v) => `- ${style(r) === "do" ? "Do" : "Don't"}: ${v}`)));
+  return [...front, ...body].join("\n");
+}
+
 // ---- formats -----------------------------------------------------------------
 
 export type TokenFormat = {
@@ -536,6 +602,14 @@ export const TOKEN_FORMATS = {
     file: (n) => `${n}.tokens.json`,
     hint: "W3C Design Tokens for Style Dictionary (iOS, Android, anything), Tokens Studio and Figma importers.",
     render: (rules, { origin }) => `${JSON.stringify(toDtcg(rules, { origin }), null, 2)}\n`,
+  },
+  designmd: {
+    label: "DESIGN.md",
+    group: "Tools",
+    mime: "text/markdown",
+    file: () => "DESIGN.md",
+    hint: "Tokens and the brand's guidance in one file for coding agents (Google's DESIGN.md). Put it at your repository's root.",
+    render: toDesignMd,
   },
 } satisfies Record<string, TokenFormat>;
 

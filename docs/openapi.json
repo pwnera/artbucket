@@ -3050,7 +3050,7 @@
     "/api/v1/brand/tokens": {
       "get": {
         "summary": "Export the brand as design tokens",
-        "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out.\n\nScope: `read`.",
+        "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. `designmd`: DESIGN.md for coding agents, the tokens as YAML front matter and the guidance as prose. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out of every format but `designmd`.\n\nScope: `read`.",
         "x-scope": "read",
         "parameters": [
           {
@@ -3068,7 +3068,8 @@
                 "shadcn",
                 "mui",
                 "chakra",
-                "json"
+                "json",
+                "designmd"
               ],
               "default": "css"
             },

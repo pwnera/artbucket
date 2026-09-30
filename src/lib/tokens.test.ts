@@ -102,12 +102,36 @@ test("MUI and Chakra: palette and typography, tokens with values", () => {
   has(TOKEN_FORMATS.chakra.render(RULES, OPTS), ['primary: {\n          value: "#0f62fe"', "createSystem(defaultConfig, config)"]);
 });
 
-test("Every format renders, and none carries guidance", () => {
+test("Every format renders, and none carries guidance but DESIGN.md", () => {
   for (const [id, f] of Object.entries(TOKEN_FORMATS)) {
     const out = f.render(RULES, OPTS);
     assert.ok(out.length > 0, id);
-    assert.ok(!out.includes("Hype"), `${id} leaks a do/don't list`);
+    if (id !== "designmd") assert.ok(!out.includes("Hype"), `${id} leaks a do/don't list`);
   }
+});
+
+test("DESIGN.md: tokens up front, the guidance below, in the spec's order", () => {
+  const md = TOKEN_FORMATS.designmd.render(
+    [...RULES, { key: "shape.radius", type: "number", value: 6, usage: null, assets: [] }, { key: "tone.do", type: "list", value: ["Say it plainly"], usage: null, assets: [] }],
+    { origin: "https://dam.example", title: "acme design tokens, from artbucket." },
+  );
+  has(md, [
+    "---\nversion: alpha\nname: \"acme\"",
+    'colors:\n  primary: "#0f62fe"\n  overlay: "#00000080"',
+    'typography:\n  headings:\n    fontFamily: "IBM Plex Sans"\n    fontSize: 32px\n    fontWeight: 700',
+    "rounded:\n  shape-radius: 6px",
+    "# acme",
+    "- **Tone voice:** Plain and warm",
+    "- **Primary (#0f62fe):** Buttons and links */ body{}",
+    "- **Scale (12, 16, 24px):**",
+    "- **Body copy:** Set body in it",
+    "- Do: Say it plainly",
+    "- Don't: Hype",
+  ]);
+  const order = ["## Overview", "## Colors", "## Typography", "## Layout", "## Shapes", "## Do's and Don'ts"].map((h) => md.indexOf(h));
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), md);
+  // No color named primary: the first one stands in, by reference.
+  has(TOKEN_FORMATS.designmd.render([{ key: "color.orange", type: "color", value: "#e87d0d", usage: null, assets: [] }], OPTS), ['primary: "{colors.orange}"']);
 });
 
 test("Tokens name the faces the page is set in", () => {
