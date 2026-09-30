@@ -516,3 +516,22 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
     }
   }
 }
+
+/*
+ * Dark sidebar rows, as a browser's tab list draws them: hover is a lighter
+ * slate pill, the page you are on sits darker than the sidebar with a hairline
+ * edge. Unlayered, so it wins over the menu button's utilities.
+ */
+.dark [data-sidebar="menu-button"] {
+  border-radius: 0.625rem;
+}
+.dark [data-sidebar="menu-button"]:hover:not([data-active="true"]),
+.dark [data-sidebar="menu-button"][data-state="open"]:not([data-active="true"]) {
+  background: oklch(1 0 0 / 9%);
+  color: var(--sidebar-foreground);
+}
+.dark [data-sidebar="menu-button"][data-active="true"] {
+  background: #10161c;
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 9%);
+  color: #ffffff;
+}
