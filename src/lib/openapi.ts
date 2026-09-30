@@ -569,6 +569,15 @@ export function openapi(serverUrl: string) {
           ok: [200, "The checklist", data(S.BrandStatus)],
         }),
       },
+      "/api/v1/brands/{slug}/insights": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand's signals",
+          scope: "write",
+          description: "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals.",
+          ok: [200, "The signals", data(S.BrandInsights)],
+        }),
+      },
       "/api/v1/brands/{slug}/versions": {
         parameters: [path("slug", "Brand slug")],
         get: op({

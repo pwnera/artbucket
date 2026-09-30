@@ -1274,6 +1274,11 @@ export const AssetInsights = z.object({
   }),
   referrers: z.array(z.object({ host: z.string(), fetches: z.number().int(), last: z.string() })).describe("The hosts that loaded it, most first"),
 });
+export const BrandInsights = z.object({
+  days: z.number().int().describe("How far back it counts"),
+  pulls: z.number().int().describe("Reads of its BrandHub files: brand.json, llms.txt, tokens"),
+  views: z.number().int().describe("Portal page views of its pages"),
+});
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
   expiresAt: date,

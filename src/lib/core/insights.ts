@@ -4,6 +4,7 @@ import { assets, brandPages, brands, eventCounts, events, pageViews, portals, tr
 import type { Caller } from "@/lib/core/access";
 import { getAsset } from "@/lib/core/assets";
 import { listRules } from "@/lib/core/brand";
+import { resolveBrand } from "@/lib/core/brands";
 import { publicPortalsShowing } from "@/lib/core/portals";
 import { AssetError } from "@/lib/core/errors";
 import { fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
@@ -236,4 +237,26 @@ export async function assetInsights(caller: Caller, id: string) {
     fetches: { total: surfaces.reduce((t, s) => t + s.fetches, 0), surfaces: Object.fromEntries(surfaces.map((s) => [s.surface, s.fetches])) as Partial<Record<Surface, number>> },
     referrers: referrers.map((r) => ({ host: r.host!, fetches: r.fetches, last: r.last })),
   };
+}
+
+/**
+ * GET /api/v1/brands/{slug}/insights: the brand's signals on its Overview,
+ * the few events that name a brand: BrandHub reads of its files (pulls) and
+ * portal page views of its pages, over the last 30 days. Checks and fetches
+ * name an asset, not a brand, so they stay on the workspace's Insights.
+ */
+export async function brandInsights(caller: Caller, slug: string) {
+  if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
+  const b = await resolveBrand(caller.workspace.id, slug);
+  const [[pulls], [views]] = await Promise.all([
+    db
+      .select({ total: n() })
+      .from(eventCounts)
+      .where(and(eq(eventCounts.workspaceId, caller.workspace.id), eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`))),
+    db
+      .select({ total: sql<number>`coalesce(sum(${pageViews.views}), 0)::int` })
+      .from(pageViews)
+      .where(and(eq(pageViews.brandId, b.id), gte(pageViews.day, sql`${since(INSIGHT_DAYS)}`))),
+  ]);
+  return { days: INSIGHT_DAYS, pulls: pulls.total, views: views.total };
 }
