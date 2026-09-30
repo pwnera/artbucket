@@ -159,7 +159,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
           Theme
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={builderPath(slug, { context })}>Edit</Link>
+          <Link href={builderPath(slug, { page: view.page?.slug, context })}>Edit</Link>
         </Button>
       </Can>
     </AppHeader>

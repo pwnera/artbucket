@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
@@ -27,7 +27,8 @@ import { brandPath, builderPath } from "@/lib/site";
  * organization is verified and whether it is public on BrandHub, then how
  * BrandHub names it, what is live and whether it is the latest (lib/readiness.ts
  * liveLine), when it was released, and the release's note. Use this brand,
- * Edit (the builder) and Release, while readers don't see the latest, sit
+ * Edit (the builder, where you are: the page on show, or its Rules panel
+ * from Tokens and rules) and Release, while readers don't see the latest, sit
  * at its end, the tabs under it. The brand's page is read-only: Edit is the way into the builder.
  */
 export type BrandHeaderProps = {
@@ -46,6 +47,9 @@ export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(und
 
 export function BrandHeader({ brand, origin, rules, status, release, at }: BrandHeaderProps) {
   const can = useCan();
+  const params = useSearchParams();
+  // Edit opens where you are: the page on show, the rules in the builder's Rules panel, else the builder.
+  const editing = at === "guidelines" ? { page: params.get("page"), context: params.get("context") } : at === "rules" ? { panel: "rules" } : {};
   const hub = status?.hub ?? null;
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
   const line = [hub?.ref, status ? liveLine(status.publish, release?.number ?? null) : release ? `@${release.number} live` : "Never released", release && releaseDate(release.publishedAt)].filter(Boolean);
@@ -86,7 +90,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at }: Brand
           <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} />
           {can("brand.edit") && (
             <Button asChild size="sm" variant="outline">
-              <Link href={builderPath(brand.slug)}>
+              <Link href={builderPath(brand.slug, editing)}>
                 <IconPencil aria-hidden /> Edit
               </Link>
             </Button>
