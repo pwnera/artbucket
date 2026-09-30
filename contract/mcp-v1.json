@@ -141,7 +141,7 @@
         "maximum": 100
       },
       "expiresIn": {
-        "description": "For someone without access to the library: a signed URL that works this many seconds. Takes share on it",
+        "description": "For someone without access to the library: a URL that works this many seconds. A public asset gets its plain URL; one on a public portal, about a day, as the portal signs it; anything else takes share on it",
         "type": "integer",
         "minimum": 60,
         "maximum": 31536000

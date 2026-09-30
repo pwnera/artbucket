@@ -5,6 +5,7 @@ import {
   IconAdjustmentsHorizontal,
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconBrandGit,
   IconCircle,
   IconCircleCheckFilled,
   IconCode,
@@ -176,6 +177,7 @@ export function TopBar({ b }: TopBarProps) {
           <IconEye />
         </IconButton>
         <More b={b} />
+        {b.source?.source && <Repository b={b} />}
         <Publish b={b} />
       </div>
     </header>
@@ -206,8 +208,58 @@ function More({ b }: { b: BuilderApi }) {
         <DropdownMenuItem onSelect={open("tokens")}>
           <IconCode /> Design tokens <DropdownMenuShortcut>T</DropdownMenuShortcut>
         </DropdownMenuItem>
+        {b.source && !b.source.source && b.source.connect && (
+          <DropdownMenuItem asChild>
+            <a href={b.source.connect}>
+              <IconBrandGit /> Keep in a Git repository
+            </a>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** The repository the brand is kept in too: whether the edits made here have reached it, and where it is. */
+function Repository({ b }: { b: BuilderApi }) {
+  const s = b.source!.source!;
+  const manage = b.source!.connect;
+  const where = s.remote.replace(/^https?:\/\//, "").replace(/\.git$/, "");
+  const label = s.pending ? `Changes here not yet in ${where}` : `In step with ${where}`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <IconButton variant="ghost" size="sm" label={label} className="relative">
+          <IconBrandGit />
+          {s.pending && (
+            <span className="bg-warning ring-background absolute top-1 end-1 size-2 rounded-full ring-2">
+              <span className="sr-only">(changes to sync)</span>
+            </span>
+          )}
+        </IconButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="app-tokens grid w-80 gap-2 p-3 text-sm">
+        <p className="font-medium">Kept in a repository</p>
+        <a href={s.remote} target="_blank" rel="noreferrer" className="truncate underline underline-offset-2">
+          {where}
+        </a>
+        <p className="text-muted-foreground text-xs">
+          {s.branch}
+          {s.path ? `, in ${s.path}/` : ""}
+          {s.commit ? `, at ${s.commit.slice(0, 7)}` : ""}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {s.pending
+            ? "Edits made here since the last sync go to the repository next: as a commit, or a pull request to review."
+            : "The brand here and its files say the same. Changes merged there come here, and edits here go there."}
+        </p>
+        {manage && (
+          <a href={manage} className="text-xs underline underline-offset-2">
+            Manage the connection
+          </a>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

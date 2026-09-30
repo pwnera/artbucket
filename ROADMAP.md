@@ -331,6 +331,8 @@ In progress on `feat/builder-editing`.
 - Start blank, from the rules, or from a template
 - Portals publish pages; publishing is a version, drafts never leak
 - Buildable end to end over MCP
+- Brand as code: the brand as YAML in a Git repository, changed on either
+  side and merged a rule at a time, with previews of a proposed change
 
 ---
 

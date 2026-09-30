@@ -177,7 +177,7 @@ export async function snapshot(tx: Db, brandId: string): Promise<SnapRule[]> {
   }));
 }
 
-async function themeOf(tx: Db, brandId: string): Promise<ThemeSettings> {
+export async function themeOf(tx: Db, brandId: string): Promise<ThemeSettings> {
   const [b] = await tx.select({ theme: brands.theme }).from(brands).where(eq(brands.id, brandId));
   return b.theme;
 }
@@ -567,7 +567,7 @@ export async function setRules(
 }
 
 /** Write a snapshot's rules into a brand, which has none. Assets deleted since are left out and counted. */
-async function writeRules(tx: Tx, ws: string, brandId: string, rules: SnapRule[]) {
+export async function writeRules(tx: Tx, ws: string, brandId: string, rules: SnapRule[]) {
   const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
   const live = new Set(
     ids.length

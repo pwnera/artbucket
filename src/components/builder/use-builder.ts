@@ -27,7 +27,7 @@ import {
   targetOf,
   travel,
 } from "@/lib/builder-ops";
-import { useStatus } from "@/components/builder/use-status";
+import { useSource, useStatus } from "@/components/builder/use-status";
 import { useComments } from "@/components/builder/comments";
 import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
@@ -112,6 +112,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
   const [pageSettings, setPageSettings] = useState<string | null>(null);
   const { status, refresh: refreshStatus } = useStatus(brand, send);
+  // The repository the brand is kept in too (brand as code), for the bar's sync state.
+  const source = useSource(brand, send);
 
   // Leaving with a write not yet landed asks first.
   useEffect(() => {
@@ -452,6 +454,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     /** The launch checklist and whether readers see the latest (use-status.ts); null until read. */
     status,
     refreshStatus,
+    source,
     /** The pages that show a rule, for a rule card's "Shown on". */
     shownOn: (key: string) => shownOn(state, key),
     /** For requests of the parts' own (publish, versions, asset search), so the dev page records them too. One identity, safe in an effect's deps. */
