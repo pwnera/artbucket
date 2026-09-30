@@ -33,13 +33,12 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
   return tabs;
 }
 
-/** The tabs as a row under the app's bar, the one on show marked; `children` sit at its end (Use this brand). */
-export function BrandTabs({ brand, at, children }: { brand: { slug: string; name: string }; at: BrandTab; children?: React.ReactNode }) {
+/** The tabs as a row under the brand's header (components/brand-header.tsx), the one on show marked. */
+export function BrandTabs({ brand, at }: { brand: { slug: string; name: string }; at: BrandTab }) {
   const tabs = useBrandTabs(brand);
   return (
-    <div className="flex items-center gap-2 border-b px-2 md:px-4">
-      <TabNav label={`${brand.name}`} items={tabs.map((t) => ({ href: t.href, label: t.label, current: t.id === at }))} className="min-w-0 flex-1" />
-      {children}
+    <div className="mt-4 border-b">
+      <TabNav label={`${brand.name}`} items={tabs.map((t) => ({ href: t.href, label: t.label, current: t.id === at }))} className="mx-auto w-full max-w-5xl px-2 md:px-4" />
     </div>
   );
 }

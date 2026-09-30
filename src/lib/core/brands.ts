@@ -5,6 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { pullCounts } from "@/lib/core/events";
+import { proofsOf } from "@/lib/core/hub-trust";
 import { env } from "@/lib/env";
 import { hubHome, hubPath } from "@/lib/hub";
 
@@ -102,7 +103,7 @@ export const publicDoor = and(eq(portals.access, "public"), or(isNull(portals.ex
  */
 export async function guidelinesPortal(b: Pick<Brand, "id" | "hubPortalId">) {
   const rows = await db
-    .select({ id: portals.id, slug: portals.slug, name: portals.name, open: sql<boolean>`${publicDoor}` })
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, open: sql<boolean>`${publicDoor}`, terms: sql<string | null>`${portals.site} ->> 'terms'` })
     .from(portalBrands)
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
     .where(eq(portalBrands.brandId, b.id))
@@ -117,9 +118,9 @@ export async function guidelinesPortal(b: Pick<Brand, "id" | "hubPortalId">) {
  */
 export async function hubOf(b: Brand) {
   if (!env.HUB_URL) return null;
-  const [[o], [v], pulls] = await Promise.all([
+  const [[o], [v], pulls, door] = await Promise.all([
     db
-      .select({ org: organizations.slug })
+      .select({ org: organizations.slug, orgId: organizations.id })
       .from(workspaces)
       .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
       .where(eq(workspaces.id, b.workspaceId)),
@@ -130,6 +131,7 @@ export async function hubOf(b: Brand) {
       .orderBy(desc(brandVersions.number))
       .limit(1),
     pullCounts([b.id]),
+    guidelinesPortal(b),
   ]);
   const path = hubPath(o.org, b.slug);
   return {
@@ -137,8 +139,14 @@ export async function hubOf(b: Brand) {
     // A private brand's page is for its people: where they are signed in (lib/hub.ts hubHome).
     url: hubHome(b.visibility, env.APP_URL, env.HUB_URL) + path,
     published: v ? { number: v.number, publishedAt: v.publishedAt! } : null,
-    portal: await guidelinesPortal(b).then((p) => p && { slug: p.slug, name: p.name }),
+    portal: door && { slug: door.slug, name: door.name },
     chosen: !!b.hubPortalId,
+    /** How BrandHub names it, {org}/{brand}. */
+    ref: path.slice(1),
+    /** What its organization proved it holds (lib/core/hub-trust.ts), which BrandHub's badge names; null: a community listing. */
+    verified: (await proofsOf([o.orgId])).get(o.orgId) ?? null,
+    /** The terms its guidelines portal asks readers to accept (markdown), which BrandHub shows as its terms of use. */
+    terms: door?.terms ?? null,
     /** Its BrandHub files read in the last 30 days, what its hub card shows. */
     pulls: pulls.get(b.id) ?? 0,
     /** Taken off the hub by whoever runs the server, and why: it can't be made public until they lift it. */

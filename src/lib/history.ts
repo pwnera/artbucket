@@ -178,3 +178,80 @@ export function updatesOf(versions: Version[], limit = 20): Update[] {
     changes: whatsNew(published[i + 1] ?? null, v),
   }));
 }
+
+// ---- what a release changes -----------------------------------------------------
+
+/**
+ * One line of what a release changes, as the release page lists it and the
+ * brand's Overview sums it up: a rule by key and context, or a page readers
+ * reach. `mark` is what happened to it; `what` says how, in a few words
+ * ("new artwork", "2 sections edited"); a color whose value moved carries
+ * both hexes, which the page draws as swatches.
+ */
+export type ReleaseLine =
+  | { kind: "rule"; mark: "added" | "changed" | "removed"; key: string; context: string | null; label: string | null; what: string; before?: string; after?: string }
+  | { kind: "page"; mark: "added" | "changed" | "removed"; slug: string; title: string; what: string };
+
+const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+/** How a changed field reads on its line. */
+const FIELD_WORDS: Record<FieldChange["field"], string> = {
+  value: "new value",
+  assets: "new artwork",
+  usage: "usage edited",
+  label: "renamed",
+  spec: "details edited",
+  type: "kind changed",
+};
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/**
+ * What a release changes from the one before it (null: the first), line by
+ * line: rules as diffRules has them (a move is no news), then the pages
+ * readers reach as whatsNew has them, a changed page with how many of its
+ * shown sections are new, edited or gone.
+ */
+export function releaseLines(before: Published | null, after: Published): ReleaseLine[] {
+  const rules = diffRules(before?.rules ?? [], after.rules).flatMap((c): ReleaseLine[] => {
+    if (c.change === "moved") return [];
+    const base = { kind: "rule" as const, key: c.key, context: c.context };
+    if (c.change === "added") return [{ ...base, mark: "added", label: c.after.label ?? null, what: "new rule" }];
+    if (c.change === "removed") return [{ ...base, mark: "removed", label: c.before.label ?? null, what: "removed" }];
+    const label = after.rules.find((r) => r.key === c.key && r.context === c.context)?.label ?? null;
+    const value = c.fields.find((f) => f.field === "value");
+    const color = value && typeof value.before === "string" && typeof value.after === "string" && HEX.test(value.before) && HEX.test(value.after);
+    const words = c.fields.filter((f) => !(color && f === value)).map((f) => FIELD_WORDS[f.field]);
+    return [{ ...base, mark: "changed", label, what: words.join(", "), ...(color && { before: value.before as string, after: value.after as string }) }];
+  });
+  const news = whatsNew(before, after).pages;
+  const shown = (p: SnapPage | undefined) => (p?.sections ?? []).filter((s) => !s.hidden);
+  const pages = [
+    ...news.added.map((p): ReleaseLine => ({ kind: "page", mark: "added", ...p, what: "new page" })),
+    ...news.changed.map((p): ReleaseLine => {
+      const is = after.pages?.find((q) => q.slug === p.slug);
+      // The page as it was, by its slug then or an old one it answers to now.
+      const was = before?.pages?.find((q) => q.slug === p.slug || is?.aliases?.includes(q.slug));
+      const [old, now] = [new Map(shown(was).map((s) => [s.id, canon(s)])), shown(is)];
+      const edited = now.filter((s) => old.get(s.id) !== canon(s)).length + [...old.keys()].filter((id) => !now.some((s) => s.id === id)).length;
+      return { kind: "page", mark: "changed", ...p, what: edited ? `${plural(edited, "section")} edited` : "edited" };
+    }),
+    ...news.removed.map((p): ReleaseLine => ({ kind: "page", mark: "removed", ...p, what: "removed" })),
+  ];
+  return [...rules, ...pages];
+}
+
+/**
+ * The same, in a few words for a line under the release: the first rules
+ * by key, then the pages counted ("logo.primary new artwork, color.ember
+ * #E76F51 → #E4572E, 3 pages edited").
+ */
+export function releaseSummary(lines: ReleaseLine[], rules = 3): string[] {
+  const said = lines.flatMap((l) => (l.kind === "rule" ? [`${l.key}${l.context ? ` (${l.context})` : ""} ${l.before ? `${l.before} → ${l.after}` : l.what}`.trim()] : []));
+  const pages = (mark: ReleaseLine["mark"]) => lines.filter((l) => l.kind === "page" && l.mark === mark).length;
+  return [
+    ...said.slice(0, rules),
+    ...(said.length > rules ? [`${plural(said.length - rules, "more rule")}`] : []),
+    ...(pages("added") ? [plural(pages("added"), "new page")] : []),
+    ...(pages("changed") ? [`${plural(pages("changed"), "page")} edited`] : []),
+    ...(pages("removed") ? [`${plural(pages("removed"), "page")} removed`] : []),
+  ];
+}

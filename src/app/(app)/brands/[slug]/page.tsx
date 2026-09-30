@@ -1,35 +1,45 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BrandOverview, type BrandSignals, type Release } from "@/components/brand-overview";
-import type { Status } from "@/components/builder/use-status";
+import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
+import { brandHead, changesBetween } from "@/lib/brand-head";
 import { env } from "@/lib/env";
+import { releaseSummary } from "@/lib/history";
 import { can } from "@/lib/permissions";
-import type { Rule } from "@/lib/rules";
-import { brands, get, whoami } from "@/lib/sidebar";
+import { get, whoami } from "@/lib/sidebar";
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-const find = async (slug: string) => (await brands()).find((b) => b.slug === slug);
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const brand = await find((await params).slug);
-  return { title: brand?.name ?? "Brand" };
+  const head = await brandHead((await params).slug);
+  return { title: head?.brand.name ?? "Brand" };
 }
 
-/** A brand's Overview: its card, colors, latest release and signals, from /api/v1 like any client's. */
+/** A brand's Overview: its header, card, colors, latest release and signals, from /api/v1 like any client's. */
 export default async function BrandOverviewPage({ params }: Props) {
   const { slug } = await params;
-  const [brand, me] = await Promise.all([find(slug), whoami()]);
-  if (!brand) notFound();
-  const b = encodeURIComponent(slug);
-  const [rules, status, versions, signals] = await Promise.all([
-    get(`brand/rules?brand=${b}`, (x: { data: Rule[] }) => x.data, []),
-    get(`brands/${b}/status`, (x: { data: Status }) => x.data, null),
-    get(`brands/${b}/versions`, (x: { data: (Release & { publishedAt: string | null })[] }) => x.data, []),
-    can(me, "insights.read") ? get(`brands/${b}/insights`, (x: { data: BrandSignals }) => x.data, null) : null,
+  const [head, me] = await Promise.all([brandHead(slug), whoami()]);
+  if (!head) notFound();
+  const { brand, rules, status, releases, release } = head;
+  const before = releases[1]?.number;
+  const [signals, changes] = await Promise.all([
+    can(me, "insights.read") ? get(`brands/${encodeURIComponent(slug)}/insights`, (x: { data: BrandSignals }) => x.data, null) : null,
+    release && before ? changesBetween(slug, before, release.number).then((c) => c && releaseSummary(c)) : null,
   ]);
-  const release = (versions.find((v) => v.publishedAt) as Release | undefined) ?? null;
-  return <BrandOverview brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} signals={signals} />;
+  // The first release is everything: counted, not listed.
+  const first = release && !before && [`First release: ${plural(release.rules, "rule")}${release.pages ? `, ${plural(release.pages, "page")}` : ""}`];
+  return (
+    <BrandOverview
+      brand={brand}
+      origin={env.APP_URL}
+      rules={rules}
+      status={status}
+      release={release}
+      changes={first || changes}
+      signals={signals}
+    />
+  );
 }

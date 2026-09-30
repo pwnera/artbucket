@@ -16856,6 +16856,24 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "ref": {
+                                  "type": "string",
+                                  "description": "How BrandHub names it: {org}/{brand}"
+                                },
+                                "verified": {
+                                  "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "terms": {
+                                  "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -16865,7 +16883,10 @@
                                 "portal",
                                 "chosen",
                                 "pulls",
-                                "delisted"
+                                "delisted",
+                                "ref",
+                                "verified",
+                                "terms"
                               ],
                               "additionalProperties": false
                             },
@@ -28672,6 +28693,24 @@
                             "null"
                           ]
                         },
+                        "ref": {
+                          "type": "string",
+                          "description": "How BrandHub names it: {org}/{brand}"
+                        },
+                        "verified": {
+                          "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "terms": {
+                          "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "portals": {
                           "anyOf": [
                             {
@@ -28722,6 +28761,9 @@
                         "chosen",
                         "pulls",
                         "delisted",
+                        "ref",
+                        "verified",
+                        "terms",
                         "portals"
                       ],
                       "additionalProperties": false
@@ -28894,6 +28936,24 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "How BrandHub names it: {org}/{brand}"
+                        },
+                        "verified": {
+                          "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "terms": {
+                          "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -28903,7 +28963,10 @@
                         "portal",
                         "chosen",
                         "pulls",
-                        "delisted"
+                        "delisted",
+                        "ref",
+                        "verified",
+                        "terms"
                       ],
                       "additionalProperties": false
                     }
