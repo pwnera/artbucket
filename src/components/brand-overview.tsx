@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { IconChartBar, IconRobot, IconTypography } from "@tabler/icons-react";
 import { BrandHeader } from "@/components/brand-header";
 import type { BrandInfo } from "@/components/brand-switcher";
@@ -11,6 +12,7 @@ import { inkOn } from "@/lib/color";
 import { ago, taglineOf } from "@/lib/hub";
 import { plainText } from "@/lib/markdown";
 import { contextLabel, type FontValue, ruleName, type Rule } from "@/lib/rules";
+import { brandPath } from "@/lib/site";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card, as
@@ -119,7 +121,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
         </div>
 
         <aside className="grid content-start gap-4">
-          {status && <AgentScore status={status} />}
+          {status && <AgentScore status={status} slug={brand.slug} />}
 
           {signals && (
             <Box title="Signals" icon={<IconChartBar />}>
@@ -163,12 +165,12 @@ export function nextFixes(status: Pick<Status, "score" | "steps">, n = 2) {
 /**
  * The Brand Agent Score (lib/readiness.ts), the brand's health meter in place
  * of the launch checklist: the score as a ring, and what the two fixes worth
- * the most would make it.
+ * the most would make it, opening the score's own page.
  */
-function AgentScore({ status }: { status: Status }) {
+function AgentScore({ status, slug }: { status: Status; slug: string }) {
   const { fixes, to } = nextFixes(status);
   return (
-    <section className="bg-card flex items-center gap-4 rounded-xl border p-4">
+    <Link href={brandPath(slug, "/score")} className="bg-card hover:border-foreground/30 flex items-center gap-4 rounded-xl border p-4">
       <ScoreRing score={status.score} />
       <div className="grid gap-0.5">
         <h2 className="flex items-center gap-1.5 font-medium [&_svg]:size-4">
@@ -178,7 +180,7 @@ function AgentScore({ status }: { status: Status }) {
           {fixes.length ? `${fixes.length} ${fixes.length === 1 ? "fix" : "fixes"} would get you to ${to}` : "Everything an agent needs is here."}
         </p>
       </div>
-    </section>
+    </Link>
   );
 }
 

@@ -7,7 +7,8 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /** GET /api/v1/brands/{slug}/status, as the builder reads it (lib/core/brand-status.ts). */
 export type Status = {
-  steps: { id: StepId; title: string; done: boolean | null; detail: string; points: number }[];
+  /** `agent`: how an agent takes the step, with the tools by name. */
+  steps: { id: StepId; title: string; done: boolean | null; detail: string; agent?: string; points: number }[];
   done: number;
   total: number;
   /** The Brand Agent Score, of 100. */
