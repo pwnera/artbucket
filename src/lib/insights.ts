@@ -56,6 +56,8 @@ export const searchWords = (q: string | null | undefined) => (q ?? "").trim().re
 /** Weekly charts cover this many weeks; lists, the last INSIGHT_DAYS days. */
 export const WEEKS = 12;
 export const INSIGHT_DAYS = 30;
+/** How far back a BrandHub card's pull count reaches: "1.2k pulls" is the last 30 days. */
+export const PULL_DAYS = 30;
 
 /** The Monday (UTC) that starts the week of `d`, as YYYY-MM-DD: Postgres' date_trunc('week'). */
 export function weekOf(d: Date): string {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
-import { Avatar, Owner, Preview, TabNav } from "@/components/hub";
+import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
 import { ListingTrust, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
@@ -320,6 +320,11 @@ export default async function HubListing(props: Props) {
               <li className="flex items-center gap-2">
                 <IconPhoto aria-hidden className="size-4" /> {b.logos} {b.logos === 1 ? "logo" : "logos"}
               </li>
+              {open && (
+                <li>
+                  <Pulls n={b.pulls} className="gap-2 [&_svg]:size-4" /> in 30 days
+                </li>
+              )}
             </ul>
           </section>
 

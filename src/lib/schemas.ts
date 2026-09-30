@@ -778,6 +778,7 @@ export const BrandHub = z.object({
   published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
   portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
   chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
+  pulls: z.number().int().describe("Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"),
   delisted: z.string().nullable().describe("Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again"),
 });
 export const BrandHubView = BrandHub.extend({

@@ -16,7 +16,7 @@ export type Status = {
   publish: "never" | "behind" | "current";
   portals: { slug: string; name: string; access: "public" | "password" | "members"; url: string }[] | null;
   /** Who sees it on BrandHub, and where; null when the server has none. */
-  hub: { visibility: "private" | "public"; url: string } | null;
+  hub: { visibility: "private" | "public"; url: string; pulls: number } | null;
 };
 
 /**

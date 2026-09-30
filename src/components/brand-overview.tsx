@@ -8,7 +8,7 @@ import { IconBook, IconChartBar, IconChevronDown, IconCopy, IconLock, IconRobot,
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
-import { Preview } from "@/components/hub";
+import { Preview, Pulls } from "@/components/hub";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { AppHeader } from "@/components/page";
@@ -83,6 +83,7 @@ export function BrandOverview({ brand, origin, rules, status, release, signals }
                   {hub.visibility === "public" ? "Public" : "Private"}
                 </span>
               )}
+              {hub?.visibility === "public" && <Pulls n={hub.pulls} className="text-muted-foreground text-xs" />}
               {brand.default && <IconStar aria-label="default" className="text-muted-foreground size-3.5" />}
             </div>
             {tagline && <p className="text-muted-foreground">{tagline}</p>}
@@ -132,7 +133,7 @@ export function BrandOverview({ brand, origin, rules, status, release, signals }
           {signals && (
             <Box title={`Last ${signals.days} days`} icon={<IconChartBar />}>
               <dl className="grid grid-cols-2 gap-2">
-                <Signal label="BrandHub reads" value={signals.pulls} />
+                <Signal label="BrandHub pulls" value={signals.pulls} />
                 <Signal label="Portal page views" value={signals.views} />
               </dl>
             </Box>

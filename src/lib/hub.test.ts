@@ -105,3 +105,8 @@ test("githubLogin takes a login or its profile URL, lowercased, and refuses what
   for (const bad of ["", "-x", "x-", "a--b", "a/b", "../x", "a".repeat(40), "x.y"]) assert.equal(githubLogin(bad), null, bad);
   assert.equal(githubProofUrl("rust-lang"), "https://raw.githubusercontent.com/rust-lang/.github/HEAD/artbucket-verification.txt");
 });
+
+test("compact counts, as cards show pulls", async () => {
+  const { compact } = await import("./hub.ts");
+  assert.deepEqual([0, 950, 1234, 12_000, 3_400_000].map(compact), ["0", "950", "1.2k", "12k", "3.4m"]);
+});

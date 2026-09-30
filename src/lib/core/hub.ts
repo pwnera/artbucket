@@ -6,6 +6,7 @@ import { deliverableSql } from "@/lib/core/assets";
 import { guidelinesPortal } from "@/lib/core/brands";
 import { portalHome } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { pullCounts } from "@/lib/core/events";
 import { proofsOf } from "@/lib/core/hub-trust";
 import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
@@ -107,10 +108,10 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
 
 type Row = Awaited<ReturnType<typeof listings>>[number];
 
-/** Cards: who listed it, its version, its colors and its logo, signed for a day. */
+/** Cards: who listed it, its version, its pulls, its colors and its logo, signed for a day. */
 async function cards(rows: Row[]) {
   const ids = [...new Set(rows.flatMap((r) => (r.snapshot ?? []).flatMap((x) => x.assets.map((a) => a.id))))];
-  const [usable, verified] = await Promise.all([
+  const [usable, verified, pulls] = await Promise.all([
     ids.length
       ? db
           .select({ id: assets.id, mime: assets.mime, workspaceId: assets.workspaceId })
@@ -119,6 +120,7 @@ async function cards(rows: Row[]) {
           .then((xs) => new Map(xs.map((a) => [a.id, a])))
       : new Map<string, { id: string; mime: string; workspaceId: string }>(),
     proofsOf(rows.map((r) => r.orgId)),
+    pullCounts(rows.map((r) => r.id)),
   ]);
   return rows.map((r) => {
     const rules = (r.snapshot ?? []).map((x) => ({
@@ -140,6 +142,8 @@ async function cards(rows: Row[]) {
       version: r.version,
       publishedAt: r.publishedAt,
       verified: verified.get(r.orgId) ?? null,
+      /** Its BrandHub files read in the last PULL_DAYS days (lib/core/events.ts). */
+      pulls: pulls.get(r.id) ?? 0,
       tagline: taglineOf(rules),
       tint: tintOf(rules),
       swatches: swatches(rules),

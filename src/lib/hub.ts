@@ -186,3 +186,6 @@ export const REPORT_REASONS = {
   other: "Something else",
 } as const;
 export type ReportReason = keyof typeof REPORT_REASONS;
+
+/** A count as a card shows it: 950, 1.2k, 3.4M. */
+export const compact = (n: number) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase();

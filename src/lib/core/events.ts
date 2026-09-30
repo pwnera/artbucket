@@ -1,8 +1,8 @@
-import { and, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { eventCounts, eventDays, events } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
-import { EVENT_DAYS, referrerHost, searchWords, type Actor, type Surface } from "@/lib/insights";
+import { EVENT_DAYS, PULL_DAYS, referrerHost, searchWords, type Actor, type Surface } from "@/lib/insights";
 
 /**
  * Insights' one write (PRD INS-1 to INS-3): an event appended as something
@@ -69,4 +69,23 @@ export async function rollUp() {
       );
     await tx.delete(events).where(lt(events.day, sql`${today} - ${EVENT_DAYS}::int`));
   });
+}
+
+/**
+ * Each brand's pulls (its BrandHub files read: brand.json, llms.txt, tokens)
+ * over the last `days` days, PULL_DAYS unless said: the count hub cards and
+ * the brand's Overview show. Brands nobody pulled are left out.
+ *
+ * ponytail: read from event_counts on every hub page; keep a per-brand total
+ * with the rollup if the hub grows past a few thousand listings.
+ */
+export async function pullCounts(brandIds: string[], days = PULL_DAYS) {
+  const ids = [...new Set(brandIds)];
+  if (!ids.length) return new Map<string, number>();
+  const rows = await db
+    .select({ id: eventCounts.brandId, n: sql<number>`sum(${eventCounts.count})::int` })
+    .from(eventCounts)
+    .where(and(inArray(eventCounts.brandId, ids), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${today} - ${days - 1}::int`)))
+    .groupBy(eventCounts.brandId);
+  return new Map(rows.map((r) => [r.id!, r.n]));
 }

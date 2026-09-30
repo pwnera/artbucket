@@ -4,6 +4,7 @@ import { brandRules, brands, brandVersions, organizations, portalBrands, portals
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
+import { pullCounts } from "@/lib/core/events";
 import { env } from "@/lib/env";
 import { hubHome, hubPath } from "@/lib/hub";
 
@@ -115,7 +116,7 @@ export async function guidelinesPortal(b: Pick<Brand, "id" | "hubPortalId">) {
  */
 export async function hubOf(b: Brand) {
   if (!env.HUB_URL) return null;
-  const [[o], [v]] = await Promise.all([
+  const [[o], [v], pulls] = await Promise.all([
     db
       .select({ org: organizations.slug })
       .from(workspaces)
@@ -127,6 +128,7 @@ export async function hubOf(b: Brand) {
       .where(and(eq(brandVersions.brandId, b.id), isNotNull(brandVersions.publishedAt)))
       .orderBy(desc(brandVersions.number))
       .limit(1),
+    pullCounts([b.id]),
   ]);
   const path = hubPath(o.org, b.slug);
   return {
@@ -136,6 +138,8 @@ export async function hubOf(b: Brand) {
     published: v ? { number: v.number, publishedAt: v.publishedAt! } : null,
     portal: await guidelinesPortal(b).then((p) => p && { slug: p.slug, name: p.name }),
     chosen: !!b.hubPortalId,
+    /** Its BrandHub files read in the last 30 days, what its hub card shows. */
+    pulls: pulls.get(b.id) ?? 0,
     /** Taken off the hub by whoever runs the server, and why: it can't be made public until they lift it. */
     delisted: b.hubDelisted,
   };

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { IconArrowUpRight, IconCircleCheckFilled, IconLock, IconUsersGroup } from "@tabler/icons-react";
+import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
 import type { HubCard } from "@/lib/core/hub";
-import { ago } from "@/lib/hub";
+import { ago, compact } from "@/lib/hub";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,6 +37,15 @@ export function Private({ className }: { className?: string }) {
   return (
     <span title="Only people in its workspace see it" className={cn("text-muted-foreground inline-flex items-center gap-1 text-xs font-medium", className)}>
       <IconLock aria-hidden className="size-3.5" /> Private
+    </span>
+  );
+}
+
+/** Its pulls (lib/core/events.ts pullCounts): its BrandHub files read in the last 30 days. */
+export function Pulls({ n, className }: { n: number; className?: string }) {
+  return (
+    <span title={`${n.toLocaleString("en")} reads of its brand.json, llms.txt and tokens in the last 30 days`} className={cn("inline-flex items-center gap-1", className)}>
+      <IconDownload aria-hidden className="size-3.5" /> {compact(n)} {n === 1 ? "pull" : "pulls"}
     </span>
   );
 }
@@ -118,6 +127,7 @@ function Card({ card, base }: { card: HubCard; base: string }) {
           </span>
           {card.families[0] && <span className="max-w-32 truncate">{card.families[0]}</span>}
           <span>v{card.version}</span>
+          {card.pulls > 0 && <Pulls n={card.pulls} />}
           {card.publishedAt && <span>Updated {ago(card.publishedAt)}</span>}
         </div>
       </div>
