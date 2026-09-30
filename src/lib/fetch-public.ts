@@ -76,10 +76,21 @@ const guardedLookup: Lookup = (hostname, options, callback) => {
   });
 };
 
+/**
+ * `timeoutMs` is how long the connection may sit idle; `signal` ends the
+ * whole fetch, however slowly it trickles (AbortSignal.timeout). `accept`
+ * says which statuses answer rather than throw: 200 unless said.
+ */
 export async function fetchPublic(
   raw: string,
-  { maxBytes, timeoutMs = 30_000, redirects = 5 }: { maxBytes: number; timeoutMs?: number; redirects?: number },
-): Promise<{ bytes: Buffer; mime: string; url: URL }> {
+  {
+    maxBytes,
+    timeoutMs = 30_000,
+    redirects = 5,
+    signal,
+    accept = (status: number) => status === 200,
+  }: { maxBytes: number; timeoutMs?: number; redirects?: number; signal?: AbortSignal; accept?: (status: number) => boolean },
+): Promise<{ bytes: Buffer; mime: string; url: URL; status: number }> {
   const url = new URL(raw);
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new FetchError("Only http and https URLs");
   // An IP literal never reaches the lookup, so it is checked here.
@@ -89,7 +100,7 @@ export async function fetchPublic(
   const res = await new Promise<http.IncomingMessage>((resolve, reject) => {
     const req = (url.protocol === "https:" ? https : http).get(
       url,
-      { lookup: guardedLookup, timeout: timeoutMs, headers: { "user-agent": USER_AGENT } },
+      { lookup: guardedLookup, timeout: timeoutMs, headers: { "user-agent": USER_AGENT }, signal },
       resolve,
     );
     req.on("timeout", () => req.destroy(new FetchError("Timed out")));
@@ -100,9 +111,9 @@ export async function fetchPublic(
   if (status >= 300 && status < 400 && res.headers.location) {
     res.resume();
     if (redirects <= 0) throw new FetchError("Too many redirects");
-    return fetchPublic(new URL(res.headers.location, url).toString(), { maxBytes, timeoutMs, redirects: redirects - 1 });
+    return fetchPublic(new URL(res.headers.location, url).toString(), { maxBytes, timeoutMs, redirects: redirects - 1, signal, accept });
   }
-  if (status !== 200) {
+  if (!accept(status)) {
     res.resume();
     throw new FetchError(`Fetching it returned ${status}`);
   }
@@ -122,5 +133,5 @@ export async function fetchPublic(
     chunks.push(chunk);
   }
   const mime = (res.headers["content-type"] ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
-  return { bytes: Buffer.concat(chunks), mime, url };
+  return { bytes: Buffer.concat(chunks), mime, url, status };
 }

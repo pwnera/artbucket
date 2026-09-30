@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const owners = [...new Set(cards.map((c) => c.org))];
   return [
     { url: env.HUB_URL, changeFrequency: "daily" },
+    { url: `${env.HUB_URL}/score` },
     ...owners.map((o) => ({ url: `${env.HUB_URL}/${o}` })),
     ...cards.map((c) => ({ url: env.HUB_URL + c.path, lastModified: c.publishedAt ?? undefined })),
   ];

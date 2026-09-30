@@ -27,6 +27,9 @@ export default async function HubLayout({ children }: { children: React.ReactNod
           <HubSearch action={base || "/"} className="hidden w-full max-w-sm md:block" />
           <nav className="ms-auto flex shrink-0 items-center gap-1">
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Link href={`${base}/score`}>Agent Score</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
               <a href={`${base}/llms.txt`}>For agents</a>
             </Button>
             {!viewer && (
