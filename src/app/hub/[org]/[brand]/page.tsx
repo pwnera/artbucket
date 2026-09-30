@@ -2,19 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
 import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/external-link";
-import { inkOn } from "@/lib/color";
-import { followed, hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
+import { followed, hubBase, hubBrand, hubViewer } from "@/lib/core/hub";
 import { env } from "@/lib/env";
-import { isFont } from "@/lib/font";
 import { ago, hubPath, parseRef } from "@/lib/hub";
-import { renderMarkdown } from "@/lib/markdown";
-import { fontValue, ruleName } from "@/lib/rules";
-import { withSignature } from "@/lib/signed";
 
 type Props = { params: Promise<{ org: string; brand: string }> };
 
@@ -39,50 +35,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   };
 }
 
-type Rule = HubBrand["rules"][number];
-const HEX = /^#[0-9a-f]{6}$/i;
-/** Nothing that ends a CSS string or declaration: a family name goes into a style. */
-const cssName = (s: string) => s.replace(/["'\\;{}<>]/g, "").trim();
-const isDark = (key: string) => /revers|white|dark|negative|inverse|knockout/i.test(key);
-const images = (b: HubBrand, r: Rule) =>
-  r.assets.filter((a) => a.mime.startsWith("image/")).map((a) => ({ ...a, src: withSignature(`/a/${a.id}/h_320,f_webp`, b.signed[a.id]) }));
-
-/**
- * Its typefaces, loaded to set their specimens: the rule's own files, signed
- * (relative, so they load from the hub's host as its images do), else Google
- * Fonts for a family the rule says comes from there.
- */
-function faces(b: HubBrand, fonts: Rule[]) {
-  const css: string[] = [];
-  const google = new Set<string>();
-  const family = fonts.map((r, i) => {
-    const v = fontValue(r.value);
-    const spec = (r.spec ?? {}) as { source?: string; fallback?: string };
-    const fallback = cssName(spec.fallback ?? "") || "system-ui, sans-serif";
-    const files = r.assets.filter((a) => isFont(a.mime, a.filename ?? "") && b.signed[a.id]);
-    if (files.length) {
-      const src = files.map((a) => `url("${withSignature(`/a/${a.id}`, b.signed[a.id])}")`).join(", ");
-      css.push(`@font-face{font-family:"hub-font-${i}";src:${src};font-display:swap}`);
-      return `"hub-font-${i}", ${fallback}`;
-    }
-    if (spec.source === "google" && /^[A-Za-z0-9 ]{1,80}$/.test(v.family)) google.add(v.family);
-    return `"${cssName(v.family)}", ${fallback}`;
-  });
-  const href = google.size ? `https://fonts.googleapis.com/css2?${[...google].map((f) => `family=${f.replace(/ /g, "+")}:wght@400;700`).join("&")}&display=swap` : null;
-  return { css: css.join("\n"), href, family };
-}
-
-function Section({ id, title, icon: Icon, children }: { id: string; title: string; icon: typeof IconPalette; children: React.ReactNode }) {
-  return (
-    <section id={id} className="grid scroll-mt-20 gap-4 border-t px-5 py-8 md:px-8">
-      <h2 className="font-display flex items-center gap-2 text-xl font-semibold tracking-tight">
-        <Icon aria-hidden className="text-muted-foreground size-5" /> {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
 /** A listing, as GitHub shows a repository: who and what up top, the brand as its README, and About, releases and use beside it. */
 export default async function HubListing(props: Props) {
   const [b, viewer] = await Promise.all([load(props), hubViewer()]);
@@ -91,19 +43,12 @@ export default async function HubListing(props: Props) {
   const open = b.visibility === "public";
   const signIn = `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`;
   const pinned = b.version !== b.latest;
-  const rules = b.rules.filter((r) => !r.context);
-  const colors = rules.filter((r) => r.type === "color" && typeof r.value === "string");
-  const fonts = rules.filter((r) => r.type === "font");
-  const logos = rules.filter((r) => r.key.startsWith("logo.") && images(b, r).length);
-  const words = rules.filter((r) => (r.type === "text" || r.type === "list") && /^(brand|tone|voice)\./.test(r.key));
+  const { colors, fonts, logos, words } = cardParts(b);
   const type = faces(b, fonts);
   const here = base + hubPath(b.org, b.brand, pinned ? b.version : null);
 
   return (
     <>
-      {type.css && <style>{type.css}</style>}
-      {type.href && <link rel="stylesheet" href={type.href} precedence="default" />}
-
       <div className="bg-muted/30 border-b">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 pt-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -222,107 +167,7 @@ export default async function HubListing(props: Props) {
             )}
           </header>
 
-          {colors.length > 0 && (
-            <Section id="colors" title="Colors" icon={IconPalette}>
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                {colors.map((r) => {
-                  const hex = String(r.value);
-                  return (
-                    <li key={r.key} className="overflow-hidden rounded-lg border">
-                      <div className="flex h-24 items-end p-3 font-mono text-xs" style={{ background: hex, color: HEX.test(hex) ? inkOn(hex) : undefined }}>
-                        {hex}
-                      </div>
-                      <div className="grid gap-0.5 p-3">
-                        <span className="truncate text-sm font-medium">{ruleName(r)}</span>
-                        {r.usage && <span className="text-muted-foreground line-clamp-2 text-xs">{r.usage}</span>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Section>
-          )}
-
-          {fonts.length > 0 && (
-            <Section id="type" title="Type" icon={IconTypography}>
-              <ul className="grid gap-3 md:grid-cols-2">
-                {fonts.map((r, i) => {
-                  const v = fontValue(r.value);
-                  return (
-                    <li key={r.key} className="grid gap-3 rounded-lg border p-5">
-                      <div className="text-muted-foreground flex items-baseline justify-between gap-2 text-xs">
-                        <span className="font-medium tracking-[.12em] uppercase">{ruleName(r)}</span>
-                        <span>
-                          {v.family}
-                          {v.weight ? ` · ${v.weight}` : ""}
-                        </span>
-                      </div>
-                      <p className="text-6xl leading-none" style={{ fontFamily: type.family[i], fontWeight: v.weight }}>
-                        Aa
-                      </p>
-                      <p className="line-clamp-2 text-xl" style={{ fontFamily: type.family[i], fontWeight: v.weight }}>
-                        The quick brown fox jumps over the lazy dog.
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Section>
-          )}
-
-          {logos.length > 0 && (
-            <Section id="logos" title="Logos" icon={IconPhoto}>
-              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {logos.flatMap((r) =>
-                  images(b, r).map((a) => (
-                    <li key={`${r.key}:${a.id}`} className="overflow-hidden rounded-lg border">
-                      <div className={`h-36 p-6 ${isDark(r.key) ? "bg-[#1c1e22]" : "bg-muted/60"}`}>
-                        {/* eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized */}
-                        <img src={a.src} alt={a.title ?? ruleName(r)} className="size-full object-contain" loading="lazy" />
-                      </div>
-                      <div className="flex items-center justify-between gap-2 p-3">
-                        <span className="truncate text-sm font-medium">{ruleName(r)}</span>
-                        <a href={withSignature(`/a/${a.id}?download`, b.signed[a.id])} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
-                          Download
-                        </a>
-                      </div>
-                    </li>
-                  )),
-                )}
-              </ul>
-            </Section>
-          )}
-
-          {words.length > 0 && (
-            <Section id="voice" title="Voice" icon={IconTypography}>
-              <dl className="grid gap-5">
-                {words.map((r) => (
-                  <div key={r.key} className="grid gap-1.5">
-                    <dt className="text-muted-foreground text-xs font-medium tracking-[.12em] uppercase">{ruleName(r)}</dt>
-                    <dd className="text-sm leading-relaxed">
-                      {Array.isArray(r.value) ? (
-                        <ul className="grid list-disc gap-1 ps-5">
-                          {r.value.map((v, i) => (
-                            <li key={i}>{v}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        // Raw HTML in it is escaped (lib/markdown.ts).
-                        <div className="rich" dangerouslySetInnerHTML={{ __html: renderMarkdown(String(r.value), { demote: 2 }) }} />
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </Section>
-          )}
-
-          {b.terms && (
-            <Section id="terms" title="Usage terms" icon={IconBook}>
-              {/* Raw HTML in it is escaped (lib/markdown.ts). */}
-              <div className="rich text-sm" dangerouslySetInnerHTML={{ __html: renderMarkdown(b.terms, { demote: 2 }) }} />
-            </Section>
-          )}
+          <BrandCard brand={b} />
         </article>
 
         <aside className="flex min-w-0 flex-col gap-6 text-sm">

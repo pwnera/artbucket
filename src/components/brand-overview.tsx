@@ -1,26 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { IconChartBar, IconRobot, IconTypography } from "@tabler/icons-react";
+import { IconChartBar, IconRobot } from "@tabler/icons-react";
+import { BrandCard, type CardBrand } from "@/components/brand-card";
 import { BrandHeader } from "@/components/brand-header";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Status } from "@/components/builder/use-status";
 import { AppHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import type { Release } from "@/lib/brand-head";
-import { inkOn } from "@/lib/color";
 import { ago, taglineOf } from "@/lib/hub";
-import { plainText } from "@/lib/markdown";
-import { contextLabel, type FontValue, ruleName, type Rule } from "@/lib/rules";
+import type { Rule } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card, as
  * the prototype's repository page draws it): under the header, what it is
- * (its line, its usage terms, where it came from), its colors and its latest
- * release with what that changed; beside them the Brand Agent Score, the
- * signals that say it is read, and its typefaces. Everything comes from
- * /api/v1 like any client's.
+ * (its line, where it came from), the card readers see
+ * (components/brand-card.tsx, BrandHub's) and its latest release with what
+ * that changed; beside them the Brand Agent Score and the signals that say
+ * it is read.
  */
 
 /** GET /api/v1/brands/{slug}/insights, as far as the Overview reads it. */
@@ -38,22 +37,12 @@ export type BrandOverviewProps = {
   changes: string[] | null;
   /** null: this person may not read Insights. */
   signals: BrandSignals | null;
+  /** The brand card: the live release (`live`, its number) as readers see it, else the draft. */
+  card: { brand: CardBrand; live: number | null };
 };
 
-const HEX = /^#[0-9a-f]{6}$/i;
-/** Swatches the card shows; the rest are counted. */
-const SWATCHES = 8;
-
-export function BrandOverview({ brand, origin, rules, status, release, changes, signals }: BrandOverviewProps) {
-  const own = rules.filter((r) => !r.context);
-  const colors = own.filter((r) => r.type === "color" && typeof r.value === "string");
-  const contexts = [...new Set(rules.filter((r) => r.type === "color" && r.context).map((r) => contextLabel(r.context!)))];
-  // The heading face first, as the card sets it large.
-  const faces = own
-    .filter((r) => r.type === "font" && typeof r.value === "object" && r.value && "family" in r.value)
-    .sort((a, b) => Number(/head|display/.test(b.key)) - Number(/head|display/.test(a.key)));
+export function BrandOverview({ brand, origin, rules, status, release, changes, signals, card }: BrandOverviewProps) {
   const tagline = taglineOf(rules);
-  const terms = status?.hub?.terms ? plainText(status.hub.terms) : null;
 
   return (
     <>
@@ -63,47 +52,26 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
         <div className="grid min-w-0 content-start gap-4">
           <Box title="About">
             <p className="text-sm">{tagline ?? <span className="text-muted-foreground">No line yet: say what the brand is in its voice rules.</span>}</p>
-            {(terms || brand.from) && (
-              <div className="grid gap-4 text-sm sm:grid-cols-2">
-                {terms && (
-                  <div className="grid content-start gap-0.5">
-                    <Label>Usage terms</Label>
-                    <p className="line-clamp-3">{terms}</p>
-                  </div>
-                )}
-                {brand.from && (
-                  <div className="grid content-start gap-0.5">
-                    <Label>Lineage</Label>
-                    <p>
-                      Started from <b className="font-medium">{brand.from}</b> on BrandHub
-                    </p>
-                  </div>
-                )}
+            {brand.from && (
+              <div className="grid content-start gap-0.5 text-sm">
+                <Label>Lineage</Label>
+                <p>
+                  Started from <b className="font-medium">{brand.from}</b> on BrandHub
+                </p>
               </div>
             )}
           </Box>
 
-          <Box title="Colors" aside={colors.length > 0 && `${Math.min(colors.length, SWATCHES)} of ${colors.length} · contexts: ${["Default", ...contexts].join(", ")}`}>
-            {colors.length ? (
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {colors.slice(0, SWATCHES).map((r) => {
-                  const hex = String(r.value);
-                  return (
-                    <li key={r.key} className="grid gap-1">
-                      <div className="flex h-14 items-end rounded-lg border p-2 font-mono text-xs" style={{ background: hex, color: HEX.test(hex) ? inkOn(hex) : undefined }}>
-                        {hex}
-                      </div>
-                      <small className="text-muted-foreground truncate font-mono text-xs" title={ruleName(r)}>
-                        {r.key}
-                      </small>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground text-sm">No colors yet: add them in the guidelines&apos; rules.</p>
-            )}
-          </Box>
+          <section className="bg-card min-w-0 overflow-hidden rounded-xl border">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+              <h2 className="font-medium">{card.live ? "What readers see" : "Draft"}</h2>
+              <span className="text-muted-foreground text-xs">{card.live ? `@${card.live}` : release ? "Not what readers see yet" : "Never released"}</span>
+            </div>
+            <BrandCard
+              brand={card.brand}
+              empty={<p className="text-muted-foreground border-t px-5 py-4 text-sm">Nothing to show yet: add colors, typefaces and logos in the guidelines&apos; rules.</p>}
+            />
+          </section>
 
           <Box title="Latest release" aside={release && <Badge variant="secondary">@{release.number}</Badge>}>
             {release ? (
@@ -133,23 +101,6 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
               </dl>
             </Box>
           )}
-
-          <Box title="Typefaces" icon={<IconTypography />}>
-            {faces.length ? (
-              <>
-                <p className="font-display truncate text-xl font-semibold" style={{ fontFamily: (faces[0].value as FontValue).family }}>
-                  {(faces[0].value as FontValue).family}
-                </p>
-                {faces.slice(1).map((r) => (
-                  <p key={r.key} className="truncate text-sm">
-                    {(r.value as FontValue).family} <span className="text-muted-foreground">for {ruleName(r).toLowerCase()}</span>
-                  </p>
-                ))}
-              </>
-            ) : (
-              <p className="text-muted-foreground text-sm">No typefaces yet.</p>
-            )}
-          </Box>
         </aside>
       </div>
     </>

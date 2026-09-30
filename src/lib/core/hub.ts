@@ -246,14 +246,15 @@ export async function hubOwner(org: string) {
  * people read its guidelines on, and the terms they accept there. Null when
  * nothing `viewer` may see is at `{org}/{slug}`, or that version was never
  * published. With `context`, the rules resolved for it (lib/rules.ts resolve).
+ * With `workspace`, only that workspace's brand by the slug (the Overview's).
  */
 export async function hubBrand(
   org: string,
   slug: string,
-  { version, context, viewer = null }: { version?: number; context?: string | null; viewer?: HubViewer } = {},
+  { version, context, viewer = null, workspace }: { version?: number; context?: string | null; viewer?: HubViewer; workspace?: string } = {},
 ) {
   // Two of an organization's workspaces may each have one by this slug: the public one first (setHub allows one), else the older.
-  const found = await listings(and(eq(organizations.slug, org), eq(brands.slug, slug)), 5, viewer);
+  const found = await listings(and(eq(organizations.slug, org), eq(brands.slug, slug), workspace ? eq(brands.workspaceId, workspace) : undefined), 5, viewer);
   const row = found.find((r) => r.visibility === "public") ?? found[0];
   if (!row) return null;
   const view = await readBrand(row.workspaceId, { id: row.id, slug: row.brand, name: row.name }, null, { version, context }).catch((err) => {
