@@ -15,7 +15,7 @@ next to what they use.
 | `workspaces` | Workspaces | One is made |
 | `brands` | Brands, across its workspaces | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
-| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links). Unset: everything | A key, an agent connection or a link is made |
+| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on). Unset: everything | A key, an agent connection or a link is made; single sign-on is set up |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 
 Past a limit, the request is refused with `403` and the code `limit_reached`
@@ -34,7 +34,7 @@ LIMIT_EDITORS=5
 LIMIT_WORKSPACES=3
 LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
-LIMIT_FEATURES=agents     # comma-separated, or none
+LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso), or none
 ```
 
 ## For one organization

@@ -13,7 +13,7 @@ import { z } from "zod";
  */
 
 /** What can be switched off for an organization. Off, nobody there can make new ones. */
-export const FEATURES = ["agents", "shares"] as const;
+export const FEATURES = ["agents", "shares", "sso"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
