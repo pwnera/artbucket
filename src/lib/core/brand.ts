@@ -614,7 +614,7 @@ export async function writeRules(tx: Tx, ws: string, brandId: string, rules: Sna
  */
 export async function createBrand(
   caller: Caller,
-  input: { name: string; slug?: string; from?: string },
+  input: { name: string; slug?: string; from?: string; domain?: string | null },
   seed?: { rules: SnapRule[]; pages: SnapPage[]; theme: ThemeSettings; forkedFrom: string },
 ) {
   const ws = caller.workspace.id;
@@ -626,7 +626,7 @@ export async function createBrand(
     const theme = seed?.theme ?? (source ? source.theme : {});
     const [row] = await tx
       .insert(brands)
-      .values({ workspaceId: ws, slug, name: input.name, theme, forkedFrom: seed?.forkedFrom ?? null })
+      .values({ workspaceId: ws, slug, name: input.name, theme, forkedFrom: seed?.forkedFrom ?? null, domain: input.domain ?? null })
       .onConflictDoNothing()
       .returning();
     if (!row) throw new AssetError("conflict", `A brand "${slug}" exists`);

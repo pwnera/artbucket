@@ -54,10 +54,10 @@ async function startBrand(caller: Caller, input: Omit<z.output<typeof BrandCreat
     const read = await readBrandJson({ domain, document: brandJson });
     const b = pickBrand(read.brands, { id: brand, domain: read.domain });
     const book = { rules: b.rules, theme: {}, pages: [], fonts: [], assets: b.files };
-    const made = await fromBook(caller, { name: rest.name ?? b.name, slug: rest.slug ?? b.slug }, book, { tag: b.slug, lenient: true });
+    const made = await fromBook(caller, { name: rest.name ?? b.name, slug: rest.slug ?? b.slug, domain: b.domain ?? read.domain }, book, { tag: b.slug, lenient: true });
     return { ...made, skipped: [...read.skipped, ...made.skipped], dropped: b.dropped };
   }
-  if (template) return fromBook(caller, { ...rest, name }, TEMPLATES[template], { tag: template });
+  if (template) return fromBook(caller, { ...rest, name, domain: TEMPLATES[template].domain }, TEMPLATES[template], { tag: template });
   return createBrand(caller, { ...rest, name });
 }
 
@@ -70,7 +70,7 @@ type Book = Pick<BrandTemplate, "rules" | "theme" | "pages" | "fonts"> & { asset
  * brand.json's files, from anywhere) it is left out of its rules instead,
  * and named in `skipped`.
  */
-async function fromBook(caller: Caller, input: { name: string; slug?: string }, book: Book, { tag, lenient = false }: { tag: string; lenient?: boolean }) {
+async function fromBook(caller: Caller, input: { name: string; slug?: string; domain?: string | null }, book: Book, { tag, lenient = false }: { tag: string; lenient?: boolean }) {
   const ids = new Map<string, string>();
   const skipped: string[] = [];
   await pool(Object.entries(book.assets), 4, async ([id, { url, filename, title }]) => {

@@ -27,14 +27,17 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
   const b = encodeURIComponent(brand.slug);
   const [name, setName] = useState(brand.name);
   const [slug, setSlug] = useState(brand.slug);
-  const [saved, setSaved] = useState<{ name: number; slug: number }>({ name: 0, slug: 0 });
+  const [domain, setDomain] = useState(brand.domain ?? "");
+  const [saved, setSaved] = useState<{ name: number; slug: number; domain: number }>({ name: 0, slug: 0, domain: 0 });
   const [busy, setBusy] = useState<string | null>(null);
 
-  const patch = async (what: "name" | "slug", body: Record<string, unknown>) => {
+  const patch = async (what: "name" | "slug" | "domain", body: Record<string, unknown>) => {
     setBusy(what);
-    const done = (await send("PATCH", `/api/v1/brands/${b}`, body)) as { slug: string } | null;
+    const done = (await send("PATCH", `/api/v1/brands/${b}`, body)) as { slug: string; domain?: string | null } | null;
     setBusy(null);
     if (!done) return;
+    // The domain as the server keeps it: acme.com for https://www.acme.com/.
+    if (what === "domain") setDomain(done.domain ?? "");
     setSaved((s) => ({ ...s, [what]: Date.now() }));
     // A new address: this page lives at it now.
     if (done.slug !== brand.slug) router.replace(brandPath(done.slug, "/settings"));
@@ -43,7 +46,10 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
 
   return (
     <div className="grid gap-4">
-      <Group title="Name and address" description="The name shows everywhere. The address names it in links, the API and on BrandHub: old links stop working when it changes.">
+      <Group
+        title="Name and address"
+        description="The name shows everywhere. The address names it in links, the API and on BrandHub: old links stop working when it changes. The domain is the brand's own website: whoever proves it holds that domain may claim the brand's BrandHub listing."
+      >
         <form
           className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
           onSubmit={(e) => {
@@ -77,6 +83,34 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
             <SavedMark at={saved.slug} />
             <Button type="submit" variant="outline" pending={busy === "slug"} disabled={!slug.trim() || slug === brand.slug}>
               Change
+            </Button>
+          </span>
+        </form>
+        <form
+          className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void patch("domain", { domain: domain.trim() || null });
+          }}
+        >
+          <div className="grid gap-1.5">
+            <Label htmlFor="brand-domain">Domain</Label>
+            <Input
+              id="brand-domain"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              maxLength={253}
+              placeholder="acme.com"
+              inputMode="url"
+              autoCapitalize="none"
+              spellCheck={false}
+              className="font-mono"
+            />
+          </div>
+          <span className="flex items-center gap-2">
+            <SavedMark at={saved.domain} />
+            <Button type="submit" variant="outline" pending={busy === "domain"} disabled={domain.trim() === (brand.domain ?? "")}>
+              Save
             </Button>
           </span>
         </form>

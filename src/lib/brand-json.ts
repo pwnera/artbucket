@@ -29,6 +29,8 @@ export type BrandJsonInput = {
   publishedAt: Date | string;
   /** The org's proof: a domain (acme.com), or a GitHub account (github.com/acme), which is no house. */
   verified: string | null;
+  /** The brand's own domain (brands.domain), its `url` before the org's. */
+  domain?: string | null;
   rules: BrandJsonRule[];
   /** The listing's own files: the lossless ones brand.json points at. */
   links: Record<string, string>;
@@ -182,7 +184,7 @@ export function brandJson(b: BrandJsonInput) {
     ...(domain && { house_domain: domain }),
     id: b.slug.replace(/-/g, "_"),
     names: [{ en: b.name }],
-    ...(domain && { url: `https://${domain}` }),
+    ...((b.domain || domain) && { url: `https://${b.domain || domain}` }),
     ...(description && { description: String(description.value) }),
     ...(tagline && { tagline: String(tagline.value) }),
     ...(industries.length && { industries }),

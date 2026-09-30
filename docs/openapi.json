@@ -16039,6 +16039,13 @@
                               "null"
                             ]
                           },
+                          "domain": {
+                            "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "rules": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -16107,7 +16114,7 @@
       },
       "post": {
         "summary": "Create a brand",
-        "description": "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, logos, voice and more become rules, and its logos and font files are ingested from their URLs; `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand is made. Its history starts at version 1.\n\nScope: `write`.",
+        "description": "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, logos, voice and more become rules, its logos and font files are ingested from their URLs, and the brand keeps its domain (a template's too); `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand is made. Its history starts at version 1.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -16153,7 +16160,7 @@
                     ]
                   },
                   "domain": {
-                    "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from",
+                    "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from. The brand keeps the document's own domain (its url), else this one",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 253
@@ -16241,6 +16248,13 @@
                         },
                         "from": {
                           "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain": {
+                          "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
                           "type": [
                             "string",
                             "null"
@@ -16587,6 +16601,13 @@
                             "null"
                           ]
                         },
+                        "domain": {
+                          "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rules": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -16677,6 +16698,18 @@
                     "description": "Make this the default brand",
                     "type": "boolean",
                     "const": true
+                  },
+                  "domain": {
+                    "description": "Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 253
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -16714,6 +16747,13 @@
                         },
                         "from": {
                           "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain": {
+                          "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
                           "type": [
                             "string",
                             "null"

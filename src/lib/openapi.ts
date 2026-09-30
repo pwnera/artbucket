@@ -541,8 +541,8 @@ export function openapi(serverUrl: string) {
             "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP " +
             "brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a " +
             "house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, " +
-            "logos, voice and more become rules, and its logos and font files are ingested from their URLs; `skipped` " +
-            "and `dropped` say what was left out. `publish` releases it and `visibility: " +
+            "logos, voice and more become rules, its logos and font files are ingested from their URLs, and the brand " +
+            "keeps its domain (a template's too); `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: " +
             "public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand " +
             "is made. Its history starts at version 1.",
           body: S.BrandCreate,

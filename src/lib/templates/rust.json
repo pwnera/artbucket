@@ -1,5 +1,6 @@
 {
   "name": "Rust",
+  "domain": "rust-lang.org",
   "fonts": ["Alfa Slab One", "Fira Sans"],
   "assets": {
     "a428e1a6-25c0-405d-9bda-39e17b4d3861": { "url": "https://raw.githubusercontent.com/rust-lang/rust-artwork/main/logo/rust-logo.svg", "filename": "rust-logo.svg" },

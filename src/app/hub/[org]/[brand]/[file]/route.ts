@@ -51,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   }
   if (file === "brand.json") {
     const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: about.guidelines };
-    return Response.json(brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, rules: b.rules, links }), { headers });
+    return Response.json(brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, domain: b.domain, rules: b.rules, links }), { headers });
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;

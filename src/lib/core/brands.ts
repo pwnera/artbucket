@@ -8,6 +8,7 @@ import { pullCounts } from "@/lib/core/events";
 import { proofsOf } from "@/lib/core/hub-trust";
 import { env } from "@/lib/env";
 import { hubHome, hubPath } from "@/lib/hub";
+import { brandDomain } from "@/lib/portal";
 
 /** A workspace's brands. `ws` is the workspace id; scopes were checked by the route. */
 
@@ -51,11 +52,14 @@ export const present = (b: Brand) => ({
   default: b.isDefault,
   visibility: b.visibility,
   from: b.forkedFrom,
+  domain: b.domain,
   createdAt: b.createdAt,
 });
 
-export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true }) {
+export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true; domain?: string | null }) {
   const b = await resolveBrand(ws, slug);
+  const domain = patch.domain ? brandDomain(patch.domain) : patch.domain;
+  if (patch.domain && !domain) throw new AssetError("invalid", `domain: not a domain: "${patch.domain}". Say acme.com`);
   return db.transaction(async (tx) => {
     if (patch.slug && patch.slug !== b.slug) {
       const [taken] = await tx
@@ -77,6 +81,7 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
         ...(patch.name !== undefined && { name: patch.name }),
         ...(patch.slug !== undefined && { slug: patch.slug }),
         ...(patch.default && { isDefault: true }),
+        ...(domain !== undefined && { domain }),
       })
       .where(eq(brands.id, b.id))
       .returning();

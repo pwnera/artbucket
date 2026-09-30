@@ -921,7 +921,7 @@
         ]
       },
       "domain": {
-        "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from",
+        "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from. The brand keeps the document's own domain (its url), else this one",
         "type": "string",
         "minLength": 1,
         "maxLength": 253
@@ -992,6 +992,18 @@
         "description": "Make this the default brand",
         "type": "boolean",
         "const": true
+      },
+      "domain": {
+        "description": "Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 253
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "brand": {
         "type": "string",

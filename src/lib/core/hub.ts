@@ -89,6 +89,7 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
       orgId: organizations.id,
       brand: brands.slug,
       name: brands.name,
+      domain: brands.domain,
       workspaceId: brands.workspaceId,
       version: latest(sql`v.number`).mapWith(Number),
       publishedAt: latest(sql`v.published_at`).mapWith((v: string) => new Date(v)),
@@ -146,6 +147,8 @@ async function cards(rows: Row[]) {
       owner: r.owner,
       brand: r.brand,
       name: r.name,
+      /** The brand's own domain, as its organization or its brand.json says: not proved unless `verified` names it. */
+      domain: r.domain,
       visibility: r.visibility,
       path: hubPath(r.org, r.brand),
       version: r.version,

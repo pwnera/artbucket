@@ -247,7 +247,7 @@ export const BrandCreate = z
       .max(253)
       .optional()
       .describe(
-        "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from",
+        "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from. The brand keeps the document's own domain (its url), else this one",
       ),
     brandJson: z.record(z.string(), z.unknown()).optional().describe("Start from this AdCP brand.json document, rather than one read from `domain`"),
     brand: z
@@ -269,6 +269,7 @@ export const BrandPatch = z.strictObject({
   name: z.string().trim().min(1).max(80).optional(),
   slug: brandSlug.optional(),
   default: z.literal(true).optional().describe("Make this the default brand"),
+  domain: z.string().trim().max(253).nullable().optional().describe("Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it"),
 });
 export const VersionPatch = z.strictObject({
   name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
@@ -575,6 +576,7 @@ export const Brand = z.object({
   default: z.boolean(),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
   from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
+  domain: z.string().nullable().optional().describe("Its own domain (acme.com): whoever proves it may claim its BrandHub listing"),
   rules: z.number().int(),
   createdAt: date,
 });

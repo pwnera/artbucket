@@ -324,6 +324,12 @@ export const brands = pgTable(
     hubDelisted: text("hub_delisted"),
     /** The BrandHub brand it started from, as {org}/{brand}@{n} (lib/core/hub.ts startFrom); null for any other start. */
     forkedFrom: text("forked_from"),
+    /**
+     * The brand's own domain, a lower-cased host without www (acme.com): from its brand.json, a
+     * template, or Settings. Several brands may name one, across organizations: whoever proves it
+     * may claim their listings (lib/core/hub-trust.ts).
+     */
+    domain: text("domain"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -332,6 +338,7 @@ export const brands = pgTable(
     check("brands_visibility_check", sql`${t.visibility} in ('private', 'public')`),
     unique("brands_workspace_slug_unique").on(t.workspaceId, t.slug),
     uniqueIndex("brands_one_default").on(t.workspaceId).where(sql`${t.isDefault}`),
+    index("brands_domain_idx").on(t.domain),
   ],
 );
 

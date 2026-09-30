@@ -179,6 +179,11 @@ export default async function HubListing(props: Props) {
                 <IconBook aria-hidden className="size-4 shrink-0" /> {b.guidelines.replace(/^https?:\/\//, "")}
               </ExternalLink>
             )}
+            {b.domain && (
+              <ExternalLink href={`https://${b.domain}`} className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
+                <IconWorld aria-hidden className="size-4 shrink-0" /> {b.domain}
+              </ExternalLink>
+            )}
             <Owner verified={b.verified} className="text-sm" />
             <ul className="text-muted-foreground grid gap-1.5">
               <li className="flex items-center gap-2">

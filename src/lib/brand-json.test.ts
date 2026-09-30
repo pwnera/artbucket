@@ -20,6 +20,9 @@ test("a brand's identity, and its links for what brand.json can't say", () => {
   assert.equal(out.version, "5");
   assert.equal(out.last_updated, "2026-09-29T17:21:08.831Z");
   assert.deepEqual(out.ext, { artbucket: { release: 5, rules: "https://hub/acme/rules.json" } });
+  // The brand's own domain is its url; the house stays the verified one.
+  const shop = brandJson({ ...base, domain: "shop.acme.example", rules: [] });
+  assert.deepEqual([shop.url, shop.house_domain], ["https://shop.acme.example", "acme.example"]);
   // A GitHub proof is no house; nothing unset appears.
   const bare = brandJson({ ...base, verified: "github.com/acme", rules: [] });
   assert.equal(bare.house_domain, undefined);
