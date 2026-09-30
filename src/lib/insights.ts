@@ -77,3 +77,12 @@ export function fillWeeks<T extends { week: string }>(rows: T[], empty: Omit<T, 
     return byWeek.get(week) ?? ({ ...empty, week } as T);
   });
 }
+
+/**
+ * Whether a refused check's offer was taken: the same client (the same
+ * agent's key, or nobody's for people and visitors) fetched the replacement,
+ * or checked it and was allowed, after the refusal.
+ */
+export function taken(refusal: { at: Date; client: string | null }, offered: string, uses: { asset: string; client: string | null; at: Date }[]) {
+  return uses.some((u) => u.asset === offered && u.client === refusal.client && u.at > refusal.at);
+}

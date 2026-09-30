@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { IconAlertTriangle, IconChartBar } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconCheck } from "@tabler/icons-react";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Group } from "@/components/settings/panels";
 import { formatSize } from "@/lib/limits";
+import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 type Asset = { id: string; title: string; version: number | null; preview: boolean; supersededBy: string | null };
@@ -18,11 +19,31 @@ export type InsightsData = {
   stale: { asset: Asset; replacement: Asset | null; referrer: string | null; fetches: number; last: string }[];
   top: { asset: Asset; total: number; surfaces: Partial<Record<string, number>> }[];
   gaps: { q: string; searches: number; last: string }[];
+  checks: {
+    allowed: number;
+    refused: number;
+    reasons: { code: string; count: number }[];
+    log: { id: string; at: string; asset: Asset; surface: string; client: string | null; context: string | null; reasons: string[]; offered: { asset: Asset; taken: boolean }[] }[];
+  };
   delivery: { day: string; requests: number; bytes: number }[];
   pageViews: { portal: { id: string; name: string }; brand: { slug: string; name: string }; page: string; views: number }[];
 };
 
 const SURFACE: Record<string, string> = { app: "App", api: "API", mcp: "MCP", portal: "Portal", share: "Share link", hub: "BrandHub", link: "Signed link", public: "Public" };
+
+/** Why a check said no (lib/rights.ts ReasonCode), as the log says it. */
+const REASON: Record<string, string> = {
+  not_approved: "Not approved",
+  deleted: "Deleted",
+  archived: "Archived",
+  superseded: "Replaced",
+  embargoed: "Under embargo",
+  expired: "License expired",
+  territory: "Territory",
+  channel: "Channel",
+  model_release: "Model release",
+  context: "Wrong variant",
+};
 
 /** A UTC day, short: "Sep 28". */
 const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
@@ -206,6 +227,59 @@ export function Insights({ data }: { data: InsightsData | null }) {
                     </li>
                   ))}
                 </ol>
+              )}
+            </Group>
+
+            <Group
+              title="Use checks"
+              description={`What check_use and the check API answered in the last ${data.days} days: ${data.checks.allowed.toLocaleString()} allowed, ${data.checks.refused.toLocaleString()} refused. Each refusal names what to use instead; taken means the same client used it afterwards.`}
+            >
+              {data.checks.refused === 0 ? (
+                <None>Nothing refused.</None>
+              ) : (
+                <>
+                  <ul aria-label="Refusals by reason" className="flex flex-wrap gap-2 text-sm">
+                    {data.checks.reasons.map((r) => (
+                      <li key={r.code} className="rounded-md border px-2 py-0.5">
+                        {REASON[r.code] ?? r.code} <span className="text-muted-foreground tabular-nums">{r.count.toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <ol aria-label="Latest refusals" className="divide-y text-sm">
+                    {data.checks.log.map((c) => (
+                      <li key={c.id} className="grid gap-0.5 py-2">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <AssetLink a={c.asset} />
+                          <span className="text-muted-foreground text-xs">
+                            {c.reasons.map((r) => REASON[r] ?? r).join(", ")}
+                            {c.context && `, for ${c.context}`}
+                          </span>
+                          <span className="text-muted-foreground ml-auto text-xs" title={exact(c.at)} suppressHydrationWarning>
+                            {c.client ?? SURFACE[c.surface] ?? c.surface}, {ago(c.at)}
+                          </span>
+                        </div>
+                        {c.offered.length > 0 && (
+                          <p className="text-muted-foreground text-xs">
+                            Offered{" "}
+                            {c.offered.map((o, i) => (
+                              <span key={o.asset.id}>
+                                {i > 0 && ", "}
+                                <AssetLink a={o.asset} />
+                                {o.taken && (
+                                  <span className="text-success">
+                                    {" "}
+                                    <IconCheck aria-hidden className="inline size-3.5" />
+                                    taken
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </>
               )}
             </Group>
 

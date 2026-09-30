@@ -948,7 +948,8 @@ export function openapi(serverUrl: string) {
           scope: "write",
           description:
             "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, " +
-            "the most fetched assets by surface, searches that found nothing, delivery traffic and portal page views. " +
+            "the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), " +
+            "delivery traffic and portal page views. " +
             "Events never hold an IP address, a person's name or a full URL, and never leave this server.",
           ok: [200, "Insights", data(S.Insights)],
         }),

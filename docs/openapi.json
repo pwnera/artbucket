@@ -33552,7 +33552,7 @@
     "/api/v1/insights": {
       "get": {
         "summary": "Insights",
-        "description": "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
+        "description": "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -33900,6 +33900,231 @@
                           },
                           "description": "Searches that found nothing, most asked first"
                         },
+                        "checks": {
+                          "type": "object",
+                          "properties": {
+                            "allowed": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "reasons": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "count"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Refusals by blocking reason, most first; one refusal can have several"
+                            },
+                            "log": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  "asset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Its version in its stack; null for an asset with one"
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Whether /a/{id} can make a picture of it"
+                                      },
+                                      "supersededBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "version",
+                                      "preview",
+                                      "supersededBy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "surface": {
+                                    "type": "string",
+                                    "enum": [
+                                      "app",
+                                      "api",
+                                      "mcp",
+                                      "portal",
+                                      "share",
+                                      "hub",
+                                      "link",
+                                      "public"
+                                    ]
+                                  },
+                                  "client": {
+                                    "description": "The agent's key name; null for a person or nobody in particular",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "context": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "offered": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "asset": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "title": {
+                                              "type": "string"
+                                            },
+                                            "version": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "integer",
+                                                  "minimum": -9007199254740991,
+                                                  "maximum": 9007199254740991
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ],
+                                              "description": "Its version in its stack; null for an asset with one"
+                                            },
+                                            "preview": {
+                                              "type": "boolean",
+                                              "description": "Whether /a/{id} can make a picture of it"
+                                            },
+                                            "supersededBy": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "title",
+                                            "version",
+                                            "preview",
+                                            "supersededBy"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "taken": {
+                                          "type": "boolean",
+                                          "description": "The same client fetched it, or checked it and was allowed, afterwards"
+                                        }
+                                      },
+                                      "required": [
+                                        "asset",
+                                        "taken"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "What was offered instead"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "at",
+                                  "asset",
+                                  "surface",
+                                  "client",
+                                  "context",
+                                  "reasons",
+                                  "offered"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "The latest refusals, newest first"
+                            }
+                          },
+                          "required": [
+                            "allowed",
+                            "refused",
+                            "reasons",
+                            "log"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The use-check log: check_use and POST /api/v1/check answers"
+                        },
                         "delivery": {
                           "type": "array",
                           "items": {
@@ -33993,6 +34218,7 @@
                         "stale",
                         "top",
                         "gaps",
+                        "checks",
                         "delivery",
                         "pageViews"
                       ],

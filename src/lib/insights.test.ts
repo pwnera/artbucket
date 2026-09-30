@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fillWeeks, referrerHost, searchWords, weekOf } from "./insights.ts";
+import { fillWeeks, referrerHost, searchWords, taken, weekOf } from "./insights.ts";
 
 test("only the referrer's host is kept, never its path, query or port", () => {
   assert.equal(referrerHost("https://Docs.Example.com:8443/brand/logo?token=secret#x"), "docs.example.com");
@@ -32,4 +32,14 @@ test("a weekly chart has every week, the quiet ones at zero", () => {
     { week: "2026-09-21", n: 0 },
     { week: "2026-09-28", n: 0 },
   ]);
+});
+
+test("an offer is taken when the same client uses the replacement afterwards", () => {
+  const refusal = { at: new Date("2026-09-30T10:00:00Z"), client: "Claude" };
+  const use = (asset: string, client: string | null, at: string) => ({ asset, client, at: new Date(at) });
+  assert.equal(taken(refusal, "new", [use("new", "Claude", "2026-09-30T10:01:00Z")]), true);
+  assert.equal(taken(refusal, "new", [use("new", "Claude", "2026-09-30T09:59:00Z")]), false, "before the refusal");
+  assert.equal(taken(refusal, "new", [use("new", "Cursor", "2026-09-30T10:01:00Z")]), false, "another agent");
+  assert.equal(taken(refusal, "new", [use("old", "Claude", "2026-09-30T10:01:00Z")]), false, "the refused one again");
+  assert.equal(taken({ ...refusal, client: null }, "new", [use("new", null, "2026-09-30T11:00:00Z")]), true);
 });

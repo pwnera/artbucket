@@ -1,9 +1,9 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, eventCounts, pageViews, portals, traffic } from "@/lib/db/schema";
+import { assets, brands, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
-import { fillWeeks, INSIGHT_DAYS, WEEKS, type Surface } from "@/lib/insights";
+import { fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
 import { hasPreview } from "@/lib/preview";
 
@@ -38,6 +38,70 @@ async function describe(ids: string[]) {
   return new Map(rows.map((a) => [a.id, { id: a.id, title: a.title ?? a.filename, version: a.version, preview: hasPreview(a), supersededBy: a.supersededBy }]));
 }
 
+/**
+ * The use-check log (PRD section 11): refusals by reason, and the latest
+ * ones with what was offered instead and whether it was taken. The log reads
+ * raw events, so it goes back EVENT_DAYS at most; the counts read the rollup.
+ */
+async function checkLog(ws: string) {
+  const recent = and(eq(eventCounts.workspaceId, ws), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`), eq(eventCounts.kind, "check"));
+  const code = sql<string>`unnest(${eventCounts.reasons})`;
+  const [[totals], reasons, refusals] = await Promise.all([
+    db.select({ allowed: n(sql`verdict = 'allowed'`), refused: n(sql`verdict = 'refused'`) }).from(eventCounts).where(recent),
+    db
+      .select({ code: sql<string>`r.code`, count: sql<number>`sum(r.count)::int` })
+      .from(db.select({ code: code.as("code"), count: eventCounts.count }).from(eventCounts).where(and(recent, eq(eventCounts.verdict, "refused"))).as("r"))
+      .groupBy(sql`r.code`)
+      .orderBy(desc(sql`sum(r.count)`)),
+    db
+      .select({ id: events.id, at: events.at, asset: events.assetId, surface: events.surface, client: events.client, context: events.subject, reasons: events.reasons, offered: events.offered })
+      .from(events)
+      .where(and(eq(events.workspaceId, ws), eq(events.kind, "check"), eq(events.verdict, "refused"), gte(events.day, sql`${since(INSIGHT_DAYS)}`)))
+      .orderBy(desc(events.at))
+      .limit(50),
+  ]);
+  const offered = [...new Set(refusals.flatMap((r) => r.offered ?? []))];
+  // What was done with the offers since the oldest refusal listed: fetched, or checked and allowed.
+  const uses = offered.length
+    ? await db
+        .select({ asset: sql<string>`${events.assetId}`, client: events.client, at: events.at })
+        .from(events)
+        .where(
+          and(
+            eq(events.workspaceId, ws),
+            inArray(events.assetId, offered),
+            gte(events.at, refusals.at(-1)!.at),
+            or(eq(events.kind, "fetch"), and(eq(events.kind, "check"), eq(events.verdict, "allowed"))),
+          ),
+        )
+    : [];
+  const described = await describe([...refusals.flatMap((r) => (r.asset ? [r.asset] : [])), ...offered]);
+  return {
+    ...totals,
+    reasons,
+    log: refusals.flatMap((r) => {
+      const a = r.asset && described.get(r.asset);
+      return a
+        ? [
+            {
+              id: r.id,
+              at: r.at.toISOString(),
+              asset: a,
+              surface: r.surface,
+              client: r.client,
+              context: r.context,
+              reasons: r.reasons ?? [],
+              offered: (r.offered ?? []).flatMap((id) => {
+                const o = described.get(id);
+                return o ? [{ asset: o, taken: taken(r, id, uses) }] : [];
+              }),
+            },
+          ]
+        : [];
+    }),
+  };
+}
+
 /** GET /api/v1/insights: the workspace's Insights. Write on the workspace. */
 export async function insightsOf(caller: Caller) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
@@ -45,7 +109,7 @@ export async function insightsOf(caller: Caller) {
   const recent = and(ws, gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
   const fetched = eq(eventCounts.kind, "fetch");
 
-  const [answers, adoption, stale, top, gaps, delivery, views] = await Promise.all([
+  const [answers, adoption, stale, top, gaps, delivery, views, checks] = await Promise.all([
     db
       .select({ week, person: n(sql`actor = 'person'`), agent: n(sql`actor = 'agent'`), anonymous: n(sql`actor = 'anonymous'`) })
       .from(eventCounts)
@@ -96,6 +160,7 @@ export async function insightsOf(caller: Caller) {
       .groupBy(portals.id, brands.id, pageViews.page)
       .orderBy(desc(sql`sum(${pageViews.views})`), asc(portals.name), asc(pageViews.page))
       .limit(50),
+    checkLog(caller.workspace.id),
   ]);
 
   // Top assets: summed over surfaces here, the ten most fetched kept.
@@ -123,6 +188,7 @@ export async function insightsOf(caller: Caller) {
       return a ? [{ asset: a, total: r.total, surfaces: r.surfaces }] : [];
     }),
     gaps: gaps.map((g) => ({ q: g.q ?? "", searches: g.searches, last: g.last })),
+    checks,
     delivery,
     pageViews: views,
   };

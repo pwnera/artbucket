@@ -1226,6 +1226,29 @@ export const Insights = z.object({
     .array(z.object({ asset: InsightAsset, total: z.number().int(), surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()).describe("Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public") }))
     .describe("The ten most fetched assets, with their fetches by surface"),
   gaps: z.array(z.object({ q: z.string(), searches: z.number().int(), last: z.string() })).describe("Searches that found nothing, most asked first"),
+  checks: z
+    .object({
+      allowed: z.number().int(),
+      refused: z.number().int(),
+      reasons: z.array(z.object({ code: z.string(), count: z.number().int() })).describe("Refusals by blocking reason, most first; one refusal can have several"),
+      log: z
+        .array(
+          z.object({
+            id: uuid,
+            at: date,
+            asset: InsightAsset,
+            surface: z.enum(SURFACES),
+            client: z.string().nullable().describe("The agent's key name; null for a person or nobody in particular"),
+            context: z.string().nullable(),
+            reasons: z.array(z.string()),
+            offered: z
+              .array(z.object({ asset: InsightAsset, taken: z.boolean().describe("The same client fetched it, or checked it and was allowed, afterwards") }))
+              .describe("What was offered instead"),
+          }),
+        )
+        .describe("The latest refusals, newest first"),
+    })
+    .describe("The use-check log: check_use and POST /api/v1/check answers"),
   delivery: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })).describe("What /a/{id} served in this workspace, per day"),
   pageViews: z
     .array(
