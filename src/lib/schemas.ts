@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
+import { SURFACES } from "./insights.ts";
 import { FEATURES } from "./limits.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
@@ -1192,6 +1193,50 @@ export const PortalViews = z.object({
   pages: z
     .array(z.object({ brand: z.object({ slug: z.string(), name: z.string() }), page: z.string().describe("The page's slug when it was read"), views: z.number().int() }))
     .describe("Most read first; a page shown counts, not an error, a lock or a redirect"),
+});
+const InsightAsset = z.object({
+  id: uuid,
+  title: z.string(),
+  version: z.number().int().nullable().describe("Its version in its stack; null for an asset with one"),
+  preview: z.boolean().describe("Whether /a/{id} can make a picture of it"),
+  supersededBy: uuid.nullable(),
+});
+const Week = z.string().describe("The Monday (UTC) the week starts, YYYY-MM-DD");
+export const Insights = z.object({
+  days: z.number().int().describe("How far back the lists go"),
+  weeks: z.number().int().describe("How many weeks the weekly charts have, oldest first, quiet weeks at zero"),
+  answers: z
+    .array(z.object({ week: Week, person: z.number().int(), agent: z.number().int(), anonymous: z.number().int() }))
+    .describe("Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"),
+  adoption: z
+    .array(z.object({ week: Week, current: z.number().int(), superseded: z.number().int() }))
+    .describe("Fetches per week of a current version, and of one already replaced when it was fetched"),
+  stale: z
+    .array(
+      z.object({
+        asset: InsightAsset,
+        replacement: InsightAsset.nullable().describe("What replaced it"),
+        referrer: z.string().nullable().describe("The host that loaded it; null when the request didn't say"),
+        fetches: z.number().int(),
+        last: z.string().describe("The last day it was fetched"),
+      }),
+    )
+    .describe("Still on the old release: replaced versions fetched lately, by referrer, most first"),
+  top: z
+    .array(z.object({ asset: InsightAsset, total: z.number().int(), surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()).describe("Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public") }))
+    .describe("The ten most fetched assets, with their fetches by surface"),
+  gaps: z.array(z.object({ q: z.string(), searches: z.number().int(), last: z.string() })).describe("Searches that found nothing, most asked first"),
+  delivery: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })).describe("What /a/{id} served in this workspace, per day"),
+  pageViews: z
+    .array(
+      z.object({
+        portal: z.object({ id: uuid, name: z.string() }),
+        brand: z.object({ slug: z.string(), name: z.string() }),
+        page: z.string(),
+        views: z.number().int(),
+      }),
+    )
+    .describe("Portal pages read, most first"),
 });
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),

@@ -682,7 +682,15 @@ function PortalDialog({
               {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
             </Picks>
           )}
-          {current && current.brands.length > 0 && <PageViews portal={current} />}
+          {current && current.brands.length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              How often its pages are read is in{" "}
+              <Link href="/insights" className="text-foreground underline-offset-2 hover:underline">
+                Insights
+              </Link>
+              .
+            </p>
+          )}
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Who gets in</legend>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -992,49 +1000,6 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
         </span>
       )}
     </li>
-  );
-}
-
-type Views = { days: number; pages: { brand: { slug: string; name: string }; page: string; views: number }[] };
-
-/** How often its pages were read lately (GET /portals/{id}/views), most read first, each page's brand named when it carries several. */
-function PageViews({ portal }: { portal: Portal }) {
-  // undefined while it loads; null when it couldn't, and nothing is said rather than something wrong.
-  const [got, setGot] = useState<Views | null>();
-  useEffect(() => {
-    let live = true;
-    fetch(`/api/v1/portals/${portal.id}/views`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((b: { data: Views }) => live && setGot(b.data))
-      .catch(() => live && setGot(null));
-    return () => {
-      live = false;
-    };
-  }, [portal.id]);
-  if (got === null) return null;
-  const pages = got?.pages ?? [];
-  const several = portal.brands.length > 1 || pages.some((p) => p.brand.slug !== pages[0].brand.slug);
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium">Page views, last {got?.days ?? 30} days</p>
-      {!got ? (
-        <Skeleton className="h-12 w-full" />
-      ) : pages.length === 0 ? (
-        <p className="text-muted-foreground text-xs">None yet. Each page a visitor opens counts here, a day at a time.</p>
-      ) : (
-        <ol aria-label="Page views" className="grid max-h-48 gap-1 overflow-y-auto rounded-md border p-2 text-sm">
-          {pages.map((p) => (
-            <li key={`${p.brand.slug}/${p.page}`} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate">
-                {several && <span className="text-muted-foreground">{p.brand.name}: </span>}
-                {p.page}
-              </span>
-              <span className="text-muted-foreground tabular-nums">{p.views.toLocaleString()}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
   );
 }
 

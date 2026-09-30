@@ -50,3 +50,30 @@ export function referrerHost(referer: string | null | undefined): string | null 
 
 /** A search's words as they are counted: trimmed, one space apart, lower case, 200 characters at most. Empty: not a search. */
 export const searchWords = (q: string | null | undefined) => (q ?? "").trim().replace(/\s+/g, " ").toLowerCase().slice(0, 200);
+
+/** Weekly charts cover this many weeks; lists, the last INSIGHT_DAYS days. */
+export const WEEKS = 12;
+export const INSIGHT_DAYS = 30;
+
+/** The Monday (UTC) that starts the week of `d`, as YYYY-MM-DD: Postgres' date_trunc('week'). */
+export function weekOf(d: Date): string {
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * The last `weeks` weeks up to `now`'s, oldest first, each with its row or
+ * `empty` where nothing happened: a chart's bars are the weeks, not the
+ * weeks that had something in them.
+ */
+export function fillWeeks<T extends { week: string }>(rows: T[], empty: Omit<T, "week">, weeks = WEEKS, now = new Date()): T[] {
+  const byWeek = new Map(rows.map((r) => [r.week, r]));
+  const start = new Date(`${weekOf(now)}T00:00:00Z`);
+  return Array.from({ length: weeks }, (_, i) => {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() - 7 * (weeks - 1 - i));
+    const week = d.toISOString().slice(0, 10);
+    return byWeek.get(week) ?? ({ ...empty, week } as T);
+  });
+}

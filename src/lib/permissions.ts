@@ -75,6 +75,8 @@ export const ACTIONS = {
   "key.manage": { scope: "admin", on: "workspace" },
   "member.manage": { scope: "admin", on: "workspace" },
   "audit.read": { scope: "admin", on: "workspace" },
+  /** What the brand's events say (lib/core/insights.ts): for whoever looks after the workspace. */
+  "insights.read": { scope: "write", on: "workspace" },
   "workspace.manage": { scope: "admin", on: "workspace" },
   "organization.manage": { scope: "admin", on: "organization" },
 } as const satisfies Record<string, { scope: Scope; on: On; ability?: Ability }>;

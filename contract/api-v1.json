@@ -690,6 +690,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -760,6 +775,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -1818,6 +1834,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -1888,6 +1919,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -2385,6 +2417,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -2455,6 +2502,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -3014,7 +3062,7 @@
   "/api/v1/brand/tokens": {
     "get": {
       "summary": "Export the brand as design tokens",
-      "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out.\n\nScope: `read`.",
+      "description": "Colors, numbers, fonts and the type scale as code. `css`: custom properties on :root, with @font-face for every font file. `scss`, `less`: the same as Sass or Less variables. `tailwind`: a Tailwind 4 @theme; `tailwind3`: theme.extend for tailwind.config.js. `ts`: one typed object. `shadcn`: shadcn/ui's variables; `mui`: a Material UI createTheme; `chakra`: a Chakra UI 3 system. `json`: W3C Design Tokens (DTCG 2025.10), grouped by key, for Style Dictionary, Tokens Studio or a Figma importer; font files are under `$extensions`. `designmd`: DESIGN.md for coding agents, the tokens as YAML front matter and the guidance as prose. A rule set in one of the brand's fonts aliases it. Sentences and do/don't lists are guidance, not tokens, and are left out of every format but `designmd`.\n\nScope: `read`.",
       "x-scope": "read",
       "parameters": [
         {
@@ -3032,7 +3080,8 @@
               "shadcn",
               "mui",
               "chakra",
-              "json"
+              "json",
+              "designmd"
             ],
             "default": "css"
           },
@@ -3754,6 +3803,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -3824,6 +3888,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -4726,6 +4791,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -4796,6 +4876,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -5687,6 +5768,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -5757,6 +5853,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -6591,6 +6688,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -6661,6 +6773,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -7276,6 +7389,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -7346,6 +7474,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -7894,6 +8023,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -7964,6 +8108,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -8522,6 +8667,21 @@
                           ],
                           "description": "Content Credentials read from the file; the original keeps the signed manifest"
                         },
+                        "via": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "agent",
+                                "import"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                        },
                         "supersededBy": {
                           "anyOf": [
                             {
@@ -8592,6 +8752,7 @@
                         "generator",
                         "prompt",
                         "c2pa",
+                        "via",
                         "supersededBy",
                         "private",
                         "public",
@@ -9165,6 +9326,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -9235,6 +9411,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -9805,6 +9982,21 @@
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
                       },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
                       "supersededBy": {
                         "anyOf": [
                           {
@@ -9875,6 +10067,7 @@
                       "generator",
                       "prompt",
                       "c2pa",
+                      "via",
                       "supersededBy",
                       "private",
                       "public",
@@ -10321,6 +10514,21 @@
                           }
                         ],
                         "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                      },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
                       }
                     },
                     "required": [
@@ -10328,7 +10536,8 @@
                       "parentAssetId",
                       "generator",
                       "prompt",
-                      "c2pa"
+                      "c2pa",
+                      "via"
                     ],
                     "additionalProperties": false
                   },
@@ -33256,6 +33465,500 @@
                       "billing",
                       "used",
                       "traffic"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/insights": {
+    "get": {
+      "summary": "Insights",
+      "description": "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "200": {
+          "description": "Insights",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "How far back the lists go"
+                      },
+                      "weeks": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "How many weeks the weekly charts have, oldest first, quiet weeks at zero"
+                      },
+                      "answers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "week": {
+                              "type": "string",
+                              "description": "The Monday (UTC) the week starts, YYYY-MM-DD"
+                            },
+                            "person": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "agent": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "anonymous": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "week",
+                            "person",
+                            "agent",
+                            "anonymous"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"
+                      },
+                      "adoption": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "week": {
+                              "type": "string",
+                              "description": "The Monday (UTC) the week starts, YYYY-MM-DD"
+                            },
+                            "current": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "superseded": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "week",
+                            "current",
+                            "superseded"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Fetches per week of a current version, and of one already replaced when it was fetched"
+                      },
+                      "stale": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "asset": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Its version in its stack; null for an asset with one"
+                                },
+                                "preview": {
+                                  "type": "boolean",
+                                  "description": "Whether /a/{id} can make a picture of it"
+                                },
+                                "supersededBy": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "title",
+                                "version",
+                                "preview",
+                                "supersededBy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "replacement": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Its version in its stack; null for an asset with one"
+                                    },
+                                    "preview": {
+                                      "type": "boolean",
+                                      "description": "Whether /a/{id} can make a picture of it"
+                                    },
+                                    "supersededBy": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "version",
+                                    "preview",
+                                    "supersededBy"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "What replaced it"
+                            },
+                            "referrer": {
+                              "description": "The host that loaded it; null when the request didn't say",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fetches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "last": {
+                              "type": "string",
+                              "description": "The last day it was fetched"
+                            }
+                          },
+                          "required": [
+                            "asset",
+                            "replacement",
+                            "referrer",
+                            "fetches",
+                            "last"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Still on the old release: replaced versions fetched lately, by referrer, most first"
+                      },
+                      "top": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "asset": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Its version in its stack; null for an asset with one"
+                                },
+                                "preview": {
+                                  "type": "boolean",
+                                  "description": "Whether /a/{id} can make a picture of it"
+                                },
+                                "supersededBy": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "title",
+                                "version",
+                                "preview",
+                                "supersededBy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "surfaces": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "enum": [
+                                  "app",
+                                  "api",
+                                  "mcp",
+                                  "portal",
+                                  "share",
+                                  "hub",
+                                  "link",
+                                  "public"
+                                ]
+                              },
+                              "additionalProperties": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "description": "Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public"
+                            }
+                          },
+                          "required": [
+                            "asset",
+                            "total",
+                            "surfaces"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "The ten most fetched assets, with their fetches by surface"
+                      },
+                      "gaps": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "q": {
+                              "type": "string"
+                            },
+                            "searches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "last": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "q",
+                            "searches",
+                            "last"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Searches that found nothing, most asked first"
+                      },
+                      "delivery": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "requests": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "bytes": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "requests",
+                            "bytes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "What /a/{id} served in this workspace, per day"
+                      },
+                      "pageViews": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "portal": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "brand": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "page": {
+                              "type": "string"
+                            },
+                            "views": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "portal",
+                            "brand",
+                            "page",
+                            "views"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Portal pages read, most first"
+                      }
+                    },
+                    "required": [
+                      "days",
+                      "weeks",
+                      "answers",
+                      "adoption",
+                      "stale",
+                      "top",
+                      "gaps",
+                      "delivery",
+                      "pageViews"
                     ],
                     "additionalProperties": false
                   }

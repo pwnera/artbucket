@@ -1148,7 +1148,7 @@ export const events = pgTable(
     subject: text("subject"),
     /** The asset's version in its stack, or the brand release a hub file came from. */
     version: integer("version"),
-    /** How it came out: a check's `allowed` or `refused`, a search's `found` or `empty`. */
+    /** How it came out: a check's `allowed` or `refused`, a search's `found` or `empty`, a fetch's `current` or `superseded` version. */
     verdict: text("verdict"),
     /** A refused check's blocking reasons (lib/rights.ts codes). */
     reasons: text("reasons").array(),

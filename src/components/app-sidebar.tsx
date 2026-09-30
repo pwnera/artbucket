@@ -9,6 +9,7 @@ import {
   IconBook,
   IconBookmark,
   IconBookmarks,
+  IconChartBar,
   IconChevronRight,
   IconClock,
   IconDots,
@@ -132,6 +133,7 @@ export function AppSidebar({
     agents: pathname === "/agents",
     team: pathname === "/team",
     portals: pathname === "/portals",
+    insights: pathname === "/insights",
     // A collection or saved search is its own item, so none of these is lit for one.
     // Review is a tab of Assets, so Assets stays lit on it.
     assets: (inLibrary && !view.collection && !onSearch) || pathname === "/activity",
@@ -220,6 +222,7 @@ export function AppSidebar({
               )}
               <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
+              {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
               {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
             </SidebarMenu>
           </SidebarGroupContent>

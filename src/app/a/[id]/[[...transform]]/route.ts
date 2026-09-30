@@ -72,7 +72,9 @@ export async function GET(req: Request, { params }: Ctx) {
     const counts = !(by.surface === "app" && referrer === url.hostname && !download) && !(range && !/^bytes=0-/.test(range));
     const served = (bytes: number) => {
       countTraffic(asset.workspaceId, bytes);
-      if (counts) record({ workspaceId: asset.workspaceId, kind: "fetch", ...by, assetId: asset.id, version: asset.version, referrer });
+      // Whether it was already replaced when it went out: release adoption counts what still loads an old version.
+      const verdict = asset.supersededBy ? "superseded" : "current";
+      if (counts) record({ workspaceId: asset.workspaceId, kind: "fetch", ...by, assetId: asset.id, version: asset.version, verdict, referrer });
     };
 
     if (download) {

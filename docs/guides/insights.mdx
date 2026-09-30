@@ -1,0 +1,21 @@
+---
+title: Insights
+description: What gets used, by whom and through which surface, counted in your own database.
+---
+
+Insights, in the app's sidebar for people with write on the workspace, and at `GET /api/v1/insights`, answers whether the brand is followed.
+
+- **Brand answers per week**: every file served, BrandHub listing read, use checked and search that found something, by people, agents and anonymous visitors.
+- **Release adoption**: fetches of the current version of an asset against fetches of a version that was already replaced when it went out.
+- **Still on the old release**: the replaced versions fetched lately, and the sites (referrer hosts) that load them.
+- **Most used assets**, with their fetches by surface: the app, a key on the API, MCP, a portal, a signed link, a public embed.
+- **Search gaps**: searches with no result, from the app, portals and MCP.
+- **Delivery** and **portal page views**, per day and per page.
+
+## What is recorded
+
+One row per event in the `events` table: a file fetched from `/a/{id}` (the app drawing its own thumbnails is left out), a `check_use` verdict with its reasons and the replacement offered, a search with words, a BrandHub file read. Each keeps its kind, surface, whether the actor was a person, an agent or nobody in particular, an agent's key name, the asset or subject, the version, the verdict, the referrer's host, and the day.
+
+Never an IP address, a person's name or a full URL. There are no cookies or trackers for portal and hub visitors. Everything stays in your own Postgres: a self-hosted install sends nothing anywhere.
+
+Raw events are kept 90 days. Once a day is over, it is rolled up into `event_days`, which is kept; charts read both through the `event_counts` view, so they are current whenever the rollup last ran.
