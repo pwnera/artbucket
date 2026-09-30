@@ -25,6 +25,7 @@ import { contextLabel } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 export type Key = {
   id: string;
@@ -57,6 +58,13 @@ const TRY = [
   "What's our primary color on dark backgrounds, and how should it be used?",
   "Find our logo and give me a 512px PNG link.",
   "Add this photo to the library and suggest tags for it.",
+];
+
+/** The access levels an agent is given, in the prototype's words; Admin is for keys only and not offered to agents. */
+const LEVELS: { scope: Scope; says: string }[] = [
+  { scope: "read", says: "Search, rules, use checks." },
+  { scope: "propose", says: "Changes wait for a person, in Review." },
+  { scope: "write", says: "Writes go live." },
 ];
 
 /** Where a search that finds nothing points: every MCP client connects the same way. */
@@ -134,6 +142,18 @@ export function Agents({
             <p className="text-muted-foreground text-xs">One URL for all of them. Most sign you in on their own; no key to paste.</p>
             <Snippet text={mcp} what="the URL" />
           </div>
+          {/* The access an agent can be given, as the prototype lays them out: picked when it signs in, or on its key. */}
+          <ul aria-label="Access an agent can have" className="grid max-w-xl gap-2 pt-2 sm:grid-cols-3">
+            {LEVELS.map((l) => (
+              <li key={l.scope} className="grid gap-0.5 rounded-lg border p-3">
+                <span className="text-sm font-medium">
+                  {scopeLabel(l.scope)}
+                  {l.scope === "propose" && <span className="text-muted-foreground font-normal"> (recommended)</span>}
+                </span>
+                <span className="text-muted-foreground text-xs">{l.says}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {(anonymous === "write" || anonymous === "admin") && (
@@ -190,6 +210,8 @@ export function Agents({
           )}
         </section>
 
+        {asked && <AskedFor asked={asked} keys={keys} />}
+
         <Connected keys={keys.filter((k) => k.owner)} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
 
         {can("key.manage") && (
@@ -199,8 +221,6 @@ export function Agents({
             onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
           />
         )}
-
-        {asked && <AskedFor asked={asked} />}
 
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold">Try it</h2>
@@ -379,32 +399,25 @@ function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) =
 
 const count = (n: number, what: string) => `${n.toLocaleString()} ${what}${n === 1 ? "" : "s"}`;
 
-/** One line of a connection: what it is about, then chips. */
-function Asks({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[7rem_1fr] sm:items-baseline">
-      <p className="text-muted-foreground text-xs">{title}</p>
-      <ul className="flex flex-wrap gap-1.5">{children}</ul>
-    </div>
-  );
-}
-
-const chip = "rounded-md border px-1.5 py-0.5 text-xs";
+const th = "px-3 py-2 font-medium";
+const td = "px-3 py-2";
 
 /**
- * What each agent asked for (PRD: Connections), from Insights' events: the
- * tools it called, the brand contexts it worked in, and what it was refused.
- * An agent is its key's name, so two keys named alike read as one.
+ * What each agent asked for (PRD: Connections), from Insights' events, as the
+ * prototype's table has it: the client, where it runs and what it may do (its
+ * key's owner and scope), its calls, the tool it asks for most (hover for
+ * all of them and the contexts), and what it was refused. An agent is its
+ * key's name, so two keys named alike read as one.
  */
-function AskedFor({ asked }: { asked: Asked }) {
+function AskedFor({ asked, keys }: { asked: Asked; keys: Key[] }) {
   return (
     <section className="space-y-3">
       <div className="space-y-1">
         <h2 className="font-display text-lg font-semibold">What they asked for</h2>
         <p className="text-muted-foreground text-sm">
           The last {asked.days} days, by agent. Tools keep their name, never what was passed to them. Every refusal is in{" "}
-          <Link href="/insights" className="text-foreground underline underline-offset-2">
-            Insights
+          <Link href="/insights/checks" className="text-foreground underline underline-offset-2">
+            Insights, Use checks
           </Link>
           .
         </p>
@@ -412,48 +425,61 @@ function AskedFor({ asked }: { asked: Asked }) {
       {!asked.clients.length ? (
         <p className="text-muted-foreground text-sm">Nothing yet: once an agent calls, what it asks for shows here.</p>
       ) : (
-        <ul className="divide-y rounded-lg border">
-          {asked.clients.map((c) => (
-            <li key={c.client} className="grid gap-2 px-3 py-3 text-sm">
-              <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="font-medium">{c.client}</span>
-                <span className="text-muted-foreground ml-auto text-xs">
-                  {[c.fetches && count(c.fetches, "file"), c.searches && `${c.searches.toLocaleString()} search${c.searches === 1 ? "" : "es"}`].filter(Boolean).join(", ")}
-                </span>
-              </div>
-              {c.tools.length > 0 && (
-                <Asks title="Tools">
-                  {c.tools.map((t) => (
-                    <li key={t.name} className={chip} title={t.failed ? `${t.failed} failed or refused` : undefined}>
-                      <code className="font-mono">{t.name}</code> <span className="text-muted-foreground tabular-nums">{t.calls.toLocaleString()}</span>
-                      {t.failed > 0 && <span className="text-destructive tabular-nums"> ({t.failed.toLocaleString()} failed)</span>}
-                    </li>
-                  ))}
-                </Asks>
-              )}
-              {c.contexts.length > 0 && (
-                <Asks title="Contexts">
-                  {c.contexts.map((x) => (
-                    <li key={x.context} className={chip}>
-                      {contextLabel(x.context)} <span className="text-muted-foreground tabular-nums">{x.count.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </Asks>
-              )}
-              <Asks title="Refused">
-                {c.refusals.total === 0 ? (
-                  <li className="text-muted-foreground text-xs">Nothing</li>
-                ) : (
-                  c.refusals.reasons.map((r) => (
-                    <li key={r.code} className={chip}>
-                      {REASON[r.code] ?? r.code} <span className="text-muted-foreground tabular-nums">{r.count.toLocaleString()}</span>
-                    </li>
-                  ))
-                )}
-              </Asks>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="text-muted-foreground bg-muted/40 text-left text-xs">
+              <tr>
+                <th className={th}>Client</th>
+                <th className={th}>Where</th>
+                <th className={th}>Access</th>
+                <th className={cn(th, "text-right")}>Calls, {asked.days} days</th>
+                <th className={th}>Asks for most</th>
+                <th className={cn(th, "text-right")}>Refused</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {asked.clients.map((c) => {
+                const key = keys.find((k) => k.name === c.client);
+                const top = c.tools[0];
+                const all = [
+                  ...c.tools.map((t) => `${t.name} ${t.calls.toLocaleString()}${t.failed ? ` (${t.failed.toLocaleString()} failed)` : ""}`),
+                  ...c.contexts.map((x) => `${contextLabel(x.context)} ${x.count.toLocaleString()}`),
+                ].join(", ");
+                return (
+                  <tr key={c.client}>
+                    <td className={cn(td, "font-medium")}>{c.client}</td>
+                    <td className={cn(td, "text-muted-foreground")}>{key ? (key.owner ?? "API key") : "Revoked"}</td>
+                    <td className={td}>{key && <Badge variant="secondary">{scopeLabel(key.scope)}</Badge>}</td>
+                    <td className={cn(td, "text-right tabular-nums")}>{c.events.toLocaleString()}</td>
+                    <td className={td} title={all || undefined}>
+                      {top ? (
+                        <code className="font-mono text-xs">
+                          {top.name}
+                          {c.contexts[0] && `(${c.contexts[0].context})`}
+                        </code>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">{[c.fetches && count(c.fetches, "file"), c.searches && `${c.searches.toLocaleString()} search${c.searches === 1 ? "" : "es"}`].filter(Boolean).join(", ")}</span>
+                      )}
+                    </td>
+                    <td
+                      className={cn(td, "text-right tabular-nums")}
+                      title={c.refusals.reasons.map((r) => `${REASON[r.code] ?? r.code} ${r.count.toLocaleString()}`).join(", ") || undefined}
+                    >
+                      {c.refusals.total === 0 ? (
+                        <span className="text-muted-foreground">0</span>
+                      ) : (
+                        <span className="text-warning">
+                          {c.refusals.total.toLocaleString()}
+                          {c.refusals.reasons[0] && `, ${(REASON[c.refusals.reasons[0].code] ?? c.refusals.reasons[0].code).toLowerCase()}`}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
