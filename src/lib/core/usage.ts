@@ -199,6 +199,9 @@ const unplannedOf = async (userId: string) =>
  * plan as LIMIT_ORGANIZATIONS allows: otherwise every new one would bring
  * the server's limits again. One with a plan of its own does not count, nor
  * does the one sign-up makes (people.ts: welcome).
+ *
+ * ponytail: count, then make, without a lock, like checkLimit: two made at
+ * the same moment can both pass. Lock on the user if that is ever abused.
  */
 export async function checkOrganizations(userId: string) {
   const limit = organizationsFromEnv(process.env);
