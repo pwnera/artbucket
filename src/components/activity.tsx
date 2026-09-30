@@ -222,7 +222,7 @@ export function ActivityFeed({ first }: { first: Page }) {
           about="The same feed for a script or an agent: who did what, newest first, one page at a time."
           reads={(origin) => [
             { label: "REST", text: curl(`${origin}/api/v1/activity`) },
-            { label: "An agent's own proposals, and your decisions", text: call("my_proposals") },
+            { label: "An agent's own suggestions, and your decisions", text: call("my_proposals") },
           ]}
         />
       </AppHeader>
