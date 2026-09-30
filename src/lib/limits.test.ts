@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatSize, limitsFromEnv, over, parseSize, UNLIMITED } from "./limits.ts";
+import { formatSize, limitsFromEnv, organizationsFromEnv, over, parseSize, UNLIMITED } from "./limits.ts";
 import { resolve } from "./settings.ts";
 
 test("sizes read the way an operator writes them", () => {
@@ -35,4 +35,15 @@ test("the environment sets every organization's; one organization's row override
   assert.equal(org.readOnly, true);
   assert.throws(() => limitsFromEnv({ LIMIT_STORAGE: "lots" }));
   assert.throws(() => limitsFromEnv({ LIMIT_FEATURES: "chatbot" }));
+});
+
+test("LIMIT_ORGANIZATIONS: how many organizations without a plan one person may be admin of", () => {
+  assert.equal(organizationsFromEnv({}), null);
+  assert.equal(organizationsFromEnv({ LIMIT_ORGANIZATIONS: "1" }), 1);
+  assert.equal(organizationsFromEnv({ LIMIT_ORGANIZATIONS: " 3 " }), 3);
+  assert.throws(() => organizationsFromEnv({ LIMIT_ORGANIZATIONS: "one" }));
+  assert.throws(() => organizationsFromEnv({ LIMIT_ORGANIZATIONS: "-1" }));
+  // Admin of one without a plan, the limit is 1: a second is over it.
+  assert.equal(over(1, 1), true);
+  assert.equal(over(1, 0), false);
 });
