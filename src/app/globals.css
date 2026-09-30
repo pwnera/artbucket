@@ -406,6 +406,42 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   opacity: 0.6;
 }
 
+/*
+ * Upgrade (components/page.tsx) is an offer, not an action on the page like
+ * Upload beside it: an outline whose border a slow light runs around, and a
+ * sparkle that twinkles now and then. Still, with reduced motion.
+ */
+@property --upgrade-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.upgrade {
+  --upgrade-fill: var(--background);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--upgrade-fill), var(--upgrade-fill)) padding-box,
+    conic-gradient(from var(--upgrade-angle), var(--border) 0 62%, var(--primary) 80%, #e879f9 88%, var(--border) 100%) border-box;
+}
+.upgrade:hover {
+  --upgrade-fill: var(--accent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes upgrade-run {
+    to { --upgrade-angle: 360deg; }
+  }
+  @keyframes upgrade-twinkle {
+    0%, 84%, 100% { scale: 1; rotate: 0deg; }
+    90% { scale: 1.2; rotate: 15deg; }
+  }
+  .upgrade {
+    animation: upgrade-run 6s linear infinite;
+  }
+  .upgrade svg {
+    animation: upgrade-twinkle 5s var(--ease-out) infinite;
+  }
+}
+
 /* A rule you land on, from the TOC or the palette, flashes and fades rather than staying tinted. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes target-flash {

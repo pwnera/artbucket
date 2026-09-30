@@ -32,9 +32,9 @@ export function AppHeader({ trail, children }: { trail: Crumb[] | React.ReactNod
       <div className="ml-auto flex items-center gap-2">
         {/* An admin on the server's own limits, where the server sells plans (BILLING_URL). */}
         {me?.upgrade && (
-          <Button asChild size="sm">
+          <Button asChild size="sm" variant="outline" className="upgrade">
             <a href={me.upgrade}>
-              <IconSparkles aria-hidden />
+              <IconSparkles aria-hidden className="text-primary" />
               Upgrade
             </a>
           </Button>
