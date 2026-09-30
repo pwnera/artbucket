@@ -15,7 +15,7 @@ next to what they use.
 | `workspaces` | Workspaces | One is made |
 | `brands` | Brands, across its workspaces | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
-| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on). Unset: everything | A key, an agent connection or a link is made; single sign-on is set up |
+| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 
 Past a limit, the request is refused with `403` and the code `limit_reached`
@@ -27,7 +27,9 @@ manage it: Settings, Usage shows a "Manage plan" link there, a refusal names
 it, and `GET /api/v1/usage` returns it as `billing`. An organization with no
 limits row of its own is on the server's limits, with no plan yet: its admins
 also see an "Upgrade" button in the app's header, and `GET /api/v1/me`
-returns the address as `upgrade`.
+returns the address as `upgrade`. A Settings section whose feature is off
+(Branding, Domains, Single sign-on) then leads there, marked with a lock, and
+is left out of Settings when there is nowhere to go.
 
 ## For every organization
 
@@ -37,7 +39,7 @@ LIMIT_EDITORS=5
 LIMIT_WORKSPACES=3
 LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
-LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso), or none
+LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso, branding, domains), or none
 ```
 
 ## For every person

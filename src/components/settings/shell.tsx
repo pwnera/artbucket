@@ -3,10 +3,10 @@
 import Link, { useLinkStatus } from "next/link";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { IconLoader2, type Icon } from "@tabler/icons-react";
+import { IconLoader2, IconLock, type Icon } from "@tabler/icons-react";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
-import { allowedFor, contextTitle, CONTEXTS, find, hrefOf } from "@/components/settings/sections";
+import { allowedFor, contextTitle, CONTEXTS, find, hrefFor, locked } from "@/components/settings/sections";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,11 +45,14 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
                 <ul className="flex gap-1 md:flex-col">
                   {here.map((s) => {
                     const on = s.context === context && s.id === id;
+                    // Its feature is a plan's: the link goes to take one (me.upgrade), and says so.
+                    const plan = locked(me, s);
                     return (
                       <li key={s.id}>
                         <Link
                           ref={on ? active : undefined}
-                          href={hrefOf(s)}
+                          href={hrefFor(me, s)}
+                          title={plan ? "On a paid plan: upgrade to use it" : undefined}
                           aria-current={on ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm whitespace-nowrap transition-colors",
@@ -57,6 +60,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
                           )}
                         >
                           <NavIcon icon={s.icon} /> {s.label}
+                          {plan && <IconLock aria-label="Upgrade to use" className="text-muted-foreground/70 ml-auto size-3.5" />}
                         </Link>
                       </li>
                     );

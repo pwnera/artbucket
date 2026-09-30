@@ -14,6 +14,7 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import type { Me } from "@/components/account";
+import type { Feature } from "@/lib/limits";
 import { can, type Action } from "@/lib/permissions";
 
 /**
@@ -41,6 +42,8 @@ export type Section = {
   dev?: boolean;
   /** Left out for this person anyway: what it sets is the server's. */
   hidden?: (me: Me) => boolean;
+  /** What using it takes (lib/limits.ts): switched off for the organization, it leads to the plan that has it, or is left out. */
+  feature?: Feature;
 };
 
 export const SECTIONS: Section[] = [
@@ -108,6 +111,7 @@ export const SECTIONS: Section[] = [
     icon: IconBrush,
     description: "What your people and guests see the product called, and how it looks: the app, sign-in, share links, portals and email.",
     action: "organization.manage",
+    feature: "branding",
   },
   {
     context: "organization",
@@ -116,6 +120,7 @@ export const SECTIONS: Section[] = [
     icon: IconWorldWww,
     description: "Addresses of your own, for the app and for portals, each proved by a DNS record.",
     action: "organization.manage",
+    feature: "domains",
   },
   {
     context: "organization",
@@ -124,6 +129,7 @@ export const SECTIONS: Section[] = [
     icon: IconKey,
     description: "Your people sign in through your own identity provider, by the domain of their work email.",
     action: "organization.manage",
+    feature: "sso",
   },
   {
     context: "organization",
@@ -158,7 +164,12 @@ export const hrefOf = (s: Pick<Section, "context" | "id" | "href">) => s.href ??
 /** Whether this person may open a section: its action, or for the account's, being signed in. */
 export const opens = (me: Me, s: Section) =>
   (!s.dev || process.env.NODE_ENV === "development") && !s.hidden?.(me) && (s.action ? can(me, s.action) : s.dev || !!me.user);
-export const allowedFor = (me: Me) => SECTIONS.filter((s) => opens(me, s));
+/** Its feature is off for the organization: the section is a plan's, not this person's yet. */
+export const locked = (me: Me, s: Section) => !!s.feature && !!me.features && !me.features.includes(s.feature);
+/** Where the menu takes this section: the plan that has it when locked, else the section. */
+export const hrefFor = (me: Me, s: Section) => (locked(me, s) ? me.upgrade! : hrefOf(s));
+/** The sections to list: what this person may open, a locked one only where there is a plan to take. */
+export const allowedFor = (me: Me) => SECTIONS.filter((s) => opens(me, s) && (!locked(me, s) || !!me.upgrade));
 export const find = (context: string, id: string) => SECTIONS.find((s) => s.context === context && s.id === id);
 
 /** How a context is headed in the menu: "Workspace · Library". */

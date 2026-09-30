@@ -37,6 +37,7 @@ test("the environment sets every organization's; one organization's row override
   assert.throws(() => limitsFromEnv({ LIMIT_FEATURES: "chatbot" }));
   assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "agents,shares" })?.features, ["agents", "shares"]);
   assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "sso" })?.features, ["sso"]);
+  assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "branding,domains" })?.features, ["branding", "domains"]);
 });
 
 test("an admin is offered a plan only where the server sells them and the organization has none yet", () => {

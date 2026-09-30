@@ -32,7 +32,7 @@ import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { useCan, useMe } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import type { Asset } from "@/components/gallery";
-import { allowedFor, hrefOf } from "@/components/settings/sections";
+import { allowedFor, hrefFor } from "@/components/settings/sections";
 import { liveRecents, useRecents } from "@/components/sidebar-prefs";
 import { GoKeys } from "@/components/shortcuts";
 import {
@@ -454,7 +454,7 @@ export function CommandPalette({
         {term && sections.length > 0 && (
           <CommandGroup heading="Settings">
             {sections.map((s) => (
-              <CommandItem key={`${s.context}/${s.id}`} value={`settings ${s.context} ${s.label} ${s.description}`} onSelect={() => go(hrefOf(s))}>
+              <CommandItem key={`${s.context}/${s.id}`} value={`settings ${s.context} ${s.label} ${s.description}`} onSelect={() => go(hrefFor(me!, s))}>
                 <s.icon /> {s.label}
                 <CommandShortcut className="tracking-normal">{CONTEXT[s.context]}</CommandShortcut>
               </CommandItem>
