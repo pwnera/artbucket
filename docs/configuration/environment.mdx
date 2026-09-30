@@ -22,6 +22,7 @@ naming the variable.
 | `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug, left empty to bring a new brand in from a repository. New brand, a new brand's setup and the builder link there, for workspace admins. See [Brand as code](/guides/brand-as-code) |
 | `DOMAIN_TARGET` | unset | The host name organizations' own domains should CNAME to, shown beside their TXT record: this server's, or a provider's (Cloudflare for SaaS's fallback origin). Unset: "point it at this server" |
 | `PORTAL_DOMAIN` | unset | A domain whose subdomains are portals: `{address}.PORTAL_DOMAIN` serves that portal, beside `/p/{address}`. Needs a wildcard DNS record and certificate. See [Portals](/guides/portals#a-subdomain-for-every-portal) |
+| `HUB_URL` | unset | Where BrandHub answers: a host of its own (`https://hub.example.com`) or a path on `APP_URL`'s (`http://localhost:3000/hub`). The path is always `/hub`. Unset: no hub. See [Portals](/guides/portals#brandhub) |
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |

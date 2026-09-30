@@ -10,6 +10,7 @@ import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
 import {
   BrandCreate,
   BrandPatch,
+  HubPatch,
   CollectionCreate,
   CollectionPatch,
   CommentCreate,
@@ -188,6 +189,9 @@ export const TOOL_INPUTS = {
   create_brand: BrandCreate,
 
   update_brand: BrandPatch.extend({ brand: which }),
+
+  // PATCH /brands/{slug}/hub's own fields; strict, as there. Public is asked for, never assumed.
+  set_brand_hub: HubPatch.extend({ brand: which }),
 
   delete_brand: z.object({ brand: which }),
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, brandRuleAssets, brandRules, brands, brandVersions, portalBrands } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
-import { present, resolveBrand, slugify } from "@/lib/core/brands";
+import { hubOf, present, resolveBrand, slugify } from "@/lib/core/brands";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
@@ -192,12 +192,12 @@ export async function latestVersion(tx: Db, brandId: string) {
   return v;
 }
 
-/** What portals show (D15): the brand's latest publish. */
-export async function publishedVersion(tx: Db, brandId: string) {
+/** What portals show (D15): the brand's latest publish, or the publish `number` names (BrandHub's name@3). */
+export async function publishedVersion(tx: Db, brandId: string, number?: number) {
   const [v] = await tx
     .select()
     .from(brandVersions)
-    .where(and(eq(brandVersions.brandId, brandId), isNotNull(brandVersions.publishedAt)))
+    .where(and(eq(brandVersions.brandId, brandId), isNotNull(brandVersions.publishedAt), number === undefined ? undefined : eq(brandVersions.number, number)))
     .orderBy(desc(brandVersions.number))
     .limit(1);
   return v;
@@ -775,7 +775,8 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
  * publish then takes it over, with its note. `note` says what changed, for
  * readers, with `image` (an asset) beside it. Every collection a section
  * shows must be one the publisher could share: publishing puts it in front
- * of portal visitors.
+ * of portal visitors, and to BrandHub's: the answer's `hub` says who sees
+ * it there, and where (lib/core/brands.ts hubOf).
  */
 export async function publishBrand(caller: Caller, slug: string | undefined, { note, image }: { note?: string; image?: string | null } = {}) {
   const brand = await resolveBrand(caller.workspace.id, slug);
@@ -815,5 +816,6 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
     return { brand: brand.slug, ...meta(row), unchanged: false };
   });
   if (!out.unchanged) await recordAudit(caller, "brand.published", brand.name, { brand: brand.slug, version: out.number, ...(note && { note }) });
-  return out;
+  const hub = await hubOf(brand);
+  return { ...out, hub: hub && { visibility: hub.visibility, url: hub.url } };
 }

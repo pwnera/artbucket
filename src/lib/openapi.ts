@@ -778,6 +778,27 @@ export function openapi(serverUrl: string) {
           requestBody: { required: false, content: json(S.PublishInput, "input") },
         },
       },
+      "/api/v1/brands/{slug}/hub": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "A brand on BrandHub",
+          scope: "read",
+          description:
+            "Every published brand is on BrandHub at {org}/{brand}, private by default: its workspace's people see it, " +
+            "signed in. Public, anyone and any agent reads its latest publish, as a page, llms.txt, brand.json and design " +
+            "tokens. `portals`: the portals it could link as its guidelines; null without the right to manage portals.",
+          ok: [200, "The brand on BrandHub", data(S.BrandHubView)],
+        }),
+        patch: op({
+          summary: "Make a brand public or private",
+          scope: "write",
+          description:
+            "`visibility: public` shows its latest publish on BrandHub to anyone; it takes a publish, and a slug no other " +
+            "public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the workspace.",
+          body: S.HubPatch,
+          ok: [200, "The brand on BrandHub", data(S.BrandHub)],
+        }),
+      },
       "/api/v1/brands/{slug}/files": {
         parameters: [path("slug", "Brand slug")],
         get: op({

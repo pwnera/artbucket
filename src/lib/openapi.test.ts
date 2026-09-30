@@ -9,12 +9,13 @@ const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"];
 
 /**
  * Every route.ts under app/, as [openapi path, exported methods]. /api/auth
- * is better-auth's own surface (signing in), documented by better-auth.
+ * is better-auth's own surface (signing in), documented by better-auth; /hub
+ * is BrandHub's, on a host of its own, documented in guides/portals.
  */
 function routes(): [string, string[]][] {
   return readdirSync(APP, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(`${sep}route.ts`) || f === "route.ts")
-    .filter((f) => !f.startsWith(join("api", "auth")))
+    .filter((f) => !f.startsWith(join("api", "auth")) && !f.startsWith(`hub${sep}`))
     .map((f) => {
       const dir = relative(APP, join(APP, f, "..")).split(sep);
       const path =

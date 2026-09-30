@@ -281,6 +281,8 @@ export const apiKeys = pgTable(
   (t) => [check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`)],
 );
 
+export type Visibility = "private" | "public";
+
 /**
  * A brand: its own rules and its own history. Exactly one per workspace is the default,
  * which is what /brand and an unqualified /api/v1/brand/rules mean.
@@ -297,11 +299,19 @@ export const brands = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     /** How its pages look (lib/brand-theme.ts ThemeSettings): only what was set, the rest read from the rules. */
     theme: jsonb("theme").$type<ThemeSettings>().notNull().default({}),
+    /**
+     * Who sees it on BrandHub (lib/core/hub.ts), at {org}/{brand}: its workspace's people
+     * (`private`), or anyone and any agent (`public`). Either way, its latest publish.
+     */
+    visibility: text("visibility").$type<Visibility>().notNull().default("private"),
+    /** The portal BrandHub links as its guidelines; null: its first public portal, if any. */
+    hubPortalId: uuid("hub_portal_id").references((): AnyPgColumn => portals.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
   },
   (t) => [
+    check("brands_visibility_check", sql`${t.visibility} in ('private', 'public')`),
     unique("brands_workspace_slug_unique").on(t.workspaceId, t.slug),
     uniqueIndex("brands_one_default").on(t.workspaceId).where(sql`${t.isDefault}`),
   ],

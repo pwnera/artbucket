@@ -32,6 +32,15 @@ const appHost = (() => {
     return "";
   }
 })();
+/** BrandHub's host, when it has one of its own; on APP_URL's host it is only a path (app/hub). */
+const hubHost = (() => {
+  try {
+    const h = process.env.HUB_URL ? new URL(process.env.HUB_URL).host : "";
+    return h === appHost ? "" : h;
+  } catch {
+    return "";
+  }
+})();
 const portalDomain = process.env.PORTAL_DOMAIN?.toLowerCase().replace(/\.$/, "");
 const s3 = origin(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT);
 // Virtual-hosted buckets live at {bucket}.{host}: that is where a presigned PUT goes.
@@ -103,9 +112,25 @@ async function portalRoute(req: NextRequest, init?: { request: { headers: Header
   return NextResponse.rewrite(url, init);
 }
 
+/**
+ * BrandHub on its own host: every path is one of app/hub's (/rust-lang is
+ * /hub/rust-lang), but what its pages call, /api and asset bytes. /hub on the
+ * app's host stays: people signed in read their private brands there.
+ */
+function hubRoute(req: NextRequest, onHub: boolean, init?: { request: { headers: Headers } }) {
+  const { pathname } = req.nextUrl;
+  if (!onHub) return null;
+  if (/^\/(api|a|c)\//.test(pathname) || pathname === "/robots.txt") return null;
+  const url = req.nextUrl.clone();
+  url.pathname = `/hub${pathname === "/" ? "" : pathname}`;
+  return NextResponse.rewrite(url, init);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (RATE > 0 && pathname.startsWith("/api/")) {
+  const onHub = !!hubHost && req.headers.get("host") === hubHost;
+  // The hub's pages are its API too (brand.json, tokens, llms.txt), so they count as /api does.
+  if (RATE > 0 && (pathname.startsWith("/api/") || onHub)) {
     const wait = api.hit(who(req));
     if (wait) {
       return NextResponse.json(
@@ -122,7 +147,7 @@ export async function proxy(req: NextRequest) {
   const policy = csp(nonce);
   init?.request.headers.set("x-nonce", nonce);
   init?.request.headers.set("Content-Security-Policy", policy);
-  const res = (await portalRoute(req, init)) ?? NextResponse.next(init);
+  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);

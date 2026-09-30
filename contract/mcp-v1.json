@@ -946,6 +946,36 @@
     ],
     "additionalProperties": false
   },
+  "set_brand_hub": {
+    "type": "object",
+    "properties": {
+      "visibility": {
+        "description": "public shows its latest publish to anyone and any agent; it takes a publish",
+        "type": "string",
+        "enum": [
+          "private",
+          "public"
+        ]
+      },
+      "portal": {
+        "description": "The slug of a portal showing it, linked as its guidelines; null: its first public portal",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "brand": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60,
+        "description": "The brand's slug, as brand_status names it"
+      }
+    },
+    "required": [
+      "brand"
+    ],
+    "additionalProperties": false
+  },
   "delete_brand": {
     "type": "object",
     "properties": {

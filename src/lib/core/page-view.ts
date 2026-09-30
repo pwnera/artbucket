@@ -37,12 +37,13 @@ export async function draftSource(ws: string, brandSlug?: string): Promise<Brand
 /**
  * The brand as portals show it (D15): its latest publish. A brand with no
  * history at all shows as it stands, which is what its baseline will be;
- * one with history and no publish shows nothing (null).
+ * one with history and no publish shows nothing (null). `number` asks for
+ * that publish instead: null when it was never published.
  */
-export async function publishedSource(ws: string, brandSlug?: string): Promise<BrandSource | null> {
+export async function publishedSource(ws: string, brandSlug?: string, number?: number): Promise<BrandSource | null> {
   const b = await resolveBrand(ws, brandSlug);
-  const v = await publishedVersion(db, b.id);
-  if (!v) return (await latestVersion(db, b.id)) ? null : draftSource(ws, b.slug);
+  const v = await publishedVersion(db, b.id, number);
+  if (!v) return number !== undefined || (await latestVersion(db, b.id)) ? null : draftSource(ws, b.slug);
   return {
     brand: { slug: b.slug, name: b.name },
     rules: v.snapshot,

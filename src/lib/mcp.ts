@@ -29,7 +29,7 @@ import { createComment, deleteComment, listComments, updateComment } from "@/lib
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
-import { deleteBrand, listBrands, resolveBrand, slugify, updateBrand } from "@/lib/core/brands";
+import { deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
 import { createCollection, deleteCollection, getCollection, listCollections, setMembers, updateCollection } from "@/lib/core/collections";
 import { createField, deleteField, listFields, updateField } from "@/lib/core/fields";
@@ -66,11 +66,11 @@ const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe 
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
-To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, a look, pages, a publish, a portal) and how to add each, next step first. Before the first page, read brand_playbook (also the artbucket://playbook resource): what a good brand site is, and a worked example; a site built without it reads like a document. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
+To build a brand's guidelines for people, start with brand_status: it names every brand, and says what the one you work on still lacks (colors, typefaces, logo, voice, a look, pages, a publish, a portal) and how to add each, next step first. Before the first page, read brand_playbook (also the artbucket://playbook resource): what a good brand site is, and a worked example; a site built without it reads like a document. create_brand makes another brand, empty or as a copy of one (from). Write its rules with set_rules: a label is the heading readers see, a spec the details (print values, a gradient, a face's role). Pages are built from these section templates (blocks): ${TEMPLATES.join(", ")}. Read list_templates for what each shows, binds and takes, then lay out pages with save_page, a tree up to three levels deep through parent (generate_pages starts one from the rules). A page's sections show rules by key, so change a value with set_rules and every page follows. Set the look with set_theme. After each write, read its warnings, check the page with get_page and open its url to see it as readers will. Edits are drafts: publish only when the person asks, with a note saying what changed. Every edit is a version: list_versions and get_version read the history, restore_version brings an earlier one back as a new version, name_version keeps one as a checkpoint. list_comments reads what reviewers said on the pages; add_comment replies, update_comment resolves a thread once it is dealt with. Portals are where people outside the team read a brand: create_portal makes one for it, update_portal adds it to one list_portals names, and brand_status says when it is ready. Ask the person before a public portal: it is open to anyone with the address. Every published brand is also on BrandHub, private to the workspace until set_brand_hub makes it public; ask first there too. A password portal takes the password the person gives you; people who ask to get in wait in list_portal_requests for decide_portal_request.`;
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
-  "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the workspace, and publish needs write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
+  "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the workspace, and publish and set_brand_hub need write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
 const base = (id: string) => `${env.APP_URL}/a/${id}`;
 
@@ -433,6 +433,19 @@ const TOOLS: Record<ToolName, Tool> = {
     },
   }),
 
+  set_brand_hub: tool({
+    description:
+      "Who sees the brand on BrandHub, and the portal it links as its guidelines. Every published brand is there, " +
+      "private by default: only the workspace's people see it, signed in. `visibility: public` shows its latest publish " +
+      "to anyone and any agent, as a page, llms.txt, JSON and design tokens: ask the person first, never assume it. " +
+      "Public takes a publish. `portal`: a portal showing the brand, by slug; null links its first public one. " +
+      "Returns where it is, who sees it, and what it shows.",
+    action: "brand.publish",
+    readOnly: false,
+    input: TOOL_INPUTS.set_brand_hub,
+    run: async ({ brand, ...patch }, caller) => setHub(caller, brand, patch),
+  }),
+
   delete_brand: tool({
     description:
       "Delete a brand with its rules, pages, theme and history, which can't be had back; portals stop showing it. " +
@@ -719,7 +732,7 @@ const TOOLS: Record<ToolName, Tool> = {
       "Publish a brand's pages, rules and theme as they stand: portals show this version, and later edits wait for " +
       "the next publish. Only when the person asks; check the pages with get_page first. `note` tells readers what " +
       "changed (What's new), with an `image` beside it. Publishing with nothing changed does nothing. `portals` " +
-      "names the portals showing the brand, where visitors now read it.",
+      "names the portals showing the brand, where visitors now read it; `hub` says who sees it on BrandHub, and where.",
     action: "brand.publish",
     readOnly: false,
     input: TOOL_INPUTS.publish,
