@@ -14,7 +14,7 @@ docker compose --profile app pull && docker compose --profile app up -d
 # Docker
 docker pull ghcr.io/pwnera/artbucket:1 && docker rm -f artbucket && docker run ... ghcr.io/pwnera/artbucket:1
 # Kubernetes: newTag in kustomization.yaml, then
-kubectl apply -k deploy/kubernetes
+kubectl apply -k deploy/kubernetes/app
 ```
 
 On Render, **Manual Deploy**, **Deploy latest reference** pulls the newest

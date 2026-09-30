@@ -278,7 +278,7 @@ Garage, SeaweedFS. In one click, with a Render Postgres and your bucket:
 Guides for [Render](docs/installation/render.mdx),
 [Docker Compose](docs/installation/docker-compose.mdx),
 [Docker](docs/installation/docker.mdx), [Fly](docs/installation/fly.mdx),
-[Kubernetes](docs/installation/kubernetes.mdx) (`kubectl apply -k deploy/kubernetes`),
+[Kubernetes](docs/installation/kubernetes.mdx) (`kubectl apply -k deploy/kubernetes/app`),
 [Coolify](docs/installation/coolify.mdx) and a [plain VPS](docs/installation/vps.mdx).
 Every variable is in [environment](docs/configuration/environment.mdx).
 

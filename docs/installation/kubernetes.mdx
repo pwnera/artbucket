@@ -3,14 +3,73 @@ title: Kubernetes
 description: The image as a Deployment, with your Postgres and your storage.
 ---
 
-`deploy/kubernetes/` in the repository is a Kustomize base: a namespace, a
-Deployment, a Service and an Ingress. `kubectl` applies it as is, no Helm.
-Bring Postgres 16 or later and S3-compatible storage: managed ones (RDS, Cloud
-SQL, Neon; S3, R2, B2), or in the cluster (CloudNativePG, SeaweedFS, Garage).
+`deploy/kubernetes/` in the repository holds two Kustomize setups, each
+complete on its own, which `kubectl` applies as they are, no Helm:
+
+- `app/`, to run Artbucket for real: a namespace, a Deployment, a Service, and
+  a Gateway with its HTTPRoutes (Gateway API, which replaces Ingress). Bring
+  Postgres 16 or later and S3-compatible storage: managed ones (RDS, Cloud
+  SQL, Neon; S3, R2, B2), or in the cluster (CloudNativePG, SeaweedFS,
+  Garage). See [Install](#install).
+- `quickstart/`, for local development and trying the app: the same app with
+  Postgres and storage beside it, and no Gateway. See [Try it](#try-it).
+
+Without Kubernetes at all, [Docker Compose](/installation/docker-compose) is
+quicker still.
+
+## Try it
+
+`deploy/kubernetes/quickstart/` runs the app with its own Postgres and
+SeaweedFS beside it, and no Gateway, domain or certificate: you reach it
+through `kubectl port-forward`, and the cluster needs no Gateway API. Any cluster will do (kind, k3d, minikube,
+Docker Desktop), as long as it has a default storage class for its two
+volumes.
 
 ```bash
 git clone https://github.com/pwnera/artbucket.git
-cd artbucket/deploy/kubernetes
+cd artbucket
+kubectl apply -k deploy/kubernetes/quickstart
+kubectl -n artbucket rollout status deployment/artbucket
+```
+
+Then, each in a terminal of its own:
+
+```bash
+kubectl -n artbucket port-forward svc/artbucket 3000:80
+```
+
+```bash
+kubectl -n artbucket port-forward svc/s3 9000:9000
+```
+
+Open `http://localhost:3000` and make the first account. The second
+port-forward is where browsers upload: files go from the browser straight to
+storage, not through the app.
+
+Its passwords and `BETTER_AUTH_SECRET` are written in
+`quickstart/kustomization.yaml`, so keep it to local development and trying
+the app. When you are done:
+
+```bash
+kubectl delete -k deploy/kubernetes/quickstart
+```
+
+That deletes the namespace, its volumes and everything in them. The rest of
+this page sets up the real thing, with `app/`.
+
+## Install
+
+The cluster needs the Gateway API CRDs (v1.0 or later) and a controller that
+implements them: Envoy Gateway, Istio, Cilium, Traefik, NGINX Gateway Fabric,
+or your cloud's own. Most install the CRDs with them; otherwise:
+
+```bash
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+```
+
+```bash
+git clone https://github.com/pwnera/artbucket.git
+cd artbucket/deploy/kubernetes/app
 cp secret.env.example secret.env    # git ignores it
 ```
 
@@ -49,9 +108,24 @@ Every variable is in [Environment](/configuration/environment).
 
 ## Domain
 
-In `ingress.yaml`, set your domain (the one in `APP_URL`), your
-`ingressClassName`, and your certificate issuer's annotation. Uploads go from
-browsers straight to storage, so the ingress needs no body size limit raised.
+In `gateway.yaml`, set your domain (the one in `APP_URL`) in the Gateway's
+listeners and both routes' `hostnames`, your controller's `gatewayClassName`
+(`kubectl get gatewayclass`), and your certificate issuer's annotation. The
+Gateway serves HTTPS with the certificate in the `artbucket-tls` Secret, and
+answers plain HTTP with a redirect. Its listeners use ports 443 and 80; a
+controller that binds listeners to its own entry points (Traefik: 8443 and
+8000) needs those ports instead. Uploads go from browsers straight to storage,
+so the gateway needs no body size limit raised.
+
+With cert-manager, turn on its Gateway API support (`enableGatewayAPI: true`
+in its config, 1.15 or later) and give an HTTP-01 issuer a
+`gatewayHTTPRoute` solver whose `parentRefs` name this Gateway. It then makes
+`artbucket-tls` from the annotation.
+
+When your cluster already runs a shared Gateway, delete the Gateway from
+`gateway.yaml` and point both routes' `parentRefs` at it, with its `namespace`
+and the `sectionName` of its HTTPS and HTTP listeners. The shared
+Gateway's listeners must allow routes from the `artbucket` namespace.
 
 ## Apply
 
@@ -79,11 +153,14 @@ Keep your changes out of the base with an overlay of your own:
 
 ```yaml kustomization.yaml
 resources:
-  - github.com/pwnera/artbucket//deploy/kubernetes?ref=v1.0.0
+  - github.com/pwnera/artbucket//deploy/kubernetes/app?ref=main   # or a release tag
 images:
   - name: ghcr.io/pwnera/artbucket
     newTag: "1.0.0"
 ```
+
+Releases from before `app/` keep the base at `//deploy/kubernetes`: pin a
+`ref` that has the folder you point at.
 
 With a secrets manager (External Secrets, Sealed Secrets), make a Secret named
 `artbucket-secret` there and drop the `secretGenerator` from the base.
