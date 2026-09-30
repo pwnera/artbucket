@@ -43529,6 +43529,10 @@
                           ],
                           "additionalProperties": false,
                           "description": "How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"
+                        },
+                        "madeWith": {
+                          "type": "boolean",
+                          "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
                         }
                       },
                       "required": [
@@ -43542,7 +43546,8 @@
                         "collections",
                         "brands",
                         "site",
-                        "look"
+                        "look",
+                        "madeWith"
                       ],
                       "additionalProperties": false
                     },
@@ -44547,6 +44552,10 @@
                               "type": "boolean",
                               "description": "It shows collections: its Assets view"
                             },
+                            "madeWith": {
+                              "type": "boolean",
+                              "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
+                            },
                             "level": {
                               "type": "string",
                               "enum": [
@@ -44564,6 +44573,7 @@
                             "site",
                             "brands",
                             "assets",
+                            "madeWith",
                             "level"
                           ],
                           "additionalProperties": false

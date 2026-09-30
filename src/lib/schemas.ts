@@ -1348,6 +1348,7 @@ export const PortalView = z.object({
       .describe("Brands it publishes: each one's guidelines at GET /api/v1/portal/{slug}/brands/{brand}"),
     site: PortalSite.describe("Footer, quick grab and terms, as its pages have them"),
     look: Look.describe("How to draw it: its first brand's site; with no brand, the portal's accent over the app's own"),
+    madeWith: z.boolean().describe('Its pages carry "Made with Artbucket": its organization\'s plan has no white-label'),
   }),
   data: z.array(
     z.object({
@@ -1454,6 +1455,7 @@ export const PortalSiteView = z.object({
       "The brands it shows, in order; one never published is left out",
     ),
     assets: z.boolean().describe("It shows collections: its Assets view"),
+    madeWith: z.boolean().describe('Its pages carry "Made with Artbucket": its organization\'s plan has no white-label'),
     level: z.enum(AUDIENCES).describe("Who the visitor is to it: everyone, partners (its password or an approved request) or members"),
   }),
   canonical: z.string().nullable().describe("The page's path on the portal, what links use; null with no page"),

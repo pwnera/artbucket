@@ -36,6 +36,8 @@ export type SitePortal = {
   brands: { slug: string; name: string; publishedAt: string | null }[];
   /** Who the visitor is to it: what they may read. */
   level: Audience;
+  /** The footer says "Made with Artbucket": no white-label on its organization's plan. */
+  madeWith?: boolean;
 };
 
 export type SiteViewProps = {

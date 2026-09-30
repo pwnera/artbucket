@@ -34,6 +34,7 @@ export type AssetsView = {
     site: PortalSite;
     /** The first brand's look (lib/core/page-view.ts viewLook); with no brand, the portal's accent over the app's own. */
     look: BrandLook;
+    madeWith?: boolean;
   };
   data: Item[];
   total: number;

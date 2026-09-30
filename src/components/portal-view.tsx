@@ -33,6 +33,7 @@ type SiteData = {
     /** It shows collections: an Assets view (?view=assets). */
     assets: boolean;
     level: Audience;
+    madeWith?: boolean;
   };
   canonical: string | null;
   redirect: boolean;

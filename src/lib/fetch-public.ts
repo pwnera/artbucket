@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import { BlockList, isIP } from "node:net";
 import pkg from "../../package.json" with { type: "json" };
+import { PROJECT_URL } from "./branding.ts";
 
 /**
  * Fetch a URL an API caller handed us, without letting them point the server
@@ -61,7 +62,7 @@ export class FetchError extends Error {}
  * (Wikimedia answers 429 to a bare one). Not a browser's, so Google Fonts still
  * serves whole TTFs (lib/font.ts).
  */
-export const USER_AGENT = `Artbucket/${pkg.version} (+https://github.com/pwnera/artbucket)`;
+export const USER_AGENT = `Artbucket/${pkg.version} (+${PROJECT_URL})`;
 
 type Lookup = NonNullable<http.RequestOptions["lookup"]>;
 

@@ -31,7 +31,7 @@ import { AssetError } from "@/lib/core/errors";
 import { record, recordSearch } from "@/lib/core/events";
 import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
-import { checkLimit } from "@/lib/core/usage";
+import { checkLimit, limitsOf } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
@@ -425,6 +425,13 @@ const shownTheme = async (p: Row) => {
   };
 };
 
+/** Whether its pages carry "Made with Artbucket" (PRD): unless its organization's plan has white-label, the branding feature. */
+async function madeWith(p: Row) {
+  const ws = await workspaceById(p.workspaceId);
+  const features = ws && (await limitsOf(ws.organizationId)).features;
+  return !!features && !features.includes("branding");
+}
+
 /** Someone signed in who may read the portal's workspace. */
 const isMember = (p: Row, headers: Headers | undefined) => readsWorkspace(p.workspaceId, headers);
 
@@ -557,7 +564,12 @@ export async function viewPortal(
     .orderBy(asc(portalCollections.position));
   const ids = collection ? cols.filter((c) => c.id === collection).map((c) => c.id) : cols.map((c) => c.id);
   if (collection && !ids.length) throw new AssetError("not_found", "That collection isn't in this portal");
-  const [{ data, total }, theme, showing] = await Promise.all([portalAssets(p, { ids, q, limit, offset }), shownTheme(p), brandsOf(p.id).then((l) => l.filter((b) => b.shown))]);
+  const [{ data, total }, theme, showing, made] = await Promise.all([
+    portalAssets(p, { ids, q, limit, offset }),
+    shownTheme(p),
+    brandsOf(p.id).then((l) => l.filter((b) => b.shown)),
+    madeWith(p),
+  ]);
   // A visitor's search, for Insights: who they are is not asked, so they are nobody in particular.
   if (!offset) recordSearch(p.workspaceId, q, total > 0, { surface: "portal", actor: "anonymous", client: null });
   // The first brand's look, so the view reads as part of its site; with no brand, the portal's accent over the app's own.
@@ -576,6 +588,7 @@ export async function viewPortal(
       brands: showing.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
       site: await siteOf(p, showing.map((b) => b.slug)),
       look,
+      madeWith: made,
     },
     data,
     total,
@@ -778,10 +791,11 @@ export async function viewPortalSite(
   const { p, level: door } = await open(slug, pass);
   const lang = checkLang(o.lang);
   const path = (o.path ?? "").split("/").filter(Boolean);
-  const [list, [col], theme] = await Promise.all([
+  const [list, [col], theme, made] = await Promise.all([
     brandsOf(p.id),
     db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id)).limit(1),
     shownTheme(p),
+    madeWith(p),
   ]);
   const showing = list.filter((b) => b.shown);
   const slugs = showing.map((b) => b.slug);
@@ -792,6 +806,7 @@ export async function viewPortalSite(
     site: await siteOf(p, slugs),
     brands: showing.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
     assets: !!col,
+    madeWith: made,
   };
   const firstSrc = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
   if (!firstSrc) {
