@@ -207,8 +207,11 @@ links that portal as its guidelines: its first public one, or the one picked
 on the Brands page (`"portal"`).
 
 With a host of its own (`HUB_URL=https://hub.example.com`), BrandHub serves
-public brands there, to anyone; people signed in find their private ones on
-the app's own address, at `/hub`.
+public brands there, to anyone. When that host sits beside the app's
+(`hub.example.com` and `app.example.com`), the app's sign-in reaches it: the
+session cookie is set for `example.com`, and people signed in see their
+private brands there too. On a host that shares no domain with the app's,
+they find them on the app's own address, at `/hub`.
 
 A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 

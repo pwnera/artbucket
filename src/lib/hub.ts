@@ -15,6 +15,38 @@ export function parseRef(raw: string): { slug: string; version?: number } | null
   return m[2] ? { slug: m[1], version: Number(m[2]) } : { slug: m[1] };
 }
 
+/**
+ * The domain the app's session cookie is set for, when BrandHub's host and
+ * APP_URL's share one: hub.example.com and app.example.com give example.com,
+ * so someone signed in to the app is signed in on the hub too. Null when
+ * the hub has no host of its own, or they share nothing but a suffix too
+ * short to be a site's (a single label, or the host itself).
+ *
+ * ponytail: a public suffix (app.github.io, hub.github.io) is not told apart;
+ * browsers refuse such a cookie, so those pairs sign in on the app only.
+ */
+export function cookieDomain(appUrl: string, hubUrl: string | undefined): string | null {
+  if (!hubUrl) return null;
+  const labels = (u: string) => new URL(u).hostname.split(".").reverse();
+  const a = labels(appUrl);
+  const h = labels(hubUrl);
+  const shared: string[] = [];
+  for (let i = 0; i < Math.min(a.length, h.length) && a[i] === h[i]; i++) shared.push(a[i]);
+  if (shared.length < 2 || shared.length === a.length || shared.length === h.length) return null;
+  return shared.reverse().join(".");
+}
+
+/** A Set-Cookie header without its Domain: for a host the cookie's domain does not cover (an organization's own). */
+export const withoutDomain = (setCookie: string) => setCookie.replace(/;\s*domain=[^;]*/i, "");
+
+/**
+ * Where a brand's hub page is: HUB_URL for a public brand; for a private
+ * one too when the app's session reaches the hub (cookieDomain), else the
+ * app's own /hub, where its people are signed in.
+ */
+export const hubHome = (visibility: string, appUrl: string, hubUrl: string) =>
+  visibility === "public" || cookieDomain(appUrl, hubUrl) ? hubUrl : `${appUrl}/hub`;
+
 /** A listing's path on the hub, from its root. */
 export const hubPath = (org: string, brand: string, version?: number | null) => `/${org}/${brand}${version ? `@${version}` : ""}`;
 

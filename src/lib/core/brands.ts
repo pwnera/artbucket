@@ -5,7 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { env } from "@/lib/env";
-import { hubPath } from "@/lib/hub";
+import { hubHome, hubPath } from "@/lib/hub";
 
 /** A workspace's brands. `ws` is the workspace id; scopes were checked by the route. */
 
@@ -131,8 +131,8 @@ export async function hubOf(b: Brand) {
   const path = hubPath(o.org, b.slug);
   return {
     visibility: b.visibility,
-    // A private brand's page is for its people: on the app's own host, where they are signed in (app/hub).
-    url: b.visibility === "public" ? env.HUB_URL + path : `${env.APP_URL}/hub${path}`,
+    // A private brand's page is for its people: where they are signed in (lib/hub.ts hubHome).
+    url: hubHome(b.visibility, env.APP_URL, env.HUB_URL) + path,
     published: v ? { number: v.number, publishedAt: v.publishedAt! } : null,
     portal: await guidelinesPortal(b).then((p) => p && { slug: p.slug, name: p.name }),
     chosen: !!b.hubPortalId,

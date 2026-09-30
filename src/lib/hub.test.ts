@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { brandText, hubPath, logoOf, parseRef, swatches } from "./hub.ts";
+import { brandText, cookieDomain, hubHome, hubPath, logoOf, parseRef, swatches, withoutDomain } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -67,4 +67,32 @@ test("a card's tint, line, counts and age", async () => {
 test("the card's picture is the mark before the other logos", () => {
   const rules = [rule("logo.primary", "text", "x", { assets: [asset("p", "image/png")] }), rule("logo.mark", "text", "x", { assets: [asset("m", "image/png")] })];
   assert.equal(logoOf(rules)?.id, "m");
+});
+
+test("cookieDomain: the domain the app and its hub share, when it is a site's", () => {
+  assert.equal(cookieDomain("https://app.artbucket.io", "https://hub.artbucket.io"), "artbucket.io");
+  assert.equal(cookieDomain("https://app.example.com", "https://hub.brand.example.com"), "example.com");
+  assert.equal(cookieDomain("https://app.artbucket.io", "https://hub.artbucket.io/hub"), "artbucket.io");
+  assert.equal(cookieDomain("https://app.artbucket.io", "https://brandhub.dev"), null, "nothing shared");
+  assert.equal(cookieDomain("https://app.artbucket.io", "https://hub.artbucket.dev"), null, "one label is not a site");
+  assert.equal(cookieDomain("https://artbucket.io", "https://hub.artbucket.io"), null, "the app's own host");
+  assert.equal(cookieDomain("http://localhost:3000", "http://localhost:3000/hub"), null, "the hub on the app's host");
+  assert.equal(cookieDomain("http://localhost:3000", "http://hub.localhost:3000"), null, "a single label");
+  assert.equal(cookieDomain("http://localhost:3000", undefined), null, "no hub");
+});
+
+test("withoutDomain drops the Domain attribute and nothing else", () => {
+  assert.equal(
+    withoutDomain("__Secure-better-auth.session_token=abc; Max-Age=604800; Path=/; Domain=artbucket.io; HttpOnly; Secure; SameSite=Lax"),
+    "__Secure-better-auth.session_token=abc; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax",
+  );
+  assert.equal(withoutDomain("a=b; Path=/"), "a=b; Path=/");
+});
+
+test("hubHome: public brands on the hub, private ones there only when the session reaches it", () => {
+  const app = "https://app.artbucket.io";
+  assert.equal(hubHome("public", app, "https://hub.artbucket.io"), "https://hub.artbucket.io");
+  assert.equal(hubHome("private", app, "https://hub.artbucket.io"), "https://hub.artbucket.io");
+  assert.equal(hubHome("private", app, "https://brandhub.dev"), "https://app.artbucket.io/hub");
+  assert.equal(hubHome("private", "http://localhost:3000", "http://localhost:3000/hub"), "http://localhost:3000/hub");
 });
