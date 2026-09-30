@@ -1,0 +1,41 @@
+---
+title: "0014: An agent opens what its key can read"
+description: Accepted, v1.6. Amends 0012.
+---
+
+## Context
+
+[0012](/decisions/0012-private-delivery) made `/a/{id}` serve people who can
+see the asset, by session or key. An agent's key opens it, but only when the
+agent sends the key, and the agents people use most can't: a chat app keeps
+the key inside its MCP connection, and its web fetch or code sandbox asks
+`/a/{id}` with nothing. With read access such an agent could read the brand
+rules about a logo and never see the logo. A signed URL took share, which a
+read key doesn't have, even for an asset a public portal already hands to
+every visitor.
+
+## Decision
+
+- `describe_asset` and `rendition_url` give a **`fetchUrl`**: the asset signed
+  for about fifteen minutes, for the agent to open itself. Reading an asset
+  is what read access is for; the signature only carries it past a client
+  that can't send the key. Lifecycle still decides first (0007): only an
+  approved, unexpired asset out of embargo gets one.
+- `rendition_url` with `expiresIn`, for people outside, answers without share
+  when they could already have it: a **public** asset's plain URL, or, for an
+  asset an open **public portal** shows (its collections, its header, or what
+  a brand it shows publishes for everyone), a URL signed as the portal signs
+  it, about a day and never past the portal's end.
+- Anything else is refused with what the person can do (make it public, put
+  it on a public portal, share it, or connect the agent with Edit), for the
+  agent to pass on rather than guess.
+
+## Consequences
+
+- A read key can mint short anonymous URLs for what it can see. Nothing stops
+  an agent handing one on; it runs out in minutes, where a share takes share
+  and is recorded in the audit log. What a key holds, it could already
+  download with the key.
+- An asset taken off a portal, or a portal closed or made private, stops its
+  portal-signed URLs within a day, as the portal's own do. A lasting embed is
+  a public asset.

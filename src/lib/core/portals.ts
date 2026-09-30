@@ -40,12 +40,12 @@ import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
 import { longSig, pagePath, pageSig } from "@/lib/core/signing";
-import { presentAsset } from "@/lib/core/section-assets";
+import { collectionItems, presentAsset } from "@/lib/core/section-assets";
 import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
-import { AUDIENCES, LANG, type Audience, type RequestKind } from "@/lib/pages";
+import { assetRefs, AUDIENCES, isLive, LANG, liveProps, type Audience, type RequestKind } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
-import { resolve, ruleContext } from "@/lib/rules";
+import { resolve, ruleContext, specAssets } from "@/lib/rules";
 import { hashPassword, verifyPassword } from "@/lib/share";
 import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
 
@@ -799,6 +799,69 @@ export async function portalsShowing(ws: string, brandId: string) {
     .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
     .orderBy(asc(portals.name));
   return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await portalUrl(p, await domainOf(p.id)) })));
+}
+
+/**
+ * The open public portals that show an asset to anyone, and until when (null:
+ * no end): what a visitor with no password can already take from them,
+ * signed. Shown means in one of their collections, or named by a brand they
+ * show, in its latest publish: its rules, which visitors read whole, and its
+ * pages and sections for everyone, collection sections included. Only an
+ * asset that may be used; a stack's earlier version shows in no collection.
+ */
+export async function publicPortalsShowing(ws: string, assetId: string) {
+  const [rows, [asset]] = await Promise.all([
+    db
+      .select()
+      .from(portals)
+      .where(and(eq(portals.workspaceId, ws), eq(portals.access, "public"), sql`(${portals.expiresAt} is null or ${portals.expiresAt} > now())`))
+      .orderBy(asc(portals.name)),
+    db
+      .select({ id: assets.id, current: sql<boolean>`${notSuperseded}` })
+      .from(assets)
+      .where(and(eq(assets.id, assetId), eq(assets.workspaceId, ws), deliverableSql)),
+  ]);
+  if (!rows.length || !asset) return [];
+  const inCollections = asset.current
+    ? new Set(
+        (
+          await db
+            .select({ portalId: portalCollections.portalId })
+            .from(portalCollections)
+            .innerJoin(collectionAssets, eq(collectionAssets.collectionId, portalCollections.collectionId))
+            .where(and(eq(collectionAssets.assetId, asset.id), inArray(portalCollections.portalId, rows.map((p) => p.id))))
+        ).map((r) => r.portalId),
+      )
+    : new Set<string>();
+  const shows = async (p: Row) => {
+    if (inCollections.has(p.id) || p.theme.logo === asset.id) return true;
+    // Its header, as shownTheme draws it: the organization's logo, when the portal has none of its own, and icon.
+    const brand = await brandOfWorkspace(p.workspaceId);
+    if (assetIdsIn(JSON.stringify([p.theme.logo ? null : brand.logo, brand.icon])).includes(asset.id)) return true;
+    const quick = PortalSite.safeParse(p.site);
+    if (quick.success && quick.data.quick?.some((q) => q.asset === asset.id)) return true;
+    for (const src of await publishes(p)) {
+      const pages = readablePages(src, { level: "everyone" });
+      const named = new Set([
+        ...src.rules.flatMap((r) => [...r.assets.map((a) => a.id), ...specAssets(r.spec)]),
+        ...pages.flatMap((pg) => assetRefs(pg).map((r) => r.id)),
+        ...(src.theme.device ? [src.theme.device] : []),
+        ...assetIdsIn(JSON.stringify([src.rules, pages.map((pg) => pg.sections)])),
+      ]);
+      if (named.has(asset.id)) return true;
+      if (!asset.current) continue;
+      // As a visitor gets each section: its first page of items, where readers find it without searching.
+      for (const s of pages.flatMap((pg) => pg.sections).filter((s) => isLive(s.template))) {
+        const { items } = await collectionItems(p.workspaceId, liveProps(s), { sign: null, presets: p.presets });
+        if (items.some((i) => i.id === asset.id)) return true;
+      }
+    }
+    return false;
+  };
+  // ponytail: each public portal's publishes, pages and collection sections read again per call; an index of what portals show when a workspace has many.
+  const showing = [];
+  for (const p of rows) if (await shows(p)) showing.push({ slug: p.slug, name: p.name, expiresAt: p.expiresAt, url: await portalUrl(p, await domainOf(p.id)) });
+  return showing;
 }
 
 /** Admins who hear about a request: the workspace's and the organization's. */

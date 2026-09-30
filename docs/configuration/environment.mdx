@@ -18,7 +18,7 @@ naming the variable.
 | `S3_FORCE_PATH_STYLE` | `true` | `false` for AWS S3 and Tigris; `true` for most others |
 | `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and where cookie-signed writes are taken from, beside organizations' verified domains |
 | `INTERNAL_URL` | `APP_URL` | Where the server reaches its own API while rendering pages, when it can't reach `APP_URL` from inside (a container behind a proxy): `http://localhost:3000` |
-| `BILLING_URL` | unset | Where an organization's admins manage the plan behind its limits: a "Manage plan" link in Settings, Usage, and named when a limit refuses something. See [Limits](/configuration/limits) |
+| `BILLING_URL` | unset | Where an organization's admins manage the plan behind its limits: a "Manage plan" link in Settings, Usage, an "Upgrade" button in the header while the organization has no limits of its own, and named when a limit refuses something. See [Limits](/configuration/limits) |
 | `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug: the builder links there. See [Brand as code](/guides/brand-as-code) |
 | `DOMAIN_TARGET` | unset | The host name organizations' own domains should CNAME to, shown beside their TXT record: this server's, or a provider's (Cloudflare for SaaS's fallback origin). Unset: "point it at this server" |
 | `PORTAL_DOMAIN` | unset | A domain whose subdomains are portals: `{address}.PORTAL_DOMAIN` serves that portal, beside `/p/{address}`. Needs a wildcard DNS record and certificate. See [Portals](/guides/portals#a-subdomain-for-every-portal) |
@@ -32,6 +32,7 @@ naming the variable.
 | `ANONYMOUS_SCOPE` | nothing | What a request with no key and no session may do: `read` makes a public library |
 | `RATE_LIMIT` | `1200` | `/api` requests per minute per client; `0` turns it off. See [Security](/configuration/security) |
 | `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_WORKSPACES` `LIMIT_BRANDS` `LIMIT_DOMAINS` `LIMIT_FEATURES` | unlimited | Every organization's limits. See [Limits](/configuration/limits) |
+| `LIMIT_ORGANIZATIONS` | unlimited | Per person: how many organizations on the server's limits (no row of their own) someone may be admin of and still make another. See [Limits](/configuration/limits#for-every-person) |
 
 ## Settings
 

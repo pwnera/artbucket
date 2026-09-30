@@ -7,10 +7,12 @@ import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
 import { ssoOffered } from "@/lib/core/sso";
+import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import { memo } from "@/lib/memo";
+import { upgradeUrl } from "@/lib/limits";
 import { lockedBy } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
 
@@ -195,13 +197,14 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
-  const [email, workspaces, signUp, anonymous, passwordReset, sso] = await Promise.all([
+  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits] = await Promise.all([
     canEmail(caller.workspace.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
     anonymousScope(),
     canResetPasswords(),
     ssoOffered(),
+    effective("limits", { organizationId: caller.workspace.organizationId }),
   ]);
   return {
     user: caller.user,
@@ -217,6 +220,7 @@ export async function describeCaller(caller: Caller) {
     off: caller.off,
     hidden: caller.hidden,
     workspaces,
+    upgrade: upgradeUrl(env.BILLING_URL, !!caller.user && caller.orgScope === "admin", limits.source),
     auth: {
       signUp,
       open: env.SIGNUP === "open",

@@ -64,6 +64,9 @@ const csp = (nonce: string) => [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// Asset bytes, and the redirect to the current ones (app/a, app/c).
+const bytes = (path: string) => path.startsWith("/a/") || path.startsWith("/c/");
+
 // Per address. Not per Authorization header: nothing here knows whether it holds a key, so a new made-up one each time would be a new count.
 const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
 
@@ -71,8 +74,8 @@ const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")
  * A request to a portal's host, a verified domain or a subdomain of
  * PORTAL_DOMAIN (lib/core/domains.ts), sees that portal and nothing else of
  * the app: every path is one of the portal's (/logo is /p/{slug}/logo), and
- * only what the portal page calls, /api and /a, and robots.txt, which answers
- * per host (app/robots.ts), pass through as is.
+ * only what the portal page calls, /api and /a (and /c, which points at /a),
+ * and robots.txt, which answers per host (app/robots.ts), pass through as is.
  *
  * A portal asked for anywhere but its home goes there, for good: /p/{slug} to
  * its subdomain or domain of its own, an address from before a rename to the
@@ -86,7 +89,7 @@ async function portalRoute(req: NextRequest, init?: { request: { headers: Header
   const asked = target?.portal ?? null;
   // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
   if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
-  if (pathname.startsWith("/api/") || pathname.startsWith("/a/") || pathname === "/robots.txt") return null;
+  if (pathname.startsWith("/api/") || bytes(pathname) || pathname === "/robots.txt") return null;
   const onApp = asked ? null : pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
   const slug = asked ?? onApp?.[1];
   if (!slug) return null;
@@ -111,7 +114,7 @@ export async function proxy(req: NextRequest) {
       );
     }
   }
-  const page = !pathname.startsWith("/api/") && !pathname.startsWith("/a/");
+  const page = !pathname.startsWith("/api/") && !bytes(pathname);
   // A page learns its own address (lib/sidebar.ts whoami): someone signed out goes to sign in, then back to it.
   const init = page ? { request: { headers: new Headers(req.headers) } } : undefined;
   init?.request.headers.set("x-path", pathname + req.nextUrl.search);
@@ -121,7 +124,7 @@ export async function proxy(req: NextRequest) {
   init?.request.headers.set("Content-Security-Policy", policy);
   const res = (await portalRoute(req, init)) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
-  // The API answers JSON and /a/ answers bytes with a policy of its own; pages get the app's.
+  // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);
   return res;
 }

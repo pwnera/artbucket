@@ -7,7 +7,7 @@ import { appUrlFor } from "@/lib/core/domains";
 import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
-import { checkLimit } from "@/lib/core/usage";
+import { checkLimit, checkOrganizations } from "@/lib/core/usage";
 import { defaultWorkspace, type Caller } from "@/lib/core/access";
 import { onlyOrganization } from "@/lib/core/branding";
 import { highest, type Ability, type Resource } from "@/lib/access";
@@ -159,6 +159,7 @@ function addOrganization(userId: string, name: string) {
 export async function createOrganization(caller: Caller, input: { name: string }) {
   const user = caller.user;
   if (!user) throw new AssetError("forbidden", "Sign in to make an organization");
+  await checkOrganizations(user.id);
   const { ws, ...org } = await addOrganization(user.id, input.name);
   await recordAudit(caller, "organization.created", org.name, undefined, { organizationId: org.id, workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name, workspace: { id: ws.id, slug: ws.slug, name: ws.name } };

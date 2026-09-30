@@ -1,11 +1,12 @@
 "use client";
 
-import { IconActivity, IconInbox, IconPhoto, IconSearch } from "@tabler/icons-react";
+import { IconActivity, IconInbox, IconPhoto, IconSearch, IconSparkles } from "@tabler/icons-react";
 import { NavLink } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
 import { useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { useShell } from "@/components/shell";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,15 @@ export function AppHeader({ trail, children }: { trail: Crumb[] | React.ReactNod
       <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
       {isTrail(trail) ? <Trail crumbs={trail} /> : trail}
       <div className="ml-auto flex items-center gap-2">
+        {/* An admin on the server's own limits, where the server sells plans (BILLING_URL). */}
+        {me?.upgrade && (
+          <Button asChild size="sm">
+            <a href={me.upgrade}>
+              <IconSparkles aria-hidden />
+              Upgrade
+            </a>
+          </Button>
+        )}
         {children}
         {/* The sidebar's search sits in the phone's sheet; this opens it in one tap. */}
         <IconButton variant="ghost" label="Search" className="md:hidden" onClick={openPalette}>

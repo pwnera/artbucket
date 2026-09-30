@@ -15,7 +15,7 @@ next to what they use.
 | `workspaces` | Workspaces | One is made |
 | `brands` | Brands, across its workspaces | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
-| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links). Unset: everything | A key, an agent connection or a link is made |
+| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on). Unset: everything | A key, an agent connection or a link is made; single sign-on is set up |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 
 Past a limit, the request is refused with `403` and the code `limit_reached`
@@ -24,7 +24,10 @@ lowering a limit only stops what would go further.
 
 When the limits come with a plan, set `BILLING_URL` to where its admins
 manage it: Settings, Usage shows a "Manage plan" link there, a refusal names
-it, and `GET /api/v1/usage` returns it as `billing`.
+it, and `GET /api/v1/usage` returns it as `billing`. An organization with no
+limits row of its own is on the server's limits, with no plan yet: its admins
+also see an "Upgrade" button in the app's header, and `GET /api/v1/me`
+returns the address as `upgrade`.
 
 ## For every organization
 
@@ -34,8 +37,24 @@ LIMIT_EDITORS=5
 LIMIT_WORKSPACES=3
 LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
-LIMIT_FEATURES=agents     # comma-separated, or none
+LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso), or none
 ```
+
+## For every person
+
+Each new organization gets the server's limits, so with open sign-up anyone
+could make several to have them several times. `LIMIT_ORGANIZATIONS` caps
+that per person:
+
+```bash
+LIMIT_ORGANIZATIONS=1
+```
+
+Making an organization (`POST /api/v1/organizations`) is refused with
+`limit_reached` when the person is already admin of that many organizations
+on the server's limits: ones with no limits row of their own, so no plan. An
+organization with its own row does not count, and the one sign-up makes is
+never refused. Admin counts however it was given, invitations included.
 
 ## For one organization
 

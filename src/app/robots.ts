@@ -38,7 +38,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       ...(shown.length > 0 && { allow: shown.map((p) => `/p/${p.slug}`) }),
-      disallow: ["/api/", "/a/", "/p/", "/s/"],
+      disallow: ["/api/", "/a/", "/c/", "/p/", "/s/"],
     },
   };
 }

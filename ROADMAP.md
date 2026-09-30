@@ -225,7 +225,8 @@ _~3 weekends._
   [Postiz docs](https://docs.postiz.com/general/introduction), served at a custom
   domain (`docs.<domain>`), sidebar grouped into sections, one page per topic
   - **General:** introduction, quickstart, how it works (API, MCP, canon), support
-  - **Installation:** Docker Compose, Docker, Fly, Coolify, bare VPS
+  - **Installation:** one-click Render, Docker Compose, Docker, Fly, Kubernetes,
+    Coolify, bare VPS
   - **Configuration:** every env var in one reference table, storage, auth providers
   - **Guides:** assets, canon, `/check`, portals
   - **Developers:** API reference generated from the v0.3 OpenAPI spec, MCP tools, CLI

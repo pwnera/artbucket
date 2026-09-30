@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EMAIL_PROVIDERS } from "@/lib/email";
-import { limitsFromEnv } from "@/lib/limits";
+import { limitsFromEnv, organizationsFromEnv } from "@/lib/limits";
 import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
@@ -119,6 +119,7 @@ if (!parsed.success) {
 // LIMIT_* is read per organization (lib/settings.ts); a typo there should stop the server now, not every upload later.
 try {
   limitsFromEnv(process.env);
+  organizationsFromEnv(process.env);
 } catch (e) {
   throw new Error(`Invalid LIMIT_* in the environment.\n${e instanceof z.ZodError ? z.prettifyError(e) : e}`);
 }

@@ -271,8 +271,14 @@ password and end date. See [sharing](docs/guides/sharing.mdx),
 ### 6. Deploy a server
 
 Any S3-compatible storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO,
-Garage, SeaweedFS. Guides for [Docker Compose](docs/installation/docker-compose.mdx),
+Garage, SeaweedFS. In one click, with a Render Postgres and your bucket:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pwnera/artbucket)
+
+Guides for [Render](docs/installation/render.mdx),
+[Docker Compose](docs/installation/docker-compose.mdx),
 [Docker](docs/installation/docker.mdx), [Fly](docs/installation/fly.mdx),
+[Kubernetes](docs/installation/kubernetes.mdx) (`kubectl apply -k deploy/kubernetes`),
 [Coolify](docs/installation/coolify.mdx) and a [plain VPS](docs/installation/vps.mdx).
 Every variable is in [environment](docs/configuration/environment.mdx).
 
