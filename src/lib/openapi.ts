@@ -339,6 +339,16 @@ export function openapi(serverUrl: string) {
           ok: [200, "The versions", data(z.array(S.Asset))],
         }),
       },
+      "/api/v1/assets/{id}/insights": {
+        parameters: [path("id", "Asset id")],
+        get: op({
+          summary: "Where it is used",
+          scope: "write",
+          description:
+            "The brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by referrer host.",
+          ok: [200, "Where it is used", data(S.AssetInsights)],
+        }),
+      },
       "/api/v1/assets/{id}/versions/{number}/current": {
         parameters: [path("id", "Asset id: any version of it"), path("number", "Version number")],
         post: op({

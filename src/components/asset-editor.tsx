@@ -48,6 +48,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
+import { UsedIn } from "@/components/used-in";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Lifecycle, PREVIEW_BG, StatusBadges, usePreviewBg, useVersionUpload, Versions, type PreviewBg } from "@/components/versions";
@@ -1110,6 +1111,7 @@ export function AssetEditor({
                 <RightsInputs asset={asset} k={keyOf("rights")} errors={errors} onChange={() => setTimeout(() => void flush())} />
                 <ProvenanceInputs asset={asset} k={keyOf} errors={errors} onOpen={(to) => leave(() => onOpen(to))} onChange={() => setTimeout(() => void flush())} />
                 <FileFacts asset={asset} />
+                {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
               </div>
             </Writable>
             <Versions asset={asset} onChanged={onReviewed} onOpen={(v) => leave(() => onOpen(v))} />

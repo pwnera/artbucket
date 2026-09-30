@@ -1261,6 +1261,19 @@ export const Insights = z.object({
     )
     .describe("Portal pages read, most first"),
 });
+export const AssetInsights = z.object({
+  days: z.number().int().describe("How far back fetches go"),
+  rules: z.array(z.object({ brand: z.string(), key: z.string(), label: z.string().nullable(), context: z.string().nullable() })).describe("Brand rules that point at it"),
+  pages: z
+    .array(z.object({ brand: z.object({ slug: z.string(), name: z.string(), default: z.boolean() }), slug: z.string(), title: z.string() }))
+    .describe("Brand pages that show it, as they stand now"),
+  portals: z.array(z.object({ name: z.string(), url: z.string() })).describe("Open public portals that show it"),
+  fetches: z.object({
+    total: z.number().int(),
+    surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()),
+  }),
+  referrers: z.array(z.object({ host: z.string(), fetches: z.number().int(), last: z.string() })).describe("The hosts that loaded it, most first"),
+});
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
   expiresAt: date,

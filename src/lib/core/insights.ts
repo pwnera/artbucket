@@ -1,7 +1,10 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
+import { assets, brandPages, brands, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
+import { getAsset } from "@/lib/core/assets";
+import { listRules } from "@/lib/core/brand";
+import { publicPortalsShowing } from "@/lib/core/portals";
 import { AssetError } from "@/lib/core/errors";
 import { fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
@@ -191,5 +194,46 @@ export async function insightsOf(caller: Caller) {
     checks,
     delivery,
     pageViews: views,
+  };
+}
+
+/**
+ * GET /api/v1/assets/{id}/insights: where one asset is used (PRD INS-5), its
+ * brand rules, the brand pages that show it and the public portals, and how
+ * it was fetched lately, by surface and by referrer. Null: no such asset for
+ * this caller.
+ */
+export async function assetInsights(caller: Caller, id: string) {
+  if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
+  const asset = await getAsset(caller, id);
+  if (!asset) return null;
+  const ws = caller.workspace.id;
+  const mine = and(eq(eventCounts.workspaceId, ws), eq(eventCounts.assetId, id), eq(eventCounts.kind, "fetch"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
+  const [rules, pages, shownOn, surfaces, referrers] = await Promise.all([
+    listRules(ws, { asset: id }),
+    // ponytail: reads every page's sections as text; an index of what pages show once workspaces have thousands.
+    db
+      .select({ brand: { slug: brands.slug, name: brands.name, default: brands.isDefault }, slug: brandPages.slug, title: brandPages.title })
+      .from(brandPages)
+      .innerJoin(brands, eq(brands.id, brandPages.brandId))
+      .where(and(eq(brands.workspaceId, ws), or(eq(brandPages.cover, id), sql`${brandPages.sections}::text like ${`%${id}%`}`)))
+      .orderBy(asc(brands.name), asc(brandPages.position)),
+    publicPortalsShowing(ws, id),
+    db.select({ surface: eventCounts.surface, fetches: n() }).from(eventCounts).where(mine).groupBy(eventCounts.surface),
+    db
+      .select({ host: eventCounts.referrer, fetches: n(), last: sql<string>`max(${eventCounts.day})::text` })
+      .from(eventCounts)
+      .where(and(mine, isNotNull(eventCounts.referrer)))
+      .groupBy(eventCounts.referrer)
+      .orderBy(desc(n()))
+      .limit(10),
+  ]);
+  return {
+    days: INSIGHT_DAYS,
+    rules: rules.map(({ brand, key, label, context }) => ({ brand: brand!, key, label, context })),
+    pages,
+    portals: shownOn.map(({ name, url }) => ({ name, url })),
+    fetches: { total: surfaces.reduce((t, s) => t + s.fetches, 0), surfaces: Object.fromEntries(surfaces.map((s) => [s.surface, s.fetches])) as Partial<Record<Surface, number>> },
+    referrers: referrers.map((r) => ({ host: r.host!, fetches: r.fetches, last: r.last })),
   };
 }

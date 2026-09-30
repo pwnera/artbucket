@@ -8164,6 +8164,252 @@
       }
     }
   },
+  "/api/v1/assets/{id}/insights": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Asset id",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "Where it is used",
+      "description": "The brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by referrer host.\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "200": {
+          "description": "Where it is used",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "days": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "How far back fetches go"
+                      },
+                      "rules": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "brand": {
+                              "type": "string"
+                            },
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "context": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "brand",
+                            "key",
+                            "label",
+                            "context"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brand rules that point at it"
+                      },
+                      "pages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "brand": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "default": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "name",
+                                "default"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "brand",
+                            "slug",
+                            "title"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brand pages that show it, as they stand now"
+                      },
+                      "portals": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Open public portals that show it"
+                      },
+                      "fetches": {
+                        "type": "object",
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "surfaces": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "enum": [
+                                "app",
+                                "api",
+                                "mcp",
+                                "portal",
+                                "share",
+                                "hub",
+                                "link",
+                                "public"
+                              ]
+                            },
+                            "additionalProperties": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "total",
+                          "surfaces"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "referrers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "host": {
+                              "type": "string"
+                            },
+                            "fetches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "last": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "host",
+                            "fetches",
+                            "last"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "The hosts that loaded it, most first"
+                      }
+                    },
+                    "required": [
+                      "days",
+                      "rules",
+                      "pages",
+                      "portals",
+                      "fetches",
+                      "referrers"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/assets/{id}/versions/{number}/current": {
     "parameters": [
       {
