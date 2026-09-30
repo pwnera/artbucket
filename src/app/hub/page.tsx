@@ -116,7 +116,7 @@ export default async function HubHome({ searchParams }: Props) {
             <IconMoodEmpty aria-hidden className="size-8" />
             <p className="text-foreground font-medium">{q ? `No brand matches "${q}"` : "No brand here yet"}</p>
             <p className="text-sm">
-              {q ? "Try the brand's name or its owner's." : "Publish a brand, then make it public on the Brands page."}
+              {q ? "Try the brand's name or its owner's." : "Release a brand, then make it public on the Brands page."}
             </p>
           </div>
         )}

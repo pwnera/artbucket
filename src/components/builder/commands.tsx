@@ -157,8 +157,8 @@ export function builderCommands(b: BuilderApi): PageCommand[] {
         b.setDock("comments");
       },
     },
-    { id: "b-changes", group: g, label: b.changes ? "Stop marking changes" : "Mark what changed since the last publish", icon: <IconGitCompare />, keywords: ["diff", "compare", "review"], run: () => b.setChanges(!b.changes) },
-    { id: "b-publish", group: g, label: "Publish", icon: <IconWorldUpload />, top: true, run: () => b.setPanel("publish") },
+    { id: "b-changes", group: g, label: b.changes ? "Stop marking changes" : "Mark what changed since the last release", icon: <IconGitCompare />, keywords: ["diff", "compare", "review"], run: () => b.setChanges(!b.changes) },
+    { id: "b-publish", group: g, label: "Release", icon: <IconWorldUpload />, top: true, run: () => b.setPanel("publish") },
   );
   return out;
 }

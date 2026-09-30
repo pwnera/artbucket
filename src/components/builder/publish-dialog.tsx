@@ -128,7 +128,7 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
     });
     if (!res.ok) {
       setBusy(false);
-      return setFailed(res.network ? "Couldn't reach the server. Nothing was published." : (res.error?.message ?? "Couldn't publish."));
+      return setFailed(res.network ? "Couldn't reach the server. Nothing was released." : (res.error?.message ?? "Couldn't release."));
     }
     const published = res.data as Published;
     if (offer && door !== "none") {
@@ -142,7 +142,7 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
           break;
         }
         if (made.network || made.status !== 409) {
-          toast.error("Published, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
+          toast.error("Released, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
           break;
         }
       }
@@ -159,14 +159,14 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <IconWorldUpload className="size-5" /> Publish
+          <IconWorldUpload className="size-5" /> Release
         </DialogTitle>
-        <DialogDescription>Portals show the latest publish. Until then, readers see what they saw before.</DialogDescription>
+        <DialogDescription>Portals show the latest release. Until then, readers see what they saw before.</DialogDescription>
       </DialogHeader>
 
       <section aria-labelledby="publish-news" aria-busy={!news || saving} className="grid gap-2">
         <h3 id="publish-news" className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {news && "draft" in news && news.since ? `New since version ${news.since}` : "What readers get"}
+          {news && "draft" in news && news.since ? `New since release ${news.since}` : "What readers get"}
         </h3>
         {!news || saving ? (
           <div className="grid gap-2">
@@ -174,13 +174,13 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
             <Skeleton className="h-4 w-1/2" />
           </div>
         ) : "error" in news ? (
-          <p className="text-muted-foreground text-sm">{news.error} You can still publish.</p>
+          <p className="text-muted-foreground text-sm">{news.error} You can still release.</p>
         ) : current ? (
-          <p className="text-muted-foreground text-sm">Nothing new: version {news.draft} is already what readers see.</p>
+          <p className="text-muted-foreground text-sm">Nothing new: release {news.draft} is already what readers see.</p>
         ) : news.changes ? (
           <Changes changes={news.changes} rules={b.state.rules} />
         ) : (
-          <p className="text-sm">The first publish: readers get every page and rule.</p>
+          <p className="text-sm">The first release: readers get every page and rule.</p>
         )}
       </section>
 
@@ -256,7 +256,7 @@ function Body({ b, onClose }: { b: BuilderApi; onClose: () => void }) {
         </Button>
         <Button onClick={publish} disabled={busy || saving || !!current}>
           {busy || saving ? <IconLoader2 className="animate-spin" /> : <IconWorldUpload />}
-          {saving ? "Saving" : "Publish"}
+          {saving ? "Saving" : "Release"}
         </Button>
       </DialogFooter>
 
@@ -312,12 +312,12 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <IconWorldUpload className="size-5" /> {done.unchanged ? "Already published" : "Published"}
+          <IconWorldUpload className="size-5" /> {done.unchanged ? "Already released" : "Released"}
         </DialogTitle>
         <DialogDescription>
           {done.unchanged
-            ? `Nothing changed since version ${done.number ?? "the last"}, so readers already see this.`
-            : `Readers now get ${done.number ? `version ${done.number}` : "this version"}.`}
+            ? `Nothing changed since release ${done.number ?? "the last"}, so readers already see this.`
+            : `Readers now get ${done.number ? `release ${done.number}` : "this release"}.`}
         </DialogDescription>
       </DialogHeader>
       {portals.length ? (

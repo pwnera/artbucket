@@ -667,7 +667,7 @@ function PortalDialog({
             >
               {f.pickedBrands.length > 0 && (
                 <div className="grid gap-1.5">
-                  <p className="text-muted-foreground text-xs">Visitors read each brand as last published, never the draft.</p>
+                  <p className="text-muted-foreground text-xs">Visitors read each brand as last released, never the draft.</p>
                   <ul aria-label="What visitors read" className="grid gap-1">
                     {f.pickedBrands.map((slug) => (
                       <PublishState key={slug} brand={brands.find((b) => b.slug === slug) ?? { slug, name: slug }} />
@@ -955,8 +955,8 @@ function Unpublished({ brands }: { brands: Portal["brands"] }) {
   const none = brands.filter((b) => !b.publishedAt);
   if (!none.length) return null;
   return (
-    <Badge variant="warning" title={`Visitors see nothing of ${none.map((b) => b.name).join(", ")} until it is published`}>
-      {none.length === 1 ? `${none[0].name} not published` : `${none.length} brands not published`}
+    <Badge variant="warning" title={`Visitors see nothing of ${none.map((b) => b.name).join(", ")} until it is released`}>
+      {none.length === 1 ? `${none[0].name} not released` : `${none.length} brands not released`}
     </Badge>
   );
 }
@@ -980,15 +980,15 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
       <span className="min-w-0 truncate font-medium">{brand.name}</span>
       {last === null && (
         <>
-          <Badge variant="warning">Not published: visitors see nothing</Badge>
+          <Badge variant="warning">Not released: visitors see nothing</Badge>
           <Link href={`/brand?${new URLSearchParams({ brand: brand.slug })}`} className="text-foreground underline underline-offset-2">
-            Open it to publish
+            Open it to release
           </Link>
         </>
       )}
       {last && (
         <span className="text-muted-foreground" title={exact(last.publishedAt)}>
-          Version {last.version}, published {new Date(last.publishedAt).toLocaleDateString()}
+          Release {last.version}, {new Date(last.publishedAt).toLocaleDateString()}
         </span>
       )}
     </li>

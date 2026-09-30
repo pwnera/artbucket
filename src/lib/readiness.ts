@@ -126,9 +126,9 @@ export function readiness({ rules, theme = {}, pages, versions, portals }: Readi
     },
     {
       id: "publish",
-      title: "Published",
+      title: "Released",
       done: state === "current",
-      detail: state === "current" ? "Readers see the latest" : state === "behind" ? "There are changes readers don't see yet." : "Never published: portals show nothing of it.",
+      detail: state === "current" ? "Readers see the latest" : state === "behind" ? "There are changes readers don't see yet." : "Never released: portals show nothing of it.",
       agent: "publish with a note, once the person asks for it.",
     },
     {

@@ -55,7 +55,7 @@ export function usePublishedChanges(b: BuilderApi, on: boolean): Changes | null 
       const last = (list.data as Version[]).find((v) => v.publishedAt);
       if (!last) return { number: null };
       const got = await transport("GET", `${base}/${last.number}`);
-      if (!got.ok) return { error: "Couldn't read the last publish." };
+      if (!got.ok) return { error: "Couldn't read the last release." };
       return { number: last.number, snap: got.data as Snapshot };
     })().then((p) => !gone && setPublished(p));
     return () => {

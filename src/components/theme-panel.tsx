@@ -78,7 +78,7 @@ export function ThemePanel({
           <SheetTitle className="flex items-center gap-2">
             <IconPalette className="size-5" /> Theme
           </SheetTitle>
-          <SheetDescription>How the brand&apos;s pages look. Changes save as a draft until published.</SheetDescription>
+          <SheetDescription>How the brand&apos;s pages look. Changes save as a draft until released.</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <ThemeEditor {...props} active={open} />

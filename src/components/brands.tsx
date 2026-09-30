@@ -75,7 +75,7 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
           aside={<span className="text-muted-foreground text-sm tabular-nums">{brands.length}</span>}
           description={
             hub
-              ? "Every published brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read."
+              ? "Every released brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read."
               : "The workspace's brands, each with its own rules, pages and history."
           }
         >
@@ -123,8 +123,8 @@ export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; 
         title={`Make ${going?.name ?? "it"} public?`}
         says={
           <>
-            Anyone, and any agent, will read its latest publish on BrandHub: its rules, logos, typefaces and voice, as a page, llms.txt, JSON and
-            design tokens, with its usable files. Later publishes show there too. You can make it private again.
+            Anyone, and any agent, will read its latest release on BrandHub: its rules, logos, typefaces and voice, as a page, llms.txt, JSON and
+            design tokens, with its usable files. Later releases show there too. You can make it private again.
           </>
         }
         action="Make public"
@@ -180,10 +180,10 @@ function Row({
           {hub &&
             (hub.published ? (
               <span>
-                v{hub.published.number} published {ago(hub.published.publishedAt)}
+                Release {hub.published.number}, {ago(hub.published.publishedAt)}
               </span>
             ) : (
-              <span>Never published: BrandHub shows it once it is</span>
+              <span>Never released: BrandHub shows it once it is</span>
             ))}
           {hub?.portal && (
             <span className="inline-flex items-center gap-1">
@@ -208,7 +208,7 @@ function Row({
                 <IconLock aria-hidden /> Make private
               </Button>
             ) : (
-              <Button size="sm" onClick={onPublic} disabled={!hub.published} title={hub.published ? undefined : "Publish it first"}>
+              <Button size="sm" onClick={onPublic} disabled={!hub.published} title={hub.published ? undefined : "Release it first"}>
                 <IconWorld aria-hidden /> Make public
               </Button>
             ))}

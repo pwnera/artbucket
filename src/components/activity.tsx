@@ -63,7 +63,7 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   made_current: { icon: IconStack2, says: "made current" },
   edited_rules: { icon: IconBook, says: "edited the guidelines of" },
   restored_rules: { icon: IconBook, says: "restored an earlier version of" },
-  published: { icon: IconBook, says: "published the guidelines of" },
+  published: { icon: IconBook, says: "released the guidelines of" },
 };
 // What an unknown verb from a newer server reads as, rather than a crash.
 const SOMETHING = { icon: IconActivity, says: "changed" };

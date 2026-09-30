@@ -78,7 +78,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           <>
             <DialogHeader>
               <DialogTitle>New brand</DialogTitle>
-              <DialogDescription>Choose how to set it up. Either way it is a draft until you publish.</DialogDescription>
+              <DialogDescription>Choose how to set it up. Either way it is a draft until you release it.</DialogDescription>
             </DialogHeader>
             <div className={cn("grid gap-3", git ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="How to set it up">
               <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">

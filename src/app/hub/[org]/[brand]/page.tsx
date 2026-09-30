@@ -119,7 +119,7 @@ export default async function HubListing(props: Props) {
               {!open && <IconLock aria-hidden className="size-3" />}
               {!open ? "Private" : b.verified ? "Verified" : "Community"}
             </span>
-            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to v{b.version}</span>}
+            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release {b.version}</span>}
             <div className="ms-auto flex flex-wrap items-center gap-2">
               {b.guidelines && (
                 <Button asChild variant="outline">
@@ -147,7 +147,7 @@ export default async function HubListing(props: Props) {
               ...(fonts.length ? [{ href: "#type", label: "Type", count: fonts.length }] : []),
               ...(logos.length ? [{ href: "#logos", label: "Logos", count: logos.length }] : []),
               ...(words.length ? [{ href: "#voice", label: "Voice" }] : []),
-              { href: "#versions", label: "Versions", count: b.versions.length },
+              { href: "#versions", label: "Releases", count: b.versions.length },
             ]}
           />
         </div>
@@ -159,7 +159,7 @@ export default async function HubListing(props: Props) {
             <IconBook aria-hidden className="size-4" /> {b.name}
             <span className="ms-auto text-xs">
               v{b.version}
-              {b.publishedAt && ` · published ${ago(b.publishedAt)}`}
+              {b.publishedAt && ` · released ${ago(b.publishedAt)}`}
             </span>
           </div>
           <Preview card={b} className="h-56 md:h-72">
@@ -325,7 +325,7 @@ export default async function HubListing(props: Props) {
 
           <section id="versions" className="flex scroll-mt-20 flex-col gap-3 border-t pt-6">
             <h2 className="flex items-center gap-2 font-semibold">
-              Versions <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{b.versions.length}</span>
+              Releases <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{b.versions.length}</span>
             </h2>
             <ol className="grid gap-2">
               {b.versions.slice(0, 6).map((v) => (

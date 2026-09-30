@@ -131,7 +131,7 @@ export function Layers({ b }: { b: BuilderApi }) {
                   {s.tab && <span className="text-muted-foreground ms-1.5 text-xs">in {s.tab}</span>}
                   {changes?.bySection.get(s.id) && (
                     <span
-                      title={`${CHANGE_LABEL[changes.bySection.get(s.id)!]} since the last publish`}
+                      title={`${CHANGE_LABEL[changes.bySection.get(s.id)!]} since the last release`}
                       className={cn("ms-1.5 inline-block size-1.5 rounded-full align-middle", changes.bySection.get(s.id) === "new" ? "bg-success" : "bg-warning")}
                     />
                   )}

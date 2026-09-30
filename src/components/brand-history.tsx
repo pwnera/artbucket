@@ -186,7 +186,7 @@ export function History({
                             </span>
                             {v.number === latest && <Badge variant="secondary">Current</Badge>}
                             {v.publishedAt && (
-                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Published"}</Badge>
+                              <Badge variant={v.number === live ? "success" : "outline"}>{v.number === live ? "Live" : "Released"}</Badge>
                             )}
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
@@ -386,7 +386,7 @@ function Published({ v }: { v: Detail }) {
   return (
     <div className="bg-success/10 space-y-2 rounded-lg p-3 text-sm">
       <p className="text-success flex items-center gap-1.5 font-medium">
-        <IconWorldUpload className="size-4" /> Published {stamp(v.publishedAt!)}
+        <IconWorldUpload className="size-4" /> Released {stamp(v.publishedAt!)}
         {v.publishedBy && ` · ${who(v.publishedBy, me)}`}
       </p>
       {/* An unnamed version takes the note as its name, so it already reads above. */}

@@ -209,7 +209,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
         : await transport("POST", pages, start.kind === "topic" ? { set: { topic: start.topic } } : undefined);
     setBusy(null);
     if (!res.ok) return;
-    toast.success(`${name}'s pages are ready`, { description: "Everything is a draft until you publish." });
+    toast.success(`${name}'s pages are ready`, { description: "Everything is a draft until you release it." });
     router.refresh();
   };
 
@@ -239,7 +239,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
             </p>
             <h1 className="font-display text-2xl font-semibold tracking-tight">Set up {name}</h1>
             <p className="text-muted-foreground max-w-prose">
-              Four essentials make every page look and sound like {name}. The pages are laid out from them, and all of it stays editable, and private until you publish.
+              Four essentials make every page look and sound like {name}. The pages are laid out from them, and all of it stays editable, and private until you release it.
             </p>
           </div>
 

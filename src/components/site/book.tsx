@@ -86,7 +86,7 @@ function Pages({ load, url }: Pick<BookProps, "load" | "url">) {
         <h1 className={cn(HEAD, "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance")}>{view.brand.name}</h1>
         {view.version?.publishedAt && (
           <p className="text-muted-foreground text-xs">
-            Published <LocalDate at={view.version.publishedAt} />
+            Released <LocalDate at={view.version.publishedAt} />
           </p>
         )}
       </header>

@@ -165,7 +165,7 @@ export function TopBar({ b }: TopBarProps) {
           }}
         />
         <Sep />
-        <IconButton variant="ghost" label="Mark what changed since the last publish" aria-pressed={b.changes} className="aria-pressed:bg-accent" onClick={() => b.setChanges(!b.changes)}>
+        <IconButton variant="ghost" label="Mark what changed since the last release" aria-pressed={b.changes} className="aria-pressed:bg-accent" onClick={() => b.setChanges(!b.changes)}>
           <IconGitCompare />
         </IconButton>
         <Checklist b={b} />
@@ -276,15 +276,15 @@ function Publish({ b }: { b: BuilderApi }) {
   if (state === "current")
     return (
       <Button size="sm" variant="outline" className="ms-1" aria-haspopup="dialog" title="Readers see the latest" onClick={open}>
-        <IconCircleCheckFilled className="text-success" /> Published
+        <IconCircleCheckFilled className="text-success" /> Released
       </Button>
     );
   return (
-    <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={state === "behind" ? "There are changes readers don't see yet" : state === "never" ? "Never published: portals show nothing of it" : undefined} onClick={open}>
-      <IconWorldUpload /> Publish
+    <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={state === "behind" ? "There are changes readers don't see yet" : state === "never" ? "Never released: portals show nothing of it" : undefined} onClick={open}>
+      <IconWorldUpload /> Release
       {state === "behind" && (
         <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
-          <span className="sr-only">(changes not published)</span>
+          <span className="sr-only">(changes not released)</span>
         </span>
       )}
     </Button>
@@ -304,7 +304,7 @@ function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void;
     case "pages":
       return { label: "Add sections", run: () => b.setDock("insert") };
     case "publish":
-      return { label: "Publish", run: () => b.setPanel("publish") };
+      return { label: "Release", run: () => b.setPanel("publish") };
     case "portal":
       return { label: "Share", href: `/portals?${new URLSearchParams({ new: b.view.brand.slug })}` };
   }

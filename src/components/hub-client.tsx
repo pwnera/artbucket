@@ -115,7 +115,7 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
             <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{shown}</code>
             <CopyButton text={shown} label="Copy the address" what="the address" />
           </div>
-          <p className="text-muted-foreground text-xs">Public, no key. Add @ and a version number after the name to pin one.</p>
+          <p className="text-muted-foreground text-xs">Public, no key. Add @ and a release number after the name to pin one.</p>
         </div>
       </PopoverContent>
     </Popover>

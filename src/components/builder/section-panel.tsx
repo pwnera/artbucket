@@ -100,7 +100,7 @@ export function SectionPanel({ b }: SectionPanelProps) {
     ) : (
       <div className="grid gap-4 px-3 py-4">
         {preview ? (
-          <p className="text-muted-foreground text-xs">The whole site as readers get it once published. Each change shows here as it is made.</p>
+          <p className="text-muted-foreground text-xs">The whole site as readers get it once released. Each change shows here as it is made.</p>
         ) : (
           // The canvas is the page alone: the nav, on this page and the site's mark show around it only in the preview.
           <div className="bg-muted/50 grid gap-2 rounded-md border p-3">

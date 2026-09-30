@@ -107,7 +107,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
       trail={
         <p className="flex min-w-0 items-center gap-2 text-sm">
           <span className="truncate font-medium">{view.brand.name}</span>
-          <Badge variant="outline">{view.version ? `Version ${view.version.number}` : "Draft"}</Badge>
+          <Badge variant="outline">{view.version ? `Release ${view.version.number}` : "Draft"}</Badge>
         </p>
       }
     >
