@@ -7,5 +7,5 @@
  */
 export const gitLink = (template: string, brand?: string) => template.replaceAll("{brand}", brand ? encodeURIComponent(brand) : "");
 
-/** Where the integration sends a person back to: the builder, with ?git=connected. */
+/** Where the integration sends a person back to: the brand's Overview (the builder, before), with ?git=connected. */
 export const GIT_RETURN = "connected";

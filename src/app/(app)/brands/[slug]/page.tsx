@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
+import { GitReturn } from "@/components/git-return";
 import { brandHead, changesBetween } from "@/lib/brand-head";
 import { env } from "@/lib/env";
 import { releaseSummary } from "@/lib/history";
 import { can } from "@/lib/permissions";
 import { get, whoami } from "@/lib/sidebar";
+import { brandPath } from "@/lib/site";
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
@@ -32,14 +34,18 @@ export default async function BrandOverviewPage({ params }: Props) {
   // The first release is everything: counted, not listed.
   const first = release && !before && [`First release: ${plural(release.rules, "rule")}${release.pages ? `, ${plural(release.pages, "page")}` : ""}`];
   return (
-    <BrandOverview
-      brand={brand}
-      origin={env.APP_URL}
-      rules={rules}
-      status={status}
-      release={release}
-      changes={first || changes}
-      signals={signals}
-    />
+    <>
+      <BrandOverview
+        brand={brand}
+        origin={env.APP_URL}
+        rules={rules}
+        status={status}
+        release={release}
+        changes={first || changes}
+        signals={signals}
+      />
+      {/* The Git integration lands here after connecting or bringing the brand in. */}
+      <GitReturn brand={slug} release={can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined} />
+    </>
   );
 }

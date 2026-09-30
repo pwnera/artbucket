@@ -10,12 +10,14 @@ const where = (remote: string) => remote.replace(/^https?:\/\//, "").replace(/\.
 
 /**
  * Back from the server's Git integration (GIT_CONNECT_URL), which sends a
- * person to the builder with ?git=connected: a toast while the first sync
- * lands (the brand's source says when, by its syncedAt), then the builder
- * drawn again from what it brought in. Drops the parameter, so a reload
- * doesn't say it twice.
+ * person to the brand's Overview (or, before, the builder) with
+ * ?git=connected: a toast while the first sync lands (the brand's source
+ * says when, by its syncedAt), then the page drawn again from what it
+ * brought in. `release`, where the person may release: once in step, the
+ * toast offers Release while readers don't see the brand as it stands.
+ * Drops the parameter, so a reload doesn't say it twice.
  */
-export function GitReturn({ brand }: { brand: string }) {
+export function GitReturn({ brand, release }: { brand: string; release?: string }) {
   const router = useRouter();
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -32,7 +34,15 @@ export function GitReturn({ brand }: { brand: string }) {
         const source = res?.ok ? ((await res.json()).data?.source ?? null) : null;
         remote = source?.remote ?? remote;
         if (source?.syncedAt) {
-          toast.success(`In step with ${where(source.remote)}`, { id, description: "Changes merged there come here, and edits here go there." });
+          const status = release ? await fetch(`/api/v1/brands/${encodeURIComponent(brand)}/status`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+          const unreleased = !!status && status.data.publish !== "current";
+          toast.success(`In step with ${where(source.remote)}`, {
+            id,
+            description: unreleased
+              ? "Readers don't see it yet: release it when it reads right. From now on, changes go both ways."
+              : "Changes merged there come here, and edits here go there.",
+            ...(unreleased && { action: { label: "Release", onClick: () => router.push(release!) }, duration: 20_000 }),
+          });
           router.refresh();
           return;
         }
@@ -44,6 +54,6 @@ export function GitReturn({ brand }: { brand: string }) {
     return () => {
       stopped = true;
     };
-  }, [brand, router]);
+  }, [brand, release, router]);
   return null;
 }
