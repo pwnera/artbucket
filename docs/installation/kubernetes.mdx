@@ -104,7 +104,7 @@ Every variable is in [Environment](/configuration/environment).
 
 ## Domain
 
-In `gateway.yaml`, set your domain (the one in `APP_URL`) in the Gateway's
+In `app/gateway.yaml`, set your domain (the one in `APP_URL`) in the Gateway's
 listeners and both routes' `hostnames`, your controller's `gatewayClassName`
 (`kubectl get gatewayclass`), and your certificate issuer's annotation. The
 Gateway serves HTTPS with the certificate in the `artbucket-tls` Secret, and
@@ -119,9 +119,9 @@ in its config, 1.15 or later) and give an HTTP-01 issuer a
 `artbucket-tls` from the annotation.
 
 When your cluster already runs a shared Gateway, delete the Gateway from
-`gateway.yaml` and point both routes' `parentRefs` at it, with its `namespace`
-and the `sectionName` of its HTTPS and HTTP listeners. The shared Gateway's
-listeners must allow routes from the `artbucket` namespace.
+`app/gateway.yaml` and point both routes' `parentRefs` at it, with its
+`namespace` and the `sectionName` of its HTTPS and HTTP listeners. The shared
+Gateway's listeners must allow routes from the `artbucket` namespace.
 
 ## Apply
 

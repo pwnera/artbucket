@@ -19,6 +19,26 @@ resources:
   - ../app
   - postgres.yaml
   - s3.yaml
+# The port-forwards are the way in: no Gateway, so no Gateway API needed.
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      metadata:
+        name: artbucket
+  - patch: |-
+      $patch: delete
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: artbucket
+  - patch: |-
+      $patch: delete
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: artbucket-redirect
 configMapGenerator:
   - name: artbucket-config
     envs: [config.env]
