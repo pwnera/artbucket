@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BrandTabMenu } from "@/components/brand-tabs";
 import { Can } from "@/components/can";
 import { AppHeader } from "@/components/page";
 import { useSqueeze } from "@/components/shell";
@@ -101,7 +102,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
     <AppHeader
       trail={
         <p className="flex min-w-0 items-center gap-2 text-sm">
-          <span className="truncate font-medium">{view.brand.name}</span>
+          <BrandTabMenu brand={view.brand} at="guidelines" />
           <Badge variant="outline">{view.version ? `Release ${view.version.number}` : "Draft"}</Badge>
         </p>
       }

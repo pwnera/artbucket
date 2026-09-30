@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The bar over the canvas (build spec 3.5.3, W6.3), in the order a page is
- * made: where you are (PageTrail: the brand, the pages above, the page's
+ * made: where you are (PageTrail: the brand's tabs as a menu, the pages above, the page's
  * title, which opens its settings), then SaveStatus, undo and redo
  * (b.undo, b.redo), the context and language switches (b.setContext,
  * b.setLang) when the brand has more than one, then the three things an
