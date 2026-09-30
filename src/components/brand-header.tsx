@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
-import { liveLine } from "@/lib/readiness";
+import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness";
 import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, builderPath } from "@/lib/site";
@@ -28,8 +28,9 @@ import { brandPath, builderPath } from "@/lib/site";
  * card, as the prototype draws it): its mark, its name, whether its
  * organization is verified and whether it is public on BrandHub (a link to
  * its page there), then how
- * BrandHub names it, what is live and whether it is the latest (lib/readiness.ts
- * liveLine), when it was released, and the release's note. Use this brand,
+ * BrandHub names it, what is live, where (BrandHub, its portals: a popover
+ * of links out) and whether it is the latest (lib/readiness.ts liveLine,
+ * livePlaces), when it was released, and the release's note. Use this brand,
  * Edit (the builder, where you are: the page on show, or its Rules panel
  * from Tokens and rules) and Release, while readers don't see the latest, sit
  * at its end, the tabs under it. The brand's page is read-only: Edit is the way into the builder.
@@ -39,8 +40,8 @@ export type BrandHeaderProps = {
   /** This server's address (APP_URL): where agents reach it. */
   origin: string;
   rules: Rule[];
-  /** Its BrandHub listing and where readers stand (GET .../status); null when it couldn't be read. */
-  status: Pick<Status, "hub" | "publish"> | null;
+  /** Its BrandHub listing, the portals showing it and where readers stand (GET .../status); null when it couldn't be read. */
+  status: Pick<Status, "hub" | "publish" | "portals"> | null;
   release: Release | null;
   at: BrandTab;
   /** One line (the Guidelines tab, so the pages get the screen): the mark, the name, what is live, BrandHub, the actions, then the tabs. */
@@ -58,7 +59,13 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const hub = status?.hub ?? null;
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
   const live = status ? liveLine(status.publish, release?.number ?? null) : release ? `@${release.number} live` : "Never released";
-  const line = [hub?.ref, live, release && releaseDate(release.publishedAt)].filter(Boolean);
+  // Where readers get the release: once there is one, and as far as this person is told.
+  const places = release ? livePlaces(hub, status?.portals ?? null) : null;
+  const [head, ...rest] = live.split(" · ");
+  const date = release && releaseDate(release.publishedAt);
+  const line = [hub?.ref, places?.length ? `${head} ${liveWhere(places)}` : head, places && !places.length && liveWhere(places), ...rest, date].filter(Boolean);
+  const where = places && <LivePlaces places={places} hub={hub} label={liveWhere(places)} className="hover:text-foreground underline decoration-dotted underline-offset-4" />;
+  const parts = [hub?.ref, places?.length ? <>{head} {where}</> : head, places && !places.length && where, ...rest, date].filter(Boolean);
   const mark = (
     <span className={cn("bg-muted grid shrink-0 place-items-center overflow-hidden border", compact ? "size-7 rounded-md" : "size-13 rounded-xl")}>
       {logo ? (
@@ -100,10 +107,15 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
           <span className="text-muted-foreground text-sm whitespace-nowrap" title={line.join(" · ")}>
             {status?.publish === "behind" ? "Unreleased changes" : live.split(" · ")[0]}
           </span>
-          {hub && (
-            <ExternalLink href={hub.url} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm whitespace-nowrap">
-              BrandHub
-            </ExternalLink>
+          {/* Where, short: the popover names each place. */}
+          {(places || hub) && (
+            <LivePlaces
+              places={places ?? []}
+              hub={hub}
+              label={!places ? "BrandHub" : places.length === 1 ? places[0].name : places.length ? `${places.length} places` : liveWhere(places)}
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 text-sm whitespace-nowrap"
+              chevron
+            />
           )}
           <div className="ms-auto">{actions}</div>
         </header>
@@ -133,7 +145,12 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
               )}
             </div>
             <p className="text-muted-foreground truncate text-sm">
-              {line.join(" · ")}
+              {parts.map((x, i) => (
+                <Fragment key={i}>
+                  {i > 0 && " · "}
+                  {x}
+                </Fragment>
+              ))}
               {release?.note && <> · &ldquo;{release.note.split("\n")[0]}&rdquo;</>}
             </p>
           </div>
@@ -142,6 +159,38 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       </header>
       <BrandTabs brand={brand} at={at} />
     </>
+  );
+}
+
+/**
+ * Where readers get the live release (lib/readiness.ts livePlaces), each a
+ * link out; a listing private on BrandHub too, for the team. With nowhere
+ * to link, the label alone.
+ */
+function LivePlaces({ places, hub, label, className, chevron }: { places: LivePlace[]; hub: Status["hub"]; label: string; className?: string; chevron?: boolean }) {
+  const team = hub?.visibility === "private" ? hub : null;
+  if (!places.length && !team) return <span className={className}>{label}</span>;
+  const row = (href: string, name: string, sub: string) => (
+    <ExternalLink key={href} href={href} className="hover:bg-accent flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+      <span className="grid min-w-0 flex-1">
+        <span className="font-medium">{name}</span>
+        <span className="text-muted-foreground truncate text-xs">{sub}</span>
+      </span>
+    </ExternalLink>
+  );
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className={className}>
+          {label}
+          {chevron && <IconChevronDown aria-hidden className="size-3.5" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="grid w-72 gap-0.5 p-1.5">
+        {places.map((p) => row(p.url, p.name, p.url.replace(/^https?:\/\//, "")))}
+        {team && row(team.url, "BrandHub", "Private: the team, signed in")}
+      </PopoverContent>
+    </Popover>
   );
 }
 

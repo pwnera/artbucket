@@ -73,6 +73,23 @@ export function liveLine(state: PublishState, live: number | null) {
   return `@${live} live · ${state === "behind" ? "Unreleased changes" : "Up to date"}`;
 }
 
+/** Somewhere readers get the live release: BrandHub, or a portal. */
+export type LivePlace = { name: string; url: string };
+
+/**
+ * Where readers get the live release, as the brand's header lists it:
+ * BrandHub while the brand is public there, then each portal showing it.
+ * Null when the caller isn't told the portals (lib/core/brand-status.ts)
+ * and BrandHub doesn't list it publicly: nowhere can't be told apart.
+ */
+export function livePlaces(hub: { visibility: string; url: string } | null, portals: LivePlace[] | null): LivePlace[] | null {
+  const places = [...(hub?.visibility === "public" ? [{ name: "BrandHub", url: hub.url }] : []), ...(portals ?? []).map(({ name, url }) => ({ name, url }))];
+  return places.length || portals ? places : null;
+}
+
+/** "on BrandHub, Press and Partners"; "Only the team" when nowhere. */
+export const liveWhere = (places: LivePlace[]) => (places.length ? `on ${new Intl.ListFormat("en-GB").format(places.map((p) => p.name))}` : "Only the team");
+
 /**
  * Which of a brand its Guidelines tab shows: the version the address asks
  * for (`?version=`), else the draft to whoever may edit it while it has
