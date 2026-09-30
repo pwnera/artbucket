@@ -6,7 +6,7 @@ blob store attached - not a blob store with tags.
 One maintainer. Every milestone below is independently shippable and demoable.
 Estimates assume evenings and weekends, and are guesses.
 
-**Status:** v0.1 to v1.5 shipped (current release 1.5.2). v1.6 in progress.
+**Status:** v0.1 to v1.6 shipped (current release 1.6.0). v1.7 in progress.
 
 ---
 
@@ -320,7 +320,7 @@ _~3 weekends._
 **Question:** can a brand's guidelines become a site people read, built by a
 person or an agent?
 
-In progress on `feat/builder-editing`.
+Shipped in 1.6.0.
 
 - Pages over the rules: a page tree of sections from templates that show rules
   by key, so a rule changed once changes on every page
@@ -338,6 +338,9 @@ In progress on `feat/builder-editing`.
 
 ## v1.7 - Analytics
 **Question:** which assets actually get used, where, and by whom?
+
+In progress: 1.6.0 ships its foundation, the `events` table and the Insights
+page (brand answers, release adoption, the use-check log, "Used in").
 
 Modeled on [DataFast](https://datafa.st): one screen, real-time, cookieless,
 and every number tied to the thing you care about. There it is revenue; here it
