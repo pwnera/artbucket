@@ -72,5 +72,13 @@ export function limitsFromEnv(env: Env): Limits | null {
   return Object.keys(out).length ? Limits.parse({ ...UNLIMITED, ...out }) : null;
 }
 
+/**
+ * Where an organization's admin can take a plan (BILLING_URL), while the
+ * organization runs on the server's own limits: no limits row of its own,
+ * so no plan yet. Null for everyone else, and on a server that sells none.
+ */
+export const upgradeUrl = (billing: string | undefined, admin: boolean, limitsFrom: string) =>
+  billing && admin && limitsFrom !== "organization" ? billing : null;
+
 /** Whether adding `adding` to `used` goes past `limit`; no limit is never over. */
 export const over = (limit: number | null, used: number, adding = 1) => limit !== null && used + adding > limit;

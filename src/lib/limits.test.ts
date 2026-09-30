@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatSize, limitsFromEnv, over, parseSize, UNLIMITED } from "./limits.ts";
+import { formatSize, limitsFromEnv, over, parseSize, UNLIMITED, upgradeUrl } from "./limits.ts";
 import { resolve } from "./settings.ts";
 
 test("sizes read the way an operator writes them", () => {
@@ -35,4 +35,13 @@ test("the environment sets every organization's; one organization's row override
   assert.equal(org.readOnly, true);
   assert.throws(() => limitsFromEnv({ LIMIT_STORAGE: "lots" }));
   assert.throws(() => limitsFromEnv({ LIMIT_FEATURES: "chatbot" }));
+});
+
+test("an admin is offered a plan only where the server sells them and the organization has none yet", () => {
+  const billing = "https://example.com/billing";
+  assert.equal(upgradeUrl(billing, true, "environment"), billing);
+  assert.equal(upgradeUrl(billing, true, "default"), billing);
+  assert.equal(upgradeUrl(billing, true, "organization"), null, "a row of its own is a plan already");
+  assert.equal(upgradeUrl(billing, false, "environment"), null, "only an admin can take one");
+  assert.equal(upgradeUrl(undefined, true, "environment"), null, "a server that sells none");
 });
