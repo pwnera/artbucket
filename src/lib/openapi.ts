@@ -537,9 +537,28 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Create a brand",
           scope: "write",
-          description: "Empty, or `from` another brand's current rules. Its history starts at version 1.",
+          description:
+            "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP " +
+            "brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a " +
+            "house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, " +
+            "logos, voice and more become rules, and its logos and font files are ingested from their URLs; `skipped` " +
+            "and `dropped` say what was left out. `publish` releases it and `visibility: " +
+            "public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand " +
+            "is made. Its history starts at version 1.",
           body: S.BrandCreate,
-          ok: [201, "Created", data(S.Brand)],
+          ok: [201, "Created", data(S.BrandMade)],
+        }),
+      },
+      "/api/v1/brand-json": {
+        get: op({
+          summary: "Read a domain's brand.json",
+          scope: "write",
+          description:
+            "What POST /brands with `domain` would make, before making it: each brand the domain's AdCP brand.json holds " +
+            "(a house portfolio's, its brand_refs read at their own domains), with its colors, faces, logo count and what " +
+            "has no place in the rules, and the one `pick`ed when no `brand` is named.",
+          query: { domain: { schema: str, description: "A domain, e.g. acme.com" } },
+          ok: [200, "What it holds", data(S.BrandJsonPreview)],
         }),
       },
       "/api/v1/brands/{slug}": {

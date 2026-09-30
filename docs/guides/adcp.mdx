@@ -1,0 +1,64 @@
+---
+title: AdCP brand.json
+description: Make a brand from the file agents read at a domain.
+---
+
+The [Ad Context Protocol](https://docs.adcontextprotocol.org/docs/brand-protocol/brand-json)
+puts a brand's identity at `https://{domain}/.well-known/brand.json`: its
+names, logos, colors, fonts and voice, for ad tech and agents. Artbucket reads
+that file to start a brand, and writes it for every public brand on BrandHub
+(`/{org}/{brand}/brand.json`).
+
+## Make a brand from a domain
+
+In the app: **New brand**, **Build it in the builder**, **From a domain**,
+type the domain and **Look it up**. It shows what it found, each brand of a
+house with its colors, faces and logos, and what it leaves out; pick one and
+**Create brand**. Over the API:
+
+```bash
+# What it holds, before making anything
+curl -H "Authorization: Bearer $KEY" 'https://assets.example.com/api/v1/brand-json?domain=acme.com'
+
+# Make it, release it and list it on BrandHub in one call
+curl -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"domain": "acme.com", "publish": {"note": "From acme.com'"'"'s brand.json"}, "visibility": "public"}' \
+  https://assets.example.com/api/v1/brands
+```
+
+`POST /api/v1/brands` takes `domain`, or the document itself as `brandJson`
+(then `domain`, if given, says where it came from), with `brand` to pick one of
+a house's brands by its AdCP id (the one at `domain`, or the only one, when
+left out), and `name` and `slug` to override the document's. MCP's
+`create_brand` takes the same. The file is read as the protocol says: over
+https only, from public hosts, at most 512 KB and 20 seconds, redirected only
+to the domain's exact `www` twin and back. An Authoritative Location Redirect
+is followed once, exactly, and a House Portfolio's `brand_refs` are read at
+their own domains, ten at most.
+
+What becomes what, the export's mapping run backwards:
+
+| brand.json | Rule |
+|---|---|
+| `description`, `tagline`, `industries`, `target_audience` | `brand.description`, `brand.tagline`, `brand.industries`, `brand.audience` |
+| `colors.{role}` | `color.{role}` (an array: `color.{role}`, `color.{role}2`...) |
+| `visual_guidelines.colorways` | the ground color's `spec.pair` |
+| `fonts.{role}`, its files | `type.{role}`, its files ingested |
+| `visual_guidelines.type_scale` | the face's size, weight and `spec` (role, line height, tracking, case) |
+| `logos` | `logo.primary`, `logo.mark`, `logo.wordmark`, `logo.lockup`, `logo.secondary` by variant, `dark-bg` ones in the `dark-background` context, each image ingested |
+| `logo_placement.min_height`, `min_clear_space` | `logo.minSize`, `logo.clearSpace` |
+| `restrictions` | `logo.never` |
+| `tone.voice`, `attributes`, `dos`, `donts` | `tone.voice`, `tone.attributes`, `tone.always`, `tone.avoid` |
+| `spacing.scale` | `space.scale` |
+| `assets` (images) | `imagery.library`, each image ingested |
+| `disclaimers` | `legal.disclaimer` |
+
+Localized fields (AdCP 3.2's `default_language`, `tone.*`, an asset's `name`
+and `description`) are read in English, else in the document's
+`default_language`, else as their plain value; never whichever translation
+comes first. A localized list is taken whole. Names, which have no plain
+value, fall back to the first when none is in either language. What has no
+place in the rules (`keller_type`, `properties`, `trademarks`, `photography`,
+`motion`...) is left out and listed in the answer's `dropped`; a logo or font
+file that won't fetch is left out and listed in `skipped`, rather than
+refusing the brand.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles, IconWorld } from "@tabler/icons-react";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
 import type { BrandInfo } from "@/components/brand-switcher";
@@ -15,10 +15,17 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEMPLATE_CARDS } from "@/lib/brand-templates";
 import { gitLink } from "@/lib/git";
+import { sendResult } from "@/lib/send";
 import { cn } from "@/lib/utils";
 
 type Step = "how" | "builder" | "agent" | "git";
-type Start = "" | (typeof TEMPLATE_CARDS)[number]["id"];
+type Start = "" | "domain" | (typeof TEMPLATE_CARDS)[number]["id"];
+/** GET /api/v1/brand-json: what a domain's brand.json holds. */
+type Found = {
+  domain: string | null;
+  pick: string | null;
+  brands: { id: string; name: string; domain: string | null; tagline: string | null; colors: string[]; fonts: string[]; logos: number; rules: number; dropped: string[] }[];
+};
 
 /** The agents the AI path offers, in the order people reach for them: each connects as the Connections page says. */
 const PICKS = ["Claude Code", "Cursor", "Codex", "Claude", "ChatGPT"].flatMap((n) => AGENTS.filter((a) => a.name === n));
@@ -54,20 +61,47 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   const [site, setSite] = useState("");
   const [start, setStart] = useState<Start>("");
   const [busy, setBusy] = useState(false);
+  // From a domain: what its brand.json holds, the brand picked, and why nothing was found.
+  const [domain, setDomain] = useState("");
+  const [found, setFound] = useState<Found | null>(null);
+  const [pickId, setPickId] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   /** Made for the CLI, where the server has no Git integration: the commands name it. */
   const [made, setMade] = useState<BrandInfo | null>(null);
 
+  // A template, or the brand found at a domain, names the brand until you do.
+  const nameOf = (s: Start, id = pickId) => (s === "domain" ? found?.brands.find((b) => b.id === id)?.name : TEMPLATE_CARDS.find((t) => t.id === s)?.name) ?? "";
+  const rename = (next: string) => {
+    if (!name.trim() || name === nameOf(start)) setName(next);
+  };
+
   function pick(s: Start) {
-    // A template names the brand until you do.
-    const was = TEMPLATE_CARDS.find((t) => t.id === start)?.name ?? "";
-    if (!name.trim() || name === was) setName(TEMPLATE_CARDS.find((t) => t.id === s)?.name ?? "");
+    rename(nameOf(s));
     setStart(s);
+  }
+
+  async function look(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!domain.trim()) return;
+    setLookup({ busy: true, error: null });
+    const r = await sendResult("GET", `/api/v1/brand-json?${new URLSearchParams({ domain: domain.trim() })}`, undefined, { quiet: true });
+    if (!r.ok) {
+      setFound(null);
+      return setLookup({ busy: false, error: r.network ? "Couldn't reach the server" : (r.error?.message ?? "Nothing found") });
+    }
+    const f = r.data as Found;
+    const id = f.pick ?? f.brands[0]?.id ?? null;
+    setLookup({ busy: false, error: null });
+    rename(f.brands.find((b) => b.id === id)?.name ?? "");
+    setFound(f);
+    setPickId(id);
   }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const b: BrandInfo | null = await send("POST", "/api/v1/brands", { name, ...(start && { template: start }) });
+    const from = start === "domain" ? { domain: found?.domain ?? domain.trim(), ...(pickId && { brand: pickId }) } : start ? { template: start } : {};
+    const b: BrandInfo | null = await send("POST", "/api/v1/brands", { name, ...from });
     if (b && git && keep) return window.location.assign(gitLink(git, b.slug));
     setBusy(false);
     if (b) onDone(b);
@@ -109,24 +143,90 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           <form onSubmit={create} className="grid min-w-0 gap-4">
             <DialogHeader>
               <DialogTitle>Build it in the builder</DialogTitle>
-              <DialogDescription>Start blank, or from a template: its colors, type, logos and pages, yours to change.</DialogDescription>
+              <DialogDescription>Start blank, from your domain&apos;s brand.json, or from a template: its colors, type, logos and pages, yours to change.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Start from">
-              <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules and no pages: add them as you go." compact>
-                <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
-                  <IconPlus className="size-4" />
-                </div>
-              </Choice>
-              {TEMPLATE_CARDS.map((t) => (
-                <Choice key={t.id} selected={start === t.id} onSelect={() => pick(t.id)} title={t.name} text={t.blurb} compact>
-                  <div className="flex h-10 overflow-hidden rounded-md border">
-                    {t.swatches.map((c) => (
-                      <span key={c} className="flex-1" style={{ background: c }} />
-                    ))}
+            <div className="grid gap-3" role="radiogroup" aria-label="Start from">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules and no pages: add them as you go." compact>
+                  <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
+                    <IconPlus className="size-4" />
                   </div>
                 </Choice>
-              ))}
+                <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json, the file agents read: colors, type, logos and voice." compact>
+                  <div className="text-muted-foreground flex h-10 items-center justify-center gap-1.5 rounded-md border font-mono text-xs">
+                    <IconWorld className="size-4" /> /.well-known/brand.json
+                  </div>
+                </Choice>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {TEMPLATE_CARDS.map((t) => (
+                  <Choice key={t.id} selected={start === t.id} onSelect={() => pick(t.id)} title={t.name} text={t.blurb} compact>
+                    <div className="flex h-10 overflow-hidden rounded-md border">
+                      {t.swatches.map((c) => (
+                        <span key={c} className="flex-1" style={{ background: c }} />
+                      ))}
+                    </div>
+                  </Choice>
+                ))}
+              </div>
             </div>
+            {start === "domain" && (
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-domain`}>Domain</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id={`${id}-domain`}
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && void look(e)}
+                    placeholder="acme.com"
+                    inputMode="url"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                  />
+                  <Button type="button" variant="outline" pending={lookup.busy} disabled={!domain.trim()} onClick={() => void look()}>
+                    Look it up
+                  </Button>
+                </div>
+                {lookup.error && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {lookup.error}
+                  </p>
+                )}
+                {found && (
+                  <div className="grid gap-2" role="radiogroup" aria-label="Brand found">
+                    {found.brands.map((b) => (
+                      <Choice
+                        key={b.id}
+                        selected={pickId === b.id}
+                        onSelect={() => {
+                          rename(b.name);
+                          setPickId(b.id);
+                        }}
+                        title={b.name}
+                        text={[
+                          b.domain,
+                          b.tagline,
+                          `${b.rules} rules${b.logos ? `, ${b.logos} logo${b.logos === 1 ? "" : "s"}` : ""}${b.fonts.length ? `, ${b.fonts.join(" and ")}` : ""}`,
+                          b.dropped.length ? `Left out: ${b.dropped.join(", ")}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(". ")}
+                        compact
+                      >
+                        {b.colors.length > 0 && (
+                          <div className="flex h-6 overflow-hidden rounded-md border">
+                            {b.colors.map((c, i) => (
+                              <span key={i} className="flex-1" style={{ background: c }} />
+                            ))}
+                          </div>
+                        )}
+                      </Choice>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor={`${id}-name`}>Name</Label>
               <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
@@ -144,7 +244,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
               <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={busy}>
                 <IconArrowLeft /> Back
               </Button>
-              <Button type="submit" pending={busy} disabled={!name.trim()}>
+              <Button type="submit" pending={busy} disabled={!name.trim() || (start === "domain" && !pickId)}>
                 {busy && start ? "Bringing in its logos and fonts" : keep ? "Create and pick a repository" : "Create brand"}
               </Button>
             </DialogFooter>

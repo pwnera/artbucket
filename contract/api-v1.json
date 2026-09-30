@@ -16071,7 +16071,7 @@
     },
     "post": {
       "summary": "Create a brand",
-      "description": "Empty, or `from` another brand's current rules. Its history starts at version 1.\n\nScope: `write`.",
+      "description": "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, logos, voice and more become rules, and its logos and font files are ingested from their URLs; `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand is made. Its history starts at version 1.\n\nScope: `write`.",
       "x-scope": "write",
       "requestBody": {
         "required": true,
@@ -16081,12 +16081,13 @@
               "type": "object",
               "properties": {
                 "name": {
+                  "description": "Required, but from a brand.json: then the brand's name there when left out",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 80
                 },
                 "slug": {
-                  "description": "Defaults to the name, as a slug",
+                  "description": "Defaults to the name, as a slug; from a brand.json, to its id",
                   "type": "string",
                   "maxLength": 60,
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -16114,11 +16115,61 @@
                     "rust",
                     "blender"
                   ]
+                },
+                "domain": {
+                  "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253
+                },
+                "brandJson": {
+                  "description": "Start from this AdCP brand.json document, rather than one read from `domain`",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                },
+                "brand": {
+                  "description": "Which brand of a house portfolio, by its AdCP id; when left out, the one at `domain`, or its only one",
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-z0-9_]+$"
+                },
+                "publish": {
+                  "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace",
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "description": "What changed, for readers of the history and What's new",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "image": {
+                          "description": "An asset shown beside the note",
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "visibility": {
+                  "description": "`public` puts its release on BrandHub for anyone, once made; takes `publish`",
+                  "type": "string",
+                  "enum": [
+                    "private",
+                    "public"
+                  ]
                 }
               },
-              "required": [
-                "name"
-              ],
               "additionalProperties": false
             }
           }
@@ -16168,6 +16219,54 @@
                         "type": "string",
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      "skipped": {
+                        "description": "From a brand.json: files and portfolio brands that wouldn't read, each with why",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "dropped": {
+                        "description": "From a brand.json: what it says that has no place in the rules, by its path there",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "published": {
+                        "description": "With publish: the version released",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "hub": {
+                        "description": "With publish: where it is on BrandHub",
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "private",
+                                  "public"
+                                ]
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "visibility",
+                              "url"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -16177,6 +16276,182 @@
                       "visibility",
                       "rules",
                       "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brand-json": {
+    "get": {
+      "summary": "Read a domain's brand.json",
+      "description": "What POST /brands with `domain` would make, before making it: each brand the domain's AdCP brand.json holds (a house portfolio's, its brand_refs read at their own domains), with its colors, faces, logo count and what has no place in the rules, and the one `pick`ed when no `brand` is named.\n\nScope: `write`.",
+      "x-scope": "write",
+      "parameters": [
+        {
+          "name": "domain",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A domain, e.g. acme.com"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "What it holds",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "domain": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "pick": {
+                        "description": "The brand POST /brands makes when `brand` is left out; null: name one",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Its AdCP id: POST /brands takes it as `brand`"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "domain": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "tagline": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "colors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fonts": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "logos": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "rules": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "files": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "dropped": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "slug",
+                            "domain",
+                            "tagline",
+                            "colors",
+                            "fonts",
+                            "logos",
+                            "rules",
+                            "files",
+                            "dropped"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "skipped": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "domain",
+                      "pick",
+                      "brands",
+                      "skipped"
                     ],
                     "additionalProperties": false
                   }

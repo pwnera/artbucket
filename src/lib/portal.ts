@@ -148,6 +148,12 @@ export function hostname(raw: string): string | null {
   return h;
 }
 
+/** A brand's domain from a URL or a host name: `https://www.Acme.com/about` is acme.com. Null for what names no host. */
+export function brandDomain(raw: string): string | null {
+  const host = hostname(raw.trim().replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/[/?#].*$/, "").replace(/^[^@]*@/, ""));
+  return host && host.replace(/^www\./, "");
+}
+
 /** Where a domain's owner proves it: a TXT record at this name holding the token. */
 export const challengeName = (host: string) => `_artbucket-challenge.${host}`;
 
