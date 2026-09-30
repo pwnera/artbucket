@@ -730,12 +730,13 @@ export function openapi(serverUrl: string) {
             "that may be used, and each collection section's assets. No `page`: the first. A slug it had before a " +
             "rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. " +
             "`edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among " +
-            "them) and `missing`.",
+            "them) and `missing`. `version=live` reads the release readers see instead, with `version` set; 404 before the first.",
           query: {
             page: { schema: str, description: "The page's slug; the first page when left out" },
             context: { schema: str, description: "The context the reader starts in, e.g. dark-background" },
             lang: { schema: str, description: "The reader's language" },
             edit: { schema: { type: "string", enum: ["1"] }, description: "1: as the builder sees it" },
+            version: { schema: { type: "string", enum: ["draft", "live"] }, description: "live: the released brand; the draft when left out" },
             in: { schema: str, description: "A collection section's id, whose assets `find` narrows" },
             find: { schema: str, description: "Words a reader searches that collection section for" },
           },

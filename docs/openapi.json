@@ -25501,7 +25501,7 @@
       ],
       "get": {
         "summary": "A brand page, ready to read",
-        "description": "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed with a lock), the page's sections, every context version of the rules they show, the assets they name that may be used, and each collection section's assets. No `page`: the first. A slug it had before a rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. `edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among them) and `missing`.\n\nScope: `read`.",
+        "description": "A page of the draft as readers with every door open see it: the nav (pages above a reader's level listed with a lock), the page's sections, every context version of the rules they show, the assets they name that may be used, and each collection section's assets. No `page`: the first. A slug it had before a rename gives the page with `redirect` set. `theme` is the look, derived and graded, as GET theme gives it. `edit=1` takes write, and adds hidden pages and sections, `warnings` (theme pairs that fell back among them) and `missing`. `version=live` reads the release readers see instead, with `version` set; 404 before the first.\n\nScope: `read`.",
         "x-scope": "read",
         "parameters": [
           {
@@ -25538,6 +25538,18 @@
               ]
             },
             "description": "1: as the builder sees it"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "live"
+              ]
+            },
+            "description": "live: the released brand; the draft when left out"
           },
           {
             "name": "in",

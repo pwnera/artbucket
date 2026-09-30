@@ -27,7 +27,9 @@ note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
 BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand), **Edit** (the
 builder) and, while readers don't see the latest, **Release** beside it. The page is
 read-only, and every tab stays in it, under the same header: Overview,
-Guidelines (the brand's pages as readers see them, at `/brands/{slug}/pages`),
+Guidelines (the brand's pages as readers see them, at `/brands/{slug}/pages`:
+the live release, or the draft to whoever may edit it while it has
+unreleased changes, always labeled, with a switch between them),
 Tokens and rules (its rules read-only by section, and its tokens in every
 format, at `/brands/{slug}/rules`), Assets (the files its rules hold and its
 pages show, at `/brands/{slug}/assets`, from `GET /api/v1/brands/{slug}/assets`),

@@ -5,15 +5,17 @@ import { Builder } from "@/components/builder/builder";
 import { GitReturn } from "@/components/git-return";
 import { AppHeader } from "@/components/page";
 import { BrandReader } from "@/components/site/brand-reader";
+import { brandHead } from "@/lib/brand-head";
 import type { NavEntry } from "@/lib/builder-ops";
 import { can } from "@/lib/permissions";
+import { shownVersion } from "@/lib/readiness";
 import { contextLabel, type Rule } from "@/lib/rules";
 import { brands, get, getBody, whoami } from "@/lib/sidebar";
 import { brandPath, guidelinesPath, type PageView, type ViewRule } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-type Query = { context?: string; view?: string; page?: string; lang?: string; panel?: string };
+type Query = { context?: string; view?: string; page?: string; lang?: string; panel?: string; version?: string };
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Query> };
 
 /** The builder's panels a link may open (`?panel=`). */
@@ -23,8 +25,8 @@ const PANELS = ["rules", "history", "tokens", "publish"] as const;
 const pick = async (slug: string) => (await brands()).find((b) => b.slug === slug);
 
 /** One page's view as its readers get it, once per request: the title and the page both read it. */
-const viewOf = cache(async (brand: string, page = "", context = "", lang = "") => {
-  const q = new URLSearchParams(Object.entries({ page, context, lang }).filter(([, v]) => v));
+const viewOf = cache(async (brand: string, page = "", context = "", lang = "", version = "") => {
+  const q = new URLSearchParams(Object.entries({ page, context, lang, version: version === "live" ? version : "" }).filter(([, v]) => v));
   return (await getBody<{ data?: PageView }>(`brands/${encodeURIComponent(brand)}/view${q.size ? `?${q}` : ""}`))?.data ?? null;
 });
 
@@ -75,19 +77,21 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
  * read, gets the brand's pages as its readers see them.
  */
 export default async function GuidelinesPage({ params, searchParams }: Props) {
-  const [{ slug }, { context, view, page, lang, panel }] = await Promise.all([params, searchParams]);
+  const [{ slug }, { context, view, page, lang, panel, version: asked }] = await Promise.all([params, searchParams]);
   const [brand, me] = await Promise.all([pick(slug), whoami()]);
   if (!brand) notFound();
 
   if (view === "read" || !can(me, "brand.edit")) {
-    const read = await viewOf(brand.slug, page, context, lang);
+    const status = (await brandHead(brand.slug))?.status ?? null;
+    const version = shownVersion(asked, { edit: can(me, "brand.edit"), publish: status?.publish ?? "never", live: status?.live ?? null });
+    const read = await viewOf(brand.slug, page, context, lang, version);
     if (!read) notFound();
     // A slug the page had before a rename: its address now.
     if (read.redirect) {
-      redirect(guidelinesPath(brand.slug, { view, page: read.redirect, context, lang }));
+      redirect(guidelinesPath(brand.slug, { view, page: read.redirect, context, lang, version: asked }));
     }
     // Remount per brand only: another page or context is a view of the same site.
-    return <BrandReader key={brand.slug} initial={read} />;
+    return <BrandReader key={brand.slug} initial={read} status={status} version={version} />;
   }
 
   const b = encodeURIComponent(brand.slug);

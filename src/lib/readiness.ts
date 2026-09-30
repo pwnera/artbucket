@@ -74,6 +74,18 @@ export function liveLine(state: PublishState, live: number | null) {
 }
 
 /**
+ * Which of a brand its Guidelines tab shows: the version the address asks
+ * for (`?version=`), else the draft to whoever may edit it while it has
+ * changes readers don't see, else the live release. Before the first
+ * release the draft is all there is.
+ */
+export function shownVersion(asked: string | undefined, o: { edit: boolean; publish: PublishState; live: number | null }): "draft" | "live" {
+  if (o.live === null) return "draft";
+  if (asked === "draft" || asked === "live") return asked;
+  return o.edit && o.publish === "behind" ? "draft" : "live";
+}
+
+/**
  * What each step weighs in the Brand Agent Score (PRD: it replaces the
  * launch checklist as the brand's health meter): how much an agent working
  * from the brand gains by it. The rules an agent reads before making
