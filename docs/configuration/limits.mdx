@@ -24,7 +24,10 @@ lowering a limit only stops what would go further.
 
 When the limits come with a plan, set `BILLING_URL` to where its admins
 manage it: Settings, Usage shows a "Manage plan" link there, a refusal names
-it, and `GET /api/v1/usage` returns it as `billing`.
+it, and `GET /api/v1/usage` returns it as `billing`. An organization with no
+limits row of its own is on the server's limits, with no plan yet: its admins
+also see an "Upgrade" button in the app's header, and `GET /api/v1/me`
+returns the address as `upgrade`.
 
 ## For every organization
 

@@ -980,6 +980,11 @@ export const Me = z.object({
     .describe("Abilities your grants have switched off, on the workspace and on single collections and assets"),
   hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
+  upgrade: z
+    .string()
+    .url()
+    .nullable()
+    .describe("Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
