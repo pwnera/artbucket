@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { BrandTabs, type BrandTab } from "@/components/brand-tabs";
+import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
+import { TabNav } from "@/components/hub";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ export type BrandHeaderProps = {
   status: Pick<Status, "hub" | "publish" | "portals"> | null;
   release: Release | null;
   at: BrandTab;
-  /** One line (the Guidelines tab, so the pages get the screen): the mark, the name, what is live, BrandHub, the actions, then the tabs. */
+  /** One line (the Guidelines tab, so the pages get the screen): the mark, the name and the tabs inline (in the name's menu when narrow), what is live with where in its popover, and the actions as icons. */
   compact?: boolean;
 };
 
@@ -65,6 +66,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const date = release && releaseDate(release.publishedAt);
   const line = [hub?.ref, places?.length ? `${head} ${liveWhere(places)}` : head, places && !places.length && liveWhere(places), ...rest, date].filter(Boolean);
   const where = places && <LivePlaces places={places} hub={hub} label={liveWhere(places)} className="hover:text-foreground underline decoration-dotted underline-offset-4" />;
+  const tabs = useBrandTabs(brand);
   const parts = [hub?.ref, places?.length ? <>{head} {where}</> : head, places && !places.length && where, ...rest, date].filter(Boolean);
   const mark = (
     <span className={cn("bg-muted grid shrink-0 place-items-center overflow-hidden border", compact ? "size-7 rounded-md" : "size-13 rounded-xl")}>
@@ -76,20 +78,20 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       )}
     </span>
   );
-  // On a phone the compact header's buttons are their icons, their words for screen readers.
-  const word = compact ? "max-sm:sr-only" : undefined;
+  // The compact header's buttons are their icons: their words are their tooltips, and for screen readers.
+  const word = compact ? "sr-only" : undefined;
   const actions = (
     <div className="flex items-center gap-2">
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit") && (
-        <Button asChild size="sm" variant="outline">
+        <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={builderPath(brand.slug, editing)}>
             <IconPencil aria-hidden /> <span className={word}>Edit</span>
           </Link>
         </Button>
       )}
       {can("brand.edit") && status?.publish !== "current" && (
-        <Button asChild size="sm">
+        <Button asChild size="sm" title={compact ? "Release" : undefined}>
           <Link href={brandPath(brand.slug, "/releases/new")}>
             <IconWorldUpload aria-hidden /> <span className={word}>Release</span>
           </Link>
@@ -97,30 +99,44 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       )}
     </div>
   );
+  // One line over the guidelines: the tabs inline while they fit the header (a container query), else in the menu on the brand's name.
   if (compact)
     return (
-      <>
-        <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-3 md:px-6">
+      <header className="@container border-b">
+        <div className="flex h-12 items-center gap-2 px-4 md:px-6">
           {mark}
-          <h1 className="font-display min-w-0 truncate text-lg font-semibold tracking-tight">{brand.name}</h1>
-          {/* What is live, short: the whole line is its title. */}
-          <span className="text-muted-foreground text-sm whitespace-nowrap" title={line.join(" · ")}>
-            {status?.publish === "behind" ? "Unreleased changes" : live.split(" · ")[0]}
-          </span>
-          {/* Where, short: the popover names each place. */}
-          {(places || hub) && (
+          <h1 className="font-display sr-only max-w-48 min-w-0 truncate font-semibold tracking-tight @min-[64rem]:not-sr-only">{brand.name}</h1>
+          <div className="min-w-0 @min-[64rem]:hidden">
+            <BrandTabMenu brand={brand} at={at} />
+          </div>
+          <TabNav
+            label={brand.name}
+            items={tabs.map((t) => ({ href: t.href, label: t.label, current: t.id === at }))}
+            className="ms-2 hidden self-stretch *:px-2 *:text-[13px] @min-[64rem]:flex"
+          />
+          <div className="ms-auto flex shrink-0 items-center gap-2">
+            {/* What is live, short; the popover says the rest and where, BrandHub included. */}
             <LivePlaces
               places={places ?? []}
               hub={hub}
-              label={!places ? "BrandHub" : places.length === 1 ? places[0].name : places.length ? `${places.length} places` : liveWhere(places)}
-              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 text-sm whitespace-nowrap"
+              summary={line.join(" · ")}
+              label={
+                <>
+                  {head}
+                  {status?.publish === "behind" && (
+                    <span className="bg-warning size-1.5 rounded-full">
+                      <span className="sr-only">, unreleased changes</span>
+                    </span>
+                  )}
+                </>
+              }
+              className="text-muted-foreground hover:text-foreground hidden items-center gap-1 text-[13px] whitespace-nowrap @min-[28rem]:inline-flex"
               chevron
             />
-          )}
-          <div className="ms-auto">{actions}</div>
-        </header>
-        <BrandTabs brand={brand} at={at} />
-      </>
+            {actions}
+          </div>
+        </div>
+      </header>
     );
   return (
     <>
@@ -165,11 +181,26 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
 /**
  * Where readers get the live release (lib/readiness.ts livePlaces), each a
  * link out; a listing private on BrandHub too, for the team. With nowhere
- * to link, the label alone.
+ * to link and nothing to sum up, the label alone.
  */
-function LivePlaces({ places, hub, label, className, chevron }: { places: LivePlace[]; hub: Status["hub"]; label: string; className?: string; chevron?: boolean }) {
+function LivePlaces({
+  places,
+  hub,
+  label,
+  summary,
+  className,
+  chevron,
+}: {
+  places: LivePlace[];
+  hub: Status["hub"];
+  label: React.ReactNode;
+  /** The whole live line, atop the places: the compact header's trigger says only what is live. */
+  summary?: string;
+  className?: string;
+  chevron?: boolean;
+}) {
   const team = hub?.visibility === "private" ? hub : null;
-  if (!places.length && !team) return <span className={className}>{label}</span>;
+  if (!places.length && !team && !summary) return <span className={className}>{label}</span>;
   const row = (href: string, name: string, sub: string) => (
     <ExternalLink key={href} href={href} className="hover:bg-accent flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
       <span className="grid min-w-0 flex-1">
@@ -187,6 +218,7 @@ function LivePlaces({ places, hub, label, className, chevron }: { places: LivePl
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-72 gap-0.5 p-1.5">
+        {summary && <p className="text-muted-foreground px-2 py-1.5 text-xs">{summary}</p>}
         {places.map((p) => row(p.url, p.name, p.url.replace(/^https?:\/\//, "")))}
         {team && row(team.url, "BrandHub", "Private: the team, signed in")}
       </PopoverContent>
@@ -208,8 +240,8 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <Button size="sm" variant="outline">
-            <IconRobot aria-hidden /> <span className={compact ? "max-sm:sr-only" : undefined}>Use this brand</span> <IconChevronDown aria-hidden />
+          <Button size="sm" variant="outline" title={compact ? "Use this brand" : undefined}>
+            <IconRobot aria-hidden /> <span className={compact ? "sr-only" : undefined}>Use this brand</span> {!compact && <IconChevronDown aria-hidden />}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
