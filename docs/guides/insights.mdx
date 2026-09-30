@@ -10,8 +10,9 @@ Insights, in the app's sidebar for people with write on the workspace, and at `G
 - **Still on the old release**: the replaced versions fetched lately, and the sites (referrer hosts) that load them.
 - **Most used assets**, with their fetches by surface: the app, a key on the API, MCP, a portal, a signed link, a public embed.
 - **Search gaps**: searches with no result, from the app, portals and MCP.
-- **Use checks**: every `check_use` and `POST /api/v1/check` answer; refusals by reason (replaced, expired, territory, wrong variant), and the latest ones with what was offered instead and whether it was taken: the same client fetched the replacement, or checked it and was allowed, afterwards.
 - **Delivery** and **portal page views**, per day and per page.
+
+Its **Use checks** tab, at `/insights/checks`, is the use-check log: every `check_use` and `POST /api/v1/check` answer counted, refusals by reason (replaced, expired, territory, wrong variant), and the latest ones with who asked, what was offered instead and whether it was taken: the same client fetched the replacement, or checked it and was allowed, afterwards. Export CSV saves those rows.
 
 Each asset's panel has a **Used in** fold, from `GET /api/v1/assets/{id}/insights`: the brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by the sites that load it.
 

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { IconAlertTriangle, IconChartBar, IconCheck } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
+import { TabNav } from "@/components/hub";
 import { AppHeader, PageHeader } from "@/components/page";
+import { Button } from "@/components/ui/button";
 import { Group } from "@/components/settings/panels";
 import { REASON } from "@/lib/insights";
 import { formatSize } from "@/lib/limits";
@@ -92,25 +94,53 @@ export const None = ({ children }: { children: React.ReactNode }) => <p classNam
 export const th = "py-1.5 font-medium";
 export const td = "py-1.5";
 
+export type InsightsTab = "overview" | "checks";
+
 /**
- * Insights v1 (PRD section 11): brand answers, release adoption and who is
- * still on an old version, the most used assets by surface, search gaps,
- * and the delivery and page-view counts that lived in Usage and Portals.
+ * Insights v1 (PRD section 11), in two tabs. Overview: brand answers,
+ * release adoption and who is still on an old version, the most used assets
+ * by surface, search gaps, and the delivery and page-view counts that lived
+ * in Usage and Portals. Use checks (/insights/checks): the use-check log.
  */
-export function Insights({ data }: { data: InsightsData | null }) {
-  const sites = new Set(data?.stale.flatMap((s) => s.referrer ?? []) ?? []);
+export function Insights({ data, tab = "overview" }: { data: InsightsData | null; tab?: InsightsTab }) {
+  const checks = tab === "checks";
   return (
     <>
-      <AppHeader trail={[{ label: "Insights" }]} />
+      <AppHeader trail={checks ? [{ label: "Insights", href: "/insights" }, { label: "Use checks" }] : [{ label: "Insights" }]} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconChartBar />}
-          title="Insights"
-          description="What gets used, by whom and through which surface. Counted in this server's own database: no IP addresses, no names of people, no full URLs, and nothing sent anywhere."
+          title={checks ? "Use checks" : "Insights"}
+          description={
+            checks
+              ? "Every use checked, by a person, a portal visitor or an agent: what was refused, why, what was offered instead, and whether it was taken."
+              : "What gets used, by whom and through which surface. Counted in this server's own database: no IP addresses, no names of people, no full URLs, and nothing sent anywhere."
+          }
         />
+        <div className="-mt-2 border-b">
+          <TabNav
+            label="Insights"
+            items={[
+              { href: "/insights", label: "Overview", current: !checks },
+              { href: "/insights/checks", label: "Use checks", current: checks, count: data?.checks.refused || undefined },
+            ]}
+          />
+        </div>
         {!data ? (
           <None>Insights couldn&apos;t load. Nothing has changed; try again in a moment.</None>
+        ) : checks ? (
+          <UseChecks data={data} />
         ) : (
+          <Overview data={data} />
+        )}
+      </div>
+    </>
+  );
+}
+
+function Overview({ data }: { data: InsightsData }) {
+  const sites = new Set(data.stale.flatMap((s) => s.referrer ?? []));
+  return (
           <>
             {sites.size > 0 && (
               <p role="status" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
@@ -217,59 +247,6 @@ export function Insights({ data }: { data: InsightsData | null }) {
               )}
             </Group>
 
-            <Group
-              title="Use checks"
-              description={`What check_use and the check API answered in the last ${data.days} days: ${data.checks.allowed.toLocaleString()} allowed, ${data.checks.refused.toLocaleString()} refused. Each refusal names what to use instead; taken means the same client used it afterwards.`}
-            >
-              {data.checks.refused === 0 ? (
-                <None>Nothing refused.</None>
-              ) : (
-                <>
-                  <ul aria-label="Refusals by reason" className="flex flex-wrap gap-2 text-sm">
-                    {data.checks.reasons.map((r) => (
-                      <li key={r.code} className="rounded-md border px-2 py-0.5">
-                        {REASON[r.code] ?? r.code} <span className="text-muted-foreground tabular-nums">{r.count.toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <ol aria-label="Latest refusals" className="divide-y text-sm">
-                    {data.checks.log.map((c) => (
-                      <li key={c.id} className="grid gap-0.5 py-2">
-                        <div className="flex flex-wrap items-baseline gap-x-2">
-                          <AssetLink a={c.asset} />
-                          <span className="text-muted-foreground text-xs">
-                            {c.reasons.map((r) => REASON[r] ?? r).join(", ")}
-                            {c.context && `, for ${c.context}`}
-                          </span>
-                          <span className="text-muted-foreground ml-auto text-xs" title={exact(c.at)} suppressHydrationWarning>
-                            {c.client ?? SURFACE[c.surface] ?? c.surface}, {ago(c.at)}
-                          </span>
-                        </div>
-                        {c.offered.length > 0 && (
-                          <p className="text-muted-foreground text-xs">
-                            Offered{" "}
-                            {c.offered.map((o, i) => (
-                              <span key={o.asset.id}>
-                                {i > 0 && ", "}
-                                <AssetLink a={o.asset} />
-                                {o.taken && (
-                                  <span className="text-success">
-                                    {" "}
-                                    <IconCheck aria-hidden className="inline size-3.5" />
-                                    taken
-                                  </span>
-                                )}
-                              </span>
-                            ))}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              )}
-            </Group>
-
             <Group title={`Delivery, last ${data.days} days`} description="What asset URLs served from this workspace per day: originals, renditions and downloads, the app's own thumbnails included.">
               {data.delivery.length === 0 ? (
                 <None>Nothing served in the last {data.days} days.</None>
@@ -301,8 +278,133 @@ export function Insights({ data }: { data: InsightsData | null }) {
               )}
             </Group>
           </>
+  );
+}
+
+/** A refusal's row, as a spreadsheet reads it. */
+const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
+
+/**
+ * The use-check log (PRD INS-1, the prototype's /insights/checks): how many
+ * checks, refused and taken, refusals by reason, and the latest refusals with
+ * who asked, what was offered and whether they took it. Export CSV is the
+ * rows on show, built here: nothing the API doesn't already answer.
+ */
+function UseChecks({ data }: { data: InsightsData }) {
+  const c = data.checks;
+  const took = c.log.filter((l) => l.offered.some((o) => o.taken)).length;
+  const max = Math.max(1, ...c.reasons.map((r) => r.count));
+  const asker = (l: InsightsData["checks"]["log"][number]) => l.client ?? SURFACE[l.surface] ?? l.surface;
+  const csv = () => {
+    const rows = [
+      ["When", "Asked by", "Asset", "Reason", "Offered", "Took it"],
+      ...c.log.map((l) => [
+        l.at,
+        asker(l),
+        l.asset.title,
+        l.reasons.map((r) => REASON[r] ?? r).join("; "),
+        l.offered.map((o) => o.asset.title).join("; "),
+        l.offered.length ? (l.offered.some((o) => o.taken) ? "yes" : "no") : "",
+      ]),
+    ];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" }));
+    a.download = "use-checks.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  };
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-muted-foreground flex-1 text-sm tabular-nums">
+          Last {data.days} days · {(c.allowed + c.refused).toLocaleString()} checks · {c.refused.toLocaleString()} refused
+          {c.log.length > 0 && ` · ${took.toLocaleString()} ${c.log.length < c.refused ? `of the latest ${c.log.length} ` : ""}took the replacement`}
+        </p>
+        {c.log.length > 0 && (
+          <Button variant="outline" size="sm" onClick={csv}>
+            <IconDownload /> Export CSV
+          </Button>
         )}
       </div>
+      {c.refused === 0 ? (
+        <None>Nothing refused. Every check an agent, a portal visitor or a person makes shows here.</None>
+      ) : (
+        <>
+          <Group title="Recent refusals" description="The latest refusals. Took it: the same client fetched what was offered, or checked it and was allowed, afterwards.">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-muted-foreground text-left text-xs">
+                  <tr>
+                    <th className={th}>When</th>
+                    <th className={th}>Asked by</th>
+                    <th className={th}>Asset</th>
+                    <th className={th}>Reason</th>
+                    <th className={th}>Offered</th>
+                    <th className={th}>Took it</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {c.log.map((l) => (
+                    <tr key={l.id}>
+                      <td className={cn(td, "text-muted-foreground whitespace-nowrap")} title={exact(l.at)} suppressHydrationWarning>
+                        {ago(l.at)}
+                      </td>
+                      <td className={td}>
+                        {l.client && <span className="text-muted-foreground mr-1 rounded border px-1 text-xs">agent</span>}
+                        {asker(l)}
+                      </td>
+                      <td className={td}>
+                        <AssetLink a={l.asset} />
+                      </td>
+                      <td className={td}>
+                        {l.reasons.map((r) => REASON[r] ?? r).join(", ")}
+                        {l.context && <span className="text-muted-foreground">, for {l.context}</span>}
+                      </td>
+                      <td className={td}>
+                        {l.offered.length === 0 ? (
+                          <span className="text-muted-foreground">Nothing</span>
+                        ) : (
+                          l.offered.map((o, i) => (
+                            <span key={o.asset.id}>
+                              {i > 0 && ", "}
+                              <AssetLink a={o.asset} />
+                            </span>
+                          ))
+                        )}
+                      </td>
+                      <td className={td}>
+                        {l.offered.length === 0 ? null : l.offered.some((o) => o.taken) ? (
+                          <span className="text-success inline-flex items-center gap-1">
+                            <IconCheck aria-hidden className="size-3.5" /> Yes
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">No</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Group>
+          <Group title="By reason" description="What the refusals were for. Replaced files still in use show under Release adoption, with the sites that load them.">
+            <ul aria-label="Refusals by reason" className="grid gap-1.5 text-sm">
+              {c.reasons.map((r) => (
+                <li key={r.code} className="grid grid-cols-[8rem_1fr_3rem] items-center gap-3">
+                  {REASON[r.code] ?? r.code}
+                  <span aria-hidden className="bg-muted h-2 overflow-hidden rounded-full">
+                    <span className="bg-primary block h-full rounded-full" style={{ width: `${(100 * r.count) / max}%` }} />
+                  </span>
+                  <span className="text-right tabular-nums">{r.count.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+            <Button variant="outline" size="sm" className="justify-self-start" asChild>
+              <Link href="/insights">Open release adoption</Link>
+            </Button>
+          </Group>
+        </>
+      )}
     </>
   );
 }
