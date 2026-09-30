@@ -155,6 +155,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
   const any = collections.length > 0 || brands.length > 0;
+  // Arriving from a brand's Portals tab: only the portals showing it.
+  const only = brands.find((b) => b.slug === params.get("brand"));
+  const shown = only ? rows.filter((p) => p.brands.some((b) => b.slug === only.slug)) : rows;
 
   return (
     <>
@@ -169,6 +172,14 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             <IconPlus /> New portal
           </Button>
         </PageHeader>
+        {only && (
+          <p className="text-muted-foreground -mt-2 text-sm">
+            The portals showing {only.name}.{" "}
+            <Link href="/portals" className="text-foreground underline underline-offset-2">
+              Show all
+            </Link>
+          </p>
+        )}
         {rows.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
@@ -196,7 +207,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </Empty>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {rows.map((p) => (
+            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
+            {shown.map((p) => (
               <li key={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
                   className="size-8 shrink-0 rounded-md border"

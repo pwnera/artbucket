@@ -40,12 +40,14 @@ import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
  *   (the route rendered again: a link, ⌘K, Back) says which page to show.
  * - transport: left out, fetch; the dev page records writes in memory.
  * - header: the host's bar over the reader on a phone (the app's AppHeader).
+ * - panel: a panel to open on arrival (`?panel=`, from a brand's tabs).
  */
 export type BuilderProps = {
   brand: string;
   init: Init;
   transport?: Transport;
   header?: React.ReactNode;
+  panel?: Panel;
 };
 
 export function Builder(props: BuilderProps) {
@@ -56,7 +58,7 @@ export function Builder(props: BuilderProps) {
 /** A field's own undo comes first (as lib/undo.ts has it). */
 const FIELD = "input, textarea, select, [contenteditable]:not([contenteditable=false])";
 
-function Editor({ brand, init, transport, header }: BuilderProps) {
+function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) {
   const b = useBuilder(brand, init, transport);
   const mobile = useIsMobile();
   // The canvas and its panels want the room: the app's sidebar folds to its rail while editing, as it does for the reader.
@@ -67,6 +69,14 @@ function Editor({ brand, init, transport, header }: BuilderProps) {
   useEffect(() => {
     live.current = b;
   });
+  // Arriving from a brand's tab (Tokens and rules, Releases): its panel, open, and the address back to the page alone.
+  useEffect(() => {
+    if (!asked) return;
+    live.current.setPanel(asked);
+    const q = new URLSearchParams(location.search);
+    q.delete("panel");
+    window.history.replaceState(null, "", `?${q}`);
+  }, [asked]);
   // ⌘K offers the builder's own commands first, read from the builder as it is when the palette opens.
   usePageCommands(useCallback(() => builderCommands(live.current), []));
 

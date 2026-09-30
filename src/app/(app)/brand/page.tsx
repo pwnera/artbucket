@@ -13,8 +13,11 @@ import type { PageView, ViewRule } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-type Query = { brand?: string; context?: string; view?: string; page?: string; lang?: string };
+type Query = { brand?: string; context?: string; view?: string; page?: string; lang?: string; panel?: string };
 type Props = { searchParams: Promise<Query> };
+
+/** The builder's panels a link may open (`?panel=`). */
+const PANELS = ["rules", "history", "tokens", "publish"] as const;
 
 /** The brand `?brand=` names, else the default one. */
 const pick = async (slug?: string) => (await brands()).find((b) => (slug ? b.slug === slug : b.default));
@@ -72,7 +75,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
  * read, gets the brand's pages as its readers see them.
  */
 export default async function BrandPage({ searchParams }: Props) {
-  const { brand: slug, context, view, page, lang } = await searchParams;
+  const { brand: slug, context, view, page, lang, panel } = await searchParams;
   const [brand, me] = await Promise.all([pick(slug), whoami()]);
   if (!brand) notFound();
 
@@ -111,7 +114,13 @@ export default async function BrandPage({ searchParams }: Props) {
   // Remount per brand only: another page is a view of the same book, and the builder opens it itself.
   return (
     <>
-      <Builder key={brand.slug} brand={brand.slug} init={init} header={<AppHeader trail={[{ label: `${brand.name} guidelines` }]} />} />
+      <Builder
+        key={brand.slug}
+        brand={brand.slug}
+        init={init}
+        panel={PANELS.find((p) => p === panel)}
+        header={<AppHeader trail={[{ label: `${brand.name} guidelines` }]} />}
+      />
       <GitReturn brand={brand.slug} />
     </>
   );

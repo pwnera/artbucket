@@ -48,6 +48,13 @@ export const brandHref = (b: { slug: string; default: boolean }, context?: strin
   return `/brand${q.size ? `?${q}` : ""}`;
 };
 
+/** A brand's guidelines: the builder, or with `view: "read"` its pages as readers see them; `panel` opens one of the builder's (rules, history). */
+export const guidelinesHref = (slug: string, q: Record<string, string | null | undefined> = {}) => {
+  const p = new URLSearchParams({ brand: slug });
+  for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
+  return `/brand?${p}`;
+};
+
 type Editing = { kind: "rename"; brand: BrandInfo } | { kind: "copy"; brand: BrandInfo };
 
 /**

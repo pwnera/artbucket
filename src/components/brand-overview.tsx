@@ -1,6 +1,7 @@
 "use client";
 
 import { IconBook, IconChartBar, IconCircle, IconCircleCheckFilled, IconLock, IconStar, IconWorld } from "@tabler/icons-react";
+import { BrandTabs } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
 import { Preview } from "@/components/hub";
 import { AppHeader } from "@/components/page";
@@ -48,6 +49,7 @@ export function BrandOverview({ brand, rules, status, release, signals }: BrandO
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name }]} />
+      <BrandTabs brand={brand} at="overview" />
       <div className="mx-auto grid w-full max-w-5xl gap-6 px-4 pt-6 pb-16 md:px-6 lg:grid-cols-[1fr_18rem]">
         <article className="bg-card min-w-0 overflow-hidden rounded-xl border">
           <Preview card={card} className="h-44">

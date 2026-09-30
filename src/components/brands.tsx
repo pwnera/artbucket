@@ -45,9 +45,10 @@ export type BrandRow = BrandInfo & { visibility: "private" | "public"; hub: Bran
 type Show = "all" | "public" | "private";
 const SHOW: Record<Show, string> = { all: "All", public: "Public", private: "Private" };
 
-export function BrandsPage({ brands, canShare, canEdit }: { brands: BrandRow[]; canShare: boolean; canEdit: boolean }) {
+export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { brands: BrandRow[]; canShare: boolean; canEdit: boolean; q?: string }) {
   const router = useRouter();
-  const [q, setQ] = useState("");
+  // A brand's Settings tab lands here with its name in the search.
+  const [q, setQ] = useState(initialQ);
   const [show, setShow] = useState<Show>("all");
   const [creating, setCreating] = useState(false);
   const [going, setGoing] = useState<BrandRow | null>(null);
