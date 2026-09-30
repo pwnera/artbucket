@@ -206,7 +206,7 @@ function Signal({ label, value }: { label: string; value: number }) {
 /**
  * Use this brand (PRD section 12), in the brand's header: the addresses an
  * agent or a build reads it from, one to copy at a time. The MCP server the
- * Agents page connects; on BrandHub, once public, its brand.json and
+ * Connections page connects; on BrandHub, once public, its brand.json and
  * llms.txt, and its tokens and DESIGN.md there without a key, else from the
  * API with one. Duplicate starts another brand from a copy of this one.
  * `hub`: the brand on BrandHub, once released there.
@@ -245,7 +245,7 @@ function UseThisBrand({ brand, origin, hub }: { brand: BrandInfo; origin: string
           </ul>
           <p className="text-muted-foreground text-xs">
             {open ? "Its BrandHub files are public: no key. " : "With a key: "}
-            <Link href="/agents" className="text-foreground underline underline-offset-2">
+            <Link href="/connections" className="text-foreground underline underline-offset-2">
               connect an agent
             </Link>{" "}
             for the MCP server and the API.

@@ -358,7 +358,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
               {prompt}
               <CopyButton text={prompt} label="Copy the prompt" what="The prompt" className="absolute end-1.5 top-1.5" />
             </div>
-            <Link href="/agents" className="text-sm font-medium underline underline-offset-4">
+            <Link href="/connections" className="text-sm font-medium underline underline-offset-4">
               Connect an agent
             </Link>
           </div>

@@ -13,9 +13,11 @@
  * - check: a use asked about (check_use, POST /api/v1/check)
  * - search: words searched for, found or not
  * - pull: a BrandHub listing's file read (brand.json, llms.txt, tokens)
- * - view, lookup: kept for portal pages and agents' rule lookups
+ * - tool: an MCP tool called, by name, and how it came out (Connections)
+ * - lookup: an agent asking for the brand in a context (the context)
+ * - view: kept for portal pages
  */
-export const EVENT_KINDS = ["fetch", "check", "search", "view", "pull", "lookup"] as const;
+export const EVENT_KINDS = ["fetch", "check", "search", "view", "pull", "lookup", "tool"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 /**
@@ -85,4 +87,61 @@ export function fillWeeks<T extends { week: string }>(rows: T[], empty: Omit<T, 
  */
 export function taken(refusal: { at: Date; client: string | null }, offered: string, uses: { asset: string; client: string | null; at: Date }[]) {
   return uses.some((u) => u.asset === offered && u.client === refusal.client && u.at > refusal.at);
+}
+
+/** Why a check said no (lib/rights.ts ReasonCode), as people read it; `scope`, a tool a key may not run (Connections). */
+export const REASON: Record<string, string> = {
+  not_approved: "Not approved",
+  deleted: "Deleted",
+  archived: "Archived",
+  superseded: "Replaced",
+  embargoed: "Under embargo",
+  expired: "License expired",
+  territory: "Territory",
+  channel: "Channel",
+  model_release: "Model release",
+  context: "Wrong variant",
+  scope: "Beyond its key",
+};
+
+/** An agent's events in a window, counted by what they say (lib/core/insights.ts connectionsOf). */
+export type ClientRow = { client: string; kind: EventKind; subject: string | null; verdict: string | null; reasons: string[] | null; count: number };
+
+/**
+ * Connections (PRD): per agent, what it asked for, not only how often. The
+ * MCP tools it called, most first, and how many failed or were refused; the
+ * brand contexts it worked in; the uses it was refused, by reason (`scope`:
+ * a tool its key may not run); files fetched and searches. Busiest first.
+ */
+export function connectionsOf(rows: ClientRow[]) {
+  const by = new Map<string, ClientRow[]>();
+  for (const r of rows) by.set(r.client, [...(by.get(r.client) ?? []), r]);
+  const tally = (pairs: [string, number][]) => {
+    const m = new Map<string, number>();
+    for (const [k, n] of pairs) m.set(k, (m.get(k) ?? 0) + n);
+    return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  };
+  const sum = (rs: ClientRow[]) => rs.reduce((t, r) => t + r.count, 0);
+  return [...by]
+    .map(([client, rs]) => {
+      const tools = rs.filter((r) => r.kind === "tool" && r.subject);
+      const failed = new Map(tally(tools.filter((r) => r.verdict !== "ok").map((r) => [r.subject!, r.count])));
+      const refusals = [
+        ...rs.filter((r) => r.kind === "check" && r.verdict === "refused").flatMap((r) => (r.reasons ?? []).map((code): [string, number] => [code, r.count])),
+        ...tools.filter((r) => r.verdict === "refused").map((r): [string, number] => ["scope", r.count]),
+      ];
+      return {
+        client,
+        events: sum(rs),
+        tools: tally(tools.map((r) => [r.subject!, r.count])).map(([name, calls]) => ({ name, calls, failed: failed.get(name) ?? 0 })),
+        contexts: tally(rs.filter((r) => (r.kind === "check" || r.kind === "lookup") && r.subject).map((r) => [r.subject!, r.count])).map(([context, count]) => ({ context, count })),
+        refusals: {
+          total: sum(rs.filter((r) => (r.kind === "check" && r.verdict === "refused") || (r.kind === "tool" && r.verdict === "refused"))),
+          reasons: tally(refusals).map(([code, count]) => ({ code, count })),
+        },
+        fetches: sum(rs.filter((r) => r.kind === "fetch")),
+        searches: sum(rs.filter((r) => r.kind === "search")),
+      };
+    })
+    .sort((a, b) => b.events - a.events || a.client.localeCompare(b.client));
 }

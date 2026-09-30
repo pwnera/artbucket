@@ -22,7 +22,7 @@ import {
 } from "@tabler/icons-react";
 
 /**
- * Every agent the Agents page knows, as data: supporting one is an entry
+ * Every agent the Connections page knows, as data: supporting one is an entry
  * here, not a component. They all reach the same MCP server; what differs is
  * how you tell each one where it is.
  *

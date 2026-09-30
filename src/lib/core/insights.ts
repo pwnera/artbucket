@@ -7,7 +7,7 @@ import { listRules } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
 import { publicPortalsShowing } from "@/lib/core/portals";
 import { AssetError } from "@/lib/core/errors";
-import { fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
+import { connectionsOf, fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
 import { hasPreview } from "@/lib/preview";
 
@@ -259,4 +259,28 @@ export async function brandInsights(caller: Caller, slug: string) {
       .where(and(eq(pageViews.brandId, b.id), gte(pageViews.day, sql`${since(INSIGHT_DAYS)}`))),
   ]);
   return { days: INSIGHT_DAYS, pulls: pulls.total, views: views.total };
+}
+
+/**
+ * GET /api/v1/insights/connections: what each agent asked for over the last
+ * INSIGHT_DAYS days (lib/insights.ts connectionsOf), on the Connections page.
+ * An agent is its key's name, as events keep it. A subject is read only
+ * where it names a tool or a context: a search's words stay in Insights.
+ */
+export async function connections(caller: Caller) {
+  if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
+  const subject = sql<string | null>`case when ${eventCounts.kind} in ('tool', 'check', 'lookup') then ${eventCounts.subject} end`;
+  const rows = await db
+    .select({ client: sql<string>`${eventCounts.client}`, kind: eventCounts.kind, subject, verdict: eventCounts.verdict, reasons: eventCounts.reasons, count: n() })
+    .from(eventCounts)
+    .where(
+      and(
+        eq(eventCounts.workspaceId, caller.workspace.id),
+        gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`),
+        eq(eventCounts.actor, "agent"),
+        isNotNull(eventCounts.client),
+      ),
+    )
+    .groupBy(eventCounts.client, eventCounts.kind, subject, eventCounts.verdict, eventCounts.reasons);
+  return { days: INSIGHT_DAYS, clients: connectionsOf(rows) };
 }

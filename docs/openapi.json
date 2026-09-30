@@ -34627,6 +34627,207 @@
         }
       }
     },
+    "/api/v1/insights/connections": {
+      "get": {
+        "summary": "Connections: what each agent asked for",
+        "description": "Per agent (an API key or OAuth client, by name), over the last 30 days: the MCP tools it called and how many failed, the brand contexts it asked for, the uses it was refused and why, and the files it fetched and searches it made. A tool call keeps its name and outcome, never its arguments.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back it goes"
+                        },
+                        "clients": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "client": {
+                                "type": "string",
+                                "description": "The agent, by its key's name"
+                              },
+                              "events": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Everything it did, counted"
+                              },
+                              "tools": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "calls": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "failed": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "Errors and refusals"
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "calls",
+                                    "failed"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "MCP tools it called, most first"
+                              },
+                              "contexts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "context": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "context",
+                                    "count"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Brand contexts it asked for, in checks and lookups"
+                              },
+                              "refusals": {
+                                "type": "object",
+                                "properties": {
+                                  "total": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "reasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "code": {
+                                          "type": "string"
+                                        },
+                                        "count": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "code",
+                                        "count"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "A check's blocking reasons; scope: a tool its key may not run"
+                                  }
+                                },
+                                "required": [
+                                  "total",
+                                  "reasons"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "fetches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "searches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "client",
+                              "events",
+                              "tools",
+                              "contexts",
+                              "refusals",
+                              "fetches",
+                              "searches"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Busiest first"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "clients"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workspaces": {
       "get": {
         "summary": "Workspaces in this organization",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fillWeeks, referrerHost, searchWords, taken, weekOf } from "./insights.ts";
+import { connectionsOf, fillWeeks, referrerHost, searchWords, taken, weekOf, type ClientRow } from "./insights.ts";
 
 test("only the referrer's host is kept, never its path, query or port", () => {
   assert.equal(referrerHost("https://Docs.Example.com:8443/brand/logo?token=secret#x"), "docs.example.com");
@@ -42,4 +42,46 @@ test("an offer is taken when the same client uses the replacement afterwards", (
   assert.equal(taken(refusal, "new", [use("new", "Cursor", "2026-09-30T10:01:00Z")]), false, "another agent");
   assert.equal(taken(refusal, "new", [use("old", "Claude", "2026-09-30T10:01:00Z")]), false, "the refused one again");
   assert.equal(taken({ ...refusal, client: null }, "new", [use("new", null, "2026-09-30T11:00:00Z")]), true);
+});
+
+test("connections say what each agent asked for, busiest first", () => {
+  const row = (client: string, kind: ClientRow["kind"], subject: string | null, verdict: string | null, count: number, reasons: string[] | null = null): ClientRow => ({
+    client,
+    kind,
+    subject,
+    verdict,
+    reasons,
+    count,
+  });
+  const [claude, n8n] = connectionsOf([
+    row("n8n", "fetch", null, "current", 4),
+    row("Claude", "tool", "search_assets", "ok", 5),
+    row("Claude", "tool", "check_use", "ok", 2),
+    row("Claude", "tool", "set_rules", "refused", 1),
+    row("Claude", "tool", "search_assets", "error", 1),
+    row("Claude", "check", "dark-background", "refused", 2, ["context", "expired"]),
+    row("Claude", "lookup", "dark-background", null, 1),
+    row("Claude", "lookup", "print", null, 1),
+    row("Claude", "search", "logo", "found", 1),
+  ]);
+  assert.equal(claude.client, "Claude");
+  assert.deepEqual(claude.tools, [
+    { name: "search_assets", calls: 6, failed: 1 },
+    { name: "check_use", calls: 2, failed: 0 },
+    { name: "set_rules", calls: 1, failed: 1 },
+  ]);
+  assert.deepEqual(claude.contexts, [
+    { context: "dark-background", count: 3 },
+    { context: "print", count: 1 },
+  ]);
+  assert.deepEqual(claude.refusals, {
+    total: 3,
+    reasons: [
+      { code: "context", count: 2 },
+      { code: "expired", count: 2 },
+      { code: "scope", count: 1 },
+    ],
+  });
+  assert.equal(claude.searches, 1);
+  assert.deepEqual(n8n, { client: "n8n", events: 4, tools: [], contexts: [], refusals: { total: 0, reasons: [] }, fetches: 4, searches: 0 });
 });

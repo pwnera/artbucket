@@ -1209,6 +1209,25 @@ const InsightAsset = z.object({
   preview: z.boolean().describe("Whether /a/{id} can make a picture of it"),
   supersededBy: uuid.nullable(),
 });
+export const Connections = z.object({
+  days: z.number().int().describe("How far back it goes"),
+  clients: z
+    .array(
+      z.object({
+        client: z.string().describe("The agent, by its key's name"),
+        events: z.number().int().describe("Everything it did, counted"),
+        tools: z.array(z.object({ name: z.string(), calls: z.number().int(), failed: z.number().int().describe("Errors and refusals") })).describe("MCP tools it called, most first"),
+        contexts: z.array(z.object({ context: z.string(), count: z.number().int() })).describe("Brand contexts it asked for, in checks and lookups"),
+        refusals: z.object({
+          total: z.number().int(),
+          reasons: z.array(z.object({ code: z.string(), count: z.number().int() })).describe("A check's blocking reasons; scope: a tool its key may not run"),
+        }),
+        fetches: z.number().int(),
+        searches: z.number().int(),
+      }),
+    )
+    .describe("Busiest first"),
+});
 const Week = z.string().describe("The Monday (UTC) the week starts, YYYY-MM-DD");
 export const Insights = z.object({
   days: z.number().int().describe("How far back the lists go"),

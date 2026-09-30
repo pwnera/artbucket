@@ -1163,7 +1163,7 @@ export const events = pgTable(
   (t) => [
     index("events_workspace_day_idx").on(t.workspaceId, t.day),
     index("events_asset_idx").on(t.assetId, t.at.desc()),
-    check("events_kind_check", sql`${t.kind} in ('fetch', 'check', 'search', 'view', 'pull', 'lookup')`),
+    check("events_kind_check", sql`${t.kind} in ('fetch', 'check', 'search', 'view', 'pull', 'lookup', 'tool')`),
     check("events_actor_check", sql`${t.actor} in ('person', 'agent', 'anonymous')`),
   ],
 );

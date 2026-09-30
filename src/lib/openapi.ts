@@ -974,6 +974,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "Insights", data(S.Insights)],
         }),
       },
+      "/api/v1/insights/connections": {
+        get: op({
+          summary: "Connections: what each agent asked for",
+          scope: "write",
+          description:
+            "Per agent (an API key or OAuth client, by name), over the last 30 days: the MCP tools it called and how many failed, " +
+            "the brand contexts it asked for, the uses it was refused and why, and the files it fetched and searches it made. " +
+            "A tool call keeps its name and outcome, never its arguments.",
+          ok: [200, "Connections", data(S.Connections)],
+        }),
+      },
       "/api/v1/workspaces": {
         get: op({
           summary: "Workspaces in this organization",

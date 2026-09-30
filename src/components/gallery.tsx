@@ -1394,7 +1394,7 @@ export function Gallery({
                 </Button>
               )}
               <Button variant="outline" asChild>
-                <Link href="/agents">
+                <Link href="/connections">
                   <IconRobot /> Connect an agent
                 </Link>
               </Button>

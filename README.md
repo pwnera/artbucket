@@ -219,7 +219,7 @@ anything generated):
 /plugin install artbucket@artbucket
 ```
 
-Other agents: `npx skills add pwnera/artbucket`. [`/agents`](http://localhost:3000/agents)
+Other agents: `npx skills add pwnera/artbucket`. [`/connections`](http://localhost:3000/connections)
 in the app has the setup for each one, and lists what is connected. More in
 the [MCP docs](docs/developers/mcp.mdx).
 

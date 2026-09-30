@@ -29,6 +29,7 @@ import { createComment, deleteComment, listComments, updateComment } from "@/lib
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
+import { record, who } from "@/lib/core/events";
 import { deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
 import { createCollection, deleteCollection, getCollection, listCollections, setMembers, updateCollection } from "@/lib/core/collections";
@@ -1189,15 +1190,30 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       const name = String(params.name);
       const t = Object.hasOwn(TOOLS, name) ? TOOLS[name as ToolName] : undefined;
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
+      // For Connections (lib/core/insights.ts): the tool's name and how it came out, never its arguments.
+      const called = (verdict: "ok" | "refused" | "error") =>
+        record({ workspaceId: caller.workspace.id, kind: "tool", surface: "mcp", ...who(caller), subject: name, verdict });
       if (!can(caller, t.action)) {
+        called("refused");
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(params.arguments ?? {});
       // One line per problem with its path, as core's own refusals read: ops[1].section.props.chanel: Unrecognized key.
-      if (!args.success) return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
+      if (!args.success) {
+        called("error");
+        return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
+      }
+      // The brand context it works in (brand_rules, get_theme, preview_page); check_use records its own with the check.
+      const context = (args.data as { context?: unknown }).context;
+      if (typeof context === "string" && name !== "check_use") {
+        record({ workspaceId: caller.workspace.id, kind: "lookup", surface: "mcp", ...who(caller), subject: context });
+      }
       try {
-        return result(id, toolResult(await t.run(args.data as never, caller)));
+        const out = toolResult(await t.run(args.data as never, caller));
+        called("ok");
+        return result(id, out);
       } catch (err) {
+        called("error");
         // Expected failures go back to the model as tool errors it can act on.
         if (err instanceof AssetError) return result(id, toolResult({ error: err.message, code: err.code }, true));
         console.error(err);

@@ -15,9 +15,11 @@ Insights, in the app's sidebar for people with write on the workspace, and at `G
 
 Each asset's panel has a **Used in** fold, from `GET /api/v1/assets/{id}/insights`: the brand rules that point at it, the brand pages that show it, the open public portals it is on, and its fetches over the last 30 days by surface and by the sites that load it.
 
+**Connections**, the page where agents are connected, adds what each one asked for over the last 30 days, from `GET /api/v1/insights/connections`: the MCP tools it called and how many failed, the brand contexts it asked for, and what it was refused, by reason.
+
 ## What is recorded
 
-One row per event in the `events` table: a file fetched from `/a/{id}` (the app drawing its own thumbnails is left out), a `check_use` verdict with its reasons and the replacement offered, a search with words, a BrandHub file read. Each keeps its kind, surface, whether the actor was a person, an agent or nobody in particular, an agent's key name, the asset or subject, the version, the verdict, the referrer's host, and the day.
+One row per event in the `events` table: a file fetched from `/a/{id}` (the app drawing its own thumbnails is left out), a `check_use` verdict with its reasons and the replacement offered, a search with words, a BrandHub file read, an MCP tool called (its name and whether it worked, never its arguments), and the brand context an agent asked for. Each keeps its kind, surface, whether the actor was a person, an agent or nobody in particular, an agent's key name, the asset or subject, the version, the verdict, the referrer's host, and the day.
 
 Never an IP address, a person's name or a full URL. There are no cookies or trackers for portal and hub visitors. Everything stays in your own Postgres: a self-hosted install sends nothing anywhere.
 

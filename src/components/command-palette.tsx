@@ -377,7 +377,7 @@ export function CommandPalette({
               <IconFolderPlus /> New collection
             </CommandItem>
           )}
-          <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/agents")}>
+          <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
             <IconRobot /> Agents: connect one, manage keys
           </CommandItem>
           <CommandItem value="Keyboard shortcuts keys help" onSelect={run(onShortcuts)}>

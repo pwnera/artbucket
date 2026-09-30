@@ -64,7 +64,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
     { id: "upload", label: "Upload your first assets", why: "Logos, photos, fonts: anything the brand uses.", done: uploaded, run: onUpload },
     { id: "guidelines", label: "Set up your brand", why: "Colors, type, logo and voice, as pages people and agents read.", done: visited.has("guidelines"), href: "/brand" },
     { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: visited.has("team"), href: "/team" },
-    { id: "agent", label: "Connect an agent", why: "It searches, checks and suggests through the same API.", done: visited.has("agent"), href: "/agents" },
+    { id: "agent", label: "Connect an agent", why: "It searches, checks and suggests through the same API.", done: visited.has("agent"), href: "/connections" },
   ];
   const done = steps.filter((s) => s.done).length;
   if (stored.hidden || done === steps.length) return null;

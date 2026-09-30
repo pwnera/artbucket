@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 type Step = "how" | "builder" | "agent" | "git";
 type Start = "" | (typeof TEMPLATE_CARDS)[number]["id"];
 
-/** The agents the AI path offers, in the order people reach for them: each connects as the Agents page says. */
+/** The agents the AI path offers, in the order people reach for them: each connects as the Connections page says. */
 const PICKS = ["Claude Code", "Cursor", "Codex", "Claude", "ChatGPT"].flatMap((n) => AGENTS.filter((a) => a.name === n));
 
 /** What the agent is asked to do: the brand_status and playbook path every agent is pointed at. */

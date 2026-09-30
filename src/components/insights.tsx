@@ -4,6 +4,7 @@ import Link from "next/link";
 import { IconAlertTriangle, IconChartBar, IconCheck } from "@tabler/icons-react";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Group } from "@/components/settings/panels";
+import { REASON } from "@/lib/insights";
 import { formatSize } from "@/lib/limits";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -30,20 +31,6 @@ export type InsightsData = {
 };
 
 const SURFACE: Record<string, string> = { app: "App", api: "API", mcp: "MCP", portal: "Portal", share: "Share link", hub: "BrandHub", link: "Signed link", public: "Public" };
-
-/** Why a check said no (lib/rights.ts ReasonCode), as the log says it. */
-const REASON: Record<string, string> = {
-  not_approved: "Not approved",
-  deleted: "Deleted",
-  archived: "Archived",
-  superseded: "Replaced",
-  embargoed: "Under embargo",
-  expired: "License expired",
-  territory: "Territory",
-  channel: "Channel",
-  model_release: "Model release",
-  context: "Wrong variant",
-};
 
 /** A UTC day, short: "Sep 28". */
 const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });

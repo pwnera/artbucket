@@ -20,6 +20,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { REASON } from "@/lib/insights";
+import { contextLabel } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
@@ -36,6 +38,20 @@ export type Key = {
   waiting: number;
 };
 
+/** GET /api/v1/insights/connections, as lib/schemas.ts Connections has it. */
+export type Asked = {
+  days: number;
+  clients: {
+    client: string;
+    events: number;
+    tools: { name: string; calls: number; failed: number }[];
+    contexts: { context: string; count: number }[];
+    refusals: { total: number; reasons: { code: string; count: number }[] };
+    fetches: number;
+    searches: number;
+  }[];
+};
+
 /** What to ask first, once connected: something only the brand can answer. */
 const TRY = [
   "What's our primary color on dark backgrounds, and how should it be used?",
@@ -49,16 +65,19 @@ const ANY = AGENTS.find((a) => a.name === "Any MCP client");
 /**
  * Connect an agent: find it or pick it from its group's tab, follow its two
  * lines, and watch for its first call. Below, every agent connected, when it
- * last called, and what it left waiting in Review.
+ * last called, and what it left waiting in Review; then, for whoever reads
+ * Insights (`asked`), what each asked for.
  */
 export function Agents({
   keys: initialKeys,
   origin,
   anonymous,
+  asked,
 }: {
   keys: Key[];
   origin: string;
   anonymous: Scope | null;
+  asked: Asked | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
   const [open, setOpen] = useState(false);
@@ -99,7 +118,7 @@ export function Agents({
 
   return (
     <>
-      <AppHeader trail={[{ label: "Agents" }]} />
+      <AppHeader trail={[{ label: "Connections" }]} />
 
       <div className="mx-auto w-full max-w-4xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
         <div className="space-y-3">
@@ -180,6 +199,8 @@ export function Agents({
             onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
           />
         )}
+
+        {asked && <AskedFor asked={asked} />}
 
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold">Try it</h2>
@@ -352,6 +373,88 @@ function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) =
     <section className="space-y-3">
       <h2 className="font-display text-lg font-semibold">Connected agents</h2>
       {!keys.length ? <p className="text-muted-foreground text-sm">None yet. Pick one above.</p> : <KeyList keys={keys} onRevoked={onRevoked} />}
+    </section>
+  );
+}
+
+const count = (n: number, what: string) => `${n.toLocaleString()} ${what}${n === 1 ? "" : "s"}`;
+
+/** One line of a connection: what it is about, then chips. */
+function Asks({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[7rem_1fr] sm:items-baseline">
+      <p className="text-muted-foreground text-xs">{title}</p>
+      <ul className="flex flex-wrap gap-1.5">{children}</ul>
+    </div>
+  );
+}
+
+const chip = "rounded-md border px-1.5 py-0.5 text-xs";
+
+/**
+ * What each agent asked for (PRD: Connections), from Insights' events: the
+ * tools it called, the brand contexts it worked in, and what it was refused.
+ * An agent is its key's name, so two keys named alike read as one.
+ */
+function AskedFor({ asked }: { asked: Asked }) {
+  return (
+    <section className="space-y-3">
+      <div className="space-y-1">
+        <h2 className="font-display text-lg font-semibold">What they asked for</h2>
+        <p className="text-muted-foreground text-sm">
+          The last {asked.days} days, by agent. Tools keep their name, never what was passed to them. Every refusal is in{" "}
+          <Link href="/insights" className="text-foreground underline underline-offset-2">
+            Insights
+          </Link>
+          .
+        </p>
+      </div>
+      {!asked.clients.length ? (
+        <p className="text-muted-foreground text-sm">Nothing yet: once an agent calls, what it asks for shows here.</p>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {asked.clients.map((c) => (
+            <li key={c.client} className="grid gap-2 px-3 py-3 text-sm">
+              <div className="flex flex-wrap items-baseline gap-x-3">
+                <span className="font-medium">{c.client}</span>
+                <span className="text-muted-foreground ml-auto text-xs">
+                  {[c.fetches && count(c.fetches, "file"), c.searches && `${c.searches.toLocaleString()} search${c.searches === 1 ? "" : "es"}`].filter(Boolean).join(", ")}
+                </span>
+              </div>
+              {c.tools.length > 0 && (
+                <Asks title="Tools">
+                  {c.tools.map((t) => (
+                    <li key={t.name} className={chip} title={t.failed ? `${t.failed} failed or refused` : undefined}>
+                      <code className="font-mono">{t.name}</code> <span className="text-muted-foreground tabular-nums">{t.calls.toLocaleString()}</span>
+                      {t.failed > 0 && <span className="text-destructive tabular-nums"> ({t.failed.toLocaleString()} failed)</span>}
+                    </li>
+                  ))}
+                </Asks>
+              )}
+              {c.contexts.length > 0 && (
+                <Asks title="Contexts">
+                  {c.contexts.map((x) => (
+                    <li key={x.context} className={chip}>
+                      {contextLabel(x.context)} <span className="text-muted-foreground tabular-nums">{x.count.toLocaleString()}</span>
+                    </li>
+                  ))}
+                </Asks>
+              )}
+              <Asks title="Refused">
+                {c.refusals.total === 0 ? (
+                  <li className="text-muted-foreground text-xs">Nothing</li>
+                ) : (
+                  c.refusals.reasons.map((r) => (
+                    <li key={r.code} className={chip}>
+                      {REASON[r.code] ?? r.code} <span className="text-muted-foreground tabular-nums">{r.count.toLocaleString()}</span>
+                    </li>
+                  ))
+                )}
+              </Asks>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

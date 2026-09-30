@@ -128,7 +128,7 @@ export function AppSidebar({
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
   const shownBrand = currentBrand ? brands.find((b) => b.slug === currentBrand) : undefined;
   const at = {
-    agents: pathname === "/agents",
+    agents: pathname === "/connections",
     team: pathname === "/team",
     portals: pathname === "/portals",
     insights: pathname === "/insights",
@@ -217,7 +217,7 @@ export function AppSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              <Place href="/agents" label="Agents" icon={<IconRobot />} active={at.agents} />
+              <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.agents} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
               {(can("member.manage") || can("share.manage")) && <Place href="/team" label="Team" icon={<IconUsers />} active={at.team} />}
