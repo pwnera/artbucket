@@ -248,7 +248,7 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
 }
 
 /** Follow a listing, or stop: it shows in the Following tab of the hub's front page. */
-export function FollowButton({ org, brand, following }: { org: string; brand: string; following: boolean }) {
+export function FollowButton({ org, brand, following, count }: { org: string; brand: string; following: boolean; count?: number }) {
   const router = useRouter();
   const [on, setOn] = useState(following);
   const [busy, setBusy] = useState(false);
@@ -263,6 +263,7 @@ export function FollowButton({ org, brand, following }: { org: string; brand: st
   return (
     <Button variant="outline" pending={busy} onClick={toggle} aria-pressed={on}>
       {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
+      {!!count && <span className="text-muted-foreground tabular-nums">· {count.toLocaleString("en")}</span>}
     </Button>
   );
 }

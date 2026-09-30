@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
 import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
@@ -116,11 +116,22 @@ export default async function HubListing(props: Props) {
                 {b.brand}
               </Link>
             </div>
-            <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
-              {!open && <IconLock aria-hidden className="size-3" />}
-              {!open ? "Private" : b.verified ? "Verified" : "Community"}
+            {open && b.verified ? (
+              // What was proved, as the prototype's "lumen.dev verified" says.
+              <span className="border-success/40 text-success inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
+                <IconCircleCheckFilled aria-hidden className="size-3" /> {b.verified} verified
+              </span>
+            ) : (
+              <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
+                {!open && <IconLock aria-hidden className="size-3" />}
+                {!open ? "Private" : "Community"}
+              </span>
+            )}
+            <span className="text-muted-foreground rounded-full border px-2 py-0.5 font-mono text-xs">
+              @{b.version}
+              {b.publishedAt && ` · ${new Date(b.publishedAt).toLocaleDateString("en", { day: "numeric", month: "short" })}`}
             </span>
-            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release {b.version}</span>}
+            {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release @{b.version}</span>}
             <div className="ms-auto flex flex-wrap items-center gap-2">
               {b.guidelines && (
                 <Button asChild variant="outline">
@@ -131,11 +142,12 @@ export default async function HubListing(props: Props) {
               )}
               {open &&
                 (mine ? (
-                  <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} />
+                  <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} count={b.followers} />
                 ) : (
                   <Button asChild variant="outline">
                     <a href={signIn}>
                       <IconStar aria-hidden /> Follow
+                      {b.followers > 0 && <span className="text-muted-foreground tabular-nums">· {b.followers.toLocaleString("en")}</span>}
                     </a>
                   </Button>
                 ))}
@@ -170,7 +182,7 @@ export default async function HubListing(props: Props) {
           <div className="text-muted-foreground flex items-center gap-2 border-b px-5 py-3 text-sm">
             <IconBook aria-hidden className="size-4" /> {b.name}
             <span className="ms-auto text-xs">
-              v{b.version}
+              @{b.version}
               {b.publishedAt && ` · released ${ago(b.publishedAt)}`}
             </span>
           </div>
@@ -305,7 +317,7 @@ export default async function HubListing(props: Props) {
           )}
 
           {b.terms && (
-            <Section id="terms" title="Terms of use" icon={IconBook}>
+            <Section id="terms" title="Usage terms" icon={IconBook}>
               {/* Raw HTML in it is escaped (lib/markdown.ts). */}
               <div className="rich text-sm" dangerouslySetInnerHTML={{ __html: renderMarkdown(b.terms, { demote: 2 }) }} />
             </Section>
@@ -353,7 +365,8 @@ export default async function HubListing(props: Props) {
                     className="hover:bg-muted aria-[current=page]:bg-muted flex items-center gap-2 rounded-md px-2 py-1.5"
                   >
                     <IconTag aria-hidden className="text-success size-4" />
-                    <span className="font-medium">v{v.number}</span>
+                    <span className="font-mono font-medium">@{v.number}</span>
+                    {v.name && <span className="text-muted-foreground min-w-0 truncate">{v.name}</span>}
                     {v.number === b.latest && <span className="border-success/40 text-success rounded-full border px-1.5 text-[11px] font-medium">Latest</span>}
                     <span className="text-muted-foreground ms-auto text-xs">{ago(v.publishedAt)}</span>
                   </Link>

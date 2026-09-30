@@ -262,15 +262,16 @@ export async function hubBrand(
   });
   if (!view?.version) return null;
   const door = await guidelinesPortal(row);
-  const [[card], versions, home, [site]] = await Promise.all([
+  const [[card], versions, home, [site], [follows]] = await Promise.all([
     cards([row]),
     db
-      .select({ number: brandVersions.number, publishedAt: brandVersions.publishedAt })
+      .select({ number: brandVersions.number, name: brandVersions.name, publishedAt: brandVersions.publishedAt })
       .from(brandVersions)
       .where(and(eq(brandVersions.brandId, row.id), isNotNull(brandVersions.publishedAt)))
       .orderBy(desc(brandVersions.number)),
     door && portalHome(door.slug),
     door ? db.select({ terms: sql<string | null>`${portals.site} ->> 'terms'` }).from(portals).where(eq(portals.id, door.id)) : [],
+    db.select({ n: sql<number>`count(*)::int` }).from(hubFollows).where(eq(hubFollows.brandId, row.id)),
   ]);
   const fileUrl = (a: { id: string; rendition: string | null }) =>
     withSignature(`${env.APP_URL}/a/${a.id}${a.rendition ? `/${a.rendition}` : ""}`, view.signed[a.id]);
@@ -293,7 +294,9 @@ export async function hubBrand(
     version: view.version.number,
     publishedAt: view.version.publishedAt,
     latest: row.version,
-    versions: versions.map((v) => ({ number: v.number, publishedAt: v.publishedAt! })),
+    versions: versions.map((v) => ({ number: v.number, name: v.name, publishedAt: v.publishedAt! })),
+    /** How many people follow it on the hub: the Follow button's count. */
+    followers: follows?.n ?? 0,
     url: hubHome(row.visibility, env.APP_URL, env.HUB_URL!) + path,
     guidelines: home?.url ?? null,
     terms: site?.terms ?? null,
