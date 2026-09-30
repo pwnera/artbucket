@@ -1,13 +1,13 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brandPages, brands, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
+import { assets, brandPages, brands, brandVersions, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { getAsset } from "@/lib/core/assets";
 import { listRules } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
 import { publicPortalsShowing } from "@/lib/core/portals";
 import { AssetError } from "@/lib/core/errors";
-import { connectionsOf, fillWeeks, INSIGHT_DAYS, taken, WEEKS, type Surface } from "@/lib/insights";
+import { adoptionDays, connectionsOf, fillWeeks, INSIGHT_DAYS, onCurrent, releaseOfAssets, taken, WEEKS, type Surface } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
 import { hasPreview } from "@/lib/preview";
 
@@ -239,26 +239,110 @@ export async function assetInsights(caller: Caller, id: string) {
   };
 }
 
+/** How many releases back a brand's files are read from: older ones hold files nobody should still load, and would weigh on every read. */
+const RELEASES = 20;
+/** The week a brand's Insights counts its answers over, and the places still on an older release. */
+const WEEK = 7;
+
 /**
- * GET /api/v1/brands/{slug}/insights: the brand's signals on its Overview,
- * the few events that name a brand: BrandHub reads of its files (pulls) and
- * portal page views of its pages, over the last 30 days. Checks and fetches
- * name an asset, not a brand, so they stay on the workspace's Insights.
+ * GET /api/v1/brands/{slug}/insights: the brand's own signals, on its
+ * Overview and its Insights tab. BrandHub reads of its files (pulls) and
+ * portal page views of its pages over the last 30 days name the brand. A
+ * fetch or a check names a file, so the brand's are its files: the ones its
+ * rules held in its last RELEASES releases, each belonging to the newest
+ * release holding it (lib/insights.ts releaseOfAssets). From them: this
+ * week's answers (files served, uses checked, hub files read), how many
+ * agents asked, and uses refused; and release adoption, the fetches since
+ * the latest release a day each, on it or on an older one, with where the
+ * older ones still go this week.
  */
 export async function brandInsights(caller: Caller, slug: string) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
-  const b = await resolveBrand(caller.workspace.id, slug);
-  const [[pulls], [views]] = await Promise.all([
+  const ws = caller.workspace.id;
+  const b = await resolveBrand(ws, slug);
+  const [[pulls], [views], released] = await Promise.all([
     db
       .select({ total: n() })
       .from(eventCounts)
-      .where(and(eq(eventCounts.workspaceId, caller.workspace.id), eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`))),
+      .where(and(eq(eventCounts.workspaceId, ws), eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`))),
     db
       .select({ total: sql<number>`coalesce(sum(${pageViews.views}), 0)::int` })
       .from(pageViews)
       .where(and(eq(pageViews.brandId, b.id), gte(pageViews.day, sql`${since(INSIGHT_DAYS)}`))),
+    db
+      .select({ number: brandVersions.number, publishedAt: brandVersions.publishedAt, rules: brandVersions.snapshot })
+      .from(brandVersions)
+      .where(and(eq(brandVersions.brandId, b.id), isNotNull(brandVersions.publishedAt)))
+      .orderBy(desc(brandVersions.number))
+      .limit(RELEASES),
   ]);
-  return { days: INSIGHT_DAYS, pulls: pulls.total, views: views.total };
+  const of = releaseOfAssets(released.map((r) => ({ number: r.number, assets: r.rules.flatMap((x) => x.assets.map((a) => a.id)) })));
+  const ids = [...of.keys()];
+  const mine = and(eq(eventCounts.workspaceId, ws), ids.length ? inArray(eventCounts.assetId, ids) : sql`false`);
+  const [latest] = released;
+  const week = gte(eventCounts.day, sql`${since(WEEK)}`);
+  // Since the latest release, but not past the window the charts keep: UTC days, as events have them.
+  const utc = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const today = utc(Date.now());
+  const floor = utc(Date.now() - (INSIGHT_DAYS - 1) * 86_400_000);
+  const from = latest && [utc(latest.publishedAt!.getTime()), floor].sort()[1];
+  const [[answers], fetches, places] = await Promise.all([
+    db
+      .select({ total: n(), agents: n(sql`actor = 'agent'`), refused: n(sql`kind = 'check' and verdict = 'refused'`) })
+      .from(eventCounts)
+      .where(
+        and(
+          eq(eventCounts.workspaceId, ws),
+          week,
+          or(and(eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull")), and(mine, inArray(eventCounts.kind, ["fetch", "check"]))),
+        ),
+      ),
+    latest
+      ? db
+          .select({ day: sql<string>`${eventCounts.day}::text`, asset: sql<string>`${eventCounts.assetId}`, verdict: eventCounts.verdict, count: n() })
+          .from(eventCounts)
+          .where(and(mine, eq(eventCounts.kind, "fetch"), gte(eventCounts.day, from!)))
+          .groupBy(eventCounts.day, eventCounts.assetId, eventCounts.verdict)
+      : [],
+    latest
+      ? db
+          .select({
+            asset: sql<string>`${eventCounts.assetId}`,
+            verdict: eventCounts.verdict,
+            referrer: eventCounts.referrer,
+            surface: eventCounts.surface,
+            client: eventCounts.client,
+            fetches: n(),
+            last: sql<string>`max(${eventCounts.day})::text`,
+          })
+          .from(eventCounts)
+          .where(and(mine, eq(eventCounts.kind, "fetch"), week))
+          .groupBy(eventCounts.assetId, eventCounts.verdict, eventCounts.referrer, eventCounts.surface, eventCounts.client)
+          .orderBy(desc(n()))
+      : [],
+  ]);
+  const older = latest ? places.filter((p) => !onCurrent(of, latest.number, p)).slice(0, 20) : [];
+  const described = await describe(older.map((p) => p.asset));
+  const days = latest ? adoptionDays(fetches, of, latest.number, from!, today) : [];
+  const [on, off] = [days.reduce((t, d) => t + d.current, 0), days.reduce((t, d) => t + d.older, 0)];
+  return {
+    days: INSIGHT_DAYS,
+    pulls: pulls.total,
+    views: views.total,
+    week: { days: WEEK, answers: answers.total, agents: answers.agents, refused: answers.refused },
+    adoption: latest
+      ? {
+          release: { number: latest.number, publishedAt: latest.publishedAt!.toISOString() },
+          days,
+          /** The share of fetches since the release on it, 0 to 100; null before any. */
+          share: on + off ? Math.round((100 * on) / (on + off)) : null,
+          older: older.flatMap((p) => {
+            const a = described.get(p.asset);
+            return a ? [{ asset: a, release: of.get(p.asset) ?? null, referrer: p.referrer, surface: p.surface, client: p.client, fetches: p.fetches, last: p.last }] : [];
+          }),
+        }
+      : null,
+  };
 }
 
 /**

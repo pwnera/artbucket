@@ -147,3 +147,37 @@ export function connectionsOf(rows: ClientRow[]) {
     })
     .sort((a, b) => b.events - a.events || a.client.localeCompare(b.client));
 }
+
+// ---- release adoption, per brand ----------------------------------------------
+
+/**
+ * Which release each of a brand's files belongs to: the newest release whose
+ * rules hold it. Fetches name a file, not a brand, so a brand's Insights
+ * reads its files through its releases (lib/core/insights.ts brandInsights).
+ * `releases` newest first.
+ */
+export function releaseOfAssets(releases: { number: number; assets: string[] }[]) {
+  const of = new Map<string, number>();
+  for (const r of releases) for (const a of r.assets) if (!of.has(a)) of.set(a, r.number);
+  return of;
+}
+
+/** A fetch was on the current release: its file is in it, and had not been replaced in its stack when it went out. */
+export const onCurrent = (of: Map<string, number>, current: number, f: { asset: string; verdict: string | null }) => of.get(f.asset) === current && f.verdict !== "superseded";
+
+/**
+ * A brand's fetches a day each, from `from` to `to` (UTC days, quiet ones at
+ * zero): on the current release, or on an older one.
+ */
+export function adoptionDays(rows: { day: string; asset: string; verdict: string | null; count: number }[], of: Map<string, number>, current: number, from: string, to: string) {
+  const days = new Map<string, { day: string; current: number; older: number }>();
+  for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+    const day = d.toISOString().slice(0, 10);
+    days.set(day, { day, current: 0, older: 0 });
+  }
+  for (const r of rows) {
+    const d = days.get(r.day);
+    if (d) d[onCurrent(of, current, r) ? "current" : "older"] += r.count;
+  }
+  return [...days.values()];
+}

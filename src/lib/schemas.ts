@@ -1329,6 +1329,37 @@ export const BrandInsights = z.object({
   days: z.number().int().describe("How far back it counts"),
   pulls: z.number().int().describe("Reads of its BrandHub files: brand.json, llms.txt, tokens"),
   views: z.number().int().describe("Portal page views of its pages"),
+  week: z
+    .object({
+      days: z.number().int(),
+      answers: z.number().int().describe("Its files served, uses of them checked, and its BrandHub files read"),
+      agents: z.number().int().describe("Of those, asked by agents"),
+      refused: z.number().int().describe("Uses of its files refused"),
+    })
+    .describe("The last week. Its files are the ones its rules held in its recent releases"),
+  adoption: z
+    .object({
+      release: z.object({ number: z.number().int(), publishedAt: date }).describe("The latest release"),
+      days: z
+        .array(z.object({ day: z.string(), current: z.number().int(), older: z.number().int() }))
+        .describe("Fetches of its files a day each since the release (30 days at most), on it or on an older release"),
+      share: z.number().int().min(0).max(100).nullable().describe("The share of those fetches on the latest release; null before any"),
+      older: z
+        .array(
+          z.object({
+            asset: InsightAsset,
+            release: z.number().int().nullable().describe("The newest release holding it"),
+            referrer: z.string().nullable().describe("The host that loaded it"),
+            surface: z.enum(SURFACES),
+            client: z.string().nullable().describe("The agent's key name, for an agent"),
+            fetches: z.number().int(),
+            last: z.string().describe("The last day it was fetched"),
+          }),
+        )
+        .describe("Where files of an older release (or replaced in their stack) were still fetched this week, most first"),
+    })
+    .nullable()
+    .describe("Release adoption; null before the first release"),
 });
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),

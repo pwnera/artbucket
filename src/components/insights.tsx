@@ -9,7 +9,7 @@ import { formatSize } from "@/lib/limits";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Asset = { id: string; title: string; version: number | null; preview: boolean; supersededBy: string | null };
+export type Asset = { id: string; title: string; version: number | null; preview: boolean; supersededBy: string | null };
 
 /** GET /api/v1/insights, as lib/schemas.ts Insights has it. */
 export type InsightsData = {
@@ -30,14 +30,14 @@ export type InsightsData = {
   pageViews: { portal: { id: string; name: string }; brand: { slug: string; name: string }; page: string; views: number }[];
 };
 
-const SURFACE: Record<string, string> = { app: "App", api: "API", mcp: "MCP", portal: "Portal", share: "Share link", hub: "BrandHub", link: "Signed link", public: "Public" };
+export const SURFACE: Record<string, string> = { app: "App", api: "API", mcp: "MCP", portal: "Portal", share: "Share link", hub: "BrandHub", link: "Signed link", public: "Public" };
 
 /** A UTC day, short: "Sep 28". */
-const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+export const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 /** An asset, linked to where the library opens it, with its version when it has several. */
-function AssetLink({ a }: { a: Asset }) {
+export function AssetLink({ a }: { a: Asset }) {
   return (
     <Link href={`/?asset=${a.id}`} className="hover:underline">
       {a.title}
@@ -52,7 +52,7 @@ type Series<R> = { key: keyof R & string; label: string; className: string };
  * Stacked bars, one per row, oldest first: plain boxes, no chart library.
  * Each bar says its numbers on hover; the whole says its totals to screen readers.
  */
-function Bars<R extends Record<string, number | string>>({ rows, series, x }: { rows: R[]; series: Series<R>[]; x: (r: R) => string }) {
+export function Bars<R extends Record<string, number | string>>({ rows, series, x }: { rows: R[]; series: Series<R>[]; x: (r: R) => string }) {
   const total = (r: R) => sum(series.map((s) => Number(r[s.key])));
   const max = Math.max(1, ...rows.map(total));
   const label = series.map((s) => `${s.label}: ${sum(rows.map((r) => Number(r[s.key]))).toLocaleString()}`).join(", ");
@@ -86,11 +86,11 @@ function Bars<R extends Record<string, number | string>>({ rows, series, x }: { 
   );
 }
 
-const None = ({ children }: { children: React.ReactNode }) => <p className="text-muted-foreground text-sm">{children}</p>;
+export const None = ({ children }: { children: React.ReactNode }) => <p className="text-muted-foreground text-sm">{children}</p>;
 
 /** A table's cells, the one way. */
-const th = "py-1.5 font-medium";
-const td = "py-1.5";
+export const th = "py-1.5 font-medium";
+export const td = "py-1.5";
 
 /**
  * Insights v1 (PRD section 11): brand answers, release adoption and who is

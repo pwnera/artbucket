@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { connectionsOf, fillWeeks, referrerHost, searchWords, taken, weekOf, type ClientRow } from "./insights.ts";
+import { adoptionDays, connectionsOf, fillWeeks, onCurrent, referrerHost, releaseOfAssets, searchWords, taken, weekOf, type ClientRow } from "./insights.ts";
 
 test("only the referrer's host is kept, never its path, query or port", () => {
   assert.equal(referrerHost("https://Docs.Example.com:8443/brand/logo?token=secret#x"), "docs.example.com");
@@ -84,4 +84,33 @@ test("connections say what each agent asked for, busiest first", () => {
   });
   assert.equal(claude.searches, 1);
   assert.deepEqual(n8n, { client: "n8n", events: 4, tools: [], contexts: [], refusals: { total: 0, reasons: [] }, fetches: 4, searches: 0 });
+});
+
+test("release adoption: a file belongs to the newest release holding it; replaced in its stack, it is older", () => {
+  const of = releaseOfAssets([
+    { number: 5, assets: ["new-logo", "photo"] },
+    { number: 4, assets: ["old-logo", "photo"] },
+  ]);
+  assert.deepEqual([...of], [["new-logo", 5], ["photo", 5], ["old-logo", 4]]);
+  assert.equal(onCurrent(of, 5, { asset: "new-logo", verdict: "current" }), true);
+  assert.equal(onCurrent(of, 5, { asset: "photo", verdict: "superseded" }), false);
+  assert.equal(onCurrent(of, 5, { asset: "old-logo", verdict: "current" }), false);
+  const days = adoptionDays(
+    [
+      { day: "2026-09-12", asset: "new-logo", verdict: "current", count: 3 },
+      { day: "2026-09-12", asset: "old-logo", verdict: "current", count: 1 },
+      { day: "2026-09-14", asset: "photo", verdict: "current", count: 2 },
+      // Before the window: left out.
+      { day: "2026-09-01", asset: "old-logo", verdict: "current", count: 9 },
+    ],
+    of,
+    5,
+    "2026-09-12",
+    "2026-09-14",
+  );
+  assert.deepEqual(days, [
+    { day: "2026-09-12", current: 3, older: 1 },
+    { day: "2026-09-13", current: 0, older: 0 },
+    { day: "2026-09-14", current: 2, older: 0 },
+  ]);
 });

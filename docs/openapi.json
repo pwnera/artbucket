@@ -16976,7 +16976,7 @@
       ],
       "get": {
         "summary": "A brand's signals",
-        "description": "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals.\n\nScope: `write`.",
+        "description": "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals. Fetches and checks name a file, so the brand's are the files its rules held in its recent releases: from them, this week's answers and refusals, and release adoption, the fetches since the latest release on it or on an older one.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -17006,12 +17006,250 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991,
                           "description": "Portal page views of its pages"
+                        },
+                        "week": {
+                          "type": "object",
+                          "properties": {
+                            "days": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "answers": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Its files served, uses of them checked, and its BrandHub files read"
+                            },
+                            "agents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Of those, asked by agents"
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Uses of its files refused"
+                            }
+                          },
+                          "required": [
+                            "days",
+                            "answers",
+                            "agents",
+                            "refused"
+                          ],
+                          "additionalProperties": false,
+                          "description": "The last week. Its files are the ones its rules held in its recent releases"
+                        },
+                        "adoption": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "release": {
+                                  "type": "object",
+                                  "properties": {
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "publishedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "number",
+                                    "publishedAt"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "The latest release"
+                                },
+                                "days": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "day": {
+                                        "type": "string"
+                                      },
+                                      "current": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "older": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "day",
+                                      "current",
+                                      "older"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "Fetches of its files a day each since the release (30 days at most), on it or on an older release"
+                                },
+                                "share": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The share of those fetches on the latest release; null before any"
+                                },
+                                "older": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "asset": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          },
+                                          "version": {
+                                            "anyOf": [
+                                              {
+                                                "type": "integer",
+                                                "minimum": -9007199254740991,
+                                                "maximum": 9007199254740991
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ],
+                                            "description": "Its version in its stack; null for an asset with one"
+                                          },
+                                          "preview": {
+                                            "type": "boolean",
+                                            "description": "Whether /a/{id} can make a picture of it"
+                                          },
+                                          "supersededBy": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "title",
+                                          "version",
+                                          "preview",
+                                          "supersededBy"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "release": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "The newest release holding it"
+                                      },
+                                      "referrer": {
+                                        "description": "The host that loaded it",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "surface": {
+                                        "type": "string",
+                                        "enum": [
+                                          "app",
+                                          "api",
+                                          "mcp",
+                                          "portal",
+                                          "share",
+                                          "hub",
+                                          "link",
+                                          "public"
+                                        ]
+                                      },
+                                      "client": {
+                                        "description": "The agent's key name, for an agent",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "fetches": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "last": {
+                                        "type": "string",
+                                        "description": "The last day it was fetched"
+                                      }
+                                    },
+                                    "required": [
+                                      "asset",
+                                      "release",
+                                      "referrer",
+                                      "surface",
+                                      "client",
+                                      "fetches",
+                                      "last"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "Where files of an older release (or replaced in their stack) were still fetched this week, most first"
+                                }
+                              },
+                              "required": [
+                                "release",
+                                "days",
+                                "share",
+                                "older"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Release adoption; null before the first release"
                         }
                       },
                       "required": [
                         "days",
                         "pulls",
-                        "views"
+                        "views",
+                        "week",
+                        "adoption"
                       ],
                       "additionalProperties": false
                     }

@@ -575,7 +575,10 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "A brand's signals",
           scope: "write",
-          description: "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals.",
+          description:
+            "Over the last 30 days: reads of its BrandHub files (brand.json, llms.txt, tokens), and views of its pages on portals. " +
+            "Fetches and checks name a file, so the brand's are the files its rules held in its recent releases: from them, this " +
+            "week's answers and refusals, and release adoption, the fetches since the latest release on it or on an older one.",
           ok: [200, "The signals", data(S.BrandInsights)],
         }),
       },

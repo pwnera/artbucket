@@ -21,8 +21,8 @@ import { contextLabel, type FontValue, ruleName, type Rule } from "@/lib/rules";
  * /api/v1 like any client's.
  */
 
-/** GET /api/v1/brands/{slug}/insights. */
-export type BrandSignals = { days: number; pulls: number; views: number };
+/** GET /api/v1/brands/{slug}/insights, as far as the Overview reads it. */
+export type BrandSignals = { days: number; pulls: number; views: number; adoption: { release: { number: number }; share: number | null } | null };
 export type { Release };
 
 export type BrandOverviewProps = {
@@ -127,6 +127,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
                 <Signal label={`hub pulls, ${signals.days} days`} value={signals.pulls} />
                 <Signal label={`portal page views, ${signals.days} days`} value={signals.views} />
                 {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
+                {signals.adoption?.share != null && <Signal label={`fetches on @${signals.adoption.release.number}`} value={`${signals.adoption.share}%`} />}
               </dl>
             </Box>
           )}
@@ -226,7 +227,7 @@ function Box({ title, icon, aside, children }: { title: string; icon?: React.Rea
   );
 }
 
-function Signal({ label, value }: { label: string; value: number }) {
+function Signal({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="grid gap-0.5">
       <dt className="text-muted-foreground text-xs">{label}</dt>
