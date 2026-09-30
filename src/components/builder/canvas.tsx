@@ -871,7 +871,7 @@ function ChangesStrip({ changes, onHide }: { changes: Changes; onHide(): void })
       : changes.since === null
         ? "Never released: everything here is new to readers."
         : [
-            `Since release ${changes.since}:`,
+            `Since release @${changes.since}:`,
             [fresh && `${fresh} new`, changed && `${changed} changed`, rule && `${rule} with a rule changed`, changes.removed.length && `${changes.removed.length} removed (${changes.removed.join(", ")})`]
               .filter(Boolean)
               .join(", ") || "nothing on this page.",

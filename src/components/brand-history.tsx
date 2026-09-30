@@ -194,7 +194,8 @@ export function History({
                             {v.name && ` · ${v.summary}`}
                           </div>
                         </div>
-                        <span className="text-muted-foreground pt-0.5 font-mono text-xs tabular-nums">v{v.number}</span>
+                        {/* A released version is a release, @n; a save is v{n}. */}
+                        <span className="text-muted-foreground pt-0.5 font-mono text-xs tabular-nums">{v.publishedAt ? `@${v.number}` : `v${v.number}`}</span>
                       </button>
                     </li>
                   ))}
@@ -302,7 +303,7 @@ function VersionDetail({
                 />
               </Can>
               <p className="text-muted-foreground text-sm">
-                v{number} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
+                {v.publishedAt ? `@${number}` : `v${number}`} · {stamp(v.updatedAt)} · {who(v.actor, me)} · {v.rules.length} rules
                 {v.pages && ` · ${v.pages.length} pages`}
                 {v.kind === "restore" && v.restoredFrom && ` · restored version ${v.restoredFrom}`}
               </p>

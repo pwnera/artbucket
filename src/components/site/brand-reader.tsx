@@ -143,7 +143,7 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
       trail={
         <p className="flex min-w-0 items-center gap-2 text-sm">
           <BrandTabMenu brand={view.brand} at="guidelines" />
-          <Badge variant="outline">{view.version ? `Release ${view.version.number}` : "Draft"}</Badge>
+          <Badge variant="outline">{view.version ? `Release @${view.version.number}` : "Draft"}</Badge>
         </p>
       }
     >

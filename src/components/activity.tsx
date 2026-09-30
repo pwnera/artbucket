@@ -386,6 +386,8 @@ function Row({ item: i, restorable, restore, restoring }: { item: Item } & RowAc
       <div className="min-w-0 flex-1 space-y-1">
         <p className="leading-6">
           <Actor item={i} /> <span className="text-muted-foreground">{says}</span> <Target item={i} />
+          {/* A release is named @n, as everywhere. */}
+          {i.verb === "published" && i.brand && <span className="text-muted-foreground font-mono"> @{i.brand.version}</span>}
           {i.detail?.version && <span className="text-muted-foreground"> (version {i.detail.version})</span>}
         </p>
         <Detail item={i} />

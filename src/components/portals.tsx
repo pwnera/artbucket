@@ -1009,7 +1009,7 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
       )}
       {last && (
         <span className="text-muted-foreground" title={exact(last.publishedAt)}>
-          Release {last.version}, {new Date(last.publishedAt).toLocaleDateString()}
+          Release @{last.version}, {new Date(last.publishedAt).toLocaleDateString()}
         </span>
       )}
     </li>

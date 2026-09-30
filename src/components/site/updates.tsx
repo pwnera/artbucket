@@ -42,7 +42,7 @@ export function UpdateList({ updates, media, as: H = "h3" }: { updates: Update[]
             <H className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
               <LocalDate at={u.publishedAt} />
             </H>
-            <p className="text-muted-foreground text-xs">Release {u.version}</p>
+            <p className="text-muted-foreground text-xs">Release @{u.version}</p>
             {u.note && <p className="max-w-(--brand-measure) whitespace-pre-line text-pretty">{u.note}</p>}
             {pic && (
               // The note says what it shows.
