@@ -67,6 +67,8 @@ export type Me = {
   upgrade: string | null;
   /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a workspace admin's, when the server has a Git integration. */
   git: string | null;
+  /** The operator's word to the organization's admins, shown across the top of the app (lib/settings.ts, notice). */
+  notice: { text: string; href: string | null } | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
 

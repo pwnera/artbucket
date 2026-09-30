@@ -13,7 +13,7 @@ import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from 
 import { env } from "@/lib/env";
 import { memo } from "@/lib/memo";
 import { upgradeUrl } from "@/lib/limits";
-import { lockedBy } from "@/lib/settings";
+import { lockedBy, noticeOf } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
 
 /**
@@ -197,7 +197,7 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
-  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits] = await Promise.all([
+  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice] = await Promise.all([
     canEmail(caller.workspace.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
@@ -205,7 +205,9 @@ export async function describeCaller(caller: Caller) {
     canResetPasswords(),
     ssoOffered(),
     effective("limits", { organizationId: caller.workspace.organizationId }),
+    effective("notice", { organizationId: caller.workspace.organizationId }),
   ]);
+  const admin = !!caller.user && caller.orgScope === "admin";
   return {
     user: caller.user,
     key: !!caller.key,
@@ -221,7 +223,9 @@ export async function describeCaller(caller: Caller) {
     hidden: caller.hidden,
     workspaces,
     features: limits.value.features,
-    upgrade: upgradeUrl(env.BILLING_URL, !!caller.user && caller.orgScope === "admin", limits.source),
+    upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
+    // The operator's word to the organization's admins: they are who can act on it.
+    notice: admin ? noticeOf(notice.value) : null,
     // Connecting makes a key for the sync, so it takes admin on the workspace.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     auth: {

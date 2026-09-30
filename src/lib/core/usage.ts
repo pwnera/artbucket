@@ -297,7 +297,8 @@ export async function usageOf(caller: Caller) {
   const org = caller.workspace.organizationId;
   const since = sql`(now() at time zone 'utc')::date - ${DAYS - 1}::int`;
   const [limits, storage, editors, spaces, brandCount, domainCount, byWorkspace, byDay] = await Promise.all([
-    limitsOf(org),
+    // Fresh: a plan just taken (a limits row the operator's billing wrote) shows here at once, not a minute later.
+    effective("limits", { organizationId: org }, { fresh: true }).then((l) => l.value),
     storageOf(org),
     editorsOf(org),
     workspacesOf(org),

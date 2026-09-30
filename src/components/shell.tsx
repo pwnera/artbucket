@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { switchedElsewhere, workspaceChannel } from "@/components/account";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
@@ -84,6 +84,53 @@ export function useSqueeze(on = true) {
  * their fresher copies through the setters; a router.refresh re-renders the
  * layout, and its new props win again.
  */
+/**
+ * The operator's word to an organization's admins (me.notice: a plan that
+ * ends, a payment that failed), across the top of every page until it is
+ * closed. Closed for this tab only: the word stands until the server drops it.
+ */
+function NoticeBanner({ notice }: { notice: { text: string; href: string | null } }) {
+  const key = `notice:${notice.text}`;
+  // Closed on the server, then what this tab remembers: no flash of a banner already closed, no hydration mismatch.
+  const closedBefore = useSyncExternalStore(
+    () => () => {},
+    () => {
+      try {
+        return sessionStorage.getItem(key) === "1";
+      } catch {
+        return false;
+      }
+    },
+    () => true,
+  );
+  const [closed, setClosed] = useState(false);
+  if (closed || closedBefore) return null;
+  const close = () => {
+    setClosed(true);
+    try {
+      sessionStorage.setItem(key, "1");
+    } catch {}
+  };
+  return (
+    <div role="status" className="bg-warning/15 text-foreground flex items-center gap-3 border-b px-4 py-2 text-sm">
+      <p className="min-w-0 flex-1">
+        {notice.text}
+        {notice.href && (
+          <>
+            {" "}
+            <a href={notice.href} className="font-medium underline underline-offset-2">
+              See the plan
+            </a>
+          </>
+        )}
+      </p>
+      <button type="button" onClick={close} aria-label="Close" className="text-muted-foreground hover:text-foreground shrink-0 px-1">
+        &times;
+      </button>
+    </div>
+  );
+}
+
 export function Shell({
   sidebar,
   defaultOpen,
@@ -269,7 +316,10 @@ export function Shell({
           onEditCollection={(c) => void openCollection(c)}
           onDeleteSearch={forget}
         />
-        <SidebarInset className="min-w-0">{children}</SidebarInset>
+        <SidebarInset className="min-w-0">
+          {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
+          {children}
+        </SidebarInset>
         <CommandPalette
           open={searching}
           onOpenChange={setSearching}

@@ -515,6 +515,14 @@ const OFF: Record<Feature, string> = { agents: "connecting agents and API keys",
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {
   const { limits: l, billing, used, traffic } = usage;
+  // Back from the plan's billing page (BILLING_URL) with ?billing=ok: say so once, and not again on a reload.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("billing")) return;
+    if (url.searchParams.get("billing") === "ok") toast.success("Your plan is active. These are its limits.");
+    url.searchParams.delete("billing");
+    window.history.replaceState(null, "", url);
+  }, []);
   const rows: [string, number, number | null, (n: number) => string][] = [
     ["Storage", used.storage, l.storage, formatSize],
     ["Editors", used.editors, l.editors, String],

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { lockedBy, merge, present, resolve, seal, sealed, unseal } from "./settings.ts";
+import { lockedBy, merge, noticeOf, present, resolve, seal, sealed, unseal } from "./settings.ts";
 
 const saved = { enabled: true, provider: "postmark" as const, from: "Org <a@org.test>", replyTo: null, apiKey: "pm-secret" };
 
@@ -27,6 +27,16 @@ test("the server's email, once set, is the server's alone: what an organization 
   assert.equal(r.value.from, "Server <s@host.test>");
   assert.equal(r.value.enabled, true);
   assert.equal(r.value.apiKey, "re_x");
+});
+
+test("a notice shows while it has text and its time has not passed; the API never offers it", () => {
+  const now = Date.parse("2026-10-01T00:00:00Z");
+  assert.deepEqual(noticeOf({ text: "Your plan ends on October 30.", href: "/billing", until: "2026-10-30T12:00:00Z" }, now), { text: "Your plan ends on October 30.", href: "/billing" });
+  assert.equal(noticeOf({ text: "Gone", href: null, until: "2026-09-30T00:00:00Z" }, now), null);
+  assert.deepEqual(noticeOf({ text: "Stays", href: null, until: null }, now), { text: "Stays", href: null });
+  assert.equal(noticeOf(resolve("notice", {}, {}).value, now), null);
+  assert.equal(noticeOf(resolve("notice", { organization: { text: "Hi", until: "2099-01-01T00:00:00Z" } }, {}).value, now)?.text, "Hi");
+  assert.throws(() => resolve("notice", { organization: { text: "x", until: "tomorrow" } }, {}));
 });
 
 test("a typo in EMAIL_PROVIDER fails loudly", () => {
