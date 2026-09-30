@@ -5,7 +5,7 @@ import { assets, brands, domains, grants, invitations, pageViews, portals, rendi
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
-import { formatSize, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
 import { RENDITION_DAYS } from "@/lib/storage";
 
@@ -134,6 +134,8 @@ const FEATURE_LABEL: Record<Feature, string> = {
   agents: "Connecting agents and making API keys",
   shares: "Share and upload links",
   sso: "Setting up single sign-on",
+  branding: "Custom branding",
+  domains: "Custom domains",
 };
 
 /**
@@ -151,6 +153,10 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
   const refuse = (message: string, limit: number) => {
     throw new AssetError("limit_reached", message + manage(), { limit: what, max: limit });
   };
+  // A feature switched off refuses before any count: domains is both.
+  if (l.features && (FEATURES as readonly string[]).includes(what) && !l.features.includes(what as Feature)) {
+    throw new AssetError("limit_reached", `${FEATURE_LABEL[what as Feature]} is off for this organization${manage()}`, { limit: what });
+  }
   switch (what) {
     case "storage":
       if (l.storage !== null) {
@@ -172,8 +178,6 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
     case "domains":
       if (l.domains !== null && over(l.domains, await domainsOf(organizationId))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
       return;
-    default:
-      if (l.features && !l.features.includes(what)) throw new AssetError("limit_reached", `${FEATURE_LABEL[what]} is off for this organization${manage()}`, { limit: what });
   }
 }
 

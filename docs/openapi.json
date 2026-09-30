@@ -31949,6 +31949,27 @@
                           },
                           "description": "Every workspace you can switch to"
                         },
+                        "features": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "agents",
+                                  "shares",
+                                  "sso",
+                                  "branding",
+                                  "domains"
+                                ]
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"
+                        },
                         "upgrade": {
                           "anyOf": [
                             {
@@ -32055,6 +32076,7 @@
                         "off",
                         "hidden",
                         "workspaces",
+                        "features",
                         "upgrade",
                         "git",
                         "auth"

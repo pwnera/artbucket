@@ -17,6 +17,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import type { Feature } from "@/lib/limits";
 import { BrandMark, ThemeItems } from "@/components/brand";
 import { send } from "@/components/collections";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,8 @@ export type Me = {
   off: Off;
   hidden: string[];
   workspaces: WorkspaceRef[];
+  /** What the organization may use, of what its limits can switch off; null is everything. */
+  features: Feature[] | null;
   /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
   upgrade: string | null;
   /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a workspace admin's, when the server has a Git integration. */

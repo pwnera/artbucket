@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ABILITIES, RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
+import { FEATURES } from "./limits.ts";
 import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { ICON_GROUP_NAMES, ICON_NAME, ICON_PREFIX } from "./icons.ts";
@@ -980,6 +981,10 @@ export const Me = z.object({
     .describe("Abilities your grants have switched off, on the workspace and on single collections and assets"),
   hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
+  features: z
+    .array(z.enum(FEATURES))
+    .nullable()
+    .describe("What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"),
   upgrade: z
     .string()
     .url()
