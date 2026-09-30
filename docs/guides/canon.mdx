@@ -22,15 +22,17 @@ Each brand, under Brands in the sidebar, opens on its page, a repository's:
 the header names it (its mark, whether its organization is verified, whether
 it is public on BrandHub, `{org}/{brand}`, its latest release and that
 release's note), with **Use this brand** (the MCP server, `brand.json` and
-`llms.txt` on BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand)
-and **Publish release** beside it. A tab per concern follows: Overview,
-Guidelines, Tokens and rules, Assets, Releases, Portals, Insights and
-Settings. The Overview says what the brand is (its line, the usage terms of
+`llms.txt` on BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand),
+**Edit** (the builder) and **Publish release** beside it. The page is
+read-only, and every tab stays in it, under the same header: Overview,
+Guidelines (the brand's pages as readers see them, at `/brands/{slug}/pages`),
+Tokens and rules, Assets, Releases, Portals, Insights and Settings. The Overview says what the brand is (its line, the usage terms of
 the portal BrandHub links, the BrandHub brand it started from), its colors,
 its latest release with what it changed, the Brand Agent Score, its signals
 and its typefaces. Its
-guidelines, at `/brands/{slug}/guidelines` (`?view=read` as readers see them),
-are drawn from those records and edited in place:
+guidelines, edited in the builder at `/brands/{slug}/guidelines`
+(`?view=read` there is the reader on its own), are drawn from those records
+and edited in place:
 click a value to change it, press `/` to add a rule from named building blocks
 (brand color, clear space, logo don'ts, type scale, words to avoid), drag to
 reorder. Colors show their contrast on white and black, a numeric `type.scale`

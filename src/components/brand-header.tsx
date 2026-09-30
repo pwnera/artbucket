@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
+import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs, type BrandTab } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
@@ -18,14 +18,15 @@ import { Separator } from "@/components/ui/separator";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import type { Rule } from "@/lib/rules";
-import { brandPath } from "@/lib/site";
+import { brandPath, guidelinesPath } from "@/lib/site";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
  * card, as the prototype draws it): its mark, its name, whether its
  * organization is verified and whether it is public on BrandHub, then how
  * BrandHub names it, its release, when, and the release's note. Use this
- * brand and Publish release sit at its end, the tabs under it.
+ * brand, Edit (the builder) and Publish release sit at its end, the tabs
+ * under it. The brand's page is read-only: Edit is the way into the builder.
  */
 export type BrandHeaderProps = {
   brand: BrandInfo;
@@ -79,6 +80,13 @@ export function BrandHeader({ brand, origin, rules, hub, release, at }: BrandHea
         </div>
         <div className="flex items-center gap-2">
           <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} />
+          {can("brand.edit") && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={guidelinesPath(brand.slug)}>
+                <IconPencil aria-hidden /> Edit
+              </Link>
+            </Button>
+          )}
           {can("brand.edit") && (
             <Button asChild size="sm">
               <Link href={brandPath(brand.slug, "/releases/new")}>

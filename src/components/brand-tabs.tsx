@@ -22,7 +22,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
   const can = useCan();
   const tabs: { id: BrandTab; label: string; href: string }[] = [
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
-    { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
+    { id: "guidelines", label: "Guidelines", href: brandPath(brand.slug, "/pages") },
     { id: "rules", label: "Tokens and rules", href: guidelinesPath(brand.slug, { panel: "rules" }) },
     { id: "assets", label: "Assets", href: "/" },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
