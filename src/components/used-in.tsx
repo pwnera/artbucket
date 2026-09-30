@@ -68,7 +68,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
   return (
     <Fold title="Used in" summary={summary} remember="used-in">
       {got.rules.length > 0 && (
-        <Part title="Brand rules">
+        <Part title="Rules">
           {got.rules.map((r) => {
             const href = `${guidelinesPath(r.brand)}#rule-${r.key}`;
             return (
@@ -83,7 +83,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
         </Part>
       )}
       {got.pages.length > 0 && (
-        <Part title="Brand pages">
+        <Part title="Pages">
           {got.pages.map((p) => {
             const href = guidelinesPath(p.brand.slug, { page: p.slug });
             return (
@@ -98,7 +98,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
         </Part>
       )}
       {got.portals.length > 0 && (
-        <Part title="Public portals">
+        <Part title="Portals">
           {got.portals.map((p) => (
             <li key={p.url}>
               <a href={p.url} target="_blank" rel="noreferrer" className="hover:underline">
@@ -113,14 +113,19 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
           <li className="text-muted-foreground">None outside the library&apos;s own pages.</li>
         ) : (
           surfaces.map(([s, count]) => (
-            <li key={s} className="flex justify-between gap-2">
-              {SURFACE[s] ?? s} <span className="text-muted-foreground tabular-nums">{count!.toLocaleString()}</span>
+            <li key={s} className="grid grid-cols-[6rem_1fr_auto] items-center gap-2">
+              {SURFACE[s] ?? s}
+              {/* Its share of the fetches, as a bar; the count stays exact beside it. */}
+              <span aria-hidden className="bg-muted h-1.5 overflow-hidden rounded-full">
+                <span className="bg-primary block h-full rounded-full" style={{ width: `${Math.min(100, (100 * count!) / (got.fetches.total || 1))}%` }} />
+              </span>
+              <span className="text-muted-foreground tabular-nums">{count!.toLocaleString()}</span>
             </li>
           ))
         )}
       </Part>
       {got.referrers.length > 0 && (
-        <Part title="Loaded from">
+        <Part title="Top referrers">
           {got.referrers.map((r) => (
             <li key={r.host} className="flex justify-between gap-2">
               <span className="min-w-0 truncate">{r.host}</span>

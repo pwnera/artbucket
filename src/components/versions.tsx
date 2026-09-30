@@ -64,7 +64,8 @@ export function StatusBadges({ asset }: { asset: Asset }) {
   return (
     <>
       <Badge variant="success">
-        <IconCheck /> Approved
+        {/* One of several versions: the one in use, as the prototype's "Current · v2" says. */}
+        <IconCheck /> {asset.stackId && asset.version && asset.current ? `Current · v${asset.version}` : "Approved"}
       </Badge>
       {r?.expires && <Badge variant="outline">until {new Date(`${r.expires}T00:00:00`).toLocaleDateString()}</Badge>}
       {r?.embargo && r.embargo > today && (

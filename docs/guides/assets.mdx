@@ -39,6 +39,10 @@ the file was made.
 /api/v1/assets?status=draft&status=archived    other lifecycle states
 ```
 
+In the app, the library's address is its view: `/library?q=winter` (or
+`/?q=winter`) opens that search, and `/assets/{id}` opens one asset over it,
+with where it is used and "Can I use this?" first.
+
 `q` covers filenames, tags, text field values and embedded metadata. Every
 response carries facet counts over the same filter. A page is 100 assets
 (`limit`, up to 200); `total` counts every match.
@@ -50,7 +54,8 @@ carry field values its members inherit.
 ## Review
 
 What a `propose` key, an agent or an upload link adds lands `proposed`: out of
-the library, in Review, with who suggested it. Approving is
+the library, in Review (`/review`), with who suggested it, where it came from
+(AI-made, by an agent, imported) and what is missing, such as a model release. Approving is
 `PATCH {"status": "active"}`; rejecting, `{"status": "rejected", "reviewNote":
 "..."}`, which keeps it so the agent can read why.
 

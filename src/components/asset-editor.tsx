@@ -997,6 +997,21 @@ export function AssetEditor({
               <Replaced by={asset.supersededBy} stacked={!!asset.stackId} onOpen={(to) => leave(() => onOpen(to))} />
             )}
 
+            {/*
+              What breaks if it changes, and what it may be used for, first, as the
+              prototype's asset page has them: both read-only, so outside Writable.
+              Whoever may look at a file may ask what it may be used for.
+            */}
+            {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
+            <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
+              <CanIUse
+                key={asset.id}
+                context
+                ask={(use) => fetch("/api/v1/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset: asset.id, ...use }) })}
+                onOpen={(to) => leave(() => onOpen(to))}
+              />
+            </Fold>
+
             <Writable do="asset.edit" on={asset} when={editable}>
               {editable && <EditHint />}
               <Group title="Details">
@@ -1113,18 +1128,8 @@ export function AssetEditor({
                 <RightsInputs asset={asset} k={keyOf("rights")} errors={errors} onChange={() => setTimeout(() => void flush())} />
                 <ProvenanceInputs asset={asset} k={keyOf} errors={errors} onOpen={(to) => leave(() => onOpen(to))} onChange={() => setTimeout(() => void flush())} />
                 <FileFacts asset={asset} />
-                {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
               </div>
             </Writable>
-            {/* Outside Writable: whoever may look at a file may ask what it may be used for. */}
-            <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
-              <CanIUse
-                key={asset.id}
-                context
-                ask={(use) => fetch("/api/v1/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset: asset.id, ...use }) })}
-                onOpen={(to) => leave(() => onOpen(to))}
-              />
-            </Fold>
             <Versions asset={asset} onChanged={onReviewed} onOpen={(v) => leave(() => onOpen(v))} />
           </div>
         </ReadOnly.Provider>
