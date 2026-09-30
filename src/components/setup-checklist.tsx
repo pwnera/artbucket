@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { IconCircle, IconCircleCheckFilled, IconX } from "@tabler/icons-react";
+import { IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { isPath, onboardingSteps, PATHS, type Facts, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
 const KEY = "artbucket:setup";
-type Stored = { hidden?: boolean; visited?: string[] };
+type Stored = { hidden?: boolean; path?: PathId };
 
 // Per viewer and per browser: a convenience, so storage that may refuse.
 function read(): string | null {
@@ -27,15 +29,80 @@ function write(s: Stored) {
 }
 const never = () => () => {};
 
+const json = <T,>(url: string): Promise<T | null> =>
+  fetch(url)
+    .then((r) => (r.ok ? (r.json() as Promise<T>) : null))
+    .catch(() => null);
+
+type Status = { steps: { id: string; done: boolean | null }[]; publish: "never" | "behind" | "current" };
+
 /**
- * A new admin's first five minutes: the few things that make the library
- * theirs, each checked off from what the page already knows, the rest by
- * going there. Gone once every step is done, or when hidden.
+ * What a path's steps read (lib/onboarding.ts Facts) that the page doesn't
+ * know already, from the API: the default brand's status and repository,
+ * the team, the keys, and whether an agent called a tool. Only what `path`
+ * needs is asked. Null while it loads.
+ */
+function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
+  const me = useMe();
+  const brand = useBrand();
+  const [got, setGot] = useState<{ path: PathId; facts: Omit<Facts, "uploaded"> } | null>(null);
+  useEffect(() => {
+    if (!path || !me) return;
+    let live = true;
+    const brandy = path !== "agency";
+    void (async () => {
+      const list = brandy ? await json<{ data: { slug: string; default: boolean }[] }>("/api/v1/brands") : null;
+      const b = list?.data.find((x) => x.default) ?? list?.data[0];
+      const [status, source, members, keys, asked] = await Promise.all([
+        b ? json<{ data: Status }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/status`) : null,
+        b && path === "system" ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`) : null,
+        path === "brand" ? json<{ data: unknown[]; invitations: unknown[] }>("/api/v1/members") : null,
+        path === "ai" ? json<{ data: unknown[] }>("/api/v1/keys") : null,
+        path === "ai" ? json<{ data: { clients: { tools: unknown[] }[] } }>("/api/v1/insights/connections") : null,
+      ]);
+      const done = (ids: string[]) => ids.every((id) => status?.data.steps.find((s) => s.id === id)?.done);
+      if (!live) return;
+      setGot({
+        path,
+        facts: {
+          named: me.workspace.organization.name !== "Default",
+          branded: brand.custom,
+          noEmail: !me.auth.serverEmail && !me.email,
+          brand: b
+            ? {
+                slug: b.slug,
+                basics: done(["colors", "type", "logo", "voice"]),
+                tokens: done(["colors", "type"]),
+                published: !!status && status.data.publish !== "never",
+                git: !!source?.data.source,
+              }
+            : null,
+          team: !!members && members.data.length + members.invitations.length > 1,
+          workspaces: me.workspaces.length,
+          agent: !!keys?.data.length,
+          mcp: !!asked?.data.clients.some((c) => c.tools.length > 0),
+          git: me.git,
+        },
+      });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [path, me, brand.custom]);
+  return got && got.path === path ? { ...got.facts, uploaded } : null;
+}
+
+/**
+ * A new admin's first minutes, by path (PRD: onboarding by path): first who
+ * they are, a brand manager, a design system's keeper, an agency or someone
+ * building with AI, then that path's few steps, each checked off from what
+ * the app knows, ending in its first win. The path is this viewer's, kept
+ * in this browser like the list being hidden. Gone once every step is done,
+ * or when hidden.
  */
 export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUpload?: () => void }) {
   const can = useCan();
   const me = useMe();
-  const brand = useBrand();
   // null on the server and while hydrating: say nothing until storage answers, so a hidden list never flashes.
   const raw = useSyncExternalStore(never, read, () => null);
   const [local, setLocal] = useState<Stored | null>(null);
@@ -43,39 +110,58 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
   try {
     stored = local ?? (raw ? (JSON.parse(raw) as Stored) : {});
   } catch {}
+  const path = isPath(stored.path) ? stored.path : undefined;
+  const facts = useFacts(path, uploaded);
   const save = (s: Stored) => {
     setLocal(s);
     write(s);
   };
-  if (raw === null || !me || !can("organization.manage")) return null;
+  if (raw === null || !me || !can("organization.manage") || stored.hidden) return null;
 
-  const visited = new Set(stored.visited);
-  const steps: { id: string; label: string; why: string; done: boolean; href?: string; run?: () => void }[] = [
-    {
-      id: "name",
-      label: "Name your organization",
-      why: "It heads every page, email and share link.",
-      done: me.workspace.organization.name !== "Default",
-      href: "/settings/organization/general",
-    },
-    { id: "brand", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: brand.custom, href: "/settings/organization/branding" },
-    // A server that sends everyone's email has nothing here to turn on, nor a page to do it on.
-    ...(me.auth.serverEmail ? [] : [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: me.email, href: "/settings/organization/email" }]),
-    { id: "upload", label: "Upload your first assets", why: "Logos, photos, fonts: anything the brand uses.", done: uploaded, run: onUpload },
-    { id: "guidelines", label: "Set up your brand", why: "Colors, type, logo and voice, as pages people and agents read.", done: visited.has("guidelines"), href: "/brand" },
-    { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: visited.has("team"), href: "/team" },
-    { id: "agent", label: "Connect an agent", why: "It searches, checks and suggests through the same API.", done: visited.has("agent"), href: "/connections" },
-  ];
+  const hide = (
+    <IconButton variant="ghost" label="Hide setup" onClick={() => save({ ...stored, hidden: true })}>
+      <IconX />
+    </IconButton>
+  );
+  if (!path) {
+    return (
+      <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
+        <div className="flex items-center gap-3">
+          <h2 id="setup-title" className="flex-1 text-sm font-medium">
+            What brings you here?
+          </h2>
+          {hide}
+        </div>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {PATHS.map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => save({ ...stored, path: p.id })}
+                className="hover:bg-accent hover:border-primary/40 grid w-full gap-0.5 rounded-lg border p-3 text-left transition-colors"
+              >
+                <span className="text-sm font-medium">{p.label}</span>
+                <span className="text-muted-foreground text-xs">First win: {p.win}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (!facts) return null;
+
+  const steps = onboardingSteps(path, facts);
   const done = steps.filter((s) => s.done).length;
-  if (stored.hidden || done === steps.length) return null;
-  const visit = (id: string) => !visited.has(id) && save({ ...stored, visited: [...visited, id] });
+  if (done === steps.length) return null;
+  const chosen = PATHS.find((p) => p.id === path)!;
 
   return (
     <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
       <div className="flex items-center gap-3">
         <div className="grid flex-1 gap-1.5">
           <h2 id="setup-title" className="text-sm font-medium">
-            Set up your library
+            {chosen.label}: on to {chosen.win}
           </h2>
           <div className="flex items-center gap-2">
             <Progress value={(done / steps.length) * 100} aria-label="Setup progress" className="h-1.5 max-w-48" />
@@ -84,9 +170,10 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
             </span>
           </div>
         </div>
-        <IconButton variant="ghost" label="Hide setup" onClick={() => save({ ...stored, hidden: true })}>
-          <IconX />
-        </IconButton>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => save({ ...stored, path: undefined })}>
+          Change
+        </Button>
+        {hide}
       </div>
       <ul className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
         {steps.map((s) => {
@@ -95,11 +182,13 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
               {s.done ? (
                 // Keyed on done, so a step checked while the page is open pops in.
                 <IconCircleCheckFilled key="done" className="text-primary-ink animate-in fade-in-0 zoom-in-50 mt-0.5 size-4 shrink-0 duration-200" />
+              ) : s.win ? (
+                <IconTrophy key="win" className="text-primary-ink mt-0.5 size-4 shrink-0" />
               ) : (
                 <IconCircle key="todo" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               )}
               <span className="grid min-w-0 gap-0.5 text-left">
-                <span className={cn("text-sm", s.done && "text-muted-foreground line-through decoration-muted-foreground/50")}>{s.label}</span>
+                <span className={cn("text-sm", s.win && "font-medium", s.done && "text-muted-foreground line-through decoration-muted-foreground/50")}>{s.label}</span>
                 <span className="text-muted-foreground text-xs">{s.why}</span>
               </span>
             </>
@@ -107,16 +196,23 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
           const row = "hover:bg-accent flex w-full items-start gap-2.5 rounded-md p-2 transition-colors";
           return (
             <li key={s.id}>
-              {s.href ? (
-                <Link href={s.href} onClick={() => visit(s.id)} className={row}>
+              {s.upload ? (
+                onUpload && !s.done ? (
+                  <button type="button" onClick={onUpload} className={row}>
+                    {body}
+                  </button>
+                ) : (
+                  <div className={row}>{body}</div>
+                )
+              ) : s.id === "git" ? (
+                // The Git integration is the server's (GIT_CONNECT_URL), not a page of the app.
+                <a href={s.href} className={row}>
+                  {body}
+                </a>
+              ) : (
+                <Link href={s.href!} className={row}>
                   {body}
                 </Link>
-              ) : s.run && !s.done ? (
-                <button type="button" onClick={s.run} className={row}>
-                  {body}
-                </button>
-              ) : (
-                <div className={row}>{body}</div>
               )}
             </li>
           );
