@@ -33,6 +33,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExternalLink } from "@/components/external-link";
 import { boundKeys, designWarnings, hasPicture } from "@/lib/pages";
 import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
@@ -246,9 +247,9 @@ function Repository({ b }: { b: BuilderApi }) {
       </PopoverTrigger>
       <PopoverContent align="end" className="app-tokens grid w-80 gap-2 p-3 text-sm">
         <p className="font-medium">Kept in a repository</p>
-        <a href={s.remote} target="_blank" rel="noreferrer" className="truncate underline underline-offset-2">
+        <ExternalLink href={s.remote} className="truncate underline underline-offset-2">
           {where}
-        </a>
+        </ExternalLink>
         <p className="text-muted-foreground text-xs">
           {s.branch}
           {s.path ? `, in ${s.path}/` : ""}

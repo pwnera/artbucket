@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconCopy, IconDownload, IconExternalLink, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDownload, IconTrash } from "@tabler/icons-react";
 import { copy, GRADE_STYLE, MARKER } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { CopyButton } from "@/components/copy-button";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ExternalLink } from "@/components/external-link";
 import { colorsOf } from "@/lib/brand-theme";
 import { contrast, grade, inkOn } from "@/lib/color";
 import { isFont } from "@/lib/font";
@@ -450,9 +451,7 @@ export function AssetTile({
         <Separator />
         <div className="flex items-center gap-1 p-1">
           <Button variant="ghost" size="sm" asChild>
-            <a href={path} target="_blank" rel="noreferrer">
-              <IconExternalLink /> Open
-            </a>
+            <ExternalLink href={path}>Open</ExternalLink>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => copy(new URL(path, window.location.origin).href, "URL")}>
             <IconCopy /> Copy URL

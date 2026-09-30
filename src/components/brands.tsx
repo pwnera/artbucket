@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconBook, IconDots, IconExternalLink, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
+import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";
@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ExternalLink } from "@/components/external-link";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { builderPath } from "@/lib/site";
@@ -296,9 +297,7 @@ function Row({
         <div className="flex items-center gap-2">
           {hub.published && (
             <Button asChild variant="outline" size="sm">
-              <a href={hub.url} target="_blank" rel="noreferrer">
-                BrandHub <IconExternalLink aria-hidden className="opacity-60" />
-              </a>
+              <ExternalLink href={hub.url}>BrandHub</ExternalLink>
             </Button>
           )}
           {canShare &&

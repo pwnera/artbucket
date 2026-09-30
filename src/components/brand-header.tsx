@@ -10,6 +10,7 @@ import { BrandTabs, type BrandTab } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
+import { ExternalLink } from "@/components/external-link";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,8 @@ import { brandPath, builderPath } from "@/lib/site";
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
  * card, as the prototype draws it): its mark, its name, whether its
- * organization is verified and whether it is public on BrandHub, then how
+ * organization is verified and whether it is public on BrandHub (a link to
+ * its page there), then how
  * BrandHub names it, what is live and whether it is the latest (lib/readiness.ts
  * liveLine), when it was released, and the release's note. Use this brand,
  * Edit (the builder, where you are: the page on show, or its Rules panel
@@ -74,9 +76,11 @@ export function BrandHeader({ brand, origin, rules, status, release, at }: Brand
                 </Badge>
               )}
               {hub && (
-                <Badge variant="secondary">
-                  {hub.visibility === "public" ? <IconWorld aria-hidden /> : <IconLock aria-hidden />}
-                  {hub.visibility === "public" ? "Public on hub" : "Private on hub"}
+                <Badge variant="secondary" asChild>
+                  <ExternalLink href={hub.url}>
+                    {hub.visibility === "public" ? <IconWorld aria-hidden /> : <IconLock aria-hidden />}
+                    {hub.visibility === "public" ? "Public on BrandHub" : "Private on BrandHub"}
+                  </ExternalLink>
                 </Badge>
               )}
             </div>

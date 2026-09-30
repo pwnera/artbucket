@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { ExternalLink } from "@/components/external-link";
 import { EMAIL_PROVIDERS, PROVIDERS, type EmailProvider, type EmailSettings } from "@/lib/email";
 import { send } from "@/lib/send";
 
@@ -126,9 +127,9 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
               {p.site ? (
                 <>
                   Make an API key at{" "}
-                  <a href={p.site} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                  <ExternalLink href={p.site} className="underline underline-offset-2">
                     {p.site.replace("https://", "")}
-                  </a>{" "}
+                  </ExternalLink>{" "}
                   and verify the domain you send from.
                 </>
               ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconExternalLink, IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
+import { IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { ExternalLink } from "@/components/external-link";
 import { releaseLines, type ReleaseLine, type SnapRule } from "@/lib/history";
 import type { SnapPage } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
@@ -416,10 +417,9 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
           <ul className="grid gap-1">
             {portals.map((p) => (
               <li key={p.slug}>
-                <a href={p.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm underline underline-offset-2">
-                  {p.name} <IconExternalLink className="size-3.5" aria-hidden />
-                  <span className="sr-only">(opens in a new tab)</span>
-                </a>
+                <ExternalLink href={p.url} className="inline-flex items-center gap-1 text-sm underline underline-offset-2">
+                  {p.name}
+                </ExternalLink>
               </li>
             ))}
           </ul>
@@ -436,10 +436,9 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
       {done.hub && (
         <p className="text-muted-foreground text-sm">
           {done.hub.visibility === "public" ? "Public on BrandHub, where anyone and any agent reads it: " : "Private on BrandHub, for people in this workspace: "}
-          <a href={done.hub.url} target="_blank" rel="noreferrer" className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
-            {done.hub.visibility === "public" ? done.hub.url.replace(/^https?:\/\//, "") : "see it there"} <IconExternalLink className="size-3.5" aria-hidden />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
+          <ExternalLink href={done.hub.url} className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
+            {done.hub.visibility === "public" ? done.hub.url.replace(/^https?:\/\//, "") : "see it there"}
+          </ExternalLink>
           {done.hub.visibility === "private" && (
             <>
               {". "}

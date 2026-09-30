@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { IconCircleCheck, IconCloudUpload, IconExternalLink, IconLock, IconRefresh, IconUpload } from "@tabler/icons-react";
+import { IconCircleCheck, IconCloudUpload, IconLock, IconRefresh, IconUpload } from "@tabler/icons-react";
 import { BrandMark, ThemeToggle, useAccent } from "@/components/brand";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { Downloads, LocalDate, meta, PublicGrid, Stage, type PublicItem } from "@/components/public-grid";
@@ -14,6 +14,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ExternalLink } from "@/components/external-link";
 import type { Brand } from "@/lib/branding";
 import { inkOn } from "@/lib/color";
 import { pool } from "@/lib/pool";
@@ -304,9 +305,7 @@ function Single({ item, by }: { item: PublicItem; by: string | null }) {
           <div className="flex flex-wrap gap-2">
             {item.original && (
               <Button variant="outline" size="lg" asChild>
-                <a href={item.original} target="_blank" rel="noreferrer">
-                  <IconExternalLink /> Open original
-                </a>
+                <ExternalLink href={item.original}>Open original</ExternalLink>
               </Button>
             )}
             <Downloads item={item} variant="default" size="lg" />

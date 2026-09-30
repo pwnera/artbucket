@@ -69,6 +69,8 @@ export type Me = {
   git: string | null;
   /** This server runs BrandHub (HUB_URL). */
   hub: boolean;
+  /** Where BrandHub shows the workspace's brands, private ones too (lib/hub.ts hubHome); null without HUB_URL. */
+  hubUrl: string | null;
   /** The operator's word to the organization's admins, shown across the top of the app (lib/settings.ts, notice). */
   notice: { text: string; href: string | null } | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };

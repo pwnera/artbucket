@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowLeft, IconCheck, IconExternalLink, IconIcons, IconSearch } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconIcons, IconSearch } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { IconGlyph, svgDataUri } from "@/components/icon-glyph";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ExternalLink } from "@/components/external-link";
 import { ICON_GROUP_NAMES, type IconGroup, type IconSet } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -305,9 +306,9 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
           {set.license && (
             <Badge variant="outline" asChild={!!set.license.url}>
               {set.license.url ? (
-                <a href={set.license.url} target="_blank" rel="noreferrer" title="Read the license">
-                  {set.license.title} <IconExternalLink />
-                </a>
+                <ExternalLink href={set.license.url} title="Read the license">
+                  {set.license.title}
+                </ExternalLink>
               ) : (
                 set.license.title
               )}

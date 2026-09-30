@@ -240,7 +240,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     </Button>
                   )}
                   <CopyButton text={p.url} label="Copy the address" what="the address" size="icon-sm" />
-                  <IconButton variant="ghost" label="Open it" asChild>
+                  <IconButton variant="ghost" label="Open it in a new tab" asChild>
                     <a href={p.url} target="_blank" rel="noreferrer">
                       <IconExternalLink />
                     </a>

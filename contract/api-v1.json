@@ -33625,6 +33625,18 @@
                         "type": "boolean",
                         "description": "This server runs BrandHub (HUB_URL)"
                       },
+                      "hubUrl": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Where BrandHub shows the workspace's brands, private ones too; null when the server has none"
+                      },
                       "notice": {
                         "anyOf": [
                           {
@@ -33743,6 +33755,7 @@
                       "upgrade",
                       "git",
                       "hub",
+                      "hubUrl",
                       "notice",
                       "auth"
                     ],

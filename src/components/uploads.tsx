@@ -2,10 +2,10 @@
 
 import { useState, useSyncExternalStore } from "react";
 import {
+  IconArrowsMaximize,
   IconAlertCircle,
   IconChevronDown,
   IconCircleCheck,
-  IconExternalLink,
   IconLoader2,
   IconRefresh,
   IconX,
@@ -236,7 +236,7 @@ export function UploadTray({
                   )}
                   {landed && onOpen && (
                     <IconButton variant="ghost" size="icon-xs" label={`Open ${u.name}`} onClick={() => onOpen(u.assetId!)}>
-                      <IconExternalLink />
+                      <IconArrowsMaximize />
                     </IconButton>
                   )}
                 </div>

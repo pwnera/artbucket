@@ -1055,6 +1055,7 @@ export const Me = z.object({
     .nullable()
     .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
   hub: z.boolean().describe("This server runs BrandHub (HUB_URL)"),
+  hubUrl: z.string().url().nullable().describe("Where BrandHub shows the workspace's brands, private ones too; null when the server has none"),
   notice: z
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()

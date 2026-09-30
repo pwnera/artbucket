@@ -70,6 +70,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
+import { ExternalLink } from "@/components/external-link";
 import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
@@ -1194,15 +1195,13 @@ function FileFacts({ asset }: { asset: Asset }) {
     [
       "Location",
       m.gps && (
-        <a
+        <ExternalLink
           key="gps"
           href={`https://www.openstreetmap.org/?mlat=${m.gps.lat}&mlon=${m.gps.lon}#map=15/${m.gps.lat}/${m.gps.lon}`}
-          target="_blank"
-          rel="noreferrer"
           className="underline underline-offset-2"
         >
           {m.gps.lat.toFixed(4)}, {m.gps.lon.toFixed(4)}
-        </a>
+        </ExternalLink>
       ),
     ],
     ["Added", <span key="a" suppressHydrationWarning>{when(asset.createdAt)}</span>],

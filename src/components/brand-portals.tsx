@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { IconExternalLink, IconLock, IconPlus, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconLock, IconPlus, IconUsers, IconWorld } from "@tabler/icons-react";
 import type { Status } from "@/components/builder/use-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "@/components/external-link";
 
 type Portal = NonNullable<Status["portals"]>[number];
 
@@ -49,10 +50,9 @@ export function BrandPortals({ slug, portals, hub }: { slug: string; portals: Po
                   {p.name}
                   {p.slug === linked && <Badge variant="secondary">BrandHub links it</Badge>}
                 </span>
-                <a href={p.url} target="_blank" rel="noreferrer" className="text-muted-foreground inline-flex items-center gap-1 truncate text-sm hover:underline">
-                  {p.url.replace(/^https?:\/\//, "")} <IconExternalLink aria-hidden className="size-3.5 shrink-0" />
-                  <span className="sr-only">(opens in a new tab)</span>
-                </a>
+                <ExternalLink href={p.url} className="text-muted-foreground inline-flex items-center gap-1 truncate text-sm hover:underline">
+                  {p.url.replace(/^https?:\/\//, "")}
+                </ExternalLink>
               </div>
               <Badge variant="outline">
                 {ACCESS[p.access].icon} {ACCESS[p.access].label}

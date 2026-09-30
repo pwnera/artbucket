@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Fold } from "@/components/fields";
+import { ExternalLink } from "@/components/external-link";
 import { contextLabel, ruleLabel } from "@/lib/rules";
 import { builderPath, guidelinesPath } from "@/lib/site";
 
@@ -101,9 +102,9 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
         <Part title="Portals">
           {got.portals.map((p) => (
             <li key={p.url}>
-              <a href={p.url} target="_blank" rel="noreferrer" className="hover:underline">
+              <ExternalLink href={p.url} className="hover:underline">
                 {p.name}
-              </a>
+              </ExternalLink>
             </li>
           ))}
         </Part>
