@@ -17,8 +17,10 @@ import { parseArgs } from "node:util";
 
 const HELP = `artbucket <command>
 
-  login [server]          sign in through the browser (app.artbucket.io: https is
-                          assumed) and save a key; later commands use that server
+  login [server] [--scope read|propose|write]
+                          sign in through the browser (app.artbucket.io: https is
+                          assumed) and save a key, write unless --scope says less;
+                          later commands use that server
   logout [server]         forget it
   search [words] [--tag t]... [--collection id] [--status s]... [--review] [--limit n]
                           --status draft|proposed|active|expired|archived|rejected|deleted
@@ -157,9 +159,16 @@ async function api(method: string, path: string, body?: unknown) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error?.message ?? `${method} ${path}: ${res.status}`);
+  if (!res.ok) throw failed(res, json, `${method} ${path}`);
   return json;
 }
+
+/** An API error as a person reads it: a key from `login` that can't do this can be swapped for one that can. */
+const failed = (res: Response, json: { error?: { message?: string } } | null, what: string) =>
+  new Error(
+    (json?.error?.message ?? `${what}: ${res.status}`) +
+      (res.status === 403 && !process.env.ARTBUCKET_KEY && /^This key's scope/.test(json?.error?.message ?? "") ? `. Log in again with --scope write: artbucket login --scope write` : ""),
+  );
 
 type Asset = { id: string; filename: string; status: string; width: number | null; height: number | null; tags: string[]; proposedTags: string[] };
 const line = (a: Asset) =>
@@ -289,7 +298,7 @@ async function post(path: string, body: unknown) {
   });
   const json = await res.json().catch(() => null);
   if (res.status === 422 && json?.error?.detail?.errors) return { ok: false as const, problems: json.error.detail as { errors: Problem[]; warnings: Problem[]; missing: string[] } };
-  if (!res.ok) throw new Error(json?.error?.message ?? `POST ${path}: ${res.status}`);
+  if (!res.ok) throw failed(res, json, `POST ${path}`);
   return { ok: true as const, data: json.data };
 }
 
@@ -380,11 +389,12 @@ async function oauth(path: string, body: Record<string, unknown>) {
  */
 async function login() {
   const client = await oauth("/api/v1/oauth/register", {
-    client_name: `artbucket CLI on ${hostname()}`,
+    client_name: `Artbucket CLI on ${hostname()}`,
     grant_types: ["urn:ietf:params:oauth:grant-type:device_code"],
   });
   if (!client.ok) throw new Error(client.json.error_description ?? `Can't reach ${BASE}`);
-  const device = await oauth("/api/v1/oauth/device", { client_id: client.json.client_id });
+  // Write by default: pushing a brand edits it, and --publish releases it.
+  const device = await oauth("/api/v1/oauth/device", { client_id: client.json.client_id, scope: opt.scope ?? "write" });
   if (!device.ok) throw new Error(device.json.error_description ?? "Couldn't start signing in");
   const d = device.json;
   console.log(`Open ${d.verification_uri_complete}\nand check it shows ${d.user_code}. Waiting...`);
@@ -414,8 +424,8 @@ async function main() {
       delete saved[BASE];
       if (saved.default === BASE) delete saved.default;
       await save();
-      // The key still works until it's revoked: Connected agents, or `artbucket keys revoke`.
-      return console.log(had ? `Forgot the key for ${BASE}. Disconnect it on the Agents page to revoke it.` : `Not signed in to ${BASE}.`);
+      // The key still works until it's revoked: Connections, or `artbucket keys revoke`.
+      return console.log(had ? `Forgot the key for ${BASE}. Disconnect it on the Connections page to revoke it.` : `Not signed in to ${BASE}.`);
     }
     case "search":
     case "review": {

@@ -1623,7 +1623,10 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Start the device flow",
           scope: "public",
-          description: "RFC 8628, with a registered `client_id`. A person approves `user_code` at `verification_uri`; poll the token endpoint meanwhile.",
+          description:
+            "RFC 8628, with a registered `client_id`, form-encoded (or JSON). A person approves `user_code` at `verification_uri`; poll the token " +
+            "endpoint meanwhile. `scope` (read, propose or write) is what the consent screen offers first, never more than the person may give; " +
+            "without it, propose. `artbucket login` asks for write.",
           ok: [200, "Codes", z.object({ device_code: z.string(), user_code: z.string(), verification_uri: z.string(), verification_uri_complete: z.string(), expires_in: z.number(), interval: z.number() })],
         }),
       },

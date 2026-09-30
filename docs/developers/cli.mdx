@@ -14,7 +14,10 @@ takes your server (`https://` is assumed without a scheme; give
 `http://localhost:3000` in full), signs in through the browser with the
 device flow, and keeps a key in `~/.config/artbucket/credentials.json`,
 with that server as the default: later commands go there without
-`ARTBUCKET_URL`, which still wins when set. Or set `ARTBUCKET_KEY`. From a
+`ARTBUCKET_URL`, which still wins when set. It asks to edit (`write`), since
+pushing a brand edits it and `--publish` releases it; `--scope read` or
+`--scope propose` asks for less, and the consent screen never offers more
+than you have. Disconnect it from Connections. Or set `ARTBUCKET_KEY`. From a
 clone, `pnpm artbucket` runs the same CLI, and `pnpm link --global` puts it
 on your path.
 

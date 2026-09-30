@@ -52693,7 +52693,7 @@
   "/api/v1/oauth/device": {
     "post": {
       "summary": "Start the device flow",
-      "description": "RFC 8628, with a registered `client_id`. A person approves `user_code` at `verification_uri`; poll the token endpoint meanwhile.\n\nNo key needed.",
+      "description": "RFC 8628, with a registered `client_id`, form-encoded (or JSON). A person approves `user_code` at `verification_uri`; poll the token endpoint meanwhile. `scope` (read, propose or write) is what the consent screen offers first, never more than the person may give; without it, propose. `artbucket login` asks for write.\n\nNo key needed.",
       "security": [],
       "responses": {
         "200": {
