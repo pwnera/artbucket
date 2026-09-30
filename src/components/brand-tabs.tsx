@@ -23,7 +23,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "rules", label: "Tokens and rules", href: brandPath(brand.slug, "/rules") },
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
-    ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: `/portals?${new URLSearchParams({ brand: brand.slug })}` }] : []),
+    ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: brandPath(brand.slug, "/portals") }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: brandPath(brand.slug, "/insights") }] : []),
     ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: `/brands?${new URLSearchParams({ q: brand.name })}` }] : []),
   ];

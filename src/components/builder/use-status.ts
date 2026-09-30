@@ -26,6 +26,8 @@ export type Status = {
     verified: string | null;
     /** Its guidelines portal's terms of use, in markdown. */
     terms: string | null;
+    /** The portal BrandHub links as its guidelines. */
+    portal: { slug: string; name: string } | null;
   } | null;
 };
 
