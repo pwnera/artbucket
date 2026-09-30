@@ -49,4 +49,8 @@ artbucket brand diff brand
 artbucket brand push brand --publish --note "Bluer primary"
 ```
 
+In CI, with a write key (`artbucket keys create ci --scope write`) in
+`ARTBUCKET_KEY`: `npx --yes artbucket brand push brand --brand acme --publish`.
+The guide has [GitHub Actions and GitLab CI recipes](/guides/brand-as-code#from-ci).
+
 `--json` prints the raw API response. `artbucket --help` lists every command.

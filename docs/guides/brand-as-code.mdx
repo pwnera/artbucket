@@ -95,6 +95,53 @@ Each command acts on the brand `--brand` names, or else the one `slug:` in
 the wrong brand never land. `push --create` makes the brand when there is
 none by that slug.
 
+## From CI
+
+Without a Git integration (a self-hosted server, or a team that would rather
+not install one), a CI job does the push. Make a write key once, keep it as
+a secret with the server's address, and push the brand's folder when it
+changes on the main branch:
+
+```bash
+artbucket keys create ci --scope write
+```
+
+```yaml .github/workflows/brand.yml
+name: Brand
+on:
+  push:
+    branches: [main]
+    paths: ["brand/**"]
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npx --yes artbucket brand push brand --brand acme --publish --note "$(git log -1 --format=%s)"
+        env:
+          ARTBUCKET_URL: https://app.artbucket.io
+          ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+```
+
+```yaml .gitlab-ci.yml
+brand:
+  image: node:22
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: ["brand/**/*"]
+  script:
+    - npx --yes artbucket brand push brand --brand acme --publish --note "$CI_COMMIT_TITLE"
+```
+
+On GitLab, `ARTBUCKET_URL` and `ARTBUCKET_KEY` are CI/CD variables, the key
+masked. `ARTBUCKET_URL` is your own server when you host one. Without
+`--publish` the push updates the draft, to release from the app. On a pull
+or merge request, `artbucket brand diff brand --brand acme` exits 1 on any
+problem in the files, at its line, which makes it a check.
+
 ## Both ways
 
 A brand kept in a repository remembers where (`PUT /api/v1/brands/{slug}/source`)
