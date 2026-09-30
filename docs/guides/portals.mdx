@@ -244,7 +244,8 @@ and left out of the sitemap).
 ### Verified by GitHub
 
 Beside a domain, an organization can prove it runs a GitHub organization, in
-Settings, **BrandHub** (`POST /api/v1/github-orgs`). Put the file it names,
+Settings, **BrandHub** (`POST /api/v1/github-orgs`), which opens on whether
+its listings are verified and by which domains and accounts. Put the file it names,
 `artbucket-verification.txt` holding the token shown, in the account's
 `.github` repository on its default branch, then **Check now**
 (`POST /api/v1/github-orgs/{login}/verify`). The server reads it from

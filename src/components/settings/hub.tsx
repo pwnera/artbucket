@@ -2,11 +2,12 @@
 
 import { Fragment, useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconBrandGithub, IconCheck, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconCheck, IconCircleCheckFilled, IconPlus, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
+import type { Domain } from "@/components/settings/branding";
 import { Group } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,16 +32,47 @@ export type HubReport = {
 };
 
 /**
- * The organization on BrandHub (lib/core/hub-trust.ts): the GitHub accounts
- * that prove it is who its listings say, beside its domains, and what people
- * reported or claimed about its listings, to act on.
+ * The organization on BrandHub (lib/core/hub-trust.ts), as the prototype's
+ * listing page has it: whether its listings are verified and by what, the
+ * GitHub accounts that prove it is who its listings say, beside its domains,
+ * and what people reported or claimed about its listings, to act on.
  */
-export function HubPanel({ github, reports }: { github: GithubAccount[]; reports: HubReport[] }) {
+export function HubPanel({ github, reports, domains }: { github: GithubAccount[]; reports: HubReport[]; domains: Pick<Domain, "host" | "verified">[] }) {
   return (
     <div className="space-y-6">
+      <Verified proofs={[...domains.filter((d) => d.verified).map((d) => `DNS TXT record on ${d.host}`), ...github.filter((g) => g.verified).map((g) => `GitHub organization github.com/${g.login}`)]} />
       <GithubAccounts github={github} />
       <Reports reports={reports} />
+      <p className="text-muted-foreground text-sm">
+        Anyone can report a listing, and an organization that proves it holds the brand can claim it. Listings that are not verified stay out of search engines.
+      </p>
     </div>
+  );
+}
+
+/** Whether its public listings show as verified, and each proof that makes them so. */
+function Verified({ proofs }: { proofs: string[] }) {
+  return (
+    <Group
+      title={proofs.length ? "Listings verified" : "Listings"}
+      description={
+        proofs.length
+          ? "Your public brands show on BrandHub as verified, with the proof they name."
+          : "Your public brands show on BrandHub as community listings until the organization proves a domain (Domains) or a GitHub account (below)."
+      }
+    >
+      {proofs.length ? (
+        <ul className="grid gap-1.5 text-sm">
+          {proofs.map((p) => (
+            <li key={p} className="flex items-center gap-2">
+              <IconCircleCheckFilled aria-hidden className="text-success size-4 shrink-0" /> {p}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Badge variant="outline">Community</Badge>
+      )}
+    </Group>
   );
 }
 

@@ -52,13 +52,15 @@ export default async function SettingsSection({ params }: { params: Promise<Para
   const loading = LOADS[`${context}/${section}`];
   const forMembers = `${context}/${section}` === "workspace/members";
   const forHub = `${context}/${section}` === "organization/hub";
-  const [me, loaded, collections, reports] = await Promise.all([
+  const [me, loaded, collections, reports, domains] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
     // What a member's access can be scoped to.
     forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
+    // And its domains: a verified one proves its listings as a GitHub account does.
+    forHub ? get("domains", (b: { data: Domain[] }) => b.data, []) : [],
   ]);
   if (!opens(me, s)) redirect("/settings");
   // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
@@ -109,7 +111,7 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     case "organization/domains":
       return <DomainsPanel domains={data<Domain[]>()} />;
     case "organization/hub":
-      return reports ? <HubPanel github={data<GithubAccount[]>()} reports={reports} /> : <LoadFailed />;
+      return reports ? <HubPanel github={data<GithubAccount[]>()} reports={reports} domains={domains} /> : <LoadFailed />;
     case "organization/sso": {
       const { data: sso, redirectUri } = loaded as { data: Sso | null; redirectUri: string };
       // Keyed by what the server has: after a save the form starts from it.
