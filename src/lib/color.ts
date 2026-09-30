@@ -58,7 +58,7 @@ export function grade(ratio: number): "AAA" | "AA" | "AA large" | "fail" {
 }
 
 /** The app's page backgrounds, as --background in globals.css: what its accent and its text must read on. */
-export const APP_BG = { light: "#ffffff", dark: "#141c23" } as const;
+export const APP_BG = { light: "#ffffff", dark: "#141414" } as const;
 
 /** Black or white, whichever reads better on this color. */
 export const inkOn = (hex: string) => (contrast(hex, "#ffffff") >= contrast(hex, "#000000") ? "#ffffff" : "#000000");
