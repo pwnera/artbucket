@@ -304,7 +304,7 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.check_use,
-    run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }),
+    run: async ({ id, ...use }, caller) => checkUse(caller, { asset: id, ...use }, "mcp"),
   }),
 
   ingest_asset: tool({
