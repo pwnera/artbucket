@@ -117,6 +117,8 @@ function Card({ card, base }: { card: HubCard; base: string }) {
           </Link>
         </h3>
         {card.tagline && <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">{card.tagline}</p>}
+        {/* Anyone may list a brand under any name: a community listing says so where it is picked. */}
+        {card.visibility === "public" && !card.verified && <p className="text-muted-foreground mt-1 text-xs">May not come from the brand&apos;s owner.</p>}
         <p className="text-muted-foreground mt-auto pt-5 text-[11px] font-semibold tracking-[.12em] uppercase">
           {card.org} / {card.brand}
         </p>
@@ -126,7 +128,8 @@ function Card({ card, base }: { card: HubCard; base: string }) {
             {card.colors} {card.colors === 1 ? "color" : "colors"}
           </span>
           {card.families[0] && <span className="max-w-32 truncate">{card.families[0]}</span>}
-          <span>v{card.version}</span>
+          {/* The release it serves, as releases are named everywhere: @n. */}
+          <span className="font-mono">@{card.version}</span>
           {card.pulls > 0 && <Pulls n={card.pulls} />}
           {card.publishedAt && <span>Updated {ago(card.publishedAt)}</span>}
         </div>

@@ -310,8 +310,10 @@ card, its page and the brand's Overview show them ("1.2k pulls"), and
 
 Someone signed in can **Follow** a public listing
 (`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): the hub's front
-page then has a **Following** tab with the brands they follow. **Trending**
-sorts by pulls in the last 7 days.
+page then has a **Following** tab with the brands they follow. **Trending
+this week**, the order it opens in, sorts by pulls in the last 7 days. A
+community listing's card says it may not come from the brand's owner, and
+the front page ends with a domain box for the public Brand Agent Score.
 
 Curated collections, like "Open-source project brands", are the server
 operator's: each is a row in `hub_collections`, listing public brands as

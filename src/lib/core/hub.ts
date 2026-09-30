@@ -164,7 +164,7 @@ async function cards(rows: Row[]) {
 
 export type HubCard = Awaited<ReturnType<typeof cards>>[number];
 
-export const HUB_SORTS = { recent: "Recently released", trending: "Trending", name: "Name" } as const;
+export const HUB_SORTS = { trending: "Trending this week", recent: "Recently released", name: "Name" } as const;
 export type HubSort = keyof typeof HUB_SORTS;
 
 /** How far back Trending looks: pulls in the last week. */

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IconMoodEmpty } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Cards, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";
 import { followed, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
@@ -25,7 +27,8 @@ export default async function HubHome({ searchParams }: Props) {
   const sp = await searchParams;
   const q = one(sp.q);
   const filter = pick(one(sp.filter), FILTERS, "all");
-  const sort = pick<HubSort>(one(sp.sort), HUB_SORTS, "recent");
+  // Trending this week first, as the prototype's hub opens: most pulled, ties newest first.
+  const sort = pick<HubSort>(one(sp.sort), HUB_SORTS, "trending");
   const [base, viewer] = await Promise.all([hubBase(), hubViewer()]);
   const [all, mine] = await Promise.all([hubListings({ q, sort, limit: 200, viewer }), viewer ? followed(viewer.user.id) : new Set<string>()]);
   const pub = all.filter((c) => c.visibility === "public");
@@ -46,7 +49,7 @@ export default async function HubHome({ searchParams }: Props) {
     const p = new URLSearchParams({
       ...(q && { q }),
       ...((o.filter ?? filter) !== "all" && { filter: o.filter ?? filter }),
-      ...((o.sort ?? sort) !== "recent" && { sort: o.sort ?? sort }),
+      ...((o.sort ?? sort) !== "trending" && { sort: o.sort ?? sort }),
     });
     return `${base || "/"}${p.size ? `?${p}` : ""}`;
   };
@@ -133,6 +136,16 @@ export default async function HubHome({ searchParams }: Props) {
             </p>
           </div>
         )}
+
+        {/* The public Brand Agent Score (app/hub/score), asked from the front page as the prototype's hub does. */}
+        <form action={`${base}/score`} className="mt-10 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-5">
+          <div className="min-w-60 flex-1">
+            <p className="font-medium">How agent-ready is your brand?</p>
+            <p className="text-muted-foreground text-sm">Enter a domain and get a free Brand Agent Score.</p>
+          </div>
+          <Input name="domain" required placeholder="yourbrand.com" aria-label="Your brand's domain" className="w-full sm:w-56" />
+          <Button type="submit">Check</Button>
+        </form>
       </div>
     </>
   );
