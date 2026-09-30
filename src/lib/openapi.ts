@@ -582,6 +582,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The signals", data(S.BrandInsights)],
         }),
       },
+      "/api/v1/brands/{slug}/assets": {
+        parameters: [path("slug", "Brand slug")],
+        get: op({
+          summary: "The files a brand uses",
+          scope: "read",
+          description:
+            "Its rules' files, in the rules' order, then the ones its pages show (a cover, an image, a video, a file), " +
+            "each with the rules and pages it is in. Only what the caller may see.",
+          ok: [200, "Its files", data(z.array(S.BrandAsset))],
+        }),
+      },
       "/api/v1/brands/{slug}/versions": {
         parameters: [path("slug", "Brand slug")],
         get: op({

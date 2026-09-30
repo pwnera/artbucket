@@ -5,18 +5,15 @@ import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 import { useCan } from "@/components/can";
 import { TabNav } from "@/components/hub";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { brandPath, guidelinesPath } from "@/lib/site";
+import { brandPath } from "@/lib/site";
 
 export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "portals" | "insights" | "settings";
 
 /**
- * A brand's tabs (PRD section 13, "In the app"), as a repository's are. Each
- * is a link: Overview, Guidelines, Releases and Insights are the brand's
- * own pages, the rest open the page each concern already has, on this
- * brand where it can be (the builder's rules, the portals showing it, its
- * row on the Brands page). The library is the workspace's: assets are not
- * a brand's. Left out for whoever may
- * not use the page behind a tab.
+ * A brand's tabs (PRD section 13, "In the app"), as a repository's are. The
+ * brand's page is read-only and its tabs stay in it, each at its own address
+ * under /brands/{slug}; Edit, in the header, is the way into the builder.
+ * Left out for whoever may not use the page behind a tab.
  */
 export function useBrandTabs(brand: { slug: string; name: string }) {
   const can = useCan();
@@ -24,7 +21,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
     { id: "guidelines", label: "Guidelines", href: brandPath(brand.slug, "/pages") },
     { id: "rules", label: "Tokens and rules", href: brandPath(brand.slug, "/rules") },
-    { id: "assets", label: "Assets", href: "/" },
+    { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: `/portals?${new URLSearchParams({ brand: brand.slug })}` }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: brandPath(brand.slug, "/insights") }] : []),

@@ -1361,6 +1361,17 @@ export const BrandInsights = z.object({
     .nullable()
     .describe("Release adoption; null before the first release"),
 });
+export const BrandAsset = z.object({
+  id: uuid,
+  title: z.string(),
+  filename: z.string(),
+  mime: z.string(),
+  width: z.number().int().nullable(),
+  height: z.number().int().nullable(),
+  preview: z.boolean().describe("Has renditions: /a/{id}/w_320,f_webp draws it"),
+  rules: z.array(z.string()).describe("The keys of the rules that hold it"),
+  pages: z.array(z.object({ slug: z.string(), title: z.string() })).describe("The pages that show it"),
+});
 export const SignedUrl = z.object({
   url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
   expiresAt: date,
