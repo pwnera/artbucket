@@ -71,7 +71,7 @@ const PRESETS = [
 const MODES = {
   team: { label: "Team", icon: IconUsers, hint: "People who can already see it in the library. Anyone else is asked to sign in." },
   link: { label: "Link", icon: IconLink, hint: "Anyone with the link can look and download, without an account." },
-  public: { label: "Public", icon: IconWorld, hint: "Anyone at all, at a URL that never changes: for embedding on a site." },
+  public: { label: "Public", icon: IconWorld, hint: "Anyone at all, at a URL: for embedding on a site or in a doc." },
 } as const;
 type Mode = keyof typeof MODES;
 
@@ -578,14 +578,16 @@ function TeamLink({ id }: { id: string }) {
 }
 
 /**
- * Served at /a/{id} to anyone while it stays approved: for embedding on a
- * site. No undo toast: the switch is its own undo, where it was flipped.
+ * Served to anyone while it stays approved: for embedding on a site. Two
+ * URLs: /c/{id}, which follows it to each new version once approved (app/c),
+ * the one to embed; and /a/{id}, this version's file, pinned. No undo
+ * toast: the switch is its own undo, where it was flipped.
  */
 function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: boolean }; onChanged?: (a: { id: string; public: boolean }) => void }) {
   const fieldId = useId();
   const [on, setOn] = useState(!!asset.public);
   const [busy, setBusy] = useState(false);
-  const url = typeof window === "undefined" ? "" : new URL(`/a/${asset.id}`, window.location.origin).href;
+  const at = (path: string) => (typeof window === "undefined" ? "" : new URL(path, window.location.origin).href);
   return (
     <div className="grid gap-3 pt-1">
       <div className="flex items-center gap-3">
@@ -604,9 +606,22 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
         />
         <Label htmlFor={fieldId}>{on ? "Anyone with the URL gets the file" : "Off: only people with access"}</Label>
       </div>
-      {on && <Snippet text={url} what="the URL" />}
+      {on && (
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <p className="text-sm font-medium">Always the current version</p>
+            <Snippet text={at(`/c/${asset.id}`)} what="the URL" />
+            <p className="text-muted-foreground text-xs">The one to embed: a new version, once approved, shows wherever it is used.</p>
+          </div>
+          <div className="grid gap-1.5">
+            <p className="text-sm font-medium">This version only</p>
+            <Snippet text={at(`/a/${asset.id}`)} what="the URL" />
+          </div>
+        </div>
+      )}
       <p className="text-muted-foreground text-sm">
-        For embedding on a site or in an email: the URL never changes, and works while the asset stays approved and unexpired. Archive it, or turn this off, and it stops.
+        For a site, a doc or an email. Add a size after either, like <code className="font-mono text-xs">/w_800,f_webp</code>. Turn this off, or archive it, and they
+        stop.
       </p>
     </div>
   );

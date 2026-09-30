@@ -68,6 +68,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
+import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
@@ -606,8 +607,8 @@ export function AssetEditor({
   const dragOut = (e: React.DragEvent) => {
     const url = new URL(`/a/${asset.id}?download`, location.origin).href;
     e.dataTransfer.setData("DownloadURL", `${asset.mime}:${asset.filename}:${url}`);
-    // Another app fetches a link without the session, so only a public file's works there.
-    if (asset.public) e.dataTransfer.setData("text/uri-list", new URL(`/a/${asset.id}`, location.origin).href);
+    // Another app fetches a link without the session, so only a public file's works there; one that follows new versions.
+    if (asset.public) e.dataTransfer.setData("text/uri-list", new URL(`/${canFollow(asset) ? "c" : "a"}/${asset.id}`, location.origin).href);
   };
 
   const field = (name: string) => ({

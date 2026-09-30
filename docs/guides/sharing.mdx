@@ -29,9 +29,14 @@ an asset offers four ways out:
   you like.
 - **Signed URL**: the file itself, for anyone who has the URL, for an hour to a
   year. Add a rendition before the query (`/a/{id}/w_800,f_webp?s=...`).
-- **Public**: the file at `/a/{id}` for anyone, for good, to embed on a site
-  or in an email. Turning it off stops it. Embed `/c/{id}` instead to follow
-  new versions ([delivery](/guides/assets#delivery)).
+- **Public**: the file for anyone, for good, to embed on a site, in a doc or
+  in an email. It shows two URLs: `/c/{id}`, always the current version, the
+  one to embed, and `/a/{id}`, this version only
+  ([delivery](/guides/assets#delivery)). Turning it off stops both.
+
+**Sizes and formats**, on an approved asset, copies links that follow new
+versions (`/c/`) unless you switch that off; a link signed for anyone names
+this version only.
 
 Each takes share on the asset, and works only while it is approved and
 unexpired: archiving it stops all of them at once. Share links and portals

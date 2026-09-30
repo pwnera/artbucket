@@ -21,3 +21,13 @@ export function assetUrl(id: string, rest = "") {
   const s = signed.get(id);
   return s ? withSignature(`/a/${id}${rest}`, s) : `/a/${id}${rest}`;
 }
+
+/**
+ * The same file at /c/, which follows the asset to its current version
+ * (app/c). For a link someone keeps: an embed, a doc. Not for a signed one:
+ * a signature names this version only, so that stays at /a/.
+ */
+export const followingUrl = (path: string) => path.replace(/^\/a\//, "/c/");
+
+/** Whether a link to it can follow it: approved and in use, so there is a current version for it to reach. */
+export const canFollow = (asset: { state: string }) => asset.state === "active";
