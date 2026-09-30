@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   IconAdjustmentsHorizontal,
   IconChevronRight,
@@ -30,7 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apply, type NavEntry, type Op } from "@/lib/builder-ops";
 import { AUDIENCES, type Audience, hiddenSlugs, type PageLayout, type PagePatch } from "@/lib/pages";
-import { type NavNode, trail, tree } from "@/lib/site";
+import { brandPath, type NavNode, trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -141,8 +142,9 @@ export function PagesPanel({ b }: PagesPanelProps) {
 }
 
 /**
- * Which page is on show, in the bar: the brand (its tabs, as a menu), the
- * pages above it, and its title, which opens its settings. With the page
+ * Which page is on show, in the bar: Brands, the brand (its tabs, as a
+ * menu), Guidelines (the brand's pages read-only), the pages above it, and
+ * its title, which opens its settings. With the page
  * list closed, a button before them opens it again.
  */
 export function PageTrail({ b }: { b: BuilderApi }) {
@@ -157,8 +159,21 @@ export function PageTrail({ b }: { b: BuilderApi }) {
           <IconLayoutSidebarLeftExpand />
         </IconButton>
       )}
-      {/* Focus mode: the brand's tabs, folded into a menu on its name. Rules and History open here, on the page on show. */}
-      <BrandTabMenu brand={b.view.brand} at="guidelines" here={{ guidelines: () => {}, rules: () => b.setPanel("rules") }} />
+      {/* As the prototype's builder names it: Brands / the brand / Guidelines / the page. */}
+      <Link href="/brands" className="text-muted-foreground hover:text-foreground hidden shrink-0 rounded-sm px-1 outline-none focus-visible:ring-2 @3xl/bar:block">
+        Brands
+      </Link>
+      <IconChevronRight aria-hidden className="text-muted-foreground hidden size-3.5 shrink-0 @3xl/bar:block" />
+      {/* Focus mode: the brand's tabs, folded into a menu on its name. Rules open here, on the page on show. */}
+      <BrandTabMenu brand={b.view.brand} at="guidelines" here={{ rules: () => b.setPanel("rules") }} />
+      <IconChevronRight aria-hidden className="text-muted-foreground hidden size-3.5 shrink-0 @3xl/bar:block" />
+      {/* The brand's Guidelines tab: its pages as readers see them, the builder left for it. */}
+      <Link
+        href={brandPath(b.view.brand.slug, "/pages")}
+        className="text-muted-foreground hover:text-foreground hidden shrink-0 rounded-sm px-1 outline-none focus-visible:ring-2 @3xl/bar:block"
+      >
+        Guidelines
+      </Link>
       {path.slice(0, -1).map((n) => (
         <span key={n.slug} className="text-muted-foreground hidden min-w-0 items-center gap-1 @3xl/bar:flex">
           <IconChevronRight aria-hidden className="size-3.5 shrink-0" />

@@ -9,7 +9,7 @@ import type { NavEntry } from "@/lib/builder-ops";
 import { can } from "@/lib/permissions";
 import { contextLabel, type Rule } from "@/lib/rules";
 import { brands, get, getBody, whoami } from "@/lib/sidebar";
-import { guidelinesPath, type PageView, type ViewRule } from "@/lib/site";
+import { brandPath, guidelinesPath, type PageView, type ViewRule } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +118,7 @@ export default async function GuidelinesPage({ params, searchParams }: Props) {
         brand={brand.slug}
         init={init}
         panel={PANELS.find((p) => p === panel)}
-        header={<AppHeader trail={[{ label: `${brand.name} guidelines` }]} />}
+        header={<AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(brand.slug) }, { label: "Guidelines" }]} />}
       />
       <GitReturn brand={brand.slug} />
     </>
