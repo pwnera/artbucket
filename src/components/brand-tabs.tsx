@@ -1,8 +1,8 @@
 "use client";
 
-import { guidelinesHref } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { TabNav } from "@/components/hub";
+import { brandPath, guidelinesPath } from "@/lib/site";
 
 export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "portals" | "insights" | "settings";
 
@@ -18,11 +18,11 @@ export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "release
 export function useBrandTabs(brand: { slug: string; name: string }) {
   const can = useCan();
   const tabs: { id: BrandTab; label: string; href: string }[] = [
-    { id: "overview", label: "Overview", href: `/brands/${encodeURIComponent(brand.slug)}` },
-    { id: "guidelines", label: "Guidelines", href: guidelinesHref(brand.slug) },
-    { id: "rules", label: "Tokens and rules", href: guidelinesHref(brand.slug, { panel: "rules" }) },
+    { id: "overview", label: "Overview", href: brandPath(brand.slug) },
+    { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
+    { id: "rules", label: "Tokens and rules", href: guidelinesPath(brand.slug, { panel: "rules" }) },
     { id: "assets", label: "Assets", href: "/" },
-    { id: "releases", label: "Releases", href: guidelinesHref(brand.slug, { panel: "history" }) },
+    { id: "releases", label: "Releases", href: guidelinesPath(brand.slug, { panel: "history" }) },
     ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: `/portals?${new URLSearchParams({ brand: brand.slug })}` }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: "/insights" }] : []),
     ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: `/brands?${new URLSearchParams({ q: brand.name })}` }] : []),

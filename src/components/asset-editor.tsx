@@ -72,6 +72,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { guidelinesPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
@@ -1764,7 +1765,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
       <PopoverContent align="start" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
-            const href = `/brand?brand=${r.brand}#rule-${r.key}`;
+            const href = `${guidelinesPath(r.brand!)}#rule-${r.key}`;
             return (
               <li key={r.id}>
                 <Link

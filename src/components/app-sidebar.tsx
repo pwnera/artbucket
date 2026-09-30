@@ -105,7 +105,7 @@ export function AppSidebar({
   brands: BrandInfo[];
   searches: SavedSearch[];
   reviewCount: number;
-  /** The brand being shown, on the brand page. */
+  /** The brand being shown, on its pages (/brands/{slug}/...). */
   currentBrand?: string;
   openSearch: () => void;
   openShortcuts: () => void;
@@ -126,10 +126,10 @@ export function AppSidebar({
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
-  const shownBrand = pathname === "/brand" && brands.length > 1 ? brands.find((b) => b.slug === currentBrand) : undefined;
+  const shownBrand = currentBrand && brands.length > 1 ? brands.find((b) => b.slug === currentBrand) : undefined;
   const at = {
     // With several brands, the brand's own row below is lit instead: one place, one lit entry.
-    brand: pathname === "/brand" && brands.length < 2,
+    brand: !!currentBrand && pathname.endsWith("/guidelines") && brands.length < 2,
     agents: pathname === "/agents",
     team: pathname === "/team",
     portals: pathname === "/portals",

@@ -323,7 +323,7 @@ function Actor({ item: i }: { item: Item }) {
 function Target({ item: i }: { item: Item }) {
   if (i.brand) {
     return (
-      <Link href={brandHref({ slug: i.brand.slug, default: false })} className="font-medium hover:underline">
+      <Link href={brandHref(i.brand)} className="font-medium hover:underline">
         {i.label}
       </Link>
     );

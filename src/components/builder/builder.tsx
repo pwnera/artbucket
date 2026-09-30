@@ -20,11 +20,11 @@ import { TokensDialog } from "@/components/tokens-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
-import { firstBinding, legacyAnchor, neighbors, tree } from "@/lib/site";
+import { firstBinding, guidelinesPath, legacyAnchor, neighbors, tree } from "@/lib/site";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
- * see it, in the brand's theme. /brand renders it keyed by brand slug, and
+ * see it, in the brand's theme. /brands/{slug}/guidelines renders it keyed by brand slug, and
  * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
  * beside it) and draws the panel b.panel names and the page settings
  * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
@@ -75,7 +75,7 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
     live.current.setPanel(asked);
     const q = new URLSearchParams(location.search);
     q.delete("panel");
-    window.history.replaceState(null, "", `?${q}`);
+    window.history.replaceState(null, "", `?${q}${location.hash}`);
   }, [asked]);
   // ⌘K offers the builder's own commands first, read from the builder as it is when the palette opens.
   usePageCommands(useCallback(() => builderCommands(live.current), []));
@@ -302,15 +302,15 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
     return { ...b.view, nav: b.view.nav.filter((p) => !gone.has(p.slug)), page: page && { ...page, sections: page.sections.filter((s) => !s.hidden) } };
   }, [b.view, b.state.nav]);
   const href = useCallback(
-    (page: string, section?: string) => `/brand?${new URLSearchParams({ brand, view: "read", page })}${section ? `#${section}` : ""}`,
+    (page: string, section?: string) => `${guidelinesPath(brand, { view: "read", page })}${section ? `#${section}` : ""}`,
     [brand],
   );
   const navigate = useCallback((to: string) => {
     const u = new URL(to, location.href);
-    const page = u.pathname === "/brand" && u.searchParams.get("page");
+    const page = u.pathname === guidelinesPath(brand) && u.searchParams.get("page");
     if (page) live.current.open(page);
     else location.assign(to);
-  }, []);
+  }, [brand]);
 
   const panel = (p: Panel) => ({ open: b.panel === p, onOpenChange: (open: boolean) => b.setPanel(open ? p : null) });
 

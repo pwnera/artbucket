@@ -49,6 +49,7 @@ import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
 import { PLAYBOOK } from "@/lib/playbook";
 import { printPage } from "@/lib/core/print";
 import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
+import { guidelinesPath } from "@/lib/site";
 
 /**
  * The MCP adapter: a second front door onto lib/core, beside REST. Stateless
@@ -189,7 +190,7 @@ const portalOf = async (caller: Caller, ref: string) => {
   return p;
 };
 
-const brandUrl = (slug: string) => `${env.APP_URL}/brand?${new URLSearchParams({ brand: slug })}`;
+const brandUrl = (slug: string) => `${env.APP_URL}${guidelinesPath(slug)}`;
 
 /** Every tool in lib/mcp-tools.ts, and nothing else: their signatures are frozen there. */
 const TOOLS: Record<ToolName, Tool> = {

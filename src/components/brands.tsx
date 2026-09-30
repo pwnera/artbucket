@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
+import { guidelinesPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -139,7 +140,8 @@ export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { br
         onClose={() => setCreating(false)}
         onDone={(b) => {
           setCreating(false);
-          router.push(brandHref(b));
+          // A new brand starts from its setup, in the guidelines.
+          router.push(guidelinesPath(b.slug));
         }}
       />
     </>
@@ -163,7 +165,7 @@ function Row({
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
       <div className="grid min-w-0 flex-1 gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/brands/${encodeURIComponent(b.slug)}`} className="text-primary-ink truncate font-semibold hover:underline">
+          <Link href={brandHref(b)} className="text-primary-ink truncate font-semibold hover:underline">
             {b.name}
           </Link>
           {hub && (

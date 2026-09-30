@@ -290,7 +290,9 @@ export function Shell({
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
-  const currentBrand = pathname === "/brand" ? (params.get("brand") ?? brands.find((b) => b.default)?.slug) : undefined;
+  // On a brand's pages, /brands/{slug}/...: that brand.
+  const at = pathname.match(/^\/brands\/([^/]+)/)?.[1];
+  const currentBrand = at && decodeURIComponent(at);
 
   return (
     <ShellContext.Provider value={value}>

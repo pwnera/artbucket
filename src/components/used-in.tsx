@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { brandHref } from "@/components/brand-switcher";
 import { Fold } from "@/components/fields";
 import { contextLabel, ruleLabel } from "@/lib/rules";
+import { guidelinesPath } from "@/lib/site";
 
 /** GET /api/v1/assets/{id}/insights, as lib/schemas.ts AssetInsights has it. */
 type UsedInData = {
@@ -70,7 +70,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
       {got.rules.length > 0 && (
         <Part title="Brand rules">
           {got.rules.map((r) => {
-            const href = `/brand?brand=${r.brand}#rule-${r.key}`;
+            const href = `${guidelinesPath(r.brand)}#rule-${r.key}`;
             return (
               <li key={`${r.brand}/${r.key}/${r.context}`}>
                 <Link href={href} onClick={go(href)} className="hover:underline">
@@ -85,8 +85,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
       {got.pages.length > 0 && (
         <Part title="Brand pages">
           {got.pages.map((p) => {
-            const base = brandHref(p.brand);
-            const href = `${base}${base.includes("?") ? "&" : "?"}page=${encodeURIComponent(p.slug)}`;
+            const href = guidelinesPath(p.brand.slug, { page: p.slug });
             return (
               <li key={`${p.brand.slug}/${p.slug}`}>
                 <Link href={href} onClick={go(href)} className="hover:underline">

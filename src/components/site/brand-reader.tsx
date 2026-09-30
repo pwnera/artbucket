@@ -12,21 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { contextLabel } from "@/lib/rules";
-import type { PageView } from "@/lib/site";
+import { guidelinesPath, type PageView } from "@/lib/site";
 
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
   initial: PageView;
 };
 
-/** The reader's address for a page of the brand: `/brand?brand=&view=read&page=`, with the context and language being read. */
-function readerHref(brand: string, page: string | null, o: { context?: string | null; lang?: string | null } = {}) {
-  const q = new URLSearchParams({ brand, view: "read" });
-  if (page) q.set("page", page);
-  if (o.context) q.set("context", o.context);
-  if (o.lang) q.set("lang", o.lang);
-  return `/brand?${q}`;
-}
+/** The reader's address for a page of the brand: `/brands/{slug}/guidelines?view=read&page=`, with the context and language being read. */
+const readerHref = (brand: string, page: string | null, o: { context?: string | null; lang?: string | null } = {}) =>
+  guidelinesPath(brand, { view: "read", page, context: o.context, lang: o.lang });
 
 /** "Logo · Blender guidelines · Print", the page's part of the tab's title, as the server's metadata says it. */
 const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.brand.name} guidelines${v.context ? ` · ${contextLabel(v.context)}` : ""}`;
@@ -94,7 +89,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
     (to: string) => {
       const u = new URL(to, location.href);
       if (u.origin !== location.origin) return window.location.assign(to);
-      if (u.pathname !== "/brand" || u.searchParams.get("view") !== "read" || u.searchParams.get("brand") !== slug) return router.push(to);
+      if (u.pathname !== guidelinesPath(slug) || u.searchParams.get("view") !== "read") return router.push(to);
       // The same page and context: only the anchor moves, and the browser goes there.
       if (u.search === location.search) return void (location.hash = u.hash);
       window.history.pushState(null, "", u.pathname + u.search + u.hash);
@@ -131,7 +126,7 @@ export function BrandReader({ initial }: BrandReaderProps) {
           Theme
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/brand?${new URLSearchParams({ brand: slug, ...(context && { context }) })}`}>Edit</Link>
+          <Link href={guidelinesPath(slug, { context })}>Edit</Link>
         </Button>
       </Can>
     </AppHeader>

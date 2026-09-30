@@ -126,6 +126,21 @@ function hubRoute(req: NextRequest, onHub: boolean, init?: { request: { headers:
   return NextResponse.rewrite(url, init);
 }
 
+/**
+ * The guidelines' old address, /brand?brand={slug}, to /brands/{slug}/guidelines
+ * with every other parameter: an HTTP redirect, so a #rule- link keeps its
+ * hash, which a redirect made while the page streams would drop. /brand
+ * alone, the default brand's, is app/(app)/brand's to resolve.
+ */
+function movedGuidelines(req: NextRequest) {
+  const slug = req.nextUrl.pathname === "/brand" && req.nextUrl.searchParams.get("brand");
+  if (!slug) return null;
+  const url = req.nextUrl.clone();
+  url.pathname = `/brands/${encodeURIComponent(slug)}/guidelines`;
+  url.searchParams.delete("brand");
+  return NextResponse.redirect(url, 307);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const onHub = !!hubHost && req.headers.get("host") === hubHost;
@@ -147,7 +162,7 @@ export async function proxy(req: NextRequest) {
   const policy = csp(nonce);
   init?.request.headers.set("x-nonce", nonce);
   init?.request.headers.set("Content-Security-Policy", policy);
-  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? NextResponse.next(init);
+  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? movedGuidelines(req) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);
