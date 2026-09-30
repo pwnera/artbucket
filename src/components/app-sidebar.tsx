@@ -126,10 +126,8 @@ export function AppSidebar({
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
-  const shownBrand = currentBrand && brands.length > 1 ? brands.find((b) => b.slug === currentBrand) : undefined;
+  const shownBrand = currentBrand ? brands.find((b) => b.slug === currentBrand) : undefined;
   const at = {
-    // With several brands, the brand's own row below is lit instead: one place, one lit entry.
-    brand: !!currentBrand && pathname.endsWith("/guidelines") && brands.length < 2,
     agents: pathname === "/agents",
     team: pathname === "/team",
     portals: pathname === "/portals",
@@ -209,11 +207,10 @@ export function AppSidebar({
                 badge={reviewCount || undefined}
                 hint={reviewCount ? `${reviewCount} waiting in Review` : undefined}
               />
-              <Place href="/brand" label="Guidelines" icon={<IconBook />} active={at.brand} />
-              {/* Folded to the rail, the Brands section is gone: the brand on show stands in for its row, lit, under Guidelines. */}
+              {/* Brands are the Brands section's, each opening on its tabs. Folded to the rail, the section is gone: the brand on show stands in for its row, lit. */}
               {shownBrand && (
                 <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-                  <SidebarMenuButton asChild isActive tooltip={`${shownBrand.name} guidelines`}>
+                  <SidebarMenuButton asChild isActive tooltip={shownBrand.name}>
                     <NavLink href={brandHref(shownBrand)}>
                       <BrandTile name={shownBrand.name} /> <span>{shownBrand.name}</span>
                     </NavLink>
