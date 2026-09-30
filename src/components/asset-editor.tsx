@@ -49,6 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
 import { UsedIn } from "@/components/used-in";
+import { CanIUse } from "@/components/can-i-use";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Lifecycle, PREVIEW_BG, StatusBadges, usePreviewBg, useVersionUpload, Versions, type PreviewBg } from "@/components/versions";
@@ -1115,6 +1116,15 @@ export function AssetEditor({
                 {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
               </div>
             </Writable>
+            {/* Outside Writable: whoever may look at a file may ask what it may be used for. */}
+            <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
+              <CanIUse
+                key={asset.id}
+                context
+                ask={(use) => fetch("/api/v1/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asset: asset.id, ...use }) })}
+                onOpen={(to) => leave(() => onOpen(to))}
+              />
+            </Fold>
             <Versions asset={asset} onChanged={onReviewed} onOpen={(v) => leave(() => onOpen(v))} />
           </div>
         </ReadOnly.Provider>
