@@ -2,7 +2,8 @@ name: Release
 
 # A tag like v1.0.0 publishes the image to ghcr.io/pwnera/artbucket, for
 # amd64 and arm64, as 1.0.0, 1.0, 1 and latest: pin a major to take fixes
-# and additions, never a break (docs: developers/stability).
+# and additions, never a break (docs: developers/stability). It also
+# publishes the CLI to npm as artbucket, at the tag's version (cli/).
 on:
   push:
     tags: ["v*"]
@@ -42,3 +43,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+      # Skipped, not failed, until the repository has an NPM_TOKEN secret.
+      - if: env.NODE_AUTH_TOKEN != ''
+        working-directory: cli
+        run: |
+          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+          npm publish --provenance --access public

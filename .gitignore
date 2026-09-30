@@ -26,3 +26,8 @@ dist/
 .DS_Store
 *.log
 bench/brand/runs/
+
+# cli/build.js makes these at pack time
+cli/artbucket.js
+cli/LICENSE
+cli/*.tgz

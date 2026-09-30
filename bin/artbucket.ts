@@ -2,7 +2,8 @@
 /**
  * artbucket - a thin client over /api/v1. Everything it does, curl can do.
  *
- *   ARTBUCKET_URL   default http://localhost:3000
+ *   ARTBUCKET_URL   the server; without it, the one `artbucket login <server>`
+ *                   last signed in to, or else http://localhost:3000
  *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one; it
  *                   decides the workspace. Without one, the key
  *                   `artbucket login` saved for this server
@@ -16,8 +17,9 @@ import { parseArgs } from "node:util";
 
 const HELP = `artbucket <command>
 
-  login                   sign in through the browser; saves a key for ARTBUCKET_URL
-  logout                  forget it
+  login [server]          sign in through the browser (app.artbucket.io: https is
+                          assumed) and save a key; later commands use that server
+  logout [server]         forget it
   search [words] [--tag t]... [--collection id] [--status s]... [--review] [--limit n]
                           --status draft|proposed|active|expired|archived|rejected|deleted
   describe <id>
@@ -88,16 +90,13 @@ const HELP = `artbucket <command>
 
   --json   print the raw API response`;
 
-const BASE = (process.env.ARTBUCKET_URL ?? "http://localhost:3000").replace(/\/$/, "");
-
-/** Keys `artbucket login` saved, one per server. Only this user can read the file. */
+/** Keys `artbucket login` saved, one per server, and `default`: the server it signed in to last. Only this user can read the file. */
 const CREDENTIALS = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "artbucket", "credentials.json");
 const saved: Record<string, string> = JSON.parse(await readFile(CREDENTIALS, "utf8").catch(() => "{}"));
 const save = async () => {
   await mkdir(dirname(CREDENTIALS), { recursive: true });
   await writeFile(CREDENTIALS, JSON.stringify(saved, null, 2), { mode: 0o600 });
 };
-const KEY = process.env.ARTBUCKET_KEY ?? saved[BASE];
 
 const { values: opt, positionals } = parseArgs({
   allowPositionals: true,
@@ -141,6 +140,11 @@ const { values: opt, positionals } = parseArgs({
   },
 });
 const [cmd, ...args] = positionals;
+
+/** A server as given: app.artbucket.io is https://app.artbucket.io. */
+const origin = (s: string) => (/^https?:\/\//.test(s) ? s : `https://${s}`).replace(/\/+$/, "");
+const BASE = origin((cmd === "login" || cmd === "logout") && args[0] ? args[0] : (process.env.ARTBUCKET_URL ?? saved.default ?? "http://localhost:3000"));
+const KEY = process.env.ARTBUCKET_KEY ?? saved[BASE];
 
 async function api(method: string, path: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
@@ -392,6 +396,7 @@ async function login() {
     const t = await oauth("/api/v1/oauth/token", { grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: d.device_code, client_id: client.json.client_id });
     if (t.ok) {
       saved[BASE] = t.json.access_token;
+      saved.default = BASE;
       await save();
       return `Signed in to ${BASE}, with ${t.json.scope}. The key is in ${CREDENTIALS}.`;
     }
@@ -407,6 +412,7 @@ async function main() {
     case "logout": {
       const had = BASE in saved;
       delete saved[BASE];
+      if (saved.default === BASE) delete saved.default;
       await save();
       // The key still works until it's revoked: Connected agents, or `artbucket keys revoke`.
       return console.log(had ? `Forgot the key for ${BASE}. Disconnect it on the Agents page to revoke it.` : `Not signed in to ${BASE}.`);

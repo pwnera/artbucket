@@ -1,0 +1,24 @@
+{
+  "name": "artbucket",
+  "version": "1.6.0",
+  "description": "The Artbucket CLI: a thin client over its API, and a brand kept as files in a repository.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pwnera/artbucket.git",
+    "directory": "cli"
+  },
+  "type": "module",
+  "bin": {
+    "artbucket": "artbucket.js"
+  },
+  "files": [
+    "artbucket.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepack": "node build.js"
+  }
+}
