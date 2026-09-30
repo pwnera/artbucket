@@ -278,14 +278,32 @@ export function PublicGrid({ items, asset, busy = false, ask }: { items: PublicI
                   </span>
                 )}
               </button>
-              <div className="flex items-center gap-2 border-t p-2.5">
-                <div className="min-w-0 flex-1">
+              <div className="grid gap-2 border-t p-2.5">
+                <div className="min-w-0">
                   <p className="truncate text-sm font-medium" title={name}>
                     {name}
                   </p>
                   <p className="text-muted-foreground truncate text-xs tabular-nums">{meta(a)}</p>
                 </div>
-                <Downloads item={a} />
+                {/* Its presets, a download each, as the prototype's press portal lists them: Web, Social, Print, Original. */}
+                {a.downloads.length > 0 && (
+                  <ul aria-label={`Download ${name}`} className="flex flex-wrap gap-1">
+                    {a.downloads.map((d) => (
+                      <li key={d.url}>
+                        <a
+                          href={d.url}
+                          download={d.filename}
+                          title={d.hint}
+                          onClick={() => toast(`Downloading ${d.filename}`, { description: d.hint })}
+                          className="bg-muted hover:bg-accent focus-visible:ring-ring/50 inline-flex rounded-[calc(var(--brand-radius,var(--radius-md))*0.6)] border px-2 py-0.5 text-xs outline-none focus-visible:ring-2"
+                        >
+                          {d.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {ask && a.downloads.length > 0 && <AskUse ask={ask} id={a.id} className="justify-self-start" />}
               </div>
             </li>
           );
@@ -379,25 +397,7 @@ export function Lightbox({ items, openId, onOpen, ask }: { items: PublicItem[]; 
                 {at + 1} of {items.length}
               </span>
             )}
-            {ask && open.downloads.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost">
-                    <IconCircleCheck /> Can I use this?
-                  </Button>
-                </PopoverTrigger>
-                {/* Portaled out of the lightbox: it takes the site's look along, as the lightbox does. */}
-                <PopoverContent
-                  align="end"
-                  style={look?.style}
-                  lang={look?.lang}
-                  dir={look?.dir}
-                  className={cn(look && [look.className, "bg-background text-foreground"], "w-80")}
-                >
-                  <CanIUse key={open.id} ask={(use) => ask(open.id, use)} />
-                </PopoverContent>
-              </Popover>
-            )}
+            {ask && open.downloads.length > 0 && <AskUse key={open.id} ask={ask} id={open.id} button />}
             {open.original && open.downloads.length > 0 && (
               <Button variant="outline" asChild>
                 <a href={open.original} target="_blank" rel="noreferrer">
@@ -410,5 +410,32 @@ export function Lightbox({ items, openId, onOpen, ask }: { items: PublicItem[]; 
         </DialogContent>
       )}
     </Dialog>
+  );
+}
+
+/**
+ * "Can I use this?" for one file: a popover with the use check, on a tile
+ * (a link, as the prototype's press portal has it) or in the lightbox (a
+ * button). It portals out of the site: it takes the site's look along.
+ */
+function AskUse({ ask, id, button, className }: { ask: Ask; id: string; button?: boolean; className?: string }) {
+  const look = usePortaledLook();
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {button ? (
+          <Button variant="ghost" className={className}>
+            <IconCircleCheck /> Can I use this?
+          </Button>
+        ) : (
+          <button type="button" className={cn("text-xs text-(--brand-accent,var(--primary)) underline underline-offset-2 outline-none focus-visible:ring-2", className)}>
+            Can I use this?
+          </button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align={button ? "end" : "start"} style={look?.style} lang={look?.lang} dir={look?.dir} className={cn(look && [look.className, "bg-background text-foreground"], "w-80")}>
+        <CanIUse ask={(use) => ask(id, use)} />
+      </PopoverContent>
+    </Popover>
   );
 }
