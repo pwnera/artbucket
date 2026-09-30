@@ -93,7 +93,7 @@ async function noPage(brandId: string, brand: string, slug: string, then = "") {
  * searches its sections draw from, their queries (parsed as the library
  * parses them), and every asset it names, cover to items.
  */
-async function checkRefs(caller: Caller, page: { cover?: string | null; sections: Section[] }) {
+export async function checkRefs(caller: Caller, page: { cover?: string | null; sections: Section[] }) {
   const errors: string[] = [];
   for (const [i, s] of page.sections.entries()) {
     const at = `sections[${i}].props`;

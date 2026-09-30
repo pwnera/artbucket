@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { Builder } from "@/components/builder/builder";
+import { GitReturn } from "@/components/git-return";
 import { AppHeader } from "@/components/page";
 import { BrandReader } from "@/components/site/brand-reader";
 import type { NavEntry } from "@/lib/builder-ops";
@@ -108,5 +109,10 @@ export default async function BrandPage({ searchParams }: Props) {
     theme: shown.theme.settings,
   };
   // Remount per brand only: another page is a view of the same book, and the builder opens it itself.
-  return <Builder key={brand.slug} brand={brand.slug} init={init} header={<AppHeader trail={[{ label: `${brand.name} guidelines` }]} />} />;
+  return (
+    <>
+      <Builder key={brand.slug} brand={brand.slug} init={init} header={<AppHeader trail={[{ label: `${brand.name} guidelines` }]} />} />
+      <GitReturn brand={brand.slug} />
+    </>
+  );
 }

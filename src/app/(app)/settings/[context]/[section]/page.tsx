@@ -6,7 +6,7 @@ import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import { SsoPanel, type Sso } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
-import { find, opens } from "@/components/settings/sections";
+import { find, locked, opens } from "@/components/settings/sections";
 import type { FieldDef } from "@/lib/fields";
 import type { Scope } from "@/lib/scopes";
 import type { Collection } from "@/components/collections";
@@ -56,6 +56,8 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
   ]);
   if (!opens(me, s)) redirect("/settings");
+  // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
+  if (locked(me, s)) redirect(me.upgrade ?? "/settings");
   // Failed, not empty: "No custom fields yet" would invite making them all again.
   if (loading && loaded === null) return <LoadFailed />;
   const data = <T,>() => (loaded as { data: T }).data;

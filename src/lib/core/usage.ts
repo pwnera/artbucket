@@ -1,11 +1,11 @@
-import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
-import { formatSize, over, type Feature, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
 import { RENDITION_DAYS } from "@/lib/storage";
 
@@ -130,7 +130,13 @@ const n = (count: number, what: string) => `${count} ${what}${count === 1 ? "" :
 
 export type Limited = "storage" | "editors" | "workspaces" | "brands" | "domains" | Feature;
 
-const FEATURE_LABEL: Record<Feature, string> = { agents: "Connecting agents and making API keys", shares: "Share and upload links" };
+const FEATURE_LABEL: Record<Feature, string> = {
+  agents: "Connecting agents and making API keys",
+  shares: "Share and upload links",
+  sso: "Setting up single sign-on",
+  branding: "Custom branding",
+  domains: "Custom domains",
+};
 
 /**
  * Refuse, before anything moves, what would take the organization past a
@@ -147,6 +153,10 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
   const refuse = (message: string, limit: number) => {
     throw new AssetError("limit_reached", message + manage(), { limit: what, max: limit });
   };
+  // A feature switched off refuses before any count: domains is both.
+  if (l.features && (FEATURES as readonly string[]).includes(what) && !l.features.includes(what as Feature)) {
+    throw new AssetError("limit_reached", `${FEATURE_LABEL[what as Feature]} is off for this organization${manage()}`, { limit: what });
+  }
   switch (what) {
     case "storage":
       if (l.storage !== null) {
@@ -168,8 +178,49 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
     case "domains":
       if (l.domains !== null && over(l.domains, await domainsOf(organizationId))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
       return;
-    default:
-      if (l.features && !l.features.includes(what)) throw new AssetError("limit_reached", `${FEATURE_LABEL[what]} is off for this organization${manage()}`, { limit: what });
+  }
+}
+
+/** Organizations someone is admin of that run on the server's own limits: no limits row of their own, so no plan. */
+const unplannedOf = async (userId: string) =>
+  (
+    await db
+      .select({ n: countDistinct(grants.organizationId) })
+      .from(grants)
+      .where(
+        and(
+          eq(grants.userId, userId),
+          eq(grants.resource, "organization"),
+          eq(grants.scope, "admin"),
+          notExists(
+            db
+              .select({ id: settings.id })
+              .from(settings)
+              .where(and(eq(settings.organizationId, grants.organizationId), eq(settings.key, "limits"), isNull(settings.workspaceId))),
+          ),
+        ),
+      )
+  )[0].n;
+
+/**
+ * Refuse a new organization to someone already admin of as many without a
+ * plan as LIMIT_ORGANIZATIONS allows: otherwise every new one would bring
+ * the server's limits again. One with a plan of its own does not count, nor
+ * does the one sign-up makes (people.ts: welcome).
+ *
+ * ponytail: count, then make, without a lock, like checkLimit: two made at
+ * the same moment can both pass. Lock on the user if that is ever abused.
+ */
+export async function checkOrganizations(userId: string) {
+  const limit = organizationsFromEnv(process.env);
+  if (limit === null) return;
+  const had = await unplannedOf(userId);
+  if (over(limit, had)) {
+    const plan = env.BILLING_URL ? `. Take a plan for one of them at ${env.BILLING_URL} to make another` : "";
+    throw new AssetError("limit_reached", `You are admin of ${n(had, "organization")} without a plan, as many as this server allows${plan}`, {
+      limit: "organizations",
+      max: limit,
+    });
   }
 }
 
@@ -246,7 +297,8 @@ export async function usageOf(caller: Caller) {
   const org = caller.workspace.organizationId;
   const since = sql`(now() at time zone 'utc')::date - ${DAYS - 1}::int`;
   const [limits, storage, editors, spaces, brandCount, domainCount, byWorkspace, byDay] = await Promise.all([
-    limitsOf(org),
+    // Fresh: a plan just taken (a limits row the operator's billing wrote) shows here at once, not a minute later.
+    effective("limits", { organizationId: org }, { fresh: true }).then((l) => l.value),
     storageOf(org),
     editorsOf(org),
     workspacesOf(org),

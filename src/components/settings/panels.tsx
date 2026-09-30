@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Progress } from "@/components/ui/progress";
 import type { FieldDef } from "@/lib/fields";
-import { formatSize, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, type Feature, type Limits } from "@/lib/limits";
 import { roleName, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
@@ -509,9 +509,20 @@ export type Usage = {
   };
 };
 
+/** How the Usage panel names a feature the limits switch off. */
+const OFF: Record<Feature, string> = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on", branding: "custom branding", domains: "custom domains" };
+
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {
   const { limits: l, billing, used, traffic } = usage;
+  // Back from the plan's billing page (BILLING_URL) with ?billing=ok: say so once, and not again on a reload.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("billing")) return;
+    if (url.searchParams.get("billing") === "ok") toast.success("Your plan is active. These are its limits.");
+    url.searchParams.delete("billing");
+    window.history.replaceState(null, "", url);
+  }, []);
   const rows: [string, number, number | null, (n: number) => string][] = [
     ["Storage", used.storage, l.storage, formatSize],
     ["Editors", used.editors, l.editors, String],
@@ -519,7 +530,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
     ["Brands", used.brands, l.brands, String],
     ["Custom domains", used.domains, l.domains, String],
   ];
-  const off = l.features ? (["agents", "shares"] as const).filter((f) => !l.features!.includes(f)) : [];
+  const off = l.features ? FEATURES.filter((f) => !l.features!.includes(f)) : [];
   const total = traffic.workspaces.reduce((t, w) => ({ requests: t.requests + w.requests, bytes: t.bytes + w.bytes }), { requests: 0, bytes: 0 });
   return (
     <div className="space-y-6">
@@ -561,7 +572,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
         </dl>
         {off.length > 0 && (
           <p className="text-muted-foreground text-sm">
-            Off here: {off.map((f) => (f === "agents" ? "connecting agents and API keys" : "share and upload links")).join(", ")}.
+            Off here: {off.map((f) => OFF[f]).join(", ")}.
           </p>
         )}
         {billing && (

@@ -13,8 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { withSignature } from "@/lib/asset-url";
+import { canFollow, followingUrl, withSignature } from "@/lib/asset-url";
 import { FITS, FORMATS, MAX_DIMENSION, outputSize, parseTransform, PRESETS, type Fit, type Format } from "@/lib/transform";
 
 export { PRESETS };
@@ -59,16 +60,20 @@ const REACH = [
  * Copy a link to, or download, the asset at a preset or a custom size. Files
  * are private: a copied link works for people with access, unless it is
  * signed for anyone for a while (one signature serves every size), or the
- * asset is public. Downloads here go through the session.
+ * asset is public. Unsigned, a copied link follows the asset to its current
+ * version (/c/) unless asked not to; a signed one names this version only.
+ * Downloads here go through the session, and are this version's file.
  */
 export function Renditions({ asset }: { asset: Asset }) {
   const can = useCan();
   const signable = !asset.public && asset.status === "active" && can("asset.share", asset);
   const [reach, setReach] = useState<string>("team");
   const sigs = useRef(new Map<string, string>());
+  const [follow, setFollow] = useState(true);
+  const followable = canFollow(asset) && (asset.public || reach === "team");
   /** The URL to copy for this reach; null when it couldn't be signed. */
   const linkFor = async (url: string) => {
-    if (asset.public || reach === "team") return url;
+    if (asset.public || reach === "team") return followable && follow ? followingUrl(url) : url;
     let s = sigs.current.get(reach);
     if (!s) {
       const made = await send("POST", `/api/v1/assets/${asset.id}/signed-url`, { expiresIn: Number(reach) });
@@ -117,6 +122,14 @@ export function Renditions({ asset }: { asset: Asset }) {
             <span className="font-medium">People with access</span>
           )}
         </div>
+        {followable && (
+          <div className="flex items-center gap-2 px-3 pt-1 pb-1 text-xs">
+            <Switch id={`${id}-follow`} size="sm" checked={follow} onCheckedChange={setFollow} />
+            <Label htmlFor={`${id}-follow`} className="text-muted-foreground text-xs font-normal">
+              {follow ? "Links follow new versions" : "Links stay on this version"}
+            </Label>
+          </div>
+        )}
         <ul className="max-h-72 overflow-y-auto p-1">
           <Row label="Original" hint="As stored, with edits written in" url={`/a/${asset.id}?download`} filename={asset.filename} link={linkFor} />
           {GROUPS.map((g) => (

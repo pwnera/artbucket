@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EMAIL_PROVIDERS } from "@/lib/email";
-import { limitsFromEnv } from "@/lib/limits";
+import { limitsFromEnv, organizationsFromEnv } from "@/lib/limits";
 import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
@@ -45,6 +45,14 @@ const schema = z.object({
    * something. Unset: limits are simply set by whoever runs this server.
    */
   BILLING_URL: z.string().url().optional(),
+  /**
+   * Where a brand gets kept in a Git repository too (brand as code): the page
+   * of this server's Git integration that connects one, {brand} standing for
+   * the brand's slug, and left empty to bring a new brand in from a
+   * repository. New brand, the brand's setup and the builder link there.
+   * Unset: no links; the API and the CLI still sync a brand with its files.
+   */
+  GIT_CONNECT_URL: z.string().url().optional(),
   /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
@@ -125,6 +133,7 @@ if (!parsed.success) {
 // LIMIT_* is read per organization (lib/settings.ts); a typo there should stop the server now, not every upload later.
 try {
   limitsFromEnv(process.env);
+  organizationsFromEnv(process.env);
 } catch (e) {
   throw new Error(`Invalid LIMIT_* in the environment.\n${e instanceof z.ZodError ? z.prettifyError(e) : e}`);
 }

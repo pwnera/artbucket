@@ -292,6 +292,9 @@ everything it does, you can script.
 - **MCP:** `/api/v1/mcp`, OAuth 2.1 with PKCE and dynamic client
   registration. [MCP](docs/developers/mcp.mdx).
 - **CLI:** a thin client over the same API. [CLI](docs/developers/cli.mdx).
+- **Git:** the brand as YAML in a repository, changed on either side and
+  merged a rule at a time, with a preview link for a proposed change.
+  [Brand as code](docs/guides/brand-as-code.mdx).
 
 ```bash
 pnpm artbucket search sintel poster

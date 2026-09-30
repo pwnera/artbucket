@@ -8,7 +8,8 @@
  *                   `artbucket login` saved for this server
  */
 import { execFile } from "node:child_process";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { hostname, homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { parseArgs } from "node:util";
@@ -56,6 +57,16 @@ const HELP = `artbucket <command>
                           settings into it, and null clears one
   publish [--brand b] [--note text]
                           put the brand's pages, rules and theme in front of portal visitors
+  brand pull [dir] [--brand b] [--assets]
+                          the brand as files in dir (brand/ by default): brand.yaml,
+                          rules/, pages/; a file that says the same is left as it is.
+                          --assets fetches the files it points at into assets/ too
+  brand push [dir] [--brand b] [--dry-run] [--replace] [--publish] [--note text]
+                          take the brand from its files, uploading what assets/ adds:
+                          merged with what changed here since the last push or pull
+                          (--replace takes the files whole), as one version
+  brand diff [dir] [--brand b]
+                          what push would change; exits 1 on problems in the files
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
@@ -115,6 +126,10 @@ const { values: opt, positionals } = parseArgs({
     generator: { type: "string" },
     prompt: { type: "string" },
     "version-of": { type: "string" },
+    assets: { type: "boolean" },
+    "dry-run": { type: "boolean" },
+    replace: { type: "boolean" },
+    publish: { type: "boolean" },
     note: { type: "string" },
     status: { type: "string", multiple: true },
     json: { type: "boolean" },
@@ -191,6 +206,145 @@ async function ingest(source: string) {
   const put = await fetch(ticket.uploadUrl, { method: "PUT", headers: { "content-type": mime }, body: await readFile(source) });
   if (!put.ok) throw new Error(`Upload to storage failed: ${put.status}`);
   return api("POST", "/api/v1/assets", { token: ticket.token, filename, mime, ...extra });
+}
+
+// ---- brand as code ---------------------------------------------------------------
+
+type Problem = { file: string; line?: number; message: string };
+type Diff = {
+  name: { before: string; after: string } | null;
+  rules: { change: string; key: string; context: string | null; before?: unknown; after?: unknown }[];
+  pages: { change: string; slug: string }[];
+  theme: string[];
+  reordered: boolean;
+};
+
+/** The brand's own files in `dir`: brand.yaml and the YAML in rules/ and pages/. */
+async function brandFiles(dir: string): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const f of ["brand.yaml", "brand.yml"]) {
+    const text = await readFile(join(dir, f), "utf8").catch(() => null);
+    if (text !== null) files[f] = text;
+  }
+  for (const sub of ["rules", "pages"]) {
+    for (const f of await readdir(join(dir, sub)).catch(() => [] as string[])) {
+      if (/\.ya?ml$/.test(f)) files[`${sub}/${f}`] = await readFile(join(dir, sub, f), "utf8");
+    }
+  }
+  return files;
+}
+
+/** Every file under assets/, by its path in the brand, with the SHA-256 of its bytes. */
+async function assetFiles(dir: string, sub = "assets"): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const e of await readdir(join(dir, sub), { withFileTypes: true }).catch(() => [])) {
+    const path = `${sub}/${e.name}`;
+    if (e.isDirectory()) Object.assign(out, await assetFiles(dir, path));
+    else if (e.isFile()) out[path] = createHash("sha256").update(await readFile(join(dir, path))).digest("hex");
+  }
+  return out;
+}
+
+const value = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
+const clip = (s: string) => (s.length > 60 ? `${s.slice(0, 57)}...` : s);
+function diffLines(d: Diff): string[] {
+  const at = (r: { key: string; context: string | null }) => `${r.key}${r.context ? ` [${r.context}]` : ""}`;
+  return [
+    ...(d.name ? [`  ~ name  ${d.name.before} -> ${d.name.after}`] : []),
+    ...d.rules.map((r) =>
+      r.change === "added"
+        ? `  + ${at(r)}  ${clip(value(r.after))}`
+        : r.change === "removed"
+          ? `  - ${at(r)}`
+          : `  ~ ${at(r)}${value(r.before) === value(r.after) ? "" : `  ${clip(value(r.before))} -> ${clip(value(r.after))}`}`,
+    ),
+    ...(d.reordered ? ["  ~ the rules' order"] : []),
+    ...d.pages.map((p) => `  ${{ added: "+", removed: "-", changed: "~", moved: ">" }[p.change] ?? "~"} page ${p.slug}${p.change === "moved" ? " (moved)" : ""}`),
+    ...(d.theme.length ? [`  ~ theme: ${d.theme.join(", ")}`] : []),
+  ];
+}
+const problemLine = (p: Problem) => `${p.file}${p.line ? `:${p.line}` : ""}: ${p.message}`;
+
+/** POST that answers a 422's detail instead of throwing it: the problems in the files are the answer. */
+async function post(path: string, body: unknown) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  if (res.status === 422 && json?.error?.detail?.errors) return { ok: false as const, problems: json.error.detail as { errors: Problem[]; warnings: Problem[]; missing: string[] } };
+  if (!res.ok) throw new Error(json?.error?.message ?? `POST ${path}: ${res.status}`);
+  return { ok: true as const, data: json.data };
+}
+
+async function brandPull(dir: string) {
+  const previous = await brandFiles(dir);
+  const r = await api("POST", `${await brandPath()}/files/export`, { previous, ...(opt.assets && { assets: "files" }) });
+  const { files, assets } = r.data as { files: Record<string, string>; assets: Record<string, { sha256: string; url: string }> };
+  const wrote: string[] = [];
+  for (const [path, text] of Object.entries(files)) {
+    if (previous[path] === text) continue;
+    await mkdir(dirname(join(dir, path)), { recursive: true });
+    await writeFile(join(dir, path), text);
+    wrote.push(path);
+  }
+  // rules/ and pages/ hold the brand's files alone: one it no longer has goes.
+  const gone = Object.keys(previous).filter((p) => !(p in files) && !(p.replace(/\.yml$/, ".yaml") in files && p.endsWith(".yml")));
+  for (const p of gone) await rm(join(dir, p));
+  const local = opt.assets ? await assetFiles(dir) : {};
+  for (const [path, a] of opt.assets ? Object.entries(assets) : []) {
+    if (local[path] === a.sha256) continue;
+    const res = await fetch(a.url, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
+    if (!res.ok) throw new Error(`Couldn't fetch ${path}: ${res.status}`);
+    await mkdir(dirname(join(dir, path)), { recursive: true });
+    await writeFile(join(dir, path), Buffer.from(await res.arrayBuffer()));
+    wrote.push(path);
+  }
+  return [
+    ...wrote.map((p) => `  wrote   ${p}`),
+    ...gone.map((p) => `  removed ${p}`),
+    wrote.length || gone.length ? `${r.data.brand} is in ${dir}` : `${dir} already says what ${r.data.brand} says`,
+  ].join("\n");
+}
+
+async function brandPush(dir: string, dryRun: boolean) {
+  const files = await brandFiles(dir);
+  if (!files["brand.yaml"] && !files["brand.yml"]) throw new Error(`No brand.yaml in ${dir}. artbucket brand pull ${dir} writes one`);
+  const assets = await assetFiles(dir);
+  const path = `${await brandPath()}/files/import`;
+  const body = { files, assets, ...(opt.replace && { merge: false }) };
+  let r = await post(path, { ...body, dryRun: true });
+  // Upload what the library lacks, then ask again.
+  if (!r.ok && !r.problems.errors.length && r.problems.missing.length && !dryRun) {
+    for (const p of r.problems.missing) {
+      await ingest(join(dir, p));
+      console.error(`  uploaded ${p}`);
+    }
+    r = await post(path, { ...body, dryRun: true });
+  }
+  if (!r.ok) {
+    const { errors, missing } = r.problems;
+    process.exitCode = 1;
+    return [...errors.map(problemLine), ...missing.map((m) => `${m}: not uploaded yet${dryRun ? " (push uploads it)" : ""}`)].join("\n");
+  }
+  if (!dryRun) {
+    const note = opt.note ?? (opt.publish ? true : undefined);
+    r = await post(path, { ...body, ...(note !== undefined && { publish: note }) });
+    if (!r.ok) {
+      process.exitCode = 1;
+      return r.problems.errors.map(problemLine).join("\n");
+    }
+  }
+  const d = r.data as { diff: Diff; conflicts: { what: string }[]; warnings: Problem[]; applied: boolean; version: number | null; published: number | null; pending: boolean };
+  const lines = diffLines(d.diff);
+  return [
+    ...d.warnings.map((w) => `! ${problemLine(w)}`),
+    ...d.conflicts.map((c) => `! ${c.what}: changed here and in the files; the files' side is taken`),
+    ...(lines.length ? lines : ["  nothing to change"]),
+    dryRun ? "(dry run: nothing written)" : d.applied ? `version ${d.version}${d.published ? `, published` : ""}` : "nothing changed",
+    ...(d.pending ? ["The brand holds changes these files lack: artbucket brand pull brings them in"] : []),
+  ].join("\n");
 }
 
 /** An OAuth endpoint: its errors are `{error, error_description}`, which polling reads. */
@@ -327,6 +481,13 @@ async function main() {
           )
           .join("\n"),
       );
+    }
+    case "brand": {
+      const [sub, dir = "brand"] = args;
+      if (sub === "pull") return console.log(await brandPull(dir));
+      if (sub === "push") return console.log(await brandPush(dir, !!opt["dry-run"]));
+      if (sub === "diff") return console.log(await brandPush(dir, true));
+      throw new Error("brand pull, brand push or brand diff. artbucket --help");
     }
     case "history":
     case "restore": {

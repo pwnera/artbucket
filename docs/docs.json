@@ -64,6 +64,7 @@
         "pages": [
           "guides/assets",
           "guides/canon",
+          "guides/brand-as-code",
           "guides/check",
           "guides/sharing",
           "guides/portals",
@@ -100,7 +101,8 @@
           "decisions/0010-frozen-v1",
           "decisions/0011-elastic-license",
           "decisions/0012-private-delivery",
-          "decisions/0013-agpl-and-cla"
+          "decisions/0013-agpl-and-cla",
+          "decisions/0014-agents-fetch-what-they-read"
         ]
       }
     ]

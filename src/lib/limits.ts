@@ -12,8 +12,8 @@ import { z } from "zod";
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
 
-/** What can be switched off for an organization. Off, nobody there can make new ones. */
-export const FEATURES = ["agents", "shares"] as const;
+/** What can be switched off for an organization. Off, nobody there can make new ones, or set it up. */
+export const FEATURES = ["agents", "shares", "sso", "branding", "domains"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
@@ -60,7 +60,7 @@ export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: nul
 
 type Env = Record<string, string | undefined>;
 
-/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_FEATURES=shares (or none): every organization's. */
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
 export function limitsFromEnv(env: Env): Limits | null {
   const out: Record<string, unknown> = {};
   if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
@@ -70,6 +70,24 @@ export function limitsFromEnv(env: Env): Limits | null {
   const f = env.LIMIT_FEATURES?.trim();
   if (f) out.features = f === "none" ? [] : f.split(",").map((s) => s.trim()).filter(Boolean);
   return Object.keys(out).length ? Limits.parse({ ...UNLIMITED, ...out }) : null;
+}
+
+/**
+ * Where an organization's admin can take a plan (BILLING_URL), while the
+ * organization runs on the server's own limits: no limits row of its own,
+ * so no plan yet. Null for everyone else, and on a server that sells none.
+ */
+export const upgradeUrl = (billing: string | undefined, admin: boolean, limitsFrom: string) =>
+  billing && admin && limitsFrom !== "organization" ? billing : null;
+
+/**
+ * LIMIT_ORGANIZATIONS, per person: how many organizations on the server's own
+ * limits (no limits row of their own, so no plan) someone may be admin of and
+ * still make another. Null: no limit. The one made at sign-up is never refused.
+ */
+export function organizationsFromEnv(env: Env): number | null {
+  const v = env.LIMIT_ORGANIZATIONS?.trim();
+  return v ? count.parse(Number(v)) : null;
 }
 
 /** Whether adding `adding` to `used` goes past `limit`; no limit is never over. */

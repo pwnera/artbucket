@@ -1,0 +1,136 @@
+---
+title: Brand as code
+description: Keep a brand's rules, pages and theme as files in a Git repository, changed on either side.
+---
+
+A brand can live in a Git repository as well as here: its rules, pages and
+theme as YAML a person reads and reviews, beside the files they point at.
+Change it in the repository, through a pull request, or here, in the
+builder: each side's changes reach the other, and a change that both sides
+made to the same rule is named, not lost.
+
+## The files
+
+```
+brand/
+  brand.yaml          name, theme, the order of rules/, the page tree
+  rules/color.yaml    the rules whose key starts with color.
+  rules/logo.yaml
+  pages/overview.yaml a page: its fields and sections
+  pages/logo.yaml
+  assets/logo.svg     files the rules and pages point at
+```
+
+```yaml brand.yaml
+# An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+name: Acme
+theme:
+  accent: color.primary
+  radius: 6
+rules: [color, type, logo, tone]
+pages:
+  - overview
+  - logo:
+      - logo-use
+  - color
+```
+
+```yaml rules/color.yaml
+color.primary:
+  type: color
+  label: Acme blue
+  value: "#1f6feb"
+  usage: Buttons, links and the mark's tile.
+  spec:
+    pair: color.background
+    cmyk: [89, 55, 0, 8]
+  contexts:
+    dark-background:
+      value: "#58a6ff"
+```
+
+```yaml pages/logo.yaml
+title: Logo
+lede: One mark, and how to give it room.
+sections:
+  - template: logos
+    title: Versions
+    keys: [logo.primary, logo.mark]
+  - template: dodont
+    items:
+      - asset: assets/logo-stretched.png
+        verdict: dont
+        caption: Never stretch it.
+```
+
+Each rule, page and section takes what the API takes
+([the canon](/guides/canon)). A file leaves out every default: a section's
+width, tone and columns come from its template unless set, and its id is its
+template's name (`logos`, then `logos-2`) unless it has one of its own.
+Where an asset id goes, a path under `assets/` goes too.
+
+## Pushing and pulling
+
+```bash
+artbucket brand pull brand --assets   # the brand as files in brand/, with its assets
+artbucket brand diff brand            # what a push would change
+artbucket brand push brand            # take the brand from its files
+```
+
+`push` uploads what `assets/` adds, checks every file, and writes the brand
+as one version of its history, so it is undone like any other edit. A
+problem comes back at its file and line:
+
+```
+pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has color.primary, color.ink
+```
+
+`pull` writes only the files whose meaning changed: a file that says the same
+keeps its comments and its layout.
+
+## Both ways
+
+A brand kept in a repository remembers where (`PUT /api/v1/brands/{slug}/source`)
+and what the two last agreed on. From then on:
+
+- **The repository changes** (a push to its branch): `POST .../files/import`
+  with the files and their `commit`. What was edited here since the last sync
+  is kept; the files win only where both sides changed the same rule, page or
+  theme setting, and the answer names each in `conflicts`. The side that lost
+  is in the brand's history, a restore away.
+- **The brand changes here**: the source reads `pending`. `POST .../files/export`
+  with the repository's files as `previous` answers the files to commit, only
+  those that changed. Commit them, as a commit or a pull request, then send
+  them back with `PUT .../source` and `synced: { commit, files }`.
+
+An import at a commit names the version it makes after the commit's message,
+so each sync stands in the history on its own.
+
+## Previews
+
+`POST /api/v1/brands/{slug}/previews` with a pull request's files and a `ref`
+(`pull/12`) answers a link to the brand's site as those files say it, and
+what it would change. It needs no account, like a share link, and keeps its
+address as the pull request changes. Delete it when the pull request closes.
+
+## From the app
+
+Where the server has a Git integration (`GIT_CONNECT_URL`), a workspace admin
+reaches it from three places:
+
+- **New brand, From a Git repository:** bring in a brand a repository already
+  holds (its `brand.yaml`, pages and files), or start a new brand here and
+  keep it in a repository from the first edit.
+- **A new brand's setup:** connect a repository before laying out any page.
+- **The builder's bar:** Git, until the brand is kept somewhere; then the
+  repository, and whether both sides are in step.
+
+The integration sends you back to the builder, which says when the first sync
+has landed.
+
+## On Artbucket Cloud
+
+Artbucket Cloud connects a GitHub repository to a brand from any of those
+places, and does all of the above itself: pull requests get a check, a
+preview link and a comment listing what they change, merges come in, and
+edits made here go back as a commit or a pull request.

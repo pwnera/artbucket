@@ -21,6 +21,7 @@ import type { C2pa } from "@/lib/c2pa";
 import type { FieldType, FieldValues } from "@/lib/fields";
 import type { Metadata } from "@/lib/metadata";
 import type { ThemeSettings } from "@/lib/brand-theme";
+import type { BrandState } from "@/lib/brand-files";
 import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
@@ -508,6 +509,59 @@ export const brandComments = pgTable(
     check("brand_comments_body_check", sql`char_length(${t.body}) between 1 and 4000`),
     check("brand_comments_resolved_check", sql`${t.parentId} is null or ${t.resolvedAt} is null`),
   ],
+);
+
+/**
+ * Where a brand also lives as files, in a Git repository (brand as code,
+ * core/brand-sync.ts): the repository, its branch and the folder the brand's
+ * files sit in. `base` is the brand as those files said it at `commit`, the
+ * last state both sides agreed on: a sync merges each side's changes since
+ * then. `paths` names the assets that are files in the repository, by id,
+ * so writing the brand out names them by path again. What pushes and pulls
+ * (a Git host's app, the CLI) is outside the core: it calls the API.
+ */
+export const brandSources = pgTable("brand_sources", {
+  brandId: uuid("brand_id")
+    .primaryKey()
+    .references(() => brands.id, { onDelete: "cascade" }),
+  /** The repository's address, as its host shows it: https://github.com/acme/brand. */
+  remote: text("remote").notNull(),
+  branch: text("branch").notNull().default("main"),
+  /** The brand's folder in the repository; empty for its root. */
+  path: text("path").notNull().default(""),
+  commit: text("commit"),
+  base: jsonb("base").$type<BrandState>(),
+  paths: jsonb("paths").$type<Record<string, string>>().notNull().default({}),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * A brand as a proposed change says it (a pull request's files), to read
+ * before it lands: never the brand's draft, never published. Opened by its
+ * `token`, a random capability in its link, until it expires; one per
+ * brand and `ref`, so a pull request keeps its link as it changes.
+ */
+export const brandPreviews = pgTable(
+  "brand_previews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** What proposes it, as its host names it: pull/12, a branch. */
+    ref: text("ref").notNull(),
+    title: text("title"),
+    commit: text("commit"),
+    token: text("token").notNull().unique(),
+    state: jsonb("state").$type<BrandState>().notNull(),
+    actor: text("actor").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [unique("brand_previews_brand_ref_unique").on(t.brandId, t.ref), check("brand_previews_ref_check", sql`char_length(${t.ref}) between 1 and 200`)],
 );
 
 export type ActivityVerb =
