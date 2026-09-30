@@ -149,7 +149,8 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
     "",
     `- Listing: ${about.url}`,
     `- Guidelines for people: ${about.guidelines}`,
-    `- As JSON: ${about.url}/brand.json`,
+    `- As AdCP brand.json: ${about.url}/brand.json`,
+    `- Every rule as JSON: ${about.url}/rules.json`,
     `- As design tokens: ${about.url}/tokens?format=css (or scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json for W3C design tokens)`,
   ];
   if (about.terms) lines.push("", "## Terms of use", "", about.terms);

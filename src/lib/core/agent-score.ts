@@ -74,7 +74,7 @@ export async function scoreDomain(raw: string, ip: string | null) {
   if (wait) throw new AssetError("rate_limited", `Too many checks. Try again in ${Math.ceil(wait / 60)} min`);
 
   const [llms, listing] = await Promise.all([text(`https://${domain}/llms.txt`), listingFor(domain)]);
-  const jsonUrl = (llms && brandJsonUrlIn(llms)) ?? `https://${domain}/brand.json`;
+  const jsonUrl = (llms && brandJsonUrlIn(llms)) ?? `https://${domain}/.well-known/brand.json`;
   const mcpUrl = llms && mcpUrlIn(llms);
   const [json, reachable] = await Promise.all([listing ? null : text(jsonUrl), mcpUrl ? answers(mcpUrl) : false]);
   let rules = null;

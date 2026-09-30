@@ -229,12 +229,13 @@ A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 |---|---|
 | `/{org}/{brand}` | Its page: colors, type, logos, voice, terms, and a link to its portal |
 | `/{org}/{brand}/llms.txt` | The brand in words, for an agent |
-| `/{org}/{brand}/brand.json` | Every rule, its files as URLs signed for a day |
+| `/{org}/{brand}/brand.json` | The brand as an [AdCP brand.json](https://docs.adcontextprotocol.org/docs/brand-protocol/brand-json): logos, colors, fonts, voice, don'ts |
+| `/{org}/{brand}/rules.json` | Every rule, its files as URLs signed for a day |
 | `/{org}/{brand}/tokens?format=css` | Design tokens, in any format of `GET /api/v1/brand/tokens` |
 | `/index.json?q=` | The public brands, or what a search finds |
 | `/llms.txt` | How an agent finds a brand here, and the list |
 
-The last four answer for public brands only. Anyone may make public a brand
+The last five answer for public brands only. Anyone may make public a brand
 of any name, so a page names who has it. An organization with a verified
 [domain](#a-domain-of-its-own) or a verified GitHub account gets a badge with
 it; any other public brand is a community one, says so, and is kept out of
