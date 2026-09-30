@@ -3,7 +3,7 @@
 # Bring Postgres 16+ and S3-compatible storage (managed, or in the cluster with
 # an operator). Before applying:
 #   cp secret.env.example secret.env    # fill it in; git ignores it
-#   edit config.env and ingress.yaml    # your domain and storage
+#   edit config.env and gateway.yaml    # your domain and storage
 #
 # Both files become a ConfigMap and a Secret whose names carry a hash of their
 # contents, so changing either rolls the pods.
@@ -18,7 +18,7 @@ resources:
   - namespace.yaml
   - deployment.yaml
   - service.yaml
-  - ingress.yaml
+  - gateway.yaml
 configMapGenerator:
   - name: artbucket-config
     envs: [config.env]

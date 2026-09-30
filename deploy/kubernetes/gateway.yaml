@@ -1,0 +1,59 @@
+# Your domain, the one in APP_URL, and your controller's gatewayClassName
+# (kubectl get gatewayclass). Uncomment the annotation for your certificate
+# issuer (cert-manager here, with Gateway API support on).
+#
+# A cluster with a shared Gateway: delete the Gateway below and point both
+# routes' parentRefs at it (name, namespace, sectionName).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: artbucket
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  gatewayClassName: example
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: assets.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: artbucket-tls
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: assets.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: artbucket
+spec:
+  parentRefs:
+    - name: artbucket
+      sectionName: https
+  hostnames: [assets.example.com]
+  rules:
+    - backendRefs:
+        - name: artbucket
+          port: 80
+---
+# Plain HTTP answers with a redirect to HTTPS. An ACME HTTP-01 challenge
+# still reaches its solver: its route matches a longer path.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: artbucket-redirect
+spec:
+  parentRefs:
+    - name: artbucket
+      sectionName: http
+  hostnames: [assets.example.com]
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
