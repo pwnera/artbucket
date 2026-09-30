@@ -38,9 +38,10 @@ const brief = (name: string, site: string) =>
 /**
  * A new brand, three ways: laid out by hand in the builder (from nothing, or
  * from a showcase brand to edit), by an agent, given the one prompt to paste
- * once it is connected, or from a Git repository (brand as code), where the
- * server has a Git integration (me.git, GIT_CONNECT_URL): brought in from
- * files already there, or made here and kept there as it grows.
+ * once it is connected, or from a Git repository (brand as code): where the
+ * server has a Git integration (me.git, GIT_CONNECT_URL), brought in from
+ * files already there or made here and kept there as it grows; elsewhere,
+ * made here and pushed from the repository with the CLI (artbucket brand push).
  */
 export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (b: BrandInfo) => void }) {
   const id = useId();
@@ -53,6 +54,8 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   const [site, setSite] = useState("");
   const [start, setStart] = useState<Start>("");
   const [busy, setBusy] = useState(false);
+  /** Made for the CLI, where the server has no Git integration: the commands name it. */
+  const [made, setMade] = useState<BrandInfo | null>(null);
 
   function pick(s: Start) {
     // A template names the brand until you do.
@@ -73,25 +76,23 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className={cn(git ? "sm:max-w-3xl" : "sm:max-w-2xl")} guard={{ dirty: !!(name || site), onDiscard: onClose }}>
+      <DialogContent className="sm:max-w-3xl" guard={{ dirty: !!(name || site), onDiscard: onClose }}>
         {step === "how" && (
           <>
             <DialogHeader>
               <DialogTitle>New brand</DialogTitle>
               <DialogDescription>Choose how to set it up. Either way it is a draft until you release it.</DialogDescription>
             </DialogHeader>
-            <div className={cn("grid gap-3", git ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="How to set it up">
+            <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="How to set it up">
               <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">
                 <BuilderArt />
               </Choice>
               <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Connect Claude, Cursor or Codex and it writes the rules and pages for you to review.">
                 <AgentArt />
               </Choice>
-              {git && (
-                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
-                  <FilesArt />
-                </Choice>
-              )}
+              <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
+                <FilesArt />
+              </Choice>
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={onClose}>
@@ -184,6 +185,56 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
               <Button type="button" variant="ghost" onClick={() => setStep("how")}>
                 <IconArrowLeft /> Back
               </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {step === "git" && !git && (
+          <div className="grid min-w-0 gap-4">
+            <DialogHeader>
+              <DialogTitle>From a Git repository</DialogTitle>
+              <DialogDescription>
+                The brand as YAML beside its logos and fonts, pushed from your repository with the Artbucket CLI. This server has no Git integration, so a push is yours to run, by hand or in CI.
+              </DialogDescription>
+            </DialogHeader>
+            {made ? (
+              <div className="grid min-w-0 gap-3">
+                <p className="text-sm font-medium">1. Sign the CLI in to this server</p>
+                <Snippet text={`npx artbucket login ${origin}`} what="the command" />
+                <p className="text-sm font-medium">2. From your repository, push the folder holding brand.yaml</p>
+                <Snippet text={`npx artbucket brand push brand --brand ${made.slug}`} what="the command" />
+                <p className="text-muted-foreground text-sm">
+                  No brand.yaml yet? <code>npx artbucket brand pull brand --brand {made.slug}</code> writes this brand as files to start from.
+                </p>
+              </div>
+            ) : (
+              <form
+                className="grid gap-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBusy(true);
+                  setMade(await send("POST", "/api/v1/brands", { name }));
+                  setBusy(false);
+                }}
+              >
+                <Label htmlFor={`${id}-git-name`}>Brand name</Label>
+                <div className="flex gap-2">
+                  <Input id={`${id}-git-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" required />
+                  <Button type="submit" disabled={busy || !name.trim()}>
+                    Make it
+                  </Button>
+                </div>
+              </form>
+            )}
+            <DialogFooter className="sm:justify-between">
+              <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={!!made}>
+                <IconArrowLeft /> Back
+              </Button>
+              {made && (
+                <Button type="button" onClick={() => onDone(made)}>
+                  Done
+                </Button>
+              )}
             </DialogFooter>
           </div>
         )}
