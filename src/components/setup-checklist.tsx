@@ -3,11 +3,12 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { IconCheck, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
+import { IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
@@ -168,108 +169,27 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
   if (done === steps.length) return null;
   const chosen = PATHS.find((p) => p.id === path)!;
 
-  const next = steps.find((s) => !s.done)!;
-  const at = steps.indexOf(next);
-
   return (
-    <section aria-labelledby="setup-title" className="bg-card relative overflow-hidden rounded-xl border">
-      {/* A wash of the accent behind the head, so the card reads as the one thing to do next. */}
-      <div aria-hidden className="from-primary/10 pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b to-transparent" />
-      <div className="relative flex flex-wrap items-center gap-4 p-4 sm:flex-nowrap">
-        <Ring done={done} total={steps.length} />
-        <div className="grid min-w-0 flex-1 gap-0.5">
-          <p className="text-muted-foreground truncate text-xs font-medium">{chosen.label}</p>
-          <h2 id="setup-title" className="text-base font-semibold tracking-tight">
-            {next.win ? "Last step: " : "Next: "}
-            {next.label}
+    <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
+      <div className="flex items-center gap-3">
+        <div className="grid flex-1 gap-1.5">
+          <h2 id="setup-title" className="text-sm font-medium">
+            {chosen.label}: on to {chosen.win}
           </h2>
-          <p className="text-muted-foreground text-sm">{next.why}</p>
+          <div className="flex items-center gap-2">
+            <Progress value={(done / steps.length) * 100} aria-label="Setup progress" className="h-1.5 max-w-48" />
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {done} of {steps.length}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <StepAction step={next} onUpload={onUpload} className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
-            {next.upload ? "Upload" : "Start"}
-          </StepAction>
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => save({ ...stored, path: undefined })}>
-            Change
-          </Button>
-          {hide}
-        </div>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => save({ ...stored, path: undefined })}>
+          Change
+        </Button>
+        {hide}
       </div>
-      <ol className="relative flex gap-0 overflow-x-auto border-t px-4 py-3 [scrollbar-width:none]" aria-label={`Steps to ${chosen.win}`}>
-        {steps.map((s, i) => (
-          <li key={s.id} className="flex min-w-36 flex-1 items-center gap-2">
-            <StepAction step={s} onUpload={onUpload} className="group/step flex min-w-0 items-center gap-2 rounded-md py-1 pe-2 text-start outline-none focus-visible:ring-2">
-              <span
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums transition-colors",
-                  s.done && "bg-primary border-primary text-primary-foreground",
-                  !s.done && i === at && "border-primary text-primary-ink ring-primary/25 ring-4",
-                  !s.done && i !== at && "text-muted-foreground",
-                )}
-              >
-                {s.done ? <IconCheck className="size-3.5" /> : s.win ? <IconTrophy className="size-3.5" /> : i + 1}
-              </span>
-              <span className={cn("truncate text-xs", s.done ? "text-muted-foreground" : i === at ? "font-medium" : "text-muted-foreground group-hover/step:text-foreground")}>
-                {s.label}
-              </span>
-            </StepAction>
-            {i < steps.length - 1 && <span aria-hidden className={cn("h-px min-w-4 flex-1", s.done ? "bg-primary/60" : "bg-border")} />}
-          </li>
-        ))}
-      </ol>
+      <StepList steps={steps} onUpload={onUpload} className="mt-3 sm:grid-cols-2 lg:grid-cols-3" />
     </section>
-  );
-}
-
-/** How far along, as a ring: the fraction done, with the count inside. */
-function Ring({ done, total }: { done: number; total: number }) {
-  const r = 20;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="relative size-12 shrink-0" role="img" aria-label={`${done} of ${total} done`}>
-      <svg viewBox="0 0 48 48" className="size-12 -rotate-90">
-        <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4" className="stroke-muted" />
-        <circle
-          cx="24"
-          cy="24"
-          r={r}
-          fill="none"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - done / total)}
-          className="stroke-primary transition-[stroke-dashoffset] duration-500"
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums">
-        {done}/{total}
-      </span>
-    </div>
-  );
-}
-
-/** Where a step is done: the library's own upload, the server's Git integration (outside the app), or a page of it. */
-function StepAction({ step: s, onUpload, onGo, className, children }: { step: OnboardingStep; onUpload?: () => void; onGo?: () => void; className?: string; children: React.ReactNode }) {
-  if (s.upload) {
-    return onUpload && !s.done ? (
-      <button type="button" onClick={() => (onGo?.(), onUpload())} className={className}>
-        {children}
-      </button>
-    ) : (
-      <span className={className}>{children}</span>
-    );
-  }
-  if (s.id === "git" && s.href && /^https?:/.test(s.href)) {
-    return (
-      <a href={s.href} className={className} onClick={onGo}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <Link href={s.href!} className={className} onClick={onGo}>
-      {children}
-    </Link>
   );
 }
 
