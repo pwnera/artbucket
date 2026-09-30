@@ -62,8 +62,13 @@ const rows = memo(60_000, async (at: string) => {
 const at = (key: SettingKey, organizationId: string, workspaceId: string | null) => `${key}:${organizationId}:${workspaceId ?? ""}`;
 const stored = (key: SettingKey, organizationId: string, workspaceId: string | null) => rows(at(key, organizationId, workspaceId));
 
-/** The value that applies at a place, with its secrets: for code that uses it, never for a response. */
-export async function effective<K extends SettingKey>(key: K, place: Place) {
+/**
+ * The value that applies at a place, with its secrets: for code that uses it, never for a response. `fresh` reads the
+ * organization's row now rather than the copy of up to a minute ago: for the one page that shows a row someone else
+ * just wrote (limits from a billing webhook, Settings, Usage).
+ */
+export async function effective<K extends SettingKey>(key: K, place: Place, { fresh = false } = {}) {
+  if (fresh) rows.forget(at(key, place.organizationId, null));
   const [organization, workspace] = await Promise.all([
     stored(key, place.organizationId, null),
     place.workspaceId ? stored(key, place.organizationId, place.workspaceId) : null,

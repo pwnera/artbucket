@@ -29,7 +29,9 @@ limits row of its own is on the server's limits, with no plan yet: its admins
 also see an "Upgrade" button in the app's header, and `GET /api/v1/me`
 returns the address as `upgrade`. A Settings section whose feature is off
 (Branding, Domains, Single sign-on) then leads there, marked with a lock, and
-is left out of Settings when there is nowhere to go.
+is left out of Settings when there is nowhere to go. Once someone has paid,
+send them back to `/settings/organization/usage?billing=ok`: the page reads
+the limits row fresh, past the minute's cache, and says the plan is active.
 
 ## For every organization
 
@@ -78,7 +80,29 @@ do update set value = excluded.value, updated_at = now();
 `null` for a limit lifts it, `"readOnly": true` freezes the organization, and
 deleting the row puts it back on the environment's limits. Each server
 process reads settings at most once a minute, so a change made in the
-database applies within a minute.
+database applies within a minute; Settings, Usage reads them fresh.
+
+## A word to an organization
+
+Next to its limits, a row with the key `notice` puts a line across the top of
+the app for the organization's admins, with a link to act on, until `until`
+(an ISO date, or null to keep it) or until the row is deleted. A plan that
+ends, a payment that failed:
+
+```sql
+insert into settings (organization_id, key, value, updated_by)
+values (
+  (select id from organizations where slug = 'acme'),
+  'notice',
+  '{"text": "Your Team plan ends on October 30, 2026. After that the organization is back on Free.", "href": "https://billing.example/plan", "until": "2026-10-30T12:00:00Z"}',
+  'operator'
+)
+on conflict (organization_id, workspace_id, key)
+do update set value = excluded.value, updated_at = now();
+```
+
+`GET /api/v1/me` returns it as `notice` for admins, null once it has passed.
+Whoever closes it in the app closes it for that tab only.
 
 ## Usage
 

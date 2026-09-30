@@ -47,6 +47,22 @@ type Definition<S extends z.ZodObject> = {
 
 const define = <S extends z.ZodObject>(d: Definition<S>) => d;
 
+/**
+ * A word from whoever runs the server to an organization's admins, shown
+ * across the top of the app until `until` (an ISO date), or until the row
+ * goes: a plan that ends, a payment that failed. `href` is where to act.
+ */
+export const NoticeSettings = z.object({
+  text: z.string().max(300),
+  href: z.string().max(2000).nullable(),
+  until: z.iso.datetime({ offset: true }).nullable(),
+});
+export type NoticeSettings = z.infer<typeof NoticeSettings>;
+
+/** The notice to show now, or null: nothing said, or said for a time that has passed. */
+export const noticeOf = (n: NoticeSettings, now = Date.now()) =>
+  n.text && (n.until === null || Date.parse(n.until) > now) ? { text: n.text, href: n.href } : null;
+
 export const SETTINGS = {
   email: define({
     label: "Email",
@@ -83,6 +99,15 @@ export const SETTINGS = {
     default: UNLIMITED,
     secrets: [],
     fromEnv: limitsFromEnv,
+    operator: true,
+  }),
+  notice: define({
+    label: "Notice",
+    schema: NoticeSettings,
+    contexts: ["organization"],
+    default: { text: "", href: null, until: null },
+    secrets: [],
+    fromEnv: () => null,
     operator: true,
   }),
 };

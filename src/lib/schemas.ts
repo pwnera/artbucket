@@ -994,6 +994,10 @@ export const Me = z.object({
     .string()
     .nullable()
     .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
+  notice: z
+    .object({ text: z.string(), href: z.string().nullable() })
+    .nullable()
+    .describe("A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),

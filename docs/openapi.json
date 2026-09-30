@@ -31989,6 +31989,33 @@
                             "null"
                           ]
                         },
+                        "notice": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                },
+                                "href": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "href"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"
+                        },
                         "auth": {
                           "type": "object",
                           "properties": {
@@ -32079,6 +32106,7 @@
                         "features",
                         "upgrade",
                         "git",
+                        "notice",
                         "auth"
                       ],
                       "additionalProperties": false
