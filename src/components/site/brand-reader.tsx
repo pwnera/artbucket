@@ -17,18 +17,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Status } from "@/components/builder/use-status";
 import { liveLine } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
-import { brandPath, guidelinesPath, type PageView } from "@/lib/site";
+import { brandPath, builderPath, guidelinesPath, type PageView } from "@/lib/site";
 
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
   initial: PageView;
   /**
-   * Drawn inside the brand's page, its Guidelines tab: `path` is its address
-   * there (/brands/{slug}/pages), `head` the brand's header (and its tabs)
-   * over it, and the app's bar names the brand rather than folding its tabs
-   * into a menu. Without it, the reader is /brands/{slug}/guidelines?view=read.
+   * Drawn inside the brand's page, its Guidelines tab: `head` is the brand's
+   * header (and its tabs) over it, and the app's bar names the brand rather
+   * than folding its tabs into a menu. Without it, the reader is in focus
+   * mode, /brands/{slug}/guidelines?focus=1.
    */
-  embed?: { path: string; head: Omit<BrandHeaderProps, "at"> };
+  embed?: { head: Omit<BrandHeaderProps, "at"> };
   /** Where readers stand (GET .../status), for the label and the switch between the draft and the live release. */
   status: Pick<Status, "publish" | "live"> | null;
   /** What it shows when the address doesn't say (`?version=`): lib/readiness.ts shownVersion. */
@@ -37,15 +37,9 @@ export type BrandReaderProps = {
 
 type At = { context?: string | null; lang?: string | null; version?: string | null };
 
-/** The reader's address for a page of the brand: `/brands/{slug}/guidelines?view=read&page=`, with the context, language and version being read. */
-const readerHref = (brand: string, page: string | null, o: At = {}) =>
-  guidelinesPath(brand, { view: "read", page, context: o.context, lang: o.lang, version: o.version });
-
-/** The same, embedded at `path`: `?page=`, the context, the language and the version. */
-const embedHref = (path: string, page: string | null, o: At = {}) => {
-  const q = new URLSearchParams(Object.entries({ page, context: o.context, lang: o.lang, version: o.version }).filter((e): e is [string, string] => !!e[1]));
-  return `${path}${q.size ? `?${q}` : ""}`;
-};
+/** The reader's address for a page of the brand: `/brands/{slug}/guidelines?page=`, with the context, language and version being read, in focus mode or not. */
+const readerHref = (brand: string, focus: boolean, page: string | null, o: At = {}) =>
+  guidelinesPath(brand, { page, context: o.context, lang: o.lang, version: o.version, focus: focus ? "1" : null });
 
 /** "Logo · Blender guidelines · Print", the page's part of the tab's title, as the server's metadata says it. */
 const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.brand.name} guidelines${v.context ? ` · ${contextLabel(v.context)}` : ""}`;
@@ -64,7 +58,8 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
   const params = useSearchParams();
   const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
-  const at = useCallback((page: string | null, o: At) => (embed ? embedHref(embed.path, page, o) : readerHref(slug, page, o)), [embed, slug]);
+  const focus = !embed;
+  const at = useCallback((page: string | null, o: At) => readerHref(slug, focus, page, o), [focus, slug]);
 
   // Bumped by a theme save: the same address is fetched again, in its new look.
   const [rev, setRev] = useState(0);
@@ -117,13 +112,13 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
     (to: string) => {
       const u = new URL(to, location.href);
       if (u.origin !== location.origin) return window.location.assign(to);
-      const inside = embed ? u.pathname === embed.path : u.pathname === guidelinesPath(slug) && u.searchParams.get("view") === "read";
+      const inside = u.pathname === guidelinesPath(slug) && (u.searchParams.get("focus") === "1") === focus;
       if (!inside) return router.push(to);
       // The same page and context: only the anchor moves, and the browser goes there.
       if (u.search === location.search) return void (location.hash = u.hash);
       window.history.pushState(null, "", u.pathname + u.search + u.hash);
     },
-    [router, slug, embed],
+    [router, slug, focus],
   );
 
   const contexts = view.contexts.length > 0 && (
@@ -164,7 +159,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
           Theme
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={guidelinesPath(slug, { context })}>Edit</Link>
+          <Link href={builderPath(slug, { context })}>Edit</Link>
         </Button>
       </Can>
     </AppHeader>

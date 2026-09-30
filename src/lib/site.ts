@@ -9,12 +9,17 @@ import { fontLabel, fontValue, type RuleAsset, ruleName, type RuleSpec, type Rul
 /** A brand's page in the app, or one of its tabs by `tail` ("/releases", "/insights"). */
 export const brandPath = (slug: string, tail = "") => `/brands/${encodeURIComponent(slug)}${tail}`;
 
-/** A brand's guidelines in the app: the builder, or with `view: "read"` its pages as readers see them; `panel` opens one of the builder's. */
-export function guidelinesPath(slug: string, q: Record<string, string | null | undefined> = {}) {
+const withQuery = (path: string, q: Record<string, string | null | undefined>) => {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
-  return `${brandPath(slug)}/guidelines${p.size ? `?${p}` : ""}`;
-}
+  return `${path}${p.size ? `?${p}` : ""}`;
+};
+
+/** A brand's guidelines in the app, to read: its Guidelines tab (`page`, `context`, `lang`, `version`), or with `focus: "1"` the pages alone. */
+export const guidelinesPath = (slug: string, q: Record<string, string | null | undefined> = {}) => withQuery(`${brandPath(slug)}/guidelines`, q);
+
+/** The same guidelines in the builder, to edit (`page`, `context`); `panel` opens one of its panels. */
+export const builderPath = (slug: string, q: Record<string, string | null | undefined> = {}) => withQuery(`${brandPath(slug)}/guidelines/edit`, q);
 
 /**
  * A brand's pages as readers get them: one page at a time, with the nav of

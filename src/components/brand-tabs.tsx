@@ -5,7 +5,7 @@ import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 import { useCan } from "@/components/can";
 import { TabNav } from "@/components/hub";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { brandPath } from "@/lib/site";
+import { brandPath, guidelinesPath } from "@/lib/site";
 
 export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "portals" | "insights" | "settings";
 
@@ -19,7 +19,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
   const can = useCan();
   const tabs: { id: BrandTab; label: string; href: string }[] = [
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
-    { id: "guidelines", label: "Guidelines", href: brandPath(brand.slug, "/pages") },
+    { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
     { id: "rules", label: "Tokens and rules", href: brandPath(brand.slug, "/rules") },
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },

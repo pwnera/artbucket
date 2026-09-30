@@ -29,7 +29,7 @@ test("each win is read from what happened", () => {
 
 test("without a brand, brand steps start by making one; with one, they open its builder", () => {
   assert.equal(onboardingSteps("company", none).find((s) => s.id === "basics")!.href, "/brands");
-  assert.equal(onboardingSteps("company", { ...none, brand }).find((s) => s.id === "publish")!.href, "/brands/acme/guidelines");
+  assert.equal(onboardingSteps("company", { ...none, brand }).find((s) => s.id === "publish")!.href, "/brands/acme/guidelines/edit");
   assert.equal(onboardingSteps("product", { ...none, brand, git: "https://git.example/connect?b={brand}" }).at(-1)!.href, "https://git.example/connect?b=acme");
   assert.equal(onboardingSteps("product", { ...none, brand }).at(-1)!.href, "/brands/acme");
 });

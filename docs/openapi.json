@@ -16912,7 +16912,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "The brand in the app"
+                          "description": "Its guidelines in the app, to read"
                         }
                       },
                       "required": [

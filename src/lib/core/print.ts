@@ -56,7 +56,7 @@ export async function printPage(caller: Caller, brandSlug: string | undefined, s
     .from(brandPages)
     .where(and(eq(brandPages.brandId, brand.id), eq(brandPages.slug, slug)));
   if (!page) throw new AssetError("not_found", `No page "${slug}" in ${brand.slug}`);
-  const url = `${env.APP_URL}${guidelinesPath(brand.slug, { page: slug, context: o.context, view: "read" })}`;
+  const url = `${env.APP_URL}${guidelinesPath(brand.slug, { page: slug, context: o.context })}`;
   const token = printToken(env.BETTER_AUTH_SECRET, { ws, brand: brand.slug, page: slug, ...(o.context && { context: o.context }) });
   const width = WIDTHS[o.width ?? "desktop"];
 

@@ -127,17 +127,28 @@ function hubRoute(req: NextRequest, onHub: boolean, init?: { request: { headers:
 }
 
 /**
- * The guidelines' old address, /brand?brand={slug}, to /brands/{slug}/guidelines
- * with every other parameter: an HTTP redirect, so a #rule- link keeps its
- * hash, which a redirect made while the page streams would drop. /brand
- * alone, the default brand's, is app/(app)/brand's to resolve.
+ * The guidelines' old addresses, to the reader at /brands/{slug}/guidelines
+ * with every other parameter: /brand?brand={slug}, the Guidelines tab's
+ * /brands/{slug}/pages, and ?view=read (now ?focus=1). An HTTP redirect, so
+ * a #rule- link keeps its hash, which a redirect made while the page streams
+ * would drop. /brand alone, the default brand's, is app/(app)/brand's to
+ * resolve; an editor's ?git= or ?panel= on the reader, the builder's
+ * (app/(app)/brands/[slug]/guidelines).
  */
 function movedGuidelines(req: NextRequest) {
-  const slug = req.nextUrl.pathname === "/brand" && req.nextUrl.searchParams.get("brand");
-  if (!slug) return null;
+  const { pathname, searchParams } = req.nextUrl;
+  const slug = pathname === "/brand" && searchParams.get("brand");
+  const tab = pathname.match(/^\/brands\/([^/]+)\/(pages|guidelines)$/);
+  const reading = tab && (tab[2] === "pages" || searchParams.get("view") === "read");
+  if (!slug && !reading) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/brands/${encodeURIComponent(slug)}/guidelines`;
+  url.pathname = `/brands/${slug ? encodeURIComponent(slug) : tab![1]}/guidelines`;
   url.searchParams.delete("brand");
+  // The reader on its own, ?view=read on the builder's address, is ?focus=1 on the reader's.
+  if (searchParams.get("view") === "read") {
+    url.searchParams.delete("view");
+    url.searchParams.set("focus", "1");
+  }
   return NextResponse.redirect(url, 307);
 }
 

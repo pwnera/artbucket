@@ -24,7 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
-import { guidelinesPath } from "@/lib/site";
+import { builderPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -197,7 +197,7 @@ export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { br
         onDone={(b) => {
           setCreating(false);
           // A new brand starts from its setup, in the guidelines.
-          router.push(guidelinesPath(b.slug));
+          router.push(builderPath(b.slug));
         }}
       />
     </>

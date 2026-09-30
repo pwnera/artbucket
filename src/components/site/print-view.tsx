@@ -10,7 +10,7 @@ import { guidelinesPath, type PageView } from "@/lib/site";
  * nothing here fetches. What the picture an agent asks for is taken of.
  */
 export function PrintView({ view }: { view: PageView }) {
-  const href = useCallback((page: string, section?: string) => `${guidelinesPath(view.brand.slug, { page, view: "read" })}${section ? `#${section}` : ""}`, [view.brand.slug]);
+  const href = useCallback((page: string, section?: string) => `${guidelinesPath(view.brand.slug, { page })}${section ? `#${section}` : ""}`, [view.brand.slug]);
   return (
     <main>
       <SiteView view={view} href={href} />

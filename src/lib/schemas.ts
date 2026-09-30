@@ -836,7 +836,7 @@ export const BrandStatus = z.object({
     .nullable()
     .describe("The portals showing it; null without the right to manage portals"),
   hub: BrandHub.nullable().describe("The brand on BrandHub; null when this server has none"),
-  url: z.url().describe("The brand in the app"),
+  url: z.url().describe("Its guidelines in the app, to read"),
 });
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
 const keys = z.array(z.string());

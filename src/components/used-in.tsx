@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Fold } from "@/components/fields";
 import { contextLabel, ruleLabel } from "@/lib/rules";
-import { guidelinesPath } from "@/lib/site";
+import { builderPath, guidelinesPath } from "@/lib/site";
 
 /** GET /api/v1/assets/{id}/insights, as lib/schemas.ts AssetInsights has it. */
 type UsedInData = {
@@ -70,7 +70,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
       {got.rules.length > 0 && (
         <Part title="Rules">
           {got.rules.map((r) => {
-            const href = `${guidelinesPath(r.brand)}#rule-${r.key}`;
+            const href = `${builderPath(r.brand)}#rule-${r.key}`;
             return (
               <li key={`${r.brand}/${r.key}/${r.context}`}>
                 <Link href={href} onClick={go(href)} className="hover:underline">

@@ -35,7 +35,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { brandPath, guidelinesPath } from "@/lib/site";
+import { brandPath, builderPath } from "@/lib/site";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
 
@@ -192,7 +192,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
             setCreating(closing);
             toast.success(`Created ${b.name}`);
             // A new brand starts from its setup, in the guidelines.
-            router.push(guidelinesPath(b.slug));
+            router.push(builderPath(b.slug));
             router.refresh();
           }}
         />

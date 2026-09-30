@@ -19,7 +19,7 @@ import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import { liveLine } from "@/lib/readiness";
 import type { Rule } from "@/lib/rules";
-import { brandPath, guidelinesPath } from "@/lib/site";
+import { brandPath, builderPath } from "@/lib/site";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
@@ -86,7 +86,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at }: Brand
           <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} />
           {can("brand.edit") && (
             <Button asChild size="sm" variant="outline">
-              <Link href={guidelinesPath(brand.slug)}>
+              <Link href={builderPath(brand.slug)}>
                 <IconPencil aria-hidden /> Edit
               </Link>
             </Button>

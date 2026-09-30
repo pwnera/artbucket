@@ -8,12 +8,12 @@ import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { guidelinesPath } from "@/lib/site";
+import { builderPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /** Where a step is taken in the app. */
 const whereTo = (slug: string, id: Status["steps"][number]["id"]) =>
-  id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : guidelinesPath(slug);
+  id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : builderPath(slug);
 
 /** A prompt for an agent connected over MCP: the fixes worth the most, each as the agent takes it (the step's `agent`). */
 function prompt(name: string, slug: string, fixes: Status["steps"]) {
