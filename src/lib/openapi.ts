@@ -561,11 +561,12 @@ export function openapi(serverUrl: string) {
       "/api/v1/brands/{slug}/status": {
         parameters: [path("slug", "Brand slug")],
         get: op({
-          summary: "A brand's launch checklist",
+          summary: "A brand's launch checklist and Brand Agent Score",
           scope: "read",
           description:
             "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in " +
-            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.",
+            "the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done. " +
+            "`score` is the Brand Agent Score, 0 to 100, and each step's `points` what it adds once done.",
           ok: [200, "The checklist", data(S.BrandStatus)],
         }),
       },

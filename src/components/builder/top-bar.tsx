@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
  * editor reaches for, named: Add (a panel beside the canvas, b.setDock),
  * Library (assets to drag onto the page, b.setLibrary),
  * Rules (b.setPanel) and Theme, which previews the whole site with the theme
- * panel beside it (b.setPreview, b.setDock). Then the launch checklist (b.status and the
+ * panel beside it (b.setPreview, b.setDock). Then the Brand Agent Score (b.status and the
  * page's own checks), what changed since the last publish (b.setChanges), For agents, Preview (b.setPreview), More (the section
  * panel, History, Design tokens) and Publish, which says whether readers see
  * the latest (b.status.publish).
@@ -311,10 +311,11 @@ function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void;
 }
 
 /**
- * The launch checklist (lib/readiness.ts, read through b.status), then what
+ * The Brand Agent Score and the steps that raise it (lib/readiness.ts, read
+ * through b.status), in place of the launch checklist, then what
  * keeps the page on show from looking designed (lib/pages.ts
- * designWarnings) and theme pairs that fail contrast. The bar shows how many
- * steps are done, and a count of the page's own checks. Picking a check
+ * designWarnings) and theme pairs that fail contrast. The bar shows the
+ * score, and a count of the page's own checks. Picking a check
  * selects its section and scrolls to it; a step opens where it is done.
  */
 function Checklist({ b }: { b: BuilderApi }) {
@@ -329,7 +330,7 @@ function Checklist({ b }: { b: BuilderApi }) {
   ];
   const status = b.status;
   const steps = status?.steps.filter((s) => s.done !== null) ?? [];
-  const label = `Launch checklist${status ? `: ${status.done} of ${status.total} done` : ""}${found.length ? `, ${found.length} ${found.length === 1 ? "check" : "checks"} on this page` : ""}`;
+  const label = `Brand Agent Score${status ? `: ${status.score} of 100` : ""}${found.length ? `, ${found.length} ${found.length === 1 ? "check" : "checks"} on this page` : ""}`;
   const go = (id: string) => {
     b.select({ section: id, rule: null });
     document.querySelector(`section[data-template][id$="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "start" });
@@ -340,9 +341,7 @@ function Checklist({ b }: { b: BuilderApi }) {
         <IconButton variant="ghost" size="sm" label={label} className="relative gap-1.5 px-2">
           <IconListCheck />
           {status && (
-            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">
-              {status.done}/{status.total}
-            </span>
+            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">{status.score}</span>
           )}
           {found.length > 0 && (
             <span className="bg-warning text-background absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
@@ -356,12 +355,10 @@ function Checklist({ b }: { b: BuilderApi }) {
           <section aria-labelledby="launch-title" className="grid gap-3 border-b p-3">
             <div className="grid gap-1.5">
               <p id="launch-title" className="flex items-baseline justify-between text-sm font-medium">
-                {status.next ? "Launch checklist" : "Ready to share"}
-                <span className="text-muted-foreground text-xs font-normal tabular-nums">
-                  {status.done} of {status.total}
-                </span>
+                Brand Agent Score
+                <span className="text-muted-foreground text-xs font-normal tabular-nums">{status.score} of 100</span>
               </p>
-              <Progress value={(status.done / Math.max(status.total, 1)) * 100} className="h-1.5" aria-label="Steps done" />
+              <Progress value={status.score} className="h-1.5" aria-label="Brand Agent Score" />
             </div>
             <ol className="grid gap-0.5">
               {steps.map((s) => {
@@ -375,7 +372,10 @@ function Checklist({ b }: { b: BuilderApi }) {
                       <IconCircle aria-label="To do" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                     )}
                     <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className={cn("text-sm", s.done && "text-muted-foreground")}>{s.title}</span>
+                      <span className={cn("text-sm", s.done && "text-muted-foreground")}>
+                        {s.title}
+                        {!s.done && <span className="text-success ms-1.5 text-xs font-medium tabular-nums">+{s.points}</span>}
+                      </span>
                       {(!s.done || next) && <span className="text-muted-foreground text-xs">{s.detail}</span>}
                     </span>
                     {!s.done &&

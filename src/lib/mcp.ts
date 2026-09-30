@@ -400,7 +400,8 @@ const TOOLS: Record<ToolName, Tool> = {
       "What a brand still lacks before it is worth sharing, as steps in order: colors, typefaces, logo and voice in " +
       "the rules, pages worth reading, a publish readers see, and a portal. Each step says whether it is done, what " +
       "it stands at, and `agent`: how to do it, with the tools by name. `next` is the step to take now; `brands` " +
-      "names every brand; `url` opens the brand in the app. Start here, and ask again after a change.",
+      "names every brand; `url` opens the brand in the app; `score` is its Brand Agent Score, of 100, and each step's `points` " +
+      "what it adds. Start here, and ask again after a change.",
     action: "brand.read",
     readOnly: true,
     input: TOOL_INPUTS.brand_status,

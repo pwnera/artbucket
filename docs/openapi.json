@@ -16549,8 +16549,8 @@
         }
       ],
       "get": {
-        "summary": "A brand's launch checklist",
-        "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.\n\nScope: `read`.",
+        "summary": "A brand's launch checklist and Brand Agent Score",
+        "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done. `score` is the Brand Agent Score, 0 to 100, and each step's `points` what it adds once done.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -16640,6 +16640,12 @@
                               "agent": {
                                 "type": "string",
                                 "description": "How an agent does it, with the tools by name"
+                              },
+                              "points": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "What it adds to the Brand Agent Score once done; 0 when the caller can't tell"
                               }
                             },
                             "required": [
@@ -16647,7 +16653,8 @@
                               "title",
                               "done",
                               "detail",
-                              "agent"
+                              "agent",
+                              "points"
                             ],
                             "additionalProperties": false
                           },
@@ -16662,6 +16669,12 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "score": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "The Brand Agent Score: the steps done, weighed by what each gives an agent"
                         },
                         "next": {
                           "description": "The first step not done; null when the brand is ready",
@@ -16822,6 +16835,7 @@
                         "steps",
                         "done",
                         "total",
+                        "score",
                         "next",
                         "publish",
                         "portals",

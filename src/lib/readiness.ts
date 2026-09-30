@@ -1,9 +1,10 @@
 /**
  * How far a brand is from being worth sharing, as the few steps every brand
  * takes: its colors, faces, logo and voice (the rules the pages are drawn
- * from), pages that say something, a publish, and a portal. The builder shows
- * it as the launch checklist, and brand_status hands it to agents, so a
- * person and an agent read the same list and the same next step.
+ * from), pages that say something, a publish, and a portal. The builder and
+ * the brand's Overview show it as the Brand Agent Score, and brand_status
+ * hands it to agents, so a person and an agent read the same list, the same
+ * score and the same next step.
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
@@ -19,6 +20,8 @@ export type Step = {
   detail: string;
   /** How an agent does it, with the tools by name. */
   agent: string;
+  /** What it adds to the Brand Agent Score, of 100, once done. */
+  points: number;
 };
 
 export type Readiness = {
@@ -28,6 +31,8 @@ export type Readiness = {
   total: number;
   /** The first step not done: what to do now. null when the brand is ready. */
   next: StepId | null;
+  /** The Brand Agent Score, 0 to 100: the steps done, weighed by what each gives an agent. */
+  score: number;
 };
 
 export type ReadinessInput = {
@@ -58,6 +63,29 @@ export function publishState(versions: ReadinessInput["versions"]): PublishState
   return versions.some((v) => v.publishedAt) ? "behind" : "never";
 }
 
+/**
+ * What each step weighs in the Brand Agent Score (PRD: it replaces the
+ * launch checklist as the brand's health meter): how much an agent working
+ * from the brand gains by it. The rules an agent reads before making
+ * anything weigh most, the logo with its file above all, then a release,
+ * which is what brand.json, llms.txt and the tokens serve; pages, a portal
+ * and a look matter to people more than to agents. 100 in all.
+ */
+export const WEIGHTS: Record<StepId, number> = { colors: 15, type: 15, logo: 20, voice: 15, look: 5, pages: 10, publish: 15, portal: 5 };
+
+/**
+ * The score over the steps this caller can tell (a step whose `done` is null
+ * counts for nothing either way), with each step's share of it: what doing it
+ * adds. Pure, from the steps alone, so every surface derives the same.
+ */
+export function agentScore(steps: Pick<Step, "id" | "done">[]) {
+  const known = steps.filter((s) => s.done !== null);
+  const total = known.reduce((n, s) => n + WEIGHTS[s.id], 0);
+  const share = (id: StepId) => (total ? Math.round((100 * WEIGHTS[id]) / total) : 0);
+  const got = known.filter((s) => s.done).reduce((n, s) => n + WEIGHTS[s.id], 0);
+  return { score: total ? Math.round((100 * got) / total) : 0, points: (id: StepId) => (known.some((s) => s.id === id) ? share(id) : 0) };
+}
+
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The layout settings a look sets (lib/brand-theme.ts LAYOUT_KEYS): any of them set, and the pages don't wear the default look. */
@@ -75,7 +103,7 @@ export function readiness({ rules, theme = {}, pages, versions, portals }: Readi
   const sections = pages.reduce((n, p) => n + p.sections, 0);
   const state = publishState(versions);
 
-  const steps: Step[] = [
+  const checks: Omit<Step, "points">[] = [
     {
       id: "colors",
       title: "Colors",
@@ -144,11 +172,14 @@ export function readiness({ rules, theme = {}, pages, versions, portals }: Readi
       agent: "create_portal with the brand in `brands` (members, or public once the person says so), or list_portals, then update_portal with it added to one.",
     },
   ];
+  const { score, points } = agentScore(checks);
+  const steps: Step[] = checks.map((s) => ({ ...s, points: points(s.id) }));
   const known = steps.filter((s) => s.done !== null);
   return {
     steps,
     done: known.filter((s) => s.done).length,
     total: known.length,
     next: known.find((s) => !s.done)?.id ?? null,
+    score,
   };
 }

@@ -44,7 +44,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
 | `review_asset` | write, approve | Approve or reject a proposal, with a note; apply or drop suggested tags and field values |
-| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, and every brand's slug |
+| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, the Brand Agent Score, and every brand's slug |
 | `create_brand` | write | Make a brand, empty or as a copy of another's rules, pages and theme |
 | `update_brand` | write | Rename a brand, change its slug, or make it the default |
 | `delete_brand` | write | Delete a brand with its rules, pages and history; never the default |
@@ -94,10 +94,11 @@ Markdown: `artbucket://brands/{slug}/pages/{page}`.
 
 A brand's guidelines are pages laid out over its rules. An agent builds them
 with the same tools a person's edits go through, and starts with
-`brand_status`: the same launch checklist the builder shows, in order (colors,
-typefaces, logo, voice, look, pages, published, shared), each step with whether
-it is done and how an agent does it. `next` is the step to take now. Ask again
-after a change. Before the first page, read `brand_playbook`: what a good brand
+`brand_status`: the same steps the builder and the brand's Overview show, in
+order (colors, typefaces, logo, voice, look, pages, published, shared), each
+step with whether it is done, how an agent does it, and the `points` it adds to
+the Brand Agent Score (`score`, of 100). `next` is the step to take now. Ask
+again after a change. Before the first page, read `brand_playbook`: what a good brand
 site is, and a worked example in calls. The [playbook](/guides/playbook) is the
 same text.
 

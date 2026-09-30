@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconBook, IconChartBar, IconChevronDown, IconCircle, IconCircleCheckFilled, IconCopy, IconLock, IconRobot, IconStar, IconWorld } from "@tabler/icons-react";
+import { IconBook, IconChartBar, IconChevronDown, IconCopy, IconLock, IconRobot, IconStar, IconWorld } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs } from "@/components/brand-tabs";
 import type { Status } from "@/components/builder/use-status";
@@ -15,10 +15,11 @@ import { AppHeader } from "@/components/page";
 import { tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import { inkOn } from "@/lib/color";
 import { ago, logoOf, taglineOf, tintOf } from "@/lib/hub";
 import { ruleName, type Rule } from "@/lib/rules";
-import { cn } from "@/lib/utils";
+import { guidelinesPath } from "@/lib/site";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card):
@@ -137,27 +138,48 @@ export function BrandOverview({ brand, origin, rules, status, release, signals }
             </Box>
           )}
 
-          {status && (
-            <Box title={status.next ? `Launch checklist, ${status.done} of ${status.total}` : "Ready to share"} icon={<IconCircleCheckFilled />}>
-              <ol className="grid gap-1">
-                {status.steps
-                  .filter((s) => s.done !== null)
-                  .map((s) => (
-                    <li key={s.id} className="flex items-start gap-2 text-sm">
-                      {s.done ? (
-                        <IconCircleCheckFilled aria-label="Done" className="text-success mt-0.5 size-4 shrink-0" />
-                      ) : (
-                        <IconCircle aria-label="To do" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                      )}
-                      <span className={cn(s.done && "text-muted-foreground")}>{s.title}</span>
-                    </li>
-                  ))}
-              </ol>
-            </Box>
-          )}
+          {status && <AgentScore status={status} slug={brand.slug} />}
         </aside>
       </div>
     </>
+  );
+}
+
+/**
+ * The Brand Agent Score (lib/readiness.ts), the brand's health meter in place
+ * of the launch checklist: the score, then what raises it, the most first,
+ * each step with what it adds and where it is done.
+ */
+function AgentScore({ status, slug }: { status: Status; slug: string }) {
+  const raises = status.steps.filter((s) => s.done === false).sort((a, b) => b.points - a.points);
+  return (
+    <Box title="Brand Agent Score" icon={<IconRobot />}>
+      <div className="flex items-baseline gap-1">
+        <span className="font-display text-3xl font-semibold tabular-nums">{status.score}</span>
+        <span className="text-muted-foreground text-sm">/ 100</span>
+      </div>
+      <Progress value={status.score} className="h-1.5" aria-label="Brand Agent Score" />
+      {raises.length ? (
+        <>
+          <p className="text-muted-foreground mt-1 text-xs">What raises it</p>
+          <ol className="grid gap-1.5">
+            {raises.map((s) => (
+              <li key={s.id} className="grid gap-0.5 text-sm">
+                <span className="flex items-baseline gap-2">
+                  <Link href={s.id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : guidelinesPath(slug)} className="hover:underline">
+                    {s.title}
+                  </Link>
+                  <span className="text-success ms-auto text-xs font-medium tabular-nums">+{s.points}</span>
+                </span>
+                <span className="text-muted-foreground text-xs">{s.detail}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : (
+        <p className="text-muted-foreground text-sm">Everything an agent needs is here.</p>
+      )}
+    </Box>
   );
 }
 

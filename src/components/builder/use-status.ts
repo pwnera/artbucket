@@ -7,9 +7,11 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 
 /** GET /api/v1/brands/{slug}/status, as the builder reads it (lib/core/brand-status.ts). */
 export type Status = {
-  steps: { id: StepId; title: string; done: boolean | null; detail: string }[];
+  steps: { id: StepId; title: string; done: boolean | null; detail: string; points: number }[];
   done: number;
   total: number;
+  /** The Brand Agent Score, of 100. */
+  score: number;
   next: StepId | null;
   publish: "never" | "behind" | "current";
   portals: { slug: string; name: string; access: "public" | "password" | "members"; url: string }[] | null;

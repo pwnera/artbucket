@@ -795,11 +795,13 @@ export const BrandStatus = z.object({
         done: z.boolean().nullable().describe("null: the caller can't tell"),
         detail: z.string(),
         agent: z.string().describe("How an agent does it, with the tools by name"),
+        points: z.number().int().describe("What it adds to the Brand Agent Score once done; 0 when the caller can't tell"),
       }),
     )
     .describe("In the order to take them"),
   done: z.number().int(),
   total: z.number().int(),
+  score: z.number().int().min(0).max(100).describe("The Brand Agent Score: the steps done, weighed by what each gives an agent"),
   next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
   publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
   portals: z
