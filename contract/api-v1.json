@@ -16513,8 +16513,8 @@
       }
     ],
     "get": {
-      "summary": "A brand's launch checklist",
-      "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done.\n\nScope: `read`.",
+      "summary": "A brand's launch checklist and Brand Agent Score",
+      "description": "The steps every brand takes before it is worth sharing, in order: colors, typefaces, logo and voice in the rules, pages worth reading, a publish readers see, and a portal. `next` is the first step not done. `score` is the Brand Agent Score, 0 to 100, and each step's `points` what it adds once done.\n\nScope: `read`.",
       "x-scope": "read",
       "responses": {
         "200": {
@@ -16604,6 +16604,12 @@
                             "agent": {
                               "type": "string",
                               "description": "How an agent does it, with the tools by name"
+                            },
+                            "points": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "What it adds to the Brand Agent Score once done; 0 when the caller can't tell"
                             }
                           },
                           "required": [
@@ -16611,7 +16617,8 @@
                             "title",
                             "done",
                             "detail",
-                            "agent"
+                            "agent",
+                            "points"
                           ],
                           "additionalProperties": false
                         },
@@ -16626,6 +16633,12 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
+                      },
+                      "score": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "The Brand Agent Score: the steps done, weighed by what each gives an agent"
                       },
                       "next": {
                         "description": "The first step not done; null when the brand is ready",
@@ -16786,6 +16799,7 @@
                       "steps",
                       "done",
                       "total",
+                      "score",
                       "next",
                       "publish",
                       "portals",
@@ -46818,6 +46832,325 @@
                 },
                 "required": [
                   "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Not in yet: how to get in",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "const": "password"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "access": {
+                            "type": "string",
+                            "enum": [
+                              "password",
+                              "members"
+                            ]
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "logo": {
+                                "description": "A URL on this host: the portal's, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "accent": {
+                                "description": "The portal's, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "background": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "icon": {
+                                "description": "The organization's, for the browser tab",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "product": {
+                                "type": "string",
+                                "description": "What the organization calls the product"
+                              }
+                            },
+                            "required": [
+                              "logo",
+                              "accent",
+                              "background",
+                              "icon",
+                              "product"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "access",
+                          "theme"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/portal/{slug}/check": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "The portal's address",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "May this portal file be used like this?",
+      "description": "POST /api/v1/check for a portal's visitor, behind the same door as the portal (see GET /api/v1/portal/{slug}): one of the files it shows, weighed for a use against its license window, territories, channels and model release. A file the portal doesn't show is a 404. It never suggests another file.\n\nNo key needed.",
+      "security": [],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "channel": {
+                  "description": "Where it will run, e.g. paid-social",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "territory": {
+                  "description": "The country it will run in, e.g. DE",
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                "date": {
+                  "description": "The day it will run; today when left out",
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "asset": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "asset"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The verdict",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowed": {
+                    "type": "boolean",
+                    "description": "false when any reason is blocking"
+                  },
+                  "asset": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "use": {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": "string"
+                      },
+                      "territory": {
+                        "type": "string"
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "context": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "not_approved",
+                            "deleted",
+                            "archived",
+                            "superseded",
+                            "embargoed",
+                            "expired",
+                            "territory",
+                            "channel",
+                            "model_release",
+                            "context"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "blocking": {
+                          "type": "boolean",
+                          "description": "false: go ahead, but know this"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "blocking"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Why not, and what to know"
+                  },
+                  "suggest": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "why": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "url",
+                        "why"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "What to use instead: the replacement, the brand's variant for the context"
+                  }
+                },
+                "required": [
+                  "allowed",
+                  "asset",
+                  "use",
+                  "reasons",
+                  "suggest"
                 ],
                 "additionalProperties": false
               }

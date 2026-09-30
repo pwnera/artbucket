@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   IconCheck,
   IconChevronLeft,
+  IconCircleCheck,
   IconChevronRight,
   IconDownload,
   IconExternalLink,
@@ -18,6 +19,7 @@ import {
   IconTypography,
 } from "@tabler/icons-react";
 import { HEAD, usePortaledLook } from "@/components/brand-sections/look";
+import { CanIUse, type Use } from "@/components/can-i-use";
 import { IconButton } from "@/components/icon-button";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +33,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { cn } from "@/lib/utils";
+
+/** A portal's check of one of its files for a use (POST /api/v1/portal/{slug}/check). */
+export type Ask = (id: string, use: Use) => Promise<Response>;
 
 export type PublicDownload = { label: string; hint: string; url: string; filename: string };
 
@@ -213,9 +219,9 @@ export function Stage({ item: a, className }: { item: PublicItem; className?: st
  * collection: tiles that open the lightbox. `asset` is the ?asset={id} the
  * page arrived with, opened at once; a grid given one (even null) keeps
  * ?asset= in step, so the open file can be linked. `busy` dims it while a
- * search runs.
+ * search runs. `ask` puts "Can I use this?" by the open file's downloads.
  */
-export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]; asset?: string | null; busy?: boolean }) {
+export function PublicGrid({ items, asset, busy = false, ask }: { items: PublicItem[]; asset?: string | null; busy?: boolean; ask?: Ask }) {
   const [openId, setOpenId] = useState<string | null>(asset ?? null);
   const linked = asset !== undefined;
   const show = (id: string | null) => {
@@ -285,7 +291,7 @@ export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]
           );
         })}
       </ul>
-      <Lightbox items={items} openId={openId} onOpen={show} />
+      <Lightbox items={items} openId={openId} onOpen={show} ask={ask} />
     </div>
   );
 }
@@ -294,9 +300,9 @@ export function PublicGrid({ items, asset, busy = false }: { items: PublicItem[]
  * One file of `items` at a time, big, over the page: ← and → step through
  * them, Esc closes, and focus goes back to the tile that opened it. Its
  * downloads, and "Open original", only when it has downloads. `openId` null
- * (or one not in `items`) is closed.
+ * (or one not in `items`) is closed. `ask`: "Can I use this?" beside them.
  */
-export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openId: string | null; onOpen: (id: string | null) => void }) {
+export function Lightbox({ items, openId, onOpen, ask }: { items: PublicItem[]; openId: string | null; onOpen: (id: string | null) => void; ask?: Ask }) {
   const at = items.findIndex((a) => a.id === openId);
   const open = at >= 0 ? items[at] : null;
   // It portals out of the site: it takes the site's look along, as the nav sheet does.
@@ -372,6 +378,25 @@ export function Lightbox({ items, openId, onOpen }: { items: PublicItem[]; openI
               <span className="text-muted-foreground mr-auto text-xs tabular-nums">
                 {at + 1} of {items.length}
               </span>
+            )}
+            {ask && open.downloads.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost">
+                    <IconCircleCheck /> Can I use this?
+                  </Button>
+                </PopoverTrigger>
+                {/* Portaled out of the lightbox: it takes the site's look along, as the lightbox does. */}
+                <PopoverContent
+                  align="end"
+                  style={look?.style}
+                  lang={look?.lang}
+                  dir={look?.dir}
+                  className={cn(look && [look.className, "bg-background text-foreground"], "w-80")}
+                >
+                  <CanIUse key={open.id} ask={(use) => ask(open.id, use)} />
+                </PopoverContent>
+              </Popover>
             )}
             {open.original && open.downloads.length > 0 && (
               <Button variant="outline" asChild>

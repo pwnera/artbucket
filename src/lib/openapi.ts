@@ -1284,6 +1284,20 @@ export function openapi(serverUrl: string) {
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },
+      "/api/v1/portal/{slug}/check": {
+        parameters: [path("slug", "The portal's address")],
+        post: op({
+          summary: "May this portal file be used like this?",
+          scope: "public",
+          description:
+            "POST /api/v1/check for a portal's visitor, behind the same door as the portal (see GET /api/v1/portal/{slug}): " +
+            "one of the files it shows, weighed for a use against its license window, territories, channels and model " +
+            "release. A file the portal doesn't show is a 404. It never suggests another file.",
+          body: S.PortalCheckInput,
+          ok: [200, "The verdict", S.PortalCheckResult],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
       "/api/v1/portal/{slug}/updates": {
         parameters: [path("slug", "The portal's address")],
         get: op({

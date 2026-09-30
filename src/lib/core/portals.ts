@@ -28,7 +28,7 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
-import { recordSearch } from "@/lib/core/events";
+import { record, recordSearch } from "@/lib/core/events";
 import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
@@ -46,6 +46,7 @@ import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/cor
 import { readablePages } from "@/lib/page-view";
 import { assetRefs, AUDIENCES, isLive, LANG, liveProps, type Audience, type RequestKind } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
+import { rightsReasons, today, type Use } from "@/lib/rights";
 import { resolve, ruleContext, specAssets } from "@/lib/rules";
 import { hashPassword, verifyPassword } from "@/lib/share";
 import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
@@ -579,6 +580,47 @@ export async function viewPortal(
     data,
     total,
   };
+}
+
+/**
+ * "Can I use this?" by a portal's download (PRD): the rights of one file it
+ * shows, weighed for a use (lib/rights.ts), behind the same door as the
+ * portal. A file it doesn't show is a 404 like one that doesn't exist. A
+ * portal shows only current, approved files, so what is left to weigh is
+ * the license, and nothing else is ever named instead. Recorded for
+ * Insights' use-check log like every check, as the portal's.
+ */
+export async function checkPortalUse(slug: string, pass: Pass, { asset: id, ...use }: Use & { asset: string }) {
+  const { p, level } = await open(slug, pass);
+  const [a] = await db
+    .select()
+    .from(assets)
+    .where(
+      and(
+        eq(assets.id, id),
+        eq(assets.workspaceId, p.workspaceId),
+        deliverableSql,
+        notSuperseded,
+        sql`exists (select 1 from ${collectionAssets} ca join ${portalCollections} pc on pc.collection_id = ca.collection_id where ca.asset_id = ${assets.id} and pc.portal_id = ${p.id})`,
+      ),
+    );
+  if (!a) throw new AssetError("not_found", "That file isn't in this portal");
+  const date = use.date ?? today();
+  const reasons = rightsReasons(a.rights, { ...use, date });
+  const allowed = !reasons.some((r) => r.blocking);
+  record({
+    workspaceId: p.workspaceId,
+    kind: "check",
+    surface: "portal",
+    actor: level === "members" ? "person" : "anonymous",
+    client: null,
+    assetId: a.id,
+    version: a.version,
+    verdict: allowed ? "allowed" : "refused",
+    reasons: reasons.filter((r) => r.blocking).map((r) => r.code),
+    offered: [],
+  });
+  return { allowed, asset: { id: a.id, title: a.metadata?.title ?? a.filename }, use: { ...use, date }, reasons, suggest: [] };
 }
 
 /** A rule the draft has dropped since the publish keeps an id all the same: sha256 of where it sat, shaped as a v5 UUID. */

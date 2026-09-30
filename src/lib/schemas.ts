@@ -169,6 +169,9 @@ export const CheckInput = Use.extend({
   brand: z.string().max(60).optional().describe("Only this brand's rules; every brand's when left out"),
 }).strict();
 
+/** POST /api/v1/portal/{slug}/check: one of the portal's files, for a use. No context: a portal's check weighs the rights alone. */
+export const PortalCheckInput = Use.extend({ asset: uuid }).strict();
+
 /** POST /api/v1/brands/{slug}/pages, and generate_pages: `set` adds one topic's pages beside the ones there are. */
 export const GeneratePagesInput = z.strictObject({
   set: z
@@ -962,6 +965,9 @@ export const CheckResult = z.object({
     .array(z.object({ id: uuid, title: z.string(), url: z.url(), why: z.string() }))
     .describe("What to use instead: the replacement, the brand's variant for the context"),
 });
+
+/** A portal's check answers the same, less the library's address for the file, and never suggests another. */
+export const PortalCheckResult = CheckResult.extend({ asset: z.object({ id: uuid, title: z.string() }) });
 
 export const Deleted = z.object({ data: z.object({ deleted: z.literal(true) }) });
 
