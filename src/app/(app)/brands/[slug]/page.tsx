@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
 import { GitReturn } from "@/components/git-return";
 import { brandHead, changesBetween } from "@/lib/brand-head";
+import { openCounts } from "@/lib/comments";
 import { hubBrand, hubViewer } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 import { releaseSummary } from "@/lib/history";
 import { can } from "@/lib/permissions";
 import { get, whoami } from "@/lib/sidebar";
-import { brandPath } from "@/lib/site";
+import { brandPath, builderPath } from "@/lib/site";
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
@@ -28,11 +29,14 @@ export default async function BrandOverviewPage({ params }: Props) {
   if (!head) notFound();
   const { brand, rules, status, releases, release } = head;
   const before = releases[1]?.number;
-  const [signals, changes, live] = await Promise.all([
+  type Thread = Parameters<typeof openCounts>[0][number];
+  const [signals, changes, live, comments] = await Promise.all([
     can(me, "insights.read") ? get(`brands/${encodeURIComponent(slug)}/insights`, (x: { data: BrandSignals }) => x.data, null) : null,
     release && before ? changesBetween(slug, before, release.number).then((c) => c && releaseSummary(c)) : null,
     // The card readers see: the release as BrandHub reads it, for this person, private or not (lib/core/hub.ts).
     release ? hubViewer().then((viewer) => viewer && hubBrand(me.workspace.organization.slug, slug, { viewer, workspace: me.workspace.id })) : null,
+    // Counted as /releases/new counts them.
+    get(`brands/${encodeURIComponent(slug)}/comments`, (x: { data: Thread[] }) => openCounts(x.data).open, null),
   ]);
   // The first release is everything: counted, not listed.
   const first = release && !before && [`First release: ${plural(release.rules, "rule")}${release.pages ? `, ${plural(release.pages, "page")}` : ""}`];
@@ -52,6 +56,11 @@ export default async function BrandOverviewPage({ params }: Props) {
             ? { brand: { name: live.name, rules: live.rules, signed: live.signed, terms: live.terms }, live: live.version }
             : { brand: { name: brand.name, rules, signed: null, terms: status?.hub?.terms ?? null }, live: null }
         }
+        comments={comments}
+        links={{
+          release: can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined,
+          review: can(me, "brand.edit") ? builderPath(slug) : undefined,
+        }}
       />
       {/* The Git integration lands here after connecting or bringing the brand in. */}
       <GitReturn brand={slug} release={can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined} />

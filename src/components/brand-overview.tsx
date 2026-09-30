@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconChartBar, IconRobot } from "@tabler/icons-react";
+import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@tabler/icons-react";
 import { BrandCard, type CardBrand } from "@/components/brand-card";
 import { BrandHeader } from "@/components/brand-header";
 import type { BrandInfo } from "@/components/brand-switcher";
@@ -12,6 +12,7 @@ import type { Release } from "@/lib/brand-head";
 import { ago, taglineOf } from "@/lib/hub";
 import type { Rule } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card, as
@@ -39,9 +40,13 @@ export type BrandOverviewProps = {
   signals: BrandSignals | null;
   /** The brand card: the live release (`live`, its number) as readers see it, else the draft. */
   card: { brand: CardBrand; live: number | null };
+  /** Open comment threads (lib/comments.ts openCounts); null: this person may not read them. */
+  comments: number | null;
+  /** Where the strip's actions go, for whoever may take them: Release, and the builder to review comments. */
+  links: { release?: string; review?: string };
 };
 
-export function BrandOverview({ brand, origin, rules, status, release, changes, signals, card }: BrandOverviewProps) {
+export function BrandOverview({ brand, origin, rules, status, release, changes, signals, card, comments, links }: BrandOverviewProps) {
   const tagline = taglineOf(rules);
 
   return (
@@ -49,6 +54,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name }]} />
       <BrandHeader brand={brand} origin={origin} rules={rules} status={status} release={release} at="overview" />
       <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 pt-6 pb-16 md:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <TeamStrip slug={brand.slug} status={status} signals={signals} comments={comments} links={links} />
         <div className="grid min-w-0 content-start gap-4">
           <Box title="About">
             <p className="text-sm">{tagline ?? <span className="text-muted-foreground">No line yet: say what the brand is in its voice rules.</span>}</p>
@@ -97,13 +103,74 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
                 <Signal label={`BrandHub pulls, ${signals.days} days`} value={signals.pulls} />
                 <Signal label={`portal page views, ${signals.days} days`} value={signals.views} />
                 {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
-                {signals.adoption?.share != null && <Signal label={`fetches on @${signals.adoption.release.number}`} value={`${signals.adoption.share}%`} />}
               </dl>
             </Box>
           )}
         </aside>
       </div>
     </>
+  );
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/**
+ * What the team has to do, above the card, one row: changes readers don't
+ * see yet (Release, for whoever may), open comments, the score's next fix,
+ * and how much of the fetching reads the live release. Each only when this
+ * person may see it.
+ */
+function TeamStrip({ slug, status, signals, comments, links }: Pick<BrandOverviewProps, "status" | "signals" | "comments" | "links"> & { slug: string }) {
+  // Releasing is the strip's first item already.
+  const fix = status?.steps.find((s) => s.done === false && s.id !== "publish");
+  const adoption = signals?.adoption?.share != null ? signals.adoption : null;
+  const item = "bg-card flex min-w-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm [&_svg]:size-4 [&_svg]:shrink-0";
+  const link = "text-primary-ink font-medium hover:underline";
+  return (
+    <ul aria-label="For the team" className="flex flex-wrap gap-2 lg:col-span-2">
+      {status && (
+        <li className={item}>
+          <IconGitCommit aria-hidden className="text-muted-foreground" />
+          {status.publish === "current" ? `Up to date with @${status.live}` : status.publish === "behind" ? "Unreleased changes" : "Never released"}
+          {status.publish !== "current" && links.release && (
+            <Link href={links.release} className={link}>
+              Release
+            </Link>
+          )}
+        </li>
+      )}
+      {comments !== null && (
+        <li className={item}>
+          <IconMessage aria-hidden className="text-muted-foreground" />
+          {comments > 0 && links.review ? (
+            <Link href={links.review} className={link}>
+              {plural(comments, "open comment")}
+            </Link>
+          ) : comments > 0 ? (
+            plural(comments, "open comment")
+          ) : (
+            "No open comments"
+          )}
+        </li>
+      )}
+      {status && (
+        <li className={item}>
+          <IconRobot aria-hidden className="text-muted-foreground" />
+          {/* A step this person can't see through (null) is not a fix to name. */}
+          <Link href={brandPath(slug, "/score")} title={fix?.detail} className={cn(link, "truncate")}>
+            {fix ? `Next fix: ${fix.title}, +${fix.points}` : `Score ${status.score}`}
+          </Link>
+        </li>
+      )}
+      {adoption && (
+        <li className={item}>
+          <IconChartBar aria-hidden className="text-muted-foreground" />
+          <span>
+            <b className="font-medium tabular-nums">{adoption.share}%</b> of fetches on @{adoption.release.number}
+          </span>
+        </li>
+      )}
+    </ul>
   );
 }
 
