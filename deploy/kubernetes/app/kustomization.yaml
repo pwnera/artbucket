@@ -1,10 +1,33 @@
-# What every setup shares: the namespace, the Deployment, its Service, and the
-# Gateway in front of it. The setups beside it (.. and ../quickstart) add the
-# settings; the quickstart leaves the Gateway out.
+# Artbucket on Kubernetes, behind a Gateway: `kubectl apply -k deploy/kubernetes/app`
+# (docs/installation/kubernetes.mdx). To try it locally with nothing to set
+# up, see ../quickstart.
+#
+# Bring Postgres 16+ and S3-compatible storage (managed, or in the cluster with
+# an operator). Before applying:
+#   cp secret.env.example secret.env        # fill it in; git ignores it
+#   edit config.env and gateway.yaml        # your domain and storage
+#
+# Both files become a ConfigMap and a Secret whose names carry a hash of their
+# contents, so changing either rolls the pods.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: artbucket
+labels:
+  - pairs:
+      app.kubernetes.io/name: artbucket
+    includeSelectors: true
 resources:
   - namespace.yaml
   - deployment.yaml
   - service.yaml
   - gateway.yaml
+configMapGenerator:
+  - name: artbucket-config
+    envs: [config.env]
+secretGenerator:
+  - name: artbucket-secret
+    envs: [secret.env]
+images:
+  # Pin a version here: `newTag: "1.0.0"` or `"1.0"`.
+  - name: ghcr.io/pwnera/artbucket
+    newTag: "1"
