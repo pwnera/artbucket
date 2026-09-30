@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, TabNav } from "@/components/hub";
-import { UseBrand } from "@/components/hub-client";
+import { ListingTrust, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
 import { hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
@@ -84,7 +84,7 @@ function Section({ id, title, icon: Icon, children }: { id: string; title: strin
 
 /** A listing, as GitHub shows a repository: who and what up top, the brand as its README, and About, releases and use beside it. */
 export default async function HubListing(props: Props) {
-  const b = await load(props);
+  const [b, viewer] = await Promise.all([load(props), hubViewer()]);
   if (!b) notFound();
   const base = await hubBase();
   const open = b.visibility === "public";
@@ -190,8 +190,8 @@ export default async function HubListing(props: Props) {
               <p role="note" className="border-warning/40 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconAlertTriangle aria-hidden className="text-warning mt-0.5 size-4 shrink-0" />
                 <span>
-                  A community listing: {b.owner} hasn&apos;t proved it holds a domain, so this may not come from {b.name}&apos;s owner. Check their
-                  own guidelines before you rely on it.
+                  A community listing: {b.owner} hasn&apos;t proved it holds a domain or a GitHub account, so this may not come from {b.name}&apos;s
+                  owner. Check their own guidelines before you rely on it.
                 </span>
               </p>
             )}
@@ -344,6 +344,18 @@ export default async function HubListing(props: Props) {
               ))}
             </ol>
           </section>
+
+          {open && (
+            <section className="flex flex-col gap-3 border-t pt-6">
+              <ListingTrust
+                org={b.org}
+                brand={b.brand}
+                name={b.name}
+                // A community listing is its brand owner's to claim: signed in, where the session reaches.
+                claim={b.verified ? null : viewer ? true : { href: `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`, label: "Sign in" }}
+              />
+            </section>
+          )}
 
           {open && (
             <section className="flex flex-col gap-3 border-t pt-6">

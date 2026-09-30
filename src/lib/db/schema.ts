@@ -315,6 +315,13 @@ export const brands = pgTable(
     visibility: text("visibility").$type<Visibility>().notNull().default("private"),
     /** The portal BrandHub links as its guidelines; null: its first public portal, if any. */
     hubPortalId: uuid("hub_portal_id").references((): AnyPgColumn => portals.id, { onDelete: "set null" }),
+    /**
+     * Taken off BrandHub by whoever runs the server, and why (docs: portals,
+     * BrandHub): while set, the brand can't be made public again. Written in
+     * the database only, never through the API, so its organization can't
+     * undo it on its own.
+     */
+    hubDelisted: text("hub_delisted"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -1093,6 +1100,57 @@ export const domains = pgTable("domains", {
   uniqueIndex("domains_portal_unique").on(t.portalId),
   uniqueIndex("domains_primary_unique").on(t.organizationId).where(sql`${t.primary}`),
 ]);
+
+/**
+ * A GitHub account an organization says is its own (lib/core/hub-trust.ts),
+ * proved like a domain: a file in its `.github` repository holding `token`.
+ * Once proved, BrandHub names it beside a verified domain.
+ */
+export const githubOrgs = pgTable("github_orgs", {
+  /** The account's login, lowercased: rust-lang. */
+  login: text("login").primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type HubReportKind = "report" | "claim";
+
+/**
+ * What someone said about a public BrandHub listing (lib/core/hub-trust.ts):
+ * a report, from anyone, or a claim, from an organization that proved a
+ * domain or a GitHub account. For the listing's organization's admins
+ * (Settings, BrandHub) and whoever runs the server, never shown publicly.
+ * No IP address is kept.
+ */
+export const hubReports = pgTable(
+  "hub_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<HubReportKind>().notNull(),
+    /** A report's reason (lib/schemas.ts HubReportInput); a claim's is `claim`. */
+    reason: text("reason").notNull(),
+    note: text("note"),
+    /** How to reach whoever sent it, as they gave it: a report's optional contact, a claimant's email. */
+    contact: text("contact"),
+    /** A claim's organization, and what it proved it holds when it claimed. */
+    claimantId: uuid("claimant_id").references(() => organizations.id, { onDelete: "set null" }),
+    proof: text("proof"),
+    status: text("status").$type<"open" | "resolved">().notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("hub_reports_brand_idx").on(t.brandId, t.createdAt.desc()),
+    check("hub_reports_kind_check", sql`${t.kind} in ('report', 'claim')`),
+    check("hub_reports_status_check", sql`${t.status} in ('open', 'resolved')`),
+  ],
+);
 
 /**
  * This database, one row: its id marks the bucket as swept by it

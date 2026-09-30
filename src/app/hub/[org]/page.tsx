@@ -52,7 +52,7 @@ export default async function HubOwner({ params }: Props) {
         </dl>
         {!owner.verified && (
           <p className="text-muted-foreground border-t pt-4 text-xs">
-            {owner.name} hasn&apos;t proved it holds a domain: its listings are community ones, and may not come from the brands&apos; owners.
+            {owner.name} hasn&apos;t proved it holds a domain or a GitHub account: its listings are community ones, and may not come from the brands&apos; owners.
           </p>
         )}
       </aside>

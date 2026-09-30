@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const PAPER = "#fafaf7";
 export const wash = (tint: string | null, strength = 14) => `color-mix(in oklab, ${tint ?? "#8a8a8a"} ${strength}%, ${PAPER})`;
 
-/** Verified: the organization proved it holds `verified`. Else a community listing: anyone may list a brand under any name. */
+/** Verified: the organization proved it holds `verified`, a domain or github.com/{login}. Else a community listing: anyone may list a brand under any name. */
 export function Owner({ verified, className }: { verified: string | null; className?: string }) {
   return verified ? (
     <span title={`The owner proved it holds ${verified}`} className={cn("text-success inline-flex items-center gap-1 text-xs font-medium", className)}>

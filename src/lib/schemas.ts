@@ -18,6 +18,7 @@ import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, 
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
 import { ThemePatch, ThemeSettings } from "./brand-theme.ts";
 import { MAX_COMMENT } from "./comments.ts";
+import { REPORT_REASONS } from "./hub.ts";
 
 /**
  * Every shape /api/v1 accepts or returns. Route handlers validate with these,
@@ -350,6 +351,19 @@ export const SsoInput = z.strictObject({
   clientId: z.string().trim().min(1).max(500).describe("The app's client ID at the provider"),
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
+});
+export const GithubInput = z.strictObject({ login: z.string().min(1).max(100).describe("A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang") });
+export const HubReportInput = z.strictObject({
+  reason: z.enum(Object.keys(REPORT_REASONS) as [keyof typeof REPORT_REASONS, ...(keyof typeof REPORT_REASONS)[]]).describe(Object.entries(REPORT_REASONS).map(([k, v]) => `${k}: ${v}`).join("; ")),
+  note: z.string().trim().max(2000).optional().describe("What is wrong, in your words"),
+  contact: z.string().trim().max(200).optional().describe("How the listing's owner may reach you, if you want them to: seen by them and this server's operator only"),
+});
+export const HubClaimInput = z.strictObject({
+  note: z.string().trim().max(2000).optional().describe("Who you are to the brand, and whether you want the listing handed over or taken down"),
+});
+export const HubReportPatch = z.strictObject({
+  status: z.enum(["open", "resolved"]).optional(),
+  delist: z.literal(true).optional().describe("Take the listing off BrandHub: the brand goes private"),
 });
 export const DomainPatch = z.strictObject({ primary: z.literal(true).describe("Make it the default: where links in email point") });
 export const SignedUrlInput = z.strictObject({
@@ -764,6 +778,7 @@ export const BrandHub = z.object({
   published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
   portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
   chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
+  delisted: z.string().nullable().describe("Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again"),
 });
 export const BrandHubView = BrandHub.extend({
   portals: z
@@ -1030,6 +1045,7 @@ export const Me = z.object({
     .string()
     .nullable()
     .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
+  hub: z.boolean().describe("This server runs BrandHub (HUB_URL)"),
   notice: z
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
@@ -1318,6 +1334,25 @@ export const Sso = z.object({
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
+});
+export const GithubAccount = z.object({
+  login: z.string(),
+  verified: z.boolean().describe("Proved: its listings on BrandHub are verified, as github.com/{login}"),
+  url: z.url(),
+  file: z
+    .object({ repository: z.string(), path: z.string(), url: z.url(), token: z.string() })
+    .describe("What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"),
+});
+export const HubReport = z.object({
+  id: uuid,
+  kind: z.enum(["report", "claim"]).describe("report: anyone's word about a listing; claim: an organization that proved a domain or a GitHub account says the brand is its"),
+  reason: z.string().describe("A report's reason; claim for a claim"),
+  note: z.string().nullable(),
+  contact: z.string().nullable().describe("How to reach who sent it, as they gave it; a claimant's email"),
+  claimant: z.object({ name: z.string(), proof: z.string().nullable().describe("What it proved it holds: a domain, or github.com/{login}") }).nullable(),
+  status: z.enum(["open", "resolved"]),
+  createdAt: date,
+  brand: z.object({ slug: z.string(), name: z.string(), workspace: z.string(), visibility: z.enum(["private", "public"]) }),
 });
 export const Domain = domainState.extend({
   primary: z.boolean().describe("The app's default address: links in email point here"),

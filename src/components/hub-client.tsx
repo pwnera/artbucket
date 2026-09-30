@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { IconChevronDown, IconRobot, IconSearch } from "@tabler/icons-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { IconChevronDown, IconFlag, IconRobot, IconSearch } from "@tabler/icons-react";
+import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { REPORT_REASONS, type ReportReason } from "@/lib/hub";
+import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
 
 /**
@@ -119,5 +126,122 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * Report a listing, or claim it (lib/core/hub-trust.ts). Anyone reports,
+ * signed in or not. A community listing can be claimed by its brand's
+ * owner: `claim` is true when this person may, here, else where to go to
+ * (signing in, or the app's own address, where the session is).
+ */
+export function ListingTrust({ org, brand, name, claim }: { org: string; brand: string; name: string; claim: true | { href: string; label: string } | null }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"report" | "claim">("report");
+  const [reason, setReason] = useState<ReportReason>("impersonation");
+  const [busy, setBusy] = useState(false);
+  const at = `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}`;
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const text = (k: string) => String(f.get(k) ?? "").trim() || undefined;
+    setBusy(true);
+    const got =
+      tab === "report"
+        ? await send("POST", `${at}/reports`, { reason, note: text("note"), contact: text("contact") })
+        : await send("POST", `${at}/claims`, { note: text("note") });
+    setBusy(false);
+    if (!got) return;
+    toast.success(tab === "report" ? "Thanks: the listing's owner will see your report" : "Claim sent", {
+      description: tab === "claim" ? `It names ${got.proof} as yours. The listing's owner and this server's operator will be in touch.` : undefined,
+    });
+    setOpen(false);
+  };
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button type="button" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs underline-offset-2 hover:underline">
+          <IconFlag aria-hidden className="size-3.5" /> {claim ? "Report or claim this listing" : "Report this listing"}
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>{tab === "report" ? `Report ${name}` : `Claim ${name}`}</DialogTitle>
+            <DialogDescription>
+              {tab === "report"
+                ? "The listing's owner and this server's operator see it. Nothing about it is public."
+                : "Say this is your brand. The claim names the domain or GitHub account your organization proved, and your email, for the listing's owner and this server's operator: they hand it over or take it down."}
+            </DialogDescription>
+          </DialogHeader>
+          {claim && (
+            <div role="tablist" aria-label="Report or claim" className="flex border-b">
+              {(["report", "claim"] as const).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className="text-muted-foreground aria-selected:border-primary aria-selected:text-foreground -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium"
+                >
+                  {t === "report" ? "Report" : "It's my brand"}
+                </button>
+              ))}
+            </div>
+          )}
+          {tab === "report" ? (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-reason`}>What is wrong</Label>
+                <Select value={reason} onValueChange={(v) => setReason(v as ReportReason)}>
+                  <SelectTrigger id={`${id}-reason`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(REPORT_REASONS) as ReportReason[]).map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {REPORT_REASONS[r]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-note`}>Details</Label>
+                <Textarea id={`${id}-note`} name="note" maxLength={2000} rows={3} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-contact`}>How to reach you (optional)</Label>
+                <Input id={`${id}-contact`} name="contact" maxLength={200} autoComplete="email" />
+              </div>
+            </>
+          ) : claim === true ? (
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-claim`}>Who you are to {name}</Label>
+              <Textarea id={`${id}-claim`} name="note" maxLength={2000} rows={3} placeholder="And whether you want the listing handed over or taken down" />
+            </div>
+          ) : (
+            <p className="text-sm">
+              <a href={claim!.href} className="text-primary-ink underline underline-offset-2">
+                {claim!.label}
+              </a>{" "}
+              to claim it, as an admin of an organization that proved a domain or a GitHub account.
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            {(tab === "report" || claim === true) && (
+              <Button type="submit" pending={busy}>
+                {tab === "report" ? "Send report" : "Send claim"}
+              </Button>
+            )}
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

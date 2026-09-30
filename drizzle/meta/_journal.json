@@ -288,6 +288,13 @@
       "when": 1790791160968,
       "tag": "0040_events_tool",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790792396849,
+      "tag": "0041_hub_trust",
+      "breakpoints": true
     }
   ]
 }

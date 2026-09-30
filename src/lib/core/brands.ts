@@ -136,6 +136,8 @@ export async function hubOf(b: Brand) {
     published: v ? { number: v.number, publishedAt: v.publishedAt! } : null,
     portal: await guidelinesPortal(b).then((p) => p && { slug: p.slug, name: p.name }),
     chosen: !!b.hubPortalId,
+    /** Taken off the hub by whoever runs the server, and why: it can't be made public until they lift it. */
+    delisted: b.hubDelisted,
   };
 }
 
@@ -162,6 +164,9 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
     }
   }
   const visibility = patch.visibility ?? b.visibility;
+  if (visibility === "public" && b.hubDelisted) {
+    throw new AssetError("forbidden", `Taken off BrandHub by whoever runs this server: ${b.hubDelisted}. Ask them to list it again`);
+  }
   if (visibility === "public" && b.visibility !== "public") {
     const [v] = await db
       .select({ n: brandVersions.number })

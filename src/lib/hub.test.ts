@@ -96,3 +96,12 @@ test("hubHome: public brands on the hub, private ones there only when the sessio
   assert.equal(hubHome("private", app, "https://brandhub.dev"), "https://app.artbucket.io/hub");
   assert.equal(hubHome("private", "http://localhost:3000", "http://localhost:3000/hub"), "http://localhost:3000/hub");
 });
+
+test("githubLogin takes a login or its profile URL, lowercased, and refuses what GitHub would", async () => {
+  const { githubLogin, githubProofUrl } = await import("./hub.ts");
+  assert.equal(githubLogin("rust-lang"), "rust-lang");
+  assert.equal(githubLogin(" https://github.com/Rust-Lang/ "), "rust-lang");
+  assert.equal(githubLogin("github.com/mozilla"), "mozilla");
+  for (const bad of ["", "-x", "x-", "a--b", "a/b", "../x", "a".repeat(40), "x.y"]) assert.equal(githubLogin(bad), null, bad);
+  assert.equal(githubProofUrl("rust-lang"), "https://raw.githubusercontent.com/rust-lang/.github/HEAD/artbucket-verification.txt");
+});

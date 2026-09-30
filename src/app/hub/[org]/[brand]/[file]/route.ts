@@ -19,31 +19,33 @@ import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
  * cache never reaches here, so behind one this counts at most one read an
  * hour per URL and edge.
  */
-const HEADERS = { "Cache-Control": "public, max-age=300, s-maxage=3600", "Access-Control-Allow-Origin": "*" };
-const missing = (message: string) => Response.json({ error: { code: "not_found", message } }, { status: 404, headers: HEADERS });
+const BASE = { "Cache-Control": "public, max-age=300, s-maxage=3600", "Access-Control-Allow-Origin": "*" };
+const missing = (message: string) => Response.json({ error: { code: "not_found", message } }, { status: 404, headers: BASE });
 
 export async function GET(req: Request, { params }: { params: Promise<{ org: string; brand: string; file: string }> }) {
   const { org, brand, file } = await params;
   if (!["brand.json", "llms.txt", "tokens"].includes(file)) return missing("Not a file of a listing: brand.json, llms.txt or tokens");
   const ref = parseRef(brand);
   const q = TokenQuery.safeParse(Object.fromEntries(new URL(req.url).searchParams));
-  if (!q.success) return Response.json({ error: { code: "invalid", message: q.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400, headers: HEADERS });
+  if (!q.success) return Response.json({ error: { code: "invalid", message: q.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400, headers: BASE });
   const b = ref && (await hubBrand(org, ref.slug, { version: ref.version, context: file === "tokens" ? q.data.context : undefined }));
   if (!b) return missing(`Nothing is listed at ${org}/${brand}`);
+  // A community listing may not come from the brand's owner: search engines leave its files out, as its page.
+  const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
   record({ workspaceId: b.workspaceId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
   const about = { name: b.name, owner: b.owner, verified: b.verified, version: b.version, url: b.url, guidelines: b.guidelines ?? b.url, terms: b.terms };
 
   if (file === "llms.txt") {
-    return new Response(brandText(about, b.rules, (a) => a.url), { headers: { ...HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
+    return new Response(brandText(about, b.rules, (a) => a.url), { headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } });
   }
   if (file === "tokens") {
     const f = TOKEN_FORMATS[q.data.format];
     const rules = (q.data.context ? b.rules : b.rules.filter((r) => r.context === null)) as TokenRule[];
     const title = `${b.org}/${b.brand}@${b.version} design tokens${q.data.context ? ` for ${q.data.context}` : ""}, from the Artbucket BrandHub (${b.url}).`;
     const text = signUrlsIn(f.render(rules, { origin: env.APP_URL, title }), (id) => b.signed[id] ?? null);
-    return new Response(text, { headers: { ...HEADERS, "Content-Type": `${f.mime}; charset=utf-8` } });
+    return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
-  return Response.json({ data: out }, { headers: HEADERS });
+  return Response.json({ data: out }, { headers });
 }

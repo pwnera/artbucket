@@ -158,3 +158,31 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
   }
   return lines.join("\n") + "\n";
 }
+
+/** A GitHub account's login, lowercased, as GitHub allows one: null for anything else. */
+export function githubLogin(raw: string): string | null {
+  const login = raw.trim().replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\//i, "").replace(/\/+$/, "").toLowerCase();
+  return /^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){0,38}$/.test(login) ? login : null;
+}
+
+/**
+ * Where a GitHub account proves it is an organization's: a file in its
+ * `.github` repository (the one GitHub reads an account's profile and
+ * community files from), on its default branch. Only the account's own
+ * people can write there.
+ */
+export const GITHUB_PROOF_FILE = "artbucket-verification.txt";
+export const githubProofUrl = (login: string) => `https://raw.githubusercontent.com/${login}/.github/HEAD/${GITHUB_PROOF_FILE}`;
+
+/** How a proved GitHub account is named beside a verified domain: github.com/rust-lang. */
+export const githubProof = (login: string) => `github.com/${login}`;
+
+/** Why someone reports a listing: the first is what community listings are most often reported for. */
+export const REPORT_REASONS = {
+  impersonation: "It pretends to be the brand's owner",
+  trademark: "It uses a trademark without permission",
+  inaccurate: "Its rules or files are wrong or out of date",
+  abuse: "Spam, malware or offensive content",
+  other: "Something else",
+} as const;
+export type ReportReason = keyof typeof REPORT_REASONS;

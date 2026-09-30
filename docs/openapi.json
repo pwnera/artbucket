@@ -16806,6 +16806,13 @@
                                 "chosen": {
                                   "type": "boolean",
                                   "description": "That portal was picked; false: it is the brand's first public portal"
+                                },
+                                "delisted": {
+                                  "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -16813,7 +16820,8 @@
                                 "url",
                                 "published",
                                 "portal",
-                                "chosen"
+                                "chosen",
+                                "delisted"
                               ],
                               "additionalProperties": false
                             },
@@ -28607,6 +28615,13 @@
                           "type": "boolean",
                           "description": "That portal was picked; false: it is the brand's first public portal"
                         },
+                        "delisted": {
+                          "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "portals": {
                           "anyOf": [
                             {
@@ -28655,6 +28670,7 @@
                         "published",
                         "portal",
                         "chosen",
+                        "delisted",
                         "portals"
                       ],
                       "additionalProperties": false
@@ -28814,6 +28830,13 @@
                         "chosen": {
                           "type": "boolean",
                           "description": "That portal was picked; false: it is the brand's first public portal"
+                        },
+                        "delisted": {
+                          "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -28821,7 +28844,8 @@
                         "url",
                         "published",
                         "portal",
-                        "chosen"
+                        "chosen",
+                        "delisted"
                       ],
                       "additionalProperties": false
                     }
@@ -33090,6 +33114,10 @@
                             "null"
                           ]
                         },
+                        "hub": {
+                          "type": "boolean",
+                          "description": "This server runs BrandHub (HUB_URL)"
+                        },
                         "notice": {
                           "anyOf": [
                             {
@@ -33207,6 +33235,7 @@
                         "features",
                         "upgrade",
                         "git",
+                        "hub",
                         "notice",
                         "auth"
                       ],
@@ -48975,6 +49004,997 @@
                         "primary",
                         "portal",
                         "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs": {
+      "get": {
+        "summary": "The organization's GitHub accounts",
+        "description": "Named as its own, proved or not. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "GitHub accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "login": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean",
+                            "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "file": {
+                            "type": "object",
+                            "properties": {
+                              "repository": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              "token": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "repository",
+                              "path",
+                              "url",
+                              "token"
+                            ],
+                            "additionalProperties": false,
+                            "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                          }
+                        },
+                        "required": [
+                          "login",
+                          "verified",
+                          "url",
+                          "file"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Name a GitHub account",
+        "description": "A GitHub organization (or account) of the organization's. Put the file in `file` in its `.github` repository, holding `file.token`, then POST /api/v1/github-orgs/{login}/verify. Once proved, the organization's BrandHub listings are verified, as github.com/{login}, like a verified domain.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "login": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "description": "A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang"
+                  }
+                },
+                "required": [
+                  "login"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The account, not verified yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "repository": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "path",
+                            "url",
+                            "token"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                        }
+                      },
+                      "required": [
+                        "login",
+                        "verified",
+                        "url",
+                        "file"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs/{login}": {
+      "parameters": [
+        {
+          "name": "login",
+          "in": "path",
+          "required": true,
+          "description": "e.g. rust-lang",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove a GitHub account",
+        "description": "It proves nothing for the organization from then on.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github-orgs/{login}/verify": {
+      "parameters": [
+        {
+          "name": "login",
+          "in": "path",
+          "required": true,
+          "description": "e.g. rust-lang",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Verify a GitHub account",
+        "description": "Reads the proof file from the account's `.github` repository, on its default branch, now; a 422 says what is missing.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved: its listings on BrandHub are verified, as github.com/{login}"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "repository": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "path",
+                            "url",
+                            "token"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves it: a file at `path` in the account's `.github` repository, on its default branch, holding `token`"
+                        }
+                      },
+                      "required": [
+                        "login",
+                        "verified",
+                        "url",
+                        "file"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/{org}/{brand}/reports": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Report a BrandHub listing",
+        "description": "Tell a public listing's owner, and this server's operator, what is wrong with it. Nothing about it is public. Anyone may report; a few an hour from one address, and the address is never kept.\n\nNo key needed.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "impersonation",
+                      "trademark",
+                      "inaccurate",
+                      "abuse",
+                      "other"
+                    ],
+                    "description": "impersonation: It pretends to be the brand's owner; trademark: It uses a trademark without permission; inaccurate: Its rules or files are wrong or out of date; abuse: Spam, malware or offensive content; other: Something else"
+                  },
+                  "note": {
+                    "description": "What is wrong, in your words",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "contact": {
+                    "description": "How the listing's owner may reach you, if you want them to: seen by them and this server's operator only",
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "received": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "received"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/{org}/{brand}/claims": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Claim a BrandHub listing",
+        "description": "Say a public listing is your organization's brand. It takes an organization admin, signed in, whose organization proved a domain or a GitHub account: the claim names it, with your email, for the listing's owner and this server's operator, who hand it over or take it down.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "description": "Who you are to the brand, and whether you want the listing handed over or taken down",
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "received": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "proof": {
+                          "type": "string",
+                          "description": "What the claim names you as holding"
+                        }
+                      },
+                      "required": [
+                        "received",
+                        "proof"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/reports": {
+      "get": {
+        "summary": "Reports and claims about your listings",
+        "description": "About the organization's BrandHub listings, open first, newest first, 200 at most. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Reports and claims",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "report",
+                              "claim"
+                            ],
+                            "description": "report: anyone's word about a listing; claim: an organization that proved a domain or a GitHub account says the brand is its"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "A report's reason; claim for a claim"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contact": {
+                            "description": "How to reach who sent it, as they gave it; a claimant's email",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "claimant": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "proof": {
+                                    "description": "What it proved it holds: a domain, or github.com/{login}",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "proof"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "resolved"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "brand": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "workspace": {
+                                "type": "string"
+                              },
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "private",
+                                  "public"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name",
+                              "workspace",
+                              "visibility"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "reason",
+                          "note",
+                          "contact",
+                          "claimant",
+                          "status",
+                          "createdAt",
+                          "brand"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/reports/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The report's id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "Act on a report or a claim",
+        "description": "Mark it resolved, or open again; `delist` takes its listing off BrandHub (the brand goes private).\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "resolved"
+                    ]
+                  },
+                  "delist": {
+                    "description": "Take the listing off BrandHub: the brand goes private",
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "open",
+                            "resolved"
+                          ]
+                        },
+                        "brand": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "visibility": {
+                              "type": "string",
+                              "enum": [
+                                "private",
+                                "public"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "slug",
+                            "visibility"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "status",
+                        "brand"
                       ],
                       "additionalProperties": false
                     }

@@ -224,6 +224,7 @@ export async function describeCaller(caller: Caller) {
     workspaces,
     features: limits.value.features,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
+    hub: !!env.HUB_URL,
     // The operator's word to the organization's admins: they are who can act on it.
     notice: admin ? noticeOf(notice.value) : null,
     // Connecting makes a key for the sync, so it takes admin on the workspace.

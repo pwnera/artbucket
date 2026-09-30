@@ -1375,6 +1375,79 @@ export function openapi(serverUrl: string) {
         parameters: [path("host", "e.g. assets.example.com")],
         post: op({ summary: "Verify a domain", scope: "admin", description: "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.", ok: [200, "The domain", data(S.Domain)] }),
       },
+      "/api/v1/github-orgs": {
+        get: op({ summary: "The organization's GitHub accounts", scope: "admin", description: "Named as its own, proved or not. Organization admin.", ok: [200, "GitHub accounts", data(z.array(S.GithubAccount))] }),
+        post: op({
+          summary: "Name a GitHub account",
+          scope: "admin",
+          description:
+            "A GitHub organization (or account) of the organization's. Put the file in `file` in its `.github` repository, " +
+            "holding `file.token`, then POST /api/v1/github-orgs/{login}/verify. Once proved, the organization's BrandHub " +
+            "listings are verified, as github.com/{login}, like a verified domain.",
+          body: S.GithubInput,
+          ok: [201, "The account, not verified yet", data(S.GithubAccount)],
+        }),
+      },
+      "/api/v1/github-orgs/{login}": {
+        parameters: [path("login", "e.g. rust-lang")],
+        delete: op({ summary: "Remove a GitHub account", scope: "admin", description: "It proves nothing for the organization from then on.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/github-orgs/{login}/verify": {
+        parameters: [path("login", "e.g. rust-lang")],
+        post: op({
+          summary: "Verify a GitHub account",
+          scope: "admin",
+          description: "Reads the proof file from the account's `.github` repository, on its default branch, now; a 422 says what is missing.",
+          ok: [200, "The account", data(S.GithubAccount)],
+        }),
+      },
+      "/api/v1/hub/{org}/{brand}/reports": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        post: op({
+          summary: "Report a BrandHub listing",
+          scope: "public",
+          description:
+            "Tell a public listing's owner, and this server's operator, what is wrong with it. Nothing about it is public. " +
+            "Anyone may report; a few an hour from one address, and the address is never kept.",
+          body: S.HubReportInput,
+          ok: [202, "Received", data(z.object({ received: z.literal(true) }))],
+        }),
+      },
+      "/api/v1/hub/{org}/{brand}/claims": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        post: op({
+          summary: "Claim a BrandHub listing",
+          scope: "admin",
+          description:
+            "Say a public listing is your organization's brand. It takes an organization admin, signed in, whose organization " +
+            "proved a domain or a GitHub account: the claim names it, with your email, for the listing's owner and this " +
+            "server's operator, who hand it over or take it down.",
+          body: S.HubClaimInput,
+          ok: [202, "Received", data(z.object({ received: z.literal(true), proof: z.string().describe("What the claim names you as holding") }))],
+        }),
+      },
+      "/api/v1/hub/reports": {
+        get: op({
+          summary: "Reports and claims about your listings",
+          scope: "admin",
+          description: "About the organization's BrandHub listings, open first, newest first, 200 at most. Organization admin.",
+          ok: [200, "Reports and claims", data(z.array(S.HubReport))],
+        }),
+      },
+      "/api/v1/hub/reports/{id}": {
+        parameters: [path("id", "The report's id")],
+        patch: op({
+          summary: "Act on a report or a claim",
+          scope: "admin",
+          description: "Mark it resolved, or open again; `delist` takes its listing off BrandHub (the brand goes private).",
+          body: S.HubReportPatch,
+          ok: [
+            200,
+            "The report",
+            data(z.object({ id: z.uuid(), status: z.enum(["open", "resolved"]), brand: z.object({ slug: z.string(), visibility: z.enum(["private", "public"]) }) })),
+          ],
+        }),
+      },
       "/api/v1/sso": {
         get: op({
           summary: "The organization's single sign-on",

@@ -1,11 +1,12 @@
-import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, domains, organizations, portals, workspaces } from "@/lib/db/schema";
+import { assets, brands, brandVersions, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
 import { deliverableSql } from "@/lib/core/assets";
 import { guidelinesPortal } from "@/lib/core/brands";
 import { portalHome } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { proofsOf } from "@/lib/core/hub-trust";
 import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { env } from "@/lib/env";
@@ -21,9 +22,11 @@ import { withSignature } from "@/lib/signed";
  * signed in, on the app's own host (/hub); public, anyone and any agent,
  * on the hub's own host too. It links a portal as its guidelines.
  *
- * Who has it is its organization; `verified` is a domain that organization
- * proved it holds (Settings, Domains), else a public brand is a community
- * one: anyone may make public a brand of any name, so readers are told.
+ * Who has it is its organization; `verified` is what that organization
+ * proved it holds, a domain (Settings, Domains) or a GitHub account
+ * (lib/core/hub-trust.ts), else a public brand is a community one: anyone
+ * may make public a brand of any name, so readers are told, and may report
+ * or claim it.
  */
 
 export const hubOn = () => !!env.HUB_URL;
@@ -66,10 +69,12 @@ const latest = (col: SQL) =>
  * workspace is asked.
  */
 async function listings(where: SQL | undefined, limit: number, viewer: HubViewer) {
+  // Public, unless the server's operator delisted it (brands.hub_delisted): then its own people see it as private.
+  const open = and(eq(brands.visibility, "public"), isNull(brands.hubDelisted));
   const rows = await db
     .select({
       id: brands.id,
-      visibility: brands.visibility,
+      visibility: sql<Visibility>`case when ${brands.hubDelisted} is null then ${brands.visibility} else 'private' end`,
       hubPortalId: brands.hubPortalId,
       org: organizations.slug,
       owner: organizations.name,
@@ -87,7 +92,7 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
     .where(
       and(
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
-        viewer?.orgs.length ? or(eq(brands.visibility, "public"), inArray(workspaces.organizationId, viewer.orgs)) : eq(brands.visibility, "public"),
+        viewer?.orgs.length ? or(open, inArray(workspaces.organizationId, viewer.orgs)) : open,
         where,
       ),
     )
@@ -102,19 +107,6 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
 
 type Row = Awaited<ReturnType<typeof listings>>[number];
 
-/** Each organization's verified domain, the default one first: what a listing's badge names. */
-async function verifiedDomains(orgIds: string[]) {
-  if (!orgIds.length) return new Map<string, string>();
-  const rows = await db
-    .select({ orgId: domains.organizationId, host: domains.host })
-    .from(domains)
-    .where(and(inArray(domains.organizationId, [...new Set(orgIds)]), isNotNull(domains.verifiedAt)))
-    .orderBy(desc(domains.primary), asc(domains.createdAt));
-  const out = new Map<string, string>();
-  for (const r of rows) if (!out.has(r.orgId)) out.set(r.orgId, r.host);
-  return out;
-}
-
 /** Cards: who listed it, its version, its colors and its logo, signed for a day. */
 async function cards(rows: Row[]) {
   const ids = [...new Set(rows.flatMap((r) => (r.snapshot ?? []).flatMap((x) => x.assets.map((a) => a.id))))];
@@ -126,7 +118,7 @@ async function cards(rows: Row[]) {
           .where(and(inArray(assets.id, ids), deliverableSql))
           .then((xs) => new Map(xs.map((a) => [a.id, a])))
       : new Map<string, { id: string; mime: string; workspaceId: string }>(),
-    verifiedDomains(rows.map((r) => r.orgId)),
+    proofsOf(rows.map((r) => r.orgId)),
   ]);
   return rows.map((r) => {
     const rules = (r.snapshot ?? []).map((x) => ({
@@ -186,7 +178,7 @@ export async function hubListings({
 export async function hubOwner(org: string) {
   const [o] = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.slug, org));
   if (!o) return null;
-  return { slug: o.slug, name: o.name, verified: (await verifiedDomains([o.id])).get(o.id) ?? null };
+  return { slug: o.slug, name: o.name, verified: (await proofsOf([o.id])).get(o.id) ?? null };
 }
 
 /**
