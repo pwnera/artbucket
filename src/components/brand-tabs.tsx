@@ -25,7 +25,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     ...(can("portal.manage") ? [{ id: "portals" as const, label: "Portals", href: brandPath(brand.slug, "/portals") }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: brandPath(brand.slug, "/insights") }] : []),
-    ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: `/brands?${new URLSearchParams({ q: brand.name })}` }] : []),
+    ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: brandPath(brand.slug, "/settings") }] : []),
   ];
   return tabs;
 }
