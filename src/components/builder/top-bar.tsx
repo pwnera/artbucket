@@ -177,7 +177,19 @@ export function TopBar({ b }: TopBarProps) {
           <IconEye />
         </IconButton>
         <More b={b} />
-        {b.source?.source && <Repository b={b} />}
+        {b.source?.source ? (
+          <Repository b={b} />
+        ) : (
+          b.source?.connect && (
+            // Not kept in a repository yet, and this person may connect one: say so on the bar, not in a menu.
+            <IconButton asChild variant="ghost" size="sm" label="Keep this brand in a Git repository" className="gap-1.5 px-2 @5xl/bar:px-2.5">
+              <a href={b.source.connect}>
+                <IconBrandGit />
+                <span className="hidden @5xl/bar:inline">Git</span>
+              </a>
+            </IconButton>
+          )
+        )}
         <Publish b={b} />
       </div>
     </header>
@@ -208,13 +220,7 @@ function More({ b }: { b: BuilderApi }) {
         <DropdownMenuItem onSelect={open("tokens")}>
           <IconCode /> Design tokens <DropdownMenuShortcut>T</DropdownMenuShortcut>
         </DropdownMenuItem>
-        {b.source && !b.source.source && b.source.connect && (
-          <DropdownMenuItem asChild>
-            <a href={b.source.connect}>
-              <IconBrandGit /> Keep in a Git repository
-            </a>
-          </DropdownMenuItem>
-        )}
+
       </DropdownMenuContent>
     </DropdownMenu>
   );

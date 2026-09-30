@@ -1,20 +1,23 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowLeft, IconArrowUp, IconCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
 import type { BrandInfo } from "@/components/brand-switcher";
+import { useMe } from "@/components/can";
 import { send } from "@/components/collections";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEMPLATE_CARDS } from "@/lib/brand-templates";
+import { gitLink } from "@/lib/git";
 import { cn } from "@/lib/utils";
 
-type Step = "how" | "builder" | "agent";
+type Step = "how" | "builder" | "agent" | "git";
 type Start = "" | (typeof TEMPLATE_CARDS)[number]["id"];
 
 /** The agents the AI path offers, in the order people reach for them: each connects as the Agents page says. */
@@ -33,14 +36,19 @@ const brief = (name: string, site: string) =>
   ].join("\n");
 
 /**
- * A new brand, two ways: laid out by hand in the builder (from nothing, or
- * from a showcase brand to edit), or by an agent, given the one prompt to
- * paste once it is connected.
+ * A new brand, three ways: laid out by hand in the builder (from nothing, or
+ * from a showcase brand to edit), by an agent, given the one prompt to paste
+ * once it is connected, or from a Git repository (brand as code), where the
+ * server has a Git integration (me.git, GIT_CONNECT_URL): brought in from
+ * files already there, or made here and kept there as it grows.
  */
 export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (b: BrandInfo) => void }) {
   const id = useId();
+  const git = useMe()?.git ?? null;
   const [step, setStep] = useState<Step>("how");
-  const [how, setHow] = useState<"builder" | "agent">("builder");
+  const [how, setHow] = useState<"builder" | "agent" | "git">("builder");
+  // Made here, then kept in a repository: the integration takes over once it exists.
+  const [keep, setKeep] = useState(false);
   const [name, setName] = useState("");
   const [site, setSite] = useState("");
   const [start, setStart] = useState<Start>("");
@@ -57,6 +65,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
     e.preventDefault();
     setBusy(true);
     const b: BrandInfo | null = await send("POST", "/api/v1/brands", { name, ...(start && { template: start }) });
+    if (b && git && keep) return window.location.assign(gitLink(git, b.slug));
     setBusy(false);
     if (b) onDone(b);
   }
@@ -64,20 +73,25 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="sm:max-w-2xl" guard={{ dirty: !!(name || site), onDiscard: onClose }}>
+      <DialogContent className={cn(git ? "sm:max-w-3xl" : "sm:max-w-2xl")} guard={{ dirty: !!(name || site), onDiscard: onClose }}>
         {step === "how" && (
           <>
             <DialogHeader>
               <DialogTitle>New brand</DialogTitle>
               <DialogDescription>Choose how to set it up. Either way it is a draft until you publish.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="How to set it up">
+            <div className={cn("grid gap-3", git ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="How to set it up">
               <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">
                 <BuilderArt />
               </Choice>
               <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Connect Claude, Cursor or Codex and it writes the rules and pages for you to review.">
                 <AgentArt />
               </Choice>
+              {git && (
+                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
+                  <FilesArt />
+                </Choice>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={onClose}>
@@ -116,15 +130,62 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
               <Label htmlFor={`${id}-name`}>Name</Label>
               <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
             </div>
+            {git && (
+              <div className="flex items-start gap-2.5">
+                <Checkbox id={`${id}-keep`} checked={keep} onCheckedChange={(v) => setKeep(v === true)} className="mt-0.5" />
+                <Label htmlFor={`${id}-keep`} className="grid gap-0.5 font-normal">
+                  <span className="font-medium">Keep it in a Git repository too</span>
+                  <span className="text-muted-foreground">Pick the repository next. Its files and this brand stay in step, both ways.</span>
+                </Label>
+              </div>
+            )}
             <DialogFooter className="sm:justify-between">
               <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={busy}>
                 <IconArrowLeft /> Back
               </Button>
               <Button type="submit" pending={busy} disabled={!name.trim()}>
-                {busy && start ? "Bringing in its logos and fonts" : "Create brand"}
+                {busy && start ? "Bringing in its logos and fonts" : keep ? "Create and pick a repository" : "Create brand"}
               </Button>
             </DialogFooter>
           </form>
+        )}
+
+        {step === "git" && git && (
+          <div className="grid min-w-0 gap-4">
+            <DialogHeader>
+              <DialogTitle>From a Git repository</DialogTitle>
+              <DialogDescription>
+                The brand as YAML beside its logos and fonts: change it in a pull request, with a preview of the brand as it would be, or here in the builder. Each side&apos;s edits reach the other.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <a
+                href={gitLink(git)}
+                className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 outline-none focus-visible:ring-[3px]"
+              >
+                <IconFolder className="text-primary size-5" aria-hidden />
+                <span className="text-sm font-medium">Bring in a brand from a repository</span>
+                <span className="text-muted-foreground text-sm">It already has a brand.yaml: pick the repository, and the brand comes in with its pages and files.</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setKeep(true);
+                  setStep("builder");
+                }}
+                className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 text-start outline-none focus-visible:ring-[3px]"
+              >
+                <IconPlus className="text-primary size-5" aria-hidden />
+                <span className="text-sm font-medium">Start a new brand, kept in a repository</span>
+                <span className="text-muted-foreground text-sm">Blank or from a template, then pick a repository: its files go there as you build.</span>
+              </button>
+            </div>
+            <DialogFooter className="sm:justify-start">
+              <Button type="button" variant="ghost" onClick={() => setStep("how")}>
+                <IconArrowLeft /> Back
+              </Button>
+            </DialogFooter>
+          </div>
         )}
 
         {step === "agent" && (
@@ -233,6 +294,31 @@ function BuilderArt() {
           <span className="bg-muted col-span-3 h-10 rounded" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A brand's folder in a repository: brand.yaml, rules and pages, with the Git mark. */
+function FilesArt() {
+  const row = (depth: number, icon: React.ReactNode, name: string, width: string) => (
+    <span className="flex items-center gap-1.5" style={{ paddingInlineStart: depth * 12 }}>
+      {icon}
+      <span className="text-muted-foreground font-mono text-[10px] leading-none">{name}</span>
+      <span className={cn("bg-muted h-1.5 rounded-full", width)} />
+    </span>
+  );
+  const folder = <IconFolder className="text-muted-foreground size-3.5 shrink-0" />;
+  const file = <IconFile className="text-muted-foreground size-3.5 shrink-0" />;
+  return (
+    <div className="bg-background grid w-full max-w-60 gap-1.5 rounded-t-md border border-b-0 p-3 shadow-sm">
+      <span className="mb-0.5 flex items-center gap-1.5 text-xs font-medium">
+        <IconBrandGit className="text-primary size-4" /> brand
+      </span>
+      {row(0, file, "brand.yaml", "w-8")}
+      {row(0, folder, "rules", "w-6")}
+      {row(1, file, "color.yaml", "w-10")}
+      {row(0, folder, "pages", "w-4")}
+      {row(1, file, "logo.yaml", "w-7")}
     </div>
   );
 }

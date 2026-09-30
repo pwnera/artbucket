@@ -13,6 +13,7 @@ import { checkRefs } from "@/lib/core/pages";
 import { ASSETS_DIR, assetIds, canonical, fromFiles, locate, MISSING_ASSET, sameState, toFiles, type BrandState, type Files, type Problem } from "@/lib/brand-files";
 import { diffStates, merge, unchanged, type Conflict } from "@/lib/brand-merge";
 import { env } from "@/lib/env";
+import { gitLink } from "@/lib/git";
 import { canon, type SnapPage } from "@/lib/pages";
 import { can, needs } from "@/lib/permissions";
 import { DEFAULT_PRESETS } from "@/lib/portal";
@@ -306,13 +307,16 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
 
 // ---- source ---------------------------------------------------------------------
 
-/** Where the brand's files live, when they do, and where to connect a repository (GIT_CONNECT_URL). */
-export async function getSource(ws: string, slug: string | undefined) {
+/**
+ * Where the brand's files live, when they do, and where to connect a
+ * repository (GIT_CONNECT_URL): only for `admin`, since connecting makes a key.
+ */
+export async function getSource(ws: string, slug: string | undefined, admin = false) {
   const brand = await resolveBrand(ws, slug);
   const source = await sourceRow(brand.id);
   return {
     source: source ? presentSource(source, await stateOf(db, brand)) : null,
-    connect: env.GIT_CONNECT_URL ? env.GIT_CONNECT_URL.replace("{brand}", encodeURIComponent(brand.slug)) : null,
+    connect: env.GIT_CONNECT_URL && admin ? gitLink(env.GIT_CONNECT_URL, brand.slug) : null,
   };
 }
 

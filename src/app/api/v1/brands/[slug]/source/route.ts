@@ -9,7 +9,9 @@ type P = { slug: string };
  * (null when none), whether it holds changes the files lack, and where this
  * server connects one (GIT_CONNECT_URL).
  */
-export const GET = route<P>("brand.read", async (_req, { slug }, caller) => ok({ data: await getSource(caller.workspace.id, slug) }));
+export const GET = route<P>("brand.read", async (_req, { slug }, caller) =>
+  ok({ data: await getSource(caller.workspace.id, slug, !!caller.user && caller.scope === "admin") }),
+);
 
 /** PUT /api/v1/brands/{slug}/source - where its files live; with `synced`, the files just pushed, as agreed. */
 export const PUT = route<P>("brand.edit", async (req, { slug }, caller) => ok({ data: await setSource(caller, slug, await body(req, BrandSourceInput)) }));

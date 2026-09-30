@@ -48,8 +48,9 @@ const schema = z.object({
   /**
    * Where a brand gets kept in a Git repository too (brand as code): the page
    * of this server's Git integration that connects one, {brand} standing for
-   * the brand's slug. The builder links there. Unset: no link; the API and
-   * the CLI still sync a brand with its files.
+   * the brand's slug, and left empty to bring a new brand in from a
+   * repository. New brand, the brand's setup and the builder link there.
+   * Unset: no links; the API and the CLI still sync a brand with its files.
    */
   GIT_CONNECT_URL: z.string().url().optional(),
   /**

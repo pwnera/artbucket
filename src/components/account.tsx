@@ -62,6 +62,8 @@ export type Me = {
   workspaces: WorkspaceRef[];
   /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
   upgrade: string | null;
+  /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a workspace admin's, when the server has a Git integration. */
+  git: string | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
 

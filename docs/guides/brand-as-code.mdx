@@ -113,9 +113,24 @@ so each sync stands in the history on its own.
 what it would change. It needs no account, like a share link, and keeps its
 address as the pull request changes. Delete it when the pull request closes.
 
+## From the app
+
+Where the server has a Git integration (`GIT_CONNECT_URL`), a workspace admin
+reaches it from three places:
+
+- **New brand, From a Git repository:** bring in a brand a repository already
+  holds (its `brand.yaml`, pages and files), or start a new brand here and
+  keep it in a repository from the first edit.
+- **A new brand's setup:** connect a repository before laying out any page.
+- **The builder's bar:** Git, until the brand is kept somewhere; then the
+  repository, and whether both sides are in step.
+
+The integration sends you back to the builder, which says when the first sync
+has landed.
+
 ## On Artbucket Cloud
 
-Artbucket Cloud connects a GitHub repository to a brand from the builder, and
-does all of the above itself: pull requests get a check, a preview link and a
-comment listing what they change, merges come in, and edits made here go back
-as a commit or a pull request.
+Artbucket Cloud connects a GitHub repository to a brand from any of those
+places, and does all of the above itself: pull requests get a check, a
+preview link and a comment listing what they change, merges come in, and
+edits made here go back as a commit or a pull request.
