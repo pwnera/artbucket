@@ -23,9 +23,9 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | Tool | Scope | |
 |---|---|---|
 | `search_assets` | read | Full text, tags, collections, field filters, lifecycle `status` |
-| `describe_asset` | read | What it is, its rights, what replaced it, suggestions waiting on review, and the brand rules that point at it |
+| `describe_asset` | read | What it is, its rights, what replaced it, suggestions waiting on review, the brand rules that point at it, a `fetchUrl` to open it, and whether people outside can see it (public, or the public portals showing it) |
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
-| `rendition_url` | read | A URL for a width, height, fit, format and quality; with `expiresIn`, signed, for someone without access |
+| `rendition_url` | read | A URL for a width, height, fit, format and quality, and a `fetchUrl` for the agent itself. With `expiresIn`, a URL for someone without access: plain for a public asset, signed about a day for one a public portal shows, signed as asked with share; anything else says what the person can do |
 | `brand_rules` | read | A brand's rules for a context, with their labels and specs |
 | `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with provenance and rights |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
