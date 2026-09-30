@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
 import type { HubCard } from "@/lib/core/hub";
-import { ago, compact } from "@/lib/hub";
+import { ago, compact, type CardFace } from "@/lib/hub";
 import { cn } from "@/lib/utils";
 
 /**
@@ -95,54 +95,119 @@ export function Preview({ card, className, children }: { card: Pick<HubCard, "lo
   );
 }
 
-function Card({ card, base }: { card: HubCard; base: string }) {
+/** How a grid card draws a brand: its mark on its ground, its palette, and the face its name is set in (lib/hub.ts). */
+export type TileLook = { name: string; logo: string | null; tint: string | null; background: string | null; palette: { hex: string; name: string }[]; face: CardFace | null };
+
+/**
+ * The cards of a grid that load their brand's face: the first screen, two
+ * rows of four. The rest name the family.
+ *
+ * ponytail: a fixed count, not what is on screen; load faces as cards scroll in if a grid's second screen should show them too.
+ */
+export const FACES = 8;
+
+/**
+ * A brand as a grid card, on the Brands page and BrandHub: its mark on its
+ * own ground (color.background, else its wash) beside a band of its colors,
+ * each named on hover, then its name in its heading face when that loads
+ * cheaply (`face`, the first FACES of a grid), else the family named beside
+ * it. `badges` sit on the ground; the rest of the card is `children`. The
+ * whole card is the link.
+ */
+export function BrandTile({ id, look, href, face, badges, children }: { id: string; look: TileLook; href: string; face: boolean; badges?: React.ReactNode; children?: React.ReactNode }) {
+  const f = look.face;
+  const loads = face && !!f && !!(f.src || f.css);
+  const name = `card-face-${id.replace(/[^a-z0-9-]/gi, "-")}`;
   return (
-    <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-1 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
-      <Preview card={card} className="h-40">
-        <IconArrowUpRight aria-hidden className="absolute end-3 top-3 size-4 text-black/40 transition-colors group-hover:text-black/80" />
-        {card.visibility === "private" ? (
-          <Private className="absolute start-3 top-3 rounded-full bg-white/80 px-2 py-0.5 text-black/70 backdrop-blur" />
-        ) : (
-          <Owner
-            verified={card.verified}
-            // On the wash, which stays light: the light theme's inks, in either theme.
-            className={cn("absolute start-3 top-3 rounded-full bg-white/80 px-2 py-0.5 backdrop-blur", card.verified ? "text-[#2f6b2a]" : "text-black/70")}
-          />
-        )}
-      </Preview>
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="font-display text-lg font-semibold tracking-tight">
-          <Link href={base + card.path} className="outline-none after:absolute after:inset-0">
-            {card.name}
-          </Link>
-        </h3>
-        {card.tagline && <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">{card.tagline}</p>}
-        {/* Anyone may list a brand under any name: a community listing says so where it is picked. */}
-        {card.visibility === "public" && !card.verified && <p className="text-muted-foreground mt-1 text-xs">May not come from the brand&apos;s owner.</p>}
-        <p className="text-muted-foreground mt-auto pt-5 text-[11px] font-semibold tracking-[.12em] uppercase">
-          {card.org} / {card.brand}
-        </p>
-        <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs">
-          <span className="inline-flex items-center gap-1.5">
-            <Dots colors={card.swatches} />
-            {card.colors} {card.colors === 1 ? "color" : "colors"}
-          </span>
-          {card.families[0] && <span className="max-w-32 truncate">{card.families[0]}</span>}
-          {/* The release it serves, as releases are named everywhere: @n. */}
-          <span className="font-mono">@{card.version}</span>
-          {card.pulls > 0 && <Pulls n={card.pulls} />}
-          {card.publishedAt && <span>Updated {ago(card.publishedAt)}</span>}
+    <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
+      {loads && f.src && <style>{`@font-face{font-family:"${name}";src:url("${f.src}");font-weight:100 900;font-display:swap}`}</style>}
+      {loads && f.css && <link rel="stylesheet" href={f.css} precedence="default" />}
+      <div className="relative flex h-28">
+        <div className="relative grid min-w-0 flex-1 place-items-center" style={{ background: look.background ?? wash(look.tint) }}>
+          {look.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized
+            <img src={look.logo} alt="" className="absolute inset-0 size-full object-contain px-6 py-5 transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+          ) : (
+            <span className="font-display text-4xl font-semibold" style={{ color: look.tint ?? undefined }}>
+              {look.name.slice(0, 1)}
+            </span>
+          )}
         </div>
+        {look.palette.length > 0 && (
+          // Above the card's link, so each stripe names its color on hover.
+          <ul aria-label="Colors" className="relative z-10 flex w-1/4 shrink-0">
+            {look.palette.map((c, i) => (
+              <li key={i} title={`${c.name} ${c.hex}`} className="flex-1" style={{ background: c.hex }}>
+                <span className="sr-only">{c.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {badges}
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="flex min-w-0 items-baseline gap-2">
+          <Link
+            href={href}
+            className="font-display truncate text-base font-semibold tracking-tight outline-none after:absolute after:inset-0"
+            style={loads ? { fontFamily: `"${f.src ? name : f.family.replace(/["\\]/g, "")}", var(--font-display)`, fontWeight: f.src ? undefined : (f.weight ?? undefined) } : undefined}
+          >
+            {look.name}
+          </Link>
+          {f && !loads && <span className="text-muted-foreground truncate text-xs">{f.family}</span>}
+        </h3>
+        {children}
       </div>
     </li>
   );
 }
 
+/** A pill on a card's ground, which is the brand's own: the light theme's inks, in either theme, legible on any color. */
+export const pill = "absolute top-2.5 z-20 rounded-full bg-white/85 px-2 py-0.5 text-xs font-medium text-black/70 backdrop-blur";
+
+function Card({ card, base, face }: { card: HubCard; base: string; face: boolean }) {
+  return (
+    <BrandTile
+      id={card.path}
+      look={card}
+      href={base + card.path}
+      face={face}
+      badges={
+        <>
+          {card.visibility === "private" ? (
+            <Private className={cn(pill, "start-2.5")} />
+          ) : (
+            <Owner verified={card.verified} className={cn(pill, "start-2.5", card.verified && "text-[#2f6b2a]")} />
+          )}
+          <span aria-hidden className={cn(pill, "end-2.5 px-1 py-1")}>
+            <IconArrowUpRight className="size-3.5 transition-colors group-hover:text-black" />
+          </span>
+        </>
+      }
+    >
+      {card.tagline && <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">{card.tagline}</p>}
+      {/* Anyone may list a brand under any name: a community listing says so where it is picked. */}
+      {card.visibility === "public" && !card.verified && <p className="text-muted-foreground mt-1 text-xs">May not come from the brand&apos;s owner.</p>}
+      <div className="mt-auto pt-3">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs">
+          <span className="min-w-0 truncate">
+            {card.org}/{card.brand}
+          </span>
+          {/* The release it serves, as releases are named everywhere: @n. */}
+          <span className="font-mono">@{card.version}</span>
+          {card.pulls > 0 && <Pulls n={card.pulls} />}
+          {card.publishedAt && <span>{ago(card.publishedAt)}</span>}
+        </div>
+      </div>
+    </BrandTile>
+  );
+}
+
 export function Cards({ cards, base, className }: { cards: HubCard[]; base: string; className?: string }) {
   return (
-    <ul className={cn("grid gap-5 sm:grid-cols-2 lg:grid-cols-3", className)}>
-      {cards.map((c) => (
-        <Card key={c.path} card={c} base={base} />
+    <ul className={cn("grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", className)}>
+      {cards.map((c, i) => (
+        <Card key={c.path} card={c} base={base} face={i < FACES} />
       ))}
     </ul>
   );

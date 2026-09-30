@@ -7,7 +7,7 @@ import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, Ic
 import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";
-import { Dots, Preview } from "@/components/hub";
+import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub";
 import { NewBrand } from "@/components/new-brand";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -43,8 +43,8 @@ export type BrandHub = {
   chosen: boolean;
   portals: { slug: string; name: string; access: "public" | "password" | "members" }[] | null;
 };
-/** How a brand looks on its card: its colors, the one it is tinted with, and its mark as a rendition URL. */
-export type BrandLook = { swatches: string[]; tint: string | null; logo: string | null };
+/** How a brand looks on its card: its mark as a rendition URL, the color it is tinted with, its ground, palette and heading face. */
+export type BrandLook = Omit<TileLook, "name">;
 export type BrandRow = BrandInfo & { visibility: "private" | "public"; hub: BrandHub | null; look: BrandLook };
 
 type Layout = "cards" | "list";
@@ -162,9 +162,9 @@ export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { br
         {!shown.length ? (
           <p className="text-muted-foreground rounded-lg border p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</p>
         ) : layout === "cards" ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((b) => (
-              <Card key={b.slug} b={b} />
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {shown.map((b, i) => (
+              <Card key={b.slug} b={b} face={i < FACES} />
             ))}
           </ul>
         ) : (
@@ -205,32 +205,37 @@ export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { br
   );
 }
 
-/** A brand as a card: its mark on its wash, then its name and where it stands. The whole card opens its Overview. */
-function Card({ b }: { b: BrandRow }) {
+/** A brand as a card (components/hub.tsx BrandTile, BrandHub's): then when it was released and the portal it links. The whole card opens its Overview. */
+function Card({ b, face }: { b: BrandRow; face: boolean }) {
   const hub = b.hub;
   return (
-    <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
-      <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint }} className="h-32">
-        {hub && (
-          <span className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-black/70 backdrop-blur">
-            {b.visibility === "public" ? <IconWorld aria-hidden className="size-3" /> : <IconLock aria-hidden className="size-3" />}
-            {b.visibility === "public" ? "Public" : "Private"}
-          </span>
-        )}
-        {b.default && <IconStar aria-label="default" className="absolute end-3 top-3 size-4 text-black/50" />}
-      </Preview>
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <h3 className="font-display truncate text-base font-semibold tracking-tight">
-          <Link href={brandHref(b)} className="outline-none after:absolute after:inset-0">
-            {b.name}
-          </Link>
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          {hub?.published ? `@${hub.published.number}, released ${ago(hub.published.publishedAt)}` : hub ? "Never released" : "\u00a0"}
-        </p>
-        <div className="text-muted-foreground mt-auto flex items-center gap-3 border-t pt-3 text-xs">
-          <span className="inline-flex items-center gap-1.5">
-            <Dots colors={b.look.swatches} />
+    <BrandTile
+      id={b.slug}
+      look={{ name: b.name, ...b.look }}
+      href={brandHref(b)}
+      face={face}
+      badges={
+        <>
+          {hub && (
+            <span className={cn(pill, "start-2.5 inline-flex items-center gap-1")}>
+              {b.visibility === "public" ? <IconWorld aria-hidden className="size-3" /> : <IconLock aria-hidden className="size-3" />}
+              {b.visibility === "public" ? "Public" : "Private"}
+            </span>
+          )}
+          {b.default && (
+            <span className={cn(pill, "end-2.5 px-1 py-1")}>
+              <IconStar aria-label="default" className="size-3.5" />
+            </span>
+          )}
+        </>
+      }
+    >
+      <p className="text-muted-foreground mt-1 text-xs">
+        {hub?.published ? `@${hub.published.number}, released ${ago(hub.published.publishedAt)}` : hub ? "Never released" : "\u00a0"}
+      </p>
+      <div className="mt-auto pt-3">
+        <div className="text-muted-foreground flex items-center gap-3 border-t pt-3 text-xs">
+          <span>
             {b.rules} {b.rules === 1 ? "rule" : "rules"}
           </span>
           {hub?.portal && (
@@ -240,7 +245,7 @@ function Card({ b }: { b: BrandRow }) {
           )}
         </div>
       </div>
-    </li>
+    </BrandTile>
   );
 }
 

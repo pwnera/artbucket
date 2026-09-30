@@ -19,7 +19,7 @@ import type { SnapRule } from "@/lib/history";
 import { readablePages } from "@/lib/page-view";
 import { pool } from "@/lib/pool";
 import { getObject, originalKey } from "@/lib/storage";
-import { cookieDomain, countsOf, hubHome, hubPath, logoOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -121,11 +121,11 @@ async function cards(rows: Row[]) {
   const [usable, verified, pulls] = await Promise.all([
     ids.length
       ? db
-          .select({ id: assets.id, mime: assets.mime, workspaceId: assets.workspaceId })
+          .select({ id: assets.id, mime: assets.mime, filename: assets.filename, workspaceId: assets.workspaceId })
           .from(assets)
           .where(and(inArray(assets.id, ids), deliverableSql))
           .then((xs) => new Map(xs.map((a) => [a.id, a])))
-      : new Map<string, { id: string; mime: string; workspaceId: string }>(),
+      : new Map<string, { id: string; mime: string; filename: string; workspaceId: string }>(),
     proofsOf(rows.map((r) => r.orgId)),
     pullCounts(rows.map((r) => r.id)),
   ]);
@@ -135,7 +135,7 @@ async function cards(rows: Row[]) {
       // Only the brand's own files, and only while they may be used, as its portal shows them.
       assets: x.assets.flatMap((a) => {
         const u = usable.get(a.id);
-        return u && u.workspaceId === r.workspaceId ? [{ id: a.id, mime: u.mime }] : [];
+        return u && u.workspaceId === r.workspaceId ? [{ id: a.id, mime: u.mime, filename: u.filename }] : [];
       }),
     }));
     const logo = logoOf(rules);
@@ -156,6 +156,10 @@ async function cards(rows: Row[]) {
       tagline: taglineOf(rules),
       tint: tintOf(rules),
       swatches: swatches(rules),
+      /** The card's look: its ground, its palette band, and the face its name is set in (a font file signed for a day). */
+      background: backgroundOf(rules),
+      palette: paletteOf(rules),
+      face: headingFace(rules, r.name, (a) => pagePath(a.id)),
       ...countsOf(rules),
       logo: logo && pagePath(logo.id, "/h_240,f_webp"),
     };
