@@ -13,10 +13,10 @@ import { brandPath, guidelinesPath } from "./site.ts";
  */
 
 export const PATHS = [
-  { id: "brand", label: "I manage a brand", win: "a published brand" },
-  { id: "system", label: "I run a design system", win: "the brand in your code" },
-  { id: "agency", label: "I'm an agency", win: "a client workspace" },
-  { id: "ai", label: "I build with AI", win: "a first MCP call" },
+  { id: "brand", label: "I manage a brand", blurb: "Logo, colors, guidelines, and who may use what.", win: "a released brand" },
+  { id: "system", label: "I run a design system", blurb: "Tokens and rules kept in Git, exported to code.", win: "the brand in your code" },
+  { id: "agency", label: "I'm an agency", blurb: "A workspace per client, white-label portals.", win: "a client workspace" },
+  { id: "ai", label: "I build with AI", blurb: "One MCP URL for Claude, Cursor, n8n and others.", win: "a first MCP call" },
 ] as const;
 export type PathId = (typeof PATHS)[number]["id"];
 
@@ -75,12 +75,12 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
         basics,
         ...(f.noEmail ? [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: false, href: "/settings/organization/email" }] : []),
         { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: f.team, href: "/team" },
-        { id: "publish", label: "Publish your brand", why: "Readers, portals and agents get what you publish.", done: !!b?.published, href: builder, win: true },
+        { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder, win: true },
       ];
     case "system":
       return [
         { id: "tokens", label: "Put in your colors and type", why: "Each rule is a token: color, font, size.", done: !!b?.tokens, href: builder },
-        { id: "publish", label: "Publish a release", why: "Tokens and DESIGN.md serve what is published.", done: !!b?.published, href: builder },
+        { id: "publish", label: "Make a release", why: "Tokens and DESIGN.md serve what is released.", done: !!b?.published, href: builder },
         {
           id: "git",
           label: "Keep it in your code",
