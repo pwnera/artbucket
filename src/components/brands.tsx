@@ -225,7 +225,7 @@ function Card({ b }: { b: BrandRow }) {
           </Link>
         </h3>
         <p className="text-muted-foreground text-xs">
-          {hub?.published ? `Release ${hub.published.number}, ${ago(hub.published.publishedAt)}` : hub ? "Never released" : "\u00a0"}
+          {hub?.published ? `@${hub.published.number}, released ${ago(hub.published.publishedAt)}` : hub ? "Never released" : "\u00a0"}
         </p>
         <div className="text-muted-foreground mt-auto flex items-center gap-3 border-t pt-3 text-xs">
           <span className="inline-flex items-center gap-1.5">
@@ -279,7 +279,7 @@ function Row({
           {hub &&
             (hub.published ? (
               <span>
-                Release {hub.published.number}, {ago(hub.published.publishedAt)}
+                @{hub.published.number}, released {ago(hub.published.publishedAt)}
               </span>
             ) : (
               <span>Never released: BrandHub shows it once it is</span>
