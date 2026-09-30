@@ -156,7 +156,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
   const any = collections.length > 0 || brands.length > 0;
-  // Arriving from a brand's Portals tab: only the portals showing it.
+  // Arriving from a brand's Sharing tab: only the portals showing it.
   const only = brands.find((b) => b.slug === params.get("brand"));
   const shown = only ? rows.filter((p) => p.brands.some((b) => b.slug === only.slug)) : rows;
 

@@ -147,28 +147,14 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
 
 /**
  * Use this brand (PRD section 12): the addresses an agent or a build reads
- * it from. The MCP server the Connections page connects; on BrandHub, once
- * public, its brand.json at the release and its llms.txt; its tokens in
- * every format, and DESIGN.md for static agent setups, from BrandHub without
- * a key, else from the API with one. Start from this brand copies it into a
- * new brand. `hub`: the brand on BrandHub, once released there.
+ * it from (BrandAddresses), and Start from this brand, which copies it into
+ * a new brand. `hub`: the brand on BrandHub, once released there.
  */
 function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandInfo; origin: string; hub: Status["hub"]; release: Release | null; compact?: boolean }) {
   const router = useRouter();
   const can = useCan();
   const [copying, setCopying] = useState<{ open: boolean; n: number } | null>(null);
   const [tokens, setTokens] = useState(false);
-  const open = hub?.visibility === "public" ? hub.url : null;
-  const designMd = open ? `${open}/tokens?format=designmd` : `${origin}${tokensPath(brand, undefined, "designmd")}`;
-  const rows = [
-    { label: "Connect an agent (MCP)", text: `${origin}/api/v1/mcp` },
-    ...(open
-      ? [
-          { label: "brand.json", text: `${open}${release ? `@${release.number}` : ""}/brand.json` },
-          { label: "llms.txt", text: `${open}/llms.txt` },
-        ]
-      : []),
-  ];
   return (
     <>
       <Popover>
@@ -178,44 +164,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
-          <ul className="grid gap-2.5">
-            {rows.map((r) => (
-              <li key={r.label} className="grid gap-1">
-                <span className="text-sm font-medium">{r.label}</span>
-                <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
-                  <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{r.text}</code>
-                  <CopyButton text={r.text} label={`Copy the ${r.label} address`} what="the address" />
-                </div>
-              </li>
-            ))}
-            <li className="flex items-center gap-3">
-              <span className="grid min-w-0 flex-1">
-                <span className="text-sm font-medium">Tokens</span>
-                <span className="text-muted-foreground text-xs">CSS, Tailwind, shadcn/ui, DTCG and more</span>
-              </span>
-              <Button size="xs" variant="outline" onClick={() => setTokens(true)}>
-                Get
-              </Button>
-            </li>
-            <li className="flex items-center gap-3">
-              <span className="grid min-w-0 flex-1">
-                <span className="text-sm font-medium">DESIGN.md</span>
-                <span className="text-muted-foreground text-xs">One file for static agent setups</span>
-              </span>
-              <Button size="xs" variant="outline" asChild>
-                <a href={designMd} download={`${brand.slug}-DESIGN.md`}>
-                  <IconDownload aria-hidden /> Get
-                </a>
-              </Button>
-            </li>
-          </ul>
-          <p className="text-muted-foreground text-xs">
-            {open ? "Its BrandHub files are public: no key. " : "With a key: "}
-            <Link href="/connections" className="text-foreground underline underline-offset-2">
-              connect an agent
-            </Link>{" "}
-            for the MCP server and the API.
-          </p>
+          <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
           {can("brand.edit") && (
             <>
               <Separator />
@@ -247,6 +196,70 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           }}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * The addresses agents and code read a brand from: the MCP server the
+ * Connections page connects; on BrandHub, once public, its brand.json at the
+ * release and its llms.txt; its tokens in every format (`onTokens` opens
+ * them), and DESIGN.md for static agent setups, from BrandHub without a key,
+ * else from the API with one. Use this brand and the Sharing tab both show it.
+ * `hub`: the brand on BrandHub, once released there.
+ */
+export function BrandAddresses({ brand, origin, hub, release, onTokens }: { brand: BrandInfo; origin: string; hub: Pick<NonNullable<Status["hub"]>, "visibility" | "url"> | null; release: Release | null; onTokens: () => void }) {
+  const open = hub?.visibility === "public" ? hub.url : null;
+  const designMd = open ? `${open}/tokens?format=designmd` : `${origin}${tokensPath(brand, undefined, "designmd")}`;
+  const rows = [
+    { label: "Connect an agent (MCP)", text: `${origin}/api/v1/mcp` },
+    ...(open
+      ? [
+          { label: "brand.json", text: `${open}${release ? `@${release.number}` : ""}/brand.json` },
+          { label: "llms.txt", text: `${open}/llms.txt` },
+        ]
+      : []),
+  ];
+  return (
+    <>
+      <ul className="grid gap-2.5">
+        {rows.map((r) => (
+          <li key={r.label} className="grid gap-1">
+            <span className="text-sm font-medium">{r.label}</span>
+            <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
+              <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{r.text}</code>
+              <CopyButton text={r.text} label={`Copy the ${r.label} address`} what="the address" />
+            </div>
+          </li>
+        ))}
+        <li className="flex items-center gap-3">
+          <span className="grid min-w-0 flex-1">
+            <span className="text-sm font-medium">Tokens</span>
+            <span className="text-muted-foreground text-xs">CSS, Tailwind, shadcn/ui, DTCG and more</span>
+          </span>
+          <Button size="xs" variant="outline" onClick={onTokens}>
+            Get
+          </Button>
+        </li>
+        <li className="flex items-center gap-3">
+          <span className="grid min-w-0 flex-1">
+            <span className="text-sm font-medium">DESIGN.md</span>
+            <span className="text-muted-foreground text-xs">One file for static agent setups</span>
+          </span>
+          <Button size="xs" variant="outline" asChild>
+            <a href={designMd} download={`${brand.slug}-DESIGN.md`}>
+              <IconDownload aria-hidden /> Get
+            </a>
+          </Button>
+        </li>
+      </ul>
+      <p className="text-muted-foreground text-xs">
+        {open ? "Its BrandHub files are public: no key. " : "With a key: "}
+        <Link href="/connections" className="text-foreground underline underline-offset-2">
+          connect an agent
+        </Link>{" "}
+        for the MCP server and the API.
+      </p>
     </>
   );
 }
