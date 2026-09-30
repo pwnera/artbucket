@@ -226,7 +226,7 @@ const TOOLS: Record<ToolName, Tool> = {
         for (const one of [v].flat()) params.append(`f.${k}`, one);
       params.set("limit", String(limit));
       // The REST query parser, so a filter the API rejects is rejected here too.
-      const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params));
+      const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params), "mcp");
       return { results: data.map(summary), total, facets };
     },
   }),

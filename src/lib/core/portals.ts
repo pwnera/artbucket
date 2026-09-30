@@ -28,6 +28,7 @@ import { brandOfWorkspace } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
+import { recordSearch } from "@/lib/core/events";
 import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit } from "@/lib/core/usage";
@@ -556,6 +557,8 @@ export async function viewPortal(
   const ids = collection ? cols.filter((c) => c.id === collection).map((c) => c.id) : cols.map((c) => c.id);
   if (collection && !ids.length) throw new AssetError("not_found", "That collection isn't in this portal");
   const [{ data, total }, theme, showing] = await Promise.all([portalAssets(p, { ids, q, limit, offset }), shownTheme(p), brandsOf(p.id).then((l) => l.filter((b) => b.shown))]);
+  // A visitor's search, for Insights: who they are is not asked, so they are nobody in particular.
+  if (!offset) recordSearch(p.workspaceId, q, total > 0, { surface: "portal", actor: "anonymous", client: null });
   // The first brand's look, so the view reads as part of its site; with no brand, the portal's accent over the app's own.
   const src = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
   const look = await viewLook(p.workspaceId, src, (id) => pageSig(id, p.expiresAt), theme.accent);
@@ -803,7 +806,9 @@ export async function searchPortal(slug: string, pass: Pass, { q, lang }: { q: s
     .slice(0, 20)
     .map((x) => x.h);
   const ids = (await db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id))).map((c) => c.id);
-  return { hits, assets: (await portalAssets(p, { ids, q, limit: 12 })).data };
+  const matches = (await portalAssets(p, { ids, q, limit: 12 })).data;
+  recordSearch(p.workspaceId, q, hits.length + matches.length > 0, { surface: "portal", actor: "anonymous", client: null });
+  return { hits, assets: matches };
 }
 
 /** What's new in one of a portal's brands (the first when not named): its publishes, newest first, their pictures signed in `media`. */

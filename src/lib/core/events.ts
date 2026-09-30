@@ -2,7 +2,7 @@ import { and, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { eventCounts, eventDays, events } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
-import { EVENT_DAYS, referrerHost, type Actor } from "@/lib/insights";
+import { EVENT_DAYS, referrerHost, searchWords, type Actor, type Surface } from "@/lib/insights";
 
 /**
  * Insights' one write (PRD INS-1 to INS-3): an event appended as something
@@ -31,6 +31,15 @@ export function record(e: Event) {
 /** Who a caller is, as an event keeps it: a kind, and an agent's key name. A person's name never. */
 export const who = (caller: Pick<Caller, "key" | "user" | "actor"> | null | undefined): { actor: Actor; client: string | null } =>
   caller?.key ? { actor: "agent", client: caller.actor } : { actor: caller?.user ? "person" : "anonymous", client: null };
+
+/**
+ * A search, when it had words (INS search gaps): `found` or `empty`. Only a
+ * first page counts, so paging on through results is one search.
+ */
+export function recordSearch(workspaceId: string, q: string | null | undefined, found: boolean, by: { surface: Surface } & ReturnType<typeof who>) {
+  const subject = searchWords(q);
+  if (subject) record({ workspaceId, kind: "search", ...by, subject, verdict: found ? "found" : "empty" });
+}
 
 /** A request's referrer, as an event keeps it: the host alone. */
 export const referrerOf = (req: Request) => referrerHost(req.headers.get("referer"));
