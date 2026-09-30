@@ -1,0 +1,24 @@
+# Your domain, the one in APP_URL. Uncomment ingressClassName and the
+# annotation for your controller and certificate issuer (cert-manager here).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: artbucket
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  # ingressClassName: traefik
+  tls:
+    - hosts: [assets.example.com]
+      secretName: artbucket-tls
+  rules:
+    - host: assets.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: artbucket
+                port:
+                  name: http

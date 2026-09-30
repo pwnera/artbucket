@@ -82,6 +82,26 @@ and the old ones are superseded by it. `POST
 /a/{id}/w_1200,h_630,fit_cover,q_82,f_jpeg an Open Graph image
 ```
 
+Each URL is pinned: `/a/{id}` serves that version's bytes for as long as it
+may be used. To embed an asset so it follows its versions, use `/c/` in place
+of `/a/`:
+
+```
+/c/{id}/h_64,f_png                         302 to /a/{current id}/h_64,f_png
+```
+
+From any version, it redirects to the stack's current one, or to the asset a
+person replaced it with. The redirect is cached for a minute, so a new
+version, a rollback or a replacement reaches every site and document that
+embeds it within one. It follows the same access as `/a/`: anyone when the
+asset is public, otherwise people who can see it. A signed URL names one
+version, so it stays an `/a/` URL.
+
+Public goes with the asset: a new version that takes over from a public one is
+public too, when whoever uploads it, or approves it if it was proposed, may
+share it. Otherwise it waits for someone who may, and `/c/` sends anonymous
+visitors to a URL that answers `404` until then.
+
 Transforms: `w` `h` (1 to 8000), `fit` (cover, contain, inside, outside, fill),
 `q` (1 to 100), `f` (jpeg, png, webp, avif). A rendition is made on the first
 request and kept for 30 days.

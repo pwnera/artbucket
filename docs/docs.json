@@ -38,9 +38,11 @@
       {
         "group": "Installation",
         "pages": [
+          "installation/render",
           "installation/docker-compose",
           "installation/docker",
           "installation/fly",
+          "installation/kubernetes",
           "installation/coolify",
           "installation/vps",
           "installation/upgrading"

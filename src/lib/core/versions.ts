@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { record } from "@/lib/core/activity";
-import { columns, getAsset, visible, type Asset } from "@/lib/core/assets";
+import { columns, findAsset, getAsset, visible, type Asset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { STATE_LABEL } from "@/lib/lifecycle";
 import { can, needs } from "@/lib/permissions";
@@ -25,6 +25,32 @@ export async function listVersions(caller: Caller, id: string): Promise<Asset[] 
     .from(assets)
     .where(and(eq(assets.stackId, asset.stackId), visible(caller)))
     .orderBy(desc(assets.version));
+}
+
+/**
+ * What stands for this asset now, for /c/{id}: its stack's current version,
+ * then whatever a person replaced that with, and so on. From any version, so
+ * a URL made from v1 reaches v3, and a rollback or an archived newest version
+ * sends it back. With nothing current in the stack, the asset itself.
+ */
+export async function latestVersion(asset: Asset): Promise<Asset> {
+  let at = asset;
+  const seen = new Set([at.id]);
+  for (;;) {
+    const next = (at.stackId && !at.current && (await stackCurrent(at.stackId))) || (at.supersededBy && (await findAsset(at.supersededBy)));
+    if (!next || seen.has(next.id)) return at;
+    seen.add(next.id);
+    at = next;
+  }
+}
+
+async function stackCurrent(stack: string): Promise<Asset | null> {
+  const [row] = await db
+    .select(columns)
+    .from(assets)
+    .where(and(eq(assets.stackId, stack), eq(assets.current, true)))
+    .limit(1);
+  return row ?? null;
 }
 
 /** Roll back, or forward: make version `number` of this asset's stack the current one. */

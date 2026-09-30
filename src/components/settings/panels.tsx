@@ -509,6 +509,9 @@ export type Usage = {
   };
 };
 
+/** How the Usage panel names a feature the limits switch off. */
+const OFF = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on" } as const;
+
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {
   const { limits: l, billing, used, traffic } = usage;
@@ -519,7 +522,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
     ["Brands", used.brands, l.brands, String],
     ["Custom domains", used.domains, l.domains, String],
   ];
-  const off = l.features ? (["agents", "shares"] as const).filter((f) => !l.features!.includes(f)) : [];
+  const off = l.features ? (["agents", "shares", "sso"] as const).filter((f) => !l.features!.includes(f)) : [];
   const total = traffic.workspaces.reduce((t, w) => ({ requests: t.requests + w.requests, bytes: t.bytes + w.bytes }), { requests: 0, bytes: 0 });
   return (
     <div className="space-y-6">
@@ -561,7 +564,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
         </dl>
         {off.length > 0 && (
           <p className="text-muted-foreground text-sm">
-            Off here: {off.map((f) => (f === "agents" ? "connecting agents and API keys" : "share and upload links")).join(", ")}.
+            Off here: {off.map((f) => OFF[f]).join(", ")}.
           </p>
         )}
         {billing && (
