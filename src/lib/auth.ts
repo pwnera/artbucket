@@ -11,7 +11,9 @@ import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
 import { joinThroughSso, providerFor } from "@/lib/core/sso";
+import { cookieDomain, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
+import { underDomain } from "@/lib/portal";
 import { lockedBy } from "@/lib/settings";
 
 /**
@@ -56,6 +58,15 @@ const verify = lockedBy("email", process.env);
  */
 const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCallbackURL"];
 
+/**
+ * With BrandHub on a host beside APP_URL's (hub. and app.example.com), the
+ * session cookie is set for the domain they share, so signing in to the app
+ * signs in on the hub. An organization's own domain is not under it: a
+ * cookie naming it would be refused there, so the Domain comes off again
+ * for any host it does not cover, and that host keeps a cookie of its own.
+ */
+const shared = cookieDomain(env.APP_URL, env.HUB_URL);
+
 export const auth = betterAuth({
   baseURL: env.APP_URL,
   // An organization's verified domain signs in too, with its own cookie: trusted for requests sent to it, and only those.
@@ -67,6 +78,16 @@ export const auth = betterAuth({
         const v = ctx.body?.[k] ?? ctx.query?.[k];
         if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
       }
+    }),
+    // Before the plugins' (nextCookies copies the cookies to Next's from here).
+    after: createAuthMiddleware(async (ctx) => {
+      const res = ctx.context.responseHeaders;
+      const host = ctx.headers?.get("x-forwarded-host") ?? ctx.headers?.get("host") ?? "";
+      if (!shared || !res || underDomain(host, shared)) return;
+      const cookies = res.getSetCookie();
+      if (!cookies.length) return;
+      res.delete("set-cookie");
+      for (const c of cookies) res.append("set-cookie", withoutDomain(c));
     }),
   },
   secret: env.BETTER_AUTH_SECRET,
@@ -104,7 +125,7 @@ export const auth = betterAuth({
   // Single sign-on errors land on the sign-in page, which says so (app/(auth)/login), not on better-auth's own unbranded one.
   onAPIError: { errorURL: "/login" },
   // A session and its person in one query (db/schema.ts relations): every request reads one.
-  advanced: { database: { joins: true } },
+  advanced: { database: { joins: true }, ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}) },
   plugins: [
     ...(verify
       ? [

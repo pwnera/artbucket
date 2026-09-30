@@ -7,9 +7,11 @@ import { hubBase, hubOn, hubViewer } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 
 /**
- * BrandHub (lib/core/hub.ts): for anyone, signed in or not. On the app's
- * host (/hub) someone signed in sees their private brands too; the hub's
- * own host never sees the app's session, so it shows public brands only.
+ * BrandHub (lib/core/hub.ts): for anyone, signed in or not. Someone signed
+ * in sees their private brands too: on the app's host (/hub), and on the
+ * hub's own when the two share a domain the session cookie is set for
+ * (lib/hub.ts cookieDomain); a hub on a host of its own elsewhere shows
+ * public brands only.
  */
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
   if (!hubOn()) notFound();

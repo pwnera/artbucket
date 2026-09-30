@@ -10,7 +10,7 @@ import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { env } from "@/lib/env";
 import type { SnapRule } from "@/lib/history";
-import { countsOf, hubPath, logoOf, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { cookieDomain, countsOf, hubHome, hubPath, logoOf, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -44,10 +44,14 @@ export async function hubBase() {
   return host && host === ownHost() ? "" : "/hub";
 }
 
-/** Who is looking, on the app's host: private brands show to their people. The hub's own host has no session. */
+/**
+ * Who is looking: private brands show to their people. On the app's host
+ * always; on the hub's own only when the session cookie reaches it, set for
+ * the domain the two share (lib/hub.ts cookieDomain, lib/auth.ts).
+ */
 export async function hubViewer() {
   const h = await headers();
-  return h.get("host") === ownHost() ? null : reader(h);
+  return h.get("host") === ownHost() && !cookieDomain(env.APP_URL, env.HUB_URL) ? null : reader(h);
 }
 export type HubViewer = Awaited<ReturnType<typeof hubViewer>>;
 
@@ -236,7 +240,7 @@ export async function hubBrand(
     publishedAt: view.version.publishedAt,
     latest: row.version,
     versions: versions.map((v) => ({ number: v.number, publishedAt: v.publishedAt! })),
-    url: row.visibility === "public" ? env.HUB_URL + path : `${env.APP_URL}/hub${path}`,
+    url: hubHome(row.visibility, env.APP_URL, env.HUB_URL!) + path,
     guidelines: home?.url ?? null,
     terms: site?.terms ?? null,
     contexts: view.contexts,
