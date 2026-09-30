@@ -1,13 +1,14 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import { assets, brands, brandVersions, hubCollections, hubFollows, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import type { Caller } from "@/lib/core/access";
 import { deliverableSql } from "@/lib/core/assets";
 import { guidelinesPortal } from "@/lib/core/brands";
 import { portalHome } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
 import { pullCounts } from "@/lib/core/events";
-import { proofsOf } from "@/lib/core/hub-trust";
+import { proofsOf, publicListing } from "@/lib/core/hub-trust";
 import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { env } from "@/lib/env";
@@ -133,6 +134,8 @@ async function cards(rows: Row[]) {
     }));
     const logo = logoOf(rules);
     return {
+      /** The brand's id: for the viewer's own Following, never listed (index.json leaves it out). */
+      id: r.id,
       org: r.org,
       owner: r.owner,
       brand: r.brand,
@@ -155,12 +158,19 @@ async function cards(rows: Row[]) {
 
 export type HubCard = Awaited<ReturnType<typeof cards>>[number];
 
-export const HUB_SORTS = { recent: "Recently released", name: "Name" } as const;
+export const HUB_SORTS = { recent: "Recently released", trending: "Trending", name: "Name" } as const;
 export type HubSort = keyof typeof HUB_SORTS;
 
+/** How far back Trending looks: pulls in the last week. */
+const TRENDING_DAYS = 7;
+
 /**
- * Listings, newest publish first or by name: all of them, one
- * organization's, or those whose name or owner has `q` in it.
+ * Listings, newest publish first, by name, or trending (most pulled in the
+ * last TRENDING_DAYS, then newest): all of them, one organization's, or
+ * those whose name or owner has `q` in it.
+ *
+ * ponytail: trending ranks the newest `limit` listings, not every one; rank
+ * in SQL from a per-brand pull total once the hub outgrows 200 listings.
  */
 export async function hubListings({
   q,
@@ -175,7 +185,46 @@ export async function hubListings({
     like ? or(ilike(brands.name, like), ilike(brands.slug, like), ilike(organizations.name, like), ilike(organizations.slug, like)) : undefined,
   );
   const out = await cards(await listings(where, Math.min(Math.max(limit, 1), 200), viewer));
-  return sort === "name" ? out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })) : out;
+  if (sort === "name") return out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  if (sort === "trending") {
+    const week = await pullCounts(out.map((c) => c.id), TRENDING_DAYS);
+    // Stable: equal weeks keep the newest publish first.
+    return out.sort((a, b) => (week.get(b.id) ?? 0) - (week.get(a.id) ?? 0));
+  }
+  return out;
+}
+
+/** The brands someone follows on BrandHub, by id. */
+export async function followed(userId: string) {
+  const rows = await db.select({ id: hubFollows.brandId }).from(hubFollows).where(eq(hubFollows.userId, userId));
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Follow a public listing, or stop (PUT and DELETE
+ * /api/v1/hub/{org}/{brand}/follow): a person, signed in. Following puts it
+ * in their Following tab on the hub.
+ */
+export async function follow(caller: Caller, org: string, slug: string, on: boolean) {
+  if (!caller.user) throw new AssetError("forbidden", "A person follows a brand, signed in: not a key");
+  const b = await publicListing(org, slug);
+  if (on) await db.insert(hubFollows).values({ userId: caller.user.id, brandId: b.id }).onConflictDoNothing();
+  else await db.delete(hubFollows).where(and(eq(hubFollows.userId, caller.user.id), eq(hubFollows.brandId, b.id)));
+  return { following: on };
+}
+
+/**
+ * The server operator's curated collections (hub_collections), in order,
+ * each with the cards of `cards` it names, as {org}/{brand}: one that isn't
+ * among them (not public, or gone) is left out, and so is a collection left
+ * with none.
+ */
+export async function hubCollectionsOf(shown: HubCard[]) {
+  const rows = await db.select().from(hubCollections).orderBy(asc(hubCollections.position), asc(hubCollections.title));
+  const by = new Map(shown.filter((c) => c.visibility === "public").map((c) => [`${c.org}/${c.brand}`, c]));
+  return rows
+    .map((r) => ({ slug: r.slug, title: r.title, description: r.description, cards: r.brands.flatMap((ref) => by.get(ref.toLowerCase()) ?? []) }))
+    .filter((c) => c.cards.length);
 }
 
 /** An organization, as its hub page names it, when it lists anything. */

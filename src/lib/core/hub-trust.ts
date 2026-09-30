@@ -135,7 +135,7 @@ export async function removeGithub(caller: Caller, raw: string) {
 // ---- reports and claims ---------------------------------------------------------------
 
 /** A public listing at {org}/{brand}: public, published, and not delisted. */
-async function publicListing(org: string, slug: string) {
+export async function publicListing(org: string, slug: string) {
   const [b] = await db
     .select({ id: brands.id, name: brands.name, orgId: organizations.id })
     .from(brands)

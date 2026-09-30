@@ -1152,6 +1152,36 @@ export const hubReports = pgTable(
   ],
 );
 
+/** Who follows which BrandHub brand (lib/core/hub.ts): the hub's Following tab. A person, never a key. */
+export const hubFollows = pgTable(
+  "hub_follows",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.brandId] }), index("hub_follows_brand_idx").on(t.brandId)],
+);
+
+/**
+ * Curated collections on BrandHub's front page ("Open-source project
+ * brands"), set by whoever runs the server, in the database (docs: portals,
+ * BrandHub): each lists public brands as {org}/{brand}, in order.
+ */
+export const hubCollections = pgTable("hub_collections", {
+  slug: text("slug").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  /** Where it shows among the others, lowest first. */
+  position: integer("position").notNull().default(0),
+  /** Its brands, as {org}/{brand}: one that isn't public is left out. */
+  brands: text("brands").array().notNull().default(sql`'{}'::text[]`),
+});
+
 /**
  * This database, one row: its id marks the bucket as swept by it
  * (lib/bucket-owners.ts), so a second database on the same bucket is noticed

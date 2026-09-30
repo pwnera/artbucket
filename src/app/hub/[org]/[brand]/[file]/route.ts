@@ -46,6 +46,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
     return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { signed: _signed, logo: _logo, path: _path, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
+  const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
   return Response.json({ data: out }, { headers });
 }

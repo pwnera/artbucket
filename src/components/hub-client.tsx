@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { IconChevronDown, IconFlag, IconRobot, IconSearch } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import { IconChevronDown, IconFlag, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -243,5 +244,25 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Follow a listing, or stop: it shows in the Following tab of the hub's front page. */
+export function FollowButton({ org, brand, following }: { org: string; brand: string; following: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(following);
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    const got = await send(on ? "DELETE" : "PUT", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
+    setBusy(false);
+    if (!got) return;
+    setOn(got.following);
+    router.refresh();
+  };
+  return (
+    <Button variant="outline" pending={busy} onClick={toggle} aria-pressed={on}>
+      {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
+    </Button>
   );
 }

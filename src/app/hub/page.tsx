@@ -3,7 +3,7 @@ import { IconMoodEmpty } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Cards, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";
-import { HUB_SORTS, hubBase, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
+import { followed, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 type Search = Record<string, string | string[] | undefined>;
 type Props = { searchParams: Promise<Search> };
 
-const FILTERS = { all: "All brands", verified: "Verified", community: "Community", private: "Private" } as const;
+const FILTERS = { all: "All brands", following: "Following", verified: "Verified", community: "Community", private: "Private" } as const;
 type Filter = keyof typeof FILTERS;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
@@ -27,18 +27,21 @@ export default async function HubHome({ searchParams }: Props) {
   const filter = pick(one(sp.filter), FILTERS, "all");
   const sort = pick<HubSort>(one(sp.sort), HUB_SORTS, "recent");
   const [base, viewer] = await Promise.all([hubBase(), hubViewer()]);
-  const all = await hubListings({ q, sort, limit: 200, viewer });
+  const [all, mine] = await Promise.all([hubListings({ q, sort, limit: 200, viewer }), viewer ? followed(viewer.user.id) : new Set<string>()]);
   const pub = all.filter((c) => c.visibility === "public");
   const of: Record<Filter, typeof all> = {
     all,
+    following: all.filter((c) => mine.has(c.id)),
     verified: pub.filter((c) => c.verified),
     community: pub.filter((c) => !c.verified),
     private: all.filter((c) => c.visibility === "private"),
   };
   const counts = Object.fromEntries(Object.entries(of).map(([k, v]) => [k, v.length])) as Record<Filter, number>;
   const cards = of[filter];
-  // Private is the signed-in reader's own: a tab only for them.
-  const tabs = (Object.keys(FILTERS) as Filter[]).filter((f) => f !== "private" || counts.private > 0);
+  // Private and Following are the signed-in reader's own: tabs only for them.
+  const tabs = (Object.keys(FILTERS) as Filter[]).filter((f) => (f !== "private" && f !== "following") || counts[f] > 0);
+  // The operator's curated collections, on the front page as it first opens.
+  const collections = !q && filter === "all" ? await hubCollectionsOf(all) : [];
   const href = (o: { filter?: Filter; sort?: HubSort }) => {
     const p = new URLSearchParams({
       ...(q && { q }),
@@ -86,6 +89,16 @@ export default async function HubHome({ searchParams }: Props) {
           </figure>
         </div>
       </section>
+
+      {collections.map((c) => (
+        <section key={c.slug} aria-labelledby={`collection-${c.slug}`} className="mx-auto max-w-7xl px-4 pt-10">
+          <h2 id={`collection-${c.slug}`} className="font-display text-2xl font-semibold tracking-tight">
+            {c.title}
+          </h2>
+          {c.description && <p className="text-muted-foreground mt-1 max-w-2xl">{c.description}</p>}
+          <Cards cards={c.cards.slice(0, 6)} base={base} className="mt-5" />
+        </section>
+      ))}
 
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b">

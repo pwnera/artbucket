@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
-import { ListingTrust, UseBrand } from "@/components/hub-client";
+import { FollowButton, ListingTrust, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
-import { hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
+import { followed, hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 import { isFont } from "@/lib/font";
 import { ago, hubPath, parseRef } from "@/lib/hub";
@@ -86,8 +86,9 @@ function Section({ id, title, icon: Icon, children }: { id: string; title: strin
 export default async function HubListing(props: Props) {
   const [b, viewer] = await Promise.all([load(props), hubViewer()]);
   if (!b) notFound();
-  const base = await hubBase();
+  const [base, mine] = await Promise.all([hubBase(), viewer ? followed(viewer.user.id) : null]);
   const open = b.visibility === "public";
+  const signIn = `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`;
   const pinned = b.version !== b.latest;
   const rules = b.rules.filter((r) => !r.context);
   const colors = rules.filter((r) => r.type === "color" && typeof r.value === "string");
@@ -128,6 +129,16 @@ export default async function HubListing(props: Props) {
                   </a>
                 </Button>
               )}
+              {open &&
+                (mine ? (
+                  <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} />
+                ) : (
+                  <Button asChild variant="outline">
+                    <a href={signIn}>
+                      <IconStar aria-hidden /> Follow
+                    </a>
+                  </Button>
+                ))}
               {open ? (
                 <UseBrand url={b.url} name={b.name} />
               ) : (
@@ -357,7 +368,7 @@ export default async function HubListing(props: Props) {
                 brand={b.brand}
                 name={b.name}
                 // A community listing is its brand owner's to claim: signed in, where the session reaches.
-                claim={b.verified ? null : viewer ? true : { href: `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`, label: "Sign in" }}
+                claim={b.verified ? null : viewer ? true : { href: signIn, label: "Sign in" }}
               />
             </section>
           )}

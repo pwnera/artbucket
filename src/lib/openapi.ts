@@ -1426,6 +1426,16 @@ export function openapi(serverUrl: string) {
           ok: [202, "Received", data(z.object({ received: z.literal(true), proof: z.string().describe("What the claim names you as holding") }))],
         }),
       },
+      "/api/v1/hub/{org}/{brand}/follow": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        put: op({
+          summary: "Follow a BrandHub listing",
+          scope: "any",
+          description: "A person, signed in: the public listing shows in their Following tab on BrandHub. Following one already followed changes nothing.",
+          ok: [200, "Following", data(z.object({ following: z.literal(true) }))],
+        }),
+        delete: op({ summary: "Stop following a BrandHub listing", scope: "any", description: "A person, signed in.", ok: [200, "Not following", data(z.object({ following: z.literal(false) }))] }),
+      },
       "/api/v1/hub/reports": {
         get: op({
           summary: "Reports and claims about your listings",
