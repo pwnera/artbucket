@@ -858,6 +858,7 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
     }
     return false;
   };
+  // ponytail: each public portal's publishes, pages and collection sections read again per call; an index of what portals show when a workspace has many.
   const showing = [];
   for (const p of rows) if (await shows(p)) showing.push({ slug: p.slug, name: p.name, expiresAt: p.expiresAt, url: await portalUrl(p, await domainOf(p.id)) });
   return showing;
