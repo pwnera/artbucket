@@ -11,6 +11,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  pgView,
   text,
   timestamp,
   unique,
@@ -25,6 +26,7 @@ import type { BrandState } from "@/lib/brand-files";
 import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
+import type { Actor, EventKind, Surface } from "@/lib/insights";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
@@ -1116,3 +1118,102 @@ export const renditions = pgTable("renditions", {
   bytes: bigint("bytes", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---- insights -----------------------------------------------------------------
+
+/**
+ * What happened, a row each, for Insights (lib/core/events.ts, PRD INS-1): a
+ * file fetched, a use checked, a search, a BrandHub listing read. Appended
+ * and never changed. Never an IP address, a person's name or a full URL:
+ * who is a kind (lib/insights.ts) and an agent's key name; where from, only
+ * the referrer's host. The customer's own data, in their own database:
+ * nothing is sent anywhere. Kept EVENT_DAYS, then only its daily rollup.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** The brand it was about: a hub listing's, a check's. */
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<EventKind>().notNull(),
+    surface: text("surface").$type<Surface>().notNull(),
+    actor: text("actor").$type<Actor>().notNull(),
+    /** An agent's key name ("Claude Code"); never a person's. */
+    client: text("client"),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
+    /** What else it was about: a search's words, a hub file, a check's context, a rule's key. */
+    subject: text("subject"),
+    /** The asset's version in its stack, or the brand release a hub file came from. */
+    version: integer("version"),
+    /** How it came out: a check's `allowed` or `refused`, a search's `found` or `empty`. */
+    verdict: text("verdict"),
+    /** A refused check's blocking reasons (lib/rights.ts codes). */
+    reasons: text("reasons").array(),
+    /** The assets a refused check offered instead. */
+    offered: uuid("offered").array(),
+    referrer: text("referrer"),
+    day: date("day", { mode: "string" })
+      .notNull()
+      .default(sql`(now() at time zone 'utc')::date`),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("events_workspace_day_idx").on(t.workspaceId, t.day),
+    index("events_asset_idx").on(t.assetId, t.at.desc()),
+    check("events_kind_check", sql`${t.kind} in ('fetch', 'check', 'search', 'view', 'pull', 'lookup')`),
+    check("events_actor_check", sql`${t.actor} in ('person', 'agent', 'anonymous')`),
+  ],
+);
+
+/**
+ * Events counted per day and everything they say but the moment and the
+ * offer, rolled up from `events` once a day is over (lib/core/events.ts
+ * rollUp), and kept after the raw rows go.
+ */
+const counted = {
+  workspaceId: uuid("workspace_id").notNull(),
+  brandId: uuid("brand_id"),
+  day: date("day", { mode: "string" }).notNull(),
+  kind: text("kind").$type<EventKind>().notNull(),
+  surface: text("surface").$type<Surface>().notNull(),
+  actor: text("actor").$type<Actor>().notNull(),
+  client: text("client"),
+  assetId: uuid("asset_id"),
+  subject: text("subject"),
+  version: integer("version"),
+  verdict: text("verdict"),
+  reasons: text("reasons").array(),
+  referrer: text("referrer"),
+  count: integer("count").notNull(),
+};
+
+export const eventDays = pgTable(
+  "event_days",
+  {
+    ...counted,
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
+  },
+  (t) => [index("event_days_workspace_day_idx").on(t.workspaceId, t.day), index("event_days_asset_idx").on(t.assetId), index("event_days_day_idx").on(t.day)],
+);
+
+const DIMS = sql.raw("workspace_id, brand_id, day, kind, surface, actor, client, asset_id, subject, version, verdict, reasons, referrer");
+
+/**
+ * What every chart reads: the rollup, and the raw events of the days not
+ * rolled up yet, counted the same way. Always current, whenever the rollup
+ * last ran.
+ */
+export const eventCounts = pgView("event_counts", counted).as(
+  sql`select ${DIMS}, count from ${eventDays}
+    union all
+    select ${DIMS}, count(*)::int from ${events}
+    where day > coalesce((select max(day) from ${eventDays}), '-infinity'::date)
+    group by ${DIMS}`,
+);

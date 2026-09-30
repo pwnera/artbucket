@@ -274,6 +274,13 @@
       "when": 1790786861157,
       "tag": "0038_asset_via",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790787659150,
+      "tag": "0039_events",
+      "breakpoints": true
     }
   ]
 }
