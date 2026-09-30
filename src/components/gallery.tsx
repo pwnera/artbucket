@@ -293,6 +293,19 @@ function useInView<T extends Element>(margin = "200px") {
 export const provenanceChips = (a: Pick<Asset, "origin" | "via">) =>
   [a.origin === "generated" && "AI-made", a.via === "agent" && "By an agent", a.via === "import" && "Imported"].filter((c) => c !== false);
 
+/**
+ * What the review queue shows about an item before anyone opens it: where it
+ * came from, the evidence that came with it, and what is missing before it
+ * may run everywhere (`missing`, said as a warning).
+ */
+export const reviewChips = (a: Pick<Asset, "origin" | "via" | "generator" | "prompt" | "c2pa" | "rights">) => ({
+  from: [...provenanceChips(a), a.generator && `Made with ${a.generator}`, a.prompt && "Prompt recorded", a.c2pa && "Content Credentials"].filter(
+    (c): c is string => !!c,
+  ),
+  // Without one, lib/rights.ts refuses every use but editorial.
+  missing: a.rights?.modelRelease === "missing" ? "Missing: model release" : null,
+});
+
 /** What the grid and the list say about an asset beyond its type: its state, its version, what waits on it. */
 export function stateBadge(a: Asset) {
   const n = a.proposedTags.length + Object.keys(a.proposedFields ?? {}).length;
@@ -979,7 +992,7 @@ export function Gallery({
   }, [recentKey, rememberRecent]);
   // A search of the whole library is named by its words, as the prototype's “winter” is.
   const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
-  const title = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
+  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : undefined)));
 
   // The tab says which view (or asset) it is; the history menu too.
