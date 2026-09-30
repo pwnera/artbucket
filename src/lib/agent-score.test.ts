@@ -47,7 +47,11 @@ test("links, brand.json and rules are read leniently, and junk is nothing", () =
   assert.equal(mcpUrlIn("see https://mcp.acme.com/sse"), "https://mcp.acme.com/sse");
   assert.equal(mcpUrlIn("https://acme.com/mcpx"), null);
   assert.deepEqual(rulesOf({ data: { rules: [{ key: "a", type: "color" }, { nope: 1 }] } }), [{ key: "a", type: "color" }]);
-  for (const junk of [null, 3, { rules: "x" }, { rules: [] }]) assert.equal(rulesOf(junk), null);
+  for (const junk of [null, 3, { rules: "x" }, { rules: [] }, {}]) assert.equal(rulesOf(junk), null);
+  // An AdCP brand.json stands for its colors, fonts, logos with a file, and voice.
+  const adcp = rulesOf({ id: "acme", colors: { primary: "#ff0000" }, fonts: { primary: "Inter" }, logos: [{ url: "https://a/l.svg" }, { variant: "icon" }], tone: { voice: "Plain" } });
+  assert.deepEqual(adcp?.map((r) => r.key), ["color.primary", "type.primary", "logo.0", "tone.voice"]);
+  assert.deepEqual(scoreFound({ ...NOTHING, brandJson: { url: "https://a/.well-known/brand.json", rules: adcp! } }).checks.filter((c) => c.done).map((c) => c.id).sort(), ["colors", "logo", "rules", "type", "voice"]);
 });
 
 test("domainOf takes a domain or a URL and refuses the rest", () => {

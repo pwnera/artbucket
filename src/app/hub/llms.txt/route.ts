@@ -11,7 +11,7 @@ export async function GET() {
     "> Brand rules (colors, type, logos, voice) that projects, organizations and companies share. Public: no key, no sign in.",
     "",
     `- Search: ${hub}/index.json?q={words}`,
-    `- A brand: ${hub}/{org}/{brand}/llms.txt, /brand.json, /tokens?format=css`,
+    `- A brand: ${hub}/{org}/{brand}/llms.txt, /brand.json (AdCP brand.json), /rules.json (every rule), /tokens?format=css`,
     `- Pin a version: ${hub}/{org}/{brand}@{n}/brand.json`,
     "- A listing without a verified domain or GitHub account is a community one: it may not come from the brand's owner.",
     "",

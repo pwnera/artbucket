@@ -1,3 +1,4 @@
+import { brandJson } from "@/lib/brand-json";
 import { record, referrerOf } from "@/lib/core/events";
 import { hubBrand } from "@/lib/core/hub";
 import { env } from "@/lib/env";
@@ -8,7 +9,8 @@ import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
 
 /**
  * A listing for agents, public and keyless: {org}/{brand}[@n]/brand.json
- * (every rule, its files as signed URLs), /llms.txt (the same in words), and
+ * (the brand as AdCP's brand.json, lib/brand-json.ts), /rules.json (every
+ * rule, its files as signed URLs), /llms.txt (the same in words), and
  * /tokens?format=css (lib/tokens.ts, as GET /api/v1/brand/tokens; ?context=
  * resolves for one). Files are signed for a day, so a CDN keeps an answer an
  * hour at most.
@@ -24,7 +26,7 @@ const missing = (message: string) => Response.json({ error: { code: "not_found",
 
 export async function GET(req: Request, { params }: { params: Promise<{ org: string; brand: string; file: string }> }) {
   const { org, brand, file } = await params;
-  if (!["brand.json", "llms.txt", "tokens"].includes(file)) return missing("Not a file of a listing: brand.json, llms.txt or tokens");
+  if (!["brand.json", "rules.json", "llms.txt", "tokens"].includes(file)) return missing("Not a file of a listing: brand.json, rules.json, llms.txt or tokens");
   const ref = parseRef(brand);
   const q = TokenQuery.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!q.success) return Response.json({ error: { code: "invalid", message: q.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400, headers: BASE });
@@ -44,6 +46,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
     const title = `${b.org}/${b.brand}@${b.version} design tokens${q.data.context ? ` for ${q.data.context}` : ""}, from the Artbucket BrandHub (${b.url}).`;
     const text = signUrlsIn(f.render(rules, { origin: env.APP_URL, title }), (id) => b.signed[id] ?? null);
     return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
+  }
+  if (file === "brand.json") {
+    const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: about.guidelines };
+    return Response.json(brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, rules: b.rules, links }), { headers });
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;

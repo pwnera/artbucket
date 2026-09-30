@@ -72,13 +72,26 @@ export const brandJsonUrlIn = (text: string) => linksIn(text).find((u) => /\/bra
 /** Whether a text links design tokens: BrandHub's /tokens, or a tokens file. */
 export const tokensIn = (text: string) => linksIn(text).some((u) => /\/tokens(\?|$|\.json)|design-tokens/i.test(u));
 
+/** An AdCP brand.json (lib/brand-json.ts) as the rules it stands for: its colors, fonts, logos and voice. */
+function adcpRules(o: { colors?: unknown; fonts?: unknown; logos?: unknown; tone?: unknown }): FoundRule[] {
+  const keys = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? Object.keys(v) : []);
+  const logos = Array.isArray(o.logos) ? o.logos.filter((l) => typeof l?.url === "string") : [];
+  return [
+    ...keys(o.colors).map((k) => ({ key: `color.${k}`, type: "color" })),
+    ...keys(o.fonts).map((k) => ({ key: `type.${k}`, type: "font" })),
+    ...logos.map((l, i) => ({ key: `logo.${i}`, type: "text", assets: [l.url] })),
+    ...(o.tone ? [{ key: "tone.voice", type: "text" }] : []),
+  ];
+}
+
 /**
- * The rules in a brand.json, leniently: BrandHub's `{ data: { rules } }`, or
+ * The rules in a brand.json, leniently: an AdCP brand.json's colors, fonts,
+ * logos and voice, BrandHub's rules.json (`{ data: { rules } }`), or
  * `{ rules }`, each with a key and a type. Null for anything else.
  */
 export function rulesOf(json: unknown): FoundRule[] | null {
-  const o = json as { data?: { rules?: unknown }; rules?: unknown } | null;
-  const list = o?.data?.rules ?? o?.rules;
+  const o = json as { data?: { rules?: unknown }; rules?: unknown; colors?: unknown; fonts?: unknown; logos?: unknown; tone?: unknown } | null;
+  const list = o?.data?.rules ?? o?.rules ?? (o && typeof o === "object" ? adcpRules(o) : null);
   if (!Array.isArray(list)) return null;
   const rules = list.filter((r): r is FoundRule => !!r && typeof r.key === "string" && typeof r.type === "string");
   return rules.length ? rules : null;
