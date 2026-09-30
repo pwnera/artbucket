@@ -16763,7 +16763,7 @@
                               "url": {
                                 "type": "string",
                                 "format": "uri",
-                                "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                                "description": "Its page there: BrandHub's own address when public, the app's /hub when private"
                               },
                               "published": {
                                 "anyOf": [
@@ -16825,7 +16825,7 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                                "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"
                               },
                               "delisted": {
                                 "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
@@ -29008,7 +29008,7 @@
                       "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                        "description": "Its page there: BrandHub's own address when public, the app's /hub when private"
                       },
                       "published": {
                         "anyOf": [
@@ -29070,7 +29070,7 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                        "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"
                       },
                       "delisted": {
                         "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
@@ -29252,7 +29252,7 @@
                       "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                        "description": "Its page there: BrandHub's own address when public, the app's /hub when private"
                       },
                       "published": {
                         "anyOf": [
@@ -29314,7 +29314,7 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"
+                        "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"
                       },
                       "delisted": {
                         "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
@@ -34517,7 +34517,7 @@
                           ],
                           "additionalProperties": false
                         },
-                        "description": "Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"
+                        "description": "Brand answers per week, by who got them: files served, BrandHub files read, uses checked, searches that found something"
                       },
                       "adoption": {
                         "type": "array",

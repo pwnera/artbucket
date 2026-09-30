@@ -151,7 +151,7 @@ function Overview({ data }: { data: InsightsData }) {
 
             <Group
               title="Brand answers per week"
-              description="Every time a person, a portal visitor or an agent got something from the brand: a file, a hub listing, a use checked, a search that found something."
+              description="Every time a person, a portal visitor or an agent got something from the brand: a file, a BrandHub listing, a use checked, a search that found something."
             >
               <Bars
                 rows={data.answers}

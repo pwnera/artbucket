@@ -778,11 +778,11 @@ export const Version = VersionMeta.extend({
 });
 export const BrandHub = z.object({
   visibility: z.enum(["private", "public"]).describe("private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"),
-  url: z.url().describe("Its page there: the hub's own address when public, the app's /hub when private"),
+  url: z.url().describe("Its page there: BrandHub's own address when public, the app's /hub when private"),
   published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
   portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
   chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
-  pulls: z.number().int().describe("Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its hub card shows"),
+  pulls: z.number().int().describe("Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"),
   delisted: z.string().nullable().describe("Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again"),
   ref: z.string().describe("How BrandHub names it: {org}/{brand}"),
   verified: z.string().nullable().describe("What its organization proved it holds, a domain or github.com/{login}; null: a community listing"),
@@ -1264,7 +1264,7 @@ export const Insights = z.object({
   weeks: z.number().int().describe("How many weeks the weekly charts have, oldest first, quiet weeks at zero"),
   answers: z
     .array(z.object({ week: Week, person: z.number().int(), agent: z.number().int(), anonymous: z.number().int() }))
-    .describe("Brand answers per week, by who got them: files served, hub files read, uses checked, searches that found something"),
+    .describe("Brand answers per week, by who got them: files served, BrandHub files read, uses checked, searches that found something"),
   adoption: z
     .array(z.object({ week: Week, current: z.number().int(), superseded: z.number().int() }))
     .describe("Fetches per week of a current version, and of one already replaced when it was fetched"),

@@ -281,10 +281,10 @@ Both land in the listing's organization's Settings, **BrandHub**
 and hand the brand over (the claimant can start from it, below), or **Take off
 BrandHub**, which makes the brand private (`PATCH /api/v1/hub/reports/{id}`
 with `"delist": true`). The organization can always take its own brand off
-the hub the same way on the Brands page.
+BrandHub the same way on the Brands page.
 
 Whoever runs the server reads every report in the database, and can delist a
-brand for good: while `hub_delisted` holds a reason, the brand is off the hub
+brand for good: while `hub_delisted` holds a reason, the brand is off BrandHub
 and its organization can't make it public again, which says why.
 
 ```sql
@@ -323,7 +323,7 @@ card, its page and the brand's Overview show them ("1.2k pulls"), and
 `index.json` and `GET /api/v1/brands/{slug}/hub` carry them as `pulls`.
 
 Someone signed in can **Follow** a public listing
-(`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): the hub's front
+(`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): BrandHub's front
 page then has a **Following** tab with the brands they follow. **Trending
 this week**, the order it opens in, sorts by pulls in the last 7 days. A
 community listing's card says it may not come from the brand's owner, and
@@ -331,7 +331,7 @@ the front page ends with a domain box for the public Brand Agent Score.
 
 Curated collections, like "Open-source project brands", are the server
 operator's: each is a row in `hub_collections`, listing public brands as
-`{org}/{brand}` in order, and shows as a section on the hub's front page
+`{org}/{brand}` in order, and shows as a section on BrandHub's front page
 (lowest `position` first; a brand that isn't public is left out).
 
 ```sql
