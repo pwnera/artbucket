@@ -40,6 +40,8 @@ export type AuditAction =
   | "portal.request_denied"
   | "portal.request_removed"
   | "brand.published"
+  | "brand.public"
+  | "brand.private"
   | "domain.added"
   | "domain.verified"
   | "domain.removed"

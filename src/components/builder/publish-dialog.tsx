@@ -48,7 +48,13 @@ type Version = { number: number; publishedAt: string | null };
 /** GET .../versions/{n}, as far as whatsNew reads it. */
 type Snapshot = { rules: SnapRule[]; pages: SnapPage[] | null };
 /** POST .../publish's answer. */
-type Published = { number?: number; unchanged?: boolean; portals?: { slug: string; name: string; url: string }[] };
+type Published = {
+  number?: number;
+  unchanged?: boolean;
+  portals?: { slug: string; name: string; url: string }[];
+  /** Who sees it on BrandHub, and where; null with no hub. */
+  hub?: { visibility: "private" | "public"; url: string } | null;
+};
 
 /** Who a portal made here lets in; a password portal is set up on the Portals page, where the password is typed. */
 type Door = "members" | "public" | "none";
@@ -336,6 +342,23 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
             <Link href={`/portals?${new URLSearchParams({ new: brand })}`}>Create a portal for it</Link>
           </Button>
         </div>
+      )}
+      {done.hub && (
+        <p className="text-muted-foreground text-sm">
+          {done.hub.visibility === "public" ? "Public on BrandHub, where anyone and any agent reads it: " : "Private on BrandHub, for people in this workspace: "}
+          <a href={done.hub.url} target="_blank" rel="noreferrer" className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
+            {done.hub.visibility === "public" ? done.hub.url.replace(/^https?:\/\//, "") : "see it there"} <IconExternalLink className="size-3.5" aria-hidden />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+          {done.hub.visibility === "private" && (
+            <>
+              {". "}
+              <Link href="/brands" className="text-foreground underline underline-offset-2">
+                Make it public
+              </Link>
+            </>
+          )}
+        </p>
       )}
       <DialogFooter>
         <Button onClick={onClose}>Done</Button>

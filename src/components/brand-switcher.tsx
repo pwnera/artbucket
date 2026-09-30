@@ -1,9 +1,9 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { IconCopy, IconDots, IconLoader2, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDots, IconLayoutList, IconLoader2, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
 import { send } from "@/components/collections";
@@ -73,6 +73,7 @@ export function BrandTile({ name }: { name: string }) {
 /** The sidebar's brands: switch between them, and make, rename, copy, promote or delete one. */
 export function Brands({ brands, current, section }: { brands: BrandInfo[]; current?: string; section: SortableItem }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { sorted, item } = useSortable("brands", brands, (b) => b.slug);
   const { setOpenMobile } = useSidebar();
   const [editing, setEditing] = useState<Kept<Editing>>(null);
@@ -164,6 +165,15 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
             </SidebarMenuItem>
             );
           })}
+          {/* Every brand, and who sees each on BrandHub (app/(app)/brands). */}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={current === undefined && pathname === "/brands"} className="text-muted-foreground">
+              <Link href="/brands" onClick={() => setOpenMobile(false)}>
+                <IconLayoutList className="size-4" />
+                <span>All brands</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
     </SidebarSection>
 

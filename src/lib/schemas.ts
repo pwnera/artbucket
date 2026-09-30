@@ -524,6 +524,7 @@ export const Brand = z.object({
   slug: z.string(),
   name: z.string(),
   default: z.boolean(),
+  visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
   rules: z.number().int(),
   createdAt: date,
 });
@@ -751,10 +752,34 @@ export const Version = VersionMeta.extend({
   pageDiff: z.array(z.string()).describe("Pages that differ, as page:{slug}"),
   themeChanged: z.boolean().describe("The theme differs; against current, whether a restore would change it"),
 });
+export const BrandHub = z.object({
+  visibility: z.enum(["private", "public"]).describe("private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"),
+  url: z.url().describe("Its page there: the hub's own address when public, the app's /hub when private"),
+  published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
+  portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
+  chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
+});
+export const BrandHubView = BrandHub.extend({
+  portals: z
+    .array(z.object({ slug: z.string(), name: z.string(), access: z.enum(PORTAL_ACCESS), url: z.url() }))
+    .nullable()
+    .describe("The portals it could link as its guidelines; null without the right to manage portals"),
+});
+export const HubPatch = z.strictObject({
+  visibility: z.enum(["private", "public"]).optional().describe("public shows its latest publish to anyone and any agent; it takes a publish"),
+  portal: z.string().nullable().optional().describe("The slug of a portal showing it, linked as its guidelines; null: its first public portal"),
+});
 export const Published = VersionMeta.extend({
   brand: z.string(),
   unchanged: z.boolean().describe("Nothing changed since the last publish, which stands"),
-  portals: z.array(z.object({ slug: z.string(), name: z.string(), url: z.url() })).optional().describe("The portals showing it, where visitors now read it"),
+  portals: z
+    .array(z.object({ slug: z.string(), name: z.string(), access: z.enum(PORTAL_ACCESS), url: z.url() }))
+    .optional()
+    .describe("The portals showing it, where visitors now read it"),
+  hub: z
+    .object({ visibility: z.enum(["private", "public"]), url: z.url() })
+    .nullable()
+    .describe("Who sees it on BrandHub, and where; null when this server has none"),
 });
 export const BrandStatus = z.object({
   brand: z.object({ slug: z.string(), name: z.string(), default: z.boolean() }),
@@ -775,9 +800,10 @@ export const BrandStatus = z.object({
   next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
   publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
   portals: z
-    .array(z.object({ slug: z.string(), name: z.string(), url: z.url() }))
+    .array(z.object({ slug: z.string(), name: z.string(), access: z.enum(PORTAL_ACCESS), url: z.url() }))
     .nullable()
     .describe("The portals showing it; null without the right to manage portals"),
+  hub: BrandHub.nullable().describe("The brand on BrandHub; null when this server has none"),
   url: z.url().describe("The brand in the app"),
 });
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
@@ -1212,6 +1238,7 @@ export const PortalView = z.object({
 });
 export const PortalBrand = z.object({
   brand: z.object({ slug: z.string(), name: z.string() }),
+  version: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("The publish shown; null for a brand with no history, shown as it stands"),
   data: z.array(BrandRule).describe("Its rules in page order; a rule's assets only when they may be used"),
   contexts: z.array(z.string()).describe("Contexts some rule is scoped to, for ?context="),
   signed: z.record(uuid, z.string()).describe("Each listed asset's signature: /a/{id}/{rendition}?s={it} loads it for the visitor"),

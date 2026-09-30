@@ -21,7 +21,7 @@ const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useStatus } = await import("./use-status.ts");
 
-const STATUS: Status = { steps: [], done: 0, total: 0, next: null, publish: "never", portals: null };
+const STATUS: Status = { steps: [], done: 0, total: 0, next: null, publish: "never", portals: null, hub: null };
 
 test("useStatus reads once, however often its caller hands it a new transport", async () => {
   const reads: string[] = [];

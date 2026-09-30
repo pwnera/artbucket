@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { portalAtHost } from "@/lib/core/domains";
 import { db } from "@/lib/db";
 import { portals } from "@/lib/db/schema";
+import { env } from "@/lib/env";
 
 /** Portals search engines may list: public, open, and set to be listed (portals.site.listed). */
 const listed = (slug?: string) =>
@@ -28,6 +29,10 @@ const listed = (slug?: string) =>
  */
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const host = (await headers()).get("host") ?? "";
+  // BrandHub on its own host (src/proxy.ts) is for everyone to find; community listings say noindex themselves.
+  if (env.HUB_URL && host === new URL(env.HUB_URL).host && host !== new URL(env.APP_URL).host) {
+    return { rules: { userAgent: "*", allow: "/" }, sitemap: `${env.HUB_URL}/sitemap.xml` };
+  }
   const portal = host ? await portalAtHost(host).catch(() => null) : null;
   if (portal) {
     const [open] = await listed(portal).catch(() => []);
@@ -38,7 +43,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       ...(shown.length > 0 && { allow: shown.map((p) => `/p/${p.slug}`) }),
-      disallow: ["/api/", "/a/", "/c/", "/p/", "/s/"],
+      // With a host of its own, BrandHub is listed there; /hub here is for people signed in.
+      disallow: ["/api/", "/a/", "/c/", "/p/", "/s/", ...(env.HUB_URL && new URL(env.HUB_URL).host !== new URL(env.APP_URL).host ? ["/hub"] : [])],
     },
   };
 }

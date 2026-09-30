@@ -1,7 +1,11 @@
-import { and, asc, count, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { brandRules, brands } from "@/lib/db/schema";
+import { brandRules, brands, brandVersions, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import type { Caller } from "@/lib/core/access";
+import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
+import { env } from "@/lib/env";
+import { hubPath } from "@/lib/hub";
 
 /** A workspace's brands. `ws` is the workspace id; scopes were checked by the route. */
 
@@ -43,6 +47,7 @@ export const present = (b: Brand) => ({
   slug: b.slug,
   name: b.name,
   default: b.isDefault,
+  visibility: b.visibility,
   createdAt: b.createdAt,
 });
 
@@ -82,4 +87,96 @@ export async function deleteBrand(ws: string, slug: string) {
   if (b.isDefault) throw new AssetError("conflict", "This is the default brand; make another one the default first");
   await db.delete(brands).where(eq(brands.id, b.id));
   return true;
+}
+
+// ---- BrandHub: who sees the brand there (lib/core/hub.ts reads it) ------------------
+
+/** A portal open to anyone: public, and not closed. */
+export const publicDoor = and(eq(portals.access, "public"), or(isNull(portals.expiresAt), gt(portals.expiresAt, sql`now()`)));
+
+/**
+ * The portal BrandHub links as the brand's guidelines: the one chosen while
+ * it still shows the brand, else its first public, open portal by name.
+ */
+export async function guidelinesPortal(b: Pick<Brand, "id" | "hubPortalId">) {
+  const rows = await db
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, open: sql<boolean>`${publicDoor}` })
+    .from(portalBrands)
+    .innerJoin(portals, eq(portals.id, portalBrands.portalId))
+    .where(eq(portalBrands.brandId, b.id))
+    .orderBy(asc(portals.name));
+  return rows.find((r) => r.id === b.hubPortalId) ?? rows.find((r) => r.open) ?? null;
+}
+
+/**
+ * The brand on BrandHub: who sees it, where (`url`, null with no hub), and
+ * whether there is anything to see (`published`: the hub shows the latest
+ * publish, so a brand never published shows nowhere).
+ */
+export async function hubOf(b: Brand) {
+  if (!env.HUB_URL) return null;
+  const [[o], [v]] = await Promise.all([
+    db
+      .select({ org: organizations.slug })
+      .from(workspaces)
+      .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+      .where(eq(workspaces.id, b.workspaceId)),
+    db
+      .select({ number: brandVersions.number, publishedAt: brandVersions.publishedAt })
+      .from(brandVersions)
+      .where(and(eq(brandVersions.brandId, b.id), isNotNull(brandVersions.publishedAt)))
+      .orderBy(desc(brandVersions.number))
+      .limit(1),
+  ]);
+  const path = hubPath(o.org, b.slug);
+  return {
+    visibility: b.visibility,
+    // A private brand's page is for its people: on the app's own host, where they are signed in (app/hub).
+    url: b.visibility === "public" ? env.HUB_URL + path : `${env.APP_URL}/hub${path}`,
+    published: v ? { number: v.number, publishedAt: v.publishedAt! } : null,
+    portal: await guidelinesPortal(b).then((p) => p && { slug: p.slug, name: p.name }),
+    chosen: !!b.hubPortalId,
+  };
+}
+
+/**
+ * Make the brand public on BrandHub, or private again, and pick the portal it
+ * links as its guidelines (a slug of one showing it; null: its first public
+ * one). Public takes a publish, since readers get the latest, and a slug no
+ * other public brand of the organization has: `{org}/{brand}` names one.
+ */
+export async function setHub(caller: Caller, slug: string, patch: { visibility?: Visibility; portal?: string | null }) {
+  if (!env.HUB_URL) throw new AssetError("invalid", "This server has no BrandHub (HUB_URL)");
+  const b = await resolveBrand(caller.workspace.id, slug);
+  let hubPortalId = b.hubPortalId;
+  if (patch.portal !== undefined) {
+    if (patch.portal === null) hubPortalId = null;
+    else {
+      const [p] = await db
+        .select({ id: portals.id })
+        .from(portals)
+        .innerJoin(portalBrands, and(eq(portalBrands.portalId, portals.id), eq(portalBrands.brandId, b.id)))
+        .where(and(eq(portals.slug, patch.portal), eq(portals.workspaceId, b.workspaceId)));
+      if (!p) throw new AssetError("invalid", `portal: no portal "${patch.portal}" shows ${b.name}`);
+      hubPortalId = p.id;
+    }
+  }
+  const visibility = patch.visibility ?? b.visibility;
+  if (visibility === "public" && b.visibility !== "public") {
+    const [v] = await db
+      .select({ n: brandVersions.number })
+      .from(brandVersions)
+      .where(and(eq(brandVersions.brandId, b.id), isNotNull(brandVersions.publishedAt)))
+      .limit(1);
+    if (!v) throw new AssetError("invalid", "Publish it first: BrandHub shows a brand's latest publish");
+    const [twin] = await db
+      .select({ name: brands.name })
+      .from(brands)
+      .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
+      .where(and(eq(workspaces.organizationId, caller.workspace.organizationId), eq(brands.slug, b.slug), ne(brands.id, b.id), eq(brands.visibility, "public")));
+    if (twin) throw new AssetError("conflict", `${twin.name}, in another workspace, is public as ${b.slug} already. Rename one of them`);
+  }
+  const [row] = await db.update(brands).set({ visibility, hubPortalId }).where(eq(brands.id, b.id)).returning();
+  if (visibility !== b.visibility) await recordAudit(caller, visibility === "public" ? "brand.public" : "brand.private", b.name, { brand: b.slug });
+  return (await hubOf(row))!;
 }

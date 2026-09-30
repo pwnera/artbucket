@@ -21,6 +21,7 @@ naming the variable.
 | `BILLING_URL` | unset | Where an organization's admins manage the plan behind its limits: a "Manage plan" link in Settings, Usage, and named when a limit refuses something. See [Limits](/configuration/limits) |
 | `DOMAIN_TARGET` | unset | The host name organizations' own domains should CNAME to, shown beside their TXT record: this server's, or a provider's (Cloudflare for SaaS's fallback origin). Unset: "point it at this server" |
 | `PORTAL_DOMAIN` | unset | A domain whose subdomains are portals: `{address}.PORTAL_DOMAIN` serves that portal, beside `/p/{address}`. Needs a wildcard DNS record and certificate. See [Portals](/guides/portals#a-subdomain-for-every-portal) |
+| `HUB_URL` | unset | Where BrandHub answers: a host of its own (`https://hub.example.com`) or a path on `APP_URL`'s (`http://localhost:3000/hub`). The path is always `/hub`. Unset: no hub. See [Portals](/guides/portals#brandhub) |
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |

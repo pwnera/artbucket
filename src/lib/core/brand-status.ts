@@ -1,6 +1,6 @@
 import type { Caller } from "@/lib/core/access";
 import { listRules, listVersions } from "@/lib/core/brand";
-import { listBrands, resolveBrand } from "@/lib/core/brands";
+import { hubOf, listBrands, resolveBrand } from "@/lib/core/brands";
 import { listPages } from "@/lib/core/pages";
 import { portalsShowing } from "@/lib/core/portals";
 import { env } from "@/lib/env";
@@ -30,6 +30,7 @@ export async function brandStatus(caller: Caller, slug?: string) {
     ...readiness({ rules, theme: brand.theme, pages, versions, portals }),
     publish: publishState(versions),
     portals,
+    hub: await hubOf(brand),
     url: `${env.APP_URL}/brand?${new URLSearchParams({ brand: brand.slug })}`,
   };
 }

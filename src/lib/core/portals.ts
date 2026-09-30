@@ -396,7 +396,7 @@ const guesses = limiter(10, 10 * 60_000);
 const asks = limiter(5, 60 * 60_000);
 const floods = limiter(30, 60 * 60_000);
 
-type Pass = { password?: string | null; key?: string | null; headers?: Headers };
+export type Pass = { password?: string | null; key?: string | null; headers?: Headers };
 
 /** How a visitor's request says who they are: the password and an approved request's key in headers, and a member's session. */
 export const passOf = (req: Request): Pass => ({ password: req.headers.get("x-portal-password"), key: req.headers.get("x-portal-key"), headers: req.headers });
@@ -424,16 +424,29 @@ const shownTheme = async (p: Row) => {
 };
 
 /** Someone signed in who may read the portal's workspace. */
-async function isMember(p: Row, headers: Headers | undefined) {
-  if (!headers) return false;
+const isMember = (p: Row, headers: Headers | undefined) => readsWorkspace(p.workspaceId, headers);
+
+/**
+ * Who is signed in, and a check of the workspaces they may read: a portal's
+ * members, BrandHub's private brands. Null when nobody is.
+ */
+export async function reader(headers: Headers | undefined) {
+  if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
-  if (!session) return false;
-  const ws = await workspaceById(p.workspaceId);
-  if (!ws) return false;
+  if (!session) return null;
   const mine = await db.select().from(grants).where(eq(grants.userId, session.user.id));
-  const access = accessIn(mine, ws, await hiddenIn(ws.id));
-  const orgScope = highest(...mine.filter((g) => g.resource === "organization" && g.resourceId === ws.organizationId).map((g) => g.scope));
-  return can({ ...access, orgScope }, "library.read");
+  const reads = async (workspaceId: string) => {
+    const ws = await workspaceById(workspaceId);
+    if (!ws) return false;
+    const access = accessIn(mine, ws, await hiddenIn(ws.id));
+    const orgScope = highest(...mine.filter((g) => g.resource === "organization" && g.resourceId === ws.organizationId).map((g) => g.scope));
+    return can({ ...access, orgScope }, "library.read");
+  };
+  return { user: session.user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads };
+}
+
+async function readsWorkspace(workspaceId: string, headers: Headers | undefined) {
+  return !!(await (await reader(headers))?.reads(workspaceId));
 }
 
 async function keyValid(p: Row, key: string | null | undefined) {
@@ -573,22 +586,38 @@ function snapId(brandId: string, key: string, context: string | null) {
 }
 
 /**
- * One of a portal's brands, its rules as its latest publish has them (D15),
- * in the shape v1 froze: a rule's id is the live rule's for its key and
+ * One of a portal's brands, its rules as its latest publish has them (D15)
+ * or as the publish `version` names, in the shape v1 froze, and which
+ * version that is: a rule's id is the live rule's for its key and
  * context, else stable (snapId); `updatedAt` is when it was published. Its
  * assets show only when they may be used (lib/lifecycle.ts): a draft logo
  * stays in the library. Those, and images in its text, are signed for the
  * visitor; `signed` holds each one's signature, for URLs the page builds itself.
  */
-export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: string, { context }: { context?: string | null } = {}) {
+export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: string, o: { context?: string | null; version?: number } = {}) {
   const { p } = await open(slug, pass);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
+  return readBrand(p.workspaceId, brand, p.expiresAt, o);
+}
+
+/**
+ * A brand's rules as a reader outside gets them (viewPortalBrand's, and
+ * BrandHub's): its publish, its usable files signed for a day, never past
+ * `until`.
+ */
+export async function readBrand(
+  workspaceId: string,
+  brand: { id: string; slug: string; name: string },
+  until: Date | null,
+  { context, version }: { context?: string | null; version?: number } = {},
+) {
+  const p = { workspaceId, expiresAt: until };
   if (context && !ruleContext.safeParse(context).success) {
     throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
   }
-  const src = await publishedSource(p.workspaceId, brand.slug);
-  if (!src) throw new AssetError("not_found", "That brand isn't published yet");
+  const src = await publishedSource(p.workspaceId, brand.slug, version);
+  if (!src) throw new AssetError("not_found", version === undefined ? "That brand isn't published yet" : `Version ${version} was never published`);
   const rules = context ? resolve(src.rules, context) : src.rules;
   const live = await db
     .select({ id: brandRules.id, key: brandRules.key, context: brandRules.context, updatedAt: brandRules.updatedAt })
@@ -630,6 +659,7 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
   });
   return {
     brand: { slug: brand.slug, name: brand.name },
+    version: src.version,
     data: JSON.parse(signUrlsIn(JSON.stringify(data), (id) => signed[id] ?? null)) as typeof data,
     contexts: [...new Set(src.rules.flatMap((r) => r.context ?? []))].sort(),
     signed,
@@ -798,7 +828,7 @@ export async function portalsShowing(ws: string, brandId: string) {
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
     .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
     .orderBy(asc(portals.name));
-  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, url: await portalUrl(p, await domainOf(p.id)) })));
+  return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, access: p.access, url: await portalUrl(p, await domainOf(p.id)) })));
 }
 
 /** Admins who hear about a request: the workspace's and the organization's. */

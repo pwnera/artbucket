@@ -15533,6 +15533,14 @@
                         "default": {
                           "type": "boolean"
                         },
+                        "visibility": {
+                          "type": "string",
+                          "enum": [
+                            "private",
+                            "public"
+                          ],
+                          "description": "Who sees it on BrandHub"
+                        },
                         "rules": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -15548,6 +15556,7 @@
                         "slug",
                         "name",
                         "default",
+                        "visibility",
                         "rules",
                         "createdAt"
                       ],
@@ -15664,6 +15673,14 @@
                       "default": {
                         "type": "boolean"
                       },
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "private",
+                          "public"
+                        ],
+                        "description": "Who sees it on BrandHub"
+                      },
                       "rules": {
                         "type": "integer",
                         "minimum": -9007199254740991,
@@ -15679,6 +15696,7 @@
                       "slug",
                       "name",
                       "default",
+                      "visibility",
                       "rules",
                       "createdAt"
                     ],
@@ -15765,6 +15783,14 @@
                       "default": {
                         "type": "boolean"
                       },
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "private",
+                          "public"
+                        ],
+                        "description": "Who sees it on BrandHub"
+                      },
                       "rules": {
                         "type": "integer",
                         "minimum": -9007199254740991,
@@ -15780,6 +15806,7 @@
                       "slug",
                       "name",
                       "default",
+                      "visibility",
                       "rules",
                       "createdAt"
                     ],
@@ -15881,6 +15908,14 @@
                       "default": {
                         "type": "boolean"
                       },
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "private",
+                          "public"
+                        ],
+                        "description": "Who sees it on BrandHub"
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time",
@@ -15891,6 +15926,7 @@
                       "slug",
                       "name",
                       "default",
+                      "visibility",
                       "createdAt"
                     ],
                     "additionalProperties": false
@@ -16165,6 +16201,14 @@
                                 "name": {
                                   "type": "string"
                                 },
+                                "access": {
+                                  "type": "string",
+                                  "enum": [
+                                    "public",
+                                    "password",
+                                    "members"
+                                  ]
+                                },
                                 "url": {
                                   "type": "string",
                                   "format": "uri"
@@ -16173,6 +16217,7 @@
                               "required": [
                                 "slug",
                                 "name",
+                                "access",
                                 "url"
                               ],
                               "additionalProperties": false
@@ -16183,6 +16228,96 @@
                           }
                         ],
                         "description": "The portals showing it; null without the right to manage portals"
+                      },
+                      "hub": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "private",
+                                  "public"
+                                ],
+                                "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                              },
+                              "published": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "number": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "publishedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      }
+                                    },
+                                    "required": [
+                                      "number",
+                                      "publishedAt"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "What BrandHub shows: the latest publish; null: nothing yet"
+                              },
+                              "portal": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "slug": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "slug",
+                                      "name"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The portal it links as its guidelines"
+                              },
+                              "chosen": {
+                                "type": "boolean",
+                                "description": "That portal was picked; false: it is the brand's first public portal"
+                              }
+                            },
+                            "required": [
+                              "visibility",
+                              "url",
+                              "published",
+                              "portal",
+                              "chosen"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The brand on BrandHub; null when this server has none"
                       },
                       "url": {
                         "type": "string",
@@ -16199,6 +16334,7 @@
                       "next",
                       "publish",
                       "portals",
+                      "hub",
                       "url"
                     ],
                     "additionalProperties": false
@@ -27629,6 +27765,14 @@
                             "name": {
                               "type": "string"
                             },
+                            "access": {
+                              "type": "string",
+                              "enum": [
+                                "public",
+                                "password",
+                                "members"
+                              ]
+                            },
                             "url": {
                               "type": "string",
                               "format": "uri"
@@ -27637,10 +27781,40 @@
                           "required": [
                             "slug",
                             "name",
+                            "access",
                             "url"
                           ],
                           "additionalProperties": false
                         }
+                      },
+                      "hub": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "private",
+                                  "public"
+                                ]
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri"
+                              }
+                            },
+                            "required": [
+                              "visibility",
+                              "url"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Who sees it on BrandHub, and where; null when this server has none"
                       }
                     },
                     "required": [
@@ -27660,7 +27834,8 @@
                       "createdAt",
                       "updatedAt",
                       "brand",
-                      "unchanged"
+                      "unchanged",
+                      "hub"
                     ],
                     "additionalProperties": false
                   }
@@ -27727,6 +27902,365 @@
                 }
               },
               "additionalProperties": false
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/brands/{slug}/hub": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Brand slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A brand on BrandHub",
+      "description": "Every published brand is on BrandHub at {org}/{brand}, private by default: its workspace's people see it, signed in. Public, anyone and any agent reads its latest publish, as a page, llms.txt, brand.json and design tokens. `portals`: the portals it could link as its guidelines; null without the right to manage portals.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The brand on BrandHub",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "private",
+                          "public"
+                        ],
+                        "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                      },
+                      "published": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "number": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "publishedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "number",
+                              "publishedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "What BrandHub shows: the latest publish; null: nothing yet"
+                      },
+                      "portal": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The portal it links as its guidelines"
+                      },
+                      "chosen": {
+                        "type": "boolean",
+                        "description": "That portal was picked; false: it is the brand's first public portal"
+                      },
+                      "portals": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "access": {
+                                  "type": "string",
+                                  "enum": [
+                                    "public",
+                                    "password",
+                                    "members"
+                                  ]
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "format": "uri"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "name",
+                                "access",
+                                "url"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The portals it could link as its guidelines; null without the right to manage portals"
+                      }
+                    },
+                    "required": [
+                      "visibility",
+                      "url",
+                      "published",
+                      "portal",
+                      "chosen",
+                      "portals"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "patch": {
+      "summary": "Make a brand public or private",
+      "description": "`visibility: public` shows its latest publish on BrandHub to anyone; it takes a publish, and a slug no other public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the workspace.\n\nScope: `write`.",
+      "x-scope": "write",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "visibility": {
+                  "description": "public shows its latest publish to anyone and any agent; it takes a publish",
+                  "type": "string",
+                  "enum": [
+                    "private",
+                    "public"
+                  ]
+                },
+                "portal": {
+                  "description": "The slug of a portal showing it, linked as its guidelines; null: its first public portal",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The brand on BrandHub",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "private",
+                          "public"
+                        ],
+                        "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Its page there: the hub's own address when public, the app's /hub when private"
+                      },
+                      "published": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "number": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "publishedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "number",
+                              "publishedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "What BrandHub shows: the latest publish; null: nothing yet"
+                      },
+                      "portal": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "slug",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The portal it links as its guidelines"
+                      },
+                      "chosen": {
+                        "type": "boolean",
+                        "description": "That portal was picked; false: it is the brand's first public portal"
+                      }
+                    },
+                    "required": [
+                      "visibility",
+                      "url",
+                      "published",
+                      "portal",
+                      "chosen"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
             }
           }
         }
@@ -37897,6 +38431,34 @@
                     ],
                     "additionalProperties": false
                   },
+                  "version": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "number": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "publishedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          }
+                        },
+                        "required": [
+                          "number",
+                          "publishedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The publish shown; null for a brand with no history, shown as it stands"
+                  },
                   "data": {
                     "type": "array",
                     "items": {
@@ -38116,6 +38678,7 @@
                 },
                 "required": [
                   "brand",
+                  "version",
                   "data",
                   "contexts",
                   "signed"
@@ -45071,7 +45634,7 @@
   "/api/v1/mcp": {
     "post": {
       "summary": "MCP (Streamable HTTP, stateless)",
-      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
       "x-scope": "read",
       "requestBody": {
         "required": true,
