@@ -942,7 +942,7 @@ export const Usage = z.object({
     workspaces: limit("Workspaces"),
     brands: limit("Brands, over all workspaces"),
     domains: limit("Custom domains, the app's and its portals'"),
-    features: z.array(z.enum(["agents", "shares"])).nullable().describe("What it may use; null: everything"),
+    features: z.array(z.enum(["agents", "shares", "sso"])).nullable().describe("What it may use; null: everything"),
     readOnly: z.boolean(),
   }).describe("Set by whoever runs the server; never by the organization"),
   billing: z.string().url().nullable().describe("Where the organization's admins manage the plan behind these limits; null when this server has no such place"),

@@ -35,4 +35,6 @@ test("the environment sets every organization's; one organization's row override
   assert.equal(org.readOnly, true);
   assert.throws(() => limitsFromEnv({ LIMIT_STORAGE: "lots" }));
   assert.throws(() => limitsFromEnv({ LIMIT_FEATURES: "chatbot" }));
+  assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "agents,shares" })?.features, ["agents", "shares"]);
+  assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "sso" })?.features, ["sso"]);
 });

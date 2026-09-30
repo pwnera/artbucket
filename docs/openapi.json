@@ -28658,7 +28658,8 @@
                                     "type": "string",
                                     "enum": [
                                       "agents",
-                                      "shares"
+                                      "shares",
+                                      "sso"
                                     ]
                                   }
                                 },
