@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 import { APP_BG, contrast, grade } from "@/lib/color";
 import { send } from "@/lib/send";
+import { useFlashNew } from "@/lib/motion";
 
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
@@ -227,6 +228,11 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
   };
 
   const waiting = domains.filter((d) => !d.verified).map((d) => d.host).join(" ");
+  // A domain just added lights up when the list brings it.
+  useFlashNew(
+    domains.map((d) => d.host),
+    (host) => `[data-domain="${CSS.escape(host)}"]`,
+  );
   useEffect(() => {
     if (!waiting) return;
     const until = Date.now() + RECHECK.for;
@@ -260,7 +266,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                 ["Value", d.record.value, "the TXT value"],
               ];
               return (
-                <li key={d.host} className="grid gap-2 p-3 text-sm">
+                <li key={d.host} data-domain={d.host} className="grid gap-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
                       {d.host}

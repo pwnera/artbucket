@@ -49,6 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
+import { flash } from "@/lib/motion";
 
 export type Portal = {
   id: string;
@@ -210,7 +211,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           <ul className="divide-y rounded-lg border">
             {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
             {shown.map((p) => (
-              <li key={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
+              <li key={p.id} data-portal={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
                   className="size-8 shrink-0 rounded-md border"
                   style={{ background: p.theme.background ?? p.theme.accent ?? "var(--muted)" }}
@@ -271,6 +272,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
+            flash(`[data-portal="${CSS.escape(saved.id)}"]`);
             if (said) toastSaved(saved, said);
           }}
           onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}

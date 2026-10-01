@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 /**
@@ -53,6 +53,22 @@ export function collapse(el: Element | null | undefined, then: () => void) {
     then();
     requestAnimationFrame(() => el.removeAttribute("data-collapsing"));
   }, 150);
+}
+
+/**
+ * Flashes the rows of `ids` that weren't there last render (`at` finds a
+ * row by id): what a refresh brought in shows itself. Never on first render.
+ */
+export function useFlashNew(ids: string[], at: (id: string) => string) {
+  const seen = useRef<Set<string> | null>(null);
+  const key = ids.join(" ");
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = new Set(ids);
+    if (before) ids.filter((id) => !before.has(id)).forEach((id) => flash(at(id)));
+    // Keyed on the ids themselves: a new array of the same rows is no change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 }
 
 /**

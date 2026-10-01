@@ -56,6 +56,7 @@ import { send } from "@/lib/send";
 import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
+import { useFlashNew } from "@/lib/motion";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope; limits: Ability[] };
@@ -177,6 +178,11 @@ export function People({
   // You first: the row you most often come to change is your own.
   const people = members.data.filter((m) => matches(m.name, m.email)).sort((a, b) => Number(b.id === me.user?.id) - Number(a.id === me.user?.id));
   const invited = members.invitations.filter((i) => matches(i.email));
+  // An invitation just sent lights up in the list when the refresh brings it.
+  useFlashNew(
+    members.invitations.map((i) => i.id),
+    (id) => `[data-invite="${CSS.escape(id)}"]`,
+  );
 
   return (
     <div className="space-y-8">
@@ -247,7 +253,7 @@ export function People({
             {invited.map((i) => {
               const I = ICON[i.resource];
               return (
-                <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
+                <li key={i.id} data-invite={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
                   <IconMail className="text-muted-foreground size-4 shrink-0" />
                   <div className="min-w-48 flex-1">
                     <p className="truncate font-medium">{i.email}</p>
