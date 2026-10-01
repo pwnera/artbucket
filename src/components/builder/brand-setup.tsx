@@ -463,7 +463,7 @@ function Preview({ name, e }: { name: string; e: Essentials }) {
   const swatches = [e.primary, e.secondary, e.dark].filter((c): c is string => !!c);
   return (
     <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-      <div className="grid gap-3 p-6" style={{ background: e.primary, color: ink }}>
+      <div className="grid gap-3 p-6 transition-colors duration-300" style={{ background: e.primary, color: ink }}>
         <span className="flex size-10 items-center justify-center overflow-hidden rounded-lg bg-white/90">
           {e.logo ? <Thumb src={assetUrl(e.logo.id, "/w_80,f_webp")} alt="" /> : <span className="text-sm font-bold text-black">{name.slice(0, 1).toUpperCase()}</span>}
         </span>
@@ -479,8 +479,9 @@ function Preview({ name, e }: { name: string; e: Essentials }) {
       </div>
       <div className="grid gap-4 p-5">
         <div className="flex h-10 overflow-hidden rounded-md border">
-          {swatches.map((c) => (
-            <span key={c} className="flex-1" style={{ background: c }} />
+          {/* By place, not color: a color changed eases to the new one, and an added one grows into the strip. */}
+          {swatches.map((c, i) => (
+            <span key={i} className="animate-in fade-in-0 flex-1 transition-colors duration-300" style={{ background: c }} />
           ))}
           <span className="flex-1 bg-white" />
         </div>
