@@ -1,328 +1,173 @@
-<div align="center">
-
-<img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
-
-# artbucket
-
-**All your brand. None of the busywork.**
-
-The open-source DAM and brand manager: your assets, guidelines and portals in
-one connected home, for your team and your AI agents.
+# Artbucket
 
 [![CI](https://github.com/pwnera/artbucket/actions/workflows/ci.yml/badge.svg)](https://github.com/pwnera/artbucket/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](docs/developers/stability.mdx)
-[![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](docs/developers/mcp.mdx)
+[![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](https://docs.artbucket.io/developers/stability)
+[![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://docs.artbucket.io/developers/mcp)
 
-[Website](https://artbucket.io) · [Why open source](https://artbucket.io/open-source) · [Docs](docs/) · [Quick start](#quick-start) · [API](docs/developers/api.mdx) · [Roadmap](ROADMAP.md)
+<img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
-</div>
+----
+
+Artbucket is where brands live: an open-source DAM and brand manager that keeps
+a brand's assets, guidelines and portals in one catalog. People and agents ask
+it the same question and get the same answer: what to use, where, right now.
+
+Finding files is the easy part. The hard part is authority: which logo is
+current, what the rules really are, whether a photo is cleared for paid social
+in Germany. Artbucket writes those answers down as data, next to the files, and
+serves them to people in the web app and on portals, to agents over MCP, and to
+code through the API, the CLI and Git.
+
+The whole core is here, free to self-host on Postgres and an S3-compatible
+bucket. Nothing held back, nothing to unlock, no telemetry. [Artbucket Cloud]
+runs the same core for you, hosted in the EU, as a free alpha.
 
 <p align="center">
-  <img src="docs/images/library.webp" alt="The artbucket library: assets in a grid, with collections and brands in the sidebar" width="1000">
+  <img src="docs/images/library.webp" alt="The Artbucket library: assets in a grid, with collections and brands in the sidebar" width="1000">
 </p>
 
----
+----
 
-## Your brand's truth should be yours
+## What's in it
 
-Most brand libraries are a closed box. You can't see how they work, you can't
-run them yourself, and when you leave, your metadata stays behind.
+The catalog, everything the brand is made of, once:
 
-And finding files is the easy part. The hard part is **authority**: which logo
-is current, which photo is licensed for paid social in Germany, what the rules
-really are. Agents now make and ship brand work, and an agent can't read
-authority from pixels. It needs a source of truth it can query, and that you
-can inspect, host and take with you.
+- **Library.** Find it, use it, keep creating. Search in milliseconds at
+  100,000 assets, and get any size or format from one original as a URL,
+  `/a/{id}/w_1200,f_webp`: no export, no duplicate.
+- **Guidelines.** A living brand, not a lost PDF. Colors, type, logo rules and
+  don'ts are typed records with history, tied to the assets; guideline pages
+  and design tokens are drawn from them. Release the brand like software.
+- **Portals.** Share your brand, beautifully. A press kit, partner hub or
+  retailer portal on your own domain, plus share and upload links for people
+  without an account.
 
-Artbucket writes the answers down, as data, next to the files. It serves them
-to people in the web app, and to agents over MCP, REST and a CLI. The whole
-core is here, free to self-host on Postgres and an S3-compatible bucket.
-Nothing held back, nothing to unlock.
+The context layer, who may use what, where, right now:
 
-> **Rather not host it?** [Artbucket Cloud](https://artbucket.io) runs the same
-> core for you, hosted in the EU. It is a free alpha today.
+- **Agents.** One MCP URL connects Claude, ChatGPT, Gemini, Figma, Lovable and
+  coding agents to the library your team uses, with the permission you choose:
+  Suggest, Read or Edit.
+- **Check use.** May it run here, now, in this channel and territory? Yes, or
+  why not and what to use instead.
+- **Access.** Grants down to one asset, so an agency sees its slice. Single
+  sign-on in every install, and viewers are never counted.
+- **Review.** Uploads, tags and agent suggestions wait for a person's yes.
+- **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP
+  written back into the file on download. Your files leave with their metadata.
+- **Brand as code.** The brand as YAML in a Git repository, changed on either
+  side and merged a rule at a time.
+- **Insights.** What gets used, by whom, on which release, counted without
+  cookies.
 
-## What's inside
+## To start using Artbucket
 
-**📚 Library. Find it, use it, keep creating.**
-Search the whole library in 5 to 100 ms at 100,000 assets
-([benchmarks](docs/developers/benchmarks.mdx)). Every size and format comes
-from one original as a URL, `/a/{id}/w_1200,f_webp`: no export, no duplicate,
-no job queue. Identical bytes are stored once.
+See the documentation at [docs.artbucket.io], or start free on
+[Artbucket Cloud].
 
-**📐 Guidelines. A living brand, not a lost PDF.**
-Colors, type, logo rules and don'ts are typed records with history, tied to
-the assets themselves. Change a rule once and everyone gets the same answer;
-the guideline pages are drawn from it.
-
-**🏷️ Portals. Share your brand, beautifully.**
-A press kit, partner hub or retailer portal on your own domain, with your
-look and your name down to the emails. Plus share links and upload links for
-people without an account.
-
-**🤖 Agents. Your AI, now on brand.**
-One MCP URL connects Claude, ChatGPT, Gemini, coding agents, Figma, Lovable and
-the rest to the same library your team uses, with the permission you choose:
-Suggest, Read or Edit. What they add waits in Review for a person.
-
-**✅ A yes or no on every use.**
-`/check` says whether an asset may run here, now, in this channel and
-territory, why not, and what to use instead.
-
-**🔐 Teams, SSO and access down to one asset, free.**
-Grants add up and reach down, so an agency sees exactly its part of the
-library. OpenID Connect single sign-on is never behind a paywall, and viewers
-are never counted.
-
-**📦 Leave whenever you like.**
-IPTC/XMP written back into the file on download, C2PA Content Credentials read
-on ingest and preserved. No telemetry.
-
-> **Status: v1, stable.** `/api/v1` and the MCP tools are frozen: what works
-> against them keeps working on every 1.x release
-> ([stability](docs/developers/stability.mdx)).
-
-## Quick start
-
-### 1. Install
-
-Requires Node 22+, pnpm and Docker.
+To run it yourself you need Node 22+, pnpm and Docker:
 
 ```bash
 git clone https://github.com/pwnera/artbucket.git
 cd artbucket
 pnpm install
 cp .env.example .env
-docker compose up -d      # postgres + S3-compatible storage
+docker compose up -d      # Postgres and S3-compatible storage
 pnpm dev                  # migrates the database, then serves
 ```
 
 Open http://localhost:3000 and make the first account: it is the admin of
-everything, and until it exists nothing else works, in the app or the API.
+everything. No Node on the machine? Set `BETTER_AUTH_SECRET` in `.env`
+(`openssl rand -base64 32`) and run the published image with
+`docker compose --profile app up -d`. The [quick start] takes it from there.
 
-<details>
-<summary><b>No Node on the machine?</b></summary>
+To put it on a server, follow the guide for [Render], [Docker Compose],
+[Docker], [Fly], [Kubernetes], [Coolify] or a [plain VPS]. Any S3-compatible
+storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 
-Run the published image instead. Set `BETTER_AUTH_SECRET` in `.env` first
-(`openssl rand -base64 32`), then:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pwnera/artbucket)
 
-```bash
-docker compose --profile app up -d
-```
+### Connect your agents
 
-</details>
-
-<details>
-<summary><b>Optional tools for more previews</b></summary>
-
-- `ffmpeg` on the PATH: video thumbnails.
-- LibreOffice (`soffice`): Word, Excel and PowerPoint previews beyond the
-  thumbnail a file was saved with.
-
-PDF, Illustrator, Photoshop, HEIC, Sketch, XD, Keynote, InDesign and EPS
-previews need nothing extra. Figma and Google Docs, Sheets, Slides and Drive
-files are added as links.
-
-</details>
-
-<details>
-<summary><b>Upgrading</b></summary>
-
-Pull the new version and start it. The app applies any migration the database
-doesn't have yet on start. See [upgrading](docs/installation/upgrading.mdx).
-
-</details>
-
-### 2. Add your first asset
-
-Drop a file into the web app, or go through the API. Bytes go straight to
-storage, never through the app server:
-
-```bash
-# 1. Get a presigned upload URL
-curl -X POST localhost:3000/api/v1/uploads \
-  -H 'content-type: application/json' \
-  -d '{"filename":"hero.png","mime":"image/png","size":20135}'
-
-# 2. PUT the file to the returned uploadUrl
-
-# 3. Promote it to an asset (idempotent: identical bytes dedupe)
-curl -X POST localhost:3000/api/v1/assets \
-  -H 'content-type: application/json' \
-  -d '{"token":"<token>","filename":"hero.png","mime":"image/png"}'
-```
-
-Then build any rendition URL you like, no API call needed:
-
-```
-/a/{id}                                    original
-/a/{id}/w_800,f_webp                       800px wide, WebP
-/a/{id}/w_1200,h_630,fit_cover,q_82,f_jpeg OG image
-```
-
-Transforms: `w` `h` (1-8000), `fit` (cover, contain, inside, outside, fill),
-`q` (1-100), `f` (jpeg, png, webp, avif). A photo or other raster image is
-never enlarged: asking for more pixels than it has gives it at its own size.
-An SVG is drawn at the size asked, up to 8000px, so a 24px icon at `w_512,f_png`
-is a sharp 512px PNG. Renditions are generated once and cached. The bytes are private: the URLs work with your key or session, and for
-anyone else once signed (`POST /api/v1/assets/{id}/signed-url`) or made public.
-
-Fonts and icons come in without a file to hand: Upload's menu imports a Google
-Fonts family, or icons from an open source pack (Tabler, Lucide, Material
-Symbols, Simple Icons and some 200 more, through Iconify). Each icon lands as an
-SVG tagged `icon`, credited to the set's author, with its license in its rights:
-
-```bash
-curl -X POST localhost:3000/api/v1/icons \
-  -H 'content-type: application/json' \
-  -d '{"prefix":"tabler","icons":["home","search","brand-github"]}'
-```
-
-### 3. Connect your agents
-
-`/api/v1/mcp` is an MCP server over Streamable HTTP. Give the URL to any
-agent: it sends you to a consent screen where you pick what it may do
-(Suggest, Read or Edit), and it gets a key bound to you, never more than you
-can do.
+`/api/v1/mcp` is an MCP server. Give the URL to any agent: it opens a consent
+screen, and the agent gets a key bound to you, never more than you can do.
 
 ```bash
 claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 ```
 
-| Tool | Scope | |
-|---|---|---|
-| `search_assets` | read | Full text, tags, collections, custom fields, status |
-| `describe_asset` | read | Everything needed to decide whether and how to use an asset |
-| `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
-| `rendition_url` | read | A URL for a size, fit, format and quality, signed for outsiders on request |
-| `brand_rules` | read | A brand's rules for a context, with the assets they point at |
-| `ingest_asset` | propose | Fetch a public URL into the library, with provenance and rights |
-| `import_google_font` | propose | A Google Fonts family, one file per style |
-| `find_icons` | read | Open source icon sets through Iconify, or a set's icons by name, with license and author |
-| `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
-| `propose_tags` | propose | Suggest tags for a person to accept |
-| `list_fields` | read | The library's custom fields: keys, types, options |
-| `propose_fields` | propose | Suggest custom field values for a person to accept |
-| `my_proposals` | propose | What this key proposed and what became of it |
-| `list_templates`, `list_pages`, `get_page` | read | Brand pages: the templates, the pages, one page with its rules and as Markdown |
-| `set_rules` | write | Make, change and remove many brand rules at once |
-| `save_page`, `edit_page`, `delete_page`, `generate_pages` | write | Build a brand's guideline pages over its rules |
-| `publish` | write, share | Put the pages and rules, as they stand, in front of portal visitors |
+The Claude Code plugin adds a skill that teaches the workflow (brand rules
+first, a use check before publishing, provenance on anything generated):
+`/plugin marketplace add pwnera/artbucket`, then
+`/plugin install artbucket@artbucket`. Other agents: `npx skills add pwnera/artbucket`.
+See [MCP].
 
-The Claude Code plugin brings the MCP server and a skill that teaches the
-workflow (brand rules first, `check_use` before publishing, provenance on
-anything generated):
-
-```bash
-/plugin marketplace add pwnera/artbucket
-/plugin install artbucket@artbucket
-```
-
-Other agents: `npx skills add pwnera/artbucket`. [`/connections`](http://localhost:3000/connections)
-in the app has the setup for each one, and lists what is connected. More in
-the [MCP docs](docs/developers/mcp.mdx).
-
-### 4. Write down the brand, then check uses
-
-Brand rules live in each brand's guidelines, at
-[`/brands/{slug}/guidelines`](http://localhost:3000/brand) (`/brand` opens the
-default brand's): click a value to change it, press `/` to add a rule. Or from the CLI:
-
-```bash
-pnpm artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links"
-pnpm artbucket rules set color.primary '#5bc27a' --type color --context dark-background
-```
-
-Rights live on each asset (license, territories, channels, embargo, last day
-of use, model release). Then ask before publishing:
-
-```bash
-curl -X POST localhost:3000/api/v1/check -H 'content-type: application/json' \
-  -d '{"asset":"{id}","channel":"paid-social","territory":"DE","context":"dark-background"}'
-```
-
-```json
-{
-  "allowed": false,
-  "reasons": [{ "code": "superseded", "message": "Replaced by Blender logo mark", "blocking": true }],
-  "suggest": [{ "id": "...", "title": "Blender logo mark", "url": "http://localhost:3000/a/...", "why": "Its replacement" }]
-}
-```
-
-See [the canon](docs/guides/canon.mdx) and [May I use this?](docs/guides/check.mdx).
-
-### 5. Invite your team
-
-Invite people from **Team**, with a scope on the organization, a workspace, a
-collection or one asset. A contractor with grants on two collections sees
-those two and nothing else. Sign-in is email and password, or any OpenID
-Connect provider (Okta, Entra ID, Google Workspace, Keycloak, Authentik...):
-
-```bash
-OIDC_ISSUER=https://login.example.com
-OIDC_CLIENT_ID=artbucket
-OIDC_CLIENT_SECRET=...
-```
-
-People without an account get share links and upload links, with an optional
-password and end date. See [sharing](docs/guides/sharing.mdx),
-[portals](docs/guides/portals.mdx) and [auth](docs/configuration/auth.mdx).
-
-### 6. Deploy a server
-
-Any S3-compatible storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO,
-Garage, SeaweedFS. In one click, with a Render Postgres and your bucket:
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pwnera/artbucket)
-
-Guides for [Render](docs/installation/render.mdx),
-[Docker Compose](docs/installation/docker-compose.mdx),
-[Docker](docs/installation/docker.mdx), [Fly](docs/installation/fly.mdx),
-[Kubernetes](docs/installation/kubernetes.mdx) (`kubectl apply -k deploy/kubernetes/app`),
-[Coolify](docs/installation/coolify.mdx) and a [plain VPS](docs/installation/vps.mdx).
-Every variable is in [environment](docs/configuration/environment.mdx).
-
-## Use it from anywhere
+### Use it from anywhere
 
 The web app is a client of the public API, with zero private endpoints, so
-everything it does, you can script.
-
-- **REST:** `/api/v1`, described by a generated OpenAPI spec at
-  `/api/v1/openapi.json`. [API reference](docs/developers/api.mdx).
-- **MCP:** `/api/v1/mcp`, OAuth 2.1 with PKCE and dynamic client
-  registration. [MCP](docs/developers/mcp.mdx).
-- **CLI:** a thin client over the same API, `npx artbucket` on npm or
-  `pnpm artbucket` from a clone. [CLI](docs/developers/cli.mdx).
-- **Git:** the brand as YAML in a repository, changed on either side and
-  merged a rule at a time, with a preview link for a proposed change.
-  [Brand as code](docs/guides/brand-as-code.mdx).
+everything it does, you can script: the [REST API] (`/api/v1`, with an OpenAPI
+spec), [MCP], the [CLI] (`npx artbucket`) and [brand as code].
 
 ```bash
-pnpm artbucket search sintel poster
-pnpm artbucket url {id} --width 1200 --format webp
-pnpm artbucket check {id} --channel paid-social --territory DE
-pnpm artbucket review
+npx artbucket search sintel poster
+npx artbucket url {id} --width 1200 --format webp
+npx artbucket check {id} --channel paid-social --territory DE
 ```
 
-## Telemetry
+## To start developing Artbucket
 
-None. Artbucket sends nothing anywhere.
+Read [CONTRIBUTING.md] first. Bug fixes go straight to a pull request; for
+anything larger, open an issue before writing the code, since the roadmap is
+opinionated on purpose. The load-bearing choices, and why, are in the
+[decision records].
 
-## Contributing
+Built with Next.js, React, Postgres and Drizzle, sharp, better-auth and
+Tailwind. No monorepo, no job queue, no Redis, no search cluster.
 
-Issues and PRs welcome: read [CONTRIBUTING.md](CONTRIBUTING.md) first. The
-roadmap is opinionated on purpose; if you want to build something on it, open
-an issue before writing the code. The load-bearing choices, and why, are in
-the [decision records](docs/decisions/index.mdx).
+```bash
+pnpm test
+pnpm typecheck
+pnpm lint
+```
 
-Built with Next.js 16, React 19, Postgres and Drizzle, sharp, better-auth and
-Tailwind 4. No monorepo, no job queue, no Redis, no search cluster.
+## Support
+
+Start with the [documentation][docs.artbucket.io]. Questions and bugs go to
+[GitHub issues], with the version you run, what you did and what you expected.
+Security reports never go in a public issue: see [SECURITY.md].
+
+## Roadmap
+
+[ROADMAP.md] has what shipped, what is in progress and what is deferred on
+purpose. Artbucket is at v1: `/api/v1` and the MCP tools are frozen, and what
+works against them keeps working on every 1.x release ([stability]).
 
 ## License
 
 [AGPL-3.0](LICENSE), copyright Pwnera SAS. Run it, change it, self-host it, for
 any purpose. If you offer a changed version as a network service, publish your
-changes. Building a product on artbucket, or need your own terms and limits?
-Pwnera SAS also licenses it commercially: [open an issue](https://github.com/pwnera/artbucket/issues) and ask. `ee/` is
-reserved for commercial code. See [decision 0013](docs/decisions/0013-agpl-and-cla.mdx).
+changes. Building a product on Artbucket, or need your own terms? Pwnera SAS
+also licenses it commercially: [open an issue][GitHub issues] and ask. `ee/` is
+reserved for commercial code. See [decision 0013].
+
+[Artbucket Cloud]: https://artbucket.io
+[brand as code]: https://docs.artbucket.io/guides/brand-as-code
+[CLI]: https://docs.artbucket.io/developers/cli
+[CONTRIBUTING.md]: CONTRIBUTING.md
+[Coolify]: https://docs.artbucket.io/installation/coolify
+[decision 0013]: docs/decisions/0013-agpl-and-cla.mdx
+[decision records]: docs/decisions/index.mdx
+[Docker Compose]: https://docs.artbucket.io/installation/docker-compose
+[Docker]: https://docs.artbucket.io/installation/docker
+[docs.artbucket.io]: https://docs.artbucket.io
+[Fly]: https://docs.artbucket.io/installation/fly
+[GitHub issues]: https://github.com/pwnera/artbucket/issues
+[Kubernetes]: https://docs.artbucket.io/installation/kubernetes
+[MCP]: https://docs.artbucket.io/developers/mcp
+[plain VPS]: https://docs.artbucket.io/installation/vps
+[quick start]: https://docs.artbucket.io/quickstart
+[Render]: https://docs.artbucket.io/installation/render
+[REST API]: https://docs.artbucket.io/developers/api
+[ROADMAP.md]: ROADMAP.md
+[SECURITY.md]: SECURITY.md
+[stability]: https://docs.artbucket.io/developers/stability
