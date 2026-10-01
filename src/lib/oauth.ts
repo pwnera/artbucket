@@ -48,6 +48,12 @@ export function redirectAllowed(uri: string) {
   return /^[a-z][a-z0-9+.-]*:$/.test(u.protocol) && !["javascript:", "data:", "file:", "vbscript:", "blob:"].includes(u.protocol);
 }
 
+/** A token request's fields as JSON sent them: strings only, so a number or an object is as if left out. */
+export const formFields = (raw: unknown): Record<string, string> =>
+  raw && typeof raw === "object" && !Array.isArray(raw)
+    ? Object.fromEntries(Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"))
+    : {};
+
 /** No vowels, no look-alikes: a user code can't spell anything or be misread. */
 const LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
 

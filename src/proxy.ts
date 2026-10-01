@@ -155,6 +155,8 @@ function movedGuidelines(req: NextRequest) {
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // A NUL names nothing here, and Postgres refuses it in text: every route, page and query alike, before any asks.
+  if (/%00/.test(pathname + req.nextUrl.search)) return NextResponse.json({ error: { code: "not_found", message: "Not found" } }, { status: 404 });
   const onHub = !!hubHost && req.headers.get("host") === hubHost;
   // The hub's pages are its API too (brand.json, tokens, llms.txt), so they count as /api does.
   if (RATE > 0 && (pathname.startsWith("/api/") || onHub)) {

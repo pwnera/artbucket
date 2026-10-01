@@ -6,7 +6,9 @@ import { isAppOrigin } from "@/lib/core/domains";
 import { OAuthError } from "@/lib/core/oauth";
 import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
+import { formFields } from "@/lib/oauth";
 import { can, needs, type Action } from "@/lib/permissions";
+import { refusedValue } from "@/lib/refused";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
 
@@ -33,6 +35,10 @@ export function handle(err: unknown) {
   if (err instanceof AssetError) return fail(STATUS[err.code], err.code, err.message, err.detail);
   if (err instanceof z.ZodError) return fail(400, "invalid_request", "Invalid request body", z.treeifyError(err));
   if (err instanceof SyntaxError) return fail(400, "invalid_request", "Body is not valid JSON");
+  const refused = refusedValue(err);
+  if (refused === "invalid") return fail(400, "invalid_request", "A value holds a character that can't be stored (a NUL)");
+  if (refused === "not_found") return fail(404, "not_found", "Not found");
+  if (refused === "empty") return fail(400, "invalid_request", "Nothing to change: send at least one field");
   console.error(err);
   return fail(500, "internal_error", "Something went wrong");
 }
@@ -105,7 +111,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 /** A form post the OAuth way, or JSON, as a flat record of strings. */
 export async function form(req: Request): Promise<Record<string, string>> {
-  if (req.headers.get("content-type")?.includes("application/json")) return (await req.json()) as Record<string, string>;
+  if (req.headers.get("content-type")?.includes("application/json")) return formFields(await req.json());
   return Object.fromEntries(new URLSearchParams(await req.text()));
 }
 

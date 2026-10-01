@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { askedScope, cappedScope, normalizeCode, pkceMatches, redirectAllowed, userCode } from "./oauth.ts";
+import { askedScope, cappedScope, formFields, normalizeCode, pkceMatches, redirectAllowed, userCode } from "./oauth.ts";
 
 test("PKCE: the verifier's SHA-256 is the challenge, and a short verifier never matches", () => {
   const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
@@ -38,4 +38,9 @@ test("scope: a request's first grantable scope, offered first but never above wh
   assert.equal(cappedScope("write", "write"), "write");
   assert.equal(cappedScope("write", "propose"), "propose");
   assert.equal(cappedScope("read", "write"), "read");
+});
+
+test("a token request's fields are strings: anything else sent as JSON is as if left out", () => {
+  assert.deepEqual(formFields({ grant_type: "authorization_code", code: { $ne: "" }, client_id: 7, code_verifier: ["x"], redirect_uri: null }), { grant_type: "authorization_code" });
+  for (const notAnObject of [null, 42, "code=x", ["a", "b"], true]) assert.deepEqual(formFields(notAnObject), {});
 });
