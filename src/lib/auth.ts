@@ -11,7 +11,7 @@ import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
 import { joinThroughSso, providerFor } from "@/lib/core/sso";
-import { cookieDomain, withoutDomain } from "@/lib/hub";
+import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
 import { underDomain } from "@/lib/portal";
 import { lockedBy } from "@/lib/settings";
@@ -83,11 +83,20 @@ export const auth = betterAuth({
     after: createAuthMiddleware(async (ctx) => {
       const res = ctx.context.responseHeaders;
       const host = ctx.headers?.get("x-forwarded-host") ?? ctx.headers?.get("host") ?? "";
-      if (!shared || !res || underDomain(host, shared)) return;
+      if (!shared || !res) return;
       const cookies = res.getSetCookie();
       if (!cookies.length) return;
+      const under = underDomain(host, shared);
       res.delete("set-cookie");
-      for (const c of cookies) res.append("set-cookie", withoutDomain(c));
+      for (const c of cookies) {
+        if (!under) res.append("set-cookie", withoutDomain(c));
+        else {
+          // A host-only cookie of the same name, from before the Domain was shared, is sent first and read first: expire it,
+          // before the new one (nextCookies keeps the last of a name).
+          if (/;\s*domain=/i.test(c)) res.append("set-cookie", expireHostOnly(c));
+          res.append("set-cookie", c);
+        }
+      }
     }),
   },
   secret: env.BETTER_AUTH_SECRET,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { claimProof, provesDomain } from "./domain-proof.ts";
-import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain } from "./hub.ts";
+import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain, expireHostOnly } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -116,6 +116,14 @@ test("withoutDomain drops the Domain attribute and nothing else", () => {
     "__Secure-better-auth.session_token=abc; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax",
   );
   assert.equal(withoutDomain("a=b; Path=/"), "a=b; Path=/");
+});
+
+test("expireHostOnly empties and expires the same cookie for the host alone", () => {
+  assert.equal(
+    expireHostOnly("__Secure-better-auth.session_token=abc; Max-Age=604800; Path=/; Domain=artbucket.io; HttpOnly; Secure; SameSite=Lax"),
+    "__Secure-better-auth.session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0",
+  );
+  assert.equal(expireHostOnly("a=b; Expires=Wed, 07 Oct 2026 09:00:00 GMT; Domain=x.io; Path=/"), "a=; Path=/; Max-Age=0");
 });
 
 test("hubHome: public brands on the hub, private ones there only when the session reaches it", () => {
