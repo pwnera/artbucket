@@ -98,7 +98,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
 
   const moved = !had || had.domain !== domain;
   const values = {
-    issuer,
+    issuer: oidc.issuer,
     oidcConfig: JSON.stringify(oidc),
     domain,
     userId: caller.user?.id ?? null,

@@ -37,3 +37,10 @@ test("it refuses another issuer's document, a missing endpoint, plain http, and 
   assert.throws(() => oidcConfigFrom({ ...doc, token_endpoint: "http://acme.okta.com/token" }, "https://acme.okta.com", client));
   assert.throws(() => oidcConfigFrom({ ...doc, token_endpoint_auth_methods_supported: ["private_key_jwt"] }, "https://acme.okta.com", client), /client secret/);
 });
+
+test("the issuer is kept as the document says it, so a trailing slash still matches the id token's iss", () => {
+  const auth0 = { ...doc, issuer: "https://acme.eu.auth0.com/" };
+  const c = oidcConfigFrom(auth0, "https://acme.eu.auth0.com", client);
+  assert.equal(c.issuer, "https://acme.eu.auth0.com/");
+  assert.equal(c.discoveryEndpoint, "https://acme.eu.auth0.com/.well-known/openid-configuration");
+});
