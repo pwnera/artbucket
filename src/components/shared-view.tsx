@@ -213,7 +213,7 @@ export function SharedView({ token, initial, asset = null }: { token: string; in
   return (
     <div style={accentVars(share.brand.accent)}>
       <Looked look={share.look} name={by ?? share.brand.name}>
-        <header className="bg-background/90 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-10 border-b backdrop-blur">
+        <header className="bg-background sticky top-0 z-10 border-b">
           <div className="mx-auto flex h-14 w-full max-w-280 items-center gap-3 px-6 @3xl/site:px-10">
             <BrandMark brand={share.brand} className="h-7 max-w-28" />
             <p className="text-muted-foreground min-w-0 flex-1 truncate text-sm">{from ? `Shared from ${from}` : "Shared with you"}</p>

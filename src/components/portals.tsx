@@ -984,7 +984,7 @@ export function PortalDialog({
           </div>
         </form>
         {/* Stuck to the bottom: Save is never below the fold, however long the form. */}
-        <DialogFooter className="bg-popover/95 sticky bottom-0 -mx-6 flex-row items-center border-t px-6 py-3 backdrop-blur">
+        <DialogFooter className="bg-popover sticky bottom-0 -mx-6 flex-row items-center border-t px-6 py-3">
           {current && (
             <Confirm
               title={`Delete ${current.name}?`}

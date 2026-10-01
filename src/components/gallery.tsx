@@ -1272,7 +1272,7 @@ export function Gallery({
         {!empty && (
           <div
             className={cn(
-              "bg-background/95 supports-[backdrop-filter]:bg-background/70 z-[9] sm:sticky sm:top-14 -mx-4 -my-2 flex flex-wrap items-center gap-2 border-b border-transparent px-4 py-2 backdrop-blur transition-colors md:-mx-6 md:px-6",
+              "bg-background z-[9] sm:sticky sm:top-14 -mx-4 -my-2 flex flex-wrap items-center gap-2 border-b border-transparent px-4 py-2 transition-colors md:-mx-6 md:px-6",
               stuck && "border-border",
             )}
           >

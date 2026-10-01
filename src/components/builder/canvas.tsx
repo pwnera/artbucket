@@ -901,7 +901,7 @@ function ChangesStrip({ changes, onHide }: { changes: Changes; onHide(): void })
               .join(", ") || "nothing on this page.",
           ].join(" ");
   return (
-    <div role="status" className="app-tokens bg-muted/80 text-foreground sticky top-12 z-20 flex items-center gap-2 border-b px-4 py-1.5 font-sans text-sm backdrop-blur">
+    <div role="status" className="app-tokens bg-muted text-foreground sticky top-12 z-20 flex items-center gap-2 border-b px-4 py-1.5 font-sans text-sm">
       <IconGitCompare aria-hidden className="text-muted-foreground size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{said}</span>
       <button type="button" onClick={onHide} className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 rounded-sm text-xs outline-none focus-visible:ring-2">

@@ -16,7 +16,6 @@ import {
   IconCode,
   IconDownload,
   IconEye,
-  IconInfoCircle,
   IconLock,
   IconPencil,
   IconPhoto,
@@ -50,6 +49,7 @@ import { Button } from "@/components/ui/button";
 import { Can, useCan, Writable } from "@/components/can";
 import { UsedIn } from "@/components/used-in";
 import { CanIUse } from "@/components/can-i-use";
+import { InfoTip } from "@/components/info-tip";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
 import { Lifecycle, PREVIEW_BG, StatusBadges, usePreviewBg, useVersionUpload, Versions, type PreviewBg } from "@/components/versions";
@@ -906,7 +906,7 @@ export function AssetEditor({
       >
         <ReadOnly.Provider value={!editable}>
           {/* The dialog's header, like every page's, ends with For agents. */}
-          <div className="bg-popover/95 flex items-start gap-2 border-b px-6 pt-5 pb-3 backdrop-blur md:pr-12 max-md:sticky max-md:top-0 max-md:z-10">
+          <div className="bg-popover flex items-start gap-2 border-b px-6 pt-5 pb-3 md:pr-12 max-md:sticky max-md:top-0 max-md:z-10">
             <div className="min-w-0 flex-1">
               <DialogTitle className="sr-only">{name}</DialogTitle>
               <DialogDescription className="sr-only">
@@ -1144,17 +1144,9 @@ export function AssetEditor({
                         defaultChecked={!!asset.private}
                         onCheckedChange={() => setTimeout(() => void flush())}
                       />
-                      <span className="text-muted-foreground text-xs">Only people you add, and admins, see it.</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button type="button" aria-label="More about private" className="text-muted-foreground hover:text-foreground rounded-full">
-                            <IconInfoCircle className="size-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-64">
-                          People added to one of its collections see it too. In only private collections, it is private anyway.
-                        </TooltipContent>
-                      </Tooltip>
+                      <InfoTip label="More about private">
+                        Only people you add, and admins, see it. People added to one of its collections see it too. In only private collections, it is private anyway.
+                      </InfoTip>
                     </div>
                   </Property>
                 </Group>

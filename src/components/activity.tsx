@@ -110,7 +110,7 @@ export function DayGroups<T extends { id: string; at: string }>({ items, childre
       {[...days].map(([when, list]) => (
         <section key={when} className="space-y-1">
           <h2
-            className="bg-background/95 supports-[backdrop-filter]:bg-background/80 text-muted-foreground sticky top-14 z-[5] -mx-1 px-2 py-1.5 text-xs font-medium tracking-wide uppercase backdrop-blur"
+            className="bg-background text-muted-foreground sticky top-14 z-[5] -mx-1 px-2 py-1.5 text-xs font-medium tracking-wide uppercase"
             suppressHydrationWarning
           >
             {when}

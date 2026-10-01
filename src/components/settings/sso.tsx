@@ -168,7 +168,7 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
             )}
             <p className="text-muted-foreground text-xs text-pretty">
               {sso.verified
-                ? `People at ${sso.domain} choose "Sign in with SSO" on the sign-in page.`
+                ? `People at ${sso.domain} go to it once they type their email on the sign-in page.`
                 : "Nobody signs in through it until the record is found. DNS can take a few minutes."}
             </p>
           </div>

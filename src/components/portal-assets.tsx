@@ -207,7 +207,7 @@ export function PortalAssets({
       </Opening>
 
       {portal.collections.length > 1 && (
-        <div className="bg-background/90 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-10 border-b backdrop-blur">
+        <div className="bg-background sticky top-0 z-10 border-b">
           <nav aria-label="Collections" className="mx-auto flex w-full max-w-280 gap-6 overflow-x-auto px-6 [scrollbar-width:none] @3xl/site:px-10">
             <Tab active={!collection} onClick={() => setCollection(null)}>
               All
