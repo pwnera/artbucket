@@ -1,9 +1,9 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { IconDownload } from "@tabler/icons-react";
+import { IconCheck, IconDownload } from "@tabler/icons-react";
 import type { z } from "zod";
-import { copy, GRADE_STYLE, Markdown } from "@/components/brand-values";
+import { GRADE_STYLE, Markdown, useCopied } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { Pairings } from "@/components/brand-sections/parts";
 import { Body, Opens, useRuleAnchor } from "@/components/brand-sections/slots";
@@ -247,6 +247,16 @@ function Proportions({ colors, paint }: { colors: ViewRule[]; paint: (color: str
   );
 }
 
+/** Where a copied value was: a check and the word, read out too. */
+const Copied = () => (
+  <>
+    <IconCheck aria-hidden className="animate-in zoom-in-50 size-3.5" /> Copied
+    <span className="sr-only" aria-live="polite">
+      Copied
+    </span>
+  </>
+);
+
 /** A color's card. Both media's values stay in the DOM, the other hidden, so print shows them all. */
 function Swatch({
   rule: r,
@@ -265,6 +275,8 @@ function Swatch({
 }) {
   const { url } = useSite();
   const anchor = useRuleAnchor()(r.key);
+  // A copy says so on the swatch you clicked, not in a toast.
+  const [copied, copy] = useCopied();
   const s = specOf(r);
   const value = r.value as string;
   const hex = value.slice(0, 7);
@@ -290,7 +302,7 @@ function Swatch({
         aria-label={`Copy ${value}`}
         onClick={() => void copy(value, "hex")}
         className={cn(
-          "ring-border relative flex h-32 w-full cursor-copy flex-col justify-between overflow-hidden rounded-xl p-3 text-start shadow-sm ring-1 transition-shadow hover:shadow-md",
+          "ring-border relative flex h-32 w-full cursor-copy flex-col justify-between overflow-hidden rounded-xl p-3 text-start shadow-sm ring-1 transition-[box-shadow,scale] hover:shadow-md active:scale-[0.98] active:duration-75",
           value.length === 9 && "bg-checker",
         )}
         style={{ color: ink }}
@@ -300,7 +312,7 @@ function Swatch({
           <span aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${JSON.stringify(url(texture.id, "/w_720,f_webp"))})` }} />
         )}
         <span className="relative text-3xl font-semibold tracking-tight">Aa</span>
-        <span className="relative font-mono text-xs opacity-80">{value}</span>
+        <span className="relative flex items-center gap-1 font-mono text-xs opacity-80">{copied === value ? <Copied /> : value}</span>
       </button>
 
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -321,11 +333,11 @@ function Swatch({
                   type="button"
                   title={`Copy ${c}`}
                   onClick={() => void copy(c, "hex")}
-                  className="flex h-14 w-full cursor-copy flex-col justify-end p-1.5 text-start"
+                  className="flex h-14 w-full cursor-copy flex-col justify-end p-1.5 text-start transition-[scale] active:scale-95 active:duration-75"
                   style={{ backgroundColor: c, color: inkOn(c) }}
                 >
                   <span className="text-2xs font-medium tabular-nums">{t}%</span>
-                  <span className="font-mono text-2xs opacity-80">{c}</span>
+                  <span className="flex items-center gap-0.5 font-mono text-2xs opacity-80">{copied === c ? <Copied /> : c}</span>
                 </button>
               </li>
             );
