@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
@@ -52,8 +52,25 @@ export default async function HubListing(props: Props) {
   const type = faces(b, fonts);
   const here = base + hubPath(b.org, b.brand, pinned ? b.version : null);
 
+  // It names a domain its organization never proved: whoever proves it is offered the listing (lib/core/hub-claims.ts).
+  const claimable = open && !b.verified && !!b.domain;
+
   return (
     <>
+      {claimable && (
+        <div role="note" className="border-primary/30 bg-primary/10 border-b">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 text-sm">
+            <IconShieldCheck aria-hidden className="text-primary-ink size-5 shrink-0" />
+            <p className="min-w-0 flex-1">
+              <span className="font-medium">Is {b.name} your brand?</span>{" "}
+              <span className="text-muted-foreground hidden sm:inline">Prove your organization holds {b.domain} to claim this listing: it becomes your brand, verified, and this address leads to it.</span>
+            </p>
+            <Button asChild size="sm">
+              <a href={`${env.APP_URL}/settings/organization/domains`}>Claim this brand</a>
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="bg-muted/30 border-b">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 pt-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -72,15 +89,8 @@ export default async function HubListing(props: Props) {
               <span className="border-success/40 text-success inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
                 <IconCircleCheckFilled aria-hidden className="size-3" /> {b.verified} verified
               </span>
-            ) : open && b.domain ? (
-              // It names a domain its organization never proved: whoever proves it is offered the listing (lib/core/hub-claims.ts).
-              <span className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1 text-xs">
-                <span className="rounded-full border px-2 py-0.5 font-medium">Unclaimed</span>
-                <span aria-hidden>·</span>
-                <a href={`${env.APP_URL}/settings/organization/domains`} className="hover:text-foreground underline underline-offset-2">
-                  Is this yours? Prove {b.domain} to claim it
-                </a>
-              </span>
+            ) : claimable ? (
+              <span className="text-muted-foreground rounded-full border px-2 py-0.5 text-xs font-medium">Unclaimed</span>
             ) : (
               <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
                 {!open && <IconLock aria-hidden className="size-3" />}
@@ -210,7 +220,7 @@ export default async function HubListing(props: Props) {
                 <IconPhoto aria-hidden className="size-4" /> {b.logos} {b.logos === 1 ? "logo" : "logos"}
               </li>
               {open && (
-                <li>
+                <li className="flex items-center gap-1">
                   <Pulls n={b.pulls} className="gap-2 [&_svg]:size-4" /> in 30 days
                 </li>
               )}
@@ -221,7 +231,7 @@ export default async function HubListing(props: Props) {
             <h2 className="flex items-center gap-2 font-semibold">
               Releases <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{b.versions.length}</span>
             </h2>
-            <ol className="grid gap-2">
+            <ol className="grid grid-cols-1 gap-2">
               {b.versions.slice(0, 6).map((v) => (
                 <li key={v.number}>
                   <Link
@@ -233,7 +243,7 @@ export default async function HubListing(props: Props) {
                     <span className="font-mono font-medium">@{v.number}</span>
                     {v.name && <span className="text-muted-foreground min-w-0 truncate">{v.name}</span>}
                     {v.number === b.latest && <span className="border-success/40 text-success rounded-full border px-1.5 text-[11px] font-medium">Latest</span>}
-                    <span className="text-muted-foreground ms-auto text-xs">{ago(v.publishedAt)}</span>
+                    <span className="text-muted-foreground ms-auto shrink-0 text-xs whitespace-nowrap">{ago(v.publishedAt)}</span>
                   </Link>
                 </li>
               ))}
