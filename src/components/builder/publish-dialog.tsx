@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
+import { IconCheck, IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -441,10 +441,19 @@ function Swatch({ hex }: { hex: string }) {
 function Result({ done, brand, onClose }: { done: Published; brand: string; onClose: () => void }) {
   const portals = done.portals ?? [];
   return (
-    <div className="grid gap-4">
+    // The form gives way to this with a short rise; a real release gets its check, once, with a ring that spreads and goes.
+    <div className="animate-in fade-in-0 slide-in-from-bottom-2 grid gap-4 duration-300">
       <header className="grid gap-1.5">
-        <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
-          <IconWorldUpload aria-hidden className="size-5" /> {done.unchanged ? "Already released" : done.number ? `Released @${done.number}` : "Released"}
+        <h2 className="font-display flex items-center gap-2.5 text-xl font-semibold">
+          {done.unchanged ? (
+            <IconWorldUpload aria-hidden className="size-5" />
+          ) : (
+            <span aria-hidden className="bg-success/15 text-success animate-in zoom-in-50 relative grid size-8 shrink-0 place-items-center rounded-full delay-100 duration-300 fill-mode-backwards">
+              <span className="ring-success/60 absolute inset-0 rounded-full ring-2 [animation:ping_900ms_var(--ease-out)_200ms_1_both]" />
+              <IconCheck className="size-4" stroke={2.5} />
+            </span>
+          )}
+          {done.unchanged ? "Already released" : done.number ? `Released @${done.number}` : "Released"}
         </h2>
         <p className="text-muted-foreground text-sm">
           {done.unchanged
