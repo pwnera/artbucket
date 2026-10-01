@@ -9,12 +9,14 @@ import {
   IconLoader2,
   IconRefresh,
   IconX,
+  IconCheck,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/icon-button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatBytes, truncateFilename } from "@/lib/filename";
+import { useKept } from "@/lib/motion";
 
 export type Upload = {
   id: string;
@@ -136,24 +138,28 @@ export function UploadTray({
   labels?: TrayLabels;
 }) {
   const [folded, setFolded] = useState(false);
-  if (!uploads.length) return null;
+  // Kept a moment once cleared, to slide away rather than vanish.
+  const kept = useKept(uploads.length ? uploads : null);
+  if (!kept) return null;
+  const leaving = !uploads.length;
+  const list = kept;
   const label = { ...LABEL, ...labels };
-  const active = uploads.filter(isActive).length;
-  const failed = uploads.filter((u) => u.status === "failed").length;
-  const finished = uploads.length - active;
-  const total = uploads.reduce((n, u) => n + u.size, 0);
+  const active = list.filter(isActive).length;
+  const failed = list.filter((u) => u.status === "failed").length;
+  const finished = list.length - active;
+  const total = list.reduce((n, u) => n + u.size, 0);
   // A finished file counts as fully sent, even one storage never needed (deduped).
-  const sent = uploads.reduce((n, u) => n + (isActive(u) ? u.loaded : u.size), 0);
+  const sent = list.reduce((n, u) => n + (isActive(u) ? u.loaded : u.size), 0);
   const pct = total ? Math.round((sent / total) * 100) : 100;
 
   const files = (n: number) => `${n.toLocaleString()} ${n === 1 ? "file" : "files"}`;
   const summary = active
-    ? `Uploading ${files(uploads.length)} · ${finished.toLocaleString()} done`
+    ? `Uploading ${files(list.length)} · ${finished.toLocaleString()} done`
     : failed
-      ? `${(uploads.length - failed).toLocaleString()} uploaded, ${failed.toLocaleString()} failed`
+      ? `${(list.length - failed).toLocaleString()} uploaded, ${failed.toLocaleString()} failed`
       : missing
         ? `${missing.toLocaleString()} added, not in this view`
-        : (labels?.finished?.(files(uploads.length)) ?? `${files(uploads.length)} uploaded`);
+        : (labels?.finished?.(files(list.length)) ?? `${files(list.length)} uploaded`);
 
   return (
     <section
@@ -163,6 +169,10 @@ export function UploadTray({
         inline
           ? "w-full"
           : "fixed right-4 bottom-4 z-40 w-[min(360px,calc(100vw-32px))] shadow-lg transition-[bottom] duration-200 [body:has([data-floating=selection])_&]:bottom-20",
+        !inline &&
+          (leaving
+            ? "animate-out fade-out-0 slide-out-to-bottom-2 fill-mode-forwards pointer-events-none duration-150 ease-in"
+            : "animate-in fade-in-0 slide-in-from-bottom-2"),
       )}
     >
       <header className="flex items-center gap-2 px-4 pt-3 pb-2">
@@ -201,13 +211,14 @@ export function UploadTray({
         aria-label="Overall upload progress"
         className={cn("mx-4 mb-3 w-auto", failed && !active && "[&>div]:bg-destructive", !folded && "mb-0")}
       />
-      {!folded && (
-        <ul className="max-h-64 overflow-y-auto px-4 py-2">
-          {uploads.map((u) => {
+      {/* Folds by height, both ways. */}
+      <div className={cn("grid transition-[grid-template-rows] duration-200", folded ? "grid-rows-[0fr]" : "grid-rows-[1fr]")} inert={folded}>
+        <ul className="max-h-64 min-h-0 overflow-y-auto px-4 py-2">
+          {list.map((u) => {
             const p = u.size ? Math.round((u.loaded / u.size) * 100) : 0;
             const landed = (u.status === "done" || u.status === "deduped") && u.assetId;
             return (
-              <li key={u.id} className="py-1.5">
+              <li key={u.id} className="animate-in fade-in-0 slide-in-from-top-1 py-1.5 duration-150">
                 <div className="flex items-center gap-2">
                   {u.preview && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -218,10 +229,11 @@ export function UploadTray({
                   </span>
                   <span
                     className={cn(
-                      "shrink-0 text-xs tabular-nums",
+                      "flex shrink-0 items-center gap-1 text-xs tabular-nums",
                       u.status === "failed" ? "text-destructive" : u.status === "done" ? "text-success" : "text-muted-foreground",
                     )}
                   >
+                    {u.status === "done" && <IconCheck aria-hidden className="animate-in zoom-in-50 size-3.5 duration-200" />}
                     {u.status === "uploading" ? `${p}% of ${formatBytes(u.size)}` : label[u.status]}
                   </span>
                   {isActive(u) && onCancel && (
@@ -246,7 +258,7 @@ export function UploadTray({
             );
           })}
         </ul>
-      )}
+      </div>
     </section>
   );
 }

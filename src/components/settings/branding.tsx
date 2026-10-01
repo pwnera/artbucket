@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 import { APP_BG, contrast, grade } from "@/lib/color";
 import { send } from "@/lib/send";
+import { flash, useFlashNew } from "@/lib/motion";
+import { Waiting } from "@/components/waiting";
 
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
@@ -227,19 +229,32 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
   };
 
   const waiting = domains.filter((d) => !d.verified).map((d) => d.host).join(" ");
+  // A domain just added lights up when the list brings it.
+  useFlashNew(
+    domains.map((d) => d.host),
+    (host) => `[data-domain="${CSS.escape(host)}"]`,
+  );
+  // When the pending ones were last checked, and whether it has given up: said under each, so the wait is seen.
+  // `gaveUp`: the pending set it stopped checking, so a domain added after starts it over.
+  const [checked, setChecked] = useState<{ at: number | null; gaveUp: string | null }>({ at: null, gaveUp: null });
   useEffect(() => {
     if (!waiting) return;
     const until = Date.now() + RECHECK.for;
     const t = setInterval(async () => {
-      if (Date.now() > until) return clearInterval(t);
+      if (Date.now() > until) {
+        clearInterval(t);
+        return setChecked((c) => ({ ...c, gaveUp: waiting }));
+      }
       if (document.visibilityState !== "visible") return;
       for (const host of waiting.split(" ")) {
         // Not send(): a 422 only means "not yet", which is no error to toast, and no save to count.
         const res = await fetch(`/api/v1/domains/${encodeURIComponent(host)}/verify`, { method: "POST" }).catch(() => null);
         if (!res?.ok) continue;
         toast.success(`${host} is verified`);
+        flash(`[data-domain="${CSS.escape(host)}"]`);
         router.refresh();
       }
+      setChecked({ at: Date.now(), gaveUp: null });
     }, RECHECK.every);
     return () => clearInterval(t);
   }, [waiting, router]);
@@ -260,7 +275,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                 ["Value", d.record.value, "the TXT value"],
               ];
               return (
-                <li key={d.host} className="grid gap-2 p-3 text-sm">
+                <li key={d.host} data-domain={d.host} className="grid gap-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
                       {d.host}
@@ -269,7 +284,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                     {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
                     {d.verified ? (
                       <Badge variant="success">
-                        <IconCheck /> Verified
+                        <IconCheck className="animate-in zoom-in-50 duration-300" /> Verified
                       </Badge>
                     ) : (
                       <Button size="sm" variant="outline" pending={busy[d.host]} onClick={() => act(d.host, "POST", `${at}/verify`, undefined, `${d.host} is verified`)}>
@@ -310,10 +325,12 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                           </Fragment>
                         ))}
                       </dl>
-                      <p className="text-muted-foreground">
-                        {d.cname && "Both are checked. At a zone's apex, where a CNAME can't go, an ALIAS or flattened record to the same target works. "}
-                        Checked again on its own every 30 seconds for a while.
-                      </p>
+                      {d.cname && (
+                        <p className="text-muted-foreground">
+                          Both are checked. At a zone&apos;s apex, where a CNAME can&apos;t go, an ALIAS or flattened record to the same target works.
+                        </p>
+                      )}
+                      <Waiting what="Waiting for DNS, checked every 30 seconds" checkedAt={checked.at} stopped={checked.gaveUp === waiting} />
                     </div>
                   )}
                 </li>

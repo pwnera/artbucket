@@ -19,6 +19,7 @@ import type { Brand } from "@/lib/branding";
 import { inkOn } from "@/lib/color";
 import { pool } from "@/lib/pool";
 import { cn } from "@/lib/utils";
+import { shake } from "@/lib/motion";
 
 type Item = {
   id: string;
@@ -251,8 +252,11 @@ function PasswordForm({ state, onSubmit }: { state: Locked; onSubmit: (p: string
   const [busy, setBusy] = useState(false);
   const problem = state.note ?? (state.wrong ? "That password isn't right." : null);
   useEffect(() => {
-    // After a wrong one, the whole password is selected, ready to retype.
-    if (state.wrong) input.current?.select();
+    // After a wrong one, the whole password is selected, ready to retype, and the form shakes its head.
+    if (state.wrong) {
+      input.current?.select();
+      shake(input.current?.closest("form"));
+    }
   }, [state]);
   return (
     <Card title={state.name ?? "This link is protected"} lead="Whoever shared it gave it a password." brand={state.brand}>

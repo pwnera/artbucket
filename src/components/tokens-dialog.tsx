@@ -175,7 +175,7 @@ function Preview({ path, file, hint }: { path: string; file: string; hint: strin
             </Button>
           </span>
         ) : (
-          <code>
+          <code key={path} className="animate-in fade-in-0 block duration-150">
             <Highlight code={code} />
           </code>
         )}

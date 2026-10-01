@@ -211,7 +211,7 @@ function Share({
 
   const lead =
     existing.length > 0 ? (
-      <div className="grid gap-2">
+      <div className="animate-in fade-in-0 grid gap-2 duration-200">
         <p className="text-sm font-medium">{existing.length === 1 ? "Its link" : `Its ${existing.length} links`}</p>
         <ul className="divide-y rounded-md border">
           {existing.map((l) => (
@@ -596,10 +596,12 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
           checked={on}
           disabled={busy}
           onCheckedChange={async (next) => {
+            // Flipped at once, and back if the server says no.
+            setOn(next);
             setBusy(true);
             const a = await send("PATCH", `/api/v1/assets/${asset.id}`, { public: next });
             setBusy(false);
-            if (!a) return;
+            if (!a) return setOn(!next);
             setOn(a.public);
             onChanged?.(a);
           }}
@@ -607,7 +609,7 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
         <Label htmlFor={fieldId}>{on ? "Anyone with the URL gets the file" : "Off: only people with access"}</Label>
       </div>
       {on && (
-        <div className="grid gap-3">
+        <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-3 duration-150">
           <div className="grid gap-1.5">
             <p className="text-sm font-medium">Always the current version</p>
             <Snippet text={at(`/c/${asset.id}`)} what="the URL" />

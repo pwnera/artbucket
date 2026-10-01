@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { AppHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
  */
 export default function AppError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => console.error(error), [error]);
+  // Retrying fetches the page again: the button says so until it lands.
+  const [trying, tryAgain] = useTransition();
   return (
     <>
       <AppHeader trail={[{ label: "Something went wrong" }]} />
@@ -30,7 +32,9 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent className="flex-row justify-center">
-            <Button onClick={retry}>Try again</Button>
+            <Button pending={trying} onClick={() => tryAgain(retry)}>
+              Try again
+            </Button>
             <Button variant="outline" asChild>
               <Link href="/">Go to Assets</Link>
             </Button>

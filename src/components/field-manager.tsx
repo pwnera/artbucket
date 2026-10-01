@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { FIELD_TYPES, type FieldDef, type FieldType } from "@/lib/fields";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
+import { transition } from "@/lib/motion";
 
 export const TYPES: Record<FieldType, { label: string; icon: Icon }> = {
   text: { label: "Text", icon: IconTypography },
@@ -112,7 +113,8 @@ export function FieldsEditor({ fields, onChanged }: { fields: FieldDef[]; onChan
   function move(from: number, to: number) {
     const next = [...order];
     next.splice(to, 0, ...next.splice(from, 1));
-    setOrder(next);
+    // The two rows swap places as a glide, not a jump.
+    transition(() => setOrder(next));
     pending.current++;
     moves.current = moves.current.then(async () => {
       await Promise.all(next.map((f, i) => send("PATCH", `/api/v1/fields/${f.key}`, { position: i })));
@@ -233,6 +235,7 @@ function FieldRow({
   };
   return (
     <li
+      data-vt={`field-${f.key}`}
       aria-busy={deleting || undefined}
       className={cn(
         "transition-opacity",

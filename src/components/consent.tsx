@@ -200,7 +200,7 @@ function Choose({
             Cancel
           </Button>
           <Button type="submit" pending={busy === "allow"} disabled={!!busy || !workspace}>
-            {busy === "allow" ? "Connecting…" : "Allow"}
+            Allow
           </Button>
         </div>
       </form>
@@ -385,7 +385,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
         </Field>
         {error && <FormError id="device-code-error">{error}</FormError>}
         <Button type="submit" className="w-full" pending={looking} disabled={!ready}>
-          {looking ? "Checking…" : "Continue"}
+          Continue
         </Button>
       </form>
     </Card>

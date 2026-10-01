@@ -75,6 +75,9 @@ import {
 import { formatSize } from "@/lib/limits";
 import { short } from "@/lib/time";
 import { canonical, parseView, viewQuery } from "@/lib/view";
+import { useKept } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { LinkIcon } from "@/components/link-pending";
 
 export type SavedSearch = { id: string; name: string; query: string };
 
@@ -271,22 +274,25 @@ export function AppSidebar({
  * hidden folded to the rail.
  */
 function StorageLine() {
-  const [usage, setUsage] = useState<{ used: number; max: number | null } | null>(null);
+  // false: it couldn't be read, and the line goes.
+  const [usage, setUsage] = useState<{ used: number; max: number | null } | false | null>(null);
   useEffect(() => {
     let live = true;
     fetch("/api/v1/usage")
       .then((r) => (r.ok ? r.json() : null))
-      .then((b) => live && b && setUsage({ used: b.data.used.storage, max: b.data.limits?.storage ?? null }))
-      .catch(() => {});
+      .then((b) => live && setUsage(b ? { used: b.data.used.storage, max: b.data.limits?.storage ?? null } : false))
+      .catch(() => live && setUsage(false));
     return () => {
       live = false;
     };
   }, []);
-  if (!usage) return null;
+  // Its line is held while it loads, so the footer doesn't jump when it lands.
+  if (usage === false) return null;
+  if (!usage) return <span aria-hidden className="h-4 group-data-[collapsible=icon]:hidden" />;
   return (
     <Link
       href="/settings/organization/usage"
-      className="text-muted-foreground hover:text-foreground px-2 text-xs tabular-nums group-data-[collapsible=icon]:hidden"
+      className="text-muted-foreground hover:text-foreground animate-in fade-in-0 h-4 px-2 text-xs tabular-nums duration-300 group-data-[collapsible=icon]:hidden"
     >
       {formatSize(usage.used)}
       {usage.max !== null && ` of ${formatSize(usage.max)}`} used
@@ -372,8 +378,10 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
     if (open?.keyboard) (panel.current?.querySelector<HTMLElement>("a[href]") ?? panel.current?.querySelector<HTMLElement>("button"))?.focus();
   }, [open]);
 
-  if (!items.length) return null;
   const shown = open && items.find((i) => i.id === open.id);
+  // Kept a moment once closed, so the panel slides away rather than vanishing.
+  const kept = useKept(shown || null);
+  if (!items.length) return null;
   return (
     <SidebarGroup className="hidden group-data-[collapsible=icon]:flex">
       <SidebarGroupContent>
@@ -411,13 +419,13 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
           })}
         </SidebarMenu>
       </SidebarGroupContent>
-      {shown &&
+      {kept &&
         createPortal(
           <div
             ref={panel}
             id={`${base}-panel`}
             role="region"
-            aria-label={shown.label}
+            aria-label={kept.label}
             onPointerEnter={() => clearTimeout(timer.current)}
             onPointerLeave={(e) => e.pointerType === "mouse" && later(() => setOpen((o) => (o?.pinned ? o : null)))}
             // Anything done inside keeps it open while the pointer wanders (a menu, a dialog).
@@ -430,12 +438,17 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
             onKeyDown={(e) => {
               if (e.key !== "Escape" || !panel.current?.contains(e.target as Node)) return;
               close();
-              document.getElementById(`${base}-${shown.id}`)?.focus();
+              document.getElementById(`${base}-${kept.id}`)?.focus();
             }}
-            className="bg-sidebar text-sidebar-foreground animate-in fade-in-0 slide-in-from-left-2 fixed inset-y-0 start-(--sidebar-width-icon,3rem) z-30 hidden w-64 overflow-y-auto border-e shadow-xl duration-150 md:block"
+            className={cn(
+              "bg-sidebar text-sidebar-foreground fixed inset-y-0 start-(--sidebar-width-icon,3rem) z-30 hidden w-64 overflow-y-auto border-e shadow-xl md:block",
+              shown
+                ? "animate-in fade-in-0 slide-in-from-left-2 duration-150"
+                : "animate-out fade-out-0 slide-out-to-left-2 fill-mode-forwards pointer-events-none duration-100 ease-in",
+            )}
           >
             <SidebarExpandedScope>
-              <Flyout.Provider value={flyout}>{render(shown.id)}</Flyout.Provider>
+              <Flyout.Provider value={flyout}>{render(kept.id)}</Flyout.Provider>
             </SidebarExpandedScope>
           </div>,
           document.body,
@@ -645,7 +658,7 @@ function Place({
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={hint ? `${label}: ${hint}` : label}>
         <NavLink href={href}>
-          {icon}{" "}
+          <LinkIcon icon={icon} />{" "}
           <span>
             {label}
             {/* What the number counts, for a screen reader; the badge itself is only a picture of it. */}

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { IconMoodEmpty } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Cards, Preview, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";
 import { followed, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
+import Form from "next/form";
+import Link from "next/link";
+import { SubmitButton } from "@/components/submit-button";
 
 export const metadata: Metadata = {
   title: { absolute: "BrandHub: brands to build with" },
@@ -98,14 +100,16 @@ export default async function HubHome({ searchParams }: Props) {
           <nav aria-label="Sort" className="text-muted-foreground mb-2 flex items-center gap-1 text-sm">
             <span className="me-1">Sort</span>
             {(Object.keys(HUB_SORTS) as HubSort[]).map((s) => (
-              <a
+              // In the page, keeping its scroll: sorting doesn't throw you back above the hero.
+              <Link
                 key={s}
                 href={href({ sort: s })}
+                scroll={false}
                 aria-current={s === sort ? "true" : undefined}
-                className="hover:text-foreground aria-[current=true]:bg-muted aria-[current=true]:text-foreground rounded-md px-2 py-1"
+                className="hover:text-foreground aria-[current=true]:bg-muted aria-[current=true]:text-foreground rounded-md px-2 py-1 transition-colors"
               >
                 {HUB_SORTS[s]}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
@@ -127,14 +131,14 @@ export default async function HubHome({ searchParams }: Props) {
         )}
 
         {/* The public Brand Agent Score (app/hub/score), asked from the front page as the prototype's hub does. */}
-        <form action={`${base}/score`} className="mt-10 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-5">
+        <Form action={`${base}/score`} className="mt-10 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-5">
           <div className="min-w-60 flex-1">
             <p className="font-medium">How agent-ready is your brand?</p>
             <p className="text-muted-foreground text-sm">Enter a domain and get a free Brand Agent Score.</p>
           </div>
           <Input name="domain" required placeholder="yourbrand.com" aria-label="Your brand's domain" className="w-full sm:w-56" />
-          <Button type="submit">Check</Button>
-        </form>
+          <SubmitButton>Check</SubmitButton>
+        </Form>
       </div>
     </>
   );

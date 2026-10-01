@@ -5,7 +5,7 @@ import { Slot } from "radix-ui"
 import { IconLoader2 } from "@tabler/icons-react"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] data-[size^=icon]:active:scale-[0.92] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden data-[pending=over]:[-webkit-text-fill-color:transparent] [&[data-pending=over]>[data-spinner]]:absolute [&[data-pending=over]>[data-spinner]]:inset-0 [&[data-pending=over]>[data-spinner]]:m-auto [&[data-pending=over]>[data-spinner]]:[-webkit-text-fill-color:initial] aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -21,10 +21,10 @@ const buttonVariants = cva(
         link: "text-primary-ink underline-offset-4 hover:underline active:scale-100",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        default: "h-9 px-4 py-2 has-[>svg:not([data-spinner])]:px-3",
+        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg:not([data-spinner])]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg:not([data-spinner])]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg:not([data-spinner])]:px-4",
         icon: "size-9",
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
@@ -40,8 +40,11 @@ const buttonVariants = cva(
 
 /**
  * `pending` reads as working, not unavailable: disabled at full strength,
- * with a spinner in the leading icon's place so the width holds. Keep it off
- * buttons whose only icon trails the label, or that icon hides.
+ * with a spinner in the leading icon's place, or over the hidden label when
+ * there is no leading icon, so the width always holds. Keep the label as it
+ * is while pending: the spinner says working. A label that itself says what
+ * is happening ("Laying out the pages") asks for "beside": the spinner leads
+ * and the words stay.
  */
 function Button({
   className,
@@ -55,18 +58,21 @@ function Button({
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-    pending?: boolean
+    pending?: boolean | "beside"
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  // A component first is a leading icon (Tabler's are), which the spinner takes the place of.
+  const lead = React.Children.toArray(children)[0]
+  const swap = pending === "beside" || (React.isValidElement(lead) && typeof lead.type !== "string")
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      data-pending={pending || undefined}
-      aria-busy={pending || undefined}
-      disabled={disabled || pending || undefined}
+      data-pending={pending ? (swap ? "swap" : "over") : undefined}
+      aria-busy={!!pending || undefined}
+      disabled={disabled || !!pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >

@@ -81,7 +81,9 @@ import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS, isDownloadable } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
+import { flash, Morph, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
 export function useLibraryTags() {
@@ -261,6 +263,7 @@ export function AssetEditor({
   onOpen,
   onDecided,
   onStep,
+  from = 0,
   hasPrev,
   hasNext,
   dragging,
@@ -279,6 +282,8 @@ export function AssetEditor({
   /** Approved or rejected: `before` is what Undo puts back. */
   onDecided?: (before: Asset, after: Asset, message: string) => void;
   onStep?: (d: 1 | -1) => void;
+  /** The way a step came: the preview slides in from that side (1 from the end, -1 from the start). */
+  from?: 1 | -1 | 0;
   hasPrev?: boolean;
   hasNext?: boolean;
   /** Files are being dragged over the dialog. */
@@ -304,7 +309,10 @@ export function AssetEditor({
   const editable = can("asset.edit", asset) && asset.state !== "deleted";
   const router = useRouter();
   const [tags, searchTags] = useTagSearch(useLibraryTags());
-  const { upload } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
+  const { upload, pct } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
+  const overlay = dragging || pct !== null;
+  // Kept a moment once the file leaves or lands, so the overlay fades rather than blinks out.
+  const overlayShown = useKept(overlay || null);
   const m = asset.metadata ?? {};
   const relaxed = relaxInherited(fields, asset.inherited);
 
@@ -424,6 +432,8 @@ export function AssetEditor({
       setErrors((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !saving.includes(groupOf(k)))));
       check(true);
       onReviewed(res.data);
+      // What just saved lights up where it is, not only in the header's Saved.
+      formRef.current?.querySelectorAll<HTMLElement>("[data-prop]").forEach((el) => saving.includes(groupOf(el.dataset.prop!)) && flash(el));
       // What the person may do comes from the server, and private moves it.
       if (saving.includes("private")) router.refresh();
       return res.data as Asset;
@@ -473,15 +483,19 @@ export function AssetEditor({
 
   /** Every suggestion taken, with what the form says: its tags, its values over the suggested ones. */
   const approving = useRef(false);
+  // Shown on the Approve button whichever way it came, the button or the A key.
+  const [approvingNow, setApprovingNow] = useState(false);
   async function approve() {
     const form = formRef.current;
     // Once: the A key and the button are both a way in.
     if (!form || approving.current) return;
     approving.current = true;
+    setApprovingNow(true);
     try {
       await approveNow(form);
     } finally {
       approving.current = false;
+      setApprovingNow(false);
     }
   }
   async function approveNow(form: HTMLFormElement) {
@@ -628,6 +642,8 @@ export function AssetEditor({
       <div
         className={cn(
           "animate-in fade-in-0 flex min-h-64 flex-col border-b duration-150 max-md:h-[45dvh] md:min-h-0 md:border-r md:border-b-0",
+          from === 1 && "slide-in-from-end-4 duration-200",
+          from === -1 && "slide-in-from-start-4 duration-200",
           // The picked background is for images and icons; a video, a font or a file keeps the plain well.
           PREVIEW_BG[backdrop ? bg : "auto"],
           theater && "max-md:h-dvh md:col-span-2 md:border-r-0",
@@ -664,36 +680,38 @@ export function AssetEditor({
               <IconStage asset={asset} bg={bg} name={name} />
             </div>
           ) : image ? (
-            <div
-              draggable
-              onDragStart={dragOut}
-              onDoubleClick={() => setZoom((z) => !z)}
-              className={cn("absolute inset-0", zoom ? "cursor-zoom-out overflow-auto" : "cursor-zoom-in")}
-            >
-              {zoom ? (
-                // Actual pixels, panned by scrolling. An SVG stays the vector: an <img> runs no script.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={svg ? `/a/${asset.id}` : `/a/${asset.id}/f_webp`}
-                  alt={name}
-                  draggable={false}
-                  style={asset.width ? { width: asset.width } : undefined}
-                  className="m-auto block max-w-none p-6"
-                />
-              ) : svg ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/a/${asset.id}`} alt={name} draggable={false} className="size-full object-contain p-6" />
-              ) : (
-                <Thumb
-                  src={`/a/${asset.id}/w_640,f_webp`}
-                  alt={name}
-                  eager
-                  // The card's rendition, already cached: shown at once, sharpened when this lands.
-                  placeholder={`/a/${asset.id}/w_${typeof devicePixelRatio !== "undefined" && devicePixelRatio > 1 ? 520 : 260},f_webp`}
-                  className="p-6"
-                />
-              )}
-            </div>
+            <Morph name={`asset-${asset.id}`}>
+              <div
+                draggable
+                onDragStart={dragOut}
+                onDoubleClick={() => setZoom((z) => !z)}
+                className={cn("absolute inset-0", zoom ? "cursor-zoom-out overflow-auto" : "cursor-zoom-in")}
+              >
+                {zoom ? (
+                  // Actual pixels, panned by scrolling. An SVG stays the vector: an <img> runs no script.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={svg ? `/a/${asset.id}` : `/a/${asset.id}/f_webp`}
+                    alt={name}
+                    draggable={false}
+                    style={asset.width ? { width: asset.width } : undefined}
+                    className="m-auto block max-w-none p-6"
+                  />
+                ) : svg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`/a/${asset.id}`} alt={name} draggable={false} className="size-full object-contain p-6" />
+                ) : (
+                  <Thumb
+                    src={`/a/${asset.id}/w_640,f_webp`}
+                    alt={name}
+                    eager
+                    // The card's rendition, already cached: shown at once, sharpened when this lands.
+                    placeholder={`/a/${asset.id}/w_${typeof devicePixelRatio !== "undefined" && devicePixelRatio > 1 ? 520 : 260},f_webp`}
+                    className="p-6"
+                  />
+                )}
+              </div>
+            </Morph>
           ) : isFont(asset.mime, asset.filename) ? (
             <FontPlayground id={asset.id} />
           ) : (
@@ -770,10 +788,23 @@ export function AssetEditor({
             </IconButton>
           )}
 
-          {dragging && (
-            <div className="bg-background/85 animate-in fade-in-0 absolute inset-3 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm font-medium duration-150">
+          {overlayShown && (
+            // Up while dragging, and kept up once dropped: the file's progress shows where it went.
+            <div
+              className={cn(
+                "bg-background/85 absolute inset-3 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm font-medium",
+                overlay ? "animate-in fade-in-0 zoom-in-[0.98] duration-150" : "animate-out fade-out-0 fill-mode-forwards duration-100 ease-in",
+              )}
+            >
               <IconUpload className="text-muted-foreground size-6" />
-              Drop to add a new version
+              {pct === null ? (
+                "Drop to add a new version"
+              ) : (
+                <>
+                  <span className="tabular-nums">Uploading the new version · {pct}%</span>
+                  <Progress value={pct} className="w-40" />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -994,6 +1025,7 @@ export function AssetEditor({
                 approve={approve}
                 approveLabel={pending && asset.status === "proposed" ? "Approve with suggestions" : "Approve"}
                 approveError={approveError}
+                approving={approvingNow}
               />
             </Can>
             <Lifecycle asset={asset} onChanged={onReviewed} approve={approve} />
@@ -1888,6 +1920,7 @@ function Review({
   approve,
   approveLabel,
   approveError,
+  approving = false,
 }: {
   asset: Asset;
   fields: FieldDef[];
@@ -1900,10 +1933,14 @@ function Review({
   approve: () => Promise<void>;
   approveLabel: string;
   approveError: string | null;
+  /** An approval on its way, from the A key too. */
+  approving?: boolean;
 }) {
   // Which action is running, so only its button says so.
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // Suggestions taken or dropped one at a time leave at once, and come back if the save fails.
+  const [gone, setGone] = useState<string[]>([]);
   if (asset.status === "rejected") {
     return (
       <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-sm">
@@ -1925,10 +1962,18 @@ function Review({
     setBusy(null);
   };
   const patch = (what: string, body: Record<string, unknown>) => run(what, () => flush(body));
+  /** One suggestion decided: off the list now, the save after, back on the list if it didn't take. */
+  const one = async (key: string, decide: () => Promise<unknown>) => {
+    setGone((g) => [...g, key]);
+    const ok = await decide();
+    if (!ok) setGone((g) => g.filter((k) => k !== key));
+  };
   const onScreen = () => (formRef.current ? new FormData(formRef.current).getAll("tags").map(String) : asset.tags);
   const accept = (tags: string[], what: string) =>
     patch(what, { tags: [...new Set([...onScreen(), ...tags])], proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
   const dismiss = (tags: string[], what: string) => patch(what, { proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
+  const proposedTags = asset.proposedTags.filter((t) => !gone.includes(t));
+  const shownSuggested = suggested.filter(([k]) => !gone.includes(k));
   /** What is left waiting once `keys` are decided. */
   const keep = (keys: string[]) => Object.fromEntries(suggested.filter(([k]) => !keys.includes(k)));
   const defOf = (key: string) => fields.find((f) => f.key === key);
@@ -1959,7 +2004,7 @@ function Review({
           </p>
           <p className="text-muted-foreground text-xs">It stays out of the library and search until you approve it.</p>
           {rejecting ? (
-            <div className="grid gap-2">
+            <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
               <Textarea
                 autoFocus
                 value={reason}
@@ -1988,7 +2033,7 @@ function Review({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" disabled={!!busy} pending={busy === "approve"} onClick={() => run("approve", approve)}>
+              <Button type="button" size="sm" disabled={!!busy} pending={busy === "approve" || approving} onClick={() => run("approve", approve)}>
                 <IconCheck /> {approveLabel}
                 <Kbd keys={["A"]} className="bg-background/20 border-transparent text-current max-sm:hidden" />
               </Button>
@@ -2005,39 +2050,39 @@ function Review({
           )}
         </div>
       )}
-      {asset.proposedTags.length > 0 && (
+      {proposedTags.length > 0 && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested tags
           </p>
           <ul className="flex flex-wrap gap-1.5">
-            {asset.proposedTags.map((t) => (
+            {proposedTags.map((t) => (
               <li key={t}>
                 <Badge variant="outline" className="gap-0.5 border-dashed pr-0.5">
                   {t}
                   <button
                     type="button"
                     disabled={!!busy}
-                    onClick={() => accept([t], `accept:${t}`)}
+                    onClick={() => one(t, () => flush({ tags: [...new Set([...onScreen(), t])], proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Accept tag ${t}`}
                     className="hover:bg-primary/15 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
                   >
-                    <IconCheck className={cn("size-3", busy === `accept:${t}` && "animate-pulse")} />
+                    <IconCheck className="size-3" />
                   </button>
                   <button
                     type="button"
                     disabled={!!busy}
-                    onClick={() => dismiss([t], `dismiss:${t}`)}
+                    onClick={() => one(t, () => flush({ proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Dismiss tag ${t}`}
                     className="hover:bg-muted-foreground/20 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
                   >
-                    <IconX className={cn("size-3", busy === `dismiss:${t}` && "animate-pulse")} />
+                    <IconX className="size-3" />
                   </button>
                 </Badge>
               </li>
             ))}
           </ul>
-          {asset.proposedTags.length > 1 && (
+          {proposedTags.length > 1 && (
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="outline" disabled={!!busy} pending={busy === "accept:tags"} onClick={() => accept(asset.proposedTags, "accept:tags")}>
                 Accept all
@@ -2049,13 +2094,13 @@ function Review({
           )}
         </div>
       )}
-      {suggested.length > 0 && (
+      {shownSuggested.length > 0 && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested values
           </p>
           <ul className="grid gap-1">
-            {suggested.map(([k, v]) => {
+            {shownSuggested.map(([k, v]) => {
               const d = defOf(k);
               const label = d?.label ?? k;
               const shown = formatFieldValue(d, v);
@@ -2066,18 +2111,18 @@ function Review({
                     {shown}
                   </span>
                   {d && (
-                    <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} pending={busy === `accept:${k}`} onClick={() => acceptValues([k], `accept:${k}`)}>
+                    <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} onClick={() => one(k, () => (defOf(k) ? flush({ fields: { [k]: v }, proposedFields: keep([k]) }) : Promise.resolve(false)))}>
                       <IconCheck />
                     </IconButton>
                   )}
-                  <IconButton variant="ghost" label={`Dismiss ${label}`} disabled={!!busy} pending={busy === `dismiss:${k}`} onClick={() => dismissValues([k], `dismiss:${k}`)}>
+                  <IconButton variant="ghost" label={`Dismiss ${label}`} disabled={!!busy} onClick={() => one(k, () => flush({ proposedFields: keep([k]) }))}>
                     <IconX />
                   </IconButton>
                 </li>
               );
             })}
           </ul>
-          {suggested.length > 1 && (
+          {shownSuggested.length > 1 && (
             <div className="flex gap-2">
               <Button
                 type="button"

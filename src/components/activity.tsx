@@ -34,6 +34,7 @@ import { ruleLabel } from "@/lib/rules";
 import { send } from "@/lib/send";
 import { ago, day, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { flash } from "@/lib/motion";
 
 type Item = {
   id: string;
@@ -210,6 +211,7 @@ export function ActivityFeed({ first }: { first: Page }) {
     // What the server just recorded, shown now rather than on the next load.
     const row: Item = { ...i, id: `restored-${i.id}`, at: new Date().toISOString(), actor: me?.user?.name || "You", agent: false, verb: "restored", detail: null };
     setItems((xs) => [row, ...xs]);
+    flash(`[data-activity="${CSS.escape(row.id)}"]`);
   }
 
   const shown = items.filter((i) => who === "all" || (who === "agents") === i.agent);
@@ -381,7 +383,7 @@ function Restore({ item: i, restore, restoring }: { item: Item } & Pick<RowActio
 function Row({ item: i, restorable, restore, restoring }: { item: Item } & RowActions) {
   const { says } = VERB[i.verb] ?? SOMETHING;
   return (
-    <li className="flex items-start gap-3 px-3 py-2.5 text-sm">
+    <li data-activity={i.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
       <Face item={i} />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="leading-6">

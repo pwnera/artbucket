@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
@@ -28,6 +28,7 @@ import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { builderPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { transition } from "@/lib/motion";
 
 /**
  * The workspace's brands, as GitHub lists repositories: each one's name, who
@@ -168,10 +169,12 @@ export function BrandsPage({
                 aria-checked={layout === l}
                 aria-label={label}
                 title={label}
-                onClick={() => pickLayout(l)}
-                className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2 py-1 aria-checked:shadow-sm"
+                onClick={() => transition(() => pickLayout(l))}
+                className="text-muted-foreground aria-checked:text-foreground relative rounded px-2 py-1"
               >
-                <Icon className="size-4" />
+                {/* One pill, named, so it slides to the layout picked. */}
+                {layout === l && <span aria-hidden data-vt="layout-pill" className="bg-background absolute inset-0 rounded shadow-sm" />}
+                <Icon className="relative size-4" />
               </button>
             ))}
           </div>
@@ -180,13 +183,14 @@ export function BrandsPage({
         {!shown.length ? (
           <p className="text-muted-foreground rounded-lg border p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</p>
         ) : layout === "cards" ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          // One name for both layouts: switching, the list reshapes as one rather than swapping at once.
+          <ul data-vt="brands-list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shown.map((b, i) => (
               <Card key={b.slug} b={b} face={i < FACES} />
             ))}
           </ul>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul data-vt="brands-list" className="divide-y rounded-lg border">
             {shown.map((b) => (
               <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
             ))}
@@ -280,6 +284,9 @@ function Row({
 }) {
   const hub = b.hub;
   const open = b.visibility === "public";
+  // Until the change and the refresh after it land: the button spins rather than seeming dead.
+  const [changing, change] = useTransition();
+  const set = (patch: Parameters<typeof onHub>[0]) => change(async () => void (await onHub(patch)));
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
       <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint, palette: b.look.palette }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
@@ -325,7 +332,7 @@ function Row({
           )}
           {canShare &&
             (open ? (
-              <Button variant="outline" size="sm" onClick={() => void onHub({ visibility: "private" })}>
+              <Button variant="outline" size="sm" pending={changing} onClick={() => set({ visibility: "private" })}>
                 <IconLock aria-hidden /> Make private
               </Button>
             ) : (
@@ -342,7 +349,7 @@ function Row({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Guidelines link on BrandHub</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={hub.chosen && hub.portal ? hub.portal.slug : ""} onValueChange={(v) => void onHub({ portal: v || null })}>
+                <DropdownMenuRadioGroup value={hub.chosen && hub.portal ? hub.portal.slug : ""} onValueChange={(v) => set({ portal: v || null })}>
                   <DropdownMenuRadioItem value="">Its first public portal</DropdownMenuRadioItem>
                   {hub.portals.map((p) => (
                     <DropdownMenuRadioItem key={p.slug} value={p.slug}>

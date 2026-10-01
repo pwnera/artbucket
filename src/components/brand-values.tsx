@@ -262,7 +262,7 @@ export { CopyButton };
  * that are bigger than an icon (a swatch, a scale row): `copied` is the text
  * that just went, for 1.5s.
  */
-function useCopied() {
+export function useCopied() {
   const [copied, setCopied] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);

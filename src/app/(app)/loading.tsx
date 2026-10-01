@@ -1,4 +1,5 @@
-import { GridSkeleton } from "@/components/skeletons";
+import { GridSkeleton, LATE } from "@/components/skeletons";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -8,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function Loading() {
   return (
-    <div className="flex min-w-0 flex-1 flex-col" role="status" aria-label="Loading library">
+    <div className={cn("flex min-w-0 flex-1 flex-col", LATE)} role="status" aria-label="Loading library">
       <header className="flex h-14 items-center gap-3 border-b px-4">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="ml-auto h-8 w-40 sm:w-64" />

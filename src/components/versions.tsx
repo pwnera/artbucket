@@ -26,6 +26,7 @@ import { hasPreview } from "@/lib/preview";
 import { ago, exact } from "@/lib/time";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
+import { flash } from "@/lib/motion";
 
 const title = (a: Asset) => a.metadata?.title || a.filename;
 
@@ -180,9 +181,11 @@ export function Lifecycle({
  */
 export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
   const [busy, setBusy] = useState(false);
+  // How far the file is, shown where it was asked for (the button, the dropped-on preview), not in a toast.
+  const [pct, setPct] = useState<number | null>(null);
   async function upload(f: File, draft = false) {
     setBusy(true);
-    const id = toast.loading(`Uploading ${f.name}`);
+    setPct(0);
     const mime = f.type || "application/octet-stream";
     try {
       const ticket = await fetch("/api/v1/uploads", {
@@ -192,9 +195,7 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
       });
       if (!ticket.ok) throw new Error((await ticket.json().catch(() => null))?.error?.message ?? "Upload failed");
       const { token, uploadUrl } = await ticket.json();
-      await putWithProgress(uploadUrl, f, mime, (loaded) =>
-        toast.loading(`Uploading ${f.name}: ${Math.round((loaded / f.size) * 100)}%`, { id }),
-      );
+      await putWithProgress(uploadUrl, f, mime, (loaded) => setPct(Math.round((loaded / f.size) * 100)));
       const res = await fetch("/api/v1/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -209,16 +210,27 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
           : v.status === "active"
             ? `Version ${v.version} is current`
             : `Version ${v.version} added as ${STATE_LABEL[v.state].toLowerCase()}`,
-        { id },
       );
       onOpen(v.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed", { id });
+      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setBusy(false);
+      setPct(null);
     }
   }
-  return { upload, busy };
+  return { upload, busy, pct };
+}
+
+/** How far an upload is, as a line along the bottom of the button that started it. */
+export function UploadStrip({ pct }: { pct: number }) {
+  return (
+    <span
+      aria-hidden
+      className="bg-primary pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left rounded-full transition-transform duration-300"
+      style={{ transform: `scaleX(${pct / 100})` }}
+    />
+  );
 }
 
 /**
@@ -239,11 +251,14 @@ export function Versions({
   // null while loading: a stack shows skeleton rows, not the explanation, until it lands.
   const [versions, setVersions] = useState<Asset[] | null>(null);
   const [comparing, setComparing] = useState<{ with: Asset; open: boolean } | null>(null);
-  const [busy, setBusy] = useState(false);
+  // The version being made current: its own button spins, the others wait.
+  const [making, setMaking] = useState<string | null>(null);
+  const busy = making !== null;
   const file = useRef<HTMLInputElement>(null);
   const draft = useRef(false);
   const can = useCan();
-  const { upload, busy: uploading } = useVersionUpload(asset, onOpen);
+  const { upload, busy: uploading, pct } = useVersionUpload(asset, onOpen);
+  const strip = pct !== null && <UploadStrip pct={pct} />;
   useEffect(() => {
     let live = true;
     fetch(`/api/v1/assets/${asset.id}/versions`)
@@ -262,14 +277,17 @@ export function Versions({
 
   async function makeCurrent(v: Asset) {
     const was = list.find((x) => x.current);
-    setBusy(true);
+    setMaking(v.id);
     const next: Asset[] | null = await send("POST", `/api/v1/assets/${asset.id}/versions/${v.version}/current`);
-    setBusy(false);
+    setMaking(null);
     if (!next) return;
     const apply = (vs: Asset[]) => {
       setVersions(vs);
       const self = vs.find((x) => x.id === asset.id);
       if (self) onChanged(self);
+      // The row that is current now lights up, where Current moved to.
+      const now = vs.find((x) => x.current);
+      if (now) flash(`[data-version="${CSS.escape(now.id)}"]`);
     };
     apply(next);
     const message = `Version ${v.version} is current`;
@@ -288,9 +306,11 @@ export function Versions({
     file.current?.click();
   };
   const current = list.find((v) => v.current);
-  const summary = versions
-    ? `${list.length || 1} ${list.length > 1 ? "versions" : "version"}${current && list.length > 1 ? ` · v${current.version} current` : ""}`
-    : "";
+  const summary = versions ? (
+    `${list.length || 1} ${list.length > 1 ? "versions" : "version"}${current && list.length > 1 ? ` · v${current.version} current` : ""}`
+  ) : (
+    <span className="bg-accent inline-block h-3 w-20 animate-pulse rounded-md align-middle" />
+  );
 
   return (
     <Fold title="Versions" summary={summary} remember="versions">
@@ -311,6 +331,7 @@ export function Versions({
               <DropdownMenuTrigger asChild>
                 <Button type="button" size="sm" variant="outline" pending={uploading} disabled={busy}>
                   <IconUpload /> New version
+                  {strip}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -321,6 +342,7 @@ export function Versions({
           ) : (
             <Button type="button" size="sm" variant="outline" pending={uploading} disabled={busy} onClick={() => pick(false)}>
               <IconUpload /> Suggest a new version
+              {strip}
             </Button>
           )}
         </div>
@@ -343,6 +365,7 @@ export function Versions({
           {list.map((v) => (
             <li
               key={v.id}
+              data-version={v.id}
               aria-current={v.id === asset.id || undefined}
               className={cn("flex items-center gap-2 rounded-md p-1 text-sm", v.id === asset.id && "bg-muted")}
             >
@@ -378,7 +401,7 @@ export function Versions({
                 </Button>
               )}
               {!v.current && v.state === "active" && can("asset.review", v) && (
-                <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => makeCurrent(v)}>
+                <Button type="button" size="sm" variant="ghost" pending={making === v.id} disabled={busy} onClick={() => makeCurrent(v)}>
                   Make current
                 </Button>
               )}

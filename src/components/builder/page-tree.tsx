@@ -33,6 +33,7 @@ import { apply, type NavEntry, type Op } from "@/lib/builder-ops";
 import { AUDIENCES, type Audience, hiddenSlugs, type PageLayout, type PagePatch } from "@/lib/pages";
 import { guidelinesPath, type NavNode, trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { transition } from "@/lib/motion";
 
 /**
  * The book's pages, docked beside the canvas (b.pagesOpen): every page as a
@@ -305,21 +306,23 @@ function Outline({
     if (e.key === "Tab" || e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
     if (!to) return;
     moving.current = true;
-    onMove(slug, to);
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-move="${slug}"]`)?.focus();
-      moving.current = false;
+    transition(() => {
+      onMove(slug, to);
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-move="${slug}"]`)?.focus();
+        moving.current = false;
+      });
     });
   };
 
   const drop = (target: string, zone: "before" | "into" | "after") => {
     if (!drag || within(target, drag)) return;
     const t = entry(target);
-    if (zone === "into") return onMove(drag, { parent: t.slug, i: Infinity });
+    if (zone === "into") return transition(() => onMove(drag, { parent: t.slug, i: Infinity }));
     const i = siblings(t.parent)
       .filter((p) => p.slug !== drag)
       .indexOf(t);
-    onMove(drag, { parent: t.parent, i: zone === "before" ? i : i + 1 });
+    transition(() => onMove(drag, { parent: t.parent, i: zone === "before" ? i : i + 1 }));
   };
 
   return (
@@ -332,6 +335,8 @@ function Outline({
           return (
             <li
               key={n.slug}
+              data-page-row={n.slug}
+              data-vt={`page-${n.slug}`}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = "move";

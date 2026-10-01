@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { shake } from "@/lib/motion";
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -25,6 +26,8 @@ export function ColorField({
   label?: string;
 }) {
   const [text, setText] = useState(value);
+  // A half-typed hex left behind: the field says no for a moment, then shows the color again.
+  const [refused, setRefused] = useState(false);
   // Follow the value when it changes elsewhere (the picker, a reset).
   const [seen, setSeen] = useState(value);
   if (value !== seen) {
@@ -50,7 +53,15 @@ export function ColorField({
           setText(v);
           if (HEX.test(v)) onChange(v.toLowerCase());
         }}
-        onBlur={() => !HEX.test(text) && setText(value)}
+        aria-invalid={refused || undefined}
+        onBlur={(e) => {
+          if (HEX.test(text)) return;
+          setText(value);
+          if (text === value) return;
+          setRefused(true);
+          shake(e.currentTarget);
+          setTimeout(() => setRefused(false), 600);
+        }}
       />
     </div>
   );

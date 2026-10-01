@@ -9,12 +9,13 @@ import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
 import { CommandPalette, type PageCommand } from "@/components/command-palette";
-import { ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
+import { ChordHint, ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { FieldDef } from "@/lib/fields";
 import { send } from "@/lib/send";
 import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
+import { collapse } from "@/lib/motion";
 
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -105,12 +106,14 @@ function NoticeBanner({ notice }: { notice: { text: string; href: string | null 
   );
   const [closed, setClosed] = useState(false);
   if (closed || closedBefore) return null;
-  const close = () => {
-    setClosed(true);
-    try {
-      sessionStorage.setItem(key, "1");
-    } catch {}
-  };
+  // It folds away, so the page slides up into its place rather than jumping.
+  const close = (e: React.MouseEvent) =>
+    collapse(e.currentTarget.closest("[role=status]"), () => {
+      setClosed(true);
+      try {
+        sessionStorage.setItem(key, "1");
+      } catch {}
+    });
   return (
     <div role="status" className="bg-warning/15 text-foreground flex items-center gap-3 border-b px-4 py-2 text-sm">
       <p className="min-w-0 flex-1">
@@ -175,7 +178,7 @@ export function Shell({
   if (editing && editing !== lastEditing) setLastEditing(editing);
   const [collectionEdits, setCollectionEdits] = useState(0);
 
-  useShortcuts({ setPalette: setSearching, setHelp });
+  const chord = useShortcuts({ setPalette: setSearching, setHelp });
 
   // The workspace is a cookie every tab shares, so a switch in another tab
   // silently points this one's requests (uploads, new collections) at it.
@@ -334,6 +337,7 @@ export function Shell({
           commands={commands?.fn}
         />
         <ShortcutsDialog open={help} onOpenChange={setHelp} />
+        <ChordHint on={chord} />
         {lastEditing && (
           <CollectionDialog
             open={!!editing}

@@ -58,6 +58,8 @@ export function AssetViewer(props: Props) {
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
   const afterLoad = useRef<string | null>(null);
+  // Which way the last step went: the next asset slides in from that side.
+  const [dir, setDir] = useState<1 | -1 | 0>(0);
 
   const i = shown ? assets.findIndex((a) => a.id === shown.id) : -1;
   const prev = i > 0 ? assets[i - 1] : null;
@@ -90,6 +92,7 @@ export function AssetViewer(props: Props) {
 
   const step = (d: 1 | -1) => {
     afterLoad.current = null;
+    setDir(d);
     if (!shown || i < 0) return;
     const to = assets[i + d];
     if (to) return void leave(() => props.onStep(to.id));
@@ -237,6 +240,7 @@ export function AssetViewer(props: Props) {
               onOpen={props.onOpen}
               onDecided={decided}
               onStep={step}
+              from={dir}
               hasPrev={!!prev}
               hasNext={!!next || (i >= 0 && props.hasMore)}
               dragging={dragging}

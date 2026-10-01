@@ -40,7 +40,12 @@ import { boundKeys, type Item, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
 import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
 import { fieldsOf, withProp } from "@/lib/template-fields";
+import { flash, transition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { LATE, PageCanvasSkeleton } from "@/components/skeletons";
+
+/** Rings item `i` of a section once it is drawn: where an added, copied or moved item went. */
+export const ringItem = (section: string, i: number) => flash(`[${BLOCK}="${CSS.escape(section)}"] [data-item-root="${i}"]`);
 
 /**
  * The page being edited (build spec 3.5.2, W6.2): PageBody of b.view.page
@@ -123,7 +128,7 @@ export function Canvas({ b }: CanvasProps) {
         <div className="flex min-w-0 flex-1">
           {b.pagesOpen && !preview && <PagesPanel b={b} />}
           <div className={cn("relative min-h-full min-w-0 flex-1", width && "bg-muted")}>
-            <div className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
+            <div data-vt="canvas-frame" className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
               {b.view.page ? (
                 <>
                   <Stage b={b} />
@@ -140,9 +145,10 @@ export function Canvas({ b }: CanvasProps) {
                   )}
                 </>
               ) : (
-                <p role="status" className="text-muted-foreground px-6 py-16 text-center text-sm">
-                  Opening the page…
-                </p>
+                // Shaped like a page, so opening one doesn't collapse the canvas to a line and back.
+                <div role="status" aria-label="Opening the page" className={LATE}>
+                  <PageCanvasSkeleton />
+                </div>
               )}
             </div>
             {/* Stuck at the viewport's foot with no height of its own, so it adds no scroll below the page and the panels beside stay put. */}
@@ -160,10 +166,13 @@ export function Canvas({ b }: CanvasProps) {
                     aria-label={label}
                     title={label}
                     aria-pressed={width === w}
-                    onClick={() => setWidth(w)}
-                    className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
+                    // The page narrows or widens as one, rather than re-laying out in a frame.
+                    onClick={() => transition(() => setWidth(w))}
+                    className="text-muted-foreground hover:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
                   >
-                    <I className="size-4" />
+                    {/* One pill, named, so it slides to the size picked. */}
+                    {width === w && <span aria-hidden data-vt="width-pill" className="bg-accent absolute inset-0 rounded-md" />}
+                    <I className="relative size-4" />
                   </button>
                 ))}
               </div>
@@ -323,7 +332,9 @@ function Stage({ b }: { b: BuilderApi }) {
       const to = o.mode === "before" ? prev : o.id;
       const was = stored[stored.findIndex((x) => x.id === p.id) - 1]?.id ?? null;
       if (o.id === p.id || to === p.id || to === was) return;
-      if (b.apply({ kind: "page", page: slug, op: { op: "move", id: p.id, after: to } })) b.select({ section: p.id, rule: null });
+      transition(() => {
+        if (b.apply({ kind: "page", page: slug, op: { op: "move", id: p.id, after: to } })) b.select({ section: p.id, rule: null });
+      });
     } else if (p.kind === "template") {
       b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages, storedOf(o.id)?.tab), o.mode === "before" ? prev : o.id);
     } else if (p.kind === "rule") {
@@ -368,6 +379,7 @@ function Stage({ b }: { b: BuilderApi }) {
     if (p.i < to) to--;
     if (to === p.i) return;
     b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: moveItem(s, p.i, to) } });
+    ringItem(s.id, to);
   };
 
   /** The picked pictures as items, or as item `at`'s picture. */
@@ -410,10 +422,12 @@ function Stage({ b }: { b: BuilderApi }) {
         <ContextMenuTrigger asChild disabled={native}>
           <div
             {...{ [BLOCK]: s.id }}
+            // Its name in a view transition: a moved section glides to its place, its neighbours slide.
+            data-vt={`block-${s.id}`}
             tabIndex={0}
             role="group"
             aria-label={`${TEMPLATE_INFO[s.template]?.name ?? s.template} section${s.title ? `: ${s.title}` : ""}`}
-            className={cn("group/block relative outline-none", s.hidden && "[&>section]:opacity-50", moving === s.id && "opacity-40")}
+            className={cn("group/block relative transition-opacity outline-none [&>section]:transition-opacity", s.hidden && "[&>section]:opacity-50", moving === s.id && "opacity-40")}
             onPointerEnter={() => setHover(s.id)}
             onPointerLeave={() => {
               setHover((h) => (h === s.id ? null : h));
@@ -508,7 +522,13 @@ function Stage({ b }: { b: BuilderApi }) {
             }}
           >
             {(on || hover === s.id) && (
-              <div className="absolute start-4 top-0 z-30 max-w-[calc(100%-2rem)] -translate-y-1/2">
+              // A pointer only passing over waits a beat, so sweeping down the page doesn't strobe toolbars.
+              <div
+                className={cn(
+                  "animate-in fade-in-0 slide-in-from-bottom-1 absolute start-4 top-0 z-30 max-w-[calc(100%-2rem)] -translate-y-1/2 duration-100",
+                  !on && "fill-mode-backwards delay-100",
+                )}
+              >
                 <SectionToolbar b={b} section={own} />
               </div>
             )}
@@ -518,7 +538,7 @@ function Stage({ b }: { b: BuilderApi }) {
             <div
               aria-hidden
               className={cn(
-                "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset",
+                "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset transition-[box-shadow,background-color]",
                 line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : also ? "ring-primary/70 bg-primary/5 ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
                 "group-focus-visible/block:ring-ring group-focus-visible/block:ring-3",
               )}
@@ -592,7 +612,7 @@ function Stage({ b }: { b: BuilderApi }) {
             {iline && (
               <div
                 aria-hidden
-                className="app-tokens bg-primary pointer-events-none absolute z-40 rounded-full"
+                className="app-tokens bg-primary pointer-events-none absolute z-40 rounded-full transition-[left,top] duration-75"
                 style={
                   iline.across
                     ? { left: (iline.after !== (getComputedStyle(document.documentElement).direction === "rtl") ? iline.box.x + iline.box.w : iline.box.x) - 2, top: iline.box.y, width: 4, height: iline.box.h }
@@ -607,7 +627,10 @@ function Stage({ b }: { b: BuilderApi }) {
                 onClick={() => {
                   const n = own.items?.length ?? 0;
                   if (blank.kind === "asset") onPictures(s.id, n, false);
-                  else b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: insertItems(own, n, [blank.item]) } });
+                  else {
+                    b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: insertItems(own, n, [blank.item]) } });
+                    ringItem(s.id, n);
+                  }
                 }}
               >
                 <IconPlus aria-hidden className="size-3.5" />
@@ -838,6 +861,7 @@ function ItemBar({
             label="Duplicate item (Cmd+D)"
             onClick={() => {
               set(duplicateItem(s, i));
+              ringItem(s.id, i + 1);
               onDone();
             }}
           >

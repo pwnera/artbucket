@@ -62,7 +62,8 @@ export function IconPackImport({
 }: {
   /** The collection being looked at: imports go there too. */
   into?: string | null;
-  onDone: () => void;
+  /** With the ids of the assets it made. */
+  onDone: (ids: string[]) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -214,7 +215,7 @@ function SetSamples({ set }: { set: IconSet }) {
 
 type Browse = { set: IconSet; categories: string[]; total: number; data: { name: string; svg: string }[] };
 
-function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | null; onBack: () => void; onDone: () => void }) {
+function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | null; onBack: () => void; onDone: (ids: string[]) => void }) {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const params = new URLSearchParams({ q, limit: String(PAGE), ...(category && { category }) });
@@ -258,6 +259,7 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
     const all = picked;
     setProgress(0);
     let done = 0;
+    const made: string[] = [];
     const failed: string[] = [];
     try {
       for (let i = 0; i < all.length; i += BATCH) {
@@ -273,6 +275,7 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
           break;
         }
         failed.push(...(body.missing ?? []));
+        made.push(...(body.data ?? []).map((a: { id: string }) => a.id));
         const landed = icons.filter((n) => !(body.missing ?? []).includes(n));
         done += landed.length;
         setImported((s) => new Set([...s, ...landed]));
@@ -291,7 +294,7 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
           .filter(Boolean)
           .join(" "),
       });
-      onDone();
+      onDone(made);
     }
   };
 

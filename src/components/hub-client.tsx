@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconLoader2, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { groundFor, inkOn, type Rgb } from "@/lib/color";
 import { REPORT_REASONS, type ReportReason } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
+import Form from "next/form";
+import { useFormStatus } from "react-dom";
 
 /**
  * The BrandHub's interactive bits: its search, which `/` focuses from
@@ -36,8 +38,8 @@ export function HubSearch({ action, defaultValue = "", className, big }: { actio
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return (
-    <form role="search" action={action} className={cn("relative", className)}>
-      <IconSearch aria-hidden className={cn("text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2", big ? "size-5" : "size-4")} />
+    <Form role="search" action={action} className={cn("relative", className)}>
+      <SearchMark className={cn("text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2", big ? "size-5" : "size-4")} />
       <Input
         ref={ref}
         name="q"
@@ -50,7 +52,25 @@ export function HubSearch({ action, defaultValue = "", className, big }: { actio
       <kbd aria-hidden className="text-muted-foreground bg-muted absolute end-2.5 top-1/2 -translate-y-1/2 rounded border px-1.5 font-mono text-[11px]">
         /
       </kbd>
-    </form>
+    </Form>
+  );
+}
+
+/** The search box's glass, or a spinner while its results come: in the page, without a reload. */
+function SearchMark({ className }: { className: string }) {
+  const { pending } = useFormStatus();
+  return pending ? <IconLoader2 aria-hidden className={cn(className, "animate-spin")} /> : <IconSearch aria-hidden className={className} />;
+}
+
+/** Inside a form whose answer is slow to come (a crawl): what it is doing, while it does. */
+export function WhilePending({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { pending } = useFormStatus();
+  if (!pending) return null;
+  return (
+    <p role="status" className={cn("text-muted-foreground animate-in fade-in-0 flex items-center gap-2 text-sm", className)}>
+      <IconLoader2 aria-hidden className="size-4 shrink-0 animate-spin" />
+      {children}
+    </p>
   );
 }
 
@@ -252,19 +272,39 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
 export function FollowButton({ org, brand, following, count }: { org: string; brand: string; following: boolean; count?: number }) {
   const router = useRouter();
   const [on, setOn] = useState(following);
-  const [busy, setBusy] = useState(false);
+  // The count moves with the star, before the server answers; the refresh brings the true one.
+  const [n, setN] = useState(count ?? 0);
+  const [seen, setSeen] = useState(count);
+  if (count !== seen) {
+    setSeen(count);
+    setN(count ?? 0);
+  }
+  const busy = useRef(false);
   const toggle = async () => {
-    setBusy(true);
-    const got = await send(on ? "DELETE" : "PUT", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
-    setBusy(false);
-    if (!got) return;
+    if (busy.current) return;
+    busy.current = true;
+    const next = !on;
+    setOn(next);
+    setN((x) => Math.max(0, x + (next ? 1 : -1)));
+    const got = await send(next ? "PUT" : "DELETE", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
+    busy.current = false;
+    if (!got) {
+      setOn(!next);
+      setN((x) => Math.max(0, x + (next ? -1 : 1)));
+      return;
+    }
     setOn(got.following);
     router.refresh();
   };
   return (
-    <Button variant="ghost" size="sm" pending={busy} onClick={toggle} aria-pressed={on}>
-      {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
-      {!!count && <span className="text-muted-foreground tabular-nums">· {count.toLocaleString("en")}</span>}
+    <Button variant="ghost" size="sm" onClick={toggle} aria-pressed={on}>
+      {on ? <IconStarFilled key="on" aria-hidden className="text-warning animate-in zoom-in-50 spin-in-[-72deg] duration-300" /> : <IconStar key="off" aria-hidden />}{" "}
+      {on ? "Following" : "Follow"}
+      {count !== undefined && n > 0 && (
+        <span key={n} className="text-muted-foreground animate-in fade-in-0 tabular-nums duration-150">
+          · {n.toLocaleString("en")}
+        </span>
+      )}
     </Button>
   );
 }

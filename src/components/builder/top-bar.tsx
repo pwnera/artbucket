@@ -39,6 +39,8 @@ import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { LeavingLink } from "@/components/link-pending";
+import { useState } from "react";
 
 /**
  * The bar over the canvas (build spec 3.5.3, W6.3), in the order a page is
@@ -185,10 +187,9 @@ export function TopBar({ b }: TopBarProps) {
           b.source?.connect && (
             // Not kept in a repository yet, and this person may connect one: say so on the bar, not in a menu.
             <IconButton asChild variant="ghost" size="sm" label="Keep this brand in a Git repository" className="gap-1.5 px-2 @5xl/bar:px-2.5">
-              <a href={b.source.connect}>
-                <IconBrandGit />
+              <LeavingLink href={b.source.connect} icon={<IconBrandGit />}>
                 <span className="hidden @5xl/bar:inline">Git</span>
-              </a>
+              </LeavingLink>
             </IconButton>
           )
         )}
@@ -255,24 +256,59 @@ function Publish({ b }: { b: BuilderApi }) {
   const state = b.status?.publish;
   const line = b.status && liveLine(b.status.publish, b.status.live);
   const open = () => b.setPanel("publish");
-  if (state === "current")
-    return (
-      <Button size="sm" variant="outline" className="ms-1" aria-haspopup="dialog" title="Readers see the latest" onClick={open}>
-        <IconCircleCheckFilled className="text-success" /> {line}
-      </Button>
-    );
+  const current = state === "current";
+  // Both buttons share one cell, the other one hidden, so the bar keeps its width when a release flips them.
+  const live = b.status ? liveLine("current", current ? b.status.live : (b.status.live ?? 0) + 1) : null;
   return (
     <>
-      {line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
-      <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={line ?? undefined} onClick={open}>
-        <IconWorldUpload /> Release
-        {state === "behind" && (
-          <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
-            <span className="sr-only">(changes not released)</span>
-          </span>
-        )}
-      </Button>
+      {!current && line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
+      <span className="ms-1 grid justify-items-end *:col-start-1 *:row-start-1">
+        <Button
+          size="sm"
+          variant="outline"
+          aria-haspopup="dialog"
+          title="Readers see the latest"
+          onClick={open}
+          className={cn(!current && "invisible")}
+          aria-hidden={!current || undefined}
+          tabIndex={current ? undefined : -1}
+        >
+          {/* Keyed on the release, so a new one pops its check once. */}
+          <IconCircleCheckFilled key={b.status?.live ?? 0} className="text-success animate-in zoom-in-50 duration-300" /> {live}
+        </Button>
+        <Button
+          size="sm"
+          aria-haspopup="dialog"
+          title={line ?? undefined}
+          onClick={open}
+          className={cn("relative", current && "invisible")}
+          aria-hidden={current || undefined}
+          tabIndex={current ? -1 : undefined}
+        >
+          <IconWorldUpload /> Release
+          {state === "behind" && (
+            <span className="bg-warning ring-background animate-in zoom-in-50 absolute -top-1 -end-1 size-2.5 rounded-full ring-2 duration-200">
+              <span className="sr-only">(changes not released)</span>
+            </span>
+          )}
+        </Button>
+      </span>
     </>
+  );
+}
+
+/** The score on the bar: a new one pops in, and a rise glows green for a moment. */
+function ScoreTick({ score }: { score: number }) {
+  const [was, setWas] = useState(score);
+  const [rose, setRose] = useState(false);
+  if (score !== was) {
+    setRose(score > was);
+    setWas(score);
+  }
+  return (
+    <span key={score} className={cn("animate-in fade-in-0 zoom-in-90 inline-block duration-200", rose && "score-rose")}>
+      {score}
+    </span>
   );
 }
 
@@ -326,7 +362,9 @@ function Checklist({ b }: { b: BuilderApi }) {
         <IconButton variant="ghost" size="sm" label={label} className="relative gap-1.5 px-2">
           <IconListCheck />
           {status && (
-            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">{status.score}</span>
+            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">
+              <ScoreTick score={status.score} />
+            </span>
           )}
           {found.length > 0 && (
             <span className="bg-warning text-background absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
@@ -352,7 +390,7 @@ function Checklist({ b }: { b: BuilderApi }) {
                 return (
                   <li key={s.id} className={cn("flex items-start gap-2 rounded-md px-1.5 py-1.5", next && "bg-muted")}>
                     {s.done ? (
-                      <IconCircleCheckFilled aria-label="Done" className="text-success mt-0.5 size-4 shrink-0" />
+                      <IconCircleCheckFilled key="done" aria-label="Done" className="text-success animate-in zoom-in-50 mt-0.5 size-4 shrink-0 duration-200" />
                     ) : (
                       <IconCircle aria-label="To do" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                     )}

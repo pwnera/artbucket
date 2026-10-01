@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { IconCircleCheckFilled, IconCircleDashed, IconRobot } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { scoreDomain } from "@/lib/core/agent-score";
 import { AssetError } from "@/lib/core/errors";
 import { hubBase } from "@/lib/core/hub";
 import { env } from "@/lib/env";
+import Form from "next/form";
+import { SubmitButton } from "@/components/submit-button";
+import { WhilePending } from "@/components/hub-client";
+import { Button } from "@/components/ui/button";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -53,12 +56,13 @@ export default async function ScorePage({ searchParams }: Props) {
         <p className="text-muted-foreground text-lg text-pretty">
           Enter a domain. We look where an AI agent looks: an llms.txt, the brand&apos;s rules as data, its logo, design tokens, an MCP server, and a verified BrandHub listing.
         </p>
-        <form action={`${base}/score`} className="flex gap-2">
-          <Input name="domain" defaultValue={domain} placeholder="example.com" aria-label="Domain" className="h-11 text-base" autoCapitalize="none" spellCheck={false} inputMode="url" />
-          <Button type="submit" className="h-11">
-            Check
-          </Button>
-        </form>
+        <Form action={`${base}/score`} className="grid gap-3">
+          <div className="flex gap-2">
+            <Input name="domain" defaultValue={domain} placeholder="example.com" aria-label="Domain" className="h-11 text-base" autoCapitalize="none" spellCheck={false} inputMode="url" />
+            <SubmitButton className="h-11">Check</SubmitButton>
+          </div>
+          <WhilePending className="justify-center">Looking where an agent looks: llms.txt, rules, logo, tokens, MCP. A few seconds.</WhilePending>
+        </Form>
         {error && (
           <p role="alert" className="text-destructive text-sm">
             {error}

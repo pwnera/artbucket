@@ -25,6 +25,7 @@ import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness
 import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, builderPath } from "@/lib/site";
+import { LinkIcon } from "@/components/link-pending";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
@@ -94,14 +95,14 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={builderPath(brand.slug, editing)}>
-            <IconPencil aria-hidden /> <span className={word}>Edit</span>
+            <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
           </Link>
         </Button>
       )}
       {can("brand.edit") && status?.publish !== "current" && (
         <Button asChild size="sm" title={compact ? "Release" : undefined}>
           <Link href={brandPath(brand.slug, "/releases/new")}>
-            <IconWorldUpload aria-hidden /> <span className={word}>Release</span>
+            <LinkIcon icon={<IconWorldUpload aria-hidden />} /> <span className={word}>Release</span>
           </Link>
         </Button>
       )}

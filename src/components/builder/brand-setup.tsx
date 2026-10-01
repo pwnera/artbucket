@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { IconBrandGit, IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@tabler/icons-react";
@@ -187,6 +187,8 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
   const [from] = useState(() => fromRules(init.rules));
   const [e, setE] = useState<Essentials>(from.values);
   const [busy, setBusy] = useState<string | null>(null);
+  // The refresh that swaps this screen for the editor: still working until it lands, so the button can't be pressed twice.
+  const [opening, open] = useTransition();
   const [picking, setPicking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -210,7 +212,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
     setBusy(null);
     if (!res.ok) return;
     toast.success(`${name}'s pages are ready`, { description: "Everything is a draft until you release it." });
-    router.refresh();
+    open(() => router.refresh());
   };
 
   const onFile = async (f: File | undefined) => {
@@ -318,12 +320,12 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
           </Step>
 
           <div className="flex flex-wrap items-center gap-2 border-t pt-6">
-            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={busy !== null} disabled={!isHex(e.primary)}>
-              {busy ?? "Create the brand pages"}
+            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={(busy !== null || opening) && "beside"} disabled={!isHex(e.primary)}>
+              {busy ?? (opening ? "Opening the editor" : "Create the brand pages")}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="lg" disabled={busy !== null}>
+                <Button variant="ghost" size="lg" disabled={busy !== null || opening}>
                   Other starts <IconChevronDown />
                 </Button>
               </DropdownMenuTrigger>
@@ -461,7 +463,7 @@ function Preview({ name, e }: { name: string; e: Essentials }) {
   const swatches = [e.primary, e.secondary, e.dark].filter((c): c is string => !!c);
   return (
     <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-      <div className="grid gap-3 p-6" style={{ background: e.primary, color: ink }}>
+      <div className="grid gap-3 p-6 transition-colors duration-300" style={{ background: e.primary, color: ink }}>
         <span className="flex size-10 items-center justify-center overflow-hidden rounded-lg bg-white/90">
           {e.logo ? <Thumb src={assetUrl(e.logo.id, "/w_80,f_webp")} alt="" /> : <span className="text-sm font-bold text-black">{name.slice(0, 1).toUpperCase()}</span>}
         </span>
@@ -477,8 +479,9 @@ function Preview({ name, e }: { name: string; e: Essentials }) {
       </div>
       <div className="grid gap-4 p-5">
         <div className="flex h-10 overflow-hidden rounded-md border">
-          {swatches.map((c) => (
-            <span key={c} className="flex-1" style={{ background: c }} />
+          {/* By place, not color: a color changed eases to the new one, and an added one grows into the strip. */}
+          {swatches.map((c, i) => (
+            <span key={i} className="animate-in fade-in-0 flex-1 transition-colors duration-300" style={{ background: c }} />
           ))}
           <span className="flex-1 bg-white" />
         </div>

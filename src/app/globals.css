@@ -150,6 +150,10 @@
   * {
     @apply border-border;
   }
+  /* Every animation and transition without an ease of its own takes the house one, not CSS's plain ease (tw-animate falls back to it). */
+  *, ::before, ::after {
+    --tw-ease: var(--ease-out);
+  }
   html {
     -webkit-tap-highlight-color: transparent;
   }
@@ -183,6 +187,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+  /* A view transition is motion too, and a press need not shrink. */
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) {
+    animation: none !important;
+  }
+  :active {
+    scale: none !important;
   }
   /* A spinner is a status, not decoration. */
   .animate-spin {
@@ -464,6 +475,110 @@ body:has(#hub-hero) .hub-header-search {
   }
 }
 
+/*
+ * A row on its way out (collapse() in lib/motion.ts): it fades and folds its
+ * height away, so the rows below close the gap instead of jumping into it.
+ */
+@layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes collapse {
+      to {
+        opacity: 0;
+        block-size: 0;
+        min-block-size: 0;
+        padding-block: 0;
+        margin-block: 0;
+        border-block-width: 0;
+      }
+    }
+    [data-collapsing] {
+      overflow: clip;
+      pointer-events: none;
+      animation: collapse 150ms var(--ease-in) forwards;
+    }
+    /* A review decision leaves in its color. */
+    [data-collapsing][data-verdict="approve"] {
+      background-color: color-mix(in oklab, var(--success) 14%, transparent);
+    }
+    [data-collapsing][data-verdict="reject"] {
+      background-color: color-mix(in oklab, var(--destructive) 14%, transparent);
+    }
+  }
+}
+
+/*
+ * A page on its way in a portal (components/portal-view.tsx): a thin bar along
+ * the top that runs most of the way after a beat, then goes with the page.
+ * Asked for less motion, it is simply there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes loading-bar {
+    from { scale: 0 1; }
+    to { scale: 0.85 1; }
+  }
+}
+html[data-loading]::before {
+  content: "";
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 100;
+  height: 2px;
+  background: var(--primary);
+  transform-origin: left;
+  pointer-events: none;
+  animation: loading-bar 4s var(--ease-out) 150ms both;
+}
+
+/* Something working on what you asked (a page loading before it can move): dimmed, and not clickable twice. */
+[data-busy] {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-out);
+}
+
+/* A score that just rose (builder/top-bar.tsx ScoreTick): green for a moment, then its own color again. */
+@keyframes score-rose {
+  from { color: var(--success); }
+}
+.score-rose {
+  animation: score-rose 1.4s var(--ease-out), enter 200ms var(--ease-out);
+}
+
+/*
+ * Charts (components/analytics.tsx): a chart draws in from its start, and a
+ * breakdown's bars grow from theirs, as they appear. Still with less motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes chart-reveal {
+    from { clip-path: inset(0 100% 0 0); }
+  }
+  .chart-reveal {
+    animation: chart-reveal 800ms var(--ease-out) both;
+  }
+  @keyframes bar-grow {
+    from { scale: 0 1; }
+  }
+  .bar-grow {
+    transform-origin: left;
+    animation: bar-grow 600ms var(--ease-out) both;
+  }
+  .bar-grow:dir(rtl) {
+    transform-origin: right;
+  }
+}
+
+/* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes check-draw {
+    from { stroke-dashoffset: 22; }
+  }
+  [data-slot="checkbox-indicator"][data-state="checked"] path {
+    stroke-dasharray: 22;
+    animation: check-draw 200ms var(--ease-out) both;
+  }
+}
+
 /* A rule you land on, from the TOC or the palette, flashes and fades rather than staying tinted. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes target-flash {
@@ -471,6 +586,22 @@ body:has(#hub-hero) .hub-header-search {
   }
   [data-flash], [data-block]:target {
     animation: target-flash 1.6s var(--ease-out);
+  }
+  /* A section on the canvas, or a library tile, has a ground of its own that a tint would sit under: it rings instead. */
+  @keyframes ring-flash {
+    from { box-shadow: 0 0 0 2px var(--primary), 0 0 0 6px color-mix(in oklab, var(--primary) 20%, transparent); }
+    to { box-shadow: 0 0 0 2px transparent, 0 0 0 6px transparent; }
+  }
+  [data-canvas-block][data-flash], [data-item-root][data-flash], button[data-cursor][data-flash] {
+    animation: ring-flash 1.6s var(--ease-out);
+  }
+  /* No, as a head shakes it: a value refused, a wrong password (shake() in lib/motion.ts). */
+  @keyframes shake {
+    20%, 60% { translate: -3px 0; }
+    40%, 80% { translate: 3px 0; }
+  }
+  [data-shake] {
+    animation: shake 250ms var(--ease-out);
   }
 }
 

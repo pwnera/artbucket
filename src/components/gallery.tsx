@@ -86,6 +86,7 @@ import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
+import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -197,6 +198,12 @@ const closeAsset = () => {
 };
 
 const PAGE = 100;
+/** Lights up the tiles or rows of `ids` once they are drawn ([data-flash]). */
+const flashTiles = (ids: Iterable<string>) => {
+  const sel = [...ids].map((id) => `[data-cursor="${CSS.escape(id)}"]`).join(",");
+  if (sel) flash(sel);
+};
+
 /** The API's largest page: a refresh past it asks for several at once. */
 const MAX_PAGE = 200;
 
@@ -364,6 +371,8 @@ export function Gallery({
   // Files waiting on the required-fields step before they upload.
   const [pending, setPending] = useState<{ files: File[]; open: boolean } | null>(null);
   const [drag, setDrag] = useState<{ count: number } | null>(null);
+  // Kept a moment after the files leave or land, so the overlay fades rather than blinks out.
+  const dragShown = useKept(drag);
   // Selected asset ids. Only the ones on screen count (`picked`), so a filter
   // change can't leave hidden files in a bulk action.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -457,7 +466,8 @@ export function Gallery({
           setListing({ ...first, data, total: first.total - (first.data.length + rest.reduce((n, p) => n + p.data.length, 0) - data.length) });
         }
         if (colsBody) setCollections(colsBody.data);
-        if (reviewBody) setReviewCount(reviewBody.total);
+        // Decisions waiting on their Undo are already counted out.
+        if (reviewBody) setReviewCount(Math.max(0, reviewBody.total - deciding.size));
         if (defsBody) {
           const next: FieldDef[] = defsBody.data;
           setFields(next);
@@ -557,28 +567,38 @@ export function Gallery({
   const patch: Patch = useCallback((ids, fn) => {
     const want = new Set(ids);
     const was = new Map<string, [number, Asset]>();
-    setListing((l) => {
-      was.clear();
-      let removed = 0;
-      const data: Asset[] = [];
-      l.data.forEach((a, i) => {
-        if (!want.has(a.id)) return void data.push(a);
-        was.set(a.id, [i, a]);
-        const next = fn(a);
-        if (next) data.push(next);
-        else removed++;
-      });
-      return removed || was.size ? { ...l, data, total: l.total - removed } : l;
-    });
-    return (only) =>
+    // As a view transition: the tiles that stay slide into the gap the others leave.
+    transition(() => {
       setListing((l) => {
-        const back = [...was].filter(([id]) => !only || only.includes(id)).sort((x, y) => x[1][0] - y[1][0]);
-        const ids = new Set(back.map(([id]) => id));
-        const returning = back.filter(([id]) => !l.data.some((a) => a.id === id)).length;
-        const data = l.data.filter((a) => !ids.has(a.id));
-        for (const [, [i, a]] of back) data.splice(Math.min(i, data.length), 0, a);
-        return { ...l, data, total: l.total + returning };
+        was.clear();
+        let removed = 0;
+        const data: Asset[] = [];
+        l.data.forEach((a, i) => {
+          if (!want.has(a.id)) return void data.push(a);
+          was.set(a.id, [i, a]);
+          const next = fn(a);
+          if (next) data.push(next);
+          else removed++;
+        });
+        return removed || was.size ? { ...l, data, total: l.total - removed } : l;
       });
+      // The tiles that changed light up once, so a bulk edit shows where it went (the removed are gone by then).
+      flashTiles(ids);
+    });
+    return (only) => {
+      const back = [...was].filter(([id]) => !only || only.includes(id)).sort((x, y) => x[1][0] - y[1][0]);
+      transition(() => {
+        setListing((l) => {
+          const ids = new Set(back.map(([id]) => id));
+          const returning = back.filter(([id]) => !l.data.some((a) => a.id === id)).length;
+          const data = l.data.filter((a) => !ids.has(a.id));
+          for (const [, [i, a]] of back) data.splice(Math.min(i, data.length), 0, a);
+          return { ...l, data, total: l.total + returning };
+        });
+        // What came back, from an undo or a refusal, is found again at a glance.
+        flashTiles(back.map(([id]) => id));
+      });
+    };
   }, []);
 
   // The open asset: from the grid, or fetched when the link points past it.
@@ -635,6 +655,15 @@ export function Gallery({
   );
   // Just landed: ringed for a moment, so new files are found in a full grid.
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  // Just added, uploaded or imported: ringed for a moment, so the eye finds it in the grid.
+  const markFresh = useCallback((id: string) => {
+    setFresh((s) => new Set(s).add(id));
+    setTimeout(() => setFresh((s) => (s.delete(id) ? new Set(s) : s)), 3000);
+  }, []);
+  const imported = (ids: string[]) => {
+    ids.forEach(markFresh);
+    refreshSoon();
+  };
 
   // With required fields still unmet, files wait for them; otherwise straight up.
   // Values inherited from the collection being uploaded into count as met.
@@ -675,17 +704,14 @@ export function Gallery({
         // Without write where it landed it waits in Review: where Show looks for it.
         job.proposed = body?.data?.status === "proposed";
         uploads.patch(id, { status: body?.deduped ? "deduped" : "done", assetId });
-        if (assetId && !body?.deduped) {
-          setFresh((s) => new Set(s).add(assetId));
-          setTimeout(() => setFresh((s) => (s.delete(assetId) ? new Set(s) : s)), 3000);
-        }
+        if (assetId && !body?.deduped) markFresh(assetId);
         refreshSoon(); // the grid fills in as files land, not all at the end
       } catch (e) {
         const cancelled = e instanceof DOMException && e.name === "AbortError";
         uploads.patch(id, { status: "failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : "Upload failed" });
       }
     },
-    [uploads, refreshSoon],
+    [uploads, refreshSoon, markFresh],
   );
 
   // Three files at a time. One file failing doesn't stop the rest of the batch;
@@ -970,7 +996,7 @@ export function Gallery({
         searchBox.current?.focus();
       } else if ((e.key === "-" || e.key === "=") && !mod && !e.altKey) {
         const i = DENSITIES.indexOf(keys.current.density) + (e.key === "=" ? 1 : -1);
-        if (DENSITIES[i]) keys.current.setDensity(DENSITIES[i]);
+        if (DENSITIES[i]) transition(() => keys.current.setDensity(DENSITIES[i]));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1101,14 +1127,14 @@ export function Gallery({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={refreshSoon} />
-            <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={refreshSoon} />
+            <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={imported} />
+            <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={imported} />
             <LinkImport
               open={linking.open}
               defaultValue={linking.url}
               onOpenChange={(o) => setLinking((l) => ({ ...l, open: o }))}
               into={into}
-              onDone={refreshSoon}
+              onDone={imported}
             />
           </div>
         )}
@@ -1176,11 +1202,16 @@ export function Gallery({
           title={title}
           aside={
             <>
-              {!moving && (
-                <Badge variant="secondary" className="font-mono tabular-nums" title={`${total.toLocaleString()} ${total === 1 ? "asset" : "assets"}`}>
+              {/* Held in place while moving, so the title doesn't shift; a new count pops in. */}
+              <Badge
+                variant="secondary"
+                className={cn("font-mono tabular-nums", moving && "invisible")}
+                title={`${total.toLocaleString()} ${total === 1 ? "asset" : "assets"}`}
+              >
+                <span key={total} className="animate-in fade-in-0 zoom-in-90 duration-150">
                   {total.toLocaleString()}
-                </Badge>
-              )}
+                </span>
+              </Badge>
               {inCollection?.private && !activeSearch && (
                 <Badge variant="outline" title="Only people added to it, and admins, see it">
                   <IconLock /> Private
@@ -1287,7 +1318,7 @@ export function Gallery({
               />
             ))}
             {view.extra.map(([k, v]) => (
-              <Badge key={`${k}=${v}`} variant="secondary" className="h-8 gap-1 pr-1">
+              <Badge key={`${k}=${v}`} variant="secondary" className="animate-in fade-in-0 zoom-in-95 h-8 gap-1 pr-1 duration-150">
                 {describe(k, v)}
                 <button
                   type="button"
@@ -1300,7 +1331,7 @@ export function Gallery({
               </Badge>
             ))}
             {narrowed && (
-              <Button variant="ghost" size="sm" className="h-8" onClick={clear}>
+              <Button variant="ghost" size="sm" className="animate-in fade-in-0 h-8 duration-150" onClick={clear}>
                 Clear filters <IconX />
               </Button>
             )}
@@ -1320,7 +1351,7 @@ export function Gallery({
               </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Behind the art</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={well} onValueChange={(v) => setWell(v as Well)}>
+                <DropdownMenuRadioGroup value={well} onValueChange={(v) => transition(() => setWell(v as Well))}>
                   <DropdownMenuRadioItem value="auto">
                     Auto <span className="text-muted-foreground ml-auto pl-4 text-xs">checker when transparent</span>
                   </DropdownMenuRadioItem>
@@ -1336,7 +1367,7 @@ export function Gallery({
                 variant="outline"
                 size="sm"
                 value={density}
-                onValueChange={(v) => v && setDensity(v as Density)}
+                onValueChange={(v) => v && transition(() => setDensity(v as Density))}
                 aria-label="Tile size"
                 className="hidden sm:flex"
               >
@@ -1356,7 +1387,7 @@ export function Gallery({
                 ))}
               </ToggleGroup>
             )}
-            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && setLayout(v as Layout)} aria-label="Layout">
+            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && transition(() => setLayout(v as Layout))} aria-label="Layout">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ToggleGroupItem value="grid" aria-label="Grid">
@@ -1499,11 +1530,17 @@ export function Gallery({
                 onKeyDown={onGridKey}
                 className={cn("group/well grid transition-opacity", GRID_COLS, searching && "opacity-60")}
               >
+                {/* Files on their way, ahead of the rest, until they land as real tiles. */}
+                {!narrowed && !view.review && <GhostTiles store={uploads} shown={assets} />}
                 {assets.map((a) => (
                   <AssetMenu key={a.id} asset={a} {...menuFor(a)}>
                     {/* Off screen, a tile skips layout and paint. The negative margin
                         gives its rings room inside the paint containment that brings. */}
-                    <li className="group/tile -m-1 p-1 [contain-intrinsic-size:auto_260px] [content-visibility:auto]">
+                    <li
+                      // Its name in a view transition (a size, a delete, an undo): it moves from where it was.
+                      data-vt={`tile-${a.id}`}
+                      className="group/tile -m-1 p-1 [contain-intrinsic-size:auto_260px] [content-visibility:auto]"
+                    >
                       <AssetCard
                         asset={a}
                         onOpen={openOne}
@@ -1515,6 +1552,7 @@ export function Gallery({
                         tabbable={a.id === tab}
                         onCursor={setCursor}
                         large={density === "l"}
+                        open={view.asset === a.id}
                       />
                     </li>
                   </AssetMenu>
@@ -1640,8 +1678,13 @@ export function Gallery({
       )}
 
       {/* Dragging over a populated library: one calm overlay, not a moving target. It says what a drop would do, before it does it. */}
-      {drag && !empty && (
-        <div className="bg-background/80 animate-in fade-in-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-150">
+      {dragShown && !empty && (
+        <div
+          className={cn(
+            "bg-background/80 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm",
+            drag ? "animate-in fade-in-0 duration-150" : "animate-out fade-out-0 fill-mode-forwards duration-100 ease-in",
+          )}
+        >
           <div
             className={cn(
               "flex size-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed",
@@ -1651,7 +1694,7 @@ export function Gallery({
             <IconCloudUpload className={cn("size-10", !canUpload && "text-muted-foreground")} stroke={1.5} />
             <p className="text-lg font-medium">
               {canUpload
-                ? `Drop ${drag.count > 1 ? `${drag.count.toLocaleString()} files` : drag.count === 1 ? "it" : "files"} to add to ${inCollection ? inCollection.name : "your library"}`
+                ? `Drop ${dragShown.count > 1 ? `${dragShown.count.toLocaleString()} files` : dragShown.count === 1 ? "it" : "files"} to add to ${inCollection ? inCollection.name : "your library"}`
                 : `You can't add files to ${inCollection ? inCollection.name : "this library"}`}
             </p>
             {canUpload && relaxInherited(fields, inherited).some((f) => f.required) && (
@@ -1662,6 +1705,52 @@ export function Gallery({
       )}
     </>
   );
+}
+
+/**
+ * Files uploading, as tiles at the head of the grid: their picture at once
+ * (an image's preview), a ring filling with the bytes sent, then the real
+ * tile in their place once it is drawn. Subscribed on its own, as the tray is,
+ * so progress redraws these tiles and not the grid.
+ */
+function GhostTiles({ store, shown }: { store: UploadStore; shown: Asset[] }) {
+  const rows = useUploads(store);
+  // Landed but not drawn yet (the refresh after it is on its way): still a ghost, so it never blinks out of sight.
+  const waiting = (u: Upload) => isActive(u) || (u.status === "done" && !!u.assetId && !shown.some((a) => a.id === u.assetId));
+  return rows.filter(waiting).map((u) => {
+    const pct = u.size ? u.loaded / u.size : 0;
+    return (
+      <li key={u.id} aria-hidden className="animate-in fade-in-0 zoom-in-95 -m-1 p-1 duration-200">
+        <div className="bg-card flex h-full flex-col overflow-hidden rounded-xl border border-dashed shadow-xs">
+          <div className="bg-muted/50 relative grid aspect-square place-items-center overflow-hidden">
+            {u.preview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={u.preview} alt="" draggable={false} className="absolute inset-0 size-full object-contain p-2 opacity-60" />
+            )}
+            <svg viewBox="0 0 36 36" className={cn("relative size-10 drop-shadow-sm", u.status !== "uploading" && "animate-spin")}>
+              <circle cx="18" cy="18" r="15" fill="var(--background)" fillOpacity="0.85" stroke="var(--border)" strokeWidth="3" />
+              <circle
+                cx="18"
+                cy="18"
+                r="15"
+                fill="none"
+                stroke="var(--primary)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray="100"
+                // Waiting or saving: a short arc that turns; sending: the share sent.
+                strokeDashoffset={u.status === "uploading" ? 100 - pct * 100 : 75}
+                transform="rotate(-90 18 18)"
+                className="transition-[stroke-dashoffset] duration-300"
+              />
+            </svg>
+          </div>
+          <p className="text-muted-foreground truncate px-3 py-2.5 text-sm">{u.name}</p>
+        </div>
+      </li>
+    );
+  });
 }
 
 /**
@@ -1730,6 +1819,7 @@ export const AssetCard = memo(function AssetCard({
   tabbable,
   onCursor,
   large = false,
+  open = false,
 }: {
   asset: Asset;
   onOpen?: (a: Asset) => void;
@@ -1744,6 +1834,8 @@ export const AssetCard = memo(function AssetCard({
   onCursor?: (id: string) => void;
   /** Large tiles: a bigger rendition. */
   large?: boolean;
+  /** Shown in the viewer: its picture has moved there (the open's view transition). */
+  open?: boolean;
 }) {
   const [hover, setHover] = useState(false);
   const [peek, setPeek] = useState(false);
@@ -1793,73 +1885,75 @@ export const AssetCard = memo(function AssetCard({
           fresh && !selected && "ring-primary/40 animate-in fade-in-0 zoom-in-95 ring-2",
         )}
       >
-        <div className={cn("relative aspect-square overflow-hidden", wellClass(a), selected && "bg-primary/5")}>
-          {isIcon(a) ? (
-            // The vector at a glyph's size: a 24px icon's rendition, blown up to the tile, would blur.
-            seen && (
-              <span className={cn("flex size-full items-center justify-center", GLYPH_INK)}>
-                <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className={large ? "size-20" : "size-14"} />
+        <Morph name={open ? null : `asset-${a.id}`}>
+          <div className={cn("relative aspect-square overflow-hidden", wellClass(a), selected && "bg-primary/5")}>
+            {isIcon(a) ? (
+              // The vector at a glyph's size: a 24px icon's rendition, blown up to the tile, would blur.
+              seen && (
+                <span className={cn("flex size-full items-center justify-center", GLYPH_INK)}>
+                  <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className={large ? "size-20" : "size-14"} />
+                </span>
+              )
+            ) : hasPreview(a) ? (
+              // Rendition URLs are pure functions of the asset id: no export step,
+              // no signing, no prior round trip.
+              <Thumb src={`/a/${a.id}/${large ? "w_400" : "w_260"},f_webp`} alt="" />
+            ) : isLottie(a) && seen ? (
+              // Still until pointed at: a grid of loops is noise.
+              <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
+            ) : isFont(a.mime, a.filename) && seen ? (
+              <span className="flex size-full items-center justify-center">
+                <FontThumb id={a.id} className="text-6xl" />
               </span>
-            )
-          ) : hasPreview(a) ? (
-            // Rendition URLs are pure functions of the asset id: no export step,
-            // no signing, no prior round trip.
-            <Thumb src={`/a/${a.id}/${large ? "w_400" : "w_260"},f_webp`} alt="" />
-          ) : isLottie(a) && seen ? (
-            // Still until pointed at: a grid of loops is noise.
-            <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
-          ) : isFont(a.mime, a.filename) && seen ? (
-            <span className="flex size-full items-center justify-center">
-              <FontThumb id={a.id} className="text-6xl" />
-            </span>
-          ) : isLottie(a) || isFont(a.mime, a.filename) ? null : (
-            <span className="text-muted-foreground flex size-full items-center justify-center">
-              <IconPhoto className="size-8" stroke={1.5} />
-            </span>
-          )}
-          {/* The probe records no length: a hidden player fetches just the header for the badge, then goes. */}
-          {video && seen && (peek || duration === null) && (
-            <video
-              ref={player}
-              src={`/a/${a.id}`}
-              muted
-              loop
-              playsInline
-              preload={peek ? "auto" : "metadata"}
-              onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
-              aria-hidden
-              className={cn("absolute inset-0 size-full object-contain p-2", peek ? "animate-in fade-in-0" : "invisible")}
-            />
-          )}
-          {video && !peek && (
-            <span aria-hidden className="bg-background/80 absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-sm backdrop-blur">
-              <IconPlayerPlayFilled className="size-4" />
-            </span>
-          )}
-          <Badge variant="secondary" className="bg-background/80 text-2xs absolute top-2 left-2 font-mono backdrop-blur">
-            {fileTypeBadge(a.filename, a.mime, a.probe)}
-            {badge.version && <span className="text-muted-foreground">{badge.version}</span>}
-          </Badge>
-          {badge.suggested && (
-            <Badge className="text-2xs absolute bottom-2 left-2 max-w-[calc(50%-0.75rem)] truncate">
-              <IconSparkles />
-              <span className="truncate">{badge.suggested}</span>
+            ) : isLottie(a) || isFont(a.mime, a.filename) ? null : (
+              <span className="text-muted-foreground flex size-full items-center justify-center">
+                <IconPhoto className="size-8" stroke={1.5} />
+              </span>
+            )}
+            {/* The probe records no length: a hidden player fetches just the header for the badge, then goes. */}
+            {video && seen && (peek || duration === null) && (
+              <video
+                ref={player}
+                src={`/a/${a.id}`}
+                muted
+                loop
+                playsInline
+                preload={peek ? "auto" : "metadata"}
+                onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
+                aria-hidden
+                className={cn("absolute inset-0 size-full object-contain p-2", peek ? "animate-in fade-in-0" : "invisible")}
+              />
+            )}
+            {video && !peek && (
+              <span aria-hidden className="bg-background/80 absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-sm backdrop-blur">
+                <IconPlayerPlayFilled className="size-4" />
+              </span>
+            )}
+            <Badge variant="secondary" className="bg-background/80 text-2xs absolute top-2 left-2 font-mono backdrop-blur">
+              {fileTypeBadge(a.filename, a.mime, a.probe)}
+              {badge.version && <span className="text-muted-foreground">{badge.version}</span>}
             </Badge>
-          )}
-          {/* Its state first (replaced, expired, expiring); else where it came from (AI-made, by an agent, imported). */}
-          {(badge.state ?? provenanceChips(a)[0]) ? (
-            <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 max-w-[calc(50%-0.75rem)] truncate backdrop-blur">
-              {badge.state ?? provenanceChips(a)[0]}
-            </Badge>
-          ) : (
-            video &&
-            duration !== null && (
-              <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 font-mono tabular-nums backdrop-blur">
-                {Math.floor(Math.round(duration) / 60)}:{String(Math.round(duration) % 60).padStart(2, "0")}
+            {badge.suggested && (
+              <Badge className="text-2xs absolute bottom-2 left-2 max-w-[calc(50%-0.75rem)] truncate">
+                <IconSparkles />
+                <span className="truncate">{badge.suggested}</span>
               </Badge>
-            )
-          )}
-        </div>
+            )}
+            {/* Its state first (replaced, expired, expiring); else where it came from (AI-made, by an agent, imported). */}
+            {(badge.state ?? provenanceChips(a)[0]) ? (
+              <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 max-w-[calc(50%-0.75rem)] truncate backdrop-blur">
+                {badge.state ?? provenanceChips(a)[0]}
+              </Badge>
+            ) : (
+              video &&
+              duration !== null && (
+                <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 font-mono tabular-nums backdrop-blur">
+                  {Math.floor(Math.round(duration) / 60)}:{String(Math.round(duration) % 60).padStart(2, "0")}
+                </Badge>
+              )
+            )}
+          </div>
+        </Morph>
         <div className="flex flex-1 flex-col gap-0.5 border-t px-3 py-2">
           {/* The title a person gave it reads better than the name a camera did. */}
           <p className="truncate text-sm font-medium" title={a.filename}>

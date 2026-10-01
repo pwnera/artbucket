@@ -7,6 +7,7 @@ import { ExternalLink } from "@/components/external-link";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { LeavingLink } from "@/components/link-pending";
 
 /** "github.com/acme/brand", as a repository's address reads. */
 export const repoName = (remote: string) => remote.replace(/^https?:\/\//, "").replace(/\.git$/, "");
@@ -43,7 +44,7 @@ export function RepositoryDetails({ source: s, manage }: { source: NonNullable<S
 
 /** The dot on a Git button while edits made here wait to reach the repository. */
 export const PendingDot = ({ className = "-top-0.5 -end-0.5" }: { className?: string }) => (
-  <span className={cn("bg-warning ring-background absolute size-2 rounded-full ring-2", className)}>
+  <span className={cn("bg-warning ring-background animate-in zoom-in-50 absolute size-2 rounded-full ring-2 duration-200", className)}>
     <span className="sr-only">(changes to sync)</span>
   </span>
 );
@@ -60,9 +61,10 @@ export function GitSource({ source, slug, editor, compact }: { source: Source | 
   if (!s && source.connect)
     return (
       <Button asChild size="sm" variant="outline" title={compact ? "Connect Git" : "Keep this brand in a Git repository"}>
-        <a href={source.connect}>
-          <IconBrandGit aria-hidden /> <span className={compact ? "sr-only" : undefined}>Connect Git</span>
-        </a>
+        <LeavingLink href={source.connect} icon={<IconBrandGit aria-hidden />}>
+          {" "}
+          <span className={compact ? "sr-only" : undefined}>Connect Git</span>
+        </LeavingLink>
       </Button>
     );
   if (!s && !editor) return null;

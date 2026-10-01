@@ -33,7 +33,17 @@ import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
+import { behavior, collapse, flash } from "@/lib/motion";
 import { undoable } from "@/lib/undo";
+
+/** Marks `el` as working ([data-busy] in globals.css: dimmed, not clickable) and hands it back. */
+function busy(el: Element | null) {
+  el?.setAttribute("data-busy", "");
+  return el;
+}
+
+/** A section's block on the canvas (seam.tsx BLOCK), if drawn. */
+const blockOf = (id: string) => document.querySelector(`[data-canvas-block="${CSS.escape(id)}"]`);
 
 /**
  * The builder's state in React (lib/builder-ops.ts holds the logic): every
@@ -196,6 +206,22 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
      * apply, with a toast saying why. To show why inline instead, try
      * builder-ops apply() on `state` first.
      */
+    /**
+     * Rings the sections `ops` added, moved or (`all`) changed once they are
+     * drawn, the first scrolled into view. Typing never gets here.
+     */
+    function ring(ops: Op[], all = false) {
+      const ids = ops.flatMap((o) =>
+        o.kind !== "page" ? [] : o.op.op === "add" ? [o.op.section.id] : o.op.op === "move" || (all && "id" in o.op) ? [o.op.id] : [],
+      );
+      if (!ids.length) return;
+      requestAnimationFrame(() => {
+        const els = ids.flatMap((id) => (id ? [...document.querySelectorAll<HTMLElement>(`[data-canvas-block="${CSS.escape(id)}"]`)] : []));
+        els[0]?.scrollIntoView({ block: "nearest", behavior: behavior() });
+        els.forEach(flash);
+      });
+    }
+
     function change(op: Op): Op | null {
       const l = live.current;
       const r = apply(l.state, op);
@@ -206,6 +232,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       remember(push(l.history, r.op, invert(r.op, l.state), fieldOf(r.op, l.state), Date.now()));
       commit(r.state);
       send([r.op]);
+      ring([r.op]);
       return r.op;
     }
 
@@ -220,6 +247,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       remember(pushStep(l.history, { redo: r.done, undo: r.undo, field: null, at: Date.now() }));
       commit(r.state);
       send(r.done);
+      ring(r.done);
       return r.done;
     }
 
@@ -240,6 +268,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       commit(t.state);
       remember(t.history);
       send(t.sent);
+      // The section it changed comes into view and lights up: an undo far down the page is seen.
+      ring(t.sent, true);
     }
 
     const select = (to: Partial<BuilderState["selection"]>) => {
@@ -302,25 +332,33 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       /** Delete a section of the page on show, with the 8 s Undo. */
       removeSection(id: string) {
         const page = current();
-        const before = live.current.state;
-        const done = change({ kind: "page", page, op: { op: "remove", id } });
-        if (!done) return;
-        const back = invert(done, before);
-        undoable("Section deleted", {
-          // Cmd+Z may have brought it back already.
-          undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+        // It folds away first, so the sections below close the gap instead of jumping.
+        collapse(blockOf(id), () => {
+          const before = live.current.state;
+          const done = change({ kind: "page", page, op: { op: "remove", id } });
+          if (!done) return;
+          const back = invert(done, before);
+          undoable("Section deleted", {
+            // Cmd+Z may have brought it back already.
+            undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+          });
         });
       },
       /** Delete several sections of the page on show at once: one step to undo, and one toast's Undo. */
       removeSections(ids: string[]) {
         const page = current();
-        const ops: Op[] = ids.map((id) => ({ kind: "page", page, op: { op: "remove", id } }));
-        const back = applyAll(live.current.state, ops).undo;
-        if (!changeAll(ops)) return;
-        select({ section: null, rule: null });
-        undoable(ids.length === 1 ? "Section deleted" : `${ids.length} sections deleted`, {
-          undo: () => (ids.some((id) => sectionsOf(page).some((x) => x.id === id)) ? false : (changeAll(back) ?? Promise.reject())),
-        });
+        collapse(
+          ids.flatMap((id) => blockOf(id) ?? []),
+          () => {
+            const ops: Op[] = ids.map((id) => ({ kind: "page", page, op: { op: "remove", id } }));
+            const back = applyAll(live.current.state, ops).undo;
+            if (!changeAll(ops)) return;
+            select({ section: null, rule: null });
+            undoable(ids.length === 1 ? "Section deleted" : `${ids.length} sections deleted`, {
+              undo: () => (ids.some((id) => sectionsOf(page).some((x) => x.id === id)) ? false : (changeAll(back) ?? Promise.reject())),
+            });
+          },
+        );
       },
       /** A copy of a section, just under it, selected. */
       duplicate(id: string) {
@@ -353,14 +391,24 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       async moveToPage(id: string, to: string) {
         const from = current();
         const x = sectionsOf(from).find((y) => y.id === id);
-        if (!x || to === from || !(await fetchPage(to))) return;
+        if (!x || to === from) return;
+        // Dimmed while the other page loads, then it folds away: the click shows it was heard.
+        const el = busy(blockOf(id));
+        if (!(await fetchPage(to))) return void el?.removeAttribute("data-busy");
         const there = sectionsOf(to);
         const section: Record<string, unknown> = { ...x };
         if (there.some((y) => y.id === id)) delete section.id;
-        const done = changeAll([
-          { kind: "page", page: from, op: { op: "remove", id } },
-          { kind: "page", page: to, op: { op: "add", section: section as never, after: there.at(-1)?.id ?? null } },
-        ]);
+        let done: Op[] | null = null;
+        await new Promise<void>((settle) =>
+          collapse(el, () => {
+            done = changeAll([
+              { kind: "page", page: from, op: { op: "remove", id } },
+              { kind: "page", page: to, op: { op: "add", section: section as never, after: there.at(-1)?.id ?? null } },
+            ]);
+            settle();
+          }),
+        );
+        el?.removeAttribute("data-busy");
         if (!done) return;
         const title = live.current.state.nav.find((p) => p.slug === to)?.title ?? to;
         toast.success(`Moved to ${title}`, { action: { label: "Open", onClick: () => live.current.state.nav.some((p) => p.slug === to) && select({ page: to, section: null, rule: null }) } });
@@ -376,7 +424,10 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       },
       /** Delete a page with no pages under it, with the 8 s Undo. It is loaded first: its undo puts its sections back. */
       async deletePage(slug: string) {
-        if (!(await fetchPage(slug))) return;
+        const row = busy(document.querySelector(`[data-page-row="${CSS.escape(slug)}"]`));
+        const loaded = await fetchPage(slug);
+        row?.removeAttribute("data-busy");
+        if (!loaded) return;
         const before = live.current.state;
         const done = change({ kind: "delete-page", page: slug });
         if (!done) return;

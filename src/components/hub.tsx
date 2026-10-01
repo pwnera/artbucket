@@ -5,6 +5,7 @@ import { TileGround } from "@/components/hub-client";
 import { contrast, inkOn, mix } from "@/lib/color";
 import { ago, compact, type CardFace } from "@/lib/hub";
 import { cn } from "@/lib/utils";
+import { LinkSpinner } from "@/components/link-pending";
 
 /**
  * The BrandHub's pieces (app/hub): a listing's card, the grid of them, who
@@ -244,10 +245,12 @@ export function TabNav({ label, items, className }: { label: string; items: { hr
           key={t.href}
           href={t.href}
           aria-current={t.current ? "page" : undefined}
-          className="text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:text-foreground flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium"
+          className="text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:text-foreground relative flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium transition-colors"
         >
           {t.label}
           {t.count !== undefined && <span className="bg-muted rounded-full px-1.5 text-xs tabular-nums">{t.count}</span>}
+          {/* In the padding at its end, so the tab doesn't widen while its page comes. */}
+          <LinkSpinner className="absolute end-0.5 top-1/2 size-2.5 -translate-y-1/2" />
         </Link>
       ))}
     </nav>

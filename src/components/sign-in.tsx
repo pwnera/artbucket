@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Waiting } from "@/components/waiting";
+import { shake, useKept } from "@/lib/motion";
 
 /**
  * Signing in and up, against better-auth at /api/auth: who someone is. What
@@ -124,8 +126,15 @@ export function Card({ title, lead, brand, children }: { title: React.ReactNode;
     <Shell>
       <div className="space-y-3">
         <BrandMark brand={brand} />
-        <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
-        {lead && <div className="text-muted-foreground text-sm text-pretty">{lead}</div>}
+        {/* Keyed on what they say, so a new step's words fade in rather than swap. */}
+        <h1 key={typeof title === "string" ? title : undefined} className="font-display animate-in fade-in-0 text-xl font-semibold tracking-tight duration-200">
+          {title}
+        </h1>
+        {lead && (
+          <div key={typeof lead === "string" ? lead : undefined} className="text-muted-foreground animate-in fade-in-0 text-sm text-pretty duration-200">
+            {lead}
+          </div>
+        )}
       </div>
       {children}
     </Shell>
@@ -227,6 +236,7 @@ export function AuthForm({
       if (r.code === "INVALID_EMAIL_OR_PASSWORD") {
         passwordInput.current?.focus();
         passwordInput.current?.select();
+        shake(passwordInput.current?.closest("form"));
       }
       return;
     }
@@ -401,7 +411,7 @@ export function AuthForm({
             </FormError>
           )}
           <Button type="submit" pending={busy === "form"} disabled={!!busy && busy !== "form"}>
-            {mode === "in" ? (busy === "form" ? "Signing in…" : "Sign in") : busy === "form" ? "Making account…" : "Make account"}
+            {mode === "in" ? "Sign in" : "Make account"}
           </Button>
           {ssoOffered && (
             <Button type="button" variant="outline" pending={busy === "org"} disabled={!!busy && busy !== "org"} onClick={() => void orgSso()}>
@@ -510,7 +520,7 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
           </p>
         ))}
       <Button type="submit" pending={busy} disabled={code.length < 6}>
-        {busy ? "Confirming…" : "Confirm"}
+        Confirm
       </Button>
       <p className="text-muted-foreground flex justify-between gap-2 text-sm">
         <button type="button" className={TEXT_LINK} onClick={onBack}>
@@ -605,6 +615,7 @@ export function Welcome({ me }: { me: Me }) {
   const go = useGo();
   const router = useRouter();
   const [making, setMaking] = useState(false);
+  const shownMaking = useKept(making || null);
   useEffect(() => {
     const look = () => document.visibilityState === "visible" && router.refresh();
     const every = setInterval(look, 30_000);
@@ -629,8 +640,8 @@ export function Welcome({ me }: { me: Me }) {
           <IconLogout /> Sign out
         </Button>
       </div>
-      <p className="text-muted-foreground text-xs text-pretty">This page moves on by itself once you have access.</p>
-      {making && <MakeDialog kind="organization" onClose={() => setMaking(false)} />}
+      <Waiting what="This page moves on by itself once you have access" />
+      {shownMaking && <MakeDialog kind="organization" open={making} onClose={() => setMaking(false)} />}
     </Card>
   );
 }
@@ -769,10 +780,10 @@ export function InvitePage({
           )}
           {error && <FormError>{error}</FormError>}
           <Button pending={busy === "accept"} disabled={busy === "out"} onClick={() => void accept()}>
-            {busy === "accept" ? "Joining…" : "Accept"}
+            Accept
           </Button>
           <Button variant="ghost" pending={busy === "out"} disabled={busy === "accept"} onClick={() => void switchAccount()}>
-            {busy === "out" ? "Signing out…" : "Not you? Sign out"}
+            Not you? Sign out
           </Button>
         </div>
       </Card>
@@ -906,7 +917,7 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
         </div>
         {error && <FormError id={`${id}-error`}>{error}</FormError>}
         <Button type="submit" pending={busy}>
-          {busy ? "Sending…" : "Send the link"}
+          Send the link
         </Button>
         <Link
           href="/login"
@@ -971,7 +982,7 @@ export function ResetPassword({ token, invalid }: { token: string | null; invali
         </div>
         {error && <FormError id={`${id}-error`}>{error}</FormError>}
         <Button type="submit" pending={busy}>
-          {busy ? "Saving…" : "Save new password"}
+          Save new password
         </Button>
       </form>
     </Card>

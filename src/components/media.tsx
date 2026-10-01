@@ -76,7 +76,8 @@ export function LinkImport({
   into?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDone: () => void;
+  /** With the id of the asset it made, or found already there. */
+  onDone: (ids: string[]) => void;
   /** A link to start from: one pasted onto the page. */
   defaultValue?: string;
 }) {
@@ -101,7 +102,7 @@ export function LinkImport({
     if (!res?.ok) return void toast.error(body?.error?.message ?? "Couldn't add it");
     toast.success(body.deduped ? "Already in the library" : `Added ${body.data.filename}`);
     onOpenChange(false);
-    onDone();
+    onDone([body.data.id]);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

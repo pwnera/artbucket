@@ -21,6 +21,7 @@ import {
   IconUsers,
   IconWorld,
   IconX,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
@@ -49,6 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
+import { collapse, flash, useKept } from "@/lib/motion";
 
 export type Portal = {
   id: string;
@@ -155,6 +157,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
+  // Kept while they fade out, so they leave showing what they showed.
+  const shownEditing = useKept(editing);
+  const shownRequests = useKept(requests);
   const any = collections.length > 0 || brands.length > 0;
   // Arriving from a brand's Sharing tab: only the portals showing it.
   const only = brands.find((b) => b.slug === params.get("brand"));
@@ -210,7 +215,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           <ul className="divide-y rounded-lg border">
             {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
             {shown.map((p) => (
-              <li key={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
+              <li key={p.id} data-portal={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
                   className="size-8 shrink-0 rounded-md border"
                   style={{ background: p.theme.background ?? p.theme.accent ?? "var(--muted)" }}
@@ -249,7 +254,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     portal={p}
                     onEdit={() => setEditing(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
-                    onDeleted={() => setRows((rs) => rs.filter((r) => r.id !== p.id))}
+                    onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
                   />
                 </div>
               </li>
@@ -257,12 +262,13 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </ul>
         )}
       </div>
-      {editing && (
+      {shownEditing && (
         <PortalDialog
-          portal={editing === "new" ? null : editing}
+          open={!!editing}
+          portal={shownEditing === "new" ? null : shownEditing}
           collections={collections}
           brands={brands}
-          showing={editing === "new" && freshBrand ? freshBrand : undefined}
+          showing={shownEditing === "new" && freshBrand ? freshBrand : undefined}
           portalDomain={portalDomain}
           onClose={() => {
             setEditing(null);
@@ -271,14 +277,16 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
+            flash(`[data-portal="${CSS.escape(saved.id)}"]`);
             if (said) toastSaved(saved, said);
           }}
-          onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}
+          onDeleted={(gone) => collapse(document.querySelector(`[data-portal="${CSS.escape(gone)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== gone)))}
         />
       )}
-      {requests && (
+      {shownRequests && (
         <RequestsDialog
-          portal={requests}
+          open={!!requests}
+          portal={shownRequests}
           onClose={(changed) => {
             setRequests(null);
             // Off the address, or the next render would open it again.
@@ -307,10 +315,12 @@ export function toastSaved(saved: Portal, said: "made" | "saved") {
 function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; onEdit: () => void; onChanged: (p: Portal) => void; onDeleted: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const toggle = async () => {
+    // The row shows it at once (its Offline badge), and goes back if the server says no.
+    onChanged({ ...p, expired: !p.expired });
     const saved: Portal | null = p.expired
       ? await send("PATCH", `/api/v1/portals/${p.id}`, { expiresAt: null })
       : await send("POST", `/api/v1/portals/${p.id}/close`);
-    if (!saved) return;
+    if (!saved) return onChanged(p);
     onChanged(saved);
     toast.success(saved.expired ? `${saved.name} is offline` : `${saved.name} is back online`, {
       description: saved.expired ? "Its address says it is closed. Nothing about it is lost." : undefined,
@@ -512,6 +522,7 @@ function siteSummary(site: PortalSite) {
  * shown here as "From {brand}".
  */
 export function PortalDialog({
+  open = true,
   portal,
   collections,
   brands,
@@ -521,6 +532,7 @@ export function PortalDialog({
   onSaved,
   onDeleted,
 }: {
+  open?: boolean;
   portal: Portal | null;
   collections: Pickable[];
   brands: { slug: string; name: string }[];
@@ -593,6 +605,8 @@ export function PortalDialog({
     };
   }, [f.slug, current]);
   const verdict = check && check.slug === f.slug && f.slug !== current?.slug ? check : null;
+  // Asked and not answered yet: said, after a beat, so the field doesn't seem to ignore the typing.
+  const asking = !verdict && PORTAL_SLUG.test(f.slug) && f.slug !== current?.slug;
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
@@ -631,7 +645,7 @@ export function PortalDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className="pb-0 sm:max-w-xl"
         guard={{ dirty, onDiscard: onClose, ...(ready && { onSave: () => formRef.current?.requestSubmit() }) }}
@@ -684,12 +698,17 @@ export function PortalDialog({
               {sub && <span className="text-muted-foreground shrink-0 text-sm">.{sub}</span>}
             </div>
             <p id={`${id}-slug-check`} aria-live="polite" className="text-xs empty:hidden">
+              {asking && (
+                <span className="text-muted-foreground animate-in fade-in-0 fill-mode-backwards flex items-center gap-1.5 delay-300">
+                  <IconLoader2 aria-hidden className="size-3.5 animate-spin" /> Checking
+                </span>
+              )}
               {verdict &&
                 (verdict.reason ? (
-                  <span className="text-destructive">{verdict.reason}</span>
+                  <span className="text-destructive animate-in fade-in-0">{verdict.reason}</span>
                 ) : (
                   <span className="text-success flex items-center gap-1.5">
-                    <IconCheck className="size-3.5" /> Available{current && `: ${current.slug} will keep leading here`}
+                    <IconCheck className="animate-in zoom-in-50 size-3.5 duration-200" /> Available{current && `: ${current.slug} will keep leading here`}
                   </span>
                 ))}
             </p>
@@ -1308,7 +1327,7 @@ function SiteFields({
 }
 
 /** Who asked in, and a yes or a no for each; a decision can be changed. */
-function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed: boolean) => void }) {
+function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open?: boolean; onClose: (changed: boolean) => void }) {
   const [rows, setRows] = useState<Request[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -1375,7 +1394,7 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose(changed.current)}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose(changed.current)}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>

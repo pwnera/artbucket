@@ -9,7 +9,7 @@ import { Can, useCan } from "@/components/can";
 import { AssetMenu, type ActionContext } from "@/components/asset-menu";
 import { IconButton } from "@/components/icon-button";
 import { approve, reject, suggestions } from "@/components/review-actions";
-import { decideLater, RejectAction, type Patch } from "@/components/selection-bar";
+import { decideLater, RejectAction, useReviewCount, type Patch } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
@@ -17,6 +17,7 @@ import { isFont } from "@/lib/font";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { hasPreview, isIcon, isMono } from "@/lib/preview";
+import { collapse } from "@/lib/motion";
 
 /**
  * The library as rows, PostHog style: denser than the grid, and the right
@@ -60,13 +61,19 @@ export function AssetTable({
 }) {
   const can = useCan();
   const tab = assets.some((a) => a.id === cursor) ? cursor : assets[0]?.id;
+  const onCount = useReviewCount();
   const decide = (a: Asset, verdict: "approve" | "reject", reason = "") => {
     const title = a.metadata?.title || a.filename;
-    decideLater(
-      `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
-      [a],
-      verdict === "approve" ? approve : (x) => reject(x, reason),
-      { patch, onDone: onChanged },
+    // The row leaves tinted with its verdict, green or red, before the list closes over it.
+    const row = document.querySelector(`tr[data-cursor="${CSS.escape(a.id)}"]`);
+    row?.setAttribute("data-verdict", verdict);
+    collapse(row, () =>
+      decideLater(
+        `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
+        [a],
+        verdict === "approve" ? approve : (x) => reject(x, reason),
+        { patch, onDone: onChanged, onCount },
+      ),
     );
   };
 

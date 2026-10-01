@@ -111,279 +111,285 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent className="sm:max-w-3xl" guard={{ dirty: !!(name || site), onDiscard: onClose }}>
-        {step === "how" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>New brand</DialogTitle>
-              <DialogDescription>Choose how to set it up. Either way it is a draft until you release it.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="How to set it up">
-              <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">
-                <BuilderArt />
-              </Choice>
-              <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Connect Claude, Cursor or Codex and it writes the rules and pages for you to review.">
-                <AgentArt />
-              </Choice>
-              <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
-                <FilesArt />
-              </Choice>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => setStep(how)}>
-                Continue
-              </Button>
-            </DialogFooter>
-          </>
-        )}
-
-        {step === "builder" && (
-          <form onSubmit={create} className="grid min-w-0 gap-4">
-            <DialogHeader>
-              <DialogTitle>Build it in the builder</DialogTitle>
-              <DialogDescription>Start blank, from your domain&apos;s brand.json, or from a template: its colors, type, logos and pages, yours to change.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3" role="radiogroup" aria-label="Start from">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules and no pages: add them as you go." compact>
-                  <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
-                    <IconPlus className="size-4" />
-                  </div>
+        {/* Each step slides in from the side it lies on: on from the end, Back from the start. */}
+        <div
+          key={step}
+          className={cn("animate-in fade-in-0 grid min-w-0 gap-4 duration-200", step === "how" ? "slide-in-from-start-2" : "slide-in-from-end-2")}
+        >
+          {step === "how" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>New brand</DialogTitle>
+                <DialogDescription>Choose how to set it up. Either way it is a draft until you release it.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="How to set it up">
+                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">
+                  <BuilderArt />
                 </Choice>
-                <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json, the file agents read: colors, type, logos and voice." compact>
-                  <div className="text-muted-foreground flex h-10 items-center justify-center gap-1.5 rounded-md border font-mono text-xs">
-                    <IconWorld className="size-4" /> /.well-known/brand.json
-                  </div>
+                <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Connect Claude, Cursor or Codex and it writes the rules and pages for you to review.">
+                  <AgentArt />
+                </Choice>
+                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
+                  <FilesArt />
                 </Choice>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {TEMPLATE_CARDS.map((t) => (
-                  <Choice key={t.id} selected={start === t.id} onSelect={() => pick(t.id)} title={t.name} text={t.blurb} compact>
-                    <div className="flex h-10 overflow-hidden rounded-md border">
-                      {t.swatches.map((c) => (
-                        <span key={c} className="flex-1" style={{ background: c }} />
-                      ))}
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={() => setStep(how)}>
+                  Continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {step === "builder" && (
+            <form onSubmit={create} className="grid min-w-0 gap-4">
+              <DialogHeader>
+                <DialogTitle>Build it in the builder</DialogTitle>
+                <DialogDescription>Start blank, from your domain&apos;s brand.json, or from a template: its colors, type, logos and pages, yours to change.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3" role="radiogroup" aria-label="Start from">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules and no pages: add them as you go." compact>
+                    <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
+                      <IconPlus className="size-4" />
                     </div>
                   </Choice>
-                ))}
-              </div>
-            </div>
-            {start === "domain" && (
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-domain`}>Domain</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id={`${id}-domain`}
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && void look(e)}
-                    placeholder="acme.com"
-                    inputMode="url"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                  />
-                  <Button type="button" variant="outline" pending={lookup.busy} disabled={!domain.trim()} onClick={() => void look()}>
-                    Look it up
-                  </Button>
+                  <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json, the file agents read: colors, type, logos and voice." compact>
+                    <div className="text-muted-foreground flex h-10 items-center justify-center gap-1.5 rounded-md border font-mono text-xs">
+                      <IconWorld className="size-4" /> /.well-known/brand.json
+                    </div>
+                  </Choice>
                 </div>
-                {lookup.error && (
-                  <p className="text-destructive text-sm" role="alert">
-                    {lookup.error}
-                  </p>
-                )}
-                {found && (
-                  <div className="grid gap-2" role="radiogroup" aria-label="Brand found">
-                    {found.brands.map((b) => (
-                      <Choice
-                        key={b.id}
-                        selected={pickId === b.id}
-                        onSelect={() => {
-                          rename(b.name);
-                          setPickId(b.id);
-                        }}
-                        title={b.name}
-                        text={[
-                          b.domain,
-                          b.tagline,
-                          `${b.rules} rules${b.logos ? `, ${b.logos} logo${b.logos === 1 ? "" : "s"}` : ""}${b.fonts.length ? `, ${b.fonts.join(" and ")}` : ""}`,
-                          b.dropped.length ? `Left out: ${b.dropped.join(", ")}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(". ")}
-                        compact
-                      >
-                        {b.colors.length > 0 && (
-                          <div className="flex h-6 overflow-hidden rounded-md border">
-                            {b.colors.map((c, i) => (
-                              <span key={i} className="flex-1" style={{ background: c }} />
-                            ))}
-                          </div>
-                        )}
-                      </Choice>
-                    ))}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {TEMPLATE_CARDS.map((t) => (
+                    <Choice key={t.id} selected={start === t.id} onSelect={() => pick(t.id)} title={t.name} text={t.blurb} compact>
+                      <div className="flex h-10 overflow-hidden rounded-md border">
+                        {t.swatches.map((c) => (
+                          <span key={c} className="flex-1" style={{ background: c }} />
+                        ))}
+                      </div>
+                    </Choice>
+                  ))}
+                </div>
+              </div>
+              {start === "domain" && (
+                <div className="grid gap-2">
+                  <Label htmlFor={`${id}-domain`}>Domain</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id={`${id}-domain`}
+                      value={domain}
+                      onChange={(e) => setDomain(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && void look(e)}
+                      placeholder="acme.com"
+                      inputMode="url"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                    />
+                    <Button type="button" variant="outline" pending={lookup.busy} disabled={!domain.trim()} onClick={() => void look()}>
+                      Look it up
+                    </Button>
                   </div>
-                )}
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-name`}>Name</Label>
-              <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
-            </div>
-            {git && (
-              <div className="flex items-start gap-2.5">
-                <Checkbox id={`${id}-keep`} checked={keep} onCheckedChange={(v) => setKeep(v === true)} className="mt-0.5" />
-                <Label htmlFor={`${id}-keep`} className="grid gap-0.5 font-normal">
-                  <span className="font-medium">Keep it in a Git repository too</span>
-                  <span className="text-muted-foreground">Pick the repository next. Its files and this brand stay in step, both ways.</span>
-                </Label>
-              </div>
-            )}
-            <DialogFooter className="sm:justify-between">
-              <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={busy}>
-                <IconArrowLeft /> Back
-              </Button>
-              <Button type="submit" pending={busy} disabled={!name.trim() || (start === "domain" && !pickId)}>
-                {busy && start ? "Bringing in its logos and fonts" : keep ? "Create and pick a repository" : "Create brand"}
-              </Button>
-            </DialogFooter>
-          </form>
-        )}
-
-        {step === "git" && git && (
-          <div className="grid min-w-0 gap-4">
-            <DialogHeader>
-              <DialogTitle>From a Git repository</DialogTitle>
-              <DialogDescription>
-                The brand as YAML beside its logos and fonts: change it in a pull request, with a preview of the brand as it would be, or here in the builder. Each side&apos;s edits reach the other.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <a
-                href={gitLink(git)}
-                className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 outline-none focus-visible:ring-[3px]"
-              >
-                <IconFolder className="text-primary size-5" aria-hidden />
-                <span className="text-sm font-medium">Bring in a brand from a repository</span>
-                <span className="text-muted-foreground text-sm">It already has a brand.yaml: pick the repository, and the brand comes in with its pages and files.</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  setKeep(true);
-                  setStep("builder");
-                }}
-                className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 text-start outline-none focus-visible:ring-[3px]"
-              >
-                <IconPlus className="text-primary size-5" aria-hidden />
-                <span className="text-sm font-medium">Start a new brand, kept in a repository</span>
-                <span className="text-muted-foreground text-sm">Blank or from a template, then pick a repository: its files go there as you build.</span>
-              </button>
-            </div>
-            <DialogFooter className="sm:justify-start">
-              <Button type="button" variant="ghost" onClick={() => setStep("how")}>
-                <IconArrowLeft /> Back
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
-
-        {step === "git" && !git && (
-          <div className="grid min-w-0 gap-4">
-            <DialogHeader>
-              <DialogTitle>From a Git repository</DialogTitle>
-              <DialogDescription>
-                The brand as YAML beside its logos and fonts, pushed from your repository with the Artbucket CLI. This server has no Git integration, so a push is yours to run, by hand or in CI.
-              </DialogDescription>
-            </DialogHeader>
-            {made ? (
-              <div className="grid min-w-0 gap-3">
-                <p className="text-sm font-medium">1. In a checkout of Artbucket, sign the CLI in to this server</p>
-                <Snippet text={`ARTBUCKET_URL=${origin} pnpm artbucket login`} what="the command" />
-                <p className="text-sm font-medium">2. Push your repository&apos;s folder holding brand.yaml</p>
-                <Snippet text={`pnpm artbucket brand push path/to/your-repo/brand --brand ${made.slug}`} what="the command" />
-                <p className="text-muted-foreground text-sm">
-                  No brand.yaml yet? <code>pnpm artbucket brand pull path/to/your-repo/brand --brand {made.slug}</code> writes this brand as files to start from.
-                </p>
-              </div>
-            ) : (
-              <form
-                className="grid gap-2"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setBusy(true);
-                  setMade(await send("POST", "/api/v1/brands", { name }));
-                  setBusy(false);
-                }}
-              >
-                <Label htmlFor={`${id}-git-name`}>Brand name</Label>
-                <div className="flex gap-2">
-                  <Input id={`${id}-git-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" required />
-                  <Button type="submit" disabled={busy || !name.trim()}>
-                    Make it
-                  </Button>
+                  {lookup.error && (
+                    <p className="text-destructive text-sm" role="alert">
+                      {lookup.error}
+                    </p>
+                  )}
+                  {found && (
+                    <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150" role="radiogroup" aria-label="Brand found">
+                      {found.brands.map((b) => (
+                        <Choice
+                          key={b.id}
+                          selected={pickId === b.id}
+                          onSelect={() => {
+                            rename(b.name);
+                            setPickId(b.id);
+                          }}
+                          title={b.name}
+                          text={[
+                            b.domain,
+                            b.tagline,
+                            `${b.rules} rules${b.logos ? `, ${b.logos} logo${b.logos === 1 ? "" : "s"}` : ""}${b.fonts.length ? `, ${b.fonts.join(" and ")}` : ""}`,
+                            b.dropped.length ? `Left out: ${b.dropped.join(", ")}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(". ")}
+                          compact
+                        >
+                          {b.colors.length > 0 && (
+                            <div className="flex h-6 overflow-hidden rounded-md border">
+                              {b.colors.map((c, i) => (
+                                <span key={i} className="flex-1" style={{ background: c }} />
+                              ))}
+                            </div>
+                          )}
+                        </Choice>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </form>
-            )}
-            <DialogFooter className="sm:justify-between">
-              <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={!!made}>
-                <IconArrowLeft /> Back
-              </Button>
-              {made && (
-                <Button type="button" onClick={() => onDone(made)}>
+              )}
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-name`}>Name</Label>
+                <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
+              </div>
+              {git && (
+                <div className="flex items-start gap-2.5">
+                  <Checkbox id={`${id}-keep`} checked={keep} onCheckedChange={(v) => setKeep(v === true)} className="mt-0.5" />
+                  <Label htmlFor={`${id}-keep`} className="grid gap-0.5 font-normal">
+                    <span className="font-medium">Keep it in a Git repository too</span>
+                    <span className="text-muted-foreground">Pick the repository next. Its files and this brand stay in step, both ways.</span>
+                  </Label>
+                </div>
+              )}
+              <DialogFooter className="sm:justify-between">
+                <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={busy}>
+                  <IconArrowLeft /> Back
+                </Button>
+                <Button type="submit" pending={busy && (start ? "beside" : true)} disabled={!name.trim() || (start === "domain" && !pickId)}>
+                  {busy && start ? "Bringing in its logos and fonts" : keep ? "Create and pick a repository" : "Create brand"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+
+          {step === "git" && git && (
+            <div className="grid min-w-0 gap-4">
+              <DialogHeader>
+                <DialogTitle>From a Git repository</DialogTitle>
+                <DialogDescription>
+                  The brand as YAML beside its logos and fonts: change it in a pull request, with a preview of the brand as it would be, or here in the builder. Each side&apos;s edits reach the other.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <a
+                  href={gitLink(git)}
+                  className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 outline-none focus-visible:ring-[3px]"
+                >
+                  <IconFolder className="text-primary size-5" aria-hidden />
+                  <span className="text-sm font-medium">Bring in a brand from a repository</span>
+                  <span className="text-muted-foreground text-sm">It already has a brand.yaml: pick the repository, and the brand comes in with its pages and files.</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKeep(true);
+                    setStep("builder");
+                  }}
+                  className="hover:border-foreground/20 focus-visible:ring-ring/50 grid content-start gap-2 rounded-lg border p-4 text-start outline-none focus-visible:ring-[3px]"
+                >
+                  <IconPlus className="text-primary size-5" aria-hidden />
+                  <span className="text-sm font-medium">Start a new brand, kept in a repository</span>
+                  <span className="text-muted-foreground text-sm">Blank or from a template, then pick a repository: its files go there as you build.</span>
+                </button>
+              </div>
+              <DialogFooter className="sm:justify-start">
+                <Button type="button" variant="ghost" onClick={() => setStep("how")}>
+                  <IconArrowLeft /> Back
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {step === "git" && !git && (
+            <div className="grid min-w-0 gap-4">
+              <DialogHeader>
+                <DialogTitle>From a Git repository</DialogTitle>
+                <DialogDescription>
+                  The brand as YAML beside its logos and fonts, pushed from your repository with the Artbucket CLI. This server has no Git integration, so a push is yours to run, by hand or in CI.
+                </DialogDescription>
+              </DialogHeader>
+              {made ? (
+                <div className="grid min-w-0 gap-3">
+                  <p className="text-sm font-medium">1. In a checkout of Artbucket, sign the CLI in to this server</p>
+                  <Snippet text={`ARTBUCKET_URL=${origin} pnpm artbucket login`} what="the command" />
+                  <p className="text-sm font-medium">2. Push your repository&apos;s folder holding brand.yaml</p>
+                  <Snippet text={`pnpm artbucket brand push path/to/your-repo/brand --brand ${made.slug}`} what="the command" />
+                  <p className="text-muted-foreground text-sm">
+                    No brand.yaml yet? <code>pnpm artbucket brand pull path/to/your-repo/brand --brand {made.slug}</code> writes this brand as files to start from.
+                  </p>
+                </div>
+              ) : (
+                <form
+                  className="grid gap-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setBusy(true);
+                    setMade(await send("POST", "/api/v1/brands", { name }));
+                    setBusy(false);
+                  }}
+                >
+                  <Label htmlFor={`${id}-git-name`}>Brand name</Label>
+                  <div className="flex gap-2">
+                    <Input id={`${id}-git-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" required />
+                    <Button type="submit" disabled={busy || !name.trim()}>
+                      Make it
+                    </Button>
+                  </div>
+                </form>
+              )}
+              <DialogFooter className="sm:justify-between">
+                <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={!!made}>
+                  <IconArrowLeft /> Back
+                </Button>
+                {made && (
+                  <Button type="button" onClick={() => onDone(made)}>
+                    Done
+                  </Button>
+                )}
+              </DialogFooter>
+            </div>
+          )}
+
+          {step === "agent" && (
+            <div className="grid min-w-0 gap-4">
+              <DialogHeader>
+                <DialogTitle>Let an agent build it</DialogTitle>
+                <DialogDescription>Connect your agent, then paste the prompt. It makes the brand and fills it in; you review the draft.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor={`${id}-agent-name`}>Brand name</Label>
+                  <Input id={`${id}-agent-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={`${id}-site`}>Website</Label>
+                  <Input id={`${id}-site`} value={site} onChange={(e) => setSite(e.target.value)} placeholder="https://example.com" inputMode="url" />
+                </div>
+              </div>
+              <Tabs defaultValue={PICKS[0]?.name} className="min-w-0">
+                <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
+                  {PICKS.map((a) => (
+                    <TabsTrigger key={a.name} value={a.name}>
+                      <a.icon /> {a.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {PICKS.map((a) => (
+                  <TabsContent key={a.name} value={a.name} className="grid min-w-0 gap-3 pt-2">
+                    <p className="text-sm font-medium">1. Connect {a.name}</p>
+                    {a.snippet({ origin, mcp: `${origin}/api/v1/mcp`, key: "<key>" }).map((p, i) => (
+                      <SetupPart key={i} part={p} />
+                    ))}
+                    <p className="text-sm font-medium">2. Paste this prompt</p>
+                    <Snippet text={brief(name, site)} what="the prompt" prose />
+                  </TabsContent>
+                ))}
+              </Tabs>
+              <DialogFooter className="sm:justify-between">
+                <Button type="button" variant="ghost" onClick={() => setStep("how")}>
+                  <IconArrowLeft /> Back
+                </Button>
+                <Button type="button" onClick={onClose}>
                   Done
                 </Button>
-              )}
-            </DialogFooter>
-          </div>
-        )}
-
-        {step === "agent" && (
-          <div className="grid min-w-0 gap-4">
-            <DialogHeader>
-              <DialogTitle>Let an agent build it</DialogTitle>
-              <DialogDescription>Connect your agent, then paste the prompt. It makes the brand and fills it in; you review the draft.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-agent-name`}>Brand name</Label>
-                <Input id={`${id}-agent-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-site`}>Website</Label>
-                <Input id={`${id}-site`} value={site} onChange={(e) => setSite(e.target.value)} placeholder="https://example.com" inputMode="url" />
-              </div>
+              </DialogFooter>
             </div>
-            <Tabs defaultValue={PICKS[0]?.name} className="min-w-0">
-              <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
-                {PICKS.map((a) => (
-                  <TabsTrigger key={a.name} value={a.name}>
-                    <a.icon /> {a.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {PICKS.map((a) => (
-                <TabsContent key={a.name} value={a.name} className="grid min-w-0 gap-3 pt-2">
-                  <p className="text-sm font-medium">1. Connect {a.name}</p>
-                  {a.snippet({ origin, mcp: `${origin}/api/v1/mcp`, key: "<key>" }).map((p, i) => (
-                    <SetupPart key={i} part={p} />
-                  ))}
-                  <p className="text-sm font-medium">2. Paste this prompt</p>
-                  <Snippet text={brief(name, site)} what="the prompt" prose />
-                </TabsContent>
-              ))}
-            </Tabs>
-            <DialogFooter className="sm:justify-between">
-              <Button type="button" variant="ghost" onClick={() => setStep("how")}>
-                <IconArrowLeft /> Back
-              </Button>
-              <Button type="button" onClick={onClose}>
-                Done
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

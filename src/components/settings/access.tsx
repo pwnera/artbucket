@@ -56,6 +56,9 @@ import { send } from "@/lib/send";
 import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
+import { useFlashNew } from "@/lib/motion";
+import { SavedMark } from "@/components/settings/panels";
+import { useKept } from "@/lib/motion";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope; limits: Ability[] };
@@ -129,6 +132,9 @@ export function People({
     inviting ? { kind: "invite" } : null,
   );
   const [resent, setResent] = useState<{ email: string; url: string; emailed: boolean } | null>(null);
+  // Kept while they fade out, so they leave showing what they showed.
+  const shownDialog = useKept(dialog);
+  const shownResent = useKept(resent);
   const [resending, setResending] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
@@ -149,11 +155,11 @@ export function People({
     window.history.replaceState(null, "", url);
   }
 
+  /** True when it took: the row says Saved beside the role itself. */
   async function change(g: Grant, userId: string, scope: Scope, limits?: Ability[]) {
-    if (await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits })) {
-      toast.success(`Now ${role(scope, limits ?? g.limits).toLowerCase()} on ${g.label}`);
-      refresh();
-    }
+    if (!(await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits }))) return false;
+    refresh();
+    return true;
   }
   async function remove(g: Grant, m: Member) {
     if (!(await send("DELETE", `/api/v1/grants/${g.id}`))) return false;
@@ -177,6 +183,11 @@ export function People({
   // You first: the row you most often come to change is your own.
   const people = members.data.filter((m) => matches(m.name, m.email)).sort((a, b) => Number(b.id === me.user?.id) - Number(a.id === me.user?.id));
   const invited = members.invitations.filter((i) => matches(i.email));
+  // An invitation just sent lights up in the list when the refresh brings it.
+  useFlashNew(
+    members.invitations.map((i) => i.id),
+    (id) => `[data-invite="${CSS.escape(id)}"]`,
+  );
 
   return (
     <div className="space-y-8">
@@ -247,7 +258,7 @@ export function People({
             {invited.map((i) => {
               const I = ICON[i.resource];
               return (
-                <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
+                <li key={i.id} data-invite={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
                   <IconMail className="text-muted-foreground size-4 shrink-0" />
                   <div className="min-w-48 flex-1">
                     <p className="truncate font-medium">{i.email}</p>
@@ -301,15 +312,15 @@ export function People({
         <p className="text-muted-foreground text-sm">No invitations waiting.</p>
       )}
 
-      {dialog && <GrantDialog me={me} dialog={dialog} places={places} onClose={close} onDone={refresh} />}
-      {resent && (
-        <Dialog open onOpenChange={(o) => !o && setResent(null)}>
+      {shownDialog && <GrantDialog me={me} dialog={shownDialog} open={!!dialog} places={places} onClose={close} onDone={refresh} />}
+      {shownResent && (
+        <Dialog open={!!resent} onOpenChange={(o) => !o && setResent(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Invitation for {resent.email}</DialogTitle>
+              <DialogTitle>Invitation for {shownResent.email}</DialogTitle>
               <DialogDescription>A new link, good for a week. The one sent before no longer works.</DialogDescription>
             </DialogHeader>
-            <InviteLink me={me} url={resent.url} emailed={resent.emailed} />
+            <InviteLink me={me} url={shownResent.url} emailed={shownResent.emailed} />
             <DialogFooter>
               <Button onClick={() => setResent(null)}>Done</Button>
             </DialogFooter>
@@ -385,14 +396,15 @@ function GrantRow({
   const [shown, setShown] = useOptimistic({ scope: g.scope, limits: g.limits });
   const [, start] = useTransition();
   const [asking, setAsking] = useState<{ scope: Scope } | "remove" | null>(null);
+  const [savedAt, setSavedAt] = useState(0);
   // The request runs inside the transition, and router.refresh() with it, so the new value holds until the new props land.
   const scope = (s: Scope) => start(async () => {
     setShown({ scope: s, limits: shown.limits });
-    await onScope(s);
+    if (await onScope(s)) setSavedAt(Date.now());
   });
   const limits = (l: Ability[]) => start(async () => {
     setShown({ scope: shown.scope, limits: l });
-    await onLimits(l);
+    if (await onLimits(l)) setSavedAt(Date.now());
   });
   const ownAdmin = mine && g.scope === "admin";
 
@@ -475,6 +487,7 @@ function GrantRow({
           return true;
         }}
       />
+      <SavedMark at={savedAt} />
     </div>
   );
 }
@@ -484,9 +497,11 @@ function GrantDialog({
   me,
   dialog,
   places,
+  open = true,
   onClose,
   onDone,
 }: {
+  open?: boolean;
   me: Me;
   dialog: { kind: "invite" } | { kind: "grant"; user: { id: string; name: string } };
   places: Where[];
@@ -517,7 +532,7 @@ function GrantDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{dialog.kind === "invite" ? "Invite someone" : `More access for ${dialog.user.name}`}</DialogTitle>
@@ -528,7 +543,7 @@ function GrantDialog({
           </DialogDescription>
         </DialogHeader>
         {link ? (
-          <div className="grid gap-3">
+          <div className="animate-in fade-in-0 zoom-in-[0.98] grid gap-3 duration-200">
             <InviteLink me={me} url={link.url} emailed={link.emailed} />
             <DialogFooter>
               <Button onClick={onClose}>Done</Button>
@@ -579,7 +594,7 @@ function GrantDialog({
               </Select>
             </div>
             {allows(scope, "write") && (
-              <fieldset className="grid gap-2">
+              <fieldset className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
                 <legend className="mb-2 text-sm font-medium">May</legend>
                 {ABILITIES.map((a) => (
                   <Label key={a} className="font-normal">

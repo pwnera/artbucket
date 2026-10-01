@@ -32,11 +32,11 @@ export function Fold({
     <details open={open} className={cn("group min-w-0", bare ? "border-t" : "rounded-lg border", className)}>
       <summary
         className={cn(
-          "hover:bg-muted/50 focus-visible:ring-ring/50 flex cursor-pointer list-none items-center gap-2 py-2.5 text-sm outline-none focus-visible:ring-3 [&::-webkit-details-marker]:hidden",
+          "hover:bg-muted/50 transition-colors focus-visible:ring-ring/50 flex cursor-pointer list-none items-center gap-2 py-2.5 text-sm outline-none focus-visible:ring-3 [&::-webkit-details-marker]:hidden",
           bare ? "px-1" : "rounded-lg px-3",
         )}
       >
-        <IconChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-90" />
+        <IconChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-open:rotate-90" />
         <span className="shrink-0 font-medium">{title}</span>
         {summary && <span className="text-muted-foreground ms-auto min-w-0 truncate text-xs">{summary}</span>}
       </summary>

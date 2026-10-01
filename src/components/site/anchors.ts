@@ -3,7 +3,10 @@
 import { createElement, useEffect, useState } from "react";
 import { IconHash } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
+import { behavior, flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+export { behavior };
 
 /**
  * Getting around a page by its anchors: scrolling to one, linking to it,
@@ -14,18 +17,6 @@ import { cn } from "@/lib/utils";
 /** Where a single key is typing, or a dialog's or menu's own: the page's keys stay out of it. */
 export const TYPING =
   "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=combobox]";
-
-/** It lights up and fades ([data-flash] in globals.css): where something just landed, or a link led. */
-function flashEl(el: HTMLElement) {
-  el.removeAttribute("data-flash");
-  // A reflow between the two restarts the animation.
-  void el.offsetWidth;
-  el.setAttribute("data-flash", "");
-  setTimeout(() => el.removeAttribute("data-flash"), 1600);
-}
-
-/** Smooth, unless the reader asked for less motion. */
-export const behavior = (): ScrollBehavior => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
 
 /** Scrolls to `id` and puts it in the address bar, with no jump and no history entry. */
 export function goTo(id: string) {
@@ -78,7 +69,7 @@ export function useHashFlash() {
   useEffect(() => {
     const onHash = () => {
       const el = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-      if (el) flashEl(el);
+      if (el) flash(el);
     };
     onHash();
     window.addEventListener("hashchange", onHash);
