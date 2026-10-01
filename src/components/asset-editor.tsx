@@ -81,6 +81,7 @@ import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS, isDownloadable } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
+import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
@@ -424,6 +425,8 @@ export function AssetEditor({
       setErrors((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !saving.includes(groupOf(k)))));
       check(true);
       onReviewed(res.data);
+      // What just saved lights up where it is, not only in the header's Saved.
+      formRef.current?.querySelectorAll<HTMLElement>("[data-prop]").forEach((el) => saving.includes(groupOf(el.dataset.prop!)) && flash(el));
       // What the person may do comes from the server, and private moves it.
       if (saving.includes("private")) router.refresh();
       return res.data as Asset;
