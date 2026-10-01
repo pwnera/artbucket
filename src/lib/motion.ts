@@ -41,13 +41,22 @@ export function shake(el: Element | null | undefined) {
 }
 
 /**
- * Runs `update` as a view transition: what it moves glides from where it was
- * (each element named with view-transition-name keeps its identity), the rest
- * crossfades. Plain `update` where the browser can't, or with less motion.
+ * Runs `update` as a view transition: what it moves glides from where it was,
+ * the rest crossfades. An element keeps its identity across it by `data-vt`
+ * (a name unique on the page), named only while the transition runs, so
+ * nothing is named at rest and two lists can't clash. Plain `update` where
+ * the browser can't, or with less motion.
  */
 export function transition(update: () => void) {
   if (!document.startViewTransition || still()) return update();
-  document.startViewTransition(() => flushSync(update));
+  const name = () => document.querySelectorAll<HTMLElement>("[data-vt]").forEach((el) => (el.style.viewTransitionName = el.dataset.vt!));
+  name();
+  const t = document.startViewTransition(() => {
+    flushSync(update);
+    // What the update drew new is named too, before the new state is captured.
+    name();
+  });
+  void t.finished.finally(() => document.querySelectorAll<HTMLElement>("[data-vt]").forEach((el) => (el.style.viewTransitionName = "")));
 }
 
 /**

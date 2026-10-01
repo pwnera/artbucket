@@ -1535,8 +1535,8 @@ export function Gallery({
                     {/* Off screen, a tile skips layout and paint. The negative margin
                         gives its rings room inside the paint containment that brings. */}
                     <li
-                      // Named, so a view transition (a size, a delete, an undo) moves each tile from where it was.
-                      style={{ viewTransitionName: `tile-${a.id}` }}
+                      // Its name in a view transition (a size, a delete, an undo): it moves from where it was.
+                      data-vt={`tile-${a.id}`}
                       className="group/tile -m-1 p-1 [contain-intrinsic-size:auto_260px] [content-visibility:auto]"
                     >
                       <AssetCard
