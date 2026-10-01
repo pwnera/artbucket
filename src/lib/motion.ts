@@ -105,7 +105,8 @@ export function useCountUp(to: number, ms = 700, from = 0) {
     const from = at.current;
     const start = performance.now();
     let frame = requestAnimationFrame(function tick(now) {
-      const t = still() ? 1 : Math.min(1, (now - start) / ms);
+      // A page out of sight (a background tab) gets no frames to count with: it shows the number itself.
+      const t = still() || document.hidden ? 1 : Math.min(1, Math.max(0, (now - start) / ms));
       // The house ease-out, near enough: fast, then settling.
       const v = Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3)));
       at.current = v;
