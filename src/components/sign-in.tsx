@@ -649,7 +649,8 @@ const AGENTS = ["Claude", "ChatGPT", "Gemini", "Cursor", "Figma"];
 /**
  * The start side of /login: the mark, a promise and what backs it. A
  * renamed install keeps its own name and tagline; the product's own words,
- * and its open-source line, only when nothing is customized.
+ * and its open-source line, only when nothing is customized. They hold
+ * self-hosted and on Artbucket Cloud alike: nothing about whose server it is.
  */
 function SignInAside() {
   const brand = useBrand();
@@ -691,7 +692,7 @@ function SignInAside() {
             </li>
           ))}
         </ul>
-        {!brand.custom && <p className="pt-4 text-xs text-zinc-500">Open source. Your files, your server, no telemetry.</p>}
+        {!brand.custom && <p className="pt-4 text-xs text-zinc-500">Open source. Your files and their metadata stay yours.</p>}
       </div>
     </aside>
   );
