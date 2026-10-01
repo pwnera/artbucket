@@ -28,6 +28,7 @@ import { assetUrl } from "@/lib/asset-url";
 import { contextLabel, fontValue, RULE_SPEC, ruleLabel, ruleName, section, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { undoable } from "@/lib/undo";
+import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -102,6 +103,8 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
   const root = () => document.getElementById(bodyId);
   // The key whose row is open, to edit; and the version open in its Details.
   const [expanded, setExpanded] = useState<string | null>(null);
+  // The rule made on this visit: it arrives, and its row lights up, rather than just appearing.
+  const [made, setMade] = useState<string | null>(null);
   const [details, setDetails] = useState<RuleRef | null>(null);
   // What the list is narrowed to: words, and one section.
   const [q, setQ] = useState("");
@@ -206,6 +209,8 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
       assets: [],
     };
     if (!change([r])) return false;
+    setMade(key);
+    flash(`[data-rule="${CSS.escape(key)}"]`);
     setExpanded(key);
     setDetails(refOf(r));
     if (p.assets) setPicking({ ref: refOf(r), open: true });
@@ -244,6 +249,8 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
     const vs = versionsOf(key);
     const to = keyFor(section(key), `${ruleName(vs[0])} copy`, taken);
     if (to && change(vs.map((r) => ({ ...r, key: to, label: r.label && `${r.label} copy` })))) {
+      setMade(to);
+      flash(`[data-rule="${CSS.escape(to)}"]`);
       setExpanded(to);
       reveal(to, "block");
     }
@@ -408,7 +415,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
                       {open && (
                         // Start padding: room for RuleView's gutter, its + and handle.
                         <div className="bg-muted/20 border-t py-4 ps-12 pe-4">
-                          <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
+                          <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
                           <Details
                             rule={shown}
                             b={b}
