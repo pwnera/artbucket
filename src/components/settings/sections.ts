@@ -1,5 +1,6 @@
 import {
   IconAdjustments,
+  IconAt,
   IconChartBar,
   IconBuilding,
   IconKey,
@@ -131,6 +132,14 @@ export const SECTIONS: Section[] = [
     description: "Prove your listings are yours with a GitHub account, and act on what people report or claim about them.",
     action: "organization.manage",
     hidden: (me) => !me.hub,
+  },
+  {
+    context: "organization",
+    id: "email-domains",
+    label: "Email domains",
+    icon: IconAt,
+    description: "The domains your people have their email at, each proved by a DNS record.",
+    action: "organization.manage",
   },
   {
     context: "organization",

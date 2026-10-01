@@ -24,7 +24,7 @@ export type Sso = {
 };
 
 /** A value to copy into the provider or the DNS host: its label, the value, and a copy button in its own column. */
-function Values({ rows }: { rows: [label: string, value: string, what: string][] }) {
+export function Values({ rows }: { rows: [label: string, value: string, what: string][] }) {
   return (
     <dl className="bg-muted/50 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-md p-2.5 text-xs">
       {rows.map(([label, value, what]) => (
@@ -137,7 +137,7 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
               aria-describedby={`${id}-domain-hint`}
             />
             <p id={`${id}-domain-hint`} className="text-muted-foreground text-xs">
-              Whoever signs in with an address there, or under it, goes through your provider.
+              Whoever signs in with an address there, or under it, goes through your provider. It joins your email domains, proved once for both.
             </p>
           </div>
           <Button type="submit" className="justify-self-start" pending={busy === "save"} disabled={busy === "check"}>
