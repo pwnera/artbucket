@@ -9,7 +9,7 @@ import { Can, useCan } from "@/components/can";
 import { AssetMenu, type ActionContext } from "@/components/asset-menu";
 import { IconButton } from "@/components/icon-button";
 import { approve, reject, suggestions } from "@/components/review-actions";
-import { decideLater, RejectAction, type Patch } from "@/components/selection-bar";
+import { decideLater, RejectAction, useReviewCount, type Patch } from "@/components/selection-bar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
@@ -60,13 +60,14 @@ export function AssetTable({
 }) {
   const can = useCan();
   const tab = assets.some((a) => a.id === cursor) ? cursor : assets[0]?.id;
+  const onCount = useReviewCount();
   const decide = (a: Asset, verdict: "approve" | "reject", reason = "") => {
     const title = a.metadata?.title || a.filename;
     decideLater(
       `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
       [a],
       verdict === "approve" ? approve : (x) => reject(x, reason),
-      { patch, onDone: onChanged },
+      { patch, onDone: onChanged, onCount },
     );
   };
 

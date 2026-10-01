@@ -464,7 +464,8 @@ export function Gallery({
           setListing({ ...first, data, total: first.total - (first.data.length + rest.reduce((n, p) => n + p.data.length, 0) - data.length) });
         }
         if (colsBody) setCollections(colsBody.data);
-        if (reviewBody) setReviewCount(reviewBody.total);
+        // Decisions waiting on their Undo are already counted out.
+        if (reviewBody) setReviewCount(Math.max(0, reviewBody.total - deciding.size));
         if (defsBody) {
           const next: FieldDef[] = defsBody.data;
           setFields(next);
@@ -1188,11 +1189,16 @@ export function Gallery({
           title={title}
           aside={
             <>
-              {!moving && (
-                <Badge variant="secondary" className="font-mono tabular-nums" title={`${total.toLocaleString()} ${total === 1 ? "asset" : "assets"}`}>
+              {/* Held in place while moving, so the title doesn't shift; a new count pops in. */}
+              <Badge
+                variant="secondary"
+                className={cn("font-mono tabular-nums", moving && "invisible")}
+                title={`${total.toLocaleString()} ${total === 1 ? "asset" : "assets"}`}
+              >
+                <span key={total} className="animate-in fade-in-0 zoom-in-90 duration-150">
                   {total.toLocaleString()}
-                </Badge>
-              )}
+                </span>
+              </Badge>
               {inCollection?.private && !activeSearch && (
                 <Badge variant="outline" title="Only people added to it, and admins, see it">
                   <IconLock /> Private

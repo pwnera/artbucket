@@ -24,6 +24,7 @@ import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { useBrand } from "@/components/brand";
 import { useCan } from "@/components/can";
+import { useShell } from "@/components/shell";
 import { CollectionDialog, CollectionIcon, type Collection } from "@/components/collections";
 import type { Option } from "@/components/combobox";
 import { Confirm } from "@/components/confirm";
@@ -109,12 +110,14 @@ export function decideLater(
   message: string,
   which: Asset[],
   run: (a: Asset) => Promise<Response>,
-  { patch, onDone }: { patch?: Patch; onDone: () => void },
+  { patch, onDone, onCount }: { patch?: Patch; onDone: () => void; onCount?: (delta: number) => void },
 ) {
   const back = patch?.(
     which.map((a) => a.id),
     () => null,
   );
+  // The Review tab's count ticks down with the decision, not when the request goes 10s later.
+  onCount?.(-which.length);
   let state: "waiting" | "sent" | "undone" = "waiting";
   for (const a of which) deciding.add(a.id);
   const settle = () => which.forEach((a) => deciding.delete(a.id));
@@ -133,6 +136,7 @@ export function decideLater(
     });
     if (failed.length) {
       back?.(failed.map((a) => a.id));
+      onCount?.(failed.length);
       toast.error(`${failed.length.toLocaleString()} of ${files(which.length)} couldn't be decided`, { description: why, duration: 10_000 });
     }
     settle();
@@ -155,8 +159,15 @@ export function decideLater(
       clearTimeout(timer);
       settle();
       back?.();
+      onCount?.(which.length);
     },
   });
+}
+
+/** The shell's review count, moved by a decision as it is made (decideLater). */
+export function useReviewCount() {
+  const { setReviewCount } = useShell();
+  return (delta: number) => setReviewCount((n) => Math.max(0, n + delta));
 }
 
 // ---- bulk work ----------------------------------------------------------------
@@ -444,7 +455,8 @@ export function SelectionBar({
   const pickedTags: Option[] = [...new Set(items.flatMap((a) => a.tags))].sort().map((value) => ({ value }));
   const bytes = items.reduce((n, a) => n + a.size, 0);
   const removeHere = current && can("collection.edit", current);
-  const decide = { patch: bulk.patch, onDone: bulk.onDone };
+  const onCount = useReviewCount();
+  const decide = { patch: bulk.patch, onDone: bulk.onDone, onCount };
 
   const tag = (tags: string[]) => {
     const add = (x: Asset) => [...new Set([...x.tags, ...tags])];
@@ -498,7 +510,10 @@ export function SelectionBar({
               `${progress.verb} ${progress.done.toLocaleString()} of ${progress.of.toLocaleString()}`
             ) : (
               <>
-                {items.length < total ? `${items.length.toLocaleString()} of ${total.toLocaleString()}` : items.length.toLocaleString()}
+                {/* Keyed, so each pick pops the number. */}
+                <span key={items.length} className="animate-in fade-in-0 zoom-in-90 duration-150">
+                  {items.length < total ? `${items.length.toLocaleString()} of ${total.toLocaleString()}` : items.length.toLocaleString()}
+                </span>
                 <span className="hidden sm:inline">&nbsp;selected</span>
               </>
             )}
