@@ -9,6 +9,7 @@ import type { Surface } from "@/lib/insights";
 import { deliverable, maxAge, retired, STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { getStream, originalKey } from "@/lib/storage";
+import { disposition } from "@/lib/filename";
 import { isDownloadable } from "@/lib/rights";
 import { parseTransform, shownSize } from "@/lib/transform";
 
@@ -103,7 +104,7 @@ export async function GET(req: Request, { params }: Ctx) {
           "Content-Length": String(body.byteLength),
           // Metadata is editable, so unlike every other byte here this changes.
           "Cache-Control": "private, no-cache",
-          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(asset.filename)}`,
+          "Content-Disposition": disposition("attachment", asset.filename),
           "X-Metadata-Embedded": String(embedded),
         },
       });
@@ -116,11 +117,12 @@ export async function GET(req: Request, { params }: Ctx) {
 
     if (!transform?.length) {
       // Streamed from storage: a video is served without ever sitting in memory.
-      if (range && /^bytes=\d*-\d*$/.test(range)) {
+      if (range && /^bytes=(\d+-\d*|-\d+)$/.test(range)) {
         const part = await getStream(originalKey(asset.sha256), range).catch(() => null);
         if (!part) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${asset.size}` } });
         served(part.length);
-        return bytes(etag, cache, part.body, part.length, asset.mime, asset.filename, { status: 206, range: part.contentRange! });
+        // Storage that ignores a range answers the whole file, which is a 200.
+        return bytes(etag, cache, part.body, part.length, asset.mime, asset.filename, part.contentRange ? { status: 206, range: part.contentRange } : undefined);
       }
       const { body, length } = await getStream(originalKey(asset.sha256));
       served(length);
@@ -176,9 +178,7 @@ function bytes(
       ...(contentType === "application/pdf" ? {} : { "Content-Security-Policy": SANDBOX }),
       ...(filename ? { "Accept-Ranges": "bytes" } : {}),
       ...(part ? { "Content-Range": part.range } : {}),
-      ...(filename
-        ? { "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"` }
-        : {}),
+      ...(filename ? { "Content-Disposition": disposition("inline", filename) } : {}),
     },
   });
 }

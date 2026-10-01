@@ -141,3 +141,19 @@ test("a file shown, not handed out, is drawn at a preview's size at most", () =>
   assert.deepEqual(shownSize(parseTransform("f_png")!), { w: SHOWN_MAX, h: SHOWN_MAX, f: "png" });
   assert.deepEqual(shownSize(parseTransform("w_1080,h_1920,fit_cover")!), { w: 1080, h: SHOWN_MAX, fit: "cover" });
 });
+
+test("fit_inside is the default, so it names no rendition of its own", () => {
+  assert.equal(serializeTransform(parseTransform("w_800,h_600,fit_inside")!), serializeTransform(parseTransform("w_800,h_600")!));
+});
+
+test("a PNG not asked a quality stays lossless: any quality makes sharp quantize it to a palette", async () => {
+  const { default: sharp } = await import("sharp");
+  const { encodeOptions } = await import("./transform.ts");
+  // 256 x 256, every pixel its own colour: more than a palette holds.
+  const raw = Buffer.alloc(256 * 256 * 3);
+  for (let i = 0; i < 256 * 256; i++) raw.set([i & 255, i >> 8, 128], i * 3);
+  const png = await sharp(raw, { raw: { width: 256, height: 256, channels: 3 } }).toFormat("png", encodeOptions({}, "png")).toBuffer();
+  assert.equal((await sharp(png).metadata()).isPalette, false);
+  assert.deepEqual(encodeOptions({ q: 60 }, "png"), { quality: 60 });
+  assert.deepEqual(encodeOptions({}, "webp"), { quality: 82 });
+});

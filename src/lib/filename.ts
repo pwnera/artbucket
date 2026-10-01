@@ -4,7 +4,8 @@
  * because the extension is the part that tells you what the file is.
  */
 export function truncateFilename(name: string, max = 24): string {
-  if (name.length <= max) return name;
+  // By code point, not UTF-16 unit: a cut through an emoji leaves half of it, which shows as �.
+  if ([...name].length <= max) return name;
 
   const dot = name.lastIndexOf(".");
   // No extension, or a dot-file, or an extension longer than the budget: trim the end.
@@ -12,12 +13,21 @@ export function truncateFilename(name: string, max = 24): string {
   const stem = ext ? name.slice(0, dot) : name;
 
   const room = max - ext.length - 1; // 1 for the ellipsis
-  if (room <= 0) return name.slice(0, Math.max(1, max - 1)) + "…";
+  if (room <= 0) return [...name].slice(0, Math.max(1, max - 1)).join("") + "…";
 
+  const chars = [...stem];
   const head = Math.ceil(room / 2);
   const tail = room - head;
-  return `${stem.slice(0, head)}…${tail > 0 ? stem.slice(-tail) : ""}${ext}`;
+  return `${chars.slice(0, head).join("")}…${tail > 0 ? chars.slice(-tail).join("") : ""}${ext}`;
 }
+
+/**
+ * A Content-Disposition naming the file, as RFC 6266 has it: `filename*` in
+ * UTF-8, percent-encoded past what encodeURIComponent leaves, since a ' ( )
+ * or * there is outside RFC 5987 and Chrome drops a value with a third quote.
+ */
+export const disposition = (kind: "inline" | "attachment", filename: string) =>
+  `${kind}; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
 
 /** The uppercase file-type badge: PSD, PNG, JPG. */
 export function fileTypeBadge(filename: string, mime: string, probe?: Record<string, unknown> | null): string {

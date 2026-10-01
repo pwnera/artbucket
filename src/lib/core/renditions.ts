@@ -9,6 +9,7 @@ import {
   CONTENT_TYPE,
   drawScale,
   effective,
+  encodeOptions,
   isVector,
   serializeTransform,
   type Format,
@@ -86,7 +87,7 @@ async function render(source: string, transform: Transform, format: Format, vect
       withoutEnlargement: true,
     });
   }
-  return pipeline.toFormat(format, { quality: transform.q ?? 82 }).toBuffer();
+  return pipeline.toFormat(format, encodeOptions(transform, format)).toBuffer();
 }
 
 function defaultFormat(mime: string): Format {

@@ -184,8 +184,9 @@ function eps(bytes: Buffer): Still | null {
  */
 function xmpThumbnail(bytes: Buffer): Still | null {
   let best: Buffer | null = null;
-  for (let at = bytes.indexOf("<xmpGImg:image>"); at !== -1; at = bytes.indexOf("<xmpGImg:image>", at + 1)) {
-    const end = bytes.indexOf("</xmpGImg:image>", at);
+  // On from the end tag, not the start: a file of start tags and one end would read it all once per tag.
+  for (let at = bytes.indexOf("<xmpGImg:image>"), end = 0; at !== -1; at = bytes.indexOf("<xmpGImg:image>", end)) {
+    end = bytes.indexOf("</xmpGImg:image>", at);
     if (end === -1) break;
     const b64 = bytes.subarray(at + 15, end).toString("latin1").replace(/&#xA;|\s/g, "");
     const jpeg = Buffer.from(b64, "base64");
