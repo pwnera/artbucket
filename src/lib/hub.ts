@@ -228,6 +228,36 @@ export const githubProofUrl = (login: string) => `https://raw.githubusercontent.
 /** How a proved GitHub account is named beside a verified domain: github.com/rust-lang. */
 export const githubProof = (login: string) => `github.com/${login}`;
 
+/**
+ * Whether a verified host proves a brand's domain: the domain itself or its
+ * www twin, a name under it (brand.acme.com proves acme.com: the TXT record
+ * went in acme.com's zone), or one above it (acme.com proves shop.acme.com).
+ *
+ * ponytail: a zone that hands out names to others (a dynamic DNS service, a
+ * free subdomain registry) lets one of them prove the zone's own brand. Ask
+ * the Public Suffix List's private section once that matters.
+ */
+export function provesDomain(host: string, domain: string) {
+  const h = host.replace(/^www\./, "");
+  return h === domain || h.endsWith(`.${domain}`) || domain.endsWith(`.${h}`);
+}
+
+/**
+ * Which of an organization's verified hosts proves a listing's domain, when
+ * the listing's own organization proves none of it: the offer to claim it
+ * (lib/core/hub-claims.ts). Null for no offer.
+ */
+export function claimProof(domain: string | null, claimant: string[], owner: string[]) {
+  if (!domain || owner.some((h) => provesDomain(h, domain))) return null;
+  return claimant.find((h) => provesDomain(h, domain)) ?? null;
+}
+
+/** The domains a host may prove from above: itself and each name above it, but a bare top-level one. For a query that {@link provesDomain} then checks. */
+export const domainsAbove = (host: string) => {
+  const labels = host.replace(/^www\./, "").split(".");
+  return labels.slice(0, -1).map((_, i) => labels.slice(i).join("."));
+};
+
 /** Why someone reports a listing: the first is what community listings are most often reported for. */
 export const REPORT_REASONS = {
   impersonation: "It pretends to be the brand's owner",

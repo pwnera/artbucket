@@ -16046,6 +16046,13 @@
                               "null"
                             ]
                           },
+                          "movedTo": {
+                            "description": "Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "rules": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -16255,6 +16262,13 @@
                         },
                         "domain": {
                           "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "movedTo": {
+                          "description": "Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}",
                           "type": [
                             "string",
                             "null"
@@ -16608,6 +16622,13 @@
                             "null"
                           ]
                         },
+                        "movedTo": {
+                          "description": "Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rules": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -16754,6 +16775,13 @@
                         },
                         "domain": {
                           "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "movedTo": {
+                          "description": "Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}",
                           "type": [
                             "string",
                             "null"
@@ -17180,6 +17208,13 @@
                                 },
                                 "delisted": {
                                   "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "movedTo": {
+                                  "description": "Claimed by whoever proved its domain: the listing that took its place, as {org}/{brand}; it can't be made public again",
                                   "type": [
                                     "string",
                                     "null"
@@ -29430,6 +29465,13 @@
                             "null"
                           ]
                         },
+                        "movedTo": {
+                          "description": "Claimed by whoever proved its domain: the listing that took its place, as {org}/{brand}; it can't be made public again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "ref": {
                           "type": "string",
                           "description": "How BrandHub names it: {org}/{brand}"
@@ -29669,6 +29711,13 @@
                         },
                         "delisted": {
                           "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "movedTo": {
+                          "description": "Claimed by whoever proved its domain: the listing that took its place, as {org}/{brand}; it can't be made public again",
                           "type": [
                             "string",
                             "null"
@@ -50981,6 +51030,468 @@
                         ],
                         "additionalProperties": false
                       }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/offers": {
+      "get": {
+        "summary": "Listings your domain claims",
+        "description": "Public BrandHub listings of other organizations whose domain one of your verified domains proves (the domain, a name under it or above it), whose own organization proved none of it, and that you haven't refused. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "The offers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "The listing's brand"
+                          },
+                          "org": {
+                            "type": "string"
+                          },
+                          "owner": {
+                            "type": "string",
+                            "description": "Its organization's name"
+                          },
+                          "brand": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string",
+                            "description": "The domain it names, which your organization proved"
+                          },
+                          "proof": {
+                            "type": "string",
+                            "description": "Your verified domain that proves it"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Its page on BrandHub"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "org",
+                          "owner",
+                          "brand",
+                          "name",
+                          "domain",
+                          "proof",
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hub/offers/{org}/{brand}": {
+      "parameters": [
+        {
+          "name": "org",
+          "in": "path",
+          "required": true,
+          "description": "The listing's organization",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "The listing's brand",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Make a listing yours",
+        "description": "Take an offer: a brand in your workspace from the listing's release (as Start from this brand), with its domain, released and public on BrandHub. The listing goes private, its address leads to yours for good, and its organization's admins find a resolved claim and an audit entry. No brand moves between organizations. Organization admin, signed in.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "201": {
+            "description": "Your brand, and where it is on BrandHub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "default": {
+                          "type": "boolean"
+                        },
+                        "visibility": {
+                          "type": "string",
+                          "enum": [
+                            "private",
+                            "public"
+                          ],
+                          "description": "Who sees it on BrandHub"
+                        },
+                        "from": {
+                          "description": "The BrandHub brand it started from, as {org}/{brand}@{n}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain": {
+                          "description": "Its own domain (acme.com): whoever proves it may claim its BrandHub listing",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "movedTo": {
+                          "description": "Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "rules": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "hub": {
+                          "type": "object",
+                          "properties": {
+                            "visibility": {
+                              "type": "string",
+                              "enum": [
+                                "private",
+                                "public"
+                              ],
+                              "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "description": "Its page there: BrandHub's own address when public, the app's /hub when private"
+                            },
+                            "published": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "publishedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "number",
+                                    "publishedAt"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "What BrandHub shows: the latest publish; null: nothing yet"
+                            },
+                            "portal": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "slug": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "slug",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The portal it links as its guidelines"
+                            },
+                            "chosen": {
+                              "type": "boolean",
+                              "description": "That portal was picked; false: it is the brand's first public portal"
+                            },
+                            "pulls": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"
+                            },
+                            "delisted": {
+                              "description": "Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "movedTo": {
+                              "description": "Claimed by whoever proved its domain: the listing that took its place, as {org}/{brand}; it can't be made public again",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "ref": {
+                              "type": "string",
+                              "description": "How BrandHub names it: {org}/{brand}"
+                            },
+                            "verified": {
+                              "description": "What its organization proved it holds, a domain or github.com/{login}; null: a community listing",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "terms": {
+                              "description": "The terms of use its guidelines portal asks readers to accept, in markdown",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "visibility",
+                            "url",
+                            "published",
+                            "portal",
+                            "chosen",
+                            "pulls",
+                            "delisted",
+                            "ref",
+                            "verified",
+                            "terms"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "name",
+                        "default",
+                        "visibility",
+                        "rules",
+                        "createdAt",
+                        "hub"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "description": "The new brand's slug in your workspace; the listing's when left out",
+                    "type": "string",
+                    "maxLength": 60,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Refuse a listing's offer",
+        "description": "It isn't your brand: it is offered no more. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "refused": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "refused"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [

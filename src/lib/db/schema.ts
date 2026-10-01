@@ -330,6 +330,12 @@ export const brands = pgTable(
      * may claim their listings (lib/core/hub-trust.ts).
      */
     domain: text("domain"),
+    /**
+     * The listing that took its place on BrandHub, as {org}/{brand}, once whoever proved its
+     * domain claimed it (lib/core/hub-claims.ts): it is private, can't be made public again, and
+     * its hub address leads there for good.
+     */
+    hubMovedTo: text("hub_moved_to"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -1174,6 +1180,24 @@ export const hubFollows = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.brandId] }), index("hub_follows_brand_idx").on(t.brandId)],
+);
+
+/**
+ * A listing an organization was offered, having proved its domain, and said
+ * isn't its brand (lib/core/hub-claims.ts): the offer is no longer made.
+ */
+export const hubOffersRefused = pgTable(
+  "hub_offers_refused",
+  {
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.brandId] })],
 );
 
 /**

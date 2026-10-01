@@ -10,6 +10,7 @@ import { Confirm } from "@/components/confirm";
 import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub";
 import { NewBrand } from "@/components/new-brand";
 import { AppHeader, PageHeader } from "@/components/page";
+import { OfferBanners, type HubOffer } from "@/components/hub-offers";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,7 +54,20 @@ const LAYOUT_KEY = "artbucket:brands-layout";
 type Show = "all" | "public" | "private";
 const SHOW: Record<Show, string> = { all: "All", public: "Public", private: "Private" };
 
-export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { brands: BrandRow[]; canShare: boolean; canEdit: boolean; q?: string }) {
+export function BrandsPage({
+  brands,
+  canShare,
+  canEdit,
+  q: initialQ = "",
+  offers = [],
+}: {
+  brands: BrandRow[];
+  canShare: boolean;
+  canEdit: boolean;
+  q?: string;
+  /** Listings the organization's verified domains claim (GET /api/v1/hub/offers), for its admins. */
+  offers?: HubOffer[];
+}) {
   const router = useRouter();
   // A brand's Settings tab lands here with its name in the search.
   const [q, setQ] = useState(initialQ);
@@ -114,6 +128,8 @@ export function BrandsPage({ brands, canShare, canEdit, q: initialQ = "" }: { br
             </Button>
           )}
         </PageHeader>
+
+        <OfferBanners offers={offers} />
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-48 flex-1">

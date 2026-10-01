@@ -331,7 +331,7 @@ const START_FILES = 200;
  * copied into this library (same bytes, stored once). The brand keeps where
  * it came from (`from`). A file that isn't copied is left out of its rules.
  */
-export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string }) {
+export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string; domain?: string | null }) {
   if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
   const ref = parseHubRef(input.from);
   // Public only, whoever asks: a private brand is its own workspace's to duplicate.
@@ -366,6 +366,6 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
     copied.set(a.id, made.asset.id);
   });
   const seed = JSON.parse(text.replace(UUID, (id) => copied.get(id.toLowerCase()) ?? id)) as { rules: typeof src.rules; pages: typeof pages; theme: typeof src.theme };
-  const made = await createBrand(caller, { name: input.name, slug: input.slug }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
+  const made = await createBrand(caller, { name: input.name, slug: input.slug, domain: input.domain ?? hub.domain }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
   return made;
 }

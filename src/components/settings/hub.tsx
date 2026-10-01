@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ExternalLink } from "@/components/external-link";
+import { OffersGroup, type HubOffer } from "@/components/hub-offers";
 import { ago, REPORT_REASONS } from "@/lib/hub";
 import { send } from "@/lib/send";
 
@@ -35,13 +36,25 @@ export type HubReport = {
 /**
  * The organization on BrandHub (lib/core/hub-trust.ts), as the prototype's
  * listing page has it: whether its listings are verified and by what, the
- * GitHub accounts that prove it is who its listings say, beside its domains,
- * and what people reported or claimed about its listings, to act on.
+ * listings of others its verified domains claim, the GitHub accounts that
+ * prove it is who its listings say, beside its domains, and what people
+ * reported or claimed about its listings, to act on.
  */
-export function HubPanel({ github, reports, domains }: { github: GithubAccount[]; reports: HubReport[]; domains: Pick<Domain, "host" | "verified">[] }) {
+export function HubPanel({
+  github,
+  reports,
+  domains,
+  offers,
+}: {
+  github: GithubAccount[];
+  reports: HubReport[];
+  domains: Pick<Domain, "host" | "verified">[];
+  offers: HubOffer[];
+}) {
   return (
     <div className="space-y-6">
       <Verified proofs={[...domains.filter((d) => d.verified).map((d) => `DNS TXT record on ${d.host}`), ...github.filter((g) => g.verified).map((g) => `GitHub organization github.com/${g.login}`)]} />
+      {domains.some((d) => d.verified) && <OffersGroup offers={offers} />}
       <GithubAccounts github={github} />
       <Reports reports={reports} />
       <p className="text-muted-foreground text-sm">

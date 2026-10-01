@@ -53,6 +53,8 @@ export const present = (b: Brand) => ({
   visibility: b.visibility,
   from: b.forkedFrom,
   domain: b.domain,
+  /** Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}. */
+  movedTo: b.hubMovedTo,
   createdAt: b.createdAt,
 });
 
@@ -156,6 +158,8 @@ export async function hubOf(b: Brand) {
     pulls: pulls.get(b.id) ?? 0,
     /** Taken off the hub by whoever runs the server, and why: it can't be made public until they lift it. */
     delisted: b.hubDelisted,
+    /** Claimed by whoever proved its domain: the listing that took its place, {org}/{brand}; it can't be made public again. */
+    movedTo: b.hubMovedTo,
   };
 }
 
@@ -182,6 +186,9 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
     }
   }
   const visibility = patch.visibility ?? b.visibility;
+  if (visibility === "public" && b.hubMovedTo) {
+    throw new AssetError("forbidden", `Claimed on BrandHub by whoever proved ${b.domain ?? "its domain"}: its address leads to ${b.hubMovedTo} now`);
+  }
   if (visibility === "public" && b.hubDelisted) {
     throw new AssetError("forbidden", `Taken off BrandHub by whoever runs this server: ${b.hubDelisted}. Ask them to list it again`);
   }

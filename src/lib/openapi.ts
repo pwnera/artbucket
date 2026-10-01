@@ -1489,6 +1489,38 @@ export function openapi(serverUrl: string) {
           ok: [200, "Reports and claims", data(z.array(S.HubReport))],
         }),
       },
+      "/api/v1/hub/offers": {
+        get: op({
+          summary: "Listings your domain claims",
+          scope: "admin",
+          description:
+            "Public BrandHub listings of other organizations whose domain one of your verified domains proves (the domain, a " +
+            "name under it or above it), whose own organization proved none of it, and that you haven't refused. Organization admin.",
+          ok: [200, "The offers", data(z.array(S.HubOffer))],
+        }),
+      },
+      "/api/v1/hub/offers/{org}/{brand}": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        post: {
+          ...op({
+            summary: "Make a listing yours",
+            scope: "admin",
+            description:
+              "Take an offer: a brand in your workspace from the listing's release (as Start from this brand), with its domain, " +
+              "released and public on BrandHub. The listing goes private, its address leads to yours for good, and its " +
+              "organization's admins find a resolved claim and an audit entry. No brand moves between organizations. " +
+              "Organization admin, signed in.",
+            ok: [201, "Your brand, and where it is on BrandHub", data(S.Brand.extend({ hub: S.BrandHub }))],
+          }),
+          requestBody: { required: false, content: json(S.HubOfferAccept, "input") },
+        },
+        delete: op({
+          summary: "Refuse a listing's offer",
+          scope: "admin",
+          description: "It isn't your brand: it is offered no more. Organization admin.",
+          ok: [200, "Refused", data(z.object({ refused: z.literal(true) }))],
+        }),
+      },
       "/api/v1/hub/reports/{id}": {
         parameters: [path("id", "The report's id")],
         patch: op({

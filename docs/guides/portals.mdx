@@ -283,6 +283,26 @@ BrandHub**, which makes the brand private (`PATCH /api/v1/hub/reports/{id}`
 with `"delist": true`). The organization can always take its own brand off
 BrandHub the same way on the Brands page.
 
+### Claim by domain
+
+A public listing may name its brand's domain (its Settings, or its
+[brand.json](/guides/adcp)). An organization that verifies that domain, a name
+under it (`brand.acme.com` proves `acme.com`) or one above it, is offered the
+listings of other organizations that never proved it: on the Brands page ("Claim
+Test on BrandHub has your domain acme.com: make it yours") and in Settings,
+**BrandHub** (`GET /api/v1/hub/offers`). Such a listing reads **Unclaimed · Is
+this yours? Prove acme.com to claim it** when its organization proved nothing.
+
+**Make it yours** (`POST /api/v1/hub/offers/{org}/{brand}`, `{"slug"}` to name
+it otherwise) starts a brand in your workspace from the listing's release, as
+**Start from this brand** does, with its domain, released and public. The
+listing goes private, its page and files answer `308` to yours for good, and it
+can't be made public again; its organization keeps its brand, finds a resolved
+claim in Settings, **BrandHub**, and an entry in its audit log. No brand moves
+between organizations. **Not ours** (`DELETE` on the same path) stops the offer.
+Anything else, a listing with no domain or one whose organization proved it,
+goes through **It's my brand** above.
+
 Whoever runs the server reads every report in the database, and can delist a
 brand for good: while `hub_delisted` holds a reason, the brand is off BrandHub
 and its organization can't make it public again, which says why.

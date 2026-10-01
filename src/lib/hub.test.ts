@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { backgroundOf, brandText, cookieDomain, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain } from "./hub.ts";
+import { backgroundOf, brandText, claimProof, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, provesDomain, swatches, withoutDomain } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -144,4 +144,36 @@ test("parseHubRef reads what create_brand's from names on BrandHub", async () =>
   assert.deepEqual(parseHubRef("rust-lang/rust@12"), { org: "rust-lang", slug: "rust", version: 12 });
   assert.deepEqual(parseHubRef("mozilla/firefox"), { org: "mozilla", slug: "firefox" });
   for (const bad of ["rust", "a/b/c", "a/b@0", "A/b", "a/b@x", "/b", "a/"]) assert.equal(parseHubRef(bad), null, bad);
+});
+
+test("a verified host proves its domain, the names under it and the one above it, never a sibling", () => {
+  for (const [host, domain] of [
+    ["acme.com", "acme.com"],
+    ["www.acme.com", "acme.com"],
+    ["brand.acme.com", "acme.com"],
+    ["acme.com", "shop.acme.com"],
+    ["assets.eu.acme.co.uk", "acme.co.uk"],
+  ]) assert.ok(provesDomain(host, domain), `${host} proves ${domain}`);
+  for (const [host, domain] of [
+    ["acme.org", "acme.com"],
+    ["notacme.com", "acme.com"],
+    ["acme.com.evil.example", "acme.com"],
+    ["shop.acme.com", "blog.acme.com"],
+    ["acme.com", "myacme.com"],
+  ]) assert.ok(!provesDomain(host, domain), `${host} doesn't prove ${domain}`);
+  assert.deepEqual(domainsAbove("www.brand.acme.co.uk"), ["brand.acme.co.uk", "acme.co.uk", "co.uk"]);
+  assert.deepEqual(domainsAbove("acme.com"), ["acme.com"]);
+});
+
+test("a listing is offered to whoever proves its domain, unless its own organization does", () => {
+  // Seeded, its organization proved nothing: offered, naming the host that proves it.
+  assert.equal(claimProof("acme.com", ["brand.acme.com", "other.example"], []), "brand.acme.com");
+  // Its organization proved the domain, or a name of it: no offer, even to another prover.
+  assert.equal(claimProof("acme.com", ["acme.com"], ["www.acme.com"]), null);
+  assert.equal(claimProof("acme.com", ["acme.com"], ["press.acme.com"]), null);
+  // Its organization proved something else only: offered.
+  assert.equal(claimProof("acme.com", ["acme.com"], ["unrelated.example"]), "acme.com");
+  // No domain, or nothing the claimant proves: none.
+  assert.equal(claimProof(null, ["acme.com"], []), null);
+  assert.equal(claimProof("acme.com", ["acme.org"], []), null);
 });

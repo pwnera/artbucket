@@ -727,6 +727,7 @@ const SAYS: Record<AuditAction, string> = {
   "brand.published": "released the guidelines of",
   "brand.public": "made public on BrandHub",
   "brand.private": "made private on BrandHub",
+  "brand.claimed": "claimed on BrandHub, by its domain,",
   "portal.request_approved": "let into a portal",
   "portal.request_denied": "turned down for a portal",
   "portal.request_removed": "took portal access from",
