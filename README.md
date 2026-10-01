@@ -24,7 +24,7 @@ bucket. Nothing held back, nothing to unlock, no telemetry. [Artbucket Cloud]
 runs the same core for you, hosted in the EU, as a free alpha.
 
 <p align="center">
-  <img src="docs/images/library.webp" alt="The Artbucket library: assets in a grid, with collections and brands in the sidebar" width="1000">
+  <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
 </p>
 
 ----
