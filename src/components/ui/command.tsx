@@ -42,9 +42,11 @@ function CommandDialog({
   filter,
   loop,
   shouldFilter,
+  value,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof Dialog> &
-  Pick<React.ComponentProps<typeof CommandPrimitive>, "filter" | "loop" | "shouldFilter"> & {
+  Pick<React.ComponentProps<typeof CommandPrimitive>, "filter" | "loop" | "shouldFilter" | "value" | "onValueChange"> & {
   title?: string
   description?: string
   className?: string
@@ -67,6 +69,8 @@ function CommandDialog({
           filter={filter}
           loop={loop}
           shouldFilter={shouldFilter}
+          value={value}
+          onValueChange={onValueChange}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:size-4"
         >
           {children}
