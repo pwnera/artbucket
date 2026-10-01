@@ -47,7 +47,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
                 </a>
               </Button>
             )}
-            <Button asChild size="sm">
+            <Button asChild variant="outline" size="sm">
               <a href={`${env.APP_URL}/brands`}>
                 {viewer ? <IconLayoutGrid aria-hidden /> : <IconPlus aria-hidden />}
                 {viewer ? "Your brands" : "Share your brand"}
