@@ -667,7 +667,6 @@ export function InvitePage({
   error?: boolean;
 }) {
   const go = useGo();
-  const brand = useBrand();
   const [busy, setBusy] = useState<"accept" | "out" | null>(auto && me?.user && info ? "accept" : null);
   const [error, setError] = useState<string | null>(null);
   const joined = useRef(false);
@@ -719,9 +718,13 @@ export function InvitePage({
 
   if (!info) {
     return (
-      <Card title="This invitation doesn't work" lead="It was used already, withdrawn, or it expired. Ask whoever sent it for a new one.">
-        <Button variant="outline" asChild>
-          <Link href="/">Go to {brand.name}</Link>
+      // Taken as the account was made, before its email was confirmed: the person who used it signs in, the code then finishes it.
+      <Card
+        title="This invitation doesn't work"
+        lead="It was used already, withdrawn, or it expired. If you made your account with it, sign in: you're in. Otherwise ask whoever sent it for a new one."
+      >
+        <Button asChild>
+          <Link href="/login">Sign in</Link>
         </Button>
       </Card>
     );

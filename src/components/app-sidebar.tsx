@@ -212,8 +212,9 @@ export function AppSidebar({
                 label="Review"
                 icon={<IconInbox />}
                 active={at.review}
-                badge={reviewCount || undefined}
-                hint={reviewCount ? `${reviewCount} waiting` : undefined}
+                // What waits is a call to act only for whoever may approve it: a viewer sees the queue, not a count to clear.
+                badge={(can("asset.review") && reviewCount) || undefined}
+                hint={can("asset.review") && reviewCount ? `${reviewCount} waiting` : undefined}
               />
             </SidebarMenu>
             {/* Out of the app, so set apart from the places: BrandHub, where the workspace's brands show, private ones too. */}
