@@ -66,6 +66,8 @@ limit was off (`RATE_LIMIT=0`).
 
 ## Run it
 
+From a clone of the [source repository](https://github.com/pwnera/artbucket), with Postgres running:
+
 ```bash
 createdb artbucket_bench
 BENCH_DATABASE_URL=postgres://.../artbucket_bench pnpm bench seed
@@ -81,12 +83,14 @@ size and the number of requests per query.
 
 `pnpm bench:brand` measures the other thing the product does: whether an agent
 building through Artbucket makes a brand site a designer would be proud of.
-Claude builds one brand per brief in `bench/brand/briefs` over MCP, with the
+Claude builds one brand per brief in
+[`bench/brand/briefs`](https://github.com/pwnera/artbucket/tree/main/bench/brand/briefs) over MCP, with the
 playbook, exactly as a person's agent would; every page is drawn at desktop
 and phone width (`preview_page`), and a second Claude scores each site from
-1 to 5 on `bench/brand/rubric.md`: distinct, hierarchy, imagery, rhythm, copy,
+1 to 5 on [the rubric](https://github.com/pwnera/artbucket/blob/main/bench/brand/rubric.md): distinct, hierarchy, imagery, rhythm, copy,
 mobile. A raw single-file build of the same brief, scored the same way, is the
-bar (`BENCH_REFERENCE=dir`). The latest table is `bench/brand/results.md`; the
-pictures and transcripts of each run land in `bench/brand/runs/`. It needs a
+bar (`BENCH_REFERENCE=dir`). The latest table is
+[`bench/brand/results.md`](https://github.com/pwnera/artbucket/blob/main/bench/brand/results.md); the
+pictures and transcripts of each run land in `bench/brand/runs/` in your clone. It needs a
 running server, its database, an Anthropic key, and spends money: a brief is
 around forty model turns, and the cost is printed at the end.

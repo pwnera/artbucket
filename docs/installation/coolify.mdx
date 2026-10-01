@@ -25,5 +25,6 @@ BETTER_AUTH_SECRET=<openssl rand -base64 32>
 Deploy. The app migrates its database and sets up the bucket on start; make
 the first account at your domain.
 
-Coolify can also deploy the repository's `docker-compose.yml`, but its `app`
+Coolify can also deploy the source repository's
+[`docker-compose.yml`](https://github.com/pwnera/artbucket/blob/main/docker-compose.yml), but its `app`
 service sits behind a Compose profile; the image resource above is simpler.

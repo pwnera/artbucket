@@ -20,4 +20,5 @@ branch's database, filled with rows, to the new schema.
 
 - Any release upgrades from any earlier one by starting it.
 - Destructive schema changes take two releases: stop using, then drop.
-- `scripts/upgrade-fixture.sql` has to be kept in step with the schema.
+- The filled database CI upgrades (a fixture of rows in use) has to be kept
+  in step with the schema.

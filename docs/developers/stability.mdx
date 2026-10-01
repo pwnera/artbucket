@@ -37,11 +37,13 @@ a major, served beside the old one rather than instead of it.
 
 ## How it's held
 
-`contract/api-v1.json` and `contract/mcp-v1.json` are the frozen surface. A
-test compares the running spec with them, and CI compares every pull request
-with the base branch's copy, so re-freezing can't hide a break. Anything added
-is frozen with it by `pnpm contract:freeze`, which refuses when something
-breaks.
+The frozen surface is kept as data in the source repository,
+[`contract/api-v1.json`](https://github.com/pwnera/artbucket/blob/main/contract/api-v1.json) and
+[`contract/mcp-v1.json`](https://github.com/pwnera/artbucket/blob/main/contract/mcp-v1.json). A test compares
+the running spec with them, and CI compares every pull request with the base
+branch's copy, so re-freezing can't hide a break. Anything added is frozen
+with it, by a script that refuses when something breaks
+([0010](/decisions/0010-frozen-v1)).
 
 ## Deprecation
 
