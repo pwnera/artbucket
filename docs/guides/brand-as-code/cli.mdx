@@ -34,6 +34,29 @@ A key for CI is made by a workspace admin, in the app (Agents) or with
 `POST /api/v1/keys`. Pushing takes `write` on the workspace; `--publish`
 also takes sharing, which a grant can switch off.
 
+### With Docker
+
+Without Node, run the app's image, `ghcr.io/pwnera/artbucket`: given a
+command, it runs `artbucket` instead of the server, the CLI of the same
+release. It works on the folder mounted at `/work`, and keeps the key
+`login` saves in `/config`: a named volume there keeps you signed in
+between runs.
+
+```bash
+docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket login app.artbucket.io
+docker run --rm -v artbucket:/config -v "$PWD":/work ghcr.io/pwnera/artbucket brand pull brand --brand acme
+```
+
+Or, without the volume, pass `-e ARTBUCKET_URL -e ARTBUCKET_KEY`.
+
+- `login` can't open a browser from the container: open the link it prints.
+- `localhost` is the container's own: a server on your machine is
+  `http://host.docker.internal:3000` (on Linux, add
+  `--add-host host.docker.internal:host-gateway`).
+- The image runs as uid 1000. On Linux, where files `brand pull` writes keep
+  that owner, add `--user "$(id -u):$(id -g)"`, with `-e ARTBUCKET_KEY`
+  rather than the volume.
+
 ## The brand a command acts on
 
 Every `brand` command acts on the brand `--brand` names, or else the one the

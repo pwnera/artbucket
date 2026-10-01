@@ -3,7 +3,8 @@ name: Release
 # A tag like v1.0.0 publishes the image to ghcr.io/pwnera/artbucket, for
 # amd64 and arm64, as 1.0.0, 1.0, 1 and latest: pin a major to take fixes
 # and additions, never a break (docs: developers/stability). It also
-# publishes the CLI to npm as artbucket, at the tag's version (cli/).
+# publishes the CLI to npm as artbucket, at the tag's version (cli/). The
+# image runs the CLI too: docker run ghcr.io/pwnera/artbucket login ...
 on:
   push:
     tags: ["v*"]

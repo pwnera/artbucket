@@ -114,7 +114,8 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-  # The image a release publishes still builds (release.yml pushes it on a tag).
+  # The image a release publishes still builds (release.yml pushes it on a tag),
+  # and runs the CLI.
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -124,6 +125,8 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
-          push: false
+          load: true
+          tags: artbucket:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - run: docker run --rm artbucket:ci --help
