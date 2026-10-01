@@ -1,7 +1,10 @@
 import { z } from "zod";
 
-/** The open-source project every server runs, whoever hosts it: where "Made with Artbucket" and the fetcher's user agent point. */
+/** The open-source project every server runs, whoever hosts it: where the fetcher's user agent points. */
 export const PROJECT_URL = "https://github.com/pwnera/artbucket";
+
+/** Where "Powered by Artbucket" on a portal points: the product's own page for it, on Artbucket Cloud. */
+export const POWERED_BY_URL = "https://artbucket.io/powered-by";
 
 /**
  * White-labeling: what an organization calls the product and how it looks,

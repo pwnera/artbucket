@@ -6,7 +6,7 @@ import { IconLoader2, IconSearch } from "@tabler/icons-react";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { LocalDate, PublicGrid, type PublicItem } from "@/components/public-grid";
 import { Thumb } from "@/components/thumb";
-import { SiteFooter } from "@/components/site/footer";
+import { PoweredBy, SiteFooter } from "@/components/site/footer";
 import { type BrandLook, Looked, Opening } from "@/components/site/looked";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -292,6 +292,7 @@ export function PortalAssets({
                 Open until <LocalDate at={portal.expiresAt} />
               </p>
             )}
+            {portal.madeWith && <PoweredBy slug={portal.slug} />}
           </div>
         </footer>
       )}

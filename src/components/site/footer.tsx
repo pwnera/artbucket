@@ -6,16 +6,17 @@ import { SiteLink } from "@/components/site/nav-tree";
 import { onPortal } from "@/components/site/quick-grab";
 import { useSite } from "@/components/site/site-context";
 import type { SitePortal } from "@/components/site/site-view";
-import { PROJECT_URL } from "@/lib/branding";
+import { AppIcon } from "@/components/brand";
+import { POWERED_BY_URL } from "@/lib/branding";
 
 const LINK = "hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2";
 
 /**
  * The foot of a portal's site: its words (Markdown) and links, when the
  * brand being read was last published and what that changed, where to send
- * feedback, and the credit line; without white-label, "Made with Artbucket".
+ * feedback, and the credit line; without white-label, "Powered by Artbucket".
  */
-export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "site" | "brands" | "madeWith">; base: string; onNavigate?: (href: string) => void }) {
+export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "slug" | "site" | "brands" | "madeWith">; base: string; onNavigate?: (href: string) => void }) {
   const { view } = useSite();
   const f = portal.site.footer ?? {};
   const brand = view.brand.slug;
@@ -62,14 +63,32 @@ export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePort
           )}
           {f.credit && <p>{f.credit}</p>}
           {portal.madeWith && (
-            <p className="text-xs">
-              <a href={PROJECT_URL} target="_blank" rel="noreferrer" className={LINK}>
-                Made with Artbucket
-              </a>
+            <p className="pt-2">
+              <PoweredBy slug={portal.slug} />
             </p>
           )}
         </div>
       </div>
     </footer>
+  );
+}
+
+/**
+ * A portal's "Powered by Artbucket", as a small pill: on the free plan, which
+ * has no white-label. Its link says which portal sent the visitor.
+ */
+export function PoweredBy({ slug }: { slug: string }) {
+  const href = `${POWERED_BY_URL}?utm_source=${encodeURIComponent(slug)}&utm_medium=portal&utm_campaign=powered-by`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="bg-background text-muted-foreground hover:text-foreground hover:border-foreground/20 focus-visible:ring-ring/50 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs shadow-xs transition-colors outline-none focus-visible:ring-2"
+    >
+      Powered by
+      <AppIcon className="size-3.5" />
+      <span className="text-foreground font-medium">Artbucket</span>
+    </a>
   );
 }

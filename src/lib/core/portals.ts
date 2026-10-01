@@ -456,8 +456,13 @@ const shownTheme = async (p: Row) => {
   };
 };
 
-/** Whether its pages carry "Made with Artbucket" (PRD): unless its organization's plan has white-label, the branding feature. */
+/**
+ * Whether its pages carry "Powered by Artbucket" (PRD): unless its
+ * organization's plan has white-label, the branding feature. Not on a
+ * members' portal: whoever reads it is in the app already.
+ */
 async function madeWith(p: Row) {
+  if (p.access === "members") return false;
   const ws = await workspaceById(p.workspaceId);
   const features = ws && (await limitsOf(ws.organizationId)).features;
   return !!features && !features.includes("branding");
