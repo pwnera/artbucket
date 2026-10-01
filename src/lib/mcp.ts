@@ -1,4 +1,5 @@
 import { z } from "zod";
+import pkg from "../../package.json" with { type: "json" };
 import { AssetError } from "@/lib/core/errors";
 import {
   collectionId,
@@ -1101,7 +1102,7 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       return result(id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "artbucket", version: "1.2.0" },
+        serverInfo: { name: "artbucket", version: pkg.version },
         instructions: can(caller, "brand.edit") ? INSTRUCTIONS : INSTRUCTIONS + READ_ONLY_BRAND,
       });
     }
