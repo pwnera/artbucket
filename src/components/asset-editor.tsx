@@ -1427,7 +1427,10 @@ function DownloadsProperty({ asset, error, onChange }: { asset: Asset; error?: s
   const [v, setV] = useState(said(asset.rights?.downloadable));
   const auto = isDownloadable({ ...asset, rights: asset.rights && { ...asset.rights, downloadable: null } });
   const allowed = v === "" ? auto : v === "yes";
-  const why = isFont(asset.mime, asset.filename) ? "It's a font without an open license." : "It's licensed.";
+  const font = isFont(asset.mime, asset.filename);
+  const why = font ? "It's a font without an open license." : "It's licensed.";
+  // A font is seen set in the pages; anything else, as pictures at most 1600 px a side.
+  const seen = font ? "Visitors see it set in your pages but can't download it." : "Visitors see it, up to 1600 px, but can't download it.";
   const note = allowed
     ? {
         text: "Anyone who sees it on a portal, a share link or BrandHub can download the file.",
@@ -1435,7 +1438,7 @@ function DownloadsProperty({ asset, error, onChange }: { asset: Asset; error?: s
         warn: v === "yes" && !auto,
       }
     : {
-        text: `${v === "" ? `${why} ` : ""}Visitors see it, up to 1600 px, but can't download it. Your team still can.${v === "" ? " Choose Allowed only if the license lets you share the file." : ""}`,
+        text: `${v === "" ? `${why} ` : ""}${seen} Your team still can.${v === "" ? " Choose Allowed only if the license lets you share the file." : ""}`,
         warn: false,
       };
   const noteId = `${id}-note`;
