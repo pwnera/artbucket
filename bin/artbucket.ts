@@ -64,14 +64,19 @@ const HELP = `artbucket <command>
   brand pull [dir] [--brand b] [--assets]
                           the brand as files in dir (brand/ by default): brand.yaml,
                           rules/, pages/; a file that says the same is left as it is.
-                          --assets fetches the files it points at into assets/ too
+                          --assets fetches the files it points at into assets/ too;
+                          a folder whose assets/ holds files always does, and they
+                          keep their paths
   brand push [dir] [--brand b] [--create] [--dry-run] [--replace] [--publish] [--note text]
-                          take the brand from its files, uploading what assets/ adds:
-                          merged with what changed here since the last push or pull
-                          (--replace takes the files whole), as one version.
-                          --create makes the brand when there is none by its slug
+                          take the brand from its files, uploading what assets/ adds,
+                          as one version. A brand kept in a repository keeps what
+                          changed here since the last sync (--replace takes the files
+                          whole); one that isn't takes the files whole: pull first.
+                          --publish releases it after; --note says what changed, and
+                          releases it too. --create makes the brand when there is none
   brand diff [dir] [--brand b]
-                          what push would change; exits 1 on problems in the files
+                          what push would change; exits 1 on problems in the files,
+                          not on files under assets/ that push would upload
                           The brand is --brand, or the slug: in brand.yaml (pull
                           writes it), never the workspace's default
   history [--brand b]     the brand's versions, newest first
@@ -305,8 +310,21 @@ async function post(path: string, body: unknown) {
 
 async function brandPull(dir: string) {
   const previous = await brandFiles(dir);
-  const r = await api("POST", `${await brandPath(filesBrand(previous, dir))}/files/export`, { previous, ...(opt.assets && { assets: "files" }) });
-  const { files, assets } = r.data as { files: Record<string, string>; assets: Record<string, { sha256: string; url: string }> };
+  // A folder that keeps its assets keeps them: pulled as files, never turned into ids.
+  const local = await assetFiles(dir);
+  const withAssets = opt.assets || Object.keys(local).length > 0;
+  const r = await api("POST", `${await brandPath(filesBrand(previous, dir))}/files/export`, { previous, ...(withAssets && { assets: "files" }) });
+  const { files: answered, assets } = r.data as { files: Record<string, string>; assets: Record<string, { sha256: string; url: string }> };
+  // The server names files .yaml; a folder that calls one .yml keeps its name, or the next push finds both.
+  const yml = (p: string) => p.replace(/\.yaml$/, ".yml");
+  // The server names an asset's file by its filename; one already in the folder under another path keeps that path.
+  const bySha = new Map(Object.entries(local).map(([p, sha]) => [sha, p]));
+  const moved = Object.entries(assets).flatMap(([p, a]) => {
+    const mine = bySha.get(a.sha256);
+    return mine && mine !== p ? [[p, mine] as const] : [];
+  });
+  const at = (text: string) => moved.reduce((t, [from, to]) => t.replace(new RegExp(`(?<![\\w./-])${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w./-])`, "g"), to), text);
+  const files = Object.fromEntries(Object.entries(answered).map(([p, text]) => [p.endsWith(".yaml") && yml(p) in previous ? yml(p) : p, at(text)]));
   const wrote: string[] = [];
   for (const [path, text] of Object.entries(files)) {
     if (previous[path] === text) continue;
@@ -315,11 +333,10 @@ async function brandPull(dir: string) {
     wrote.push(path);
   }
   // rules/ and pages/ hold the brand's files alone: one it no longer has goes.
-  const gone = Object.keys(previous).filter((p) => !(p in files) && !(p.replace(/\.yml$/, ".yaml") in files && p.endsWith(".yml")));
+  const gone = Object.keys(previous).filter((p) => !(p in files));
   for (const p of gone) await rm(join(dir, p));
-  const local = opt.assets ? await assetFiles(dir) : {};
-  for (const [path, a] of opt.assets ? Object.entries(assets) : []) {
-    if (local[path] === a.sha256) continue;
+  for (const [path, a] of withAssets ? Object.entries(assets) : []) {
+    if (local[path] === a.sha256 || bySha.has(a.sha256)) continue;
     const res = await fetch(a.url, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
     if (!res.ok) throw new Error(`Couldn't fetch ${path}: ${res.status}`);
     await mkdir(dirname(join(dir, path)), { recursive: true });
@@ -356,8 +373,13 @@ async function brandPush(dir: string, dryRun: boolean) {
   }
   if (!r.ok) {
     const { errors, missing } = r.problems;
-    process.exitCode = 1;
-    return [...errors.map(problemLine), ...missing.map((m) => `${m}: not uploaded yet${dryRun ? " (push uploads it)" : ""}`)].join("\n");
+    // A diff of files that only add assets isn't a problem: push uploads them. A pull request's check stays green.
+    if (errors.length || !dryRun) process.exitCode = 1;
+    return [
+      ...errors.map(problemLine),
+      ...missing.map((m) => `  + ${m}${dryRun ? " (push uploads it)" : ": not uploaded"}`),
+      ...(dryRun && !errors.length ? ["The rest of the diff shows once those are in the library: push uploads them first"] : []),
+    ].join("\n");
   }
   if (!dryRun) {
     const note = opt.note ?? (opt.publish ? true : undefined);
