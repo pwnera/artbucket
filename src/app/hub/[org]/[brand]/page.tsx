@@ -102,9 +102,9 @@ export default async function HubListing(props: Props) {
               {b.publishedAt && ` · ${new Date(b.publishedAt).toLocaleDateString("en", { day: "numeric", month: "short" })}`}
             </span>
             {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release @{b.version}</span>}
-            <div className="ms-auto flex flex-wrap items-center gap-2">
+            <div className="ms-auto flex flex-wrap items-center gap-1">
               {b.guidelines && (
-                <Button asChild variant="outline">
+                <Button asChild variant="ghost" size="sm">
                   <ExternalLink href={b.guidelines}>
                     <IconBook aria-hidden /> Guidelines
                   </ExternalLink>
@@ -114,7 +114,7 @@ export default async function HubListing(props: Props) {
                 (mine ? (
                   <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} count={b.followers} />
                 ) : (
-                  <Button asChild variant="outline">
+                  <Button asChild variant="ghost" size="sm">
                     <a href={signIn}>
                       <IconStar aria-hidden /> Follow
                       {b.followers > 0 && <span className="text-muted-foreground tabular-nums">· {b.followers.toLocaleString("en")}</span>}
@@ -125,7 +125,7 @@ export default async function HubListing(props: Props) {
               {open ? (
                 <UseBrand url={b.url} name={b.name} />
               ) : (
-                <Button asChild>
+                <Button asChild size="sm" className="ms-1">
                   <a href={`${env.APP_URL}/brands`}>
                     <IconWorld aria-hidden /> Make public
                   </a>

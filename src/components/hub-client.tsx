@@ -78,7 +78,7 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button>
+        <Button size="sm" className="ms-1">
           <IconRobot aria-hidden /> Use this brand <IconChevronDown aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -262,7 +262,7 @@ export function FollowButton({ org, brand, following, count }: { org: string; br
     router.refresh();
   };
   return (
-    <Button variant="outline" pending={busy} onClick={toggle} aria-pressed={on}>
+    <Button variant="ghost" size="sm" pending={busy} onClick={toggle} aria-pressed={on}>
       {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
       {!!count && <span className="text-muted-foreground tabular-nums">· {count.toLocaleString("en")}</span>}
     </Button>
@@ -293,7 +293,7 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="ghost" size="sm">
           <IconGitFork aria-hidden /> Start from this brand
         </Button>
       </DialogTrigger>
