@@ -314,10 +314,12 @@ export function toastSaved(saved: Portal, said: "made" | "saved") {
 function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; onEdit: () => void; onChanged: (p: Portal) => void; onDeleted: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const toggle = async () => {
+    // The row shows it at once (its Offline badge), and goes back if the server says no.
+    onChanged({ ...p, expired: !p.expired });
     const saved: Portal | null = p.expired
       ? await send("PATCH", `/api/v1/portals/${p.id}`, { expiresAt: null })
       : await send("POST", `/api/v1/portals/${p.id}/close`);
-    if (!saved) return;
+    if (!saved) return onChanged(p);
     onChanged(saved);
     toast.success(saved.expired ? `${saved.name} is offline` : `${saved.name} is back online`, {
       description: saved.expired ? "Its address says it is closed. Nothing about it is lost." : undefined,

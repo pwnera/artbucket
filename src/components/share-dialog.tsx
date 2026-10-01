@@ -596,10 +596,12 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
           checked={on}
           disabled={busy}
           onCheckedChange={async (next) => {
+            // Flipped at once, and back if the server says no.
+            setOn(next);
             setBusy(true);
             const a = await send("PATCH", `/api/v1/assets/${asset.id}`, { public: next });
             setBusy(false);
-            if (!a) return;
+            if (!a) return setOn(!next);
             setOn(a.public);
             onChanged?.(a);
           }}

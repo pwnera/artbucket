@@ -252,19 +252,39 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
 export function FollowButton({ org, brand, following, count }: { org: string; brand: string; following: boolean; count?: number }) {
   const router = useRouter();
   const [on, setOn] = useState(following);
-  const [busy, setBusy] = useState(false);
+  // The count moves with the star, before the server answers; the refresh brings the true one.
+  const [n, setN] = useState(count ?? 0);
+  const [seen, setSeen] = useState(count);
+  if (count !== seen) {
+    setSeen(count);
+    setN(count ?? 0);
+  }
+  const busy = useRef(false);
   const toggle = async () => {
-    setBusy(true);
-    const got = await send(on ? "DELETE" : "PUT", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
-    setBusy(false);
-    if (!got) return;
+    if (busy.current) return;
+    busy.current = true;
+    const next = !on;
+    setOn(next);
+    setN((x) => Math.max(0, x + (next ? 1 : -1)));
+    const got = await send(next ? "PUT" : "DELETE", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
+    busy.current = false;
+    if (!got) {
+      setOn(!next);
+      setN((x) => Math.max(0, x + (next ? -1 : 1)));
+      return;
+    }
     setOn(got.following);
     router.refresh();
   };
   return (
-    <Button variant="ghost" size="sm" pending={busy} onClick={toggle} aria-pressed={on}>
-      {on ? <IconStarFilled aria-hidden className="text-warning" /> : <IconStar aria-hidden />} {on ? "Following" : "Follow"}
-      {!!count && <span className="text-muted-foreground tabular-nums">· {count.toLocaleString("en")}</span>}
+    <Button variant="ghost" size="sm" onClick={toggle} aria-pressed={on}>
+      {on ? <IconStarFilled key="on" aria-hidden className="text-warning animate-in zoom-in-50 spin-in-[-72deg] duration-300" /> : <IconStar key="off" aria-hidden />}{" "}
+      {on ? "Following" : "Follow"}
+      {count !== undefined && n > 0 && (
+        <span key={n} className="text-muted-foreground animate-in fade-in-0 tabular-nums duration-150">
+          · {n.toLocaleString("en")}
+        </span>
+      )}
     </Button>
   );
 }

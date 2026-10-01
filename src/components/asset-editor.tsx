@@ -483,15 +483,19 @@ export function AssetEditor({
 
   /** Every suggestion taken, with what the form says: its tags, its values over the suggested ones. */
   const approving = useRef(false);
+  // Shown on the Approve button whichever way it came, the button or the A key.
+  const [approvingNow, setApprovingNow] = useState(false);
   async function approve() {
     const form = formRef.current;
     // Once: the A key and the button are both a way in.
     if (!form || approving.current) return;
     approving.current = true;
+    setApprovingNow(true);
     try {
       await approveNow(form);
     } finally {
       approving.current = false;
+      setApprovingNow(false);
     }
   }
   async function approveNow(form: HTMLFormElement) {
@@ -1019,6 +1023,7 @@ export function AssetEditor({
                 approve={approve}
                 approveLabel={pending && asset.status === "proposed" ? "Approve with suggestions" : "Approve"}
                 approveError={approveError}
+                approving={approvingNow}
               />
             </Can>
             <Lifecycle asset={asset} onChanged={onReviewed} approve={approve} />
@@ -1913,6 +1918,7 @@ function Review({
   approve,
   approveLabel,
   approveError,
+  approving = false,
 }: {
   asset: Asset;
   fields: FieldDef[];
@@ -1925,10 +1931,14 @@ function Review({
   approve: () => Promise<void>;
   approveLabel: string;
   approveError: string | null;
+  /** An approval on its way, from the A key too. */
+  approving?: boolean;
 }) {
   // Which action is running, so only its button says so.
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // Suggestions taken or dropped one at a time leave at once, and come back if the save fails.
+  const [gone, setGone] = useState<string[]>([]);
   if (asset.status === "rejected") {
     return (
       <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-sm">
@@ -1950,10 +1960,18 @@ function Review({
     setBusy(null);
   };
   const patch = (what: string, body: Record<string, unknown>) => run(what, () => flush(body));
+  /** One suggestion decided: off the list now, the save after, back on the list if it didn't take. */
+  const one = async (key: string, decide: () => Promise<unknown>) => {
+    setGone((g) => [...g, key]);
+    const ok = await decide();
+    if (!ok) setGone((g) => g.filter((k) => k !== key));
+  };
   const onScreen = () => (formRef.current ? new FormData(formRef.current).getAll("tags").map(String) : asset.tags);
   const accept = (tags: string[], what: string) =>
     patch(what, { tags: [...new Set([...onScreen(), ...tags])], proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
   const dismiss = (tags: string[], what: string) => patch(what, { proposedTags: asset.proposedTags.filter((t) => !tags.includes(t)) });
+  const proposedTags = asset.proposedTags.filter((t) => !gone.includes(t));
+  const shownSuggested = suggested.filter(([k]) => !gone.includes(k));
   /** What is left waiting once `keys` are decided. */
   const keep = (keys: string[]) => Object.fromEntries(suggested.filter(([k]) => !keys.includes(k)));
   const defOf = (key: string) => fields.find((f) => f.key === key);
@@ -2013,7 +2031,7 @@ function Review({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" disabled={!!busy} pending={busy === "approve"} onClick={() => run("approve", approve)}>
+              <Button type="button" size="sm" disabled={!!busy} pending={busy === "approve" || approving} onClick={() => run("approve", approve)}>
                 <IconCheck /> {approveLabel}
                 <Kbd keys={["A"]} className="bg-background/20 border-transparent text-current max-sm:hidden" />
               </Button>
@@ -2030,39 +2048,39 @@ function Review({
           )}
         </div>
       )}
-      {asset.proposedTags.length > 0 && (
+      {proposedTags.length > 0 && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested tags
           </p>
           <ul className="flex flex-wrap gap-1.5">
-            {asset.proposedTags.map((t) => (
+            {proposedTags.map((t) => (
               <li key={t}>
                 <Badge variant="outline" className="gap-0.5 border-dashed pr-0.5">
                   {t}
                   <button
                     type="button"
                     disabled={!!busy}
-                    onClick={() => accept([t], `accept:${t}`)}
+                    onClick={() => one(t, () => flush({ tags: [...new Set([...onScreen(), t])], proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Accept tag ${t}`}
                     className="hover:bg-primary/15 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
                   >
-                    <IconCheck className={cn("size-3", busy === `accept:${t}` && "animate-pulse")} />
+                    <IconCheck className="size-3" />
                   </button>
                   <button
                     type="button"
                     disabled={!!busy}
-                    onClick={() => dismiss([t], `dismiss:${t}`)}
+                    onClick={() => one(t, () => flush({ proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Dismiss tag ${t}`}
                     className="hover:bg-muted-foreground/20 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
                   >
-                    <IconX className={cn("size-3", busy === `dismiss:${t}` && "animate-pulse")} />
+                    <IconX className="size-3" />
                   </button>
                 </Badge>
               </li>
             ))}
           </ul>
-          {asset.proposedTags.length > 1 && (
+          {proposedTags.length > 1 && (
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="outline" disabled={!!busy} pending={busy === "accept:tags"} onClick={() => accept(asset.proposedTags, "accept:tags")}>
                 Accept all
@@ -2074,13 +2092,13 @@ function Review({
           )}
         </div>
       )}
-      {suggested.length > 0 && (
+      {shownSuggested.length > 0 && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested values
           </p>
           <ul className="grid gap-1">
-            {suggested.map(([k, v]) => {
+            {shownSuggested.map(([k, v]) => {
               const d = defOf(k);
               const label = d?.label ?? k;
               const shown = formatFieldValue(d, v);
@@ -2091,18 +2109,18 @@ function Review({
                     {shown}
                   </span>
                   {d && (
-                    <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} pending={busy === `accept:${k}`} onClick={() => acceptValues([k], `accept:${k}`)}>
+                    <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} onClick={() => one(k, () => (defOf(k) ? flush({ fields: { [k]: v }, proposedFields: keep([k]) }) : Promise.resolve(false)))}>
                       <IconCheck />
                     </IconButton>
                   )}
-                  <IconButton variant="ghost" label={`Dismiss ${label}`} disabled={!!busy} pending={busy === `dismiss:${k}`} onClick={() => dismissValues([k], `dismiss:${k}`)}>
+                  <IconButton variant="ghost" label={`Dismiss ${label}`} disabled={!!busy} onClick={() => one(k, () => flush({ proposedFields: keep([k]) }))}>
                     <IconX />
                   </IconButton>
                 </li>
               );
             })}
           </ul>
-          {suggested.length > 1 && (
+          {shownSuggested.length > 1 && (
             <div className="flex gap-2">
               <Button
                 type="button"

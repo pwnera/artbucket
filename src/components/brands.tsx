@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
@@ -280,6 +280,9 @@ function Row({
 }) {
   const hub = b.hub;
   const open = b.visibility === "public";
+  // Until the change and the refresh after it land: the button spins rather than seeming dead.
+  const [changing, change] = useTransition();
+  const set = (patch: Parameters<typeof onHub>[0]) => change(async () => void (await onHub(patch)));
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
       <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint, palette: b.look.palette }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
@@ -325,7 +328,7 @@ function Row({
           )}
           {canShare &&
             (open ? (
-              <Button variant="outline" size="sm" onClick={() => void onHub({ visibility: "private" })}>
+              <Button variant="outline" size="sm" pending={changing} onClick={() => set({ visibility: "private" })}>
                 <IconLock aria-hidden /> Make private
               </Button>
             ) : (
@@ -342,7 +345,7 @@ function Row({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Guidelines link on BrandHub</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={hub.chosen && hub.portal ? hub.portal.slug : ""} onValueChange={(v) => void onHub({ portal: v || null })}>
+                <DropdownMenuRadioGroup value={hub.chosen && hub.portal ? hub.portal.slug : ""} onValueChange={(v) => set({ portal: v || null })}>
                   <DropdownMenuRadioItem value="">Its first public portal</DropdownMenuRadioItem>
                   {hub.portals.map((p) => (
                     <DropdownMenuRadioItem key={p.slug} value={p.slug}>
