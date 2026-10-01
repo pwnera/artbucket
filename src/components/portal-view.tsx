@@ -19,6 +19,7 @@ import type { Audience } from "@/lib/pages";
 import type { PortalSite } from "@/lib/portal";
 import { canonicalPath, type PageView } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { shake } from "@/lib/motion";
 
 export type { PortalBody } from "@/components/portal-assets";
 
@@ -615,8 +616,11 @@ function Gate({
     };
   }, [members, ownDomain]);
   useEffect(() => {
-    // After a wrong one, the whole password is selected, ready to retype.
-    if (state.wrong) input.current?.select();
+    // After a wrong one, the whole password is selected, ready to retype, and the form shakes its head.
+    if (state.wrong) {
+      input.current?.select();
+      shake(input.current?.closest("form"));
+    }
   }, [state]);
 
   const problem = state.note ?? (state.wrong ? "That password isn't right." : null);

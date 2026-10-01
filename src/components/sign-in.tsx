@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { useKept } from "@/lib/motion";
 import { Waiting } from "@/components/waiting";
+import { shake, useKept } from "@/lib/motion";
 
 /**
  * Signing in and up, against better-auth at /api/auth: who someone is. What
@@ -126,8 +126,15 @@ export function Card({ title, lead, brand, children }: { title: React.ReactNode;
     <Shell>
       <div className="space-y-3">
         <BrandMark brand={brand} />
-        <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
-        {lead && <div className="text-muted-foreground text-sm text-pretty">{lead}</div>}
+        {/* Keyed on what they say, so a new step's words fade in rather than swap. */}
+        <h1 key={typeof title === "string" ? title : undefined} className="font-display animate-in fade-in-0 text-xl font-semibold tracking-tight duration-200">
+          {title}
+        </h1>
+        {lead && (
+          <div key={typeof lead === "string" ? lead : undefined} className="text-muted-foreground animate-in fade-in-0 text-sm text-pretty duration-200">
+            {lead}
+          </div>
+        )}
       </div>
       {children}
     </Shell>
@@ -229,6 +236,7 @@ export function AuthForm({
       if (r.code === "INVALID_EMAIL_OR_PASSWORD") {
         passwordInput.current?.focus();
         passwordInput.current?.select();
+        shake(passwordInput.current?.closest("form"));
       }
       return;
     }
