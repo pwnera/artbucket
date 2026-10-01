@@ -87,6 +87,8 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
       })
       .where(eq(brands.id, b.id))
       .returning();
+    // Deleted since it was read.
+    if (!row) throw new AssetError("not_found", `No brand "${slug}"`);
     return present(row);
   });
 }
@@ -95,7 +97,8 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
 export async function deleteBrand(ws: string, slug: string) {
   const b = await resolveBrand(ws, slug);
   if (b.isDefault) throw new AssetError("conflict", "This is the default brand; make another one the default first");
-  await db.delete(brands).where(eq(brands.id, b.id));
+  const gone = await db.delete(brands).where(eq(brands.id, b.id)).returning({ id: brands.id });
+  if (!gone.length) throw new AssetError("not_found", `No brand "${slug}"`);
   return true;
 }
 
@@ -207,6 +210,7 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
     if (twin) throw new AssetError("conflict", `${twin.name}, in another workspace, is public as ${b.slug} already. Rename one of them`);
   }
   const [row] = await db.update(brands).set({ visibility, hubPortalId }).where(eq(brands.id, b.id)).returning();
+  if (!row) throw new AssetError("not_found", `No brand "${slug}"`);
   if (visibility !== b.visibility) await recordAudit(caller, visibility === "public" ? "brand.public" : "brand.private", b.name, { brand: b.slug });
   return (await hubOf(row))!;
 }

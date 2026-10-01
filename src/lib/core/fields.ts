@@ -39,7 +39,8 @@ export async function updateField(
   }
   if (!Object.keys(patch).length) return toDef(current);
   const [row] = await db.update(fields).set(patch).where(byKey(ws, key)).returning();
-  return toDef(row);
+  // Deleted since it was read.
+  return row ? toDef(row) : null;
 }
 
 /**

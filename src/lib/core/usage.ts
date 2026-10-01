@@ -56,6 +56,8 @@ const storageRefused = (l: Limits, used: number) =>
 
 /** The advisory lock class (with hashtext of the organization) an upload holds while it checks storage and lands. */
 const STORAGE_LOCK = 73;
+/** The class an add of a counted thing holds (with hashtext of the organization and the kind): checkLimit with a transaction. */
+const LIMIT_LOCK = 74;
 
 /**
  * The storage check as bytes land, inside the transaction that adds them:
@@ -90,10 +92,10 @@ export async function countRendition(key: string, workspaceId: string, bytes: nu
 }
 
 /** People with write or admin anywhere in it, and invitations that would make more: a seat is taken when it is offered. */
-async function editorsOf(organizationId: string) {
+async function editorsOf(organizationId: string, q: Tx | typeof db = db) {
   const [[people], [waiting]] = await Promise.all([
-    db.select({ n: countDistinct(grants.userId) }).from(grants).where(and(eq(grants.organizationId, organizationId), EDITOR)),
-    db
+    q.select({ n: countDistinct(grants.userId) }).from(grants).where(and(eq(grants.organizationId, organizationId), EDITOR)),
+    q
       .select({ n: count() })
       .from(invitations)
       .where(
@@ -108,23 +110,23 @@ async function editorsOf(organizationId: string) {
   return people.n + waiting.n;
 }
 
-const workspacesOf = async (organizationId: string) =>
-  (await db.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, organizationId)))[0].n;
+const workspacesOf = async (organizationId: string, q: Tx | typeof db = db) =>
+  (await q.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, organizationId)))[0].n;
 
-const brandsOf = async (organizationId: string) =>
+const brandsOf = async (organizationId: string, q: Tx | typeof db = db) =>
   (
-    await db
+    await q
       .select({ n: count() })
       .from(brands)
       .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
       .where(eq(workspaces.organizationId, organizationId))
   )[0].n;
 
-const domainsOf = async (organizationId: string) =>
-  (await db.select({ n: count() }).from(domains).where(eq(domains.organizationId, organizationId)))[0].n;
+const domainsOf = async (organizationId: string, q: Tx | typeof db = db) =>
+  (await q.select({ n: count() }).from(domains).where(eq(domains.organizationId, organizationId)))[0].n;
 
-const isEditor = async (organizationId: string, userId: string) =>
-  !!(await db.select({ id: grants.id }).from(grants).where(and(eq(grants.organizationId, organizationId), eq(grants.userId, userId), EDITOR)).limit(1))[0];
+const isEditor = async (organizationId: string, userId: string, q: Tx | typeof db = db) =>
+  !!(await q.select({ id: grants.id }).from(grants).where(and(eq(grants.organizationId, organizationId), eq(grants.userId, userId), EDITOR)).limit(1))[0];
 
 const n = (count: number, what: string) => `${count} ${what}${count === 1 ? "" : "s"}`;
 
@@ -143,11 +145,15 @@ const FEATURE_LABEL: Record<Feature, string> = {
  * limit. `adding`: bytes for storage, else how many. `user`: for editors,
  * who would get write; already an editor, they take no new seat.
  *
- * ponytail: count, then act, without a lock: two at once can both pass and
- * overshoot by one. Storage, where one upload can be large, is checked again
- * under a lock as the bytes land (claimStorage).
+ * Before anything moves it counts without a lock, so two at once can both
+ * pass. With `tx`, the transaction that adds the thing, one organization's
+ * adds of a kind take turns (an advisory lock, held to commit) and count in
+ * that transaction: the next one sees the last one's. Call it first in the
+ * transaction, so it waits holding nothing else. Storage is checked again as
+ * the bytes land (claimStorage).
  */
-export async function checkLimit(organizationId: string, what: Limited, { adding = 1, user }: { adding?: number; user?: string } = {}) {
+export async function checkLimit(organizationId: string, what: Limited, { adding = 1, user, tx }: { adding?: number; user?: string; tx?: Tx } = {}) {
+  // Read before the lock (a minute's memo): the lock's holder must not wait on another connection from the pool.
   const l = await limitsOf(organizationId);
   if (l.readOnly) throw new AssetError("read_only", "This organization is read-only");
   const refuse = (message: string, limit: number) => {
@@ -157,6 +163,11 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
   if (l.features && (FEATURES as readonly string[]).includes(what) && !l.features.includes(what as Feature)) {
     throw new AssetError("limit_reached", `${FEATURE_LABEL[what as Feature]} is off for this organization${manage()}`, { limit: what });
   }
+  const q = tx ?? db;
+  const counted = what === "editors" || what === "workspaces" || what === "brands" || what === "domains";
+  if (tx && counted && l[what] !== null) {
+    await tx.execute(sql`select pg_advisory_xact_lock(${LIMIT_LOCK}, hashtext(${`${organizationId}:${what}`}))`);
+  }
   switch (what) {
     case "storage":
       if (l.storage !== null) {
@@ -165,18 +176,18 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
       }
       return;
     case "editors":
-      if (l.editors !== null && !(user && (await isEditor(organizationId, user))) && over(l.editors, await editorsOf(organizationId))) {
+      if (l.editors !== null && !(user && (await isEditor(organizationId, user, q))) && over(l.editors, await editorsOf(organizationId, q))) {
         refuse(`This organization has room for ${n(l.editors, "editor")}, invitations included`, l.editors);
       }
       return;
     case "workspaces":
-      if (l.workspaces !== null && over(l.workspaces, await workspacesOf(organizationId))) refuse(`This organization has room for ${n(l.workspaces, "workspace")}`, l.workspaces);
+      if (l.workspaces !== null && over(l.workspaces, await workspacesOf(organizationId, q))) refuse(`This organization has room for ${n(l.workspaces, "workspace")}`, l.workspaces);
       return;
     case "brands":
-      if (l.brands !== null && over(l.brands, await brandsOf(organizationId))) refuse(`This organization has room for ${n(l.brands, "brand")}`, l.brands);
+      if (l.brands !== null && over(l.brands, await brandsOf(organizationId, q))) refuse(`This organization has room for ${n(l.brands, "brand")}`, l.brands);
       return;
     case "domains":
-      if (l.domains !== null && over(l.domains, await domainsOf(organizationId))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
+      if (l.domains !== null && over(l.domains, await domainsOf(organizationId, q))) refuse(`This organization has room for ${n(l.domains, "custom domain")}`, l.domains);
       return;
   }
 }

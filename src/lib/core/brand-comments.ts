@@ -158,6 +158,8 @@ export async function updateComment(caller: Caller, brandSlug: string | undefine
     })
     .where(eq(brandComments.id, c.id))
     .returning();
+  // Deleted since it was read.
+  if (!row) throw new AssetError("not_found", `No comment ${id} in ${brand.slug}`);
   return present(row, caller, pageNow(await pagesOf(brand.id)));
 }
 
@@ -169,6 +171,7 @@ export async function deleteComment(caller: Caller, brandSlug: string | undefine
   if (!mine(caller, c) && !can(caller, "brand.edit")) {
     throw new AssetError("forbidden", `Only its author can delete a comment, or someone with ${needs("brand.edit")}`);
   }
-  await db.delete(brandComments).where(eq(brandComments.id, c.id));
+  const gone = await db.delete(brandComments).where(eq(brandComments.id, c.id)).returning({ id: brandComments.id });
+  if (!gone.length) throw new AssetError("not_found", `No comment ${id} in ${brand.slug}`);
   return true;
 }

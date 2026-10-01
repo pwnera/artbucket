@@ -165,7 +165,10 @@ export async function claimable(raw: string) {
 /** A host name of the organization's; it serves nothing until proved. */
 export async function claimHost(organizationId: string, raw: string) {
   const host = await claimable(raw);
-  const [row] = await db.insert(domains).values({ host, organizationId, token: newToken() }).returning();
+  const [row] = await db.transaction(async (tx) => {
+    await checkLimit(organizationId, "domains", { tx });
+    return tx.insert(domains).values({ host, organizationId, token: newToken() }).returning();
+  });
   forgetHosts();
   return row;
 }

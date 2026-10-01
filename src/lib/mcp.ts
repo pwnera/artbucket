@@ -46,6 +46,7 @@ import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { fetchUrl, outsideReach, outsideUrl } from "@/lib/core/outside";
 import { can, needs, type Action } from "@/lib/permissions";
 import { allows } from "@/lib/scopes";
+import { refusedValue } from "@/lib/refused";
 import { normalizeTags } from "@/lib/search";
 import { issues, templateCatalog, TEMPLATES } from "@/lib/pages";
 import { PLAYBOOK } from "@/lib/playbook";
@@ -1093,13 +1094,40 @@ const toolResult = ({ image, ...data }: Record<string, unknown> & { image?: { da
   ...(isError ? { isError } : { structuredContent: data }),
 });
 
+/** What Postgres refused (lib/refused.ts) is the caller's mistake, said as REST says it (lib/api.ts). */
+const REFUSED: Record<NonNullable<ReturnType<typeof refusedValue>>, { error: string; code: string }> = {
+  invalid: { error: "A value holds a character that can't be stored (a NUL)", code: "invalid" },
+  not_found: { error: "Not found", code: "not_found" },
+  empty: { error: "Nothing to change: send at least one field", code: "invalid" },
+  conflict: { error: "That name, slug or key was just taken by another change: pick another, or try again", code: "conflict" },
+  retry: { error: "Another change crossed this one: try again", code: "conflict" },
+};
+
+/** An expected failure as `{error, code}`, or null for a real fault. */
+const expected = (err: unknown) => {
+  if (err instanceof AssetError) return { error: err.message, code: err.code };
+  const refused = refusedValue(err);
+  return refused ? REFUSED[refused] : null;
+};
+
 /** One JSON-RPC message in; the response body, or null for a notification. */
 export async function handleMcp(raw: unknown, caller: Caller): Promise<object | null> {
   const parsed = Message.safeParse(raw);
   if (!parsed.success) return error(null, -32600, "Invalid request");
   const { id, method, params = {} } = parsed.data;
   if (id === undefined) return null; // notifications/initialized and friends: nothing to say
+  try {
+    return await answer(id, method, params, caller);
+  } catch (err) {
+    // Always a JSON-RPC answer, never the REST error shape: a bad request is the caller's, anything else ours.
+    const known = expected(err) ?? (err instanceof URIError ? { error: "A %-escape in the URI decodes to nothing" } : null);
+    if (known) return error(id, -32602, known.error);
+    console.error(err);
+    return error(id, -32603, "Internal error");
+  }
+}
 
+async function answer(id: Id, method: string, params: Record<string, unknown>, caller: Caller): Promise<object> {
   switch (method) {
     case "initialize": {
       const asked = String(params.protocolVersion ?? "");
@@ -1181,18 +1209,13 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       if (uri === PLAYBOOK_URI) return result(id, { contents: [{ uri, mimeType: "text/markdown", text: PLAYBOOK }] });
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
       const page = uri.match(/^artbucket:\/\/brands\/([^/?#]+)\/pages\/([^/?#]+)$/);
-      try {
-        if (page) {
-          const { markdown } = await getPage(caller.workspace.id, decodeURIComponent(page[1]), decodeURIComponent(page[2]));
-          return result(id, { contents: [{ uri, mimeType: "text/markdown", text: markdown }] });
-        }
-        if (!m) return error(id, -32002, `Resource not found: ${uri}`);
-        const data = await rulesFor(caller.workspace.id, m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
-        return result(id, { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) }] });
-      } catch (err) {
-        if (err instanceof AssetError) return error(id, -32602, err.message);
-        throw err;
+      if (page) {
+        const { markdown } = await getPage(caller.workspace.id, decodeURIComponent(page[1]), decodeURIComponent(page[2]));
+        return result(id, { contents: [{ uri, mimeType: "text/markdown", text: markdown }] });
       }
+      if (!m) return error(id, -32002, `Resource not found: ${uri}`);
+      const data = await rulesFor(caller.workspace.id, m[2] && decodeURIComponent(m[2]), m[1] && decodeURIComponent(m[1]));
+      return result(id, { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 2) }] });
     }
     case "tools/call": {
       const name = String(params.name);
@@ -1223,7 +1246,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
       } catch (err) {
         called("error");
         // Expected failures go back to the model as tool errors it can act on.
-        if (err instanceof AssetError) return result(id, toolResult({ error: err.message, code: err.code }, true));
+        const known = expected(err);
+        if (known) return result(id, toolResult(known, true));
         console.error(err);
         return error(id, -32603, "Internal error");
       }

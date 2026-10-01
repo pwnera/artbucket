@@ -82,7 +82,7 @@ export async function registerClient(input: unknown) {
   if (!parsed.success) throw new OAuthError("invalid_client_metadata", z.prettifyError(parsed.error));
   const { client_name, redirect_uris, grant_types } = parsed.data;
   const bad = redirect_uris.find((u) => !redirectAllowed(u));
-  if (bad) throw new OAuthError("invalid_redirect_uri", `Not a redirect this server sends codes to: ${bad}`);
+  if (bad !== undefined) throw new OAuthError("invalid_redirect_uri", `Not a redirect this server sends codes to: ${bad}`);
   if (grant_types.includes("authorization_code") && !redirect_uris.length) {
     throw new OAuthError("invalid_redirect_uri", "The authorization code flow needs at least one redirect_uri");
   }
@@ -242,6 +242,7 @@ export async function exchange(form: Record<string, string>) {
     const row = await recall<Device>(`oauth-device:${code}`);
     if (!row || row.value.secret !== hashKey(secret ?? "")) throw new OAuthError("expired_token", "The device code is unknown or expired");
     const device = row.value;
+    if (device.clientId !== form.client_id) throw new OAuthError("invalid_grant", "The device code was issued to another client");
     if (device.status === "pending") throw new OAuthError("authorization_pending", "Waiting for someone to approve the code");
     // Deleted and checked in one go: of two polls racing for an approved code, one gets the key.
     const [gone] = await db.delete(verifications).where(eq(verifications.id, row.id)).returning({ id: verifications.id });
