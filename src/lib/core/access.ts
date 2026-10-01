@@ -11,6 +11,7 @@ import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
+import { hubHome } from "@/lib/hub";
 import { memo } from "@/lib/memo";
 import { upgradeUrl } from "@/lib/limits";
 import { lockedBy, noticeOf } from "@/lib/settings";
@@ -225,6 +226,7 @@ export async function describeCaller(caller: Caller) {
     features: limits.value.features,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
     hub: !!env.HUB_URL,
+    hubUrl: env.HUB_URL ? hubHome("private", env.APP_URL, env.HUB_URL) : null,
     // The operator's word to the organization's admins: they are who can act on it.
     notice: admin ? noticeOf(notice.value) : null,
     // Connecting makes a key for the sync, so it takes admin on the workspace.

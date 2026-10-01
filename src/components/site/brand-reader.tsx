@@ -12,32 +12,34 @@ import { SiteView } from "@/components/site/site-view";
 import { ThemePanel } from "@/components/theme-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Status } from "@/components/builder/use-status";
+import { liveLine } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
-import { brandPath, guidelinesPath, type PageView } from "@/lib/site";
+import { brandPath, builderPath, guidelinesPath, type PageView } from "@/lib/site";
 
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
   initial: PageView;
   /**
-   * Drawn inside the brand's page, its Guidelines tab: `path` is its address
-   * there (/brands/{slug}/pages), `head` the brand's header (and its tabs)
-   * over it, and the app's bar names the brand rather than folding its tabs
-   * into a menu. Without it, the reader is /brands/{slug}/guidelines?view=read.
+   * Drawn inside the brand's page, its Guidelines tab: `head` is the brand's
+   * header (and its tabs) over it, and the app's bar names the brand rather
+   * than folding its tabs into a menu. Without it, the reader is in focus
+   * mode, /brands/{slug}/guidelines?focus=1.
    */
-  embed?: { path: string; head: Omit<BrandHeaderProps, "at"> };
+  embed?: { head: Omit<BrandHeaderProps, "at"> };
+  /** Where readers stand (GET .../status), for the label and the switch between the draft and the live release. */
+  status: Pick<Status, "publish" | "live"> | null;
+  /** What it shows when the address doesn't say (`?version=`): lib/readiness.ts shownVersion. */
+  version: "draft" | "live";
 };
 
-type At = { context?: string | null; lang?: string | null };
+type At = { context?: string | null; lang?: string | null; version?: string | null };
 
-/** The reader's address for a page of the brand: `/brands/{slug}/guidelines?view=read&page=`, with the context and language being read. */
-const readerHref = (brand: string, page: string | null, o: At = {}) => guidelinesPath(brand, { view: "read", page, context: o.context, lang: o.lang });
-
-/** The same, embedded at `path`: `?page=`, the context and the language. */
-const embedHref = (path: string, page: string | null, o: At = {}) => {
-  const q = new URLSearchParams(Object.entries({ page, context: o.context, lang: o.lang }).filter((e): e is [string, string] => !!e[1]));
-  return `${path}${q.size ? `?${q}` : ""}`;
-};
+/** The reader's address for a page of the brand: `/brands/{slug}/guidelines?page=`, with the context, language and version being read, in focus mode or not. */
+const readerHref = (brand: string, focus: boolean, page: string | null, o: At = {}) =>
+  guidelinesPath(brand, { page, context: o.context, lang: o.lang, version: o.version, focus: focus ? "1" : null });
 
 /** "Logo · Blender guidelines · Print", the page's part of the tab's title, as the server's metadata says it. */
 const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.brand.name} guidelines${v.context ? ` · ${contextLabel(v.context)}` : ""}`;
@@ -47,18 +49,22 @@ const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.bran
  * the first from `initial`, and the address says which page and context
  * after that. A click in the site puts the new address in history and its
  * view is fetched; Back does the same. The app's sidebar folds to its rail
- * while it's open, to give the site its three columns.
+ * while it's open, to give the site its three columns. It always says
+ * whether it shows the draft or the live release, with a switch while they
+ * differ.
  */
-export function BrandReader({ initial, embed }: BrandReaderProps) {
+export function BrandReader({ initial, embed, status, version: fallback }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
   const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
-  const at = useCallback((page: string | null, o: At) => (embed ? embedHref(embed.path, page, o) : readerHref(slug, page, o)), [embed, slug]);
+  const focus = !embed;
+  const at = useCallback((page: string | null, o: At) => readerHref(slug, focus, page, o), [focus, slug]);
 
   // Bumped by a theme save: the same address is fetched again, in its new look.
   const [rev, setRev] = useState(0);
-  const want = [...["page", "context", "lang"].map((k) => params.get(k) ?? ""), rev].join("\n");
+  const asked = params.get("version");
+  const want = [...["page", "context", "lang"].map((k) => params.get(k) ?? ""), asked ?? fallback, rev].join("\n");
   const [shown, setShown] = useState({ want, view: initial });
   // A new `initial` (router.refresh, a link here from elsewhere in the app) is the server's view of the address now.
   const [seen, setSeen] = useState(initial);
@@ -72,8 +78,8 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
 
   useEffect(() => {
     if (want === shown.want) return;
-    const [page, context, lang, n] = want.split("\n");
-    const q = new URLSearchParams(Object.entries({ page, context, lang }).filter(([, v]) => v));
+    const [page, context, lang, version, n] = want.split("\n");
+    const q = new URLSearchParams(Object.entries({ page, context, lang, version: version === "live" ? version : "" }).filter(([, v]) => v));
     const ac = new AbortController();
     fetch(`/api/v1/brands/${encodeURIComponent(slug)}/view${q.size ? `?${q}` : ""}`, { signal: ac.signal })
       .then(async (res) => {
@@ -81,14 +87,14 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
         if (!res.ok) return window.location.reload();
         const { data } = (await res.json()) as { data: PageView };
         // A slug the page had before a rename: the page, at its address now, with no new history entry.
-        if (data.redirect) window.history.replaceState(null, "", at(data.redirect, { context, lang }) + location.hash);
-        setShown({ want: data.redirect ? [data.redirect, context, lang, n].join("\n") : want, view: data });
+        if (data.redirect) window.history.replaceState(null, "", at(data.redirect, { context, lang, version: asked }) + location.hash);
+        setShown({ want: data.redirect ? [data.redirect, context, lang, version, n].join("\n") : want, view: data });
       })
       .catch(() => {
         if (!ac.signal.aborted) window.location.reload();
       });
     return () => ac.abort();
-  }, [want, shown.want, slug, at]);
+  }, [want, shown.want, slug, at, asked]);
 
   // The tab's title follows the page, keeping the app's name after it.
   const titled = useRef(titleOf(initial));
@@ -99,24 +105,24 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
   }, [view]);
 
   const { context, lang } = view;
-  const href = useCallback((page: string, section?: string) => at(page, { context, lang }) + (section ? `#${section}` : ""), [at, context, lang]);
+  const href = useCallback((page: string, section?: string) => at(page, { context, lang, version: asked }) + (section ? `#${section}` : ""), [at, context, lang, asked]);
 
   // Within the reader, only the view is fetched; anywhere else in the app is the router's.
   const navigate = useCallback(
     (to: string) => {
       const u = new URL(to, location.href);
       if (u.origin !== location.origin) return window.location.assign(to);
-      const inside = embed ? u.pathname === embed.path : u.pathname === guidelinesPath(slug) && u.searchParams.get("view") === "read";
+      const inside = u.pathname === guidelinesPath(slug) && (u.searchParams.get("focus") === "1") === focus;
       if (!inside) return router.push(to);
       // The same page and context: only the anchor moves, and the browser goes there.
       if (u.search === location.search) return void (location.hash = u.hash);
       window.history.pushState(null, "", u.pathname + u.search + u.hash);
     },
-    [router, slug, embed],
+    [router, slug, focus],
   );
 
   const contexts = view.contexts.length > 0 && (
-    <Select value={context ?? "*"} onValueChange={(c) => navigate(at(view.page?.slug ?? null, { context: c === "*" ? null : c, lang }))}>
+    <Select value={context ?? "*"} onValueChange={(c) => navigate(at(view.page?.slug ?? null, { context: c === "*" ? null : c, lang, version: asked }))}>
       <SelectTrigger size="sm" aria-label="Read the rules for a context">
         <SelectValue />
       </SelectTrigger>
@@ -133,18 +139,18 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
   const header = embed ? (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: view.brand.name, href: brandPath(slug) }, { label: "Guidelines" }]}>
-        <Badge variant="outline">{view.version ? `Release @${view.version.number}` : "Draft"}</Badge>
+        <Showing view={view} status={status} onPick={(v) => navigate(at(view.page?.slug ?? null, { context, lang, version: v }) + location.hash)} />
         {contexts}
       </AppHeader>
-      <BrandHeader {...embed.head} at="guidelines" />
+      <BrandHeader {...embed.head} at="guidelines" compact />
     </>
   ) : (
     <AppHeader
       trail={
-        <p className="flex min-w-0 items-center gap-2 text-sm">
+        <div className="flex min-w-0 items-center gap-2 text-sm">
           <BrandTabMenu brand={view.brand} at="guidelines" />
-          <Badge variant="outline">{view.version ? `Release @${view.version.number}` : "Draft"}</Badge>
-        </p>
+          <Showing view={view} status={status} onPick={(v) => navigate(at(view.page?.slug ?? null, { context, lang, version: v }) + location.hash)} />
+        </div>
       }
     >
       {contexts}
@@ -153,7 +159,7 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
           Theme
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={guidelinesPath(slug, { context })}>Edit</Link>
+          <Link href={builderPath(slug, { page: view.page?.slug, context })}>Edit</Link>
         </Button>
       </Can>
     </AppHeader>
@@ -167,4 +173,30 @@ export function BrandReader({ initial, embed }: BrandReaderProps) {
       </Can>
     </>
   );
+}
+
+/**
+ * What the reader shows, said: while the draft has changes readers don't
+ * see, a switch between the draft and the live release; otherwise the one
+ * there is, "@4 live · Up to date" or, before the first release, the draft.
+ */
+function Showing({ view, status, onPick }: { view: PageView; status: BrandReaderProps["status"]; onPick: (v: "draft" | "live") => void }) {
+  if (status?.publish === "behind" && status.live !== null)
+    return (
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        value={view.version ? "live" : "draft"}
+        onValueChange={(v) => v && onPick(v as "draft" | "live")}
+        aria-label="Show the draft or the live release"
+      >
+        <ToggleGroupItem value="draft" title="Unreleased changes: readers don't see them yet">
+          Draft
+        </ToggleGroupItem>
+        <ToggleGroupItem value="live">@{status.live} live</ToggleGroupItem>
+      </ToggleGroup>
+    );
+  if (view.version) return <Badge variant="outline">{status ? liveLine(status.publish, view.version.number) : `@${view.version.number} live`}</Badge>;
+  return <Badge variant="outline">{!status ? "Draft" : status.live === null ? "Draft · Never released" : "Draft · Up to date"}</Badge>;
 }

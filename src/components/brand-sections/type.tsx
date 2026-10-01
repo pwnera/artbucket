@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import { IconDownload, IconExternalLink } from "@tabler/icons-react";
+import { IconDownload } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
@@ -12,6 +12,7 @@ import { FontPlayground, useAssetFont } from "@/components/font-preview";
 import { saveZip } from "@/components/save-zip";
 import { useSite } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "@/components/external-link";
 import { stack } from "@/lib/brand-theme";
 import { fileSlug } from "@/lib/branding";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
@@ -354,10 +355,9 @@ function Source({ f }: { f: Face }) {
   return (
     <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-sm">
       {f.url ? (
-        <a href={f.url} target="_blank" rel="noreferrer" className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
+        <ExternalLink href={f.url} className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
           {from ?? new URL(f.url).hostname}
-          <IconExternalLink className="size-3.5" aria-hidden />
-        </a>
+        </ExternalLink>
       ) : (
         from && <span>{from}</span>
       )}

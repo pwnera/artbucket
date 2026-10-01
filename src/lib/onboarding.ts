@@ -1,5 +1,5 @@
 import { gitLink } from "./git.ts";
-import { brandPath, guidelinesPath } from "./site.ts";
+import { brandPath, builderPath } from "./site.ts";
 
 /**
  * Onboarding by use case (PRD): what someone came to do decides their first
@@ -100,7 +100,7 @@ export type OnboardingStep = {
 export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
   const b = f.brand;
   // Without a brand, every brand step starts by making one.
-  const builder = b ? guidelinesPath(b.slug) : "/brands";
+  const builder = b ? builderPath(b.slug) : "/brands";
   const basics = {
     id: "basics",
     label: "Set up your brand",

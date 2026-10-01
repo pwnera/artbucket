@@ -36,7 +36,7 @@ export default async function BrandSettingsPage({ params }: Props) {
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(slug) }, { label: "Settings" }]} />
-      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} hub={status?.hub ?? null} release={release} at="settings" />
+      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} at="settings" />
       <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
         <BrandSettings key={brand.slug} brand={brand} hub={hub} source={source} />
       </div>

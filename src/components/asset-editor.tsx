@@ -70,10 +70,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
+import { ExternalLink } from "@/components/external-link";
 import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
-import { guidelinesPath } from "@/lib/site";
+import { builderPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
@@ -1194,15 +1195,13 @@ function FileFacts({ asset }: { asset: Asset }) {
     [
       "Location",
       m.gps && (
-        <a
+        <ExternalLink
           key="gps"
           href={`https://www.openstreetmap.org/?mlat=${m.gps.lat}&mlon=${m.gps.lon}#map=15/${m.gps.lat}/${m.gps.lon}`}
-          target="_blank"
-          rel="noreferrer"
           className="underline underline-offset-2"
         >
           {m.gps.lat.toFixed(4)}, {m.gps.lon.toFixed(4)}
-        </a>
+        </ExternalLink>
       ),
     ],
     ["Added", <span key="a" suppressHydrationWarning>{when(asset.createdAt)}</span>],
@@ -1780,7 +1779,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
       <PopoverContent align="start" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
-            const href = `${guidelinesPath(r.brand!)}#rule-${r.key}`;
+            const href = `${builderPath(r.brand!)}#rule-${r.key}`;
             return (
               <li key={r.id}>
                 <Link

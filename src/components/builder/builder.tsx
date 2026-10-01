@@ -24,7 +24,7 @@ import { firstBinding, guidelinesPath, legacyAnchor, neighbors, tree } from "@/l
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
- * see it, in the brand's theme. /brands/{slug}/guidelines renders it keyed by brand slug, and
+ * see it, in the brand's theme. /brands/{slug}/guidelines/edit renders it keyed by brand slug, and
  * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
  * beside it) and draws the panel b.panel names and the page settings
  * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
@@ -302,7 +302,7 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
     return { ...b.view, nav: b.view.nav.filter((p) => !gone.has(p.slug)), page: page && { ...page, sections: page.sections.filter((s) => !s.hidden) } };
   }, [b.view, b.state.nav]);
   const href = useCallback(
-    (page: string, section?: string) => `${guidelinesPath(brand, { view: "read", page })}${section ? `#${section}` : ""}`,
+    (page: string, section?: string) => `${guidelinesPath(brand, { page })}${section ? `#${section}` : ""}`,
     [brand],
   );
   const navigate = useCallback((to: string) => {

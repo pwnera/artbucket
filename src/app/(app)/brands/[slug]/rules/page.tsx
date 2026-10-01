@@ -25,7 +25,7 @@ export default async function BrandRulesPage({ params }: Props) {
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(slug) }, { label: "Tokens and rules" }]} />
-      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} hub={status?.hub ?? null} release={release} at="rules" />
+      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} at="rules" />
       <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
         <BrandRules brand={brand} rules={rules} />
       </div>

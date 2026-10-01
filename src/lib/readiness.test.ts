@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentScore, publishState, readiness, WEIGHTS } from "./readiness.ts";
+import { agentScore, liveLine, publishState, readiness, shownVersion, WEIGHTS } from "./readiness.ts";
 
 const EMPTY = { rules: [], pages: [], versions: [], portals: [] };
 
@@ -73,4 +73,20 @@ test("a step the caller can't tell counts for nothing: the rest make the 100", (
   const r = readiness({ ...EMPTY, portals: null, rules: [{ key: "color.primary", type: "color" }] });
   assert.equal(r.steps.find((s) => s.id === "portal")!.points, 0);
   assert.equal(r.score, Math.round((100 * 15) / 95));
+});
+
+test("the live line names the release readers see, and whether it is the latest", () => {
+  assert.equal(liveLine("behind", 4), "@4 live · Unreleased changes");
+  assert.equal(liveLine("current", 4), "@4 live · Up to date");
+  assert.equal(liveLine("never", null), "Never released");
+});
+
+test("editors read the draft while it is ahead, everyone else the live release", () => {
+  const behind = { publish: "behind" as const, live: 4 };
+  assert.equal(shownVersion(undefined, { ...behind, edit: true }), "draft");
+  assert.equal(shownVersion(undefined, { ...behind, edit: false }), "live");
+  assert.equal(shownVersion("live", { ...behind, edit: true }), "live");
+  assert.equal(shownVersion("draft", { ...behind, edit: false }), "draft");
+  assert.equal(shownVersion(undefined, { publish: "current", live: 4, edit: true }), "live");
+  assert.equal(shownVersion("live", { publish: "never", live: null, edit: false }), "draft");
 });

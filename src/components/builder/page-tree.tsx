@@ -31,7 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apply, type NavEntry, type Op } from "@/lib/builder-ops";
 import { AUDIENCES, type Audience, hiddenSlugs, type PageLayout, type PagePatch } from "@/lib/pages";
-import { brandPath, type NavNode, trail, tree } from "@/lib/site";
+import { guidelinesPath, type NavNode, trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -169,7 +169,7 @@ export function PageTrail({ b }: { b: BuilderApi }) {
       <IconChevronRight aria-hidden className="text-muted-foreground hidden size-3.5 shrink-0 @3xl/bar:block" />
       {/* The brand's Guidelines tab: its pages as readers see them, the builder left for it. */}
       <Link
-        href={brandPath(b.view.brand.slug, "/pages")}
+        href={guidelinesPath(b.view.brand.slug)}
         className="text-muted-foreground hover:text-foreground hidden shrink-0 rounded-sm px-1 outline-none focus-visible:ring-2 @3xl/bar:block"
       >
         Guidelines

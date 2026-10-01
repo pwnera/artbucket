@@ -12,6 +12,7 @@ import {
   IconChartBar,
   IconChevronRight,
   IconClock,
+  IconCompass,
   IconDots,
   IconFolder,
   IconFolderUp,
@@ -34,6 +35,7 @@ import {
 import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
+import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
@@ -77,7 +79,8 @@ import { canonical, parseView, viewQuery } from "@/lib/view";
 export type SavedSearch = { id: string; name: string; query: string };
 
 /**
- * The app's one sidebar, the same on every page: the places, the library's
+ * The app's one sidebar, the same on every page: the places, BrandHub set
+ * apart from them (it opens in a new tab), the library's
  * collections and saved searches, the brands, and whatever the current page
  * adds. Every item is a link, and every view it links to is a URL.
  *
@@ -213,6 +216,18 @@ export function AppSidebar({
                 hint={reviewCount ? `${reviewCount} waiting` : undefined}
               />
             </SidebarMenu>
+            {/* Out of the app, so set apart from the places: BrandHub, where the workspace's brands show, private ones too. */}
+            {me.hubUrl && (
+              <SidebarMenu className="mt-3">
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="BrandHub">
+                    <ExternalLink href={me.hubUrl}>
+                      <IconCompass /> <span>BrandHub</span>
+                    </ExternalLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 

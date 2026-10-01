@@ -2,12 +2,12 @@
 
 import { Fragment } from "react";
 import {
+  IconArrowsMaximize,
   IconArchive,
   IconArrowBackUp,
   IconCheck,
   IconCopy,
   IconDownload,
-  IconExternalLink,
   IconFolderPlus,
   IconLink,
   IconLinkOff,
@@ -128,7 +128,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
   if (bulk) {
     return [
       [
-        { id: "open", label: "Open", icon: <IconExternalLink />, run: ctx.onOpen, shortcut: "↵" },
+        { id: "open", label: "Open", icon: <IconArrowsMaximize />, run: ctx.onOpen, shortcut: "↵" },
         ...(ctx.onPick ? [{ id: "pick", label: "Deselect", icon: <IconSelect />, run: ctx.onPick }] : []),
       ],
       [
@@ -151,7 +151,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
   const gone = (): Asset | null => null;
   return [
     [
-      { id: "open", label: "Open", icon: <IconExternalLink />, run: ctx.onOpen, shortcut: "↵" },
+      { id: "open", label: "Open", icon: <IconArrowsMaximize />, run: ctx.onOpen, shortcut: "↵" },
       ...(ctx.onPick
         ? [{ id: "pick", label: ctx.selected ? "Deselect" : "Select", icon: <IconSelect />, run: ctx.onPick, shortcut: <Kbd keys={["mod", "click"]} /> }]
         : []),

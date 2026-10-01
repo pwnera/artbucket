@@ -8,7 +8,6 @@ import {
   IconCircleCheck,
   IconChevronRight,
   IconDownload,
-  IconExternalLink,
   IconFile,
   IconFileTypePdf,
   IconFileZip,
@@ -34,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ExternalLink } from "@/components/external-link";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { cn } from "@/lib/utils";
@@ -400,9 +400,7 @@ export function Lightbox({ items, openId, onOpen, ask }: { items: PublicItem[]; 
             {ask && open.downloads.length > 0 && <AskUse key={open.id} ask={ask} id={open.id} button />}
             {open.original && open.downloads.length > 0 && (
               <Button variant="outline" asChild>
-                <a href={open.original} target="_blank" rel="noreferrer">
-                  <IconExternalLink /> Open original
-                </a>
+                <ExternalLink href={open.original}>Open original</ExternalLink>
               </Button>
             )}
             <Downloads item={open} variant="default" />

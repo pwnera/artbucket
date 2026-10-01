@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconExternalLink, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
 import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "@/components/external-link";
 import { inkOn } from "@/lib/color";
 import { followed, hubBase, hubBrand, hubViewer, type HubBrand } from "@/lib/core/hub";
 import { env } from "@/lib/env";
@@ -135,9 +136,9 @@ export default async function HubListing(props: Props) {
             <div className="ms-auto flex flex-wrap items-center gap-2">
               {b.guidelines && (
                 <Button asChild variant="outline">
-                  <a href={b.guidelines} target="_blank" rel="noreferrer">
-                    <IconBook aria-hidden /> Guidelines <IconExternalLink aria-hidden className="opacity-60" />
-                  </a>
+                  <ExternalLink href={b.guidelines}>
+                    <IconBook aria-hidden /> Guidelines
+                  </ExternalLink>
                 </Button>
               )}
               {open &&
@@ -329,9 +330,9 @@ export default async function HubListing(props: Props) {
             <h2 className="font-semibold">About</h2>
             {b.tagline && <p className="text-muted-foreground">{b.tagline}</p>}
             {b.guidelines && (
-              <a href={b.guidelines} target="_blank" rel="noreferrer" className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
+              <ExternalLink href={b.guidelines} className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
                 <IconBook aria-hidden className="size-4 shrink-0" /> {b.guidelines.replace(/^https?:\/\//, "")}
-              </a>
+              </ExternalLink>
             )}
             <Owner verified={b.verified} className="text-sm" />
             <ul className="text-muted-foreground grid gap-1.5">

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ExternalLink } from "@/components/external-link";
 import { ago, REPORT_REASONS } from "@/lib/hub";
 import { send } from "@/lib/send";
 
@@ -100,9 +101,9 @@ function GithubAccounts({ github }: { github: GithubAccount[] }) {
             <li key={g.login} className="grid gap-2 p-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <IconBrandGithub aria-hidden className="text-muted-foreground size-4" />
-                <a href={g.url} target="_blank" rel="noreferrer" className="min-w-48 flex-1 truncate font-medium hover:underline">
+                <ExternalLink href={g.url} className="min-w-48 flex-1 truncate font-medium hover:underline">
                   github.com/{g.login}
-                </a>
+                </ExternalLink>
                 {g.verified ? (
                   <Badge variant="success">
                     <IconCheck /> Verified
@@ -148,9 +149,9 @@ function GithubAccounts({ github }: { github: GithubAccount[] }) {
                   </dl>
                   <p className="text-muted-foreground">
                     On the repository&apos;s default branch. No{" "}
-                    <a href={g.file.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    <ExternalLink href={g.file.url} className="underline underline-offset-2">
                       .github repository
-                    </a>{" "}
+                    </ExternalLink>{" "}
                     yet? Make one, public.
                   </p>
                 </div>

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Update } from "@/lib/history";
 import { sendResult } from "@/lib/send";
-import { brandPath, guidelinesPath } from "@/lib/site";
+import { brandPath, builderPath } from "@/lib/site";
 import { ago, exact } from "@/lib/time";
 
 /**
@@ -74,7 +74,7 @@ export function ReleaseList({ slug, updates, pending }: { slug: string; updates:
         </ol>
       )}
       {edit && (
-        <Link href={guidelinesPath(slug, { panel: "history" })} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 justify-self-start text-sm">
+        <Link href={builderPath(slug, { panel: "history" })} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 justify-self-start text-sm">
           <IconHistory aria-hidden className="size-4" /> Every version, released or not
         </Link>
       )}
@@ -99,7 +99,7 @@ export function NewRelease({ slug, name, status, comments }: { slug: string; nam
           name,
           transport,
           status,
-          comments: { open: comments, review: guidelinesPath(slug) },
+          comments: { open: comments, review: builderPath(slug) },
           released: () => router.refresh(),
         }}
         onClose={() => router.push(brandPath(slug))}

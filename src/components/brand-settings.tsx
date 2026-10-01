@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconBrandGithub, IconExternalLink, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconStar, IconTrash } from "@tabler/icons-react";
 import type { BrandHub } from "@/components/brands";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExternalLink } from "@/components/external-link";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { brandPath } from "@/lib/site";
@@ -136,9 +137,7 @@ export function BrandSettings({ brand, hub: initialHub, source }: { brand: HeadB
               ))}
             {hub.published && (
               <Button variant="ghost" size="sm" asChild>
-                <a href={hub.url} target="_blank" rel="noreferrer">
-                  See it on BrandHub <IconExternalLink aria-hidden />
-                </a>
+                <ExternalLink href={hub.url}>See it on BrandHub</ExternalLink>
               </Button>
             )}
           </div>

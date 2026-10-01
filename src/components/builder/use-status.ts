@@ -15,6 +15,8 @@ export type Status = {
   score: number;
   next: StepId | null;
   publish: "never" | "behind" | "current";
+  /** The release readers see, by number; null before the first. */
+  live: number | null;
   portals: { slug: string; name: string; access: "public" | "password" | "members"; url: string }[] | null;
   /** Who sees it on BrandHub, and where; null when the server has none. */
   hub: {

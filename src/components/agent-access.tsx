@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { IconExternalLink, IconPlugConnected, IconRobot } from "@tabler/icons-react";
+import { IconPlug, IconPlugConnected, IconRobot } from "@tabler/icons-react";
 import type { Part } from "@/components/agent-catalog";
 import { IconButton } from "@/components/icon-button";
 import { CopyButton } from "@/components/copy-button";
@@ -120,7 +120,7 @@ export function SetupPart({ part }: { part: Part }) {
     return (
       <Button asChild>
         <a href={part.href}>
-          <IconExternalLink /> {part.label}
+          <IconPlug /> {part.label}
         </a>
       </Button>
     );

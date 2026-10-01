@@ -830,12 +830,13 @@ export const BrandStatus = z.object({
   score: z.number().int().min(0).max(100).describe("The Brand Agent Score: the steps done, weighed by what each gives an agent"),
   next: z.string().nullable().describe("The first step not done; null when the brand is ready"),
   publish: z.enum(["never", "behind", "current"]).describe("never published, changes since the last publish, or up to date"),
+  live: z.number().int().nullable().describe("The release readers see, by number; null before the first"),
   portals: z
     .array(z.object({ slug: z.string(), name: z.string(), access: z.enum(PORTAL_ACCESS), url: z.url() }))
     .nullable()
     .describe("The portals showing it; null without the right to manage portals"),
   hub: BrandHub.nullable().describe("The brand on BrandHub; null when this server has none"),
-  url: z.url().describe("The brand in the app"),
+  url: z.url().describe("Its guidelines in the app, to read"),
 });
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
 const keys = z.array(z.string());
@@ -1054,6 +1055,7 @@ export const Me = z.object({
     .nullable()
     .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
   hub: z.boolean().describe("This server runs BrandHub (HUB_URL)"),
+  hubUrl: z.string().url().nullable().describe("Where BrandHub shows the workspace's brands, private ones too; null when the server has none"),
   notice: z
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()

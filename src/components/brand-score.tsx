@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { IconAlertTriangle, IconCheck, IconExternalLink, IconRobot, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck, IconRobot, IconX } from "@tabler/icons-react";
 import { nextFixes, ScoreRing } from "@/components/brand-overview";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { guidelinesPath } from "@/lib/site";
+import { ExternalLink } from "@/components/external-link";
+import { builderPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /** Where a step is taken in the app. */
 const whereTo = (slug: string, id: Status["steps"][number]["id"]) =>
-  id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : guidelinesPath(slug);
+  id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : builderPath(slug);
 
 /** A prompt for an agent connected over MCP: the fixes worth the most, each as the agent takes it (the step's `agent`). */
 function prompt(name: string, slug: string, fixes: Status["steps"]) {
@@ -57,9 +58,7 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
         <div className="flex flex-wrap gap-2">
           {domain && base && hub?.visibility === "public" && (
             <Button variant="outline" size="sm" asChild>
-              <a href={`${base}/score?${new URLSearchParams({ domain })}`} target="_blank" rel="noreferrer">
-                Share public score <IconExternalLink aria-hidden />
-              </a>
+              <ExternalLink href={`${base}/score?${new URLSearchParams({ domain })}`}>Share public score</ExternalLink>
             </Button>
           )}
           {fixes.length > 0 && can("brand.edit") && (

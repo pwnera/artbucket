@@ -25,7 +25,7 @@ export default async function BrandScorePage({ params }: Props) {
   return (
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(slug) }, { label: "Agent Score" }]} />
-      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} hub={status.hub} release={release} at="overview" />
+      <BrandHeader brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} at="overview" />
       <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
         <BrandScore name={brand.name} slug={slug} status={status} />
       </div>
