@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 /**
  * The library grid's columns, shared with its skeleton so neither jumps:
@@ -56,13 +57,16 @@ function FormSkeleton() {
   );
 }
 
+/** A skeleton that waits a moment before showing: a page that arrives quickly never flashes one. */
+export const LATE = "animate-in fade-in-0 delay-150 duration-300 fill-mode-backwards";
+
 /**
  * The content pane while a page streams in: its header and a body shaped
  * like what arrives. The frame (sidebar) stays mounted, so it isn't drawn.
  */
 export function PageSkeleton({ body }: { body: "list" | "form" | "grid" }) {
   return (
-    <div role="status" aria-label="Loading" className="flex min-w-0 flex-1 flex-col">
+    <div role="status" aria-label="Loading" className={cn("flex min-w-0 flex-1 flex-col", LATE)}>
       <header className="flex h-14 items-center gap-3 border-b px-4">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="ml-auto h-8 w-20" />
