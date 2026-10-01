@@ -127,3 +127,20 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # So does the CLI's (ghcr.io/pwnera/abctl), and it runs.
+  cli-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: cli/Dockerfile
+          load: true
+          tags: abctl:ci
+          cache-from: type=gha,scope=abctl
+          cache-to: type=gha,mode=max,scope=abctl
+      - run: docker run --rm abctl:ci --help
