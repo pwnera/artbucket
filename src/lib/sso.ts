@@ -55,7 +55,8 @@ export function oidcConfigFrom(doc: Record<string, unknown>, issuer: string, cli
     throw new Error("The provider takes no client secret at its token endpoint: turn on client_secret_basic or client_secret_post for this app");
   }
   return {
-    issuer,
+    // As the document says it, trailing slash and all: id tokens' iss must match it exactly.
+    issuer: String(doc.issuer),
     ...client,
     pkce: true,
     discoveryEndpoint: discoveryUrl(issuer),
