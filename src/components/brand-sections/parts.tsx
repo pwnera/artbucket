@@ -324,15 +324,18 @@ export function LogoTile({
     <figure className="grid min-w-0 gap-1.5">
       <div className={cn("group/tile relative aspect-[4/3] overflow-hidden rounded-xl border transition-colors", BACKDROPS[on].bg)}>
         <Thumb src={url(a.id, "/w_480,f_webp")} alt={name} className={ROOM[size]} />
-        <div className={cn("absolute top-2 end-2 flex gap-1", reveal)}>
-          <IconButton variant="secondary" size="icon-xs" label={`Download ${name}`} asChild>
-            {/* The original with its metadata; a rendition under the name the server gives it. */}
-            <a href={a.rendition ? path : url(a.id, "?download")} download={a.rendition ? "" : (a.filename ?? name)}>
-              <IconDownload className="size-3.5" />
-            </a>
-          </IconButton>
-          <CopyButton variant="secondary" label="Copy the URL" what="URL" text={async () => new URL(path, location.origin).href} />
-        </div>
+        {/* Shown, not handed out: nothing to take, nor an address to its file. */}
+        {!a.kept && (
+          <div className={cn("absolute top-2 end-2 flex gap-1", reveal)}>
+            <IconButton variant="secondary" size="icon-xs" label={`Download ${name}`} asChild>
+              {/* The original with its metadata; a rendition under the name the server gives it. */}
+              <a href={a.rendition ? path : url(a.id, "?download")} download={a.rendition ? "" : (a.filename ?? name)}>
+                <IconDownload className="size-3.5" />
+              </a>
+            </IconButton>
+            <CopyButton variant="secondary" label="Copy the URL" what="URL" text={async () => new URL(path, location.origin).href} />
+          </div>
+        )}
         <div role="radiogroup" aria-label="Backdrop" className={cn("bg-background/80 absolute bottom-2 start-2 flex gap-1 rounded-full p-1 shadow-sm backdrop-blur", reveal)}>
           {(Object.keys(BACKDROPS) as Backdrop[]).map((b) => (
             <Tooltip key={b}>
@@ -430,7 +433,13 @@ export function AssetTile({
     </>
   );
   if (!onChange || !onRemove)
-    return (
+    // Shown, not handed out: its original doesn't open for this reader.
+    return a.kept ? (
+      <span className="grid w-28 gap-0.5">
+        <span className={tile}>{face}</span>
+        {caption}
+      </span>
+    ) : (
       <a href={path} target="_blank" rel="noreferrer" className="grid w-28 gap-0.5" title={`Open ${name}`}>
         <span className={tile}>{face}</span>
         {caption}

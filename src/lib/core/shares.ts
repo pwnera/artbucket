@@ -17,6 +17,7 @@ import { NO_OFF, NONE } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import { limiter } from "@/lib/rate";
+import { isDownloadable } from "@/lib/rights";
 import { hashPassword, refusal, shareToken } from "@/lib/share";
 
 /**
@@ -206,6 +207,8 @@ const shared = (a: typeof assets.$inferSelect, until: Date | null) => {
     height: a.height,
     url: at(),
     download: at("?download"),
+    // False: shown, not handed out (lib/rights.ts isDownloadable). Its download answers 403, its original opens only in the page.
+    downloadable: isDownloadable(a),
     thumbnail: hasPreview(a) ? at("/w_640,f_webp") : null,
   };
 };

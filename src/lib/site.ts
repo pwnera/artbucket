@@ -35,7 +35,10 @@ export const builderPath = (slug: string, q: Record<string, string | null | unde
 // ---- the view -----------------------------------------------------------------
 
 /** A rule's asset as a view carries it: always described. */
-/** `supersededBy`: a newer version replaced it; kits and downloads skip it. */
+/**
+ * `supersededBy`: a newer version replaced it; kits and downloads skip it.
+ * `kept` (RuleAsset's): this reader may see it but not take it, so no kit takes it either.
+ */
 export type ViewAsset = RuleAsset & { title: string | null; filename: string; mime: string; size: number; preview: boolean; supersededBy: string | null };
 
 /** A rule as a page shows it, one per context version. */
@@ -70,6 +73,8 @@ export type Media = {
   focus: { x: number; y: number } | null;
   /** An SVG drawn in one ink: it can be shown in any color (lib/icons.ts isMonochromeSvg). */
   mono?: boolean;
+  /** Shown to this reader, not handed out (lib/rights.ts isDownloadable): `downloads` is empty, and nothing copies it. */
+  kept?: true;
   updatedAt: string;
 };
 

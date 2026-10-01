@@ -67,7 +67,8 @@ export type HubRule = {
   type: RuleType;
   value: RuleValue;
   usage: string | null;
-  assets: { id: string; rendition: string | null; mime: string; filename: string | null; title: string | null }[];
+  /** `kept`: shown, not handed out (lib/rights.ts isDownloadable). */
+  assets: { id: string; rendition: string | null; mime: string; filename: string | null; title: string | null; kept?: true }[];
 };
 
 /** A card's look: the brand's colors in order, at most `n`. */
@@ -204,7 +205,10 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
     for (const r of here) {
       lines.push("", `### ${ruleName(r)} (\`${r.key}\`, ${r.type})`, "", valueText(r));
       if (r.usage) lines.push("", r.usage);
-      if (r.assets.length) lines.push("", "Files:", ...r.assets.map((a) => `- ${a.title ?? a.filename ?? a.mime}: ${fileUrl(a)}`));
+      if (r.assets.length) {
+        const where = (a: A) => (a.kept && !a.rendition && !a.mime.startsWith("image/") ? "shown only, its owner doesn't hand it out" : fileUrl(a));
+        lines.push("", "Files:", ...r.assets.map((a) => `- ${a.title ?? a.filename ?? a.mime}: ${where(a)}`));
+      }
     }
   }
   return lines.join("\n") + "\n";

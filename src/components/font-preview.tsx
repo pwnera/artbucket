@@ -489,7 +489,7 @@ export function FontStyles({
   onAdd,
   download = true,
 }: {
-  files: { id: string; filename?: string }[];
+  files: { id: string; filename?: string; kept?: true }[];
   /** Both left out: read only. */
   onRemove?: (id: string) => void;
   onAdd?: () => void;
@@ -523,7 +523,7 @@ export function FontStyles({
               id={f.id}
               filename={f.filename ?? ""}
               onRemove={onRemove && (() => onRemove(f.id))}
-              download={read && download}
+              download={read && download && !f.kept}
             />
           ))}
           {onAdd && (

@@ -72,7 +72,7 @@ function FileEntry({ asset: a, id, list }: { asset: ViewAsset; id?: string; list
       picture={a.preview ? url(a.id, list ? "/w_96,f_webp" : "/w_640,f_webp") : undefined}
       title={<Name list={list}>{name}</Name>}
       tags={[fileTypeBadge(a.filename, a.mime), a.rendition ? renditionLabel(a.rendition) : formatBytes(a.size)]}
-      downloads={[download]}
+      downloads={a.kept ? [] : [download]}
     />
   );
 }

@@ -33,6 +33,8 @@ type Item = {
   height: number | null;
   url: string;
   download: string;
+  /** False: shown, not handed out. */
+  downloadable: boolean;
   thumbnail: string | null;
 };
 
@@ -95,7 +97,7 @@ const keep = (k: string, v: string | null) => {
 const toPublic = (a: Item): PublicItem => ({
   ...a,
   preview: a.thumbnail?.replace("/w_640,", "/w_1600,") ?? null,
-  downloads: [{ label: "Original", hint: "The file as uploaded", url: a.download, filename: a.filename }],
+  downloads: a.downloadable ? [{ label: "Original", hint: "The file as uploaded", url: a.download, filename: a.filename }] : [],
   original: a.url,
 });
 
@@ -304,7 +306,7 @@ function Single({ item, by }: { item: PublicItem; by: string | null }) {
             {item.description && <p className="max-w-(--brand-measure) text-pretty">{item.description}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
-            {item.original && (
+            {item.original && item.downloads.length > 0 && (
               <Button variant="outline" size="lg" asChild>
                 <ExternalLink href={item.original}>Open original</ExternalLink>
               </Button>

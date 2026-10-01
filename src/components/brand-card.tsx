@@ -11,7 +11,8 @@ import { fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } fro
  * the Overview for the brand's own people: the live release, else the draft.
  */
 
-type CardAsset = { id: string; mime?: string | null; filename?: string | null; title?: string | null };
+/** `kept`: shown, not handed out (lib/rights.ts isDownloadable). */
+type CardAsset = { id: string; mime?: string | null; filename?: string | null; title?: string | null; kept?: true };
 export type CardRule = {
   key: string;
   label?: string | null;
@@ -152,9 +153,11 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
                   </div>
                   <div className="flex items-center justify-between gap-2 p-3">
                     <span className="truncate text-sm font-medium">{ruleName(r)}</span>
-                    <a href={fileUrl(b, a.id, "?download")} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
-                      Download
-                    </a>
+                    {!a.kept && (
+                      <a href={fileUrl(b, a.id, "?download")} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
+                        Download
+                      </a>
+                    )}
                   </div>
                 </li>
               )),

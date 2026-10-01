@@ -107,7 +107,7 @@ async function checkSpecRefs(tx: Tx, ws: string, brandId: string, written: { at:
  * (title, size, type) so nobody has to look each one up.
  */
 async function assetsOf(ruleIds: string[], tx: Db = db) {
-  const out = new Map<string, Required<RuleAsset>[]>(ruleIds.map((id) => [id, []]));
+  const out = new Map<string, Required<Omit<RuleAsset, "kept">>[]>(ruleIds.map((id) => [id, []]));
   if (!ruleIds.length) return out;
   const rows = await tx
     .select({

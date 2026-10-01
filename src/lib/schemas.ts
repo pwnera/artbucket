@@ -1226,6 +1226,7 @@ export const Shared = z.object({
       height: z.number().int().nullable(),
       url: z.url(),
       download: z.url(),
+      downloadable: z.boolean().describe("false: shown, not handed out; `download` answers 403 and `url` loads only in this app's pages"),
       thumbnail: z.url().nullable(),
     }),
   ),

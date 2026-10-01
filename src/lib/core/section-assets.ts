@@ -9,6 +9,7 @@ import { NO_OFF, NONE } from "@/lib/access";
 import { collectionQuery, issues, type TEMPLATE_PROPS } from "@/lib/pages";
 import { downloadsFor, type PortalPreset } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
+import { isDownloadable } from "@/lib/rights";
 import { withSignature } from "@/lib/signed";
 import type { Media } from "@/lib/site";
 
@@ -29,6 +30,8 @@ export function presentAsset(a: AssetRow, o: { sign: Sign; presets: PortalPreset
   const m = a.metadata ?? {};
   const still = hasPreview(a);
   const s = o.sign?.(a.id);
+  // A member's session takes anything; a visitor, what may be handed out.
+  const kept = !!o.sign && !isDownloadable(a);
   // On this host, not APP_URL: a portal on its own domain loads everything from there.
   const at = (rest = "") => (s ? withSignature(`/a/${a.id}${rest}`, s) : `/a/${a.id}${rest}`);
   return {
@@ -45,9 +48,10 @@ export function presentAsset(a: AssetRow, o: { sign: Sign; presets: PortalPreset
     thumbnail: still ? at("/w_640,f_webp") : null,
     preview: still ? at("/w_1600,f_webp") : null,
     original: at(),
-    downloads: o.downloads === false ? [] : downloadsFor(a, o.presets, "", s),
+    downloads: o.downloads === false || kept ? [] : downloadsFor(a, o.presets, "", s),
     focus: m.focus ?? null,
     ...(a.probe?.mono === true && { mono: true }),
+    ...(kept && { kept: true as const }),
     updatedAt: a.updatedAt.toISOString(),
   };
 }

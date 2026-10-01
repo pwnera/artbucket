@@ -13,6 +13,7 @@ import { planView, type Level, type Source } from "@/lib/page-view";
 import { assetRefs, liveProps } from "@/lib/pages";
 import type { PortalPreset } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
+import { isDownloadable } from "@/lib/rights";
 import { ruleContext } from "@/lib/rules";
 import { signUrlsIn } from "@/lib/signed";
 import type { PageView, ViewRule } from "@/lib/site";
@@ -143,7 +144,22 @@ export async function viewPage(
     assets: r.assets.flatMap(({ id, rendition }) => {
       const a = usable.get(id);
       if (!a) return [];
-      return [{ id, rendition, title: a.metadata?.title ?? null, filename: a.filename, mime: a.mime, size: a.size, width: a.width, height: a.height, preview: hasPreview(a), supersededBy: a.supersededBy }];
+      const kept = !!o.sign && !isDownloadable(a);
+      return [
+        {
+          id,
+          rendition,
+          title: a.metadata?.title ?? null,
+          filename: a.filename,
+          mime: a.mime,
+          size: a.size,
+          width: a.width,
+          height: a.height,
+          preview: hasPreview(a),
+          supersededBy: a.supersededBy,
+          ...(kept && { kept: true as const }),
+        },
+      ];
     }),
   }));
 
