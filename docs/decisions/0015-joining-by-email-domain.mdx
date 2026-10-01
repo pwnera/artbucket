@@ -1,0 +1,45 @@
+---
+title: "0015: People join by their email domain, at read, after proving the address"
+description: Accepted, v1.7. Amends 0006.
+---
+
+## Context
+
+On a server with open sign-up, someone at acme.com who made an account with a
+password got an organization of their own, beside Acme's, even when Acme signs
+its people in through its own provider. And an organization without a provider
+had no way to let its people in but inviting each one. Figma, Slack, Notion and
+Linear all let a company's people find their way in by their email address; how
+far they trust the address is where they differ.
+
+## Decision
+
+- **Email domains** are proved apart from single sign-on: a TXT record on the
+  domain itself, several per organization, one organization per domain.
+  Single sign-on picks one. A custom domain (a portal at brand.acme.com) proves
+  a host, never who reads mail at acme.com, so it never counts.
+- At a domain single sign-on covers, a password sign-up goes to the provider
+  instead. An admin can **require** it: no password sign-in or reset at the
+  domain, but for the organization's admins, as Linear does, so a provider
+  that breaks never locks the organization out.
+- An admin can **open** a proved domain. Anyone at exactly that domain is then
+  offered to join, able to **read**, once the email code has proved the
+  address: on the welcome page beside starting their own, and in a banner for
+  accounts made before, until they join or say not now. Offered, never forced,
+  as Notion and Linear ask.
+- Never for **free mail** (gmail.com, orange.fr, comcast.net: their staff can
+  prove the domain, and every customer would walk in), never for a domain
+  single sign-on covers, and never on a server that sends no email of its own,
+  where nothing proves the address.
+
+## Consequences
+
+- Joining by domain gives up what single sign-on gives: leaving the company
+  doesn't leave Artbucket, until an admin removes them or requires the
+  provider. That is why it starts at read.
+- Exact domain only: jo@eu.acme.com doesn't join acme.com's organization by
+  domain, as it would through single sign-on, where the provider vouches.
+- A university, with staff and students on one domain, leaves it closed or
+  uses single sign-on: there are no join requests for an admin to approve.
+- Accounts made at the domain before it was opened keep their own
+  organizations; rounding them up is not done.
