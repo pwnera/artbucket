@@ -83,6 +83,7 @@ import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
 import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 /** Every tag in the library, for autocomplete: an unfiltered search's facets. */
 export function useLibraryTags() {
@@ -305,7 +306,7 @@ export function AssetEditor({
   const editable = can("asset.edit", asset) && asset.state !== "deleted";
   const router = useRouter();
   const [tags, searchTags] = useTagSearch(useLibraryTags());
-  const { upload } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
+  const { upload, pct } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
   const m = asset.metadata ?? {};
   const relaxed = relaxInherited(fields, asset.inherited);
 
@@ -773,10 +774,18 @@ export function AssetEditor({
             </IconButton>
           )}
 
-          {dragging && (
+          {(dragging || pct !== null) && (
+            // Up while dragging, and kept up once dropped: the file's progress shows where it went.
             <div className="bg-background/85 animate-in fade-in-0 absolute inset-3 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm font-medium duration-150">
               <IconUpload className="text-muted-foreground size-6" />
-              Drop to add a new version
+              {pct === null ? (
+                "Drop to add a new version"
+              ) : (
+                <>
+                  <span className="tabular-nums">Uploading the new version · {pct}%</span>
+                  <Progress value={pct} className="w-40" />
+                </>
+              )}
             </div>
           )}
         </div>
