@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
+import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -48,46 +50,6 @@ export function AssetLink({ a }: { a: Asset }) {
   );
 }
 
-type Series<R> = { key: keyof R & string; label: string; className: string };
-
-/**
- * Stacked bars, one per row, oldest first: plain boxes, no chart library.
- * Each bar says its numbers on hover; the whole says its totals to screen readers.
- */
-export function Bars<R extends Record<string, number | string>>({ rows, series, x }: { rows: R[]; series: Series<R>[]; x: (r: R) => string }) {
-  const total = (r: R) => sum(series.map((s) => Number(r[s.key])));
-  const max = Math.max(1, ...rows.map(total));
-  const label = series.map((s) => `${s.label}: ${sum(rows.map((r) => Number(r[s.key]))).toLocaleString()}`).join(", ");
-  return (
-    <div className="grid gap-2">
-      <div role="img" aria-label={`From ${x(rows[0])} to ${x(rows.at(-1)!)}. ${label}`} className="flex h-32 items-end gap-1 border-b">
-        {rows.map((r, i) => (
-          <div
-            key={i}
-            title={`${x(r)}: ${series.map((s) => `${s.label} ${Number(r[s.key]).toLocaleString()}`).join(", ")}`}
-            className="flex h-full min-w-0 flex-1 flex-col-reverse"
-          >
-            {series.map((s) => (
-              <div key={s.key} className={cn("w-full first:rounded-b-none last:rounded-t-sm", s.className)} style={{ height: `${(Number(r[s.key]) / max) * 100}%` }} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span className="tabular-nums">
-          {x(rows[0])} to {x(rows.at(-1)!)}
-        </span>
-        {series.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5">
-            <span aria-hidden className={cn("size-2.5 rounded-sm", s.className)} />
-            {s.label} <span className="tabular-nums">{sum(rows.map((r) => Number(r[s.key]))).toLocaleString()}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export const None = ({ children }: { children: React.ReactNode }) => <p className="text-muted-foreground text-sm">{children}</p>;
 
 /** A table's cells, the one way. */
@@ -107,7 +69,7 @@ export function Insights({ data, tab = "overview" }: { data: InsightsData | null
   return (
     <>
       <AppHeader trail={checks ? [{ label: "Insights", href: "/insights" }, { label: "Use checks" }] : [{ label: "Insights" }]} />
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconChartBar />}
           title={checks ? "Use checks" : "Insights"}
@@ -138,146 +100,251 @@ export function Insights({ data, tab = "overview" }: { data: InsightsData | null
   );
 }
 
+type Chart = "answers" | "delivery" | "adoption";
+const CHART: Record<string, Chart> = { answers: "answers", agents: "answers", requests: "delivery", bytes: "delivery", current: "adoption" };
+
+/** How the share of fetches on the current version moved, the second half of the weeks against the first. */
+function share(weeks: InsightsData["adoption"]) {
+  const h = Math.floor(weeks.length / 2);
+  const of = (ws: InsightsData["adoption"]) => {
+    const [c, r] = [sum(ws.map((w) => w.current)), sum(ws.map((w) => w.superseded))];
+    return c + r ? c / (c + r) : 0;
+  };
+  return change(of(weeks.slice(weeks.length - h)), of(weeks.slice(0, h)));
+}
+
+/** Rows summed by a key: the same rows, regrouped for another tab. */
+function regroup<T>(xs: T[], key: (x: T) => string, value: (x: T) => number) {
+  const m = new Map<string, number>();
+  for (const x of xs) m.set(key(x), (m.get(key(x)) ?? 0) + value(x));
+  return [...m].sort((a, b) => b[1] - a[1]);
+}
+
+/**
+ * The overview, as DataFast lays out a site's traffic: the numbers across
+ * the top of one card, each picking the chart under it (brand answers a
+ * week, delivery a day, release adoption a week), then breakdowns, a card
+ * each: assets, where answers went, portal pages, and what people and
+ * agents asked for and didn't get.
+ */
 function Overview({ data }: { data: InsightsData }) {
+  const [picked, setPicked] = useState("answers");
   const sites = new Set(data.stale.flatMap((s) => s.referrer ?? []));
+  const answers = data.answers.map((a) => ({ ...a, total: a.person + a.agent + a.anonymous }));
+  const total = sum(answers.map((a) => a.total));
+  const agents = sum(answers.map((a) => a.agent));
+  const [current, replaced] = [sum(data.adoption.map((a) => a.current)), sum(data.adoption.map((a) => a.superseded))];
+  const weeks = `vs the ${Math.floor(data.weeks / 2)} weeks before`;
+  const days = `vs the ${Math.floor(data.days / 2)} days before`;
+  const kpis: Kpi[] = [
+    { id: "answers", label: "Brand answers", value: short(total), delta: halves(answers.map((a) => a.total)), against: weeks, chart: true },
+    { id: "agents", label: "By agents", value: total ? `${Math.round((100 * agents) / total)}%` : "0%", delta: halves(answers.map((a) => a.agent)), against: weeks, chart: true },
+    { id: "requests", label: "Requests", value: short(sum(data.delivery.map((d) => d.requests))), delta: halves(data.delivery.map((d) => d.requests)), against: days, chart: true },
+    { id: "bytes", label: "Served", value: formatSize(sum(data.delivery.map((d) => d.bytes))), delta: halves(data.delivery.map((d) => d.bytes)), against: days, chart: true },
+    {
+      id: "current",
+      label: "On the current version",
+      value: current + replaced ? `${Math.round((100 * current) / (current + replaced))}%` : "None",
+      delta: share(data.adoption),
+      against: weeks,
+      chart: true,
+    },
+    { id: "refused", label: "Uses refused", value: short(data.checks.refused), delta: undefined },
+  ];
+  const chart = CHART[picked] ?? "answers";
+  const surfaces = regroup(
+    data.top.flatMap((t) => Object.entries(t.surfaces)),
+    ([s]) => s,
+    ([, n]) => n ?? 0,
+  );
+  const on = (n: number) => `${n.toLocaleString()} ${n === 1 ? "fetch" : "fetches"}`;
   return (
-          <>
-            {sites.size > 0 && (
-              <p role="status" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                <IconAlertTriangle aria-hidden className="text-warning size-4 shrink-0" />
-                {sites.size === 1 ? "1 site still loads" : `${sites.size} sites still load`} a replaced version. See who below.
-              </p>
-            )}
+    <>
+      {sites.size > 0 && (
+        <p role="status" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+          <IconAlertTriangle aria-hidden className="text-warning size-4 shrink-0" />
+          {sites.size === 1 ? "1 site still loads" : `${sites.size} sites still load`} a replaced version: see them under Where from, Old versions.
+        </p>
+      )}
 
-            <Group
-              title="Brand answers per week"
-              description="Every time a person, a portal visitor or an agent got something from the brand: a file, a BrandHub listing, a use checked, a search that found something."
-            >
-              <Bars
-                rows={data.answers}
-                x={(r) => date(r.week)}
-                series={[
-                  { key: "person", label: "People", className: "bg-primary" },
-                  { key: "agent", label: "Agents", className: "bg-primary/50" },
-                  { key: "anonymous", label: "Visitors", className: "bg-muted-foreground/40" },
+      <section aria-label="Overview" className="bg-card grid gap-2 rounded-xl border p-2 sm:p-3">
+        <Kpis items={kpis} picked={picked} onPick={setPicked} />
+        <div className="border-t px-1 pt-4 pb-1 sm:px-2">
+          {chart === "answers" ? (
+            answers.length ? (
+              <ComboChart
+                rows={answers}
+                x={(r) => `Week of ${date(r.week)}`}
+                tick={(r) => date(r.week)}
+                partial
+                line={{ key: "total", label: "Brand answers" }}
+                bars={{ key: "agent", label: "By agents" }}
+                detail={(r) => [
+                  { label: "People", value: r.person.toLocaleString() },
+                  { label: "Portal and hub visitors", value: r.anonymous.toLocaleString() },
                 ]}
               />
-            </Group>
-
-            <Group title="Release adoption" description="Fetches per week of the current version of an asset, and of one that was already replaced when it went out.">
-              <Bars
-                rows={data.adoption}
-                x={(r) => date(r.week)}
-                series={[
-                  { key: "current", label: "Current", className: "bg-success" },
-                  { key: "superseded", label: "Replaced", className: "bg-warning" },
-                ]}
+            ) : (
+              <None>No answers yet: every file served, listing read, use checked and search that finds something counts here.</None>
+            )
+          ) : chart === "delivery" ? (
+            data.delivery.length ? (
+              <ComboChart
+                rows={data.delivery}
+                x={(r) => date(r.day)}
+                partial={data.delivery.at(-1)!.day === new Date().toISOString().slice(0, 10)}
+                line={{ key: "requests", label: "Requests" }}
+                bars={{ key: "bytes", label: "Served", format: formatSize }}
               />
-            </Group>
+            ) : (
+              <None>Nothing served in the last {data.days} days.</None>
+            )
+          ) : data.adoption.length ? (
+            <ComboChart rows={data.adoption} x={(r) => `Week of ${date(r.week)}`}
+                tick={(r) => date(r.week)} partial line={{ key: "current", label: "Current versions" }} bars={{ key: "superseded", label: "Replaced versions" }} />
+          ) : (
+            <None>No file fetched yet.</None>
+          )}
+        </div>
+      </section>
 
-            <Group title="Still on the old release" description={`Replaced versions fetched in the last ${data.days} days, and the sites that load them.`}>
-              {data.stale.length === 0 ? (
-                <None>Nobody loaded a replaced version lately.</None>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-muted-foreground text-left text-xs">
-                      <tr>
-                        <th className={th}>Version</th>
-                        <th className={th}>Replaced by</th>
-                        <th className={th}>Loaded from</th>
-                        <th className={cn(th, "text-right")}>Fetches</th>
-                        <th className={cn(th, "text-right")}>Last</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {data.stale.map((s) => (
-                        <tr key={`${s.asset.id}/${s.referrer}`}>
-                          <td className={td}>
-                            <AssetLink a={s.asset} />
-                          </td>
-                          <td className={td}>{s.replacement ? <AssetLink a={s.replacement} /> : <span className="text-muted-foreground">Gone</span>}</td>
-                          <td className={td}>{s.referrer ?? <span className="text-muted-foreground">Not said</span>}</td>
-                          <td className={cn(td, "text-right tabular-nums")}>{s.fetches.toLocaleString()}</td>
-                          <td className={cn(td, "text-right tabular-nums")}>{date(s.last)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Group>
-
-            <Group title="Most used assets" description={`The ten most fetched in the last ${data.days} days, and through what: the app, an agent's key, a portal, a signed link, a public embed.`}>
-              {data.top.length === 0 ? (
-                <None>Nothing fetched yet. Each file served outside the library&apos;s own pages counts here.</None>
-              ) : (
-                <ol className="divide-y text-sm">
-                  {data.top.map((t) => (
-                    <li key={t.asset.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-1.5">
-                      <span className="min-w-0 flex-1 truncate">
-                        <AssetLink a={t.asset} />
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {Object.entries(t.surfaces)
-                          .sort(([, a], [, b]) => b! - a!)
-                          .map(([s, count]) => `${SURFACE[s] ?? s} ${count!.toLocaleString()}`)
-                          .join(" · ")}
-                      </span>
-                      <span className="w-16 text-right font-medium tabular-nums">{t.total.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </Group>
-
-            <Group title="Search gaps" description={`What people and agents searched for in the last ${data.days} days and didn't find, in the app, on portals and over MCP.`}>
-              {data.gaps.length === 0 ? (
-                <None>Every search found something.</None>
-              ) : (
-                <ol className="divide-y text-sm">
-                  {data.gaps.map((g) => (
-                    <li key={g.q} className="flex items-baseline gap-3 py-1.5">
-                      <span className="min-w-0 flex-1 truncate">&ldquo;{g.q}&rdquo;</span>
-                      <span className="text-muted-foreground text-xs tabular-nums">{date(g.last)}</span>
-                      <span className="w-16 text-right tabular-nums">{g.searches.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </Group>
-
-            <Group title={`Delivery, last ${data.days} days`} description="What asset URLs served from this workspace per day: originals, renditions and downloads, the app's own thumbnails included.">
-              {data.delivery.length === 0 ? (
-                <None>Nothing served in the last {data.days} days.</None>
-              ) : (
-                <>
-                  <Bars rows={data.delivery} x={(r) => date(r.day)} series={[{ key: "requests", label: "Requests", className: "bg-primary" }]} />
-                  <p className="text-muted-foreground text-xs">{formatSize(sum(data.delivery.map((d) => d.bytes)))} served.</p>
-                </>
-              )}
-            </Group>
-
-            <Group title={`Portal page views, last ${data.days} days`} description="Each page a portal visitor opens counts, a day at a time.">
-              {data.pageViews.length === 0 ? (
-                <None>None yet.</None>
-              ) : (
-                <ol aria-label="Page views" className="divide-y text-sm">
-                  {data.pageViews.map((p) => (
-                    <li key={`${p.portal.id}/${p.brand.slug}/${p.page}`} className="flex items-baseline gap-3 py-1.5">
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="text-muted-foreground">
-                          {p.portal.name}, {p.brand.name}:{" "}
-                        </span>
-                        {p.page}
-                      </span>
-                      <span className="w-16 text-right tabular-nums">{p.views.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </Group>
-          </>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Breakdown
+          title="Assets"
+          tabs={[
+            {
+              id: "top",
+              label: "Most used",
+              column: "Fetches",
+              empty: "Nothing fetched yet. Each file served outside the library's own pages counts here.",
+              rows: data.top.map((t) => ({
+                key: t.asset.id,
+                label: <AssetLink a={t.asset} />,
+                sub: Object.entries(t.surfaces)
+                  .sort(([, a], [, b]) => b! - a!)
+                  .map(([s, count]) => `${SURFACE[s] ?? s} ${short(count!)}`)
+                  .join(" · "),
+                value: t.total,
+              })),
+            },
+            {
+              id: "stale",
+              label: "Replaced",
+              column: "Fetches",
+              empty: "Nobody loaded a replaced version lately.",
+              rows: regroup(data.stale, (s) => s.asset.id, (s) => s.fetches).map(([id, n]) => {
+                const s = data.stale.find((x) => x.asset.id === id)!;
+                return {
+                  key: id,
+                  label: (
+                    <>
+                      <AssetLink a={s.asset} />
+                      <span className="text-muted-foreground"> → </span>
+                      {s.replacement ? <AssetLink a={s.replacement} /> : <span className="text-muted-foreground">gone</span>}
+                    </>
+                  ),
+                  sub: `Last on ${date(s.last)}`,
+                  value: n,
+                  tone: "warning" as const,
+                };
+              }),
+            },
+          ]}
+        />
+        <Breakdown
+          title="Where from"
+          tabs={[
+            {
+              id: "surface",
+              label: "Surface",
+              column: "Fetches",
+              empty: "Nothing fetched yet.",
+              rows: surfaces.map(([s, n]) => ({ key: s, label: SURFACE[s] ?? s, value: n })),
+            },
+            {
+              id: "who",
+              label: "Who",
+              column: "Answers",
+              empty: "No answers yet.",
+              rows: [
+                { key: "person", label: "People, in the app", value: sum(answers.map((a) => a.person)) },
+                { key: "agent", label: "Agents, with a key or over MCP", value: agents },
+                { key: "anonymous", label: "Visitors of portals and BrandHub", value: sum(answers.map((a) => a.anonymous)) },
+              ].filter((r) => r.value > 0),
+            },
+            {
+              id: "sites",
+              label: "Old versions",
+              column: "Fetches",
+              empty: "No site loads a replaced version.",
+              rows: regroup(data.stale, (s) => s.referrer ?? "", (s) => s.fetches).map(([site, n]) => ({
+                key: site || "-",
+                label: site || <span className="text-muted-foreground">Not said</span>,
+                sub: data.stale
+                  .filter((s) => (s.referrer ?? "") === site)
+                  .map((s) => s.asset.title)
+                  .join(", "),
+                value: n,
+                tone: "warning" as const,
+              })),
+            },
+          ]}
+        />
+        <Breakdown
+          title="Portals"
+          tabs={[
+            {
+              id: "page",
+              label: "Page",
+              column: "Views",
+              empty: "No page viewed yet: each page a portal visitor opens counts, a day at a time.",
+              rows: data.pageViews.map((p) => ({ key: `${p.portal.id}/${p.brand.slug}/${p.page}`, label: p.page, sub: `${p.portal.name}, ${p.brand.name}`, value: p.views })),
+            },
+            {
+              id: "portal",
+              label: "Portal",
+              column: "Views",
+              empty: "No page viewed yet.",
+              rows: regroup(data.pageViews, (p) => p.portal.name, (p) => p.views).map(([name, n]) => ({ key: name, label: name, value: n })),
+            },
+            {
+              id: "brand",
+              label: "Brand",
+              column: "Views",
+              empty: "No page viewed yet.",
+              rows: regroup(data.pageViews, (p) => p.brand.name, (p) => p.views).map(([name, n]) => ({ key: name, label: name, value: n })),
+            },
+          ]}
+        />
+        <Breakdown
+          title="Asked for"
+          action={
+            <Link href="/insights/checks" className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2">
+              Use checks
+            </Link>
+          }
+          tabs={[
+            {
+              id: "gaps",
+              label: "Not found",
+              column: "Searches",
+              empty: "Every search found something.",
+              rows: data.gaps.map((g) => ({ key: g.q, label: <>&ldquo;{g.q}&rdquo;</>, sub: `Last on ${date(g.last)}`, value: g.searches })),
+            },
+            {
+              id: "refused",
+              label: "Refused",
+              column: "Checks",
+              empty: "Nothing refused.",
+              rows: data.checks.reasons.map((r) => ({ key: r.code, label: REASON[r.code] ?? r.code, value: r.count, tone: "warning" as const })),
+            },
+          ]}
+        />
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Brand answers and adoption over the last {data.weeks} weeks; delivery, assets, portals and searches over the last {data.days} days. {on(current + replaced)} in all.
+      </p>
+    </>
   );
 }
 
@@ -293,7 +360,6 @@ const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"
 function UseChecks({ data }: { data: InsightsData }) {
   const c = data.checks;
   const took = c.log.filter((l) => l.offered.some((o) => o.taken)).length;
-  const max = Math.max(1, ...c.reasons.map((r) => r.count));
   const asker = (l: InsightsData["checks"]["log"][number]) => l.client ?? SURFACE[l.surface] ?? l.surface;
   const csv = () => {
     const rows = [
@@ -315,17 +381,23 @@ function UseChecks({ data }: { data: InsightsData }) {
   };
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-muted-foreground flex-1 text-sm tabular-nums">
-          Last {data.days} days · {(c.allowed + c.refused).toLocaleString()} checks · {c.refused.toLocaleString()} refused
-          {c.log.length > 0 && ` · ${took.toLocaleString()} ${c.log.length < c.refused ? `of the latest ${c.log.length} ` : ""}took the replacement`}
-        </p>
+      <section aria-label="Use checks" className="bg-card flex flex-wrap items-center gap-2 rounded-xl border p-2 sm:p-3">
+        <div className="min-w-0 flex-1">
+          <Kpis
+            items={[
+              { id: "checks", label: `Checks, last ${data.days} days`, value: short(c.allowed + c.refused) },
+              { id: "refused", label: "Refused", value: short(c.refused) },
+              { id: "rate", label: "Refusal rate", value: c.allowed + c.refused ? `${Math.round((100 * c.refused) / (c.allowed + c.refused))}%` : "0%" },
+              ...(c.log.length ? [{ id: "took", label: c.log.length < c.refused ? `Took the replacement, latest ${c.log.length}` : "Took the replacement", value: short(took) }] : []),
+            ]}
+          />
+        </div>
         {c.log.length > 0 && (
-          <Button variant="outline" size="sm" onClick={csv}>
+          <Button variant="outline" size="sm" className="me-1" onClick={csv}>
             <IconDownload /> Export CSV
           </Button>
         )}
-      </div>
+      </section>
       {c.refused === 0 ? (
         <None>Nothing refused. Every check an agent, a portal visitor or a person makes shows here.</None>
       ) : (
@@ -387,20 +459,10 @@ function UseChecks({ data }: { data: InsightsData }) {
               </table>
             </div>
           </Group>
-          <Group title="By reason" description="What the refusals were for. Replaced files still in use show under Release adoption, with the sites that load them.">
-            <ul aria-label="Refusals by reason" className="grid gap-1.5 text-sm">
-              {c.reasons.map((r) => (
-                <li key={r.code} className="grid grid-cols-[8rem_1fr_3rem] items-center gap-3">
-                  {REASON[r.code] ?? r.code}
-                  <span aria-hidden className="bg-muted h-2 overflow-hidden rounded-full">
-                    <span className="bg-primary block h-full rounded-full" style={{ width: `${(100 * r.count) / max}%` }} />
-                  </span>
-                  <span className="text-right tabular-nums">{r.count.toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
+          <Group title="By reason" description="What the refusals were for. Replaced files still in use show in the overview, under Assets and Where from, with the sites that load them.">
+            <BarList column="Refusals" empty="Nothing refused." rows={c.reasons.map((r) => ({ key: r.code, label: REASON[r.code] ?? r.code, value: r.count, tone: "warning" as const }))} />
             <Button variant="outline" size="sm" className="justify-self-start" asChild>
-              <Link href="/insights">Open release adoption</Link>
+              <Link href="/insights">Open the overview</Link>
             </Button>
           </Group>
         </>

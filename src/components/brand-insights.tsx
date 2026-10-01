@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { IconAlertTriangle } from "@tabler/icons-react";
-import { AssetLink, Bars, date, None, SURFACE, td, th, type Asset } from "@/components/insights";
-import { Group } from "@/components/settings/panels";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Breakdown, ComboChart, Kpis, short } from "@/components/analytics";
+import { AssetLink, date, None, SURFACE, type Asset } from "@/components/insights";
 
 /** GET /api/v1/brands/{slug}/insights, as lib/schemas.ts BrandInsights has it. */
 export type BrandInsightsData = {
@@ -51,62 +49,71 @@ export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi value={week.answers.toLocaleString()} label="brand answers this week" />
-        <Kpi value={week.answers ? `${Math.round((100 * week.agents) / week.answers)}%` : "0%"} label="asked by agents" />
-        <Kpi value={week.refused.toLocaleString()} label={<>uses refused · <Link href="/insights" className="underline underline-offset-2">see why</Link></>} />
-        <Kpi value={adoption?.share !== null && adoption?.share !== undefined ? `${adoption.share}%` : "None"} label={at ? `fetches on ${at}` : "never released"} />
-      </div>
-
-      {adoption ? (
-        <>
-          <Group title="Fetches by release" description={`Since ${at}, the brand's files a day each through every surface: on ${at}, or on an older release (or replaced since).`}>
-            <Bars
+      <section aria-label="This week" className="bg-card grid gap-2 rounded-xl border p-2 sm:p-3">
+        <Kpis
+          items={[
+            { id: "answers", label: "Brand answers, this week", value: short(week.answers) },
+            { id: "agents", label: "Asked by agents", value: week.answers ? `${Math.round((100 * week.agents) / week.answers)}%` : "0%" },
+            { id: "refused", label: "Uses refused", value: short(week.refused) },
+            { id: "share", label: at ? `Fetches on ${at}` : "Never released", value: adoption?.share !== null && adoption?.share !== undefined ? `${adoption.share}%` : "None" },
+            { id: "pulls", label: `BrandHub pulls, ${data.days} days`, value: short(data.pulls) },
+          ]}
+        />
+        {adoption && adoption.days.some((d) => d.current + d.older > 0) && (
+          <div className="border-t px-1 pt-4 pb-1 sm:px-2">
+            <ComboChart
               rows={adoption.days}
               x={(r) => date(r.day)}
-              series={[
-                { key: "current", label: `${at} (current)`, className: "bg-primary" },
-                { key: "older", label: "Older", className: "bg-warning" },
-              ]}
+              partial={adoption.days.at(-1)!.day === new Date().toISOString().slice(0, 10)}
+              line={{ key: "current", label: `On ${at}` }}
+              bars={{ key: "older", label: "Older releases" }}
             />
-          </Group>
+          </div>
+        )}
+      </section>
 
-          <Group title={`Still on older releases`} description={`Where files older than ${at} were fetched in the last ${week.days} days.`}>
-            {adoption.older.length === 0 ? (
-              <None>Everyone loads {at}.</None>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-muted-foreground text-left text-xs">
-                    <tr>
-                      <th className={th}>Where</th>
-                      <th className={th}>Surface</th>
-                      <th className={th}>File</th>
-                      <th className={cn(th, "text-right")}>Fetches, {week.days} days</th>
-                      <th className={cn(th, "text-right")}>Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {adoption.older.map((o) => (
-                      <tr key={`${o.asset.id}/${o.referrer}/${o.surface}/${o.client}`}>
-                        <td className={td}>{whereOf(o) ?? <span className="text-muted-foreground">Not said</span>}</td>
-                        <td className={td}>
-                          <Badge variant={o.client ? "default" : "secondary"}>{o.client ? "agent" : (SURFACE[o.surface] ?? o.surface)}</Badge>
-                        </td>
-                        <td className={td}>
-                          <AssetLink a={o.asset} />
-                          {o.release !== null && <span className="text-muted-foreground"> @{o.release}</span>}
-                        </td>
-                        <td className={cn(td, "text-right tabular-nums")}>{o.fetches.toLocaleString()}</td>
-                        <td className={cn(td, "text-right tabular-nums")}>{date(o.last)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Group>
-        </>
+      {adoption ? (
+        <Breakdown
+            title="Still on older releases"
+            action={
+              <Link href="/insights/checks" className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2">
+                Use checks
+              </Link>
+            }
+            tabs={[
+              {
+                id: "where",
+                label: "Where",
+                column: `Fetches, ${week.days} days`,
+                empty: <>Everyone loads {at}.</>,
+                rows: group(adoption.older, (o) => whereOf(o) ?? `${SURFACE[o.surface] ?? o.surface}, not said`).map(([key, n, os]) => ({
+                  key,
+                  label: key,
+                  sub: [...new Set(os.map((o) => (o.client ? "Agent" : (SURFACE[o.surface] ?? o.surface))))].join(", "),
+                  value: n,
+                  tone: "warning" as const,
+                })),
+              },
+              {
+                id: "file",
+                label: "File",
+                column: `Fetches, ${week.days} days`,
+                empty: <>Everyone loads {at}.</>,
+                rows: group(adoption.older, (o) => o.asset.id).map(([key, n, os]) => ({
+                  key,
+                  label: (
+                    <>
+                      <AssetLink a={os[0].asset} />
+                      {os[0].release !== null && <span className="text-muted-foreground"> @{os[0].release}</span>}
+                    </>
+                  ),
+                  sub: `Last on ${date(os.map((o) => o.last).sort().at(-1)!)}`,
+                  value: n,
+                  tone: "warning" as const,
+                })),
+              },
+            ]}
+          />
       ) : (
         <None>Never released: release adoption starts with the first release.</None>
       )}
@@ -114,11 +121,9 @@ export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
   );
 }
 
-function Kpi({ value, label }: { value: string; label: React.ReactNode }) {
-  return (
-    <div className="bg-card grid gap-0.5 rounded-xl border p-4">
-      <b className="font-display text-2xl font-semibold tabular-nums">{value}</b>
-      <small className="text-muted-foreground text-xs">{label}</small>
-    </div>
-  );
+/** The rows by a key, the most fetched first, each with its total and its rows. */
+function group<T extends { fetches: number }>(xs: T[], key: (x: T) => string): [string, number, T[]][] {
+  const m = new Map<string, T[]>();
+  for (const x of xs) m.set(key(x), [...(m.get(key(x)) ?? []), x]);
+  return [...m].map(([k, v]) => [k, v.reduce((a, b) => a + b.fetches, 0), v] as [string, number, T[]]).sort((a, b) => b[1] - a[1]);
 }
