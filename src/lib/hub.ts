@@ -48,6 +48,12 @@ export function cookieDomain(appUrl: string, hubUrl: string | undefined): string
 /** A Set-Cookie header without its Domain: for a host the cookie's domain does not cover (an organization's own). */
 export const withoutDomain = (setCookie: string) => setCookie.replace(/;\s*domain=[^;]*/i, "");
 
+/** The same cookie for this host alone, expired: it clears a host-only one that would shadow the shared one. */
+export const expireHostOnly = (setCookie: string) =>
+  `${withoutDomain(setCookie)
+    .replace(/^([^=]+)=[^;]*/, "$1=")
+    .replace(/;\s*(max-age|expires)=[^;]*/gi, "")}; Max-Age=0`;
+
 /**
  * Where a brand's hub page is: HUB_URL for a public brand; for a private
  * one too when the app's session reaches the hub (cookieDomain), else the
