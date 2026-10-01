@@ -43,7 +43,8 @@ export function Thumb({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={placeholder} alt="" aria-hidden draggable={false} className={cn("absolute inset-0 size-full scale-105 object-contain p-2 blur-sm", className)} />
         ) : (
-          <Skeleton className="absolute inset-0 rounded-none" />
+          // Unseen for the first beat, then a soft pulse: a grid of quick loads never strobes, a slow one still says it is coming.
+          <Skeleton className="absolute inset-0 rounded-none opacity-0 [animation-delay:300ms]" />
         ))}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
