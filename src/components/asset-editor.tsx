@@ -1979,7 +1979,7 @@ function Review({
           </p>
           <p className="text-muted-foreground text-xs">It stays out of the library and search until you approve it.</p>
           {rejecting ? (
-            <div className="grid gap-2">
+            <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
               <Textarea
                 autoFocus
                 value={reason}

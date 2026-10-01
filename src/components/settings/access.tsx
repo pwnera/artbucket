@@ -543,7 +543,7 @@ function GrantDialog({
           </DialogDescription>
         </DialogHeader>
         {link ? (
-          <div className="grid gap-3">
+          <div className="animate-in fade-in-0 zoom-in-[0.98] grid gap-3 duration-200">
             <InviteLink me={me} url={link.url} emailed={link.emailed} />
             <DialogFooter>
               <Button onClick={onClose}>Done</Button>
@@ -594,7 +594,7 @@ function GrantDialog({
               </Select>
             </div>
             {allows(scope, "write") && (
-              <fieldset className="grid gap-2">
+              <fieldset className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
                 <legend className="mb-2 text-sm font-medium">May</legend>
                 {ABILITIES.map((a) => (
                   <Label key={a} className="font-normal">

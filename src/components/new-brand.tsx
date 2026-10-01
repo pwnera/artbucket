@@ -194,7 +194,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   </p>
                 )}
                 {found && (
-                  <div className="grid gap-2" role="radiogroup" aria-label="Brand found">
+                  <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150" role="radiogroup" aria-label="Brand found">
                     {found.brands.map((b) => (
                       <Choice
                         key={b.id}

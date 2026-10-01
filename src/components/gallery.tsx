@@ -1313,7 +1313,7 @@ export function Gallery({
               />
             ))}
             {view.extra.map(([k, v]) => (
-              <Badge key={`${k}=${v}`} variant="secondary" className="h-8 gap-1 pr-1">
+              <Badge key={`${k}=${v}`} variant="secondary" className="animate-in fade-in-0 zoom-in-95 h-8 gap-1 pr-1 duration-150">
                 {describe(k, v)}
                 <button
                   type="button"
@@ -1326,7 +1326,7 @@ export function Gallery({
               </Badge>
             ))}
             {narrowed && (
-              <Button variant="ghost" size="sm" className="h-8" onClick={clear}>
+              <Button variant="ghost" size="sm" className="animate-in fade-in-0 h-8 duration-150" onClick={clear}>
                 Clear filters <IconX />
               </Button>
             )}
