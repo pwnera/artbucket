@@ -40,7 +40,7 @@ import { boundKeys, type Item, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
 import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
 import { fieldsOf, withProp } from "@/lib/template-fields";
-import { flash } from "@/lib/motion";
+import { flash, transition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { LATE, PageCanvasSkeleton } from "@/components/skeletons";
 
@@ -128,7 +128,7 @@ export function Canvas({ b }: CanvasProps) {
         <div className="flex min-w-0 flex-1">
           {b.pagesOpen && !preview && <PagesPanel b={b} />}
           <div className={cn("relative min-h-full min-w-0 flex-1", width && "bg-muted")}>
-            <div className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
+            <div data-vt="canvas-frame" className={cn("mx-auto min-h-full", width && "bg-background border-x shadow-sm")} style={{ maxInlineSize: width ?? undefined }}>
               {b.view.page ? (
                 <>
                   <Stage b={b} />
@@ -166,7 +166,8 @@ export function Canvas({ b }: CanvasProps) {
                     aria-label={label}
                     title={label}
                     aria-pressed={width === w}
-                    onClick={() => setWidth(w)}
+                    // The page narrows or widens as one, rather than re-laying out in a frame.
+                    onClick={() => transition(() => setWidth(w))}
                     className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
                   >
                     <I className="size-4" />
@@ -329,7 +330,9 @@ function Stage({ b }: { b: BuilderApi }) {
       const to = o.mode === "before" ? prev : o.id;
       const was = stored[stored.findIndex((x) => x.id === p.id) - 1]?.id ?? null;
       if (o.id === p.id || to === p.id || to === was) return;
-      if (b.apply({ kind: "page", page: slug, op: { op: "move", id: p.id, after: to } })) b.select({ section: p.id, rule: null });
+      transition(() => {
+        if (b.apply({ kind: "page", page: slug, op: { op: "move", id: p.id, after: to } })) b.select({ section: p.id, rule: null });
+      });
     } else if (p.kind === "template") {
       b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages, storedOf(o.id)?.tab), o.mode === "before" ? prev : o.id);
     } else if (p.kind === "rule") {
@@ -417,6 +420,8 @@ function Stage({ b }: { b: BuilderApi }) {
         <ContextMenuTrigger asChild disabled={native}>
           <div
             {...{ [BLOCK]: s.id }}
+            // Its name in a view transition: a moved section glides to its place, its neighbours slide.
+            data-vt={`block-${s.id}`}
             tabIndex={0}
             role="group"
             aria-label={`${TEMPLATE_INFO[s.template]?.name ?? s.template} section${s.title ? `: ${s.title}` : ""}`}

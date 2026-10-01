@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-ops";
 import { hiddenSlugs, type Section } from "@/lib/pages";
 import { firstBinding, guidelinesPath, legacyAnchor, neighbors, tree } from "@/lib/site";
+import { transition } from "@/lib/motion";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
@@ -218,9 +219,11 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
           b.setItem({ section: id, i: to });
           return;
         }
-        b.nudge(id, e.key === "ArrowUp" ? -1 : 1);
-        // Where it moved to, once drawn there.
-        requestAnimationFrame(() => show(id));
+        transition(() => {
+          b.nudge(id, e.key === "ArrowUp" ? -1 : 1);
+          // Where it moved to, once drawn there.
+          requestAnimationFrame(() => show(id));
+        });
         return;
       }
       if (e.key === "Escape") {
