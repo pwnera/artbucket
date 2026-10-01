@@ -181,7 +181,11 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
   }
 }
 
-/** Organizations someone is admin of that run on the server's own limits: no limits row of their own, so no plan. */
+/**
+ * Organizations someone is admin of that run on the server's own limits: no limits row of their own, so no plan,
+ * or one marked `lapsing`, a plan whose payment failed or stopped: its limits hold while that is sorted out, but
+ * it no longer stands for a plan, so it doesn't make room for another organization.
+ */
 const unplannedOf = async (userId: string) =>
   (
     await db
@@ -196,7 +200,14 @@ const unplannedOf = async (userId: string) =>
             db
               .select({ id: settings.id })
               .from(settings)
-              .where(and(eq(settings.organizationId, grants.organizationId), eq(settings.key, "limits"), isNull(settings.workspaceId))),
+              .where(
+                and(
+                  eq(settings.organizationId, grants.organizationId),
+                  eq(settings.key, "limits"),
+                  isNull(settings.workspaceId),
+                  sql`coalesce((${settings.value} ->> 'lapsing')::boolean, false) = false`,
+                ),
+              ),
           ),
         ),
       )
@@ -205,8 +216,8 @@ const unplannedOf = async (userId: string) =>
 /**
  * Refuse a new organization to someone already admin of as many without a
  * plan as LIMIT_ORGANIZATIONS allows: otherwise every new one would bring
- * the server's limits again. One with a plan of its own does not count, nor
- * does the one sign-up makes (people.ts: welcome).
+ * the server's limits again. One with a plan of its own does not count, unless
+ * the plan is lapsing, nor does the one sign-up makes (people.ts: welcome).
  *
  * ponytail: count, then make, without a lock, like checkLimit: two made at
  * the same moment can both pass. Lock on the user if that is ever abused.
