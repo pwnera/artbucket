@@ -197,6 +197,11 @@ function Showing({ view, status, onPick }: { view: PageView; status: BrandReader
         <ToggleGroupItem value="live">@{status.live} live</ToggleGroupItem>
       </ToggleGroup>
     );
-  if (view.version) return <Badge variant="outline">{status ? liveLine(status.publish, view.version.number) : `@${view.version.number} live`}</Badge>;
-  return <Badge variant="outline">{!status ? "Draft" : status.live === null ? "Draft · Never released" : "Draft · Up to date"}</Badge>;
+  const text = view.version ? (status ? liveLine(status.publish, view.version.number) : `@${view.version.number} live`) : !status ? "Draft" : status.live === null ? "Draft · Never released" : "Draft · Up to date";
+  // The one thing in the bar that may shrink on a phone: it truncates rather than push the page wider.
+  return (
+    <Badge variant="outline" title={text} className="min-w-0 shrink!">
+      <span className="truncate">{text}</span>
+    </Badge>
+  );
 }

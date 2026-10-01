@@ -149,7 +149,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   return (
     <>
       <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 pt-6 md:flex-nowrap md:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+        <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3.5">
           {mark}
           <div className="grid min-w-0 gap-1">
             <div className="flex flex-wrap items-center gap-2">

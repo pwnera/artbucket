@@ -76,7 +76,7 @@ export function BrandIcon({
     // As wide as the mark, from a square to three squares.
     const ratio = a.width && a.height ? Math.min(Math.max(a.width / a.height, 1), 3) : 1;
     return (
-      <span className={cn("relative shrink-0 overflow-hidden", ICON_SIZE[size][0], !bare && "bg-checker rounded-2xl border")} style={{ aspectRatio: ratio }}>
+      <span className={cn("relative shrink-0 overflow-hidden", ICON_SIZE[size][0], !bare && "bg-card rounded-2xl border")} style={{ aspectRatio: ratio }}>
         <span className={cn("absolute inset-0", d && "dark:hidden")}>
           <Thumb src={url(a.id, "/w_192,f_webp")} alt={`${brand.name} logo`} eager />
         </span>
