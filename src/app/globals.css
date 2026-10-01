@@ -475,6 +475,30 @@ body:has(#hub-hero) .hub-header-search {
   }
 }
 
+/*
+ * A row on its way out (collapse() in lib/motion.ts): it fades and folds its
+ * height away, so the rows below close the gap instead of jumping into it.
+ */
+@layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes collapse {
+      to {
+        opacity: 0;
+        block-size: 0;
+        min-block-size: 0;
+        padding-block: 0;
+        margin-block: 0;
+        border-block-width: 0;
+      }
+    }
+    [data-collapsing] {
+      overflow: clip;
+      pointer-events: none;
+      animation: collapse 150ms var(--ease-in) forwards;
+    }
+  }
+}
+
 /* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes check-draw {

@@ -42,6 +42,20 @@ export function transition(update: () => void) {
 }
 
 /**
+ * Folds `el` away ([data-collapsing] in globals.css), then runs `then`, which
+ * removes it. With less motion, or no element, at once. If `then` leaves it
+ * on the page (a refused delete puts it back), it opens again.
+ */
+export function collapse(el: Element | null | undefined, then: () => void) {
+  if (!el || still()) return then();
+  el.setAttribute("data-collapsing", "");
+  setTimeout(() => {
+    then();
+    requestAnimationFrame(() => el.removeAttribute("data-collapsing"));
+  }, 150);
+}
+
+/**
  * The last value that was there: a dialog keeps showing its subject while it
  * fades out, instead of unmounting the moment its subject is cleared.
  * Render while `kept`, open while `value`.
