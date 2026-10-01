@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { brandText, cookieDomain, hubHome, hubPath, logoOf, parseRef, swatches, withoutDomain } from "./hub.ts";
+import { backgroundOf, brandText, cookieDomain, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -26,6 +26,34 @@ test("a card's colors and logo: defaults only, a logo rule's image before any ot
   assert.equal(logoOf(rules)?.id, "b");
   assert.equal(logoOf(rules.slice(0, 3))?.id, "a");
   assert.equal(logoOf([]), null);
+});
+
+test("a card's ground and palette: color.background, and up to six named colors", () => {
+  const colors = ["primary", "secondary", "accent", "ink", "muted", "line", "extra"].map((k, i) => rule(`color.${k}`, "color", `#00000${i}`));
+  assert.equal(backgroundOf(colors), null);
+  assert.equal(backgroundOf([...colors, rule("color.background", "color", "#1c1e22")]), "#1c1e22");
+  assert.equal(backgroundOf([rule("color.background", "color", "#000", { context: "dark" })]), null);
+  const band = paletteOf([rule("color.primary", "color", "#e87d0d", { label: "Blender Orange" }), ...colors]);
+  assert.equal(band.length, 6);
+  assert.deepEqual(band[0], { hex: "#e87d0d", name: "Blender Orange" });
+  assert.equal(band[1].name, "Primary");
+});
+
+test("a card's face: the heading's own file, else Google Fonts for its glyphs, else only named", () => {
+  const url = (a: { id: string }) => `/a/${a.id}`;
+  const font = (key: string, family: string, extra: object = {}) => rule(key, "font", { family, weight: 700 }, extra);
+  const file = (id: string, filename: string) => ({ ...asset(id, "font/woff2"), filename });
+  // The heading, not the first; its upright file.
+  const own = headingFace([font("type.body", "Inter"), font("type.heading", "Metropolis", { assets: [file("i", "M-BoldItalic.woff2"), file("b", "M-Bold.woff2")] })], "Firefox", url);
+  assert.deepEqual(own, { family: "Metropolis", weight: 700, css: null, src: "/a/b" });
+  // A role marks it too; Google Fonts asks only for the name's letters.
+  const google = headingFace([font("type.a", "Fira Sans"), font("type.b", "Alfa Slab One", { spec: { role: "display", source: "google" } })], "Rust & co", url);
+  assert.equal(google?.src, null);
+  assert.equal(google?.css, "https://fonts.googleapis.com/css2?family=Alfa+Slab+One:wght@700&text=Rust%20%26%20co&display=swap");
+  // Only italic files, or neither a file nor from Google: named, not loaded.
+  assert.equal(headingFace([font("type.heading", "Inter", { assets: [file("i", "Inter-BoldItalic.ttf")] })], "X", url)?.src, null);
+  assert.deepEqual(headingFace([font("type.heading", "Söhne")], "X", url), { family: "Söhne", weight: 700, css: null, src: null });
+  assert.equal(headingFace([rule("color.primary", "color", "#000")], "X", url), null);
 });
 
 test("brandText says who listed it, and every rule with its files", () => {

@@ -1,4 +1,5 @@
-import { fontLabel, fontValue, ruleName, type RuleType, type RuleValue } from "./rules.ts";
+import { GOOGLE_FAMILY, isFont } from "./font.ts";
+import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
 /**
  * The brandhub's addresses and what it says of a brand, apart from the
@@ -90,6 +91,47 @@ export function logoOf<A extends { mime: string }>(rules: { key: string; context
 export function tintOf(rules: Pick<HubRule, "key" | "type" | "value" | "context">[]) {
   const colors = rules.filter((r) => r.type === "color" && !r.context && typeof r.value === "string");
   return ((colors.find((r) => r.key === "color.primary") ?? colors[0])?.value as string | undefined) ?? null;
+}
+
+/** A card's ground: its color.background, else null (the card washes its tint instead). */
+export function backgroundOf(rules: Pick<HubRule, "key" | "type" | "value" | "context">[]) {
+  const r = rules.find((x) => x.key === "color.background" && !x.context && x.type === "color" && typeof x.value === "string");
+  return (r?.value as string | undefined) ?? null;
+}
+
+/** A card's palette band: its colors in order, each with its name, at most `n`. */
+export const paletteOf = (rules: (Pick<HubRule, "key" | "type" | "value" | "context"> & { label?: string | null })[], n = 6) =>
+  rules.filter((r) => r.type === "color" && !r.context && typeof r.value === "string").slice(0, n).map((r) => ({ hex: r.value as string, name: ruleName(r) }));
+
+/** What a card sets its name in: the family, its weight, and how it loads (`css`, Google Fonts; `src`, its own file), neither when it doesn't load cheaply. */
+export type CardFace = { family: string; weight: number | null; css: string | null; src: string | null };
+
+/**
+ * The face a card sets its name in: the heading typeface (a font rule keyed
+ * or marked for headings or display), else the first. It loads from an
+ * upright file of its own, through `fileUrl`, else from Google
+ * Fonts when the rule says it comes from there, only the glyphs of `text`:
+ * a few hundred bytes. Neither: the card names the family.
+ */
+export function headingFace<A extends { id: string; mime: string; filename?: string | null }>(
+  rules: { key: string; context: string | null; type: RuleType; value: RuleValue; spec?: RuleSpec | null; assets: A[] }[],
+  text: string,
+  fileUrl: (a: A) => string,
+): CardFace | null {
+  const fonts = rules.filter((r) => r.type === "font" && !r.context);
+  const role = (r: (typeof fonts)[number]) => ((r.spec ?? {}) as { role?: string }).role ?? "";
+  const r = fonts.find((f) => /head|display|title/i.test(f.key) || /^(headline|display)$/.test(role(f))) ?? fonts[0];
+  if (!r) return null;
+  const v = fontValue(r.value);
+  // An upright file: a name set in italics would not be the face.
+  const file = r.assets.find((a) => isFont(a.mime, a.filename ?? "") && !/italic/i.test(a.filename ?? ""));
+  const google = !file && ((r.spec ?? {}) as { source?: string }).source === "google" && GOOGLE_FAMILY.test(v.family);
+  return {
+    family: v.family,
+    weight: v.weight ?? null,
+    css: google ? `https://fonts.googleapis.com/css2?family=${v.family.replace(/ +/g, "+")}${v.weight ? `:wght@${v.weight}` : ""}&text=${encodeURIComponent(text)}&display=swap` : null,
+    src: file ? fileUrl(file) : null,
+  };
 }
 
 /** Markdown marks off, one line. */
