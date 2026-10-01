@@ -64,13 +64,23 @@
         "pages": [
           "guides/assets",
           "guides/canon",
-          "guides/brand-as-code",
           "guides/check",
           "guides/insights",
           "guides/sharing",
           "guides/portals",
           "guides/adcp",
           "guides/playbook"
+        ]
+      },
+      {
+        "group": "Brand as code",
+        "pages": [
+          "guides/brand-as-code",
+          "guides/brand-as-code/format",
+          "guides/brand-as-code/cli",
+          "guides/brand-as-code/sync-api",
+          "guides/brand-as-code/standards",
+          "guides/brand-as-code/brand-json"
         ]
       },
       {
