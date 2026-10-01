@@ -86,6 +86,7 @@ import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
+import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -197,6 +198,12 @@ const closeAsset = () => {
 };
 
 const PAGE = 100;
+/** Lights up the tiles or rows of `ids` once they are drawn ([data-flash]). */
+const flashTiles = (ids: Iterable<string>) => {
+  const sel = [...ids].map((id) => `[data-cursor="${CSS.escape(id)}"]`).join(",");
+  if (sel) flash(sel);
+};
+
 /** The API's largest page: a refresh past it asks for several at once. */
 const MAX_PAGE = 200;
 
@@ -570,15 +577,20 @@ export function Gallery({
       });
       return removed || was.size ? { ...l, data, total: l.total - removed } : l;
     });
-    return (only) =>
+    // The tiles that changed light up once, so a bulk edit shows where it went (the removed are gone by then).
+    flashTiles(ids);
+    return (only) => {
+      const back = [...was].filter(([id]) => !only || only.includes(id)).sort((x, y) => x[1][0] - y[1][0]);
       setListing((l) => {
-        const back = [...was].filter(([id]) => !only || only.includes(id)).sort((x, y) => x[1][0] - y[1][0]);
         const ids = new Set(back.map(([id]) => id));
         const returning = back.filter(([id]) => !l.data.some((a) => a.id === id)).length;
         const data = l.data.filter((a) => !ids.has(a.id));
         for (const [, [i, a]] of back) data.splice(Math.min(i, data.length), 0, a);
         return { ...l, data, total: l.total + returning };
       });
+      // What came back, from an undo or a refusal, is found again at a glance.
+      flashTiles(back.map(([id]) => id));
+    };
   }, []);
 
   // The open asset: from the grid, or fetched when the link points past it.
