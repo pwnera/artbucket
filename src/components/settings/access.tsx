@@ -57,6 +57,7 @@ import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
 import { useFlashNew } from "@/lib/motion";
+import { SavedMark } from "@/components/settings/panels";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope; limits: Ability[] };
@@ -150,11 +151,11 @@ export function People({
     window.history.replaceState(null, "", url);
   }
 
+  /** True when it took: the row says Saved beside the role itself. */
   async function change(g: Grant, userId: string, scope: Scope, limits?: Ability[]) {
-    if (await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits })) {
-      toast.success(`Now ${role(scope, limits ?? g.limits).toLowerCase()} on ${g.label}`);
-      refresh();
-    }
+    if (!(await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits }))) return false;
+    refresh();
+    return true;
   }
   async function remove(g: Grant, m: Member) {
     if (!(await send("DELETE", `/api/v1/grants/${g.id}`))) return false;
@@ -391,14 +392,15 @@ function GrantRow({
   const [shown, setShown] = useOptimistic({ scope: g.scope, limits: g.limits });
   const [, start] = useTransition();
   const [asking, setAsking] = useState<{ scope: Scope } | "remove" | null>(null);
+  const [savedAt, setSavedAt] = useState(0);
   // The request runs inside the transition, and router.refresh() with it, so the new value holds until the new props land.
   const scope = (s: Scope) => start(async () => {
     setShown({ scope: s, limits: shown.limits });
-    await onScope(s);
+    if (await onScope(s)) setSavedAt(Date.now());
   });
   const limits = (l: Ability[]) => start(async () => {
     setShown({ scope: shown.scope, limits: l });
-    await onLimits(l);
+    if (await onLimits(l)) setSavedAt(Date.now());
   });
   const ownAdmin = mine && g.scope === "admin";
 
@@ -481,6 +483,7 @@ function GrantRow({
           return true;
         }}
       />
+      <SavedMark at={savedAt} />
     </div>
   );
 }
