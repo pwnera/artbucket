@@ -170,9 +170,11 @@ export function BrandsPage({
                 aria-label={label}
                 title={label}
                 onClick={() => transition(() => pickLayout(l))}
-                className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2 py-1 aria-checked:shadow-sm"
+                className="text-muted-foreground aria-checked:text-foreground relative rounded px-2 py-1"
               >
-                <Icon className="size-4" />
+                {/* One pill, named, so it slides to the layout picked. */}
+                {layout === l && <span aria-hidden data-vt="layout-pill" className="bg-background absolute inset-0 rounded shadow-sm" />}
+                <Icon className="relative size-4" />
               </button>
             ))}
           </div>

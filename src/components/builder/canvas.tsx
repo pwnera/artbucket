@@ -168,9 +168,11 @@ export function Canvas({ b }: CanvasProps) {
                     aria-pressed={width === w}
                     // The page narrows or widens as one, rather than re-laying out in a frame.
                     onClick={() => transition(() => setWidth(w))}
-                    className="text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
+                    className="text-muted-foreground hover:bg-accent aria-pressed:text-foreground focus-visible:ring-ring/50 relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-3"
                   >
-                    <I className="size-4" />
+                    {/* One pill, named, so it slides to the size picked. */}
+                    {width === w && <span aria-hidden data-vt="width-pill" className="bg-accent absolute inset-0 rounded-md" />}
+                    <I className="relative size-4" />
                   </button>
                 ))}
               </div>
