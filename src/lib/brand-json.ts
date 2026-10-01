@@ -50,7 +50,8 @@ const pick = (rules: BrandJsonRule[], keys: string[], type?: RuleType) =>
 
 function logoOf(r: BrandJsonRule, a: Asset, n: number) {
   const t = tail(r.key);
-  const variant = t === "primary" ? "primary" : /mark|icon|symbol/i.test(t) ? "icon" : t === "wordmark" ? "wordmark" : /lockup/i.test(t) ? "full-lockup" : "secondary";
+  // Wordmark before mark: "wordmark" holds "mark", and a wordmark is no icon.
+  const variant = t === "primary" ? "primary" : /wordmark/i.test(t) ? "wordmark" : /lockup/i.test(t) ? "full-lockup" : /mark|icon|symbol/i.test(t) ? "icon" : "secondary";
   const dark = /dark/.test(r.context ?? "") || /reversed|inverse|white|dark/i.test(t);
   const w = a.width ?? 0;
   const h = a.height ?? 0;
