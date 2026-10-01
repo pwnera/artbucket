@@ -7,16 +7,18 @@ import { toast } from "sonner";
 import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
-import type { Status } from "@/components/builder/use-status";
+import { useSource, type Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
+import { GitSource } from "@/components/git-source";
 import { TabNav } from "@/components/hub";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { sendResult } from "@/lib/send";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness";
@@ -49,6 +51,9 @@ export type BrandHeaderProps = {
   compact?: boolean;
 };
 
+/** The header's reads: a brand it can't read the source of shows no Git button, and says nothing. */
+const quietly = (method: string, url: string, body?: unknown) => sendResult(method, url, body, { quiet: true });
+
 /** "12 Sep 2026", as the header dates a release. */
 export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
@@ -67,6 +72,8 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const line = [hub?.ref, places?.length ? `${head} ${liveWhere(places)}` : head, places && !places.length && liveWhere(places), ...rest, date].filter(Boolean);
   const where = places && <LivePlaces places={places} hub={hub} label={liveWhere(places)} className="hover:text-foreground underline decoration-dotted underline-offset-4" />;
   const tabs = useBrandTabs(brand);
+  // Brand as code: the repository it is kept in, or where to connect one.
+  const source = useSource(brand.slug, quietly);
   const parts = [hub?.ref, places?.length ? <>{head} {where}</> : head, places && !places.length && where, ...rest, date].filter(Boolean);
   const mark = (
     <span className={cn("bg-muted grid shrink-0 place-items-center overflow-hidden border", compact ? "size-7 rounded-md" : "size-13 rounded-xl")}>
@@ -82,6 +89,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const word = compact ? "sr-only" : undefined;
   const actions = (
     <div className="flex items-center gap-2">
+      <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact={compact} />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
@@ -140,8 +148,8 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     );
   return (
     <>
-      <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 pt-6 md:px-6">
-        <div className="flex min-w-0 items-center gap-3.5">
+      <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 pt-6 md:flex-nowrap md:px-6">
+        <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3.5">
           {mark}
           <div className="grid min-w-0 gap-1">
             <div className="flex flex-wrap items-center gap-2">

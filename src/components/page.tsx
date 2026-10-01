@@ -29,7 +29,8 @@ export function AppHeader({ trail, children }: { trail: Crumb[] | React.ReactNod
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
       {isTrail(trail) ? <Trail crumbs={trail} /> : trail}
-      <div className="ml-auto flex items-center gap-2">
+      {/* On a phone the actions give way rather than push the page wider: each keeps its size, but what says it may shrink (shrink!: a search box, a status badge). */}
+      <div className="ml-auto flex min-w-0 items-center gap-2 *:shrink-0">
         {/* An admin on the server's own limits, where the server sells plans (BILLING_URL). */}
         {me?.upgrade && (
           <Button asChild size="sm" variant="outline" className="upgrade">

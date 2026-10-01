@@ -33,7 +33,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink } from "@/components/external-link";
+import { PendingDot, repoLabel, RepositoryDetails } from "@/components/git-source";
 import { boundKeys, designWarnings, hasPicture } from "@/lib/pages";
 import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
@@ -231,41 +231,16 @@ function More({ b }: { b: BuilderApi }) {
 /** The repository the brand is kept in too: whether the edits made here have reached it, and where it is. */
 function Repository({ b }: { b: BuilderApi }) {
   const s = b.source!.source!;
-  const manage = b.source!.connect;
-  const where = s.remote.replace(/^https?:\/\//, "").replace(/\.git$/, "");
-  const label = s.pending ? `Changes here not yet in ${where}` : `In step with ${where}`;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <IconButton variant="ghost" size="sm" label={label} className="relative">
+        <IconButton variant="ghost" size="sm" label={repoLabel(s)} className="relative">
           <IconBrandGit />
-          {s.pending && (
-            <span className="bg-warning ring-background absolute top-1 end-1 size-2 rounded-full ring-2">
-              <span className="sr-only">(changes to sync)</span>
-            </span>
-          )}
+          {s.pending && <PendingDot className="top-1 end-1" />}
         </IconButton>
       </PopoverTrigger>
       <PopoverContent align="end" className="app-tokens grid w-80 gap-2 p-3 text-sm">
-        <p className="font-medium">Kept in a repository</p>
-        <ExternalLink href={s.remote} className="truncate underline underline-offset-2">
-          {where}
-        </ExternalLink>
-        <p className="text-muted-foreground text-xs">
-          {s.branch}
-          {s.path ? `, in ${s.path}/` : ""}
-          {s.commit ? `, at ${s.commit.slice(0, 7)}` : ""}
-        </p>
-        <p className="text-muted-foreground text-xs">
-          {s.pending
-            ? "Edits made here since the last sync go to the repository next: as a commit, or a pull request to review."
-            : "The brand here and its files say the same. Changes merged there come here, and edits here go there."}
-        </p>
-        {manage && (
-          <a href={manage} className="text-xs underline underline-offset-2">
-            Manage the connection
-          </a>
-        )}
+        <RepositoryDetails source={s} manage={b.source!.connect} />
       </PopoverContent>
     </Popover>
   );
