@@ -6,7 +6,7 @@ blob store attached - not a blob store with tags.
 One maintainer. Every milestone below is independently shippable and demoable.
 Estimates assume evenings and weekends, and are guesses.
 
-**Status:** v0.1 to v1.6 shipped (current release 1.6.0). v1.7 in progress.
+**Status:** v0.1 to v1.6 shipped. v1.7 in progress (current release 1.7.0).
 
 ---
 
