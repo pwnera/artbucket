@@ -24,8 +24,11 @@ export function fileTypeBadge(filename: string, mime: string, probe?: Record<str
   // A link is named by its title, whose dots say nothing about it: its service says what it is.
   if (mime === "text/uri-list") return typeof probe?.service === "string" ? probe.service.toUpperCase() : "LINK";
   const dot = filename.lastIndexOf(".");
-  if (dot > 0 && filename.length - dot <= 6) return filename.slice(dot + 1).toUpperCase();
-  return (mime.split("/")[1] ?? "file").toUpperCase();
+  // Up to ten letters after the dot: .lottie and .procreate are extensions too; "v1.2 final" is no extension.
+  if (dot > 0 && /^\.[a-z0-9]{1,10}$/i.test(filename.slice(dot))) return filename.slice(dot + 1).toUpperCase();
+  // No extension: the type says it, but "octet-stream" says nothing and "x-" is no part of a name.
+  const sub = mime.split("/")[1];
+  return !sub || sub === "octet-stream" ? "FILE" : sub.replace(/^x-/, "").toUpperCase();
 }
 
 /**

@@ -105,8 +105,17 @@ const UUID = /[0-9a-f]{8}-[0-9a-f-]{27}/gi;
 // The library fallback always matches, and always last: a positive score
 // below any real match's.
 const LIBRARY = "search the library";
-const filter = (value: string, search: string, keywords?: string[]) =>
-  value === LIBRARY ? Number.MIN_VALUE : defaultFilter(value.replace(UUID, ""), search, keywords);
+// Each word typed must be in the item's text, whole: cmdk's fuzzy score alone matched "sintel" to a rule
+// whose long value holds s, i, n, t, e and l somewhere, and Enter then opened that rule, not the asset.
+const filter = (value: string, search: string, keywords?: string[]) => {
+  if (value === LIBRARY) return Number.MIN_VALUE;
+  const text = [value.replace(UUID, ""), ...(keywords ?? [])].join(" ").toLowerCase();
+  if (!search.toLowerCase().split(/\s+/).every((w) => text.includes(w))) return 0;
+  return Math.max(defaultFilter(value.replace(UUID, ""), search, keywords), 0.01);
+};
+
+/** An asset's item value: its id keeps it unique, its title and filename are what matches. */
+const assetValue = (a: Pick<Asset, "id" | "filename" | "metadata">) => `asset ${a.id} ${a.metadata?.title ?? ""} ${a.filename}`;
 
 const CONTEXT = { workspace: "Workspace", organization: "Organization", account: "Account", development: "Development" };
 const THEMES = [
@@ -173,6 +182,7 @@ export function CommandPalette({
   const [assets, setAssets] = useState<{ q: string; data: Asset[] }>({ q: "", data: [] });
   const pending = !!term && assets.q !== term;
   const [rules, setRules] = useState<RuleHit[]>([]);
+  const [picked, setPicked] = useState("");
   const [pages, setPages] = useState<PageHit[]>([]);
 
   // However it opens (⌘K, a button in the phone's sheet), it opens over the page, not over the sheet.
@@ -190,7 +200,10 @@ export function CommandPalette({
         const res = await fetch(`/api/v1/assets?limit=8&q=${encodeURIComponent(term)}`);
         if (res.ok) data = (await res.json()).data;
       } catch {}
-      if (live) setAssets({ q: term, data });
+      if (!live) return;
+      setAssets({ q: term, data });
+      // They come after the rest has matched, and cmdk keeps what it picked then: when that was only the library search, the best asset takes its place.
+      if (data[0]) setPicked((p) => (!p || p.toLowerCase() === LIBRARY ? assetValue(data[0]) : p));
     }, 150);
     return () => {
       live = false;
@@ -247,6 +260,8 @@ export function CommandPalette({
       description="Find assets, brand pages and rules, collections, saved searches and settings, or go anywhere."
       className="sm:max-w-xl"
       filter={filter}
+      value={picked}
+      onValueChange={setPicked}
       loop
     >
       {/* CommandInput's row, with a spinner in place of the glass while assets load. */}
@@ -299,7 +314,7 @@ export function CommandPalette({
               <CommandItem
                 key={a.id}
                 // The server already matched it (captions, fields); the query keeps it past cmdk's own filter.
-                value={`asset ${a.id} ${a.metadata?.title ?? ""} ${a.filename}`}
+                value={assetValue(a)}
                 keywords={[q, ...a.tags]}
                 onSelect={() => go(`/?asset=${a.id}`)}
               >

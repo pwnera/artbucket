@@ -218,7 +218,8 @@ export function SharedView({ token, initial, asset = null }: { token: string; in
           </div>
         </header>
         {share.kind === "upload" ? (
-          <Dropzone token={token} headers={headers} into={share.target.label} by={by} />
+          // Its name, when its sender gave it one ("What they see it called"), else the collection's.
+          <Dropzone token={token} headers={headers} into={share.name ?? share.target.label} by={by} />
         ) : single ? (
           <Single item={toPublic(state.shared.data[0])} by={by} />
         ) : (

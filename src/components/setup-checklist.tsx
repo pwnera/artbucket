@@ -59,10 +59,19 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
     let live = true;
     const brandy = path !== "clients";
     void (async () => {
-      const list = brandy ? await json<{ data: { slug: string; default: boolean }[] }>("/api/v1/brands") : null;
-      const b = list?.data.find((x) => x.default) ?? list?.data[0];
+      const list = brandy ? await json<{ data: { slug: string; default: boolean; rules?: number; createdAt: string }[] }>("/api/v1/brands") : null;
+      // The brand being built is the one furthest along: of the newest few with rules (New brand, a template) and the
+      // default, which every workspace starts with, empty, the one with the most steps done, released and public counting too.
+      const made = (list?.data ?? []).filter((x) => (x.rules ?? 0) > 0).sort((x, y) => y.createdAt.localeCompare(x.createdAt));
+      const fallback = list?.data.find((x) => x.default) ?? list?.data[0];
+      const candidates = [...new Set([...made.slice(0, 3), ...(fallback ? [fallback] : [])])];
+      const statuses = await Promise.all(candidates.map((c) => json<{ data: Status }>(`/api/v1/brands/${encodeURIComponent(c.slug)}/status`)));
+      const progress = (st: { data: Status } | null) =>
+        !st ? -1 : st.data.steps.filter((x) => x.done).length + (st.data.publish !== "never" ? 1 : 0) + (st.data.hub?.visibility === "public" ? 1 : 0);
+      const best = statuses.reduce((at, st, i) => (progress(st) > progress(statuses[at]) ? i : at), 0);
+      const b = candidates[best];
       const [status, source, members, keys, asked] = await Promise.all([
-        b ? json<{ data: Status }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/status`) : null,
+        statuses[best] ?? null,
         b && path === "product" ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`) : null,
         path === "company" ? json<{ data: unknown[]; invitations: unknown[] }>("/api/v1/members") : null,
         path === "ai" ? json<{ data: unknown[] }>("/api/v1/keys") : null,

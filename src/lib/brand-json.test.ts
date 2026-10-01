@@ -90,6 +90,17 @@ test("logos from logo rules' images, never from a don't's examples; placement fr
   assert.deepEqual(out.visual_guidelines?.restrictions, ["Stretch it"]);
 });
 
+test("a wordmark is a wordmark, not an icon, and gets no icon slots", () => {
+  const out = brandJson({ ...base, rules: [rule("logo.wordmark", "text", "The name", { assets: [img("w", 600, 120)] }), rule("logo.symbol", "text", "The symbol", { assets: [img("s", 64, 64)] })] });
+  assert.deepEqual(
+    out.logos!.map((l) => [l.variant, l.slots ?? null]),
+    [
+      ["wordmark", null],
+      ["icon", ["favicon", "app_icon", "profile_mark"]],
+    ],
+  );
+});
+
 test("voice, imagery and disclaimers", () => {
   const out = brandJson({
     ...base,

@@ -16,6 +16,7 @@ import { Can, useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";
 import { Confirm } from "@/components/confirm";
 import { Thumb } from "@/components/gallery";
+import { FileThumb } from "@/components/thumb";
 import { renditionLabel } from "@/components/rendition-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ import type { FieldChange, RuleChange, SnapRule, VersionKind } from "@/lib/histo
 import type { SnapPage } from "@/lib/pages";
 import { day } from "@/lib/time";
 import { undoable } from "@/lib/undo";
-import { contextLabel, fontLabel, ruleLabel, ruleName, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
+import { contextLabel, fontLabel, ruleLabel, ruleName, section, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 type Meta = {
@@ -540,9 +541,9 @@ function Field({ f, ruleKey }: { f: FieldChange; ruleKey: string }) {
     if (f.field === "assets") {
       return (
         <div className="flex items-center gap-3">
-          <Assets list={f.before as RuleAsset[]} dim />
+          <Assets list={f.before as RuleAsset[]} dim fonts={section(ruleKey) === "type"} />
           <IconArrowRight className="text-muted-foreground size-4 shrink-0" />
-          <Assets list={f.after as RuleAsset[]} />
+          <Assets list={f.after as RuleAsset[]} fonts={section(ruleKey) === "type"} />
         </div>
       );
     }
@@ -572,14 +573,15 @@ function Swatch({ hex }: { hex: string }) {
   );
 }
 
-function Assets({ list, dim }: { list: RuleAsset[]; dim?: boolean }) {
+/** A rule's files, before or after. `fonts`: a type rule's, which a version's snapshot names by id alone, so their kind comes from the rule. */
+function Assets({ list, dim, fonts }: { list: RuleAsset[]; dim?: boolean; fonts?: boolean }) {
   if (!list.length) return <span className="text-muted-foreground text-sm">none</span>;
   return (
     <div className={cn("flex flex-wrap gap-2", dim && "opacity-50")}>
       {list.map((a) => (
         <div key={a.id} className="grid w-14 gap-0.5">
           <div className="bg-checker relative size-14 overflow-hidden rounded-md border">
-            <Thumb src={`/a/${a.id}/w_56,f_webp`} alt="" className="p-1" />
+            <FileThumb file={fonts ? { mime: "font/woff2" } : a} src={`/a/${a.id}/w_56,f_webp`} className="p-1" />
           </div>
           <span className="text-muted-foreground truncate text-center text-2xs">{renditionLabel(a.rendition)}</span>
         </div>
@@ -595,7 +597,7 @@ function Value({ rule: r }: { rule: SnapRule }) {
     <div className="space-y-2 text-sm">
       {r.type === "color" ? <Swatch hex={v as string} /> : <p>{text(v)}</p>}
       {r.usage && <p className="text-muted-foreground">{r.usage}</p>}
-      {r.assets.length > 0 && <Assets list={r.assets} />}
+      {r.assets.length > 0 && <Assets list={r.assets} fonts={r.type === "font"} />}
     </div>
   );
 }

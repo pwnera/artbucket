@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { isFont } from "./font.ts";
 import { brandDomain } from "./portal.ts";
 import { fontValue, RULE_CONTEXT, RULE_KEY, RuleInput, ruleLabel, type RuleType, type RuleValue } from "./rules.ts";
 
@@ -50,7 +51,8 @@ const pick = (rules: BrandJsonRule[], keys: string[], type?: RuleType) =>
 
 function logoOf(r: BrandJsonRule, a: Asset, n: number) {
   const t = tail(r.key);
-  const variant = t === "primary" ? "primary" : /mark|icon|symbol/i.test(t) ? "icon" : t === "wordmark" ? "wordmark" : /lockup/i.test(t) ? "full-lockup" : "secondary";
+  // Wordmark before mark: "wordmark" holds "mark", and a wordmark is no icon.
+  const variant = t === "primary" ? "primary" : /wordmark/i.test(t) ? "wordmark" : /lockup/i.test(t) ? "full-lockup" : /mark|icon|symbol/i.test(t) ? "icon" : "secondary";
   const dark = /dark/.test(r.context ?? "") || /reversed|inverse|white|dark/i.test(t);
   const w = a.width ?? 0;
   const h = a.height ?? 0;
@@ -104,7 +106,8 @@ export function brandJson(b: BrandJsonInput) {
     const v = fontValue(r.value);
     const s = (r.spec ?? {}) as { role?: string; features?: string[]; fallback?: string; lineHeight?: number; tracking?: unknown; case?: string };
     const name = snake(tail(r.key));
-    const files = r.assets.filter((a) => a.mime.startsWith("font/")).map((a) => ({ url: a.url }));
+    // The bytes set a font's type at upload; a file stored before that, or as application/octet-stream, is known by its name.
+    const files = r.assets.filter((a) => isFont(a.mime, a.filename ?? "")).map((a) => ({ url: a.url }));
     fonts[name] = {
       family: v.family,
       ...(files.length && { files }),

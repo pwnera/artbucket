@@ -34,6 +34,13 @@ test("without a brand, brand steps start by making one; with one, they open its 
   assert.equal(onboardingSteps("product", { ...none, brand }).at(-1)!.href, "/brands/acme");
 });
 
+test("Git is a step on the way only where the server can tell it happened; on the product path it is the win either way", () => {
+  assert.ok(!onboardingSteps("oss", none).some((s) => s.id === "git"));
+  assert.ok(!onboardingSteps("company", none).some((s) => s.id === "git"));
+  assert.ok(onboardingSteps("oss", { ...none, git: "https://git.example/connect?b={brand}" }).some((s) => s.id === "git"));
+  assert.equal(onboardingSteps("product", none).at(-1)!.id, "git");
+});
+
 test("email is a step only where the organization must turn its own on", () => {
   assert.ok(!onboardingSteps("company", none).some((s) => s.id === "email"));
   assert.ok(onboardingSteps("company", { ...none, noEmail: true }).some((s) => s.id === "email"));

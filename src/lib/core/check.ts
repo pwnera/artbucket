@@ -54,10 +54,15 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
     });
   }
 
+  // What is offered instead must pass for this use itself: a replacement whose license ran out is no way out.
+  const barred = (a: Asset | null) =>
+    !a || a.deletedAt ? "it is gone" : a.status !== "active" ? "it isn't approved" : rightsReasons(a.rights, { ...use, date }).find((r) => r.blocking)?.message ?? null;
+
   if (asset.supersededBy) {
     const current = await currentVersion(asset);
-    reasons.push({ code: "superseded", blocking: true, message: `Replaced by ${title(current)}` });
-    if (current.id !== asset.id) suggest.push({ id: current.id, title: title(current), url: url(current.id), why: "Its replacement" });
+    const no = current.id !== asset.id ? barred(current) : null;
+    reasons.push({ code: "superseded", blocking: true, message: `Replaced by ${title(current)}${no ? `, which can't be used here either: ${no}` : ""}` });
+    if (current.id !== asset.id && !no) suggest.push({ id: current.id, title: title(current), url: url(current.id), why: "Its replacement" });
   }
 
   reasons.push(...rightsReasons(asset.rights, { ...use, date }));
@@ -78,7 +83,7 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
         message: `${r.key} has its own ${context} version${names ? `: ${names}` : ""}${r.brand && brand === undefined ? ` (${r.brand})` : ""}`,
       });
       for (const a of variant.assets) {
-        if (suggest.some((s) => s.id === a.id)) continue;
+        if (suggest.some((s) => s.id === a.id) || barred(await getAsset(caller, a.id))) continue;
         suggest.push({ id: a.id, title: a.title ?? a.filename!, url: url(a.id, a.rendition), why: `${r.key} for ${context}` });
       }
     }

@@ -12,7 +12,7 @@ import { limiter } from "@/lib/rate";
  * the server looks for what an agent would find there, and lib/agent-score.ts
  * scores it. Thin and bounded, since a stranger triggers it: every fetch goes
  * through fetchPublic (public addresses only), small and quick, four at most
- * per domain; a domain's report is kept for a few minutes; and checks are
+ * per domain (llms.txt, brand.json and where it redirects, the MCP server); a domain's report is kept for a few minutes; and checks are
  * counted per address and in all. The address is only a key in memory.
  */
 
@@ -36,6 +36,31 @@ async function text(url: string) {
   } catch {
     return null;
   }
+}
+
+const json = (t: string | null) => {
+  try {
+    return t ? (JSON.parse(t) as unknown) : null;
+  } catch {
+    return null; // Not JSON: no brand.json.
+  }
+};
+
+/**
+ * The brand.json at `url`, scored: when it is AdCP's Authoritative Location
+ * Redirect (the one file a brand's site hosts to point at where its brand
+ * lives, BrandHub's Sharing tab hands it out), the document it points at,
+ * once, over https.
+ */
+async function brandJsonAt(url: string) {
+  let doc = json(await text(url));
+  const to = doc && typeof doc === "object" && "authoritative_location" in doc ? doc.authoritative_location : null;
+  if (typeof to === "string" && /^https:\/\//i.test(to)) {
+    doc = json(await text(to));
+    url = to;
+  }
+  const rules = doc ? rulesOf(doc) : null;
+  return rules ? { url, rules } : null;
 }
 
 /** Whether an MCP server answers at all: any status but a missing page or a failing server (a GET without a session is refused, and that is an answer). */
@@ -76,17 +101,11 @@ export async function scoreDomain(raw: string, ip: string | null) {
   const [llms, listing] = await Promise.all([text(`https://${domain}/llms.txt`), listingFor(domain)]);
   const jsonUrl = (llms && brandJsonUrlIn(llms)) ?? `https://${domain}/.well-known/brand.json`;
   const mcpUrl = llms && mcpUrlIn(llms);
-  const [json, reachable] = await Promise.all([listing ? null : text(jsonUrl), mcpUrl ? answers(mcpUrl) : false]);
-  let rules = null;
-  try {
-    rules = json && rulesOf(JSON.parse(json));
-  } catch {
-    // Not JSON: no brand.json.
-  }
+  const [found, reachable] = await Promise.all([listing ? null : brandJsonAt(jsonUrl), mcpUrl ? answers(mcpUrl) : false]);
   const report = scoreFound({
     domain,
     llms,
-    brandJson: rules ? { url: jsonUrl, rules } : null,
+    brandJson: found,
     listing,
     mcp: mcpUrl ? { url: mcpUrl, reachable } : null,
   });

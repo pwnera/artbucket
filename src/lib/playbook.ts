@@ -117,9 +117,20 @@ humanist sans, charcoal and a signal yellow, a mascot everyone loves.
 `;
 
 /** The docs page (docs/guides/playbook.mdx), written by `pnpm docs:playbook`: the same text under the docs' front matter. */
+/**
+ * Markdown as MDX reads it: outside code, a brace opens an expression and a
+ * `<` before a letter a tag, so prose like set_theme { look: "bold" } breaks
+ * the docs build. Those are escaped there, and left as written in code.
+ */
+export const mdxSafe = (md: string) =>
+  md
+    .split(/(```[\s\S]*?```)/)
+    .map((part, i) => (i % 2 ? part : part.split(/(`[^`\n]*`)/).map((bit, j) => (j % 2 ? bit : bit.replace(/[{}]/g, "\\$&").replace(/<(?=[A-Za-z/])/g, "&lt;"))).join("")))
+    .join("");
+
 export const PLAYBOOK_MDX = `---
 title: The brand site playbook
 description: What a good brand site is, for an agent (or a person) about to build one in Artbucket.
 ---
 
-${PLAYBOOK.replace(/^# .*\n\n/, "")}`;
+${mdxSafe(PLAYBOOK.replace(/^# .*\n\n/, ""))}`;

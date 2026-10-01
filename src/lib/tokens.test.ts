@@ -209,3 +209,18 @@ test("gradientCss: radial takes no angle, conic turns from it", () => {
   assert.equal(gradientCss({ kind: "conic", angle: 90, stops }, (c) => c), "conic-gradient(from 90deg, #000000, #ffffff 60%)");
   assert.equal(gradientCss({ stops }, (c) => c), "linear-gradient(#000000, #ffffff 60%)");
 });
+
+test("a number keeps its unit: CSS writes it, DTCG makes it a dimension or a duration", () => {
+  const rules: TokenRule[] = [
+    { key: "logo.minSize", type: "number", value: 24, usage: null, assets: [], spec: { unit: "px" } as RuleSpec },
+    { key: "motion.fast", type: "number", value: 150, usage: null, assets: [], spec: { unit: "ms" } as RuleSpec },
+    { key: "logo.clearSpace", type: "number", value: 1, usage: null, assets: [], spec: { unit: "x" } as RuleSpec },
+  ];
+  const css = toCss(rules, { origin: "https://dam.example", title: "t" });
+  for (const line of ["--logo-min-size: 24px;", "--motion-fast: 150ms;", "--logo-clear-space: 1;"]) assert.ok(css.includes(line), line);
+  const dtcg = toDtcg(rules, { origin: "https://dam.example" }) as Record<string, Record<string, Record<string, unknown>>>;
+  assert.deepEqual(dtcg.logo.minSize.$value, { value: 24, unit: "px" });
+  assert.equal(dtcg.logo.minSize.$type, "dimension");
+  assert.equal(dtcg.motion.fast.$type, "duration");
+  assert.equal(dtcg.logo.clearSpace.$type, "number");
+});

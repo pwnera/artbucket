@@ -232,7 +232,8 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   return (
     <div className="grid gap-4">
       <header className="grid gap-1.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* pe-8: the badge stays clear of the dialog's close button, top right. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pe-8">
           <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
             <IconWorldUpload aria-hidden className="size-5" /> {n && !current ? `Release @${n}` : "Release"}
           </h2>

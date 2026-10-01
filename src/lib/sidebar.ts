@@ -24,26 +24,28 @@ export type SidebarData = {
  * fails.
  */
 export async function get<B, T>(path: string, pick: (body: B) => T, fallback: T): Promise<T> {
+  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, { cache: "no-store", headers: await asked() });
+  return res.ok ? pick((await res.json()) as B) : fallback;
+}
+
+/**
+ * What an internal call carries of the request it serves: the session, the
+ * host asked for, so an organization's own domain gets its brand
+ * (lib/core/branding.ts), and the visitor's address, so the rate limit
+ * (proxy.ts) counts each visitor's pages, not every page this server renders
+ * as one "unknown".
+ */
+async function asked(): Promise<Record<string, string>> {
   const h = await headers();
   const cookie = h.get("cookie");
-  // The host asked for, so an organization's own domain gets its brand (lib/core/branding.ts).
   const host = h.get("x-forwarded-host") ?? h.get("host");
-  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, {
-    cache: "no-store",
-    headers: { ...(cookie && { cookie }), ...(host && { "x-forwarded-host": host }) },
-  });
-  return res.ok ? pick((await res.json()) as B) : fallback;
+  const from = h.get("x-forwarded-for") ?? h.get("x-real-ip");
+  return { ...(cookie && { cookie }), ...(host && { "x-forwarded-host": host }), ...(from && { "x-forwarded-for": from }) };
 }
 
 /** GET /api/v1/{path}'s body whatever its status, or null: for pages that read an error's detail. */
 export async function getBody<B>(path: string, extra?: Record<string, string>): Promise<B | null> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const cookie = h.get("cookie");
-  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, {
-    cache: "no-store",
-    headers: { ...extra, ...(cookie && { cookie }), ...(host && { "x-forwarded-host": host }) },
-  }).catch(() => null);
+  const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, { cache: "no-store", headers: { ...extra, ...(await asked()) } }).catch(() => null);
   return res ? ((await res.json().catch(() => null)) as B | null) : null;
 }
 

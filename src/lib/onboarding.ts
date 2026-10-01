@@ -116,6 +116,9 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
     done: !!b?.git,
     href: b && f.git ? gitLink(f.git, b.slug) : b ? brandPath(b.slug) : "/brands",
   };
+  // Where the server has no Git integration nothing can tick the step off (a CLI push records no repository), so a path that
+  // doesn't end on it leaves it out; the product path, whose win it is, keeps it, pointing at the brand and its CLI way.
+  const gitStep = f.git ? [git] : [];
   const release = { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder };
   switch (path) {
     case "company":
@@ -124,13 +127,13 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
         basics,
         ...(f.noEmail ? [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: false, href: "/settings/organization/email" }] : []),
         { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: f.team, href: "/team" },
-        git,
+        ...gitStep,
         { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder, win: true },
       ];
     case "oss":
       return [
         { ...basics, why: "Logo, colors, type and voice: start blank, from a template, or from your repository." },
-        git,
+        ...gitStep,
         release,
         f.hub
           ? {

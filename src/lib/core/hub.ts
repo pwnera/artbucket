@@ -384,7 +384,9 @@ const START_FILES = 200;
  * its theme, the pages and sections everyone may read (none hidden or for
  * partners or members), and the files they use that may be delivered,
  * copied into this library (same bytes, stored once). The brand keeps where
- * it came from (`from`). A file that isn't copied is left out of its rules.
+ * it came from (`from`), but not the listing's domain, which is its owner's
+ * (`domain` is for a claim, which proved it). A file that isn't copied is
+ * left out of its rules.
  */
 export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string; domain?: string | null }) {
   if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
@@ -421,6 +423,7 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
     copied.set(a.id, made.asset.id);
   });
   const seed = JSON.parse(text.replace(UUID, (id) => copied.get(id.toLowerCase()) ?? id)) as { rules: typeof src.rules; pages: typeof pages; theme: typeof src.theme };
-  const made = await createBrand(caller, { name: input.name, slug: input.slug, domain: input.domain ?? hub.domain }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
+  // The listing's domain is its owner's: a copy names it only when the copy is theirs, a claim (lib/core/hub-claims.ts) says so.
+  const made = await createBrand(caller, { name: input.name, slug: input.slug, domain: input.domain ?? null }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
   return made;
 }
