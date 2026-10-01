@@ -496,6 +496,13 @@ body:has(#hub-hero) .hub-header-search {
       pointer-events: none;
       animation: collapse 150ms var(--ease-in) forwards;
     }
+    /* A review decision leaves in its color. */
+    [data-collapsing][data-verdict="approve"] {
+      background-color: color-mix(in oklab, var(--success) 14%, transparent);
+    }
+    [data-collapsing][data-verdict="reject"] {
+      background-color: color-mix(in oklab, var(--destructive) 14%, transparent);
+    }
   }
 }
 

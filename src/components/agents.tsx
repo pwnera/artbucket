@@ -26,6 +26,7 @@ import type { Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { collapse } from "@/lib/motion";
 
 export type Key = {
   id: string;
@@ -530,7 +531,7 @@ function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoke
         const whose = k.owner ? `${k.owner}'s ${k.name}` : k.name;
         return (
           // The key just made stays where the API lists it, last, and flashes so it is found.
-          <li key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
+          <li key={k.id} data-api-key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
             {k.owner ? <Initials name={k.owner} className="size-5 text-[9px]" /> : <IconKey className="text-muted-foreground size-4 shrink-0" />}
             <span className="min-w-0 truncate font-medium">{k.name}</span>
             {k.owner && <span className="text-muted-foreground min-w-0 truncate text-xs">{k.owner}</span>}
@@ -551,7 +552,7 @@ function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoke
               run={async () => {
                 const ok = await send("DELETE", `/api/v1/keys/${k.id}`);
                 if (!ok) return null;
-                onRevoked(k.id);
+                collapse(document.querySelector(`[data-api-key="${CSS.escape(k.id)}"]`), () => onRevoked(k.id));
                 toast.success(`Revoked ${whose}`);
                 return ok;
               }}

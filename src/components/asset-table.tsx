@@ -17,6 +17,7 @@ import { isFont } from "@/lib/font";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { hasPreview, isIcon, isMono } from "@/lib/preview";
+import { collapse } from "@/lib/motion";
 
 /**
  * The library as rows, PostHog style: denser than the grid, and the right
@@ -63,11 +64,16 @@ export function AssetTable({
   const onCount = useReviewCount();
   const decide = (a: Asset, verdict: "approve" | "reject", reason = "") => {
     const title = a.metadata?.title || a.filename;
-    decideLater(
-      `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
-      [a],
-      verdict === "approve" ? approve : (x) => reject(x, reason),
-      { patch, onDone: onChanged, onCount },
+    // The row leaves tinted with its verdict, green or red, before the list closes over it.
+    const row = document.querySelector(`tr[data-cursor="${CSS.escape(a.id)}"]`);
+    row?.setAttribute("data-verdict", verdict);
+    collapse(row, () =>
+      decideLater(
+        `${verdict === "approve" ? "Approved" : "Rejected"} ${title}`,
+        [a],
+        verdict === "approve" ? approve : (x) => reject(x, reason),
+        { patch, onDone: onChanged, onCount },
+      ),
     );
   };
 

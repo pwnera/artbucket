@@ -49,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
-import { flash, useKept } from "@/lib/motion";
+import { collapse, flash, useKept } from "@/lib/motion";
 
 export type Portal = {
   id: string;
@@ -253,7 +253,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     portal={p}
                     onEdit={() => setEditing(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
-                    onDeleted={() => setRows((rs) => rs.filter((r) => r.id !== p.id))}
+                    onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
                   />
                 </div>
               </li>
@@ -279,7 +279,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             flash(`[data-portal="${CSS.escape(saved.id)}"]`);
             if (said) toastSaved(saved, said);
           }}
-          onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}
+          onDeleted={(gone) => collapse(document.querySelector(`[data-portal="${CSS.escape(gone)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== gone)))}
         />
       )}
       {shownRequests && (
