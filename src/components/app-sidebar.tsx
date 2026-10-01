@@ -273,22 +273,25 @@ export function AppSidebar({
  * hidden folded to the rail.
  */
 function StorageLine() {
-  const [usage, setUsage] = useState<{ used: number; max: number | null } | null>(null);
+  // false: it couldn't be read, and the line goes.
+  const [usage, setUsage] = useState<{ used: number; max: number | null } | false | null>(null);
   useEffect(() => {
     let live = true;
     fetch("/api/v1/usage")
       .then((r) => (r.ok ? r.json() : null))
-      .then((b) => live && b && setUsage({ used: b.data.used.storage, max: b.data.limits?.storage ?? null }))
-      .catch(() => {});
+      .then((b) => live && setUsage(b ? { used: b.data.used.storage, max: b.data.limits?.storage ?? null } : false))
+      .catch(() => live && setUsage(false));
     return () => {
       live = false;
     };
   }, []);
-  if (!usage) return null;
+  // Its line is held while it loads, so the footer doesn't jump when it lands.
+  if (usage === false) return null;
+  if (!usage) return <span aria-hidden className="h-4 group-data-[collapsible=icon]:hidden" />;
   return (
     <Link
       href="/settings/organization/usage"
-      className="text-muted-foreground hover:text-foreground px-2 text-xs tabular-nums group-data-[collapsible=icon]:hidden"
+      className="text-muted-foreground hover:text-foreground animate-in fade-in-0 h-4 px-2 text-xs tabular-nums duration-300 group-data-[collapsible=icon]:hidden"
     >
       {formatSize(usage.used)}
       {usage.max !== null && ` of ${formatSize(usage.max)}`} used
