@@ -188,7 +188,7 @@ function BrandPortals({
         <ul className="divide-y rounded-lg border">
           {portals.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center gap-3 p-3">
-              <div className="grid min-w-0 flex-1 gap-0.5">
+              <div className="grid min-w-0 flex-1 basis-40 gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
                   <button type="button" onClick={() => setEditing(p)} className="truncate text-start hover:underline">
                     {p.name}
