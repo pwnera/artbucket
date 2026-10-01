@@ -526,6 +526,14 @@ body:has(#hub-hero) .hub-header-search {
   [data-canvas-block][data-flash], [data-item-root][data-flash] {
     animation: ring-flash 1.6s var(--ease-out);
   }
+  /* No, as a head shakes it: a value refused, a wrong password (shake() in lib/motion.ts). */
+  @keyframes shake {
+    20%, 60% { translate: -3px 0; }
+    40%, 80% { translate: 3px 0; }
+  }
+  [data-shake] {
+    animation: shake 250ms var(--ease-out);
+  }
 }
 
 /*

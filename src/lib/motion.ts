@@ -31,6 +31,15 @@ export function flash(target: HTMLElement | string | null | undefined) {
   setTimeout(() => target.removeAttribute("data-flash"), 1600);
 }
 
+/** A small no-shake ([data-shake] in globals.css): what was typed was refused. */
+export function shake(el: Element | null | undefined) {
+  if (!el) return;
+  el.removeAttribute("data-shake");
+  void (el as HTMLElement).offsetWidth;
+  el.setAttribute("data-shake", "");
+  setTimeout(() => el.removeAttribute("data-shake"), 300);
+}
+
 /**
  * Runs `update` as a view transition: what it moves glides from where it was
  * (each element named with view-transition-name keeps its identity), the rest
