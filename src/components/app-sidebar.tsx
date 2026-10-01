@@ -75,6 +75,8 @@ import {
 import { formatSize } from "@/lib/limits";
 import { short } from "@/lib/time";
 import { canonical, parseView, viewQuery } from "@/lib/view";
+import { useKept } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 export type SavedSearch = { id: string; name: string; query: string };
 
@@ -372,8 +374,10 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
     if (open?.keyboard) (panel.current?.querySelector<HTMLElement>("a[href]") ?? panel.current?.querySelector<HTMLElement>("button"))?.focus();
   }, [open]);
 
-  if (!items.length) return null;
   const shown = open && items.find((i) => i.id === open.id);
+  // Kept a moment once closed, so the panel slides away rather than vanishing.
+  const kept = useKept(shown || null);
+  if (!items.length) return null;
   return (
     <SidebarGroup className="hidden group-data-[collapsible=icon]:flex">
       <SidebarGroupContent>
@@ -411,13 +415,13 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
           })}
         </SidebarMenu>
       </SidebarGroupContent>
-      {shown &&
+      {kept &&
         createPortal(
           <div
             ref={panel}
             id={`${base}-panel`}
             role="region"
-            aria-label={shown.label}
+            aria-label={kept.label}
             onPointerEnter={() => clearTimeout(timer.current)}
             onPointerLeave={(e) => e.pointerType === "mouse" && later(() => setOpen((o) => (o?.pinned ? o : null)))}
             // Anything done inside keeps it open while the pointer wanders (a menu, a dialog).
@@ -430,12 +434,17 @@ function FlyoutRail({ items, render }: { items: { id: SectionId; label: string; 
             onKeyDown={(e) => {
               if (e.key !== "Escape" || !panel.current?.contains(e.target as Node)) return;
               close();
-              document.getElementById(`${base}-${shown.id}`)?.focus();
+              document.getElementById(`${base}-${kept.id}`)?.focus();
             }}
-            className="bg-sidebar text-sidebar-foreground animate-in fade-in-0 slide-in-from-left-2 fixed inset-y-0 start-(--sidebar-width-icon,3rem) z-30 hidden w-64 overflow-y-auto border-e shadow-xl duration-150 md:block"
+            className={cn(
+              "bg-sidebar text-sidebar-foreground fixed inset-y-0 start-(--sidebar-width-icon,3rem) z-30 hidden w-64 overflow-y-auto border-e shadow-xl md:block",
+              shown
+                ? "animate-in fade-in-0 slide-in-from-left-2 duration-150"
+                : "animate-out fade-out-0 slide-out-to-left-2 fill-mode-forwards pointer-events-none duration-100 ease-in",
+            )}
           >
             <SidebarExpandedScope>
-              <Flyout.Provider value={flyout}>{render(shown.id)}</Flyout.Provider>
+              <Flyout.Provider value={flyout}>{render(kept.id)}</Flyout.Provider>
             </SidebarExpandedScope>
           </div>,
           document.body,

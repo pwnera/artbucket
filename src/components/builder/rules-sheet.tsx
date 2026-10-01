@@ -414,7 +414,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
                       />
                       {open && (
                         // Start padding: room for RuleView's gutter, its + and handle.
-                        <div className="bg-muted/20 border-t py-4 ps-12 pe-4">
+                        <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
                           <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
                           <Details
                             rule={shown}

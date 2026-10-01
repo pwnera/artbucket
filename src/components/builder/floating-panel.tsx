@@ -177,7 +177,7 @@ export function FloatingPanel({ id, title, label, icon, actions, anchor, width =
           onClick={() => fold(!folded)}
           className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2"
         >
-          <IconChevronDown className={cn("size-4 transition-transform", folded && "-rotate-90")} />
+          <IconChevronDown className={cn("size-4 transition-transform duration-200", folded && "-rotate-90")} />
         </button>
         <button
           type="button"
@@ -189,11 +189,12 @@ export function FloatingPanel({ id, title, label, icon, actions, anchor, width =
           <IconX className="size-4" />
         </button>
       </header>
-      {!folded && (
+      {/* Folds by height, both ways, and keeps what is in it. */}
+      <div className={cn("grid min-h-0 transition-[grid-template-rows] duration-200", folded ? "grid-rows-[0fr]" : "grid-rows-[1fr]")} inert={folded}>
         <div className="min-h-0 overflow-y-auto overscroll-contain" style={{ maxHeight: `calc(100dvh - ${at.y + 40 + GAP}px)` }}>
           {children}
         </div>
-      )}
+      </div>
     </div>,
     document.body,
   );
