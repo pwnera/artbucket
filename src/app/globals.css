@@ -150,6 +150,10 @@
   * {
     @apply border-border;
   }
+  /* Every animation and transition without an ease of its own takes the house one, not CSS's plain ease (tw-animate falls back to it). */
+  *, ::before, ::after {
+    --tw-ease: var(--ease-out);
+  }
   html {
     -webkit-tap-highlight-color: transparent;
   }
