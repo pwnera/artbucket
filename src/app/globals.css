@@ -188,6 +188,13 @@
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
+  /* A view transition is motion too, and a press need not shrink. */
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) {
+    animation: none !important;
+  }
+  :active {
+    scale: none !important;
+  }
   /* A spinner is a status, not decoration. */
   .animate-spin {
     animation-duration: 1.5s !important;
