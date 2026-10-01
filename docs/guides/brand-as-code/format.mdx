@@ -20,7 +20,7 @@ brand/
   them. Anything else in the folder (a README, a `.gitignore`) is left alone.
 - `.yml` is read like `.yaml`, but a name may be there once:
   `rules/color.yaml` beside `rules/color.yml` is an error. Artbucket writes
-  `.yaml`; keep to it, so a pull doesn't add a `.yaml` twin beside your `.yml`.
+  new files as `.yaml`; the CLI's pull keeps a `.yml` file's name.
 - `assets/` may have folders of its own (`assets/logos/mark.svg`).
 - A request carries at most 500 files, each at most 2 MB.
 

@@ -62,14 +62,16 @@ Writes the brand as files into the folder:
 - Only files whose meaning changed are written: one that says the same
   keeps its comments and layout.
 - A file of `rules/` or `pages/` the brand no longer has is removed.
+- A file you named `.yml` keeps its name.
 - `--assets` gives every asset the brand points at a path under `assets/`,
   named after its filename, and downloads the ones whose bytes the folder
-  doesn't already hold. Without it, assets the brand's repository doesn't
-  hold are written as asset ids.
+  doesn't already hold. A folder whose `assets/` already holds files pulls
+  this way without the flag.
+- A file already in `assets/` keeps its path, wherever it sits, matched by
+  the SHA-256 of its bytes: references to it stay paths, never ids.
 
-Without a Git integration, Artbucket doesn't keep which paths your files
-gave its assets: pass `--assets` on every pull, so files keep pointing at
-paths rather than ids.
+Without `--assets` and with an empty `assets/`, assets are written as asset
+ids, unless the brand's Git integration holds them as files.
 
 ## brand diff
 
@@ -96,9 +98,14 @@ in the files, each printed at its file and line:
 pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has color.primary, color.ink
 ```
 
-It also exits 1 while a file under `assets/` isn't on the server yet
-(`assets/hero.jpg: not uploaded yet (push uploads it)`): the files point at
-something the library lacks until a push uploads it.
+A file under `assets/` the server doesn't have yet is not a problem: push
+uploads it. `diff` lists it and exits 0, and shows the rest of the change
+once the file is in the library:
+
+```
+  + assets/hero.jpg (push uploads it)
+The rest of the diff shows once those are in the library: push uploads them first
+```
 
 ## brand push
 
@@ -206,8 +213,8 @@ brand-push:
   Leave `--note` out to update the draft only, and release it from the app.
 - The check on a pull request reads the brand with the key, so it needs the
   secret: pull requests from forks, which get no secrets, can't run it.
-- A pull request that adds a file under `assets/` fails the check until that
-  file is on the server, since `diff` never uploads.
+- A pull request that adds a file under `assets/` passes the check: `diff`
+  lists the file, and the push on main uploads it.
 - A CI push has no sync base, so the repository is the source of truth:
   edits made in the app are undone by the next push. For both sides at once,
   use a Git integration.

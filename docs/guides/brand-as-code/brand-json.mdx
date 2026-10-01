@@ -53,7 +53,7 @@ own. Where a field lists several keys, the first the brand has wins.
 
 | brand.json | From |
 |---|---|
-| `fonts.{name}` | Every font rule under `type.`, by the rest of its key in snake case: `{ family, files[], opentype_features, fallbacks }`, from its family, its files of a `font/*` media type, `spec.features` and `spec.fallback` |
+| `fonts.{name}` | Every font rule under `type.`, by the rest of its key in snake case: `{ family, files[], opentype_features, fallbacks }`, from its family, its font files, `spec.features` and `spec.fallback` |
 | `fonts.primary` | The same as `type.heading`, `type.display`, `type.primary` or `type.headline` |
 | `fonts.secondary` | The same as `type.body`, `type.text`, `type.sans` or `type.secondary` |
 | `visual_guidelines.type_scale.{role}` | A face with a size or a weight in its value, by `spec.role`: `display` and `headline` are `heading`, `subhead` is `subheading`, `body`, `caption`, `button` is `cta`; or by its name, when it is one of those. `{ font, size, weight, line_height, letter_spacing, text_transform }` from its size (px), weight, `spec.lineHeight`, `spec.tracking` (in em) and `spec.case` |
@@ -68,7 +68,7 @@ Every image of every `logo.*` rule, context versions included, is one
 |---|---|
 | `id` | The rest of the key, the context, and a number from the second image on: `mark`, `primary_dark_background`, `mark_2` |
 | `url` | The file, at the rendition the rule names: `/a/{id}/w_512,f_png`, signed for a day |
-| `variant` | `logo.primary` is `primary`; a key containing mark, icon or symbol is `icon`; a lockup is `full-lockup`; any other `secondary`. `wordmark` is meant for `logo.wordmark`, but the key contains mark, so it reads as `icon` for now |
+| `variant` | `logo.primary` is `primary`; a key containing wordmark is `wordmark`; a lockup is `full-lockup`; a key containing mark, icon or symbol is `icon`; any other `secondary` |
 | `background` | `dark-bg` when the context says dark, or the key says dark, reversed, inverse or white |
 | `orientation` | `stacked` when the key says stack or vertical; else from the file's size: `horizontal` past 1.25:1, `vertical` past 1:1.25, `square` between |
 | `slots` | An `icon` in the default context: `favicon`, `app_icon`, `profile_mark` |
@@ -132,9 +132,9 @@ A brand that holds these rules fills every field the export writes. The
 | `url`, `house_domain` | The brand's domain in its Settings, and a [verified domain](/guides/portals#a-domain-of-its-own) for the organization |
 | `colors` | `color.primary`, `color.secondary`, `color.accent`, `color.background`, `color.ink` |
 | `colorways` | `spec.pair` on the grounds: `color.primary` paired with the color set on it |
-| `fonts`, `primary`, `secondary` | `type.heading` and `type.body`, with their files uploaded as fonts |
+| `fonts`, `primary`, `secondary` | `type.heading` and `type.body`, with their font files |
 | `type_scale` | A size and a weight in each face's value, and `spec.role`, `lineHeight`, `tracking`, `case` |
-| `logos` | `logo.primary` and `logo.mark` with their images, and a `dark-background` version of each with its reversed file |
+| `logos` | `logo.primary`, `logo.mark` and `logo.wordmark` with their images, and a `dark-background` version of each with its reversed file |
 | `logo_placement` | `logo.clearSpace` (number, `spec.unit: x`, `spec.of`) and `logo.minSize` (number, `spec.unit: px`) |
 | `restrictions` | `logo.never` (and `color.never`) lists |
 | `tone` | `tone.voice` (text), `tone.attributes`, `tone.always`, `tone.avoid` (lists) |
@@ -236,8 +236,9 @@ Any other host answers `404`.
 
 The public [Brand Agent Score](/guides/portals#a-public-brand-agent-score)
 reads a domain's `/.well-known/brand.json` (or the brand.json its
-`llms.txt` links) for its rules, and doesn't follow an Authoritative Location
-Redirect: prove the domain, so the score reads its BrandHub listing instead.
+`llms.txt` links) for its rules. An Authoritative Location Redirect there is
+followed once, over https, so the one-line file above is enough for the score
+to read the brand on BrandHub.
 
 ## The import
 

@@ -26,7 +26,7 @@ naming the variable.
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
-| `OIDC_NAME` | `SSO` | The button: "Sign in with {OIDC_NAME}" |
+| `OIDC_NAME` | `SSO` | The button: "Sign in with `OIDC_NAME`" |
 | `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Set: every organization's email, and new accounts confirm their address with a code. Unset: no email, unless an organization sets its own |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key |
 | `BRAND_NAME` `BRAND_TAGLINE` `BRAND_ACCENT` | the product's | The server's brand, under every organization's own. See [White-labeling](/configuration/white-labeling) |

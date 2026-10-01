@@ -318,9 +318,9 @@ curl -X POST https://assets.example.com/api/v1/assets -H "Authorization: Bearer 
   -H 'content-type: application/json' -d '{"token": "<token>", "filename": "hero.jpg", "mime": "image/jpeg"}'
 ```
 
-Give fonts their media type (`font/woff2`, `font/ttf`, `font/otf`): the
-[brand.json](/guides/brand-as-code/brand-json) export lists a face's files by
-it. Files under `assets/` no file points at can be sent or left out.
+A font's type is read from its bytes when it is filed, whatever media type
+the upload gave. Files under `assets/` no file points at can be sent or left
+out.
 
 ## Problems
 
