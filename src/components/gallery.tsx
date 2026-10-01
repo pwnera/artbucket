@@ -86,7 +86,7 @@ import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
-import { flash, transition, useKept } from "@/lib/motion";
+import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -1550,6 +1550,7 @@ export function Gallery({
                         tabbable={a.id === tab}
                         onCursor={setCursor}
                         large={density === "l"}
+                        open={view.asset === a.id}
                       />
                     </li>
                   </AssetMenu>
@@ -1770,6 +1771,7 @@ export const AssetCard = memo(function AssetCard({
   tabbable,
   onCursor,
   large = false,
+  open = false,
 }: {
   asset: Asset;
   onOpen?: (a: Asset) => void;
@@ -1784,6 +1786,8 @@ export const AssetCard = memo(function AssetCard({
   onCursor?: (id: string) => void;
   /** Large tiles: a bigger rendition. */
   large?: boolean;
+  /** Shown in the viewer: its picture has moved there (the open's view transition). */
+  open?: boolean;
 }) {
   const [hover, setHover] = useState(false);
   const [peek, setPeek] = useState(false);
@@ -1833,73 +1837,75 @@ export const AssetCard = memo(function AssetCard({
           fresh && !selected && "ring-primary/40 animate-in fade-in-0 zoom-in-95 ring-2",
         )}
       >
-        <div className={cn("relative aspect-square overflow-hidden", wellClass(a), selected && "bg-primary/5")}>
-          {isIcon(a) ? (
-            // The vector at a glyph's size: a 24px icon's rendition, blown up to the tile, would blur.
-            seen && (
-              <span className={cn("flex size-full items-center justify-center", GLYPH_INK)}>
-                <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className={large ? "size-20" : "size-14"} />
+        <Morph name={open ? null : `asset-${a.id}`}>
+          <div className={cn("relative aspect-square overflow-hidden", wellClass(a), selected && "bg-primary/5")}>
+            {isIcon(a) ? (
+              // The vector at a glyph's size: a 24px icon's rendition, blown up to the tile, would blur.
+              seen && (
+                <span className={cn("flex size-full items-center justify-center", GLYPH_INK)}>
+                  <IconGlyph src={`/a/${a.id}`} mono={isMono(a)} className={large ? "size-20" : "size-14"} />
+                </span>
+              )
+            ) : hasPreview(a) ? (
+              // Rendition URLs are pure functions of the asset id: no export step,
+              // no signing, no prior round trip.
+              <Thumb src={`/a/${a.id}/${large ? "w_400" : "w_260"},f_webp`} alt="" />
+            ) : isLottie(a) && seen ? (
+              // Still until pointed at: a grid of loops is noise.
+              <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
+            ) : isFont(a.mime, a.filename) && seen ? (
+              <span className="flex size-full items-center justify-center">
+                <FontThumb id={a.id} className="text-6xl" />
               </span>
-            )
-          ) : hasPreview(a) ? (
-            // Rendition URLs are pure functions of the asset id: no export step,
-            // no signing, no prior round trip.
-            <Thumb src={`/a/${a.id}/${large ? "w_400" : "w_260"},f_webp`} alt="" />
-          ) : isLottie(a) && seen ? (
-            // Still until pointed at: a grid of loops is noise.
-            <Lottie src={`/a/${a.id}`} playing={hover} className="p-2" />
-          ) : isFont(a.mime, a.filename) && seen ? (
-            <span className="flex size-full items-center justify-center">
-              <FontThumb id={a.id} className="text-6xl" />
-            </span>
-          ) : isLottie(a) || isFont(a.mime, a.filename) ? null : (
-            <span className="text-muted-foreground flex size-full items-center justify-center">
-              <IconPhoto className="size-8" stroke={1.5} />
-            </span>
-          )}
-          {/* The probe records no length: a hidden player fetches just the header for the badge, then goes. */}
-          {video && seen && (peek || duration === null) && (
-            <video
-              ref={player}
-              src={`/a/${a.id}`}
-              muted
-              loop
-              playsInline
-              preload={peek ? "auto" : "metadata"}
-              onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
-              aria-hidden
-              className={cn("absolute inset-0 size-full object-contain p-2", peek ? "animate-in fade-in-0" : "invisible")}
-            />
-          )}
-          {video && !peek && (
-            <span aria-hidden className="bg-background/80 absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-sm backdrop-blur">
-              <IconPlayerPlayFilled className="size-4" />
-            </span>
-          )}
-          <Badge variant="secondary" className="bg-background/80 text-2xs absolute top-2 left-2 font-mono backdrop-blur">
-            {fileTypeBadge(a.filename, a.mime, a.probe)}
-            {badge.version && <span className="text-muted-foreground">{badge.version}</span>}
-          </Badge>
-          {badge.suggested && (
-            <Badge className="text-2xs absolute bottom-2 left-2 max-w-[calc(50%-0.75rem)] truncate">
-              <IconSparkles />
-              <span className="truncate">{badge.suggested}</span>
+            ) : isLottie(a) || isFont(a.mime, a.filename) ? null : (
+              <span className="text-muted-foreground flex size-full items-center justify-center">
+                <IconPhoto className="size-8" stroke={1.5} />
+              </span>
+            )}
+            {/* The probe records no length: a hidden player fetches just the header for the badge, then goes. */}
+            {video && seen && (peek || duration === null) && (
+              <video
+                ref={player}
+                src={`/a/${a.id}`}
+                muted
+                loop
+                playsInline
+                preload={peek ? "auto" : "metadata"}
+                onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
+                aria-hidden
+                className={cn("absolute inset-0 size-full object-contain p-2", peek ? "animate-in fade-in-0" : "invisible")}
+              />
+            )}
+            {video && !peek && (
+              <span aria-hidden className="bg-background/80 absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-sm backdrop-blur">
+                <IconPlayerPlayFilled className="size-4" />
+              </span>
+            )}
+            <Badge variant="secondary" className="bg-background/80 text-2xs absolute top-2 left-2 font-mono backdrop-blur">
+              {fileTypeBadge(a.filename, a.mime, a.probe)}
+              {badge.version && <span className="text-muted-foreground">{badge.version}</span>}
             </Badge>
-          )}
-          {/* Its state first (replaced, expired, expiring); else where it came from (AI-made, by an agent, imported). */}
-          {(badge.state ?? provenanceChips(a)[0]) ? (
-            <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 max-w-[calc(50%-0.75rem)] truncate backdrop-blur">
-              {badge.state ?? provenanceChips(a)[0]}
-            </Badge>
-          ) : (
-            video &&
-            duration !== null && (
-              <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 font-mono tabular-nums backdrop-blur">
-                {Math.floor(Math.round(duration) / 60)}:{String(Math.round(duration) % 60).padStart(2, "0")}
+            {badge.suggested && (
+              <Badge className="text-2xs absolute bottom-2 left-2 max-w-[calc(50%-0.75rem)] truncate">
+                <IconSparkles />
+                <span className="truncate">{badge.suggested}</span>
               </Badge>
-            )
-          )}
-        </div>
+            )}
+            {/* Its state first (replaced, expired, expiring); else where it came from (AI-made, by an agent, imported). */}
+            {(badge.state ?? provenanceChips(a)[0]) ? (
+              <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 max-w-[calc(50%-0.75rem)] truncate backdrop-blur">
+                {badge.state ?? provenanceChips(a)[0]}
+              </Badge>
+            ) : (
+              video &&
+              duration !== null && (
+                <Badge variant="secondary" className="bg-background/80 text-2xs absolute right-2 bottom-2 font-mono tabular-nums backdrop-blur">
+                  {Math.floor(Math.round(duration) / 60)}:{String(Math.round(duration) % 60).padStart(2, "0")}
+                </Badge>
+              )
+            )}
+          </div>
+        </Morph>
         <div className="flex flex-1 flex-col gap-0.5 border-t px-3 py-2">
           {/* The title a person gave it reads better than the name a camera did. */}
           <p className="truncate text-sm font-medium" title={a.filename}>

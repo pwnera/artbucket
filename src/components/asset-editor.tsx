@@ -81,7 +81,7 @@ import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS, isDownloadable } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
-import { flash, useKept } from "@/lib/motion";
+import { flash, Morph, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
@@ -680,36 +680,38 @@ export function AssetEditor({
               <IconStage asset={asset} bg={bg} name={name} />
             </div>
           ) : image ? (
-            <div
-              draggable
-              onDragStart={dragOut}
-              onDoubleClick={() => setZoom((z) => !z)}
-              className={cn("absolute inset-0", zoom ? "cursor-zoom-out overflow-auto" : "cursor-zoom-in")}
-            >
-              {zoom ? (
-                // Actual pixels, panned by scrolling. An SVG stays the vector: an <img> runs no script.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={svg ? `/a/${asset.id}` : `/a/${asset.id}/f_webp`}
-                  alt={name}
-                  draggable={false}
-                  style={asset.width ? { width: asset.width } : undefined}
-                  className="m-auto block max-w-none p-6"
-                />
-              ) : svg ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/a/${asset.id}`} alt={name} draggable={false} className="size-full object-contain p-6" />
-              ) : (
-                <Thumb
-                  src={`/a/${asset.id}/w_640,f_webp`}
-                  alt={name}
-                  eager
-                  // The card's rendition, already cached: shown at once, sharpened when this lands.
-                  placeholder={`/a/${asset.id}/w_${typeof devicePixelRatio !== "undefined" && devicePixelRatio > 1 ? 520 : 260},f_webp`}
-                  className="p-6"
-                />
-              )}
-            </div>
+            <Morph name={`asset-${asset.id}`}>
+              <div
+                draggable
+                onDragStart={dragOut}
+                onDoubleClick={() => setZoom((z) => !z)}
+                className={cn("absolute inset-0", zoom ? "cursor-zoom-out overflow-auto" : "cursor-zoom-in")}
+              >
+                {zoom ? (
+                  // Actual pixels, panned by scrolling. An SVG stays the vector: an <img> runs no script.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={svg ? `/a/${asset.id}` : `/a/${asset.id}/f_webp`}
+                    alt={name}
+                    draggable={false}
+                    style={asset.width ? { width: asset.width } : undefined}
+                    className="m-auto block max-w-none p-6"
+                  />
+                ) : svg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`/a/${asset.id}`} alt={name} draggable={false} className="size-full object-contain p-6" />
+                ) : (
+                  <Thumb
+                    src={`/a/${asset.id}/w_640,f_webp`}
+                    alt={name}
+                    eager
+                    // The card's rendition, already cached: shown at once, sharpened when this lands.
+                    placeholder={`/a/${asset.id}/w_${typeof devicePixelRatio !== "undefined" && devicePixelRatio > 1 ? 520 : 260},f_webp`}
+                    className="p-6"
+                  />
+                )}
+              </div>
+            </Morph>
           ) : isFont(asset.mime, asset.filename) ? (
             <FontPlayground id={asset.id} />
           ) : (

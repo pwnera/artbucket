@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState, ViewTransition } from "react";
 import { flushSync } from "react-dom";
 
 /**
@@ -49,14 +49,22 @@ export function shake(el: Element | null | undefined) {
  */
 export function transition(update: () => void) {
   if (!document.startViewTransition || still()) return update();
-  const name = () => document.querySelectorAll<HTMLElement>("[data-vt]").forEach((el) => (el.style.viewTransitionName = el.dataset.vt!));
+  const named: HTMLElement[] = [];
+  const name = () => {
+    // An element that gave up its name in the update (a tile now open in the viewer) drops it, or the name would be taken twice.
+    named.splice(0).forEach((el) => (el.style.viewTransitionName = ""));
+    document.querySelectorAll<HTMLElement>("[data-vt]").forEach((el) => {
+      el.style.viewTransitionName = el.dataset.vt!;
+      named.push(el);
+    });
+  };
   name();
   const t = document.startViewTransition(() => {
     flushSync(update);
     // What the update drew new is named too, before the new state is captured.
     name();
   });
-  void t.finished.finally(() => document.querySelectorAll<HTMLElement>("[data-vt]").forEach((el) => (el.style.viewTransitionName = "")));
+  void t.finished.finally(() => named.forEach((el) => (el.style.viewTransitionName = "")));
 }
 
 /**
@@ -72,6 +80,17 @@ export function collapse(target: Element | Iterable<Element> | null | undefined,
     then();
     requestAnimationFrame(() => els.forEach((el) => el.removeAttribute("data-collapsing")));
   }, 150);
+}
+
+/**
+ * One thing seen in two places, a tile and the viewer: React moves it from
+ * one to the other when a navigation swaps them (a shared view transition),
+ * and nothing else animates. `name` unique on the page; null drops it here
+ * (the tile while its picture is in the viewer). Asked for less motion, the
+ * CSS keeps it still.
+ */
+export function Morph({ name, children }: { name: string | null; children: React.ReactNode }) {
+  return name ? createElement(ViewTransition, { name, share: "auto", default: "none" }, children) : children;
 }
 
 /**
