@@ -263,6 +263,7 @@ export function AssetEditor({
   onOpen,
   onDecided,
   onStep,
+  from = 0,
   hasPrev,
   hasNext,
   dragging,
@@ -281,6 +282,8 @@ export function AssetEditor({
   /** Approved or rejected: `before` is what Undo puts back. */
   onDecided?: (before: Asset, after: Asset, message: string) => void;
   onStep?: (d: 1 | -1) => void;
+  /** The way a step came: the preview slides in from that side (1 from the end, -1 from the start). */
+  from?: 1 | -1 | 0;
   hasPrev?: boolean;
   hasNext?: boolean;
   /** Files are being dragged over the dialog. */
@@ -635,6 +638,8 @@ export function AssetEditor({
       <div
         className={cn(
           "animate-in fade-in-0 flex min-h-64 flex-col border-b duration-150 max-md:h-[45dvh] md:min-h-0 md:border-r md:border-b-0",
+          from === 1 && "slide-in-from-end-4 duration-200",
+          from === -1 && "slide-in-from-start-4 duration-200",
           // The picked background is for images and icons; a video, a font or a file keeps the plain well.
           PREVIEW_BG[backdrop ? bg : "auto"],
           theater && "max-md:h-dvh md:col-span-2 md:border-r-0",
