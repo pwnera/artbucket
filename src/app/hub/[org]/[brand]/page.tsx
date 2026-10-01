@@ -65,7 +65,7 @@ export default async function HubListing(props: Props) {
               <span className="font-medium">Is {b.name} your brand?</span>{" "}
               <span className="text-muted-foreground hidden sm:inline">Prove your organization holds {b.domain} to claim this listing: it becomes your brand, verified, and this address leads to it.</span>
             </p>
-            <Button asChild size="sm">
+            <Button asChild variant="outline" size="sm">
               <a href={`${env.APP_URL}/settings/organization/domains`}>Claim this brand</a>
             </Button>
           </div>
