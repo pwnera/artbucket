@@ -21,7 +21,7 @@ code through the API, the CLI and Git.
 
 The whole core is here, free to self-host on Postgres and an S3-compatible
 bucket. Nothing held back, nothing to unlock, no telemetry. [Artbucket Cloud]
-runs the same core for you, hosted in the EU, as a free alpha.
+runs the same core for you, hosted in the EU.
 
 <p align="center">
   <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
