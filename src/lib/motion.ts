@@ -81,12 +81,18 @@ export function useFlashNew(ids: string[], at: (id: string) => string) {
 }
 
 /**
- * The last value that was there: a dialog keeps showing its subject while it
- * fades out, instead of unmounting the moment its subject is cleared.
- * Render while `kept`, open while `value`.
+ * The last value that was there, for as long as a dialog takes to leave: it
+ * fades out still showing its subject, instead of unmounting the moment its
+ * subject is cleared, and opens fresh next time. Render while kept, open
+ * while `value`.
  */
 export function useKept<T>(value: T | null | undefined): T | null {
   const [kept, setKept] = useState(value ?? null);
   if (value != null && value !== kept) setKept(value);
+  useEffect(() => {
+    if (value != null || kept == null) return;
+    const t = setTimeout(() => setKept(null), 200);
+    return () => clearTimeout(t);
+  }, [value, kept]);
   return value ?? kept;
 }

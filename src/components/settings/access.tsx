@@ -58,6 +58,7 @@ import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
 import { useFlashNew } from "@/lib/motion";
 import { SavedMark } from "@/components/settings/panels";
+import { useKept } from "@/lib/motion";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope; limits: Ability[] };
@@ -131,6 +132,9 @@ export function People({
     inviting ? { kind: "invite" } : null,
   );
   const [resent, setResent] = useState<{ email: string; url: string; emailed: boolean } | null>(null);
+  // Kept while they fade out, so they leave showing what they showed.
+  const shownDialog = useKept(dialog);
+  const shownResent = useKept(resent);
   const [resending, setResending] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
@@ -308,15 +312,15 @@ export function People({
         <p className="text-muted-foreground text-sm">No invitations waiting.</p>
       )}
 
-      {dialog && <GrantDialog me={me} dialog={dialog} places={places} onClose={close} onDone={refresh} />}
-      {resent && (
-        <Dialog open onOpenChange={(o) => !o && setResent(null)}>
+      {shownDialog && <GrantDialog me={me} dialog={shownDialog} open={!!dialog} places={places} onClose={close} onDone={refresh} />}
+      {shownResent && (
+        <Dialog open={!!resent} onOpenChange={(o) => !o && setResent(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Invitation for {resent.email}</DialogTitle>
+              <DialogTitle>Invitation for {shownResent.email}</DialogTitle>
               <DialogDescription>A new link, good for a week. The one sent before no longer works.</DialogDescription>
             </DialogHeader>
-            <InviteLink me={me} url={resent.url} emailed={resent.emailed} />
+            <InviteLink me={me} url={shownResent.url} emailed={shownResent.emailed} />
             <DialogFooter>
               <Button onClick={() => setResent(null)}>Done</Button>
             </DialogFooter>
@@ -493,9 +497,11 @@ function GrantDialog({
   me,
   dialog,
   places,
+  open = true,
   onClose,
   onDone,
 }: {
+  open?: boolean;
   me: Me;
   dialog: { kind: "invite" } | { kind: "grant"; user: { id: string; name: string } };
   places: Where[];
@@ -526,7 +532,7 @@ function GrantDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{dialog.kind === "invite" ? "Invite someone" : `More access for ${dialog.user.name}`}</DialogTitle>

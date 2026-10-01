@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { useKept } from "@/lib/motion";
 
 /**
  * Signing in and up, against better-auth at /api/auth: who someone is. What
@@ -605,6 +606,7 @@ export function Welcome({ me }: { me: Me }) {
   const go = useGo();
   const router = useRouter();
   const [making, setMaking] = useState(false);
+  const shownMaking = useKept(making || null);
   useEffect(() => {
     const look = () => document.visibilityState === "visible" && router.refresh();
     const every = setInterval(look, 30_000);
@@ -630,7 +632,7 @@ export function Welcome({ me }: { me: Me }) {
         </Button>
       </div>
       <p className="text-muted-foreground text-xs text-pretty">This page moves on by itself once you have access.</p>
-      {making && <MakeDialog kind="organization" onClose={() => setMaking(false)} />}
+      {shownMaking && <MakeDialog kind="organization" open={making} onClose={() => setMaking(false)} />}
     </Card>
   );
 }

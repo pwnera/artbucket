@@ -49,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
-import { flash } from "@/lib/motion";
+import { flash, useKept } from "@/lib/motion";
 
 export type Portal = {
   id: string;
@@ -156,6 +156,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
+  // Kept while they fade out, so they leave showing what they showed.
+  const shownEditing = useKept(editing);
+  const shownRequests = useKept(requests);
   const any = collections.length > 0 || brands.length > 0;
   // Arriving from a brand's Sharing tab: only the portals showing it.
   const only = brands.find((b) => b.slug === params.get("brand"));
@@ -258,12 +261,13 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </ul>
         )}
       </div>
-      {editing && (
+      {shownEditing && (
         <PortalDialog
-          portal={editing === "new" ? null : editing}
+          open={!!editing}
+          portal={shownEditing === "new" ? null : shownEditing}
           collections={collections}
           brands={brands}
-          showing={editing === "new" && freshBrand ? freshBrand : undefined}
+          showing={shownEditing === "new" && freshBrand ? freshBrand : undefined}
           portalDomain={portalDomain}
           onClose={() => {
             setEditing(null);
@@ -278,9 +282,10 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onDeleted={(gone) => setRows((rs) => rs.filter((r) => r.id !== gone))}
         />
       )}
-      {requests && (
+      {shownRequests && (
         <RequestsDialog
-          portal={requests}
+          open={!!requests}
+          portal={shownRequests}
           onClose={(changed) => {
             setRequests(null);
             // Off the address, or the next render would open it again.
@@ -514,6 +519,7 @@ function siteSummary(site: PortalSite) {
  * shown here as "From {brand}".
  */
 export function PortalDialog({
+  open = true,
   portal,
   collections,
   brands,
@@ -523,6 +529,7 @@ export function PortalDialog({
   onSaved,
   onDeleted,
 }: {
+  open?: boolean;
   portal: Portal | null;
   collections: Pickable[];
   brands: { slug: string; name: string }[];
@@ -633,7 +640,7 @@ export function PortalDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className="pb-0 sm:max-w-xl"
         guard={{ dirty, onDiscard: onClose, ...(ready && { onSave: () => formRef.current?.requestSubmit() }) }}
@@ -1310,7 +1317,7 @@ function SiteFields({
 }
 
 /** Who asked in, and a yes or a no for each; a decision can be changed. */
-function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed: boolean) => void }) {
+function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open?: boolean; onClose: (changed: boolean) => void }) {
   const [rows, setRows] = useState<Request[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -1377,7 +1384,7 @@ function RequestsDialog({ portal, onClose }: { portal: Portal; onClose: (changed
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose(changed.current)}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose(changed.current)}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>

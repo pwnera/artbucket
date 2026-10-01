@@ -42,6 +42,7 @@ import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { can } from "@/lib/permissions";
 import { roleName, type Scope } from "@/lib/scopes";
 import type { Off } from "@/lib/access";
+import { useKept } from "@/lib/motion";
 
 type Ref = { id: string; slug: string; name: string };
 export type WorkspaceRef = Ref & { organization: Ref };
@@ -142,6 +143,7 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
   // The old workspace stays on screen until the new one arrives: say it's on its way.
   const [pending, start] = useTransition();
   const [making, setMaking] = useState<"workspace" | "organization" | null>(null);
+  const madeKind = useKept(making);
   const { isMobile } = useSidebar();
   const orgs = new Map<string, { org: Ref; workspaces: WorkspaceRef[] }>();
   for (const w of me.workspaces) {
@@ -207,18 +209,18 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {making && <MakeDialog kind={making} org={me.workspace.organization.name} onClose={() => setMaking(null)} />}
+      {madeKind && <MakeDialog kind={madeKind} open={!!making} org={me.workspace.organization.name} onClose={() => setMaking(null)} />}
     </>
   );
 }
 
 /** Name a new workspace or organization, then go into it. */
-export function MakeDialog({ kind, org, onClose }: { kind: "workspace" | "organization"; org?: string; onClose: () => void }) {
+export function MakeDialog({ kind, org, open = true, onClose }: { kind: "workspace" | "organization"; org?: string; open?: boolean; onClose: () => void }) {
   const id = useId();
   const go = useGo();
   const [busy, setBusy] = useState(false);
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <form
           className="grid gap-4"
