@@ -1,6 +1,0 @@
-# cli/Dockerfile reads these alone, not the app.
-*
-!LICENSE
-!bin/artbucket.ts
-!cli/build.js
-!cli/package.json

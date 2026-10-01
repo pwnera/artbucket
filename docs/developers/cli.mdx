@@ -21,12 +21,12 @@ than you have. Disconnect it from Connections. Or set `ARTBUCKET_KEY`. From a
 clone, `pnpm artbucket` runs the same CLI, and `pnpm link --global` puts it
 on your path.
 
-Without Node, the CLI is an image too: `ghcr.io/pwnera/abctl`, tagged like
-the app's ([Docker](/guides/brand-as-code/cli#with-docker)).
+Without Node, the app's image runs the CLI when given a command
+([Docker](/guides/brand-as-code/cli#with-docker)):
 
 ```bash
-docker run --rm -it -v artbucket:/config ghcr.io/pwnera/abctl login app.artbucket.io
-docker run --rm -v artbucket:/config -v "$PWD":/work ghcr.io/pwnera/abctl brand push brand --publish
+docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket login app.artbucket.io
+docker run --rm -v artbucket:/config -v "$PWD":/work ghcr.io/pwnera/artbucket brand push brand --publish
 ```
 
 ```bash
