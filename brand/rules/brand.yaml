@@ -1,0 +1,14 @@
+brand.tagline:
+  type: text
+  value: All your brand. None of the busywork.
+  usage: The line under the name, on the site, the README and the cover.
+  spec:
+    copy: true
+brand.description:
+  type: text
+  value: >-
+    The open-source DAM and brand manager: your assets, guidelines and portals
+    in one connected home, for your team and your AI agents.
+  usage: Where one sentence has to say what Artbucket is.
+  spec:
+    copy: true

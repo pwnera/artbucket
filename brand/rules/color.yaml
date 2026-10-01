@@ -1,0 +1,62 @@
+color.primary:
+  type: color
+  label: Violet
+  value: "#6d4aff"
+  usage: The mark's tile, primary buttons, focus rings. A fill, rarely text.
+  spec:
+    group: Primary
+    pair: color.background
+color.primaryInk:
+  type: color
+  label: Violet ink
+  value: "#5b38f0"
+  usage: Violet as text and icons on light grounds, where Violet itself is too light.
+  spec:
+    group: Primary
+  contexts:
+    dark-background:
+      value: "#a592ff"
+color.highlight:
+  type: color
+  label: Lime
+  value: "#e1eea1"
+  usage: A highlight behind a word or a badge, never a fill for large areas.
+  spec:
+    group: Secondary
+    pair: color.ink
+color.ink:
+  type: color
+  label: Ink
+  value: "#20241f"
+  usage: Text on light grounds.
+  spec:
+    group: Neutrals
+color.background:
+  type: color
+  label: Paper
+  value: "#ffffff"
+  usage: The page.
+  spec:
+    group: Neutrals
+    pair: color.ink
+color.panel:
+  type: color
+  label: Mist
+  value: "#f4f4f7"
+  usage: Panels, secondary buttons and muted grounds.
+  spec:
+    group: Neutrals
+color.border:
+  type: color
+  label: Line
+  value: "#eae8eb"
+  usage: Hairlines and card borders.
+  spec:
+    group: Neutrals
+color.dark:
+  type: color
+  label: Night
+  value: "#141414"
+  usage: The dark ground. Neutral grey, since tinted neutrals turn muddy near black.
+  spec:
+    group: Neutrals

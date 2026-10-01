@@ -1,0 +1,18 @@
+tone.voice:
+  type: text
+  value: >-
+    Plain, exact and a little dry. We say what a thing does, in the words its
+    reader uses, and stop.
+  usage: "Anything Artbucket says: the app, the docs, the site, commit messages."
+tone.always:
+  type: list
+  value:
+    - Short sentences. Two sentences over one long one.
+    - Name the thing, not its category.
+    - Say what happens, not what is possible.
+tone.avoid:
+  type: list
+  value:
+    - Em dashes. Use a comma, a colon, " - " or two sentences.
+    - Marketing words like seamless, powerful, effortless.
+    - Exclamation marks.

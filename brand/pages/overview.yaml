@@ -1,0 +1,27 @@
+title: Overview
+layout: landing
+sections:
+  - template: cover
+    eyebrow: Brand guidelines
+    title: Artbucket
+    lede: All your brand. None of the busywork.
+  - template: statement
+    eyebrow: What it is
+    title: Your brand's truth should be yours.
+    keys: [brand.description]
+    tone: plain
+  - template: pages
+    title: The guidelines
+    items:
+      - link: /logo
+        title: Logo
+        text: The bucket, and the three colors it comes in.
+      - link: /color
+        title: Color
+        text: Violet, Lime and the neutrals around them.
+      - link: /type
+        title: Type
+        text: Funnel Display, Funnel Sans and Geist Mono.
+      - link: /voice
+        title: Voice
+        text: Plain, exact and a little dry.

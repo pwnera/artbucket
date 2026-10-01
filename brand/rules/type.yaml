@@ -1,0 +1,32 @@
+type.heading:
+  type: font
+  value:
+    family: Funnel Display
+    weight: 700
+  usage: Headings and the wordmark, tracked a little tight.
+  spec:
+    role: headline
+    tracking: -0.03
+    source: google
+    url: https://fonts.google.com/specimen/Funnel+Display
+    fallback: system-ui, sans-serif
+type.body:
+  type: font
+  value:
+    family: Funnel Sans
+    weight: 400
+  usage: Everything people read.
+  spec:
+    role: body
+    source: google
+    url: https://fonts.google.com/specimen/Funnel+Sans
+    fallback: system-ui, sans-serif
+type.code:
+  type: font
+  value: Geist Mono
+  usage: Code, keys, ids and anything a person might paste into a terminal.
+  spec:
+    role: code
+    source: google
+    url: https://fonts.google.com/specimen/Geist+Mono
+    fallback: ui-monospace, monospace

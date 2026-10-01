@@ -1,0 +1,9 @@
+title: Logo
+lede: A tipped paint bucket, a paint line, one drop. Always one color.
+sections:
+  - template: logos
+    title: Versions
+    keys: [logo.primary, logo.mark, logo.markWhite, color.primary]
+  - template: dodont
+    title: Do and don't
+    keys: [logo.always, logo.neverDo]

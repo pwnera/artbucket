@@ -1,0 +1,9 @@
+title: Type
+lede: One family for headings and text, a mono for what gets pasted.
+sections:
+  - template: type
+    title: Funnel for words, Geist Mono for what gets pasted
+    keys: [type.heading, type.body, type.code]
+    props:
+      sample: All your brand. None of the busywork.
+      roles: true

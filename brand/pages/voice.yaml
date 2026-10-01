@@ -1,0 +1,9 @@
+title: Voice
+lede: Plain, exact and a little dry.
+sections:
+  - template: text
+    title: How we write
+    keys: [tone.voice, tone.always, tone.avoid]
+  - template: copy
+    title: Lines to paste
+    keys: [brand.tagline, brand.description]

@@ -1,0 +1,20 @@
+# An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+# Artbucket's own brand, kept here as code (docs/guides/brand-as-code.mdx).
+name: Artbucket
+theme:
+  accent: color.primary
+  surface: color.background
+  panel: color.panel
+  dark: color.dark
+  ink: color.ink
+  head: type.heading
+  body: type.body
+  logo: logo.primary
+  radius: 10
+rules: [brand, color, type, logo, tone]
+pages:
+  - overview
+  - logo
+  - color
+  - type
+  - voice
