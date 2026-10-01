@@ -325,14 +325,14 @@ export async function removeDomain(caller: Caller, host: string) {
   return true;
 }
 
-/** What a portal may be served at: the organization's verified domains but the default, and the portal each serves. */
+/** What a portal may be served at: the organization's verified domains, and the portal each serves. */
 export async function portalDomains(caller: Caller) {
   if (!can(caller, "portal.manage")) throw new AssetError("forbidden", `Portals take ${needs("portal.manage")}`);
   const rows = await db
     .select({ host: domains.host, portal: portals.slug })
     .from(domains)
     .leftJoin(portals, eq(portals.id, domains.portalId))
-    .where(and(eq(domains.organizationId, caller.workspace.organizationId), isNotNull(domains.verifiedAt), eq(domains.primary, false)))
+    .where(and(eq(domains.organizationId, caller.workspace.organizationId), isNotNull(domains.verifiedAt)))
     .orderBy(asc(domains.host));
   return rows;
 }
@@ -340,29 +340,28 @@ export async function portalDomains(caller: Caller) {
 /**
  * The domain `raw` names, if the portal (null: one not made yet) may take it;
  * null when it has it already. Refuses what isn't the organization's, isn't
- * verified, is the default, or serves another portal.
+ * verified, or serves another portal. The default may: it stops being one.
  */
 export async function assignable(organizationId: string, portalId: string | null, raw: string) {
   const [d] = await db.select().from(domains).where(own(organizationId, raw));
   if (!d) throw new AssetError("invalid", `${hostname(raw) ?? raw} isn't one of the organization's domains: add it in Settings, Domains`);
   if (portalId && d.portalId === portalId) return null;
   if (!d.verifiedAt) throw new AssetError("invalid", `Verify ${d.host} in Settings, Domains first`);
-  if (d.primary) throw new AssetError("invalid", `${d.host} is the app's default address: make another the default first`);
   if (d.portalId) throw new AssetError("conflict", `${d.host} serves another portal`);
   return d;
 }
 
 /**
  * Serve a portal at one of the organization's verified domains, or at none
- * (null): the domain it had goes back to the app. The default can't: it is
- * where the app's links point.
+ * (null): the domain it had goes back to the app. The default it takes hands
+ * that role to the next free verified domain, if any.
  */
 export async function assignHost(organizationId: string, portalId: string, raw: string | null) {
   const d = raw === null ? undefined : await assignable(organizationId, portalId, raw);
   if (d === null) return;
   await db.transaction(async (tx) => {
     await tx.update(domains).set({ portalId: null }).where(eq(domains.portalId, portalId));
-    if (d) await tx.update(domains).set({ portalId }).where(eq(domains.host, d.host));
+    if (d) await tx.update(domains).set({ portalId, primary: false }).where(eq(domains.host, d.host));
   });
   await ensurePrimary(organizationId);
   forgetHosts();

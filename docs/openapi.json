@@ -42174,7 +42174,7 @@
     "/api/v1/portals/domains": {
       "get": {
         "summary": "Domains a portal can be served at",
-        "description": "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).\n\nScope: `write`.",
+        "description": "The organization's verified domains, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {

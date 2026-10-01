@@ -1229,7 +1229,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "Domains a portal can be served at",
           scope: "write",
-          description: "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
+          description: "The organization's verified domains, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
           ok: [200, "Domains", data(z.array(S.PortalDomain))],
         }),
       },
