@@ -359,7 +359,7 @@ export function Lightbox({ items, openId, onOpen, ask }: { items: PublicItem[]; 
           }}
         >
           <DialogHeader>
-            <DialogTitle className={cn("pe-8 leading-snug break-words", look && HEAD)}>{open.title ?? open.filename}</DialogTitle>
+            <DialogTitle className={cn("pe-8 leading-snug wrap-anywhere", look && HEAD)}>{open.title ?? open.filename}</DialogTitle>
             <DialogDescription>{[meta(open), open.copyright].filter(Boolean).join(" · ")}</DialogDescription>
           </DialogHeader>
           <div className="relative">

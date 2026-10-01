@@ -35,7 +35,7 @@ export function CardsSection({ section: s, rules }: SectionProps) {
   const anchor = useRuleAnchor();
   const layout = s.props.layout ?? "cards";
   const list = layout !== "cards";
-  const card = list ? "flex items-start gap-4 py-4" : "bg-card text-card-foreground flex flex-col gap-3 rounded-xl border p-5";
+  const card = list ? "flex min-w-0 items-start gap-4 py-4" : "bg-card text-card-foreground flex min-w-0 flex-col gap-3 rounded-xl border p-5";
 
   // Only its keys: `rules` also carries a background color and items' keys.
   const fromRules = rules

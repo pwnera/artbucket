@@ -222,7 +222,7 @@ export function SectionFrame({
               <Eyebrow />
               {s.title && (
                 <div className={cn("flex items-center gap-1", center && "justify-center")}>
-                  <Title className={size ? SIZED[size] : H2} />
+                  <Title className={cn("min-w-0", size ? SIZED[size] : H2)} />
                   <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
                 </div>
               )}

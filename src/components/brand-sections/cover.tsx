@@ -104,7 +104,7 @@ export function CoverSection({ section: s }: SectionProps) {
 
       <div className={cn("mx-auto flex w-full flex-col gap-8 px-6 py-16 @3xl:px-10 @3xl:py-24", WIDTH[s.width], ALIGN[p.align ?? "start"])}>
         {mark && <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
-        <div className="space-y-4">
+        <div className="max-w-full space-y-4">
           <Eyebrow />
           {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{heading}</H>}
           <Lede className="max-w-2xl @3xl:text-2xl" />
