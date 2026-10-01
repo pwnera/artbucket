@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { IconBuilding, IconKey, IconLogout, IconRefresh, IconUsers } from "@tabler/icons-react";
+import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { MakeDialog, pickWorkspace, signOut, useGo, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";
@@ -110,23 +110,46 @@ export function FormError({ id, children }: { id?: string; children: React.React
   );
 }
 
-/** The page around a card: anchored near the top, so what grows below never moves what's above. */
-function Shell({ children }: { children: React.ReactNode }) {
+/**
+ * The page around a card: anchored near the top, so what grows below never
+ * moves what's above. With an `aside`, the page splits on wide screens: the
+ * aside on the start side, the card on the end side.
+ */
+function Shell({ aside, children }: { aside?: React.ReactNode; children: React.ReactNode }) {
+  const card = (
+    <div className="bg-card text-card-foreground animate-in [overflow-wrap:anywhere] fade-in-0 slide-in-from-bottom-2 w-full max-w-sm space-y-6 rounded-xl border p-6 shadow-sm duration-300 sm:p-8 dark:shadow-none">
+      {children}
+    </div>
+  );
+  if (!aside) {
+    return <main className="bg-muted/40 dark:bg-background flex min-h-svh items-start justify-center px-4 pt-[12svh] pb-8 sm:pt-[18svh]">{card}</main>;
+  }
   return (
-    <main className="bg-muted/40 dark:bg-background flex min-h-svh items-start justify-center px-4 pt-[12svh] pb-8 sm:pt-[18svh]">
-      <div className="bg-card text-card-foreground animate-in [overflow-wrap:anywhere] fade-in-0 slide-in-from-bottom-2 w-full max-w-sm space-y-6 rounded-xl border p-6 shadow-sm duration-300 sm:p-8 dark:shadow-none">
-        {children}
-      </div>
+    <main className="grid min-h-svh lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      {aside}
+      <div className="bg-muted/40 dark:bg-background flex items-start justify-center px-4 pt-[12svh] pb-8 sm:pt-[18svh]">{card}</div>
     </main>
   );
 }
 
-/** A card with the mark, for pages outside the app. */
-export function Card({ title, lead, brand, children }: { title: React.ReactNode; lead?: React.ReactNode; brand?: Brand; children: React.ReactNode }) {
+/** A card with the mark, for pages outside the app. Beside an `aside`, which carries the mark on wide screens. */
+export function Card({
+  title,
+  lead,
+  brand,
+  aside,
+  children,
+}: {
+  title: React.ReactNode;
+  lead?: React.ReactNode;
+  brand?: Brand;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <Shell>
+    <Shell aside={aside}>
       <div className="space-y-3">
-        <BrandMark brand={brand} />
+        <BrandMark brand={brand} className={aside ? "lg:hidden" : undefined} />
         {/* Keyed on what they say, so a new step's words fade in rather than swap. */}
         <h1 key={typeof title === "string" ? title : undefined} className="font-display animate-in fade-in-0 text-xl font-semibold tracking-tight duration-200">
           {title}
@@ -167,6 +190,7 @@ export function AuthForm({
   organization = false,
   error: initialError,
   below,
+  aside,
 }: {
   heading: (mode: "in" | "up") => Heading;
   mode: "in" | "up";
@@ -194,10 +218,20 @@ export function AuthForm({
   error?: string;
   /** A muted line under the form. */
   below?: React.ReactNode;
+  /** Beside the card on wide screens: see Shell. */
+  aside?: React.ReactNode;
 }) {
   const id = useId();
   const go = useGo();
   const [mode, setMode] = useState(initial);
+  /**
+   * The email first, with single sign-on beside it; the password (and on
+   * sign-up, the rest) only once they go on with the email. One form all
+   * along, so password managers see the address and the password together.
+   */
+  const [step, setStep] = useState<"email" | "password">("email");
+  /** The address the second step is for, shown above the password. */
+  const [shown, setShown] = useState("");
   const [busy, setBusy] = useState<"form" | "sso" | "org" | null>(null);
   const [error, setError] = useState<{ text: string; code?: string } | null>(initialError ? { text: initialError } : null);
   /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
@@ -208,9 +242,24 @@ export function AuthForm({
   const values = useRef<Values>({ name: "", email: "", organization: "" });
   const emailInput = useCarriedEmail(!!fixed);
   const passwordInput = useRef<HTMLInputElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
   const done = () => (then ? then(values.current) : go(callbackURL));
 
+  /** On to the password, or back to the email: focus follows, after the step paints. */
+  const toStep = (to: "email" | "password") => {
+    flushSync(() => {
+      setStep(to);
+      setError(null);
+      if (to === "password") setShown(emailInput.current?.value.trim() ?? "");
+    });
+    const field = to === "email" ? emailInput.current : mode === "up" ? nameInput.current : passwordInput.current;
+    field?.focus();
+    if (to === "email") field?.select();
+  };
+
   async function submit(form: FormData) {
+    // The first step only asks for the address: the browser checked it is one.
+    if (step === "email") return toStep("password");
     const v: Values = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
@@ -286,6 +335,7 @@ export function AuthForm({
     flushSync(() => {
       setConfirming(null);
       setReturned(true);
+      setStep(to ? "password" : "email");
       if (to) switchMode(to);
     });
     const field = to ? passwordInput.current : emailInput.current;
@@ -308,16 +358,16 @@ export function AuthForm({
     : heading(mode);
 
   return (
-    <Card title={h.title} lead={h.lead}>
+    <Card title={h.title} lead={h.lead} aside={aside}>
       {/* Hidden, not unmounted, during the code step: going back finds everything as it was typed. */}
       <div hidden={!!confirming} className={cn("space-y-4", returned && "animate-in fade-in-0 slide-in-from-left-2 duration-200")}>
-        {oidc && (
+        {oidc && step === "email" && (
           <>
             <Button type="button" variant="outline" className="w-full" pending={busy === "sso"} disabled={!!busy && busy !== "sso"} onClick={() => void sso()}>
               <IconKey /> Continue with {oidc.name}
             </Button>
             <div className="text-muted-foreground flex items-center gap-3 text-xs">
-              <span className="bg-border h-px flex-1" /> or with a password <span className="bg-border h-px flex-1" />
+              <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
             </div>
           </>
         )}
@@ -329,13 +379,17 @@ export function AuthForm({
             void submit(new FormData(e.currentTarget));
           }}
         >
-          {mode === "up" && (
-            <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-200">
-              <Label htmlFor={`${id}-name`}>Name</Label>
-              <Input id={`${id}-name`} name="name" autoComplete="name" required maxLength={120} autoFocus />
+          {step === "password" && (
+            <div className="animate-in fade-in-0 flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-sm duration-200">
+              <IconMail className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate font-medium">{shown}</span>
+              <button type="button" className={cn(TEXT_LINK, "text-muted-foreground hover:text-foreground shrink-0 text-xs")} onClick={() => toStep("email")}>
+                Change
+              </button>
             </div>
           )}
-          <div className="grid gap-2">
+          {/* Kept on the second step, out of sight: it is the login a password manager saves with the password. */}
+          <div className={step === "email" ? "grid gap-2" : "sr-only"} aria-hidden={step === "password" || undefined}>
             <Label htmlFor={`${id}-email`}>Email</Label>
             <Input
               ref={emailInput}
@@ -347,50 +401,62 @@ export function AuthForm({
               autoCapitalize="none"
               spellCheck={false}
               required
+              readOnly={step === "password"}
+              tabIndex={step === "password" ? -1 : undefined}
               defaultValue={fixed}
-              autoFocus={mode === "in" && !fixed}
+              autoFocus={!fixed}
+              placeholder="you@company.com"
               {...about(exists)}
             />
           </div>
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor={`${id}-password`}>Password</Label>
-              {mode === "in" && forgot && (
-                <Link
-                  href="/forgot-password"
-                  onClick={() => keepEmail(emailInput.current?.value)}
-                  className="text-muted-foreground hover:text-foreground inline-flex min-h-6 items-center text-xs underline underline-offset-2"
-                >
-                  Forgot password?
-                </Link>
+          {step === "password" && (
+            <div className="animate-in fade-in-0 slide-in-from-right-2 grid gap-4 duration-200">
+              {mode === "up" && (
+                <div className="grid gap-2">
+                  <Label htmlFor={`${id}-name`}>Name</Label>
+                  <Input ref={nameInput} id={`${id}-name`} name="name" autoComplete="name" required maxLength={120} />
+                </div>
               )}
-            </div>
-            <PasswordInput
-              ref={passwordInput}
-              id={`${id}-password`}
-              name="password"
-              required
-              minLength={mode === "up" ? 10 : undefined}
-              showLength={mode === "up" ? 10 : undefined}
-              autoComplete={mode === "up" ? "new-password" : "current-password"}
-              autoFocus={mode === "in" && !!fixed}
-              {...about(error?.code === "INVALID_EMAIL_OR_PASSWORD")}
-            />
-          </div>
-          {mode === "up" && organization && (
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-org`}>Organization</Label>
-              <Input
-                id={`${id}-org`}
-                name="organization"
-                autoComplete="organization"
-                maxLength={80}
-                placeholder="Acme"
-                aria-describedby={`${id}-org-hint`}
-              />
-              <p id={`${id}-org-hint`} className="text-muted-foreground text-xs">
-                What your team is called. You can change it later.
-              </p>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor={`${id}-password`}>Password</Label>
+                  {mode === "in" && forgot && (
+                    <Link
+                      href="/forgot-password"
+                      onClick={() => keepEmail(emailInput.current?.value)}
+                      className="text-muted-foreground hover:text-foreground inline-flex min-h-6 items-center text-xs underline underline-offset-2"
+                    >
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
+                <PasswordInput
+                  ref={passwordInput}
+                  id={`${id}-password`}
+                  name="password"
+                  required
+                  minLength={mode === "up" ? 10 : undefined}
+                  showLength={mode === "up" ? 10 : undefined}
+                  autoComplete={mode === "up" ? "new-password" : "current-password"}
+                  {...about(error?.code === "INVALID_EMAIL_OR_PASSWORD")}
+                />
+              </div>
+              {mode === "up" && organization && (
+                <div className="grid gap-2">
+                  <Label htmlFor={`${id}-org`}>Organization</Label>
+                  <Input
+                    id={`${id}-org`}
+                    name="organization"
+                    autoComplete="organization"
+                    maxLength={80}
+                    placeholder="Acme"
+                    aria-describedby={`${id}-org-hint`}
+                  />
+                  <p id={`${id}-org-hint`} className="text-muted-foreground text-xs">
+                    What your team is called. You can change it later.
+                  </p>
+                </div>
+              )}
             </div>
           )}
           {error && (
@@ -403,7 +469,7 @@ export function AuthForm({
                     type="button"
                     className="text-foreground underline underline-offset-2"
                     onClick={() => {
-                      switchMode("in");
+                      flushSync(() => switchMode("in"));
                       passwordInput.current?.focus();
                     }}
                   >
@@ -413,12 +479,20 @@ export function AuthForm({
               )}
             </FormError>
           )}
-          <Button type="submit" pending={busy === "form"} disabled={!!busy && busy !== "form"}>
-            {mode === "in" ? "Sign in" : "Make account"}
+          <Button type="submit" pending={busy === "form"} disabled={!!busy && busy !== "form"} autoFocus={!!fixed && step === "email"}>
+            {step === "email" ? (
+              <>
+                <IconMail /> Continue with email
+              </>
+            ) : mode === "in" ? (
+              "Sign in"
+            ) : (
+              "Make account"
+            )}
           </Button>
-          {ssoOffered && (
+          {ssoOffered && step === "email" && (
             <Button type="button" variant="outline" pending={busy === "org"} disabled={!!busy && busy !== "org"} onClick={() => void orgSso()}>
-              <IconBuilding /> Sign in with SSO
+              <IconBuilding /> Continue with SSO
             </Button>
           )}
         </form>
@@ -430,7 +504,7 @@ export function AuthForm({
             </button>
           </p>
         )}
-        {mode === "in" && !forgot && (
+        {mode === "in" && !forgot && step === "password" && (
           <p className="text-muted-foreground text-xs text-pretty">
             Forgot your password? This server can&apos;t email a reset link yet. An admin can turn on email in Settings.
           </p>
@@ -563,6 +637,67 @@ async function nameOrganization(name: string) {
   }
 }
 
+/** What the product does, as the landing page puts it: the side of /login on wide screens. */
+const POINTS = [
+  "Find any asset in milliseconds, at any size or format, from one URL",
+  "Guidelines as data: colors, type and logo rules, with history",
+  "Portals for press, partners and retailers, on your own domain",
+  "Agents get the same answers your team does, over MCP",
+];
+const AGENTS = ["Claude", "ChatGPT", "Gemini", "Cursor", "Figma"];
+
+/**
+ * The start side of /login: the mark, a promise and what backs it. A
+ * renamed install keeps its own name and tagline; the product's own words,
+ * and its open-source line, only when nothing is customized. They hold
+ * self-hosted and on Artbucket Cloud alike: nothing about whose server it is.
+ */
+function SignInAside() {
+  const brand = useBrand();
+  const glow = brand.accent ?? "var(--primary)";
+  return (
+    <aside
+      className="relative hidden overflow-hidden bg-zinc-950 text-zinc-50 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16"
+      style={{ backgroundImage: `radial-gradient(70% 55% at 0% 0%, color-mix(in oklab, ${glow} 38%, transparent), transparent)` }}
+    >
+      <div className="flex items-center gap-3">
+        <BrandMark />
+        <span className="font-display text-lg font-semibold tracking-tight">{brand.name}</span>
+      </div>
+      <div className="animate-in fade-in-0 slide-in-from-bottom-2 max-w-md space-y-8 duration-500">
+        <div className="space-y-3">
+          <h2 className="font-display text-4xl font-semibold tracking-tight text-balance">{brand.custom ? brand.name : "Where brands live"}</h2>
+          <p className="text-lg text-pretty text-zinc-300">
+            {brand.tagline ??
+              (brand.custom
+                ? "Your brand's assets and guidelines, in one place."
+                : "Assets, guidelines and portals in one catalog. People and agents ask it the same question and get the same answer.")}
+          </p>
+        </div>
+        <ul className="space-y-3">
+          {POINTS.map((point) => (
+            <li key={point} className="flex gap-3 text-pretty text-zinc-200">
+              <IconCheck className="mt-0.5 size-5 shrink-0 text-emerald-400" aria-hidden />
+              {point}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-zinc-400">Works with</p>
+        <ul className="flex flex-wrap gap-2" aria-label="Agents it works with">
+          {AGENTS.map((agent) => (
+            <li key={agent} className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-sm text-zinc-300">
+              {agent}
+            </li>
+          ))}
+        </ul>
+        {!brand.custom && <p className="pt-4 text-xs text-zinc-500">Open source. Your files and their metadata stay yours.</p>}
+      </div>
+    </aside>
+  );
+}
+
 /** /login: sign in, or on a fresh install set it up. */
 export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; next?: string; error?: boolean }) {
   const first = auth.signUp;
@@ -595,6 +730,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin for a link if you don't have one." : undefined}
+      aside={<SignInAside />}
     />
   );
 }
