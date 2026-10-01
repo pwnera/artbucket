@@ -464,6 +464,17 @@ body:has(#hub-hero) .hub-header-search {
   }
 }
 
+/* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes check-draw {
+    from { stroke-dashoffset: 22; }
+  }
+  [data-slot="checkbox-indicator"][data-state="checked"] path {
+    stroke-dasharray: 22;
+    animation: check-draw 200ms var(--ease-out) both;
+  }
+}
+
 /* A rule you land on, from the TOC or the palette, flashes and fades rather than staying tinted. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes target-flash {
