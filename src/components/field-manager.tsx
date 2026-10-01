@@ -79,6 +79,11 @@ export function FieldsEditor({ fields, onChanged }: { fields: FieldDef[]; onChan
 
   async function add(form: FormData) {
     const key = keyFor(label);
+    // The API refuses a pick list with nothing to pick, in its own words; say it in ours, before asking.
+    if (type === "select" && !form.getAll("options").some((o) => String(o).trim())) {
+      toast.error("Add at least one option", { description: "A pick list offers its options: type one, then Enter." });
+      return;
+    }
     setAdding(true);
     const ok = await call("POST", "/api/v1/fields", {
       key,
