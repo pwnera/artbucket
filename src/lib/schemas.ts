@@ -898,6 +898,14 @@ export const BrandStatus = z.object({
     .nullable()
     .describe("The portals showing it; null without the right to manage portals"),
   hub: BrandHub.nullable().describe("The brand on BrandHub; null when this server has none"),
+  files: z
+    .object({
+      downloadable: z.number().int().describe("Its rules' files anyone shown them may download"),
+      shownOnly: z
+        .array(z.object({ id: uuid, filename: z.string(), font: z.boolean() }))
+        .describe("Those people outside the workspace see but can't download (an asset's rights.downloadable, else its license)"),
+    })
+    .describe("Its rules' files as its portals and BrandHub hand them out"),
   url: z.url().describe("Its guidelines in the app, to read"),
 });
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));

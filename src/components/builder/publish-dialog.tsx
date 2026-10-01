@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
 import type { BuilderApi, Transport } from "@/components/builder/use-builder";
 import type { Status } from "@/components/builder/use-status";
+import { FilesOut } from "@/components/files-out";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { Thumb } from "@/components/thumb";
 import { useCan } from "@/components/can";
@@ -152,6 +153,9 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   const hubOffer = !shared && status?.hub?.visibility === "private" && can("brand.publish");
   const [door, setDoor] = useState<Door>("members");
   const [hubPublic, setHubPublic] = useState(false);
+  // Out past the team: a portal not for members, public on BrandHub, or about to be either.
+  const outside =
+    !!status?.portals?.some((p) => p.access !== "members") || status?.hub?.visibility === "public" || (portalOffer && door === "public") || (hubOffer && hubPublic);
   const url = useAssetUrl();
 
   useEffect(() => {
@@ -342,6 +346,8 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           )}
         </fieldset>
       )}
+
+      {outside && status?.files && <FilesOut name={host.name} files={status.files} />}
 
       {failed && (
         <p role="alert" className="text-destructive text-sm">

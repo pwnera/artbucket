@@ -760,6 +760,13 @@ export function PortalDialog({
                 On its own domain, only people you approve get in; members sign in at /p/{f.slug || "its-address"}.
               </p>
             )}
+            {/* Out past the team, what it shows can be taken: said as the door opens (lib/rights.ts isDownloadable). */}
+            {f.access !== "members" && (
+              <p className="text-muted-foreground text-xs">
+                Visitors can download the files it shows, except those whose Rights say Shown only: licensed files and fonts without an open license, unless
+                you allow them.
+              </p>
+            )}
           </fieldset>
           {f.access === "password" && (
             <div className="grid gap-2">

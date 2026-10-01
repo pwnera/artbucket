@@ -32,6 +32,8 @@ export type Status = {
     /** The portal BrandHub links as its guidelines. */
     portal: { slug: string; name: string } | null;
   } | null;
+  /** Its rules' files as portals and BrandHub hand them out: how many anyone may download, and those shown only. */
+  files?: { downloadable: number; shownOnly: { id: string; filename: string; font: boolean }[] };
 };
 
 /**
