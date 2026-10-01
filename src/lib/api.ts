@@ -39,6 +39,10 @@ export function handle(err: unknown) {
   if (refused === "invalid") return fail(400, "invalid_request", "A value holds a character that can't be stored (a NUL)");
   if (refused === "not_found") return fail(404, "not_found", "Not found");
   if (refused === "empty") return fail(400, "invalid_request", "Nothing to change: send at least one field");
+  // Races, not mistakes: logged, so one that keeps happening (a broken unique index) still shows.
+  if (refused === "conflict" || refused === "retry") console.warn(err);
+  if (refused === "conflict") return fail(409, "conflict", "That name, slug or key was just taken by another change: pick another, or try again");
+  if (refused === "retry") return fail(409, "conflict", "Another change crossed this one: try again");
   console.error(err);
   return fail(500, "internal_error", "Something went wrong");
 }
@@ -124,7 +128,11 @@ export function oauth(fn: (req: Request) => Promise<unknown>, status = 200) {
       if (err instanceof OAuthError) {
         return NextResponse.json({ error: err.error, error_description: err.message }, { status: err.status, headers: NO_STORE });
       }
-      return handle(err);
+      // Bad JSON, a NUL, a value Postgres refuses: still the caller's mistake, in the OAuth shape (RFC 6749 5.2).
+      const res = handle(err);
+      if (res.status >= 500) return res;
+      const { error } = (await res.json()) as { error: { message: string } };
+      return NextResponse.json({ error: "invalid_request", error_description: error.message }, { status: 400, headers: NO_STORE });
     }
   };
 }

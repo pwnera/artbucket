@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ICON_NAME, ICON_PREFIX, iconSvg, iconTitle, isMonochromeSvg, parseSetIcons, parseSets, resolveIcon, searchIcons, searchSets, type IconData } from "./icons.ts";
+import { ICON_NAME, ICON_PREFIX, entityBomb, iconSvg, iconTitle, isMonochromeSvg, parseSetIcons, parseSets, resolveIcon, searchIcons, searchSets, type IconData } from "./icons.ts";
 
 // Trimmed from api.iconify.design/collections.
 const COLLECTIONS = JSON.stringify({
@@ -132,4 +132,34 @@ test("an icon drawn in the text's color is monochrome; one with its own colors i
   assert.ok(!isMonochromeSvg('<svg><path style="fill:#1877F2"/></svg>'));
   assert.ok(!isMonochromeSvg('<svg><path fill="url(#g)"/></svg>'));
   assert.ok(!isMonochromeSvg('<svg><image href="x.png"/></svg>'));
+  assert.ok(isMonochromeSvg('<svg><path style="fill: currentColor !IMPORTANT"/></svg>'));
+  assert.ok(!isMonochromeSvg('<svg><path style="fill:#f00 !important"/></svg>'));
+});
+
+test("isMonochromeSvg reads a hostile file in linear time: spaces before no !important, masks that never close", () => {
+  const t = Date.now();
+  isMonochromeSvg(`<svg style="fill:x${" ".repeat(200_000)}y">`);
+  isMonochromeSvg("</mask>" + "<mask ".repeat(200_000));
+  assert.ok(Date.now() - t < 1000, `took ${Date.now() - t}ms`);
+});
+
+test("entityBomb: nested, parameter, external or overused entities are a bomb; Illustrator's namespaces are not", () => {
+  const illustrator = `<?xml version="1.0"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+\t<!ENTITY ns_extend "http://ns.adobe.com/Extensibility/1.0/">
+\t<!ENTITY ns_ai 'http://ns.adobe.com/AdobeIllustrator/10.0/'>
+]>
+<svg xmlns:x="&ns_extend;" xmlns:i="&ns_ai;"><path d=""/></svg>`;
+  assert.equal(entityBomb(illustrator), false);
+  assert.equal(entityBomb('<svg xmlns="http://www.w3.org/2000/svg"/>'), false);
+  const laughs = `<!DOCTYPE svg [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]><svg>&b;</svg>`;
+  assert.equal(entityBomb(laughs), true);
+  assert.equal(entityBomb(`<!DOCTYPE svg [<!ENTITY % p "x">]><svg/>`), true);
+  assert.equal(entityBomb(`<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>`), true);
+  // Quadratic blowup: one plain entity, used until it outgrows the file a thousandfold.
+  assert.equal(entityBomb(`<!DOCTYPE svg [<!ENTITY a "${"a".repeat(100_000)}">]><svg>${"&a;".repeat(200)}</svg>`), true);
+  // Character references and Illustrator's style entities, used thousands of times, are not.
+  assert.equal(entityBomb(`<!DOCTYPE svg [<!ENTITY nbsp "&#160;"><!ENTITY hex '&#xA0;'>]><svg><text>a&nbsp;b&hex;</text></svg>`), false);
+  const styles = Array.from({ length: 300 }, (_, i) => `<!ENTITY st${i} "fill:#FFFFFF;stroke:#000000;">`).join("");
+  assert.equal(entityBomb(`<!DOCTYPE svg [${styles}]><svg>${'<path style="&st1;"/>'.repeat(20_000)}</svg>`), false);
 });

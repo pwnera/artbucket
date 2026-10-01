@@ -106,7 +106,7 @@ const useItem = (i: number) => useSection().items?.[i];
 export function ItemTitle({ i, as: H = "h3", className }: { i: number; as?: "h3" | "h4" | "p"; className?: string }) {
   const it = useItem(i);
   const typing = useItemWords(i, "title", it?.title);
-  const look = cn(HEAD, "text-(length:--brand-h3) leading-snug text-balance", className);
+  const look = cn(HEAD, "min-w-0 text-(length:--brand-h3) leading-snug text-balance", className);
   if (typing) return <Plain as={H} {...typing} label="Item title" className={look} />;
   return it?.title ? <H className={look}>{it.title}</H> : null;
 }

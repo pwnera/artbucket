@@ -245,14 +245,23 @@ export async function portalAddress(caller: Caller, slug: string, except?: strin
 /** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
 const setDomain = (caller: Caller, portalId: string, raw: string | null) => assignHost(caller.workspace.organizationId, portalId, raw);
 
-async function setCollections(portalId: string, ids: string[]) {
-  await db.delete(portalCollections).where(eq(portalCollections.portalId, portalId));
-  if (ids.length) await db.insert(portalCollections).values(ids.map((collectionId, position) => ({ portalId, collectionId, position })));
-}
-
-async function setBrands(portalId: string, ids: string[]) {
-  await db.delete(portalBrands).where(eq(portalBrands.portalId, portalId));
-  if (ids.length) await db.insert(portalBrands).values(ids.map((brandId, position) => ({ portalId, brandId, position })));
+/**
+ * Replace what a portal shows. Two changes at once would both delete, then
+ * both insert, and the portal would show both lists: they take turns on the
+ * portal's row, and the last one stands whole.
+ */
+async function setShown(portalId: string, { collections: cols, brands: bs }: { collections?: string[]; brands?: string[] }) {
+  await db.transaction(async (tx) => {
+    await tx.select({ id: portals.id }).from(portals).where(eq(portals.id, portalId)).for("no key update");
+    if (cols) {
+      await tx.delete(portalCollections).where(eq(portalCollections.portalId, portalId));
+      if (cols.length) await tx.insert(portalCollections).values(cols.map((collectionId, position) => ({ portalId, collectionId, position })));
+    }
+    if (bs) {
+      await tx.delete(portalBrands).where(eq(portalBrands.portalId, portalId));
+      if (bs.length) await tx.insert(portalBrands).values(bs.map((brandId, position) => ({ portalId, brandId, position })));
+    }
+  });
 }
 
 function expiry(raw: string | null | undefined) {
@@ -292,8 +301,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
       createdBy: caller.actor,
     })
     .returning();
-  await setCollections(p.id, ids);
-  await setBrands(p.id, brandIds);
+  await setShown(p.id, { collections: ids, brands: brandIds });
   if (input.domain) await setDomain(caller, p.id, input.domain);
   await recordAudit(caller, "portal.created", p.name, { access, slug: p.slug });
   return present(p);
@@ -334,8 +342,9 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
     })
     .where(eq(portals.id, p.id))
     .returning();
-  if (ids) await setCollections(p.id, ids);
-  if (brandIds) await setBrands(p.id, brandIds);
+  // Deleted since it was read.
+  if (!next) return null;
+  if (ids || brandIds) await setShown(p.id, { collections: ids, brands: brandIds });
   if (next.slug !== p.slug) {
     // The old address keeps leading here, and stays this portal's; renaming back takes one up again.
     await db.insert(portalAliases).values({ slug: p.slug, portalId: p.id }).onConflictDoNothing();
@@ -360,6 +369,7 @@ export async function closePortal(caller: Caller, id: string) {
   const p = await row(caller, id);
   if (!p) return null;
   const [next] = await db.update(portals).set({ expiresAt: new Date(), updatedAt: new Date() }).where(eq(portals.id, p.id)).returning();
+  if (!next) return null;
   forgetHosts();
   await recordAudit(caller, "portal.updated", next.name, { changed: ["expiresAt"] });
   return present(next);
@@ -369,7 +379,8 @@ export async function deletePortal(caller: Caller, id: string) {
   mayManage(caller);
   const p = await row(caller, id);
   if (!p) return false;
-  await db.delete(portals).where(eq(portals.id, p.id));
+  const gone = await db.delete(portals).where(eq(portals.id, p.id)).returning({ id: portals.id });
+  if (!gone.length) return false;
   forgetHosts();
   await recordAudit(caller, "portal.deleted", p.name, { slug: p.slug });
   return true;
@@ -1139,6 +1150,8 @@ export async function decideRequest(caller: Caller, portalId: string, requestId:
     })
     .where(eq(portalRequests.id, r.id))
     .returning();
+  // Deleted since it was read.
+  if (!next) return null;
   const out = await presentRequest(p, await domainOf(p.id), next);
   let emailed = false;
   if (out.url) {

@@ -62,7 +62,7 @@ export default async function HubListing(props: Props) {
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 text-sm">
             <IconShieldCheck aria-hidden className="text-primary-ink size-5 shrink-0" />
             <p className="min-w-0 flex-1">
-              <span className="font-medium">Is {b.name} your brand?</span>{" "}
+              <span className="font-medium">Is <bdi>{b.name}</bdi> your brand?</span>{" "}
               <span className="text-muted-foreground hidden sm:inline">Prove your organization holds {b.domain} to claim this listing: it becomes your brand, verified, and this address leads to it.</span>
             </p>
             <Button asChild variant="outline" size="sm">
@@ -184,7 +184,7 @@ export default async function HubListing(props: Props) {
               <p role="note" className="border-warning/40 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconAlertTriangle aria-hidden className="text-warning mt-0.5 size-4 shrink-0" />
                 <span>
-                  A community listing: {b.owner} hasn&apos;t proved it holds a domain or a GitHub account, so this may not come from {b.name}&apos;s
+                  A community listing: <bdi>{b.owner}</bdi> hasn&apos;t proved it holds a domain or a GitHub account, so this may not come from <bdi>{b.name}</bdi>&apos;s
                   owner. Check their own guidelines before you rely on it.
                 </span>
               </p>
@@ -265,7 +265,7 @@ export default async function HubListing(props: Props) {
           {open && (
             <section className="flex flex-col gap-3 border-t pt-6">
               <h2 className="font-semibold">For agents</h2>
-              <p className="text-muted-foreground text-xs">Public, no key. Hand this to Claude, ChatGPT or any agent before it makes something in {b.name}.</p>
+              <p className="text-muted-foreground text-xs">Public, no key. Hand this to Claude, ChatGPT or any agent before it makes something in <bdi>{b.name}</bdi>.</p>
               <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
                 <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{b.url}/llms.txt</code>
                 <CopyButton text={`${b.url}/llms.txt`} label="Copy the llms.txt address" what="the address" />

@@ -157,7 +157,8 @@ export async function revokeShare(caller: Caller, id: string) {
   const [link] = await db.select().from(shareLinks).where(and(eq(shareLinks.id, id), eq(shareLinks.workspaceId, caller.workspace.id)));
   if (!link) return false;
   if (!(await mayShare(caller, link))) throw new AssetError("forbidden", "Revoking it takes write on what it shares");
-  await db.delete(shareLinks).where(eq(shareLinks.id, id));
+  const gone = await db.delete(shareLinks).where(eq(shareLinks.id, id)).returning({ id: shareLinks.id });
+  if (!gone.length) return false;
   await recordAudit(caller, "share.revoked", (await targetLabel(link)).label ?? caller.workspace.name, { kind: link.kind });
   return true;
 }

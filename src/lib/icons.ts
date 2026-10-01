@@ -255,14 +255,64 @@ const INK = /^(currentcolor|none|transparent|inherit|black|#000|#000000|#000f|#0
  * color, black or none, and it holds no picture. Such an icon can be drawn
  * in any color (a mask over the ink); one with colors of its own shows as is.
  */
+/** How far an SVG's own entities may grow it, in characters, before it is a bomb. */
+const ENTITY_GROWTH = 16 * 1024 * 1024;
+
+/**
+ * An XML file whose entities would blow up the parser that expands them
+ * (sharp's SVG reader hangs on a few hundred bytes): an entity made of other
+ * entities (billion laughs), a parameter or external one (and XXE), one
+ * declared in a way this doesn't read, or plain ones used so often that they
+ * grow the file past ENTITY_GROWTH. Illustrator's namespace and style
+ * entities (`<!ENTITY ns_svg "http://www.w3.org/2000/svg">`, `<!ENTITY st0
+ * "fill:#FFF;">`) and character references (`<!ENTITY nbsp "&#160;">`) pass.
+ */
+export function entityBomb(xml: string): boolean {
+  const declared = xml.split("<!ENTITY").length - 1;
+  if (!declared) return false;
+  // A value holds text and character references, never another entity.
+  const value = String.raw`(?:[^"&%]|&#\d+;|&#x[\da-fA-F]+;)*`;
+  const entities = [...xml.matchAll(new RegExp(String.raw`<!ENTITY\s+([\w.:-]+)\s+(?:"(${value})"|'(${value.replace('"', "'")})')\s*>`, "g"))];
+  if (entities.length !== declared) return true;
+  // Every use counted in one pass, so a thousand entities cost what one does.
+  const uses = new Map<string, number>();
+  for (const [, name] of xml.matchAll(/&([\w.:-]+);/g)) uses.set(name, (uses.get(name) ?? 0) + 1);
+  let growth = 0;
+  for (const [, name, dq, sq] of entities) growth += (uses.get(name) ?? 0) * (dq ?? sq).length;
+  return growth > ENTITY_GROWTH;
+}
+
+/**
+ * The SVG without its <mask> elements, in one pass: a lazy regex rescans the
+ * rest of the file from each `<mask` that never closes.
+ */
+function withoutMasks(svg: string): string {
+  const open = /<mask\b/gi;
+  const close = /<\/mask>/gi;
+  let out = "";
+  let at = 0;
+  for (let m = open.exec(svg); m; m = open.exec(svg)) {
+    close.lastIndex = m.index;
+    const end = close.exec(svg);
+    if (!end) break;
+    out += svg.slice(at, m.index);
+    at = open.lastIndex = end.index + end[0].length;
+  }
+  return out + svg.slice(at);
+}
+
 export function isMonochromeSvg(svg: string): boolean {
   if (/<(image|foreignObject)\b/i.test(svg)) return false;
   // A mask's white and black cut the shape; they are not colors it shows.
-  const drawn = svg.replace(/<mask\b[\s\S]*?<\/mask>/gi, "");
+  const drawn = withoutMasks(svg);
   const colors = [
     ...[...drawn.matchAll(/\b(?:fill|stroke|stop-color|color|flood-color|lighting-color)\s*=\s*["']([^"']*)["']/gi)].map((m) => m[1]),
     ...[...drawn.matchAll(/\b(?:fill|stroke|stop-color|color|flood-color|lighting-color)\s*:\s*([^;"'}]+)/gi)].map((m) => m[1]),
-  ].map((c) => c.trim().replace(/\s*!important$/i, ""));
+  ].map((c) => {
+    // Not a regex: `\s*!important$` backtracks over a long run of spaces, on the upload's main thread.
+    const v = c.trim();
+    return v.toLowerCase().endsWith("!important") ? v.slice(0, -"!important".length).trimEnd() : v;
+  });
   // A gradient or a pattern fill (url(#…)) is colors of its own.
   return colors.every((c) => INK.test(c));
 }

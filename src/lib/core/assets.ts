@@ -23,7 +23,7 @@ import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
 import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
 import { fontMime } from "@/lib/font";
-import { isMonochromeSvg } from "@/lib/icons";
+import { entityBomb, isMonochromeSvg } from "@/lib/icons";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import type { Surface } from "@/lib/insights";
@@ -169,6 +169,16 @@ export async function finalizeUpload(caller: Caller, input: FinalizeInput): Prom
 /** An SVG bigger than this is a drawing, not an icon: its colors aren't read. */
 const SVG_SCAN_BYTES = 1024 * 1024;
 
+/**
+ * A media type we can store and echo back as a header: a type/subtype of
+ * token characters, with optional parameters. A declared mime with control
+ * characters or anything outside printable ASCII (a client's or a remote
+ * server's) breaks the storage Content-Type header, so it falls back to the
+ * generic type rather than throwing a 500.
+ */
+const MEDIA_TYPE = /^[A-Za-z0-9][\w.+-]*\/[A-Za-z0-9][\w.+-]*(?:\s*;[\x20-\x7e]*)?$/;
+const safeMime = (mime: string) => (MEDIA_TYPE.test(mime) ? mime : "application/octet-stream");
+
 // ponytail: per process, and the bytes of the file only: probes and previews take more on top.
 const UPLOAD_MEMORY = 2 * MAX_UPLOAD_BYTES;
 const uploads = gate(UPLOAD_MEMORY, 32);
@@ -238,7 +248,13 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   await checkLimit(caller.workspace.organizationId, "storage", { adding: size });
   const limits = await limitsOf(caller.workspace.organizationId);
 
-  const mime = fontMime(bytes) ?? input.mime;
+  const mime = safeMime(fontMime(bytes) ?? input.mime);
+  // sharp reads markup as SVG whatever the declared type, and expands its
+  // entities: a billion-laughs file of a few hundred bytes hangs it for
+  // minutes. Refused before any probe or rendition reads it.
+  if (bytes.includes("<!ENTITY") && /^\s*</.test(bytes.subarray(0, 64).toString("utf8").replace(/^\uFEFF/, "")) && entityBomb(bytes.toString("utf8"))) {
+    throw new AssetError("invalid", "This file's XML entities would expand past what can be read");
+  }
   // Anything but a web image gets a look for what it can show as: a still, an
   // animation, an embed. Even one sharp probes: it reads HEIC's header, not its pixels.
   const image = await probeImage(bytes);
@@ -426,7 +442,7 @@ async function stageAndFinalize(
   await ensureBucket();
   const token = randomUUID();
   await checkLimit(caller.workspace.organizationId, "storage", { adding: bytes.byteLength });
-  await putObject(stagingKey(caller.workspace.id, token), bytes, mime);
+  await putObject(stagingKey(caller.workspace.id, token), bytes, safeMime(mime));
   try {
     // Not finalizeUpload: an ingest already has its turn (and a link is a few bytes).
     return await promote(caller, { ...rest, token, filename: name.slice(0, 512), mime });

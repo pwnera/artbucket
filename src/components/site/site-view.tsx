@@ -254,7 +254,7 @@ function Layout({
           lang={look.lang}
           dir={look.dir}
           data-motion={view.theme.motion}
-          className={cn(look.className, pin.land, "@6xl/site:grid", grid)}
+          className={cn(look.className, pin.land, "break-words @6xl/site:grid", grid)}
         >
           {column && (
             <aside data-chrome className={cn("sticky hidden self-start overflow-y-auto border-e p-3 @6xl/site:block print:hidden", pin.top, pin.tall)}>

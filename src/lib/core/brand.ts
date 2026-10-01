@@ -248,6 +248,16 @@ async function addVersion(
 }
 
 /**
+ * A brand's turn for a change (an advisory lock), and its row held against a
+ * delete until the change is in: one deleted while this waited is a 404.
+ */
+async function lockBrand(tx: Tx, brandId: string) {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brandId}))`);
+  const [b] = await tx.select({ id: brands.id }).from(brands).where(eq(brands.id, brandId)).for("key share");
+  if (!b) throw new AssetError("not_found", "This brand was just deleted");
+}
+
+/**
  * Run a change to a brand's rules, pages or theme and record it in the brand's
  * history, in one transaction. Changes to one brand take turns (an advisory
  * lock), so version numbers never collide and a snapshot is never of a
@@ -261,7 +271,7 @@ async function addVersion(
  */
 export async function tracked<T>(brandId: string, actor: string, changed: string[], fn: (tx: Tx) => Promise<T>) {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brandId}))`);
+    await lockBrand(tx, brandId);
     if (!(await latestVersion(tx, brandId))) {
       const [carried] = await tx.select({ id: portalBrands.portalId }).from(portalBrands).where(eq(portalBrands.brandId, brandId)).limit(1);
       await addVersion(tx, brandId, {
@@ -461,6 +471,8 @@ export async function updateRule(
             .where(eq(brandRules.id, id))
             .returning()
         : [current];
+    // Deleted since it was read.
+    if (!row) return null;
     if (set.spec) await checkSpecRefs(tx, caller.workspace.id, current.brandId, [{ at: "spec", spec: set.spec }]);
     return toRule(row, brand, (await assetsOf([id], tx)).get(id)!);
   });
@@ -482,8 +494,8 @@ export async function deleteRule(caller: Caller, id: string) {
   const found = await ruleWithBrand(caller.workspace.id, id);
   if (!found) return false;
   return tracked(found.rule.brandId, caller.actor, [found.rule.key], async (tx) => {
-    await tx.delete(brandRules).where(eq(brandRules.id, id));
-    return true;
+    const gone = await tx.delete(brandRules).where(eq(brandRules.id, id)).returning({ id: brandRules.id });
+    return gone.length > 0;
   });
 }
 
@@ -623,6 +635,7 @@ export async function createBrand(
   await checkLimit(caller.workspace.organizationId, "brands");
   const source = input.from && !seed ? await resolveBrand(ws, input.from) : null;
   return db.transaction(async (tx) => {
+    await checkLimit(caller.workspace.organizationId, "brands", { tx });
     const theme = seed?.theme ?? (source ? source.theme : {});
     const [row] = await tx
       .insert(brands)
@@ -748,7 +761,7 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
   const v = await version(brand.id, number);
   if (!v) return null;
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
+    await lockBrand(tx, brand.id);
     const before = await snapshot(tx, brand.id);
     const pagesBefore = await pageSnapshot(tx, brand.id);
     const themeBefore = await themeOf(tx, brand.id);
@@ -803,7 +816,7 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
   // An empty change through tracked: a brand with no history gets its baseline first.
   await tracked(brand.id, caller.actor, [], async () => {});
   const out = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${brand.id}))`);
+    await lockBrand(tx, brand.id);
     const latest = (await latestVersion(tx, brand.id))!;
     if (latest.publishedAt && latest.publishedBy !== SYSTEM) return { brand: brand.slug, ...meta(latest), unchanged: true };
     const errors = (latest.pages ?? []).flatMap((p) =>

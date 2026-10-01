@@ -169,6 +169,7 @@ export async function renameOrganization(caller: Caller, id: string, name: strin
   if (id !== caller.workspace.organizationId) return null;
   need(caller, "organization.manage");
   const [org] = await db.update(organizations).set({ name }).where(eq(organizations.id, id)).returning();
+  if (!org) return null;
   forgetPlaces();
   await recordAudit(caller, "organization.renamed", name, { from: caller.workspace.organization.name }, { workspaceId: null });
   return { id: org.id, slug: org.slug, name: org.name };
@@ -183,9 +184,15 @@ export async function renameOrganization(caller: Caller, id: string, name: strin
 export async function deleteOrganization(caller: Caller, id: string) {
   if (id !== caller.workspace.organizationId) return false;
   need(caller, "organization.manage");
-  const [{ n }] = await db.select({ n: count() }).from(organizations);
-  if (n < 2) throw new AssetError("conflict", "This is the server's only organization; make another before deleting it");
-  await db.delete(organizations).where(eq(organizations.id, id));
+  // Deleted, then counted, one at a time: two deletes at once would each see the other's organization still there.
+  const gone = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('organizations'))`);
+    const gone = await tx.delete(organizations).where(eq(organizations.id, id)).returning({ id: organizations.id });
+    const [{ n }] = await tx.select({ n: count() }).from(organizations);
+    if (gone.length && n < 1) throw new AssetError("conflict", "This is the server's only organization; make another before deleting it");
+    return gone.length > 0;
+  });
+  if (!gone) return false;
   forgetPlaces();
   await recordAudit(caller, "organization.deleted", caller.workspace.organization.name, undefined, { workspaceId: null });
   return true;
@@ -216,7 +223,10 @@ export async function listWorkspaces(caller: Caller) {
 export async function createWorkspace(caller: Caller, input: { name: string }) {
   need(caller, "organization.manage");
   await checkLimit(caller.workspace.organizationId, "workspaces");
-  const ws = await db.transaction((tx) => addWorkspace(tx, caller.workspace.organizationId, input.name));
+  const ws = await db.transaction(async (tx) => {
+    await checkLimit(caller.workspace.organizationId, "workspaces", { tx });
+    return addWorkspace(tx, caller.workspace.organizationId, input.name);
+  });
   await recordAudit(caller, "workspace.created", ws.name, undefined, { workspaceId: ws.id });
   return { id: ws.id, slug: ws.slug, name: ws.name, scope: caller.orgScope };
 }
@@ -230,9 +240,15 @@ export async function deleteWorkspace(caller: Caller, id: string) {
   const [ws] = await db.select().from(workspaces).where(and(eq(workspaces.id, id), eq(workspaces.organizationId, caller.workspace.organizationId)));
   if (!ws) return false;
   need(caller, "organization.manage");
-  const [{ n }] = await db.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, ws.organizationId));
-  if (n < 2) throw new AssetError("conflict", "An organization keeps at least one workspace: delete the organization instead");
-  await db.delete(workspaces).where(eq(workspaces.id, id));
+  // Deleted, then counted, one at a time (the organization's row): two deletes at once would each see the other's workspace still there.
+  const gone = await db.transaction(async (tx) => {
+    await tx.select({ id: organizations.id }).from(organizations).where(eq(organizations.id, ws.organizationId)).for("no key update");
+    const gone = await tx.delete(workspaces).where(eq(workspaces.id, id)).returning({ id: workspaces.id });
+    const [{ n }] = await tx.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, ws.organizationId));
+    if (gone.length && n < 1) throw new AssetError("conflict", "An organization keeps at least one workspace: delete the organization instead");
+    return gone.length > 0;
+  });
+  if (!gone) return false;
   forgetPlaces();
   await recordAudit(caller, "workspace.deleted", ws.name, undefined, { workspaceId: id });
   return true;
@@ -246,6 +262,7 @@ export async function renameWorkspace(caller: Caller, id: string, name: string) 
   if (!ws) return null;
   manageWorkspace(caller, ws.id);
   const [row] = await db.update(workspaces).set({ name }).where(eq(workspaces.id, id)).returning();
+  if (!row) return null;
   forgetPlaces();
   await recordAudit(caller, "workspace.renamed", name, { from: ws.name }, { workspaceId: id });
   return { id: row.id, slug: row.slug, name: row.name };
@@ -409,6 +426,7 @@ export async function setGrant(caller: Caller, input: { user: string; resource: 
   // Left out, a change of scope keeps what was off.
   const limits = input.limits ?? (await limitsOf(member.id, t.resource, t.resourceId));
   const row = await db.transaction(async (tx) => {
+    if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { user: member.id, tx });
     const [current] = await tx
       .select()
       .from(grants)
@@ -492,22 +510,25 @@ export async function createInvitation(caller: Caller, input: { email: string; r
   const t = await target(caller, input.resource, input.resourceId);
   if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors");
   const token = randomBytes(24).toString("base64url");
-  const [row] = await db
-    .insert(invitations)
-    .values({
-      organizationId: t.organizationId,
-      workspaceId: t.workspaceId,
-      email: input.email.toLowerCase(),
-      resource: t.resource,
-      resourceId: t.resourceId,
-      scope: input.scope,
-      limits: input.limits ?? [],
-      tokenHash: tokenHash(token),
-      tokenSealed: seal(token, env.BETTER_AUTH_SECRET),
-      invitedBy: caller.actor,
-      expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
-    })
-    .returning();
+  const [row] = await db.transaction(async (tx) => {
+    if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { tx });
+    return tx
+      .insert(invitations)
+      .values({
+        organizationId: t.organizationId,
+        workspaceId: t.workspaceId,
+        email: input.email.toLowerCase(),
+        resource: t.resource,
+        resourceId: t.resourceId,
+        scope: input.scope,
+        limits: input.limits ?? [],
+        tokenHash: tokenHash(token),
+        tokenSealed: seal(token, env.BETTER_AUTH_SECRET),
+        invitedBy: caller.actor,
+        expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+  });
   await recordAudit(caller, "invitation.created", row.email, { resource: t.resource, on: t.label, scope: row.scope }, { workspaceId: t.workspaceId });
   const url = await inviteUrl(t.organizationId, token);
   const mail = await sendAs(

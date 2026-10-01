@@ -517,7 +517,7 @@ function PortalHeader({
       style={theme.background ? { background: theme.background, color: ink } : undefined}
     >
       <div className="flex min-h-12 items-center gap-5 px-4">
-        <SiteLink href={home} onNavigate={onNavigate} className="flex min-w-0 shrink-0 items-center gap-2 text-sm font-semibold">
+        <SiteLink href={home} onNavigate={onNavigate} className="flex max-w-[45%] min-w-0 shrink-0 items-center gap-2 text-sm font-semibold">
           {theme.logo && (
             // A rendition already sized for this: next/image would only resize it again.
             // eslint-disable-next-line @next/next/no-img-element
