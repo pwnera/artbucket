@@ -1,3 +1,4 @@
+import { getDomain } from "tldts";
 import { GOOGLE_FAMILY, isFont } from "./font.ts";
 import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
@@ -230,16 +231,18 @@ export const githubProof = (login: string) => `github.com/${login}`;
 
 /**
  * Whether a verified host proves a brand's domain: the domain itself or its
- * www twin, a name under it (brand.acme.com proves acme.com: the TXT record
- * went in acme.com's zone), or one above it (acme.com proves shop.acme.com).
- *
- * ponytail: a zone that hands out names to others (a dynamic DNS service, a
- * free subdomain registry) lets one of them prove the zone's own brand. Ask
- * the Public Suffix List's private section once that matters.
+ * www twin, a name under it (brand.acme.com proves acme.com: only acme.com's
+ * DNS admin makes it), or one above it (acme.com proves shop.acme.com). Never
+ * across a public suffix, private section included: a zone that hands out
+ * names to others (github.io, vercel.app, a dynamic DNS service) is no one's,
+ * so acme.github.io proves itself and the names under it, never github.io or
+ * a sibling.
  */
 export function provesDomain(host: string, domain: string) {
   const h = host.replace(/^www\./, "");
-  return h === domain || h.endsWith(`.${domain}`) || domain.endsWith(`.${h}`);
+  if (h === domain) return true;
+  const site = getDomain(h, { allowPrivateDomains: true });
+  return (h.endsWith(`.${domain}`) || domain.endsWith(`.${h}`)) && site !== null && site === getDomain(domain, { allowPrivateDomains: true });
 }
 
 /**

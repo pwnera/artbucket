@@ -165,6 +165,29 @@ test("a verified host proves its domain, the names under it and the one above it
   assert.deepEqual(domainsAbove("acme.com"), ["acme.com"]);
 });
 
+test("a name under a zone that hands out names proves itself and what is under it, never the zone or a sibling", () => {
+  for (const [host, domain] of [
+    ["acme.github.io", "acme.github.io"],
+    ["docs.acme.github.io", "acme.github.io"],
+    ["acme.github.io", "docs.acme.github.io"],
+    ["shop.acme.vercel.app", "acme.vercel.app"],
+    ["brand.acme.co.uk", "acme.co.uk"],
+  ]) assert.ok(provesDomain(host, domain), `${host} proves ${domain}`);
+  for (const [host, domain] of [
+    ["acme.github.io", "github.io"],
+    ["docs.acme.github.io", "github.io"],
+    ["acme.github.io", "other.github.io"],
+    ["acme.vercel.app", "vercel.app"],
+    ["acme.pages.dev", "pages.dev"],
+    ["acme.duckdns.org", "duckdns.org"],
+    ["acme.myshopify.com", "myshopify.com"],
+    ["acme.co.uk", "co.uk"],
+    ["github.io", "acme.github.io"],
+  ]) assert.ok(!provesDomain(host, domain), `${host} doesn't prove ${domain}`);
+  assert.equal(claimProof("github.io", ["acme.github.io"], []), null);
+  assert.equal(claimProof("acme.github.io", ["docs.acme.github.io"], []), "docs.acme.github.io");
+});
+
 test("a listing is offered to whoever proves its domain, unless its own organization does", () => {
   // Seeded, its organization proved nothing: offered, naming the host that proves it.
   assert.equal(claimProof("acme.com", ["brand.acme.com", "other.example"], []), "brand.acme.com");

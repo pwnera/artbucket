@@ -290,7 +290,10 @@ A public listing may name its brand's domain (its Settings, or its
 under it (`brand.acme.com` proves `acme.com`) or one above it, is offered the
 listings of other organizations that never proved it: on the Brands page ("Claim
 Test on BrandHub has your domain acme.com: make it yours") and in Settings,
-**BrandHub** (`GET /api/v1/hub/offers`). Such a listing reads **Unclaimed · Is
+**BrandHub** (`GET /api/v1/hub/offers`). Never across a public suffix: a name
+under a zone that hands out names to others (`acme.github.io`, `acme.vercel.app`,
+from the Public Suffix List) proves itself and the names under it, not the zone
+or a sibling. Such a listing reads **Unclaimed · Is
 this yours? Prove acme.com to claim it** when its organization proved nothing.
 
 **Make it yours** (`POST /api/v1/hub/offers/{org}/{brand}`, `{"slug"}` to name
