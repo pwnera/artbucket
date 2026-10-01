@@ -34,6 +34,8 @@ const COPY: Record<string, string> = {
   OTP_EXPIRED: "That code expired. Send a new one below.",
   TOO_MANY_ATTEMPTS: "Too many wrong codes. Send a new one below.",
   INVALID_TOKEN: "This link expired or was used already. Ask for a new one.",
+  // Signed in from an address other than the server's own (APP_URL): a proxy, an IP, a second hostname.
+  INVALID_ORIGIN: "This page isn't at the address the server is set up for (its APP_URL). Open it there, or ask its operator, then try again.",
 };
 
 type AuthResult = { ok: true; data: { url?: string; token?: string | null } } | { ok: false; message: string; code?: string };
