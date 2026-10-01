@@ -401,7 +401,7 @@ export function AuthForm({
             </FormError>
           )}
           <Button type="submit" pending={busy === "form"} disabled={!!busy && busy !== "form"}>
-            {mode === "in" ? (busy === "form" ? "Signing in…" : "Sign in") : busy === "form" ? "Making account…" : "Make account"}
+            {mode === "in" ? "Sign in" : "Make account"}
           </Button>
           {ssoOffered && (
             <Button type="button" variant="outline" pending={busy === "org"} disabled={!!busy && busy !== "org"} onClick={() => void orgSso()}>
@@ -510,7 +510,7 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
           </p>
         ))}
       <Button type="submit" pending={busy} disabled={code.length < 6}>
-        {busy ? "Confirming…" : "Confirm"}
+        Confirm
       </Button>
       <p className="text-muted-foreground flex justify-between gap-2 text-sm">
         <button type="button" className={TEXT_LINK} onClick={onBack}>
@@ -769,10 +769,10 @@ export function InvitePage({
           )}
           {error && <FormError>{error}</FormError>}
           <Button pending={busy === "accept"} disabled={busy === "out"} onClick={() => void accept()}>
-            {busy === "accept" ? "Joining…" : "Accept"}
+            Accept
           </Button>
           <Button variant="ghost" pending={busy === "out"} disabled={busy === "accept"} onClick={() => void switchAccount()}>
-            {busy === "out" ? "Signing out…" : "Not you? Sign out"}
+            Not you? Sign out
           </Button>
         </div>
       </Card>
@@ -906,7 +906,7 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
         </div>
         {error && <FormError id={`${id}-error`}>{error}</FormError>}
         <Button type="submit" pending={busy}>
-          {busy ? "Sending…" : "Send the link"}
+          Send the link
         </Button>
         <Link
           href="/login"
@@ -971,7 +971,7 @@ export function ResetPassword({ token, invalid }: { token: string | null; invali
         </div>
         {error && <FormError id={`${id}-error`}>{error}</FormError>}
         <Button type="submit" pending={busy}>
-          {busy ? "Saving…" : "Save new password"}
+          Save new password
         </Button>
       </form>
     </Card>
