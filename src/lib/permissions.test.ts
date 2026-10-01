@@ -46,6 +46,9 @@ test("an ability switched off keeps its actions from a scope that would allow th
   assert.equal(can(noDelete, "asset.edit", { id: "x" }), true);
   assert.equal(can(noDelete, "asset.delete", { id: "x" }), false);
   assert.equal(can(noDelete, "collection.delete"), false);
+  assert.equal(can(noDelete, "brand.edit"), true);
+  assert.equal(can(noDelete, "brand.delete"), false, "editing a brand isn't deleting it");
+  assert.equal(can(editor, "brand.delete"), true);
   assert.equal(can(noDelete, "asset.share", { id: "x" }), false);
   assert.equal(can(noDelete, "share.manage"), false, "nowhere: the only level has share off");
   // A collection grant with share on gives it back there, and only there.

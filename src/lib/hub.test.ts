@@ -7,7 +7,7 @@ test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
   assert.deepEqual(parseRef("rust-lang@12"), { slug: "rust-lang", version: 12 });
   assert.deepEqual(parseRef("rust%4012"), { slug: "rust", version: 12 });
-  for (const bad of ["", "Rust", "rust@0", "rust@", "rust@1.2", "-rust", "rust@x", "../x"]) assert.equal(parseRef(bad), null, bad);
+  for (const bad of ["", "Rust", "rust@0", "rust@", "rust@1.2", "-rust", "rust@x", "../x", "%", "rust%E0"]) assert.equal(parseRef(bad), null, bad);
   assert.equal(hubPath("rust-lang", "rust"), "/rust-lang/rust");
   assert.equal(hubPath("rust-lang", "rust", 3), "/rust-lang/rust@3");
 });
@@ -205,6 +205,10 @@ test("a name under a zone that hands out names proves itself and what is under i
     ["acme.myshopify.com", "myshopify.com"],
     ["acme.co.uk", "co.uk"],
     ["github.io", "acme.github.io"],
+    // www is the twin of a site, not of a zone that hands out names: whoever holds www there holds one name of it.
+    ["www.duckdns.org", "duckdns.org"],
+    ["www.github.io", "github.io"],
+    ["www.co.uk", "co.uk"],
   ]) assert.ok(!provesDomain(host, domain), `${host} doesn't prove ${domain}`);
   assert.equal(claimProof("github.io", ["acme.github.io"], []), null);
   assert.equal(claimProof("acme.github.io", ["docs.acme.github.io"], []), "docs.acme.github.io");

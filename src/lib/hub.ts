@@ -11,7 +11,13 @@ import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type Rule
 
 /** "rust@3": the brand, and the version pinned; null for what no brand is called. */
 export function parseRef(raw: string): { slug: string; version?: number } | null {
-  const m = decodeURIComponent(raw).match(/^([a-z0-9][a-z0-9-]*)(?:@([1-9]\d{0,8}))?$/);
+  let ref: string;
+  try {
+    ref = decodeURIComponent(raw);
+  } catch {
+    return null; // a stray %: no brand is called that
+  }
+  const m = ref.match(/^([a-z0-9][a-z0-9-]*)(?:@([1-9]\d{0,8}))?$/);
   if (!m) return null;
   return m[2] ? { slug: m[1], version: Number(m[2]) } : { slug: m[1] };
 }

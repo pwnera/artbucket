@@ -243,7 +243,9 @@ export async function exchange(form: Record<string, string>) {
     if (!row || row.value.secret !== hashKey(secret ?? "")) throw new OAuthError("expired_token", "The device code is unknown or expired");
     const device = row.value;
     if (device.status === "pending") throw new OAuthError("authorization_pending", "Waiting for someone to approve the code");
-    await db.delete(verifications).where(eq(verifications.id, row.id));
+    // Deleted and checked in one go: of two polls racing for an approved code, one gets the key.
+    const [gone] = await db.delete(verifications).where(eq(verifications.id, row.id)).returning({ id: verifications.id });
+    if (!gone) throw new OAuthError("expired_token", "The device code is unknown or expired");
     if (device.status === "denied") throw new OAuthError("access_denied", "The code was turned down");
     return mint(device.clientId, device);
   }

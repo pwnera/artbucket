@@ -1061,7 +1061,12 @@ export async function deleteAsset(caller: Caller, id: string) {
 export async function restoreAsset(caller: Caller, id: string): Promise<Asset | null> {
   const asset = await allowed(caller, id, "asset.delete");
   if (!asset?.deletedAt) return asset;
-  await db.update(assets).set({ deletedAt: null, updatedAt: sql`now()` }).where(eq(assets.id, id));
+  // Back in the library, its bytes count again: checked as an upload's are, under the same lock.
+  const limits = await limitsOf(caller.workspace.organizationId);
+  await db.transaction(async (tx) => {
+    await claimStorage(tx, caller.workspace.organizationId, asset.size, limits);
+    await tx.update(assets).set({ deletedAt: null, updatedAt: sql`now()` }).where(eq(assets.id, id));
+  });
   if (asset.stackId) await repoint(asset.stackId);
   const back = (await findAsset(id))!;
   await record(caller, "restored", back);

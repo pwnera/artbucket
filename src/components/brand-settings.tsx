@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { IconBrandGithub, IconStar, IconTrash } from "@tabler/icons-react";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
+import { Can } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { Group, SavedMark } from "@/components/settings/panels";
 import { Button } from "@/components/ui/button";
@@ -180,24 +181,26 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
       )}
 
       {!brand.default && (
-        <Group tone="danger" title="Delete this brand" description="Its rules, pages and history go with it. Portals showing it stop showing it.">
-          <Confirm
-            title={`Delete ${brand.name}?`}
-            says="Its rules, pages and history are deleted. This can't be undone."
-            action="Delete brand"
-            run={async () => {
-              if (!(await send("DELETE", `/api/v1/brands/${b}`))) return false;
-              toast.success(`Deleted ${brand.name}`);
-              router.push("/brands");
-              router.refresh();
-              return true;
-            }}
-          >
-            <Button variant="destructive" size="sm" className="justify-self-start">
-              <IconTrash aria-hidden /> Delete brand
-            </Button>
-          </Confirm>
-        </Group>
+        <Can do="brand.delete">
+          <Group tone="danger" title="Delete this brand" description="Its rules, pages and history go with it. Portals showing it stop showing it.">
+            <Confirm
+              title={`Delete ${brand.name}?`}
+              says="Its rules, pages and history are deleted. This can't be undone."
+              action="Delete brand"
+              run={async () => {
+                if (!(await send("DELETE", `/api/v1/brands/${b}`))) return false;
+                toast.success(`Deleted ${brand.name}`);
+                router.push("/brands");
+                router.refresh();
+                return true;
+              }}
+            >
+              <Button variant="destructive" size="sm" className="justify-self-start">
+                <IconTrash aria-hidden /> Delete brand
+              </Button>
+            </Confirm>
+          </Group>
+        </Can>
       )}
     </div>
   );
