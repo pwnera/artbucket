@@ -44,10 +44,24 @@ From then on "Sign in with SSO" on the sign-in page takes anyone at that
 domain, or under it, to the provider. The first time, they join the
 organization able to read; an admin raises their access in Team. An account
 made before, with a password, joins at its next sign-in through the provider.
+Signing up with a password at the domain is not on offer: the sign-in page
+takes the address to the provider instead, so nobody there ends up in an
+organization of their own by mistake.
 The provider vouches for its own domain only: an address anywhere else is
 refused. One domain belongs to one organization; a claim left unproved for
 seven days can be taken by another. Turning it off keeps everyone's account
 and access: they sign in with a password, reset by email.
+
+#### Requiring it
+
+Once the domain is proved, Require single sign-on (`PATCH /api/v1/sso` with
+`{"required": true}`) holds everyone at the domain to the provider: password
+sign-in sends them there, and no password reset goes out, so leaving the
+provider means leaving Artbucket. Requiring it signs out everyone at the domain
+at once. The organization's admins are the exception: they keep their password,
+so a provider that breaks later (a rotated secret, a changed app) never locks
+the organization out of fixing it. Members at other domains, an agency's or a
+freelancer's, are never held to it.
 
 ### The server's
 
