@@ -112,15 +112,20 @@ export function lift(color: string, bg: string, min = 3) {
  * A card's ground for its mark: `fallback` while the mark's pixels read on
  * it (a mean contrast of 3), else the first palette color they read on, in
  * the brand's order, else whichever of ink and paper reads best. A white
- * mark on a pale wash gets the brand's own blue, not a guess.
+ * mark on a pale wash gets the brand's own blue, not a guess. A palette
+ * color that part of the mark is drawn in (5% of its pixels or more, under a
+ * contrast of 1.5) is passed over: Databricks' white wordmark reads on its
+ * red, its red mark doesn't.
  */
 export function groundFor(pixels: Rgb[], fallback: string, palette: string[], min = 3) {
   if (!pixels.length) return fallback;
   const ls = pixels.map(luminance);
-  const score = (g: string) => {
+  const ratios = (g: string) => {
     const L = luminance(rgb(g));
-    return ls.reduce((s, l) => s + (Math.max(l, L) + 0.05) / (Math.min(l, L) + 0.05), 0) / ls.length;
+    return ls.map((l) => (Math.max(l, L) + 0.05) / (Math.min(l, L) + 0.05));
   };
+  const score = (g: string) => ratios(g).reduce((s, r) => s + r, 0) / ls.length;
+  const whole = (g: string) => ratios(g).filter((r) => r < 1.5).length < 0.05 * ls.length;
   if (score(fallback) >= min) return fallback;
-  return palette.find((g) => score(g) >= min) ?? ["#111111", "#fafaf7"].sort((a, b) => score(b) - score(a))[0];
+  return palette.find((g) => score(g) >= min && whole(g)) ?? ["#111111", "#fafaf7"].sort((a, b) => score(b) - score(a))[0];
 }

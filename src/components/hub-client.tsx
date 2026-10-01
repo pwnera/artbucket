@@ -324,21 +324,24 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
 }
 
 /**
- * A loaded mark's opaque pixels, sampled at 32 by 32; null when it has a
- * ground of its own (nearly every pixel opaque) or can't be read (another
- * origin), so it keeps the ground it has.
+ * A loaded mark's opaque pixels, sampled 256 wide or tall in its own
+ * proportions, so a wordmark's thin strokes and a small symbol beside it
+ * count; null when it has a ground of its own (nearly every pixel opaque) or
+ * can't be read (another origin), so it keeps the ground it has.
  */
 function markPixels(img: HTMLImageElement) {
   try {
+    const k = 256 / Math.max(img.naturalWidth, img.naturalHeight, 1);
+    const [w, h] = [Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k))];
     const c = document.createElement("canvas");
-    c.width = c.height = 32;
+    [c.width, c.height] = [w, h];
     const x = c.getContext("2d", { willReadFrequently: true });
     if (!x) return null;
-    x.drawImage(img, 0, 0, 32, 32);
-    const d = x.getImageData(0, 0, 32, 32).data;
+    x.drawImage(img, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data;
     const px: Rgb[] = [];
     for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) px.push([d[i], d[i + 1], d[i + 2]]);
-    return px.length > 0.9 * 32 * 32 ? null : px;
+    return px.length > 0.9 * w * h ? null : px;
   } catch {
     return null;
   }

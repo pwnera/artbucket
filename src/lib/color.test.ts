@@ -111,4 +111,6 @@ test("a card's ground keeps its wash for a dark mark and takes the palette for a
   assert.equal(groundFor(white, "#fde8e4", ["#fbbc05", "#4285f4", "#000000"]), "#4285f4", "the first that reads, in order");
   assert.equal(groundFor(white, "#fde8e4", ["#fbbc05"]), "#111111", "none reads: ink");
   assert.equal(groundFor([], "#fde8e4", ["#4285f4"]), "#fde8e4", "no pixels: as is");
+  const redMark: Rgb[] = [...Array(90).fill([255, 255, 255]), ...Array(10).fill([255, 54, 33])];
+  assert.equal(groundFor(redMark, "#fde8e4", ["#ff3621", "#1b3139"]), "#1b3139", "not the red its mark is drawn in");
 });
