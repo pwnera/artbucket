@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export default function Loading() {
   return (
     <div className={cn("flex min-w-0 flex-1 flex-col", LATE)} role="status" aria-label="Loading guidelines">
-      <header className="flex h-14 items-center gap-2 border-b px-4">
+      <header className="flex h-12 items-center gap-2 border-b px-3">
         {[20, 16, 24, 18].map((w, i) => (
           <Skeleton key={i} className="h-5" style={{ inlineSize: `${w * 0.25}rem` }} />
         ))}

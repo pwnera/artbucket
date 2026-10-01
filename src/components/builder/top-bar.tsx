@@ -255,23 +255,43 @@ function Publish({ b }: { b: BuilderApi }) {
   const state = b.status?.publish;
   const line = b.status && liveLine(b.status.publish, b.status.live);
   const open = () => b.setPanel("publish");
-  if (state === "current")
-    return (
-      <Button size="sm" variant="outline" className="ms-1" aria-haspopup="dialog" title="Readers see the latest" onClick={open}>
-        <IconCircleCheckFilled className="text-success" /> {line}
-      </Button>
-    );
+  const current = state === "current";
+  // Both buttons share one cell, the other one hidden, so the bar keeps its width when a release flips them.
+  const live = b.status ? liveLine("current", current ? b.status.live : (b.status.live ?? 0) + 1) : null;
   return (
     <>
-      {line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
-      <Button size="sm" className="relative ms-1" aria-haspopup="dialog" title={line ?? undefined} onClick={open}>
-        <IconWorldUpload /> Release
-        {state === "behind" && (
-          <span className="bg-warning ring-background absolute -top-1 -end-1 size-2.5 rounded-full ring-2">
-            <span className="sr-only">(changes not released)</span>
-          </span>
-        )}
-      </Button>
+      {!current && line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
+      <span className="ms-1 grid justify-items-end *:col-start-1 *:row-start-1">
+        <Button
+          size="sm"
+          variant="outline"
+          aria-haspopup="dialog"
+          title="Readers see the latest"
+          onClick={open}
+          className={cn(!current && "invisible")}
+          aria-hidden={!current || undefined}
+          tabIndex={current ? undefined : -1}
+        >
+          {/* Keyed on the release, so a new one pops its check once. */}
+          <IconCircleCheckFilled key={b.status?.live ?? 0} className="text-success animate-in zoom-in-50 duration-300" /> {live}
+        </Button>
+        <Button
+          size="sm"
+          aria-haspopup="dialog"
+          title={line ?? undefined}
+          onClick={open}
+          className={cn("relative", current && "invisible")}
+          aria-hidden={current || undefined}
+          tabIndex={current ? -1 : undefined}
+        >
+          <IconWorldUpload /> Release
+          {state === "behind" && (
+            <span className="bg-warning ring-background animate-in zoom-in-50 absolute -top-1 -end-1 size-2.5 rounded-full ring-2 duration-200">
+              <span className="sr-only">(changes not released)</span>
+            </span>
+          )}
+        </Button>
+      </span>
     </>
   );
 }
