@@ -55,12 +55,13 @@ export function transition(update: () => void) {
  * removes it. With less motion, or no element, at once. If `then` leaves it
  * on the page (a refused delete puts it back), it opens again.
  */
-export function collapse(el: Element | null | undefined, then: () => void) {
-  if (!el || still()) return then();
-  el.setAttribute("data-collapsing", "");
+export function collapse(target: Element | Iterable<Element> | null | undefined, then: () => void) {
+  const els = !target ? [] : target instanceof Element ? [target] : [...target];
+  if (!els.length || still()) return then();
+  els.forEach((el) => el.setAttribute("data-collapsing", ""));
   setTimeout(() => {
     then();
-    requestAnimationFrame(() => el.removeAttribute("data-collapsing"));
+    requestAnimationFrame(() => els.forEach((el) => el.removeAttribute("data-collapsing")));
   }, 150);
 }
 

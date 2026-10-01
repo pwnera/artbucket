@@ -418,7 +418,7 @@ function Stage({ b }: { b: BuilderApi }) {
             tabIndex={0}
             role="group"
             aria-label={`${TEMPLATE_INFO[s.template]?.name ?? s.template} section${s.title ? `: ${s.title}` : ""}`}
-            className={cn("group/block relative outline-none", s.hidden && "[&>section]:opacity-50", moving === s.id && "opacity-40")}
+            className={cn("group/block relative transition-opacity outline-none [&>section]:transition-opacity", s.hidden && "[&>section]:opacity-50", moving === s.id && "opacity-40")}
             onPointerEnter={() => setHover(s.id)}
             onPointerLeave={() => {
               setHover((h) => (h === s.id ? null : h));
@@ -513,7 +513,13 @@ function Stage({ b }: { b: BuilderApi }) {
             }}
           >
             {(on || hover === s.id) && (
-              <div className="absolute start-4 top-0 z-30 max-w-[calc(100%-2rem)] -translate-y-1/2">
+              // A pointer only passing over waits a beat, so sweeping down the page doesn't strobe toolbars.
+              <div
+                className={cn(
+                  "animate-in fade-in-0 slide-in-from-bottom-1 absolute start-4 top-0 z-30 max-w-[calc(100%-2rem)] -translate-y-1/2 duration-100",
+                  !on && "fill-mode-backwards delay-100",
+                )}
+              >
                 <SectionToolbar b={b} section={own} />
               </div>
             )}
@@ -523,7 +529,7 @@ function Stage({ b }: { b: BuilderApi }) {
             <div
               aria-hidden
               className={cn(
-                "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset",
+                "app-tokens pointer-events-none absolute inset-0 z-10 ring-inset transition-[box-shadow,background-color]",
                 line?.mode === "into" ? "ring-primary bg-primary/5 ring-4" : on ? "ring-primary ring-2" : also ? "ring-primary/70 bg-primary/5 ring-2" : "group-hover/block:ring-primary/40 group-hover/block:ring-1",
                 "group-focus-visible/block:ring-ring group-focus-visible/block:ring-3",
               )}

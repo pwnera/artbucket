@@ -38,9 +38,14 @@ export function MultiBar({ b }: { b: BuilderApi }) {
     <div
       role="toolbar"
       aria-label={`${picked.length} sections picked`}
-      className="app-tokens bg-background text-foreground absolute inset-x-0 bottom-11 mx-auto flex w-fit items-center gap-0.5 rounded-lg border p-1 font-sans text-sm shadow-lg"
+      className="app-tokens bg-background text-foreground animate-in fade-in-0 slide-in-from-bottom-2 absolute inset-x-0 bottom-11 mx-auto flex w-fit items-center gap-0.5 rounded-lg border p-1 font-sans text-sm shadow-lg duration-150"
     >
-      <span className="px-2 font-medium tabular-nums">{picked.length} sections</span>
+      <span className="px-2 font-medium tabular-nums">
+        <span key={picked.length} className="animate-in fade-in-0 zoom-in-90 inline-block duration-150">
+          {picked.length}
+        </span>{" "}
+        sections
+      </span>
       <span aria-hidden className="bg-border mx-0.5 h-5 w-px" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

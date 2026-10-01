@@ -33,8 +33,11 @@ import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
-import { behavior, flash } from "@/lib/motion";
+import { behavior, collapse, flash } from "@/lib/motion";
 import { undoable } from "@/lib/undo";
+
+/** A section's block on the canvas (seam.tsx BLOCK), if drawn. */
+const blockOf = (id: string) => document.querySelector(`[data-canvas-block="${CSS.escape(id)}"]`);
 
 /**
  * The builder's state in React (lib/builder-ops.ts holds the logic): every
@@ -323,25 +326,33 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       /** Delete a section of the page on show, with the 8 s Undo. */
       removeSection(id: string) {
         const page = current();
-        const before = live.current.state;
-        const done = change({ kind: "page", page, op: { op: "remove", id } });
-        if (!done) return;
-        const back = invert(done, before);
-        undoable("Section deleted", {
-          // Cmd+Z may have brought it back already.
-          undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+        // It folds away first, so the sections below close the gap instead of jumping.
+        collapse(blockOf(id), () => {
+          const before = live.current.state;
+          const done = change({ kind: "page", page, op: { op: "remove", id } });
+          if (!done) return;
+          const back = invert(done, before);
+          undoable("Section deleted", {
+            // Cmd+Z may have brought it back already.
+            undo: () => (sectionsOf(page).some((x) => x.id === id) ? false : change(back) ?? Promise.reject()),
+          });
         });
       },
       /** Delete several sections of the page on show at once: one step to undo, and one toast's Undo. */
       removeSections(ids: string[]) {
         const page = current();
-        const ops: Op[] = ids.map((id) => ({ kind: "page", page, op: { op: "remove", id } }));
-        const back = applyAll(live.current.state, ops).undo;
-        if (!changeAll(ops)) return;
-        select({ section: null, rule: null });
-        undoable(ids.length === 1 ? "Section deleted" : `${ids.length} sections deleted`, {
-          undo: () => (ids.some((id) => sectionsOf(page).some((x) => x.id === id)) ? false : (changeAll(back) ?? Promise.reject())),
-        });
+        collapse(
+          ids.flatMap((id) => blockOf(id) ?? []),
+          () => {
+            const ops: Op[] = ids.map((id) => ({ kind: "page", page, op: { op: "remove", id } }));
+            const back = applyAll(live.current.state, ops).undo;
+            if (!changeAll(ops)) return;
+            select({ section: null, rule: null });
+            undoable(ids.length === 1 ? "Section deleted" : `${ids.length} sections deleted`, {
+              undo: () => (ids.some((id) => sectionsOf(page).some((x) => x.id === id)) ? false : (changeAll(back) ?? Promise.reject())),
+            });
+          },
+        );
       },
       /** A copy of a section, just under it, selected. */
       duplicate(id: string) {
