@@ -86,7 +86,7 @@ import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
-import { flash, useKept } from "@/lib/motion";
+import { flash, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -567,32 +567,37 @@ export function Gallery({
   const patch: Patch = useCallback((ids, fn) => {
     const want = new Set(ids);
     const was = new Map<string, [number, Asset]>();
-    setListing((l) => {
-      was.clear();
-      let removed = 0;
-      const data: Asset[] = [];
-      l.data.forEach((a, i) => {
-        if (!want.has(a.id)) return void data.push(a);
-        was.set(a.id, [i, a]);
-        const next = fn(a);
-        if (next) data.push(next);
-        else removed++;
+    // As a view transition: the tiles that stay slide into the gap the others leave.
+    transition(() => {
+      setListing((l) => {
+        was.clear();
+        let removed = 0;
+        const data: Asset[] = [];
+        l.data.forEach((a, i) => {
+          if (!want.has(a.id)) return void data.push(a);
+          was.set(a.id, [i, a]);
+          const next = fn(a);
+          if (next) data.push(next);
+          else removed++;
+        });
+        return removed || was.size ? { ...l, data, total: l.total - removed } : l;
       });
-      return removed || was.size ? { ...l, data, total: l.total - removed } : l;
+      // The tiles that changed light up once, so a bulk edit shows where it went (the removed are gone by then).
+      flashTiles(ids);
     });
-    // The tiles that changed light up once, so a bulk edit shows where it went (the removed are gone by then).
-    flashTiles(ids);
     return (only) => {
       const back = [...was].filter(([id]) => !only || only.includes(id)).sort((x, y) => x[1][0] - y[1][0]);
-      setListing((l) => {
-        const ids = new Set(back.map(([id]) => id));
-        const returning = back.filter(([id]) => !l.data.some((a) => a.id === id)).length;
-        const data = l.data.filter((a) => !ids.has(a.id));
-        for (const [, [i, a]] of back) data.splice(Math.min(i, data.length), 0, a);
-        return { ...l, data, total: l.total + returning };
+      transition(() => {
+        setListing((l) => {
+          const ids = new Set(back.map(([id]) => id));
+          const returning = back.filter(([id]) => !l.data.some((a) => a.id === id)).length;
+          const data = l.data.filter((a) => !ids.has(a.id));
+          for (const [, [i, a]] of back) data.splice(Math.min(i, data.length), 0, a);
+          return { ...l, data, total: l.total + returning };
+        });
+        // What came back, from an undo or a refusal, is found again at a glance.
+        flashTiles(back.map(([id]) => id));
       });
-      // What came back, from an undo or a refusal, is found again at a glance.
-      flashTiles(back.map(([id]) => id));
     };
   }, []);
 
@@ -991,7 +996,7 @@ export function Gallery({
         searchBox.current?.focus();
       } else if ((e.key === "-" || e.key === "=") && !mod && !e.altKey) {
         const i = DENSITIES.indexOf(keys.current.density) + (e.key === "=" ? 1 : -1);
-        if (DENSITIES[i]) keys.current.setDensity(DENSITIES[i]);
+        if (DENSITIES[i]) transition(() => keys.current.setDensity(DENSITIES[i]));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1346,7 +1351,7 @@ export function Gallery({
               </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Behind the art</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={well} onValueChange={(v) => setWell(v as Well)}>
+                <DropdownMenuRadioGroup value={well} onValueChange={(v) => transition(() => setWell(v as Well))}>
                   <DropdownMenuRadioItem value="auto">
                     Auto <span className="text-muted-foreground ml-auto pl-4 text-xs">checker when transparent</span>
                   </DropdownMenuRadioItem>
@@ -1362,7 +1367,7 @@ export function Gallery({
                 variant="outline"
                 size="sm"
                 value={density}
-                onValueChange={(v) => v && setDensity(v as Density)}
+                onValueChange={(v) => v && transition(() => setDensity(v as Density))}
                 aria-label="Tile size"
                 className="hidden sm:flex"
               >
@@ -1382,7 +1387,7 @@ export function Gallery({
                 ))}
               </ToggleGroup>
             )}
-            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && setLayout(v as Layout)} aria-label="Layout">
+            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && transition(() => setLayout(v as Layout))} aria-label="Layout">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ToggleGroupItem value="grid" aria-label="Grid">
@@ -1529,7 +1534,11 @@ export function Gallery({
                   <AssetMenu key={a.id} asset={a} {...menuFor(a)}>
                     {/* Off screen, a tile skips layout and paint. The negative margin
                         gives its rings room inside the paint containment that brings. */}
-                    <li className="group/tile -m-1 p-1 [contain-intrinsic-size:auto_260px] [content-visibility:auto]">
+                    <li
+                      // Named, so a view transition (a size, a delete, an undo) moves each tile from where it was.
+                      style={{ viewTransitionName: `tile-${a.id}` }}
+                      className="group/tile -m-1 p-1 [contain-intrinsic-size:auto_260px] [content-visibility:auto]"
+                    >
                       <AssetCard
                         asset={a}
                         onOpen={openOne}
