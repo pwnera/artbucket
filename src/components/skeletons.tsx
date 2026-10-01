@@ -60,21 +60,76 @@ function FormSkeleton() {
 /** A skeleton that waits a moment before showing: a page that arrives quickly never flashes one. */
 export const LATE = "animate-in fade-in-0 delay-150 duration-300 fill-mode-backwards";
 
+/** Brand cards: a ground with a mark, then a name and a line. */
+function CardsSkeleton() {
+  return (
+    <ul aria-hidden className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }, (_, i) => (
+        <li key={i} className="grid gap-2">
+          <Skeleton className="aspect-[16/10] rounded-xl" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-1/3" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Insights: a row of figures, the chart under them, then two breakdowns. */
+function InsightsSkeleton() {
+  return (
+    <div aria-hidden className="grid gap-4">
+      <div className="grid overflow-hidden rounded-xl border">
+        <div className="grid grid-cols-2 border-b sm:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="grid gap-2 p-4">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-20" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="m-4 h-56 rounded-md" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
 /**
  * The content pane while a page streams in: its header and a body shaped
  * like what arrives. The frame (sidebar) stays mounted, so it isn't drawn.
+ * `width`: the page is a centered column of that width under a PageHeader
+ * (team, portals, brands, insights), so the skeleton sits where it lands.
  */
-export function PageSkeleton({ body }: { body: "list" | "form" | "grid" }) {
+export function PageSkeleton({ body, width }: { body: "list" | "form" | "grid" | "cards" | "insights"; width?: "4xl" | "6xl" }) {
+  const shape =
+    body === "list" ? <ListSkeleton /> : body === "form" ? <FormSkeleton /> : body === "cards" ? <CardsSkeleton /> : body === "insights" ? <InsightsSkeleton /> : <GridSkeleton />;
   return (
     <div role="status" aria-label="Loading" className={cn("flex min-w-0 flex-1 flex-col", LATE)}>
       <header className="flex h-14 items-center gap-3 border-b px-4">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="ml-auto h-8 w-20" />
       </header>
-      <div className="grid gap-6 p-4 md:p-6">
-        <Skeleton className="h-6 w-48" />
-        {body === "list" ? <ListSkeleton /> : body === "form" ? <FormSkeleton /> : <GridSkeleton />}
-      </div>
+      {width ? (
+        <div className={cn("mx-auto flex w-full flex-col gap-6 px-4 pt-6 pb-16 md:px-6", width === "4xl" ? "max-w-4xl" : "max-w-6xl")}>
+          <div className="grid gap-2">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="size-5 rounded" />
+              <Skeleton className="h-6 w-40" />
+            </div>
+            <Skeleton className="h-4 w-80 max-w-full" />
+          </div>
+          {shape}
+        </div>
+      ) : (
+        <div className="grid gap-6 p-4 md:p-6">
+          <Skeleton className="h-6 w-48" />
+          {shape}
+        </div>
+      )}
     </div>
   );
 }
