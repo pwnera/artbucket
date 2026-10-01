@@ -154,13 +154,14 @@ export function Fold({
   );
 }
 
-/** A value as the rest of the panel says it: Yes/No, a local date, a grouped number. */
+/** A value as the rest of the panel says it: Yes/No, a local date, a number grouped from five digits. */
 export function formatFieldValue(def: Pick<FieldDef, "type"> | undefined, v: unknown): string {
   if (v === undefined || v === null || v === "") return "";
   if (Array.isArray(v)) return v.join(", ");
   if (typeof v === "boolean" || def?.type === "boolean") return v === true || v === "true" ? "Yes" : "No";
   if (def?.type === "date" && typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(`${v}T00:00:00`).toLocaleDateString();
-  if (def?.type === "number" && typeof v === "number") return v.toLocaleString();
+  // Grouped from five digits: 12,500 views, but the year 2008, not 2,008.
+  if (def?.type === "number" && typeof v === "number") return Number.isInteger(v) && Math.abs(v) < 10_000 ? String(v) : v.toLocaleString();
   return String(v);
 }
 
