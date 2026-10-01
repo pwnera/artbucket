@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { groundFor, type Rgb } from "@/lib/color";
+import { groundFor, inkOn, type Rgb } from "@/lib/color";
 import { REPORT_REASONS, type ReportReason } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
@@ -324,6 +324,70 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
 }
 
 /**
+ * A loaded mark's opaque pixels, sampled at 32 by 32; null when it has a
+ * ground of its own (nearly every pixel opaque) or can't be read (another
+ * origin), so it keeps the ground it has.
+ */
+function markPixels(img: HTMLImageElement) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 32;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    if (!x) return null;
+    x.drawImage(img, 0, 0, 32, 32);
+    const d = x.getImageData(0, 0, 32, 32).data;
+    const px: Rgb[] = [];
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) px.push([d[i], d[i + 1], d[i + 2]]);
+    return px.length > 0.9 * 32 * 32 ? null : px;
+  } catch {
+    return null;
+  }
+}
+
+/** Any CSS color (a theme's oklab too) as hex, through a pixel. */
+function cssHex(color: string) {
+  const x = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  if (!x) return null;
+  x.fillStyle = color;
+  x.fillRect(0, 0, 1, 1);
+  const [r, g, b] = x.getImageData(0, 0, 1, 1).data;
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * A logo on a transparency checker (components/brand-card.tsx): the theme's
+ * while the logo reads on it, else a dark or a light one (lib/color.ts
+ * groundFor), so a white logo shows on the light theme and a black one on
+ * the dark.
+ */
+export function LogoWell({ src, alt }: { src: string; alt: string }) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [ground, setGround] = useState<string | null>(null);
+  useEffect(() => {
+    const img = ref.current;
+    const well = img?.parentElement;
+    if (!img || !well) return;
+    const pick = () => {
+      const px = markPixels(img);
+      const theme = cssHex(getComputedStyle(well).backgroundColor);
+      if (!px || !theme) return;
+      // 2, not the cards' 3: an orange mark stays on the theme's checker, a white one leaves it.
+      const g = groundFor(px, theme, [], 2);
+      if (g !== theme) setGround(g);
+    };
+    if (img.complete) pick();
+    else img.addEventListener("load", pick, { once: true });
+    return () => img.removeEventListener("load", pick);
+  }, [src]);
+  return (
+    <div className="bg-checker h-36 p-6 transition-colors duration-300" style={ground ? ({ backgroundColor: ground, "--checker": inkOn(ground) } as React.CSSProperties) : undefined}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized */}
+      <img ref={ref} src={src} alt={alt} className="size-full object-contain" loading="lazy" />
+    </div>
+  );
+}
+
+/**
  * A brand's mark on its ground (components/hub.tsx Mark): the server's
  * ground, swapped once the mark loads for one of the brand's colors it reads
  * on (lib/color.ts groundFor), so a white wordmark doesn't vanish on a pale
@@ -337,21 +401,10 @@ export function TileGround({ logo, ground, groundHex, palette, className, img: i
     const img = ref.current;
     if (!img) return;
     const pick = () => {
-      try {
-        const c = document.createElement("canvas");
-        c.width = c.height = 32;
-        const x = c.getContext("2d", { willReadFrequently: true });
-        if (!x) return;
-        x.drawImage(img, 0, 0, 32, 32);
-        const d = x.getImageData(0, 0, 32, 32).data;
-        const px: Rgb[] = [];
-        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) px.push([d[i], d[i + 1], d[i + 2]]);
-        if (px.length > 0.9 * 32 * 32) return;
-        const g = groundFor(px, groundHex, key ? key.split(",") : []);
-        if (g !== groundHex) setBg(g);
-      } catch {
-        // A mark from another origin can't be read: it keeps the card's ground.
-      }
+      const px = markPixels(img);
+      if (!px) return;
+      const g = groundFor(px, groundHex, key ? key.split(",") : []);
+      if (g !== groundHex) setBg(g);
     };
     if (img.complete) pick();
     else img.addEventListener("load", pick, { once: true });

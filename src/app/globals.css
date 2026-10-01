@@ -296,13 +296,13 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   }
 }
 
-/* A transparency checkerboard: logos and cut-outs show their true edges on it. */
+/* A transparency checkerboard: logos and cut-outs show their true edges on it. `--checker` inks its squares on a ground of another tone. */
 @utility bg-checker {
   background-color: var(--muted);
   background-image: conic-gradient(
-    color-mix(in oklab, var(--foreground) 7%, transparent) 25%,
+    color-mix(in oklab, var(--checker, var(--foreground)) 7%, transparent) 25%,
     transparent 0 50%,
-    color-mix(in oklab, var(--foreground) 7%, transparent) 0 75%,
+    color-mix(in oklab, var(--checker, var(--foreground)) 7%, transparent) 0 75%,
     transparent 0
   );
   background-size: 14px 14px;
