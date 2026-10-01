@@ -28,6 +28,7 @@ import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { builderPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { transition } from "@/lib/motion";
 
 /**
  * The workspace's brands, as GitHub lists repositories: each one's name, who
@@ -168,7 +169,7 @@ export function BrandsPage({
                 aria-checked={layout === l}
                 aria-label={label}
                 title={label}
-                onClick={() => pickLayout(l)}
+                onClick={() => transition(() => pickLayout(l))}
                 className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2 py-1 aria-checked:shadow-sm"
               >
                 <Icon className="size-4" />
@@ -180,13 +181,14 @@ export function BrandsPage({
         {!shown.length ? (
           <p className="text-muted-foreground rounded-lg border p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</p>
         ) : layout === "cards" ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          // One name for both layouts: switching, the list reshapes as one rather than swapping at once.
+          <ul data-vt="brands-list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shown.map((b, i) => (
               <Card key={b.slug} b={b} face={i < FACES} />
             ))}
           </ul>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul data-vt="brands-list" className="divide-y rounded-lg border">
             {shown.map((b) => (
               <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
             ))}
