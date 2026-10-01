@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@/components/app-sidebar";
 import { useCan } from "@/components/can";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
+import { flash } from "@/lib/motion";
 
 type Shortcut = {
   /** A chord ("mod" is ⌘ or Ctrl), or with `sequence` keys pressed one after another. */
@@ -98,6 +99,10 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
   const navigate = useNavigate();
   const team = useTeam();
   const armed = useRef(0);
+  // G pressed and waiting for its letter: shown, so the key doesn't seem to do nothing.
+  const [chord, setChord] = useState(false);
+  const chordEnds = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(chordEnds.current), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -122,6 +127,8 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
       const key = e.key.toLowerCase();
       if (Date.now() - armed.current < 1000) {
         armed.current = 0;
+        clearTimeout(chordEnds.current);
+        setChord(false);
         const to = SHORTCUTS.find((s) => s.sequence && s.keys[1].toLowerCase() === key)?.href;
         if (to && (to !== "/team" || team)) {
           e.preventDefault();
@@ -129,14 +136,19 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
         }
         return;
       }
-      if (key === "g") armed.current = Date.now();
-      else if (e.key === "/") {
+      if (key === "g") {
+        armed.current = Date.now();
+        setChord(true);
+        clearTimeout(chordEnds.current);
+        chordEnds.current = setTimeout(() => setChord(false), 1000);
+      } else if (e.key === "/") {
         e.preventDefault();
         // The page's own field when it has one (the library's); ⌘K when it doesn't.
         const field = document.querySelector<HTMLInputElement>("[data-search]");
         if (field) {
           field.focus();
           field.select();
+          flash(field);
         } else setPalette(true);
       } else if (e.key === "?") {
         e.preventDefault();
@@ -146,6 +158,20 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [navigate, team, setPalette, setHelp]);
+  return chord;
+}
+
+/** While G waits for its letter: a small chip in the corner, gone after the second key or a second. */
+export function ChordHint({ on }: { on: boolean }) {
+  if (!on) return null;
+  return (
+    <div
+      aria-hidden
+      className="bg-popover text-popover-foreground animate-in fade-in-0 slide-in-from-bottom-1 pointer-events-none fixed start-4 bottom-4 z-50 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-md duration-100"
+    >
+      <Kbd keys={["G"]} /> then a letter
+    </div>
+  );
 }
 
 /** The "?" sheet: every shortcut, by group, as the keys to press. */

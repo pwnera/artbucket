@@ -9,7 +9,7 @@ import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
 import { CommandPalette, type PageCommand } from "@/components/command-palette";
-import { ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
+import { ChordHint, ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { FieldDef } from "@/lib/fields";
 import { send } from "@/lib/send";
@@ -178,7 +178,7 @@ export function Shell({
   if (editing && editing !== lastEditing) setLastEditing(editing);
   const [collectionEdits, setCollectionEdits] = useState(0);
 
-  useShortcuts({ setPalette: setSearching, setHelp });
+  const chord = useShortcuts({ setPalette: setSearching, setHelp });
 
   // The workspace is a cookie every tab shares, so a switch in another tab
   // silently points this one's requests (uploads, new collections) at it.
@@ -337,6 +337,7 @@ export function Shell({
           commands={commands?.fn}
         />
         <ShortcutsDialog open={help} onOpenChange={setHelp} />
+        <ChordHint on={chord} />
         {lastEditing && (
           <CollectionDialog
             open={!!editing}
