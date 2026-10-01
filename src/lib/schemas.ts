@@ -382,6 +382,9 @@ export const SsoInput = z.strictObject({
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
 });
+export const SsoRequiredInput = z.strictObject({
+  required: z.boolean().describe("Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"),
+});
 export const GithubInput = z.strictObject({ login: z.string().min(1).max(100).describe("A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang") });
 export const HubReportInput = z.strictObject({
   reason: z.enum(Object.keys(REPORT_REASONS) as [keyof typeof REPORT_REASONS, ...(keyof typeof REPORT_REASONS)[]]).describe(Object.entries(REPORT_REASONS).map(([k, v]) => `${k}: ${v}`).join("; ")),
@@ -1464,6 +1467,7 @@ export const Sso = z.object({
   clientId: z.string(),
   domain: z.string(),
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
+  required: z.boolean().describe("Addresses at the domain sign in only through the provider, but for the organization's admins"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
 });

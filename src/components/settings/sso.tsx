@@ -18,6 +18,7 @@ export type Sso = {
   clientId: string;
   domain: string;
   verified: boolean;
+  required: boolean;
   record: { type: "TXT"; name: string; value: string };
   redirectUri: string;
 };
@@ -45,7 +46,7 @@ function Values({ rows }: { rows: [label: string, value: string, what: string][]
 export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: string }) {
   const id = useId();
   const router = useRouter();
-  const [busy, setBusy] = useState<"save" | "check" | null>(null);
+  const [busy, setBusy] = useState<"save" | "check" | "optional" | null>(null);
 
   async function save(form: FormData) {
     const clientSecret = String(form.get("clientSecret") ?? "");
@@ -69,6 +70,16 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
     if (!ok) return;
     toast.success(`People at ${sso?.domain} sign in with single sign-on now`);
     router.refresh();
+  }
+
+  async function require(required: boolean) {
+    if (!required) setBusy("optional");
+    const ok = await send("PATCH", "/api/v1/sso", { required });
+    setBusy(null);
+    if (!ok) return null;
+    toast.success(required ? `People at ${sso?.domain} sign in only with single sign-on now` : `People at ${sso?.domain} may use a password again`);
+    router.refresh();
+    return ok;
   }
 
   return (
@@ -163,6 +174,36 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
           </div>
         )}
       </Group>
+      {sso?.verified && (
+        <Group
+          title="Require single sign-on"
+          description={`Nobody at ${sso.domain} signs in with a password or resets one: leaving your provider leaves Artbucket. Organization admins keep their password, so a provider that breaks never locks you out. People outside ${sso.domain} are not affected.`}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {sso.required ? (
+              <>
+                <Badge variant="success">
+                  <IconCheck /> Required
+                </Badge>
+                <Button size="sm" variant="outline" pending={busy === "optional"} onClick={() => void require(false)}>
+                  Allow passwords again
+                </Button>
+              </>
+            ) : (
+              <Confirm
+                title="Require single sign-on?"
+                says={`Everyone at ${sso.domain} but the organization's admins is signed out now, and signs in again through your provider.`}
+                action="Require it"
+                run={() => require(true)}
+              >
+                <Button size="sm" variant="outline">
+                  Require single sign-on
+                </Button>
+              </Confirm>
+            )}
+          </div>
+        </Group>
+      )}
       {sso && (
         <Group title="Turn off single sign-on" tone="danger" description="Your people keep their accounts and access. From then on they sign in with a password, reset by email.">
           <Confirm

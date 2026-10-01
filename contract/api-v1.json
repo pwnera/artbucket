@@ -51892,6 +51892,10 @@
                             "type": "boolean",
                             "description": "The domain is proved: its people sign in through the provider"
                           },
+                          "required": {
+                            "type": "boolean",
+                            "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
+                          },
                           "record": {
                             "type": "object",
                             "properties": {
@@ -51925,6 +51929,7 @@
                           "clientId",
                           "domain",
                           "verified",
+                          "required",
                           "record",
                           "redirectUri"
                         ],
@@ -52054,6 +52059,10 @@
                         "type": "boolean",
                         "description": "The domain is proved: its people sign in through the provider"
                       },
+                      "required": {
+                        "type": "boolean",
+                        "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
+                      },
                       "record": {
                         "type": "object",
                         "properties": {
@@ -52087,6 +52096,142 @@
                       "clientId",
                       "domain",
                       "verified",
+                      "required",
+                      "record",
+                      "redirectUri"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "patch": {
+      "summary": "Require single sign-on",
+      "description": "With `required`, addresses at the verified domain sign in only through the provider: password sign-in answers SSO_REQUIRED and no reset email goes out. The organization's admins keep their password, so a provider that breaks never locks the organization out. Requiring it signs out everyone else at the domain.\n\nScope: `admin`.",
+      "x-scope": "admin",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "required": {
+                  "type": "boolean",
+                  "description": "Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"
+                }
+              },
+              "required": [
+                "required"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Single sign-on",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "issuer": {
+                        "type": "string"
+                      },
+                      "clientId": {
+                        "type": "string"
+                      },
+                      "domain": {
+                        "type": "string"
+                      },
+                      "verified": {
+                        "type": "boolean",
+                        "description": "The domain is proved: its people sign in through the provider"
+                      },
+                      "required": {
+                        "type": "boolean",
+                        "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "const": "TXT"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What proves the domain: add this record at your DNS host"
+                      },
+                      "redirectUri": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Register this with the provider as the app's redirect URI"
+                      }
+                    },
+                    "required": [
+                      "issuer",
+                      "clientId",
+                      "domain",
+                      "verified",
+                      "required",
                       "record",
                       "redirectUri"
                     ],
@@ -52235,6 +52380,10 @@
                         "type": "boolean",
                         "description": "The domain is proved: its people sign in through the provider"
                       },
+                      "required": {
+                        "type": "boolean",
+                        "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
+                      },
                       "record": {
                         "type": "object",
                         "properties": {
@@ -52268,6 +52417,7 @@
                       "clientId",
                       "domain",
                       "verified",
+                      "required",
                       "record",
                       "redirectUri"
                     ],

@@ -53,6 +53,8 @@ export type AuditAction =
   | "sso.saved"
   | "sso.verified"
   | "sso.removed"
+  | "sso.required"
+  | "sso.optional"
   | "sso.joined"
   | "setting.changed"
   | "setting.reset"

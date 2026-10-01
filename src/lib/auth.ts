@@ -10,7 +10,7 @@ import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
-import { joinThroughSso, providerFor, ssoAt } from "@/lib/core/sso";
+import { joinThroughSso, passwordBarred, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
 import { underDomain } from "@/lib/portal";
@@ -83,6 +83,9 @@ export const auth = betterAuth({
         const v = ctx.body?.[k] ?? ctx.query?.[k];
         if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
       }
+      // Held to its organization's provider: the same answer whether or not the account exists.
+      const email = ctx.body?.email;
+      if (ctx.path === "/sign-in/email" && typeof email === "string" && (await passwordBarred(email))) throw ssoRequired(email);
     }),
     // Before the plugins' (nextCookies copies the cookies to Next's from here).
     after: createAuthMiddleware(async (ctx) => {
@@ -110,7 +113,8 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 10,
     // Only when some email can go out (lib/core/mail.ts); otherwise an admin resets it.
-    sendResetPassword: async ({ user, url }) => void (await sendPasswordReset(user, url)),
+    // Not to an address held to its organization's provider: it signs in there. better-auth answers the same either way.
+    sendResetPassword: async ({ user, url }) => void ((await passwordBarred(user.email)) || (await sendPasswordReset(user, url))),
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: verify,
   },

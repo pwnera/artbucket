@@ -756,6 +756,8 @@ const SAYS: Record<AuditAction, string> = {
   "sso.saved": "set up single sign-on for",
   "sso.verified": "verified single sign-on for",
   "sso.removed": "turned off single sign-on for",
+  "sso.required": "required single sign-on for",
+  "sso.optional": "allowed passwords again for",
   "sso.joined": "joined through single sign-on as",
   "setting.changed": "changed the setting",
   "setting.reset": "reset the setting",

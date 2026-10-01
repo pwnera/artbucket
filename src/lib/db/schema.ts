@@ -747,6 +747,8 @@ export const ssoProviders = pgTable("sso_providers", {
   /** One organization's at a time: sign-in finds the provider by it. */
   domain: text("domain").notNull().unique(),
   domainVerified: boolean("domain_verified").notNull().default(false),
+  /** Addresses at the domain sign in only through it: no password, but for the organization's admins (lib/core/sso.ts). */
+  required: boolean("required").notNull().default(false),
   /** What the TXT record holds. Nullable only because better-auth refuses a required column it never writes. */
   token: text("token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

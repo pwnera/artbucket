@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { resolveTxt } from "node:dns/promises";
-import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { grants, ssoProviders } from "@/lib/db/schema";
+import { grants, sessions, ssoProviders, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
@@ -39,6 +39,7 @@ export const presentSso = (r: Row) => ({
   clientId: config(r).clientId,
   domain: r.domain,
   verified: r.domainVerified,
+  required: r.required,
   record: { type: "TXT" as const, name: challengeName(r.domain), value: r.token ?? "" },
   redirectUri: redirectUri(r.organizationId),
 });
@@ -102,7 +103,8 @@ export async function saveSso(caller: Caller, input: SsoInput) {
     oidcConfig: JSON.stringify(oidc),
     domain,
     userId: caller.user?.id ?? null,
-    ...(moved ? { domainVerified: false, token: `artbucket-${randomBytes(16).toString("hex")}` } : {}),
+    // A new domain is proved again, and nobody there is held to the provider until it is.
+    ...(moved ? { domainVerified: false, required: false, token: `artbucket-${randomBytes(16).toString("hex")}` } : {}),
   };
   const [row] = had
     ? await db.update(ssoProviders).set(values).where(eq(ssoProviders.id, had.id)).returning()
@@ -133,6 +135,50 @@ export async function verifySso(caller: Caller) {
   ssoOffered.forget();
   await recordAudit(caller, "sso.verified", row.domain);
   return presentSso(done);
+}
+
+/** The organization's admins: user ids of whoever holds admin on it. */
+const adminsOf = async (organizationId: string) =>
+  (
+    await db
+      .select({ id: grants.userId })
+      .from(grants)
+      .where(and(eq(grants.resource, "organization"), eq(grants.resourceId, organizationId), eq(grants.scope, "admin")))
+  ).map((g) => g.id);
+
+/**
+ * Hold everyone at the domain to the provider, or let passwords back. Its
+ * admins are never held: a provider that breaks later (a rotated secret, a
+ * changed app) can't lock the organization out of fixing it. Holding them
+ * signs out everyone else at the domain, so they come back through it.
+ */
+export async function setSsoRequired(caller: Caller, required: boolean) {
+  mayManage(caller);
+  const [row] = await db.select().from(ssoProviders).where(own(caller));
+  if (!row) return null;
+  if (required && !row.domainVerified) throw new AssetError("invalid", `Prove ${row.domain} first: until then nobody signs in through the provider`);
+  const [done] = await db.update(ssoProviders).set({ required }).where(eq(ssoProviders.id, row.id)).returning();
+  if (required && !row.required) {
+    const admins = await adminsOf(row.organizationId);
+    // ilike finds the candidates, atDomain decides: a domain's dots and underscores aren't LIKE's to read.
+    const there = (await db.select({ id: users.id, email: users.email }).from(users).where(ilike(users.email, `%${row.domain}`)))
+      .filter((u) => atDomain(u.email, row.domain) && !admins.includes(u.id))
+      .map((u) => u.id);
+    if (there.length) await db.delete(sessions).where(inArray(sessions.userId, there));
+  }
+  await recordAudit(caller, required ? "sso.required" : "sso.optional", row.domain);
+  return presentSso(done);
+}
+
+/**
+ * Whether a password may not sign this address in, nor reset: its domain's
+ * provider is required, and it isn't one of that organization's admins.
+ */
+export async function passwordBarred(email: string) {
+  const row = await ssoAt(email);
+  if (!row?.required) return false;
+  const [me] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.trim().toLowerCase()));
+  return !me || !(await adminsOf(row.organizationId)).includes(me.id);
 }
 
 /** Stop signing in through it. People who joined keep their access and their accounts; they sign in with a password reset. */

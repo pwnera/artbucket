@@ -1566,6 +1566,16 @@ export function openapi(serverUrl: string) {
           body: S.SsoInput,
           ok: [200, "Single sign-on", data(S.Sso)],
         }),
+        patch: op({
+          summary: "Require single sign-on",
+          scope: "admin",
+          description:
+            "With `required`, addresses at the verified domain sign in only through the provider: password sign-in answers " +
+            "SSO_REQUIRED and no reset email goes out. The organization's admins keep their password, so a provider that " +
+            "breaks never locks the organization out. Requiring it signs out everyone else at the domain.",
+          body: S.SsoRequiredInput,
+          ok: [200, "Single sign-on", data(S.Sso)],
+        }),
         delete: op({
           summary: "Turn off single sign-on",
           scope: "admin",

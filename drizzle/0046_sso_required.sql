@@ -1,0 +1,1 @@
+ALTER TABLE "sso_providers" ADD COLUMN "required" boolean DEFAULT false NOT NULL;
