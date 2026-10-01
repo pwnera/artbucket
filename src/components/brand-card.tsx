@@ -1,4 +1,5 @@
 import { IconBook, IconPalette, IconPhoto, IconTypography } from "@tabler/icons-react";
+import { LogoWell } from "@/components/hub-client";
 import { withSignature } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";
 import { isFont, standIn } from "@/lib/font";
@@ -29,7 +30,6 @@ export type CardBrand = { name: string; rules: CardRule[]; signed: Record<string
 const HEX = /^#[0-9a-f]{6}$/i;
 /** Nothing that ends a CSS string or declaration: a family name goes into a style. */
 const cssName = (s: string) => s.replace(/["'\\;{}<>]/g, "").trim();
-const isDark = (key: string) => /revers|white|dark|negative|inverse|knockout/i.test(key);
 /** A file's address, signed when the viewer needs it. */
 const fileUrl = (b: CardBrand, id: string, rest = "") => (b.signed?.[id] ? withSignature(`/a/${id}${rest}`, b.signed[id]) : `/a/${id}${rest}`);
 const opens = (b: CardBrand, id: string) => !b.signed || !!b.signed[id];
@@ -156,10 +156,7 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
             {logos.flatMap((r) =>
               images(b, r).map((a) => (
                 <li key={`${r.key}:${a.id}`} className="overflow-hidden rounded-lg border">
-                  <div className={`h-36 p-6 ${isDark(r.key) ? "bg-[#1c1e22]" : "bg-muted/60"}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized */}
-                    <img src={a.src} alt={a.title ?? ruleName(r)} className="size-full object-contain" loading="lazy" />
-                  </div>
+                  <LogoWell src={a.src} alt={a.title ?? ruleName(r)} />
                   <div className="flex items-center justify-between gap-2 p-3">
                     <span className="truncate text-sm font-medium">{ruleName(r)}</span>
                     {!a.kept && (
