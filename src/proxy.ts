@@ -84,7 +84,8 @@ const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")
  * PORTAL_DOMAIN (lib/core/domains.ts), sees that portal and nothing else of
  * the app: every path is one of the portal's (/logo is /p/{slug}/logo), and
  * only what the portal page calls, /api and /a (and /c, which points at /a),
- * and robots.txt, which answers per host (app/robots.ts), pass through as is.
+ * and robots.txt and /.well-known/brand.json, which answer per host
+ * (app/robots.ts, app/.well-known/brand.json), pass through as is.
  *
  * A portal asked for anywhere but its home goes there, for good: /p/{slug} to
  * its subdomain or domain of its own, an address from before a rename to the
@@ -98,7 +99,7 @@ async function portalRoute(req: NextRequest, init?: { request: { headers: Header
   const asked = target?.portal ?? null;
   // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
   if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
-  if (pathname.startsWith("/api/") || bytes(pathname) || pathname === "/robots.txt") return null;
+  if (pathname.startsWith("/api/") || bytes(pathname) || pathname === "/robots.txt" || pathname === "/.well-known/brand.json") return null;
   const onApp = asked ? null : pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
   const slug = asked ?? onApp?.[1];
   if (!slug) return null;

@@ -78,3 +78,21 @@ organizations, may name the same one, and only a domain the organization
 
 Whoever proves a listing's domain can claim it: see
 [Claim by domain](/guides/portals#claim-by-domain).
+
+## Your domain points at BrandHub
+
+A public brand's `brand.json` on BrandHub is a Brand Canonical Document. To
+have agents that read your domain find it, the Sharing tab gives the one file
+to host at `https://{domain}/.well-known/brand.json`, an Authoritative Location
+Redirect:
+
+```json
+{"$schema":"https://adcontextprotocol.org/schemas/v3/brand.json","authoritative_location":"https://hub.example.com/acme/acme/brand.json"}
+```
+
+A domain the organization verified, serving this app or one of its portals,
+answers `/.well-known/brand.json` itself: with that redirect to its brand on
+BrandHub (on a portal's domain, a brand the portal shows), the one whose domain
+the host proves, else its only public brand, else its default one; with
+several public brands and none of those, a House Portfolio of them all, inline.
+Any other host answers `404`.

@@ -549,6 +549,18 @@ export function openapi(serverUrl: string) {
           ok: [201, "Created", data(S.BrandMade)],
         }),
       },
+      "/.well-known/brand.json": {
+        get: op({
+          summary: "A verified domain's brand.json",
+          scope: "public",
+          description:
+            "On an organization's verified domain, where AdCP's agents look: an Authoritative Location Redirect to its brand's " +
+            "brand.json on BrandHub. Its public brands (on a portal's domain, those the portal shows): the one whose domain " +
+            "the host proves, else the only one, else the default one; with several and none of those, a House Portfolio of " +
+            "them, inline. 404 on any other host, or with nothing public.",
+          ok: [200, "An AdCP brand.json", z.record(z.string(), z.unknown())],
+        }),
+      },
       "/api/v1/brand-json": {
         get: op({
           summary: "Read a domain's brand.json",

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, hubCollections, hubFollows, organizations, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import { assets, brands, brandVersions, domains, hubCollections, hubFollows, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { ingestBytes } from "@/lib/core/assets";
 import { createBrand } from "@/lib/core/brand";
@@ -19,7 +19,8 @@ import type { SnapRule } from "@/lib/history";
 import { readablePages } from "@/lib/page-view";
 import { pool } from "@/lib/pool";
 import { getObject, originalKey } from "@/lib/storage";
-import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, provesDomain, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { brandJson } from "@/lib/brand-json";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -316,6 +317,59 @@ export async function hubBrand(
 }
 
 export type HubBrand = NonNullable<Awaited<ReturnType<typeof hubBrand>>>;
+
+/** A listing as AdCP's brand.json (lib/brand-json.ts), linking the files that say the rest. */
+export function listingBrandJson(b: HubBrand) {
+  const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: b.guidelines ?? b.url };
+  return brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, domain: b.domain, rules: b.rules, links });
+}
+
+/**
+ * What an organization's verified domain answers at /.well-known/brand.json,
+ * where AdCP's agents look: its brand on BrandHub, as an Authoritative
+ * Location Redirect to the listing's brand.json. Its public brands (on a
+ * portal's domain, those the portal shows): the one whose domain the host
+ * proves, else the only one, else the default one; with several and none of
+ * those, a House Portfolio of them, inline. Null for a host not verified, or
+ * with nothing public.
+ */
+export async function wellKnownBrandJson(host: string) {
+  if (!hubOn()) return null;
+  const [d] = await db
+    .select({ organizationId: domains.organizationId, portalId: domains.portalId })
+    .from(domains)
+    .where(and(eq(domains.host, host), isNotNull(domains.verifiedAt)));
+  if (!d) return null;
+  const rows = await db
+    .select({ slug: brands.slug, isDefault: brands.isDefault, domain: brands.domain, org: organizations.slug, owner: organizations.name })
+    .from(brands)
+    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
+    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .where(
+      and(
+        eq(organizations.id, d.organizationId),
+        eq(brands.visibility, "public"),
+        isNull(brands.hubDelisted),
+        sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
+        d.portalId ? sql`exists (select 1 from ${portalBrands} pb where pb.brand_id = ${brands.id} and pb.portal_id = ${d.portalId})` : undefined,
+      ),
+    )
+    .orderBy(asc(brands.createdAt))
+    .limit(20);
+  const one = rows.find((r) => r.domain && provesDomain(host, r.domain)) ?? (rows.length === 1 ? rows[0] : rows.find((r) => r.isDefault));
+  const $schema = "https://adcontextprotocol.org/schemas/v3/brand.json";
+  if (one) return { $schema, authoritative_location: `${hubHome("public", env.APP_URL, env.HUB_URL!)}${hubPath(one.org, one.slug)}/brand.json` };
+  if (!rows.length) return null;
+  const listed = (await Promise.all(rows.map((r) => hubBrand(r.org, r.slug)))).filter((b): b is HubBrand => !!b);
+  return {
+    $schema,
+    version: "1",
+    house: { domain: host.replace(/^www\./, ""), name: rows[0].owner },
+    // An inline brand is the house's own word: no house of its own, no document fields.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    brands: listed.map(listingBrandJson).map(({ $schema: _s, version: _v, last_updated: _l, house_domain: _h, ...b }) => b),
+  };
+}
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 /** The most files a start copies: a brand's logos, faces and imagery, not its whole library. */

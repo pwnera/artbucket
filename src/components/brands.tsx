@@ -43,6 +43,8 @@ export type BrandHub = {
   portal: { slug: string; name: string } | null;
   chosen: boolean;
   portals: { slug: string; name: string; access: "public" | "password" | "members" }[] | null;
+  /** What its organization proved: a domain, or github.com/{login}; null: a community listing. */
+  verified?: string | null;
 };
 /** How a brand looks on its card: its mark as a rendition URL, the color it is tinted with, its ground, palette and heading face. */
 export type BrandLook = Omit<TileLook, "name">;

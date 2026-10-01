@@ -1,6 +1,5 @@
-import { brandJson } from "@/lib/brand-json";
 import { record, referrerOf } from "@/lib/core/events";
-import { hubBrand } from "@/lib/core/hub";
+import { hubBrand, listingBrandJson } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
 import { brandText, hubHome, hubPath, parseRef } from "@/lib/hub";
@@ -56,10 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
     const text = signUrlsIn(f.render(rules, { origin: env.APP_URL, title }), (id) => b.signed[id] ?? null);
     return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
   }
-  if (file === "brand.json") {
-    const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: about.guidelines };
-    return Response.json(brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, domain: b.domain, rules: b.rules, links }), { headers });
-  }
+  if (file === "brand.json") return Response.json(listingBrandJson(b), { headers });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
   return Response.json({ data: out }, { headers });

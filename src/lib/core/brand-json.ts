@@ -34,10 +34,10 @@ async function read(domain: string, doc?: unknown) {
   const where = doc === undefined ? `https://${domain}/.well-known/brand.json` : "the document";
   try {
     doc ??= await getJson(where, (to) => to.protocol === "https:" && !to.port && twins(domain).includes(to.hostname));
-    let got = fromBrandJson(doc, { domain });
+    let got = fromBrandJson(doc, { domain: domain || null });
     if (got.location) {
       if (!/^https:\/\//i.test(got.location)) throw new FetchError(`its authoritative_location isn't https: ${got.location}`);
-      got = fromBrandJson(await getJson(got.location, () => false), { domain });
+      got = fromBrandJson(await getJson(got.location, () => false), { domain: domain || null });
       if (got.location) throw new FetchError("its authoritative_location points at another");
     }
     return got;

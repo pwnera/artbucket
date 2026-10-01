@@ -16352,6 +16352,62 @@
       }
     }
   },
+  "/.well-known/brand.json": {
+    "get": {
+      "summary": "A verified domain's brand.json",
+      "description": "On an organization's verified domain, where AdCP's agents look: an Authoritative Location Redirect to its brand's brand.json on BrandHub. Its public brands (on a portal's domain, those the portal shows): the one whose domain the host proves, else the only one, else the default one; with several and none of those, a House Portfolio of them, inline. 404 on any other host, or with nothing public.\n\nNo key needed.",
+      "security": [],
+      "responses": {
+        "200": {
+          "description": "An AdCP brand.json",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/brand-json": {
     "get": {
       "summary": "Read a domain's brand.json",
