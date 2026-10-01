@@ -155,6 +155,12 @@ export function BrandTile({ id, look, href, face, badges, children }: { id: stri
             {look.name}
           </Link>
           {f && !loads && <span className="text-muted-foreground truncate text-xs">{f.family}</span>}
+          {/* A free look-alike stands in for a face that can't load here: said, never passed off as the brand's. */}
+          {f && loads && f.named && (
+            <span className="text-muted-foreground truncate text-xs" title={`${f.named} isn't served here: the name is set in ${f.family}, a free look-alike`}>
+              {f.named} · shown in {f.family}
+            </span>
+          )}
         </h3>
         {children}
       </div>
