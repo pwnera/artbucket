@@ -73,7 +73,7 @@ export function CopyButton({
         shortcut={shortcut}
         size={size}
         variant={variant}
-        className={cn("text-muted-foreground hover:text-foreground active:scale-90", className)}
+        className={cn("text-muted-foreground hover:text-foreground", className)}
         onClick={async () => {
           if (!(await copyText(typeof text === "string" ? text : text(), { what }))) return;
           setCopied(true);
@@ -81,11 +81,11 @@ export function CopyButton({
           timer.current = setTimeout(() => setCopied(false), 1500);
         }}
       >
-        {copied ? (
-          <IconCheck className={cn("text-success animate-in zoom-in-50", size === "icon-xs" && "size-3.5")} />
-        ) : (
-          <Icon className={cn(size === "icon-xs" && "size-3.5")} />
-        )}
+        {/* Both drawn in one cell, so each crossfades and scales, there and back. */}
+        <span className="grid *:col-start-1 *:row-start-1 *:transition-[opacity,scale] *:duration-150">
+          <IconCheck className={cn("text-success", size === "icon-xs" && "size-3.5", !copied && "scale-50 opacity-0")} />
+          <Icon className={cn(size === "icon-xs" && "size-3.5", copied && "scale-50 opacity-0")} />
+        </span>
       </IconButton>
       <span className="sr-only" aria-live="polite">
         {copied ? "Copied" : ""}

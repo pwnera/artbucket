@@ -65,7 +65,7 @@ function ContextMenuRadioItem({ className, children, ...props }: React.Component
   return (
     <ContextMenuPrimitive.RadioItem data-slot="context-menu-radio-item" className={cn(ITEM, "pl-8", className)} {...props}>
       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-        <ContextMenuPrimitive.ItemIndicator>
+        <ContextMenuPrimitive.ItemIndicator className="animate-in fade-in-0 zoom-in-50">
           <CircleIcon className="size-2 fill-current" />
         </ContextMenuPrimitive.ItemIndicator>
       </span>
