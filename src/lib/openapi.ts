@@ -1432,6 +1432,27 @@ export function openapi(serverUrl: string) {
         parameters: [path("host", "e.g. assets.example.com")],
         post: op({ summary: "Verify a domain", scope: "admin", description: "Looks up its TXT record, and its CNAME when the server names a target, now; a 422 names what is missing and what was found.", ok: [200, "The domain", data(S.Domain)] }),
       },
+      "/api/v1/email-domains": {
+        get: op({ summary: "The organization's email domains", scope: "admin", description: "The domains its people have their email at, proved or not. Organization admin.", ok: [200, "Email domains", data(z.array(S.EmailDomain))] }),
+        post: op({
+          summary: "Add an email domain",
+          scope: "admin",
+          description:
+            "A domain the organization's people have their email at. Add the TXT record in `record`, then POST " +
+            "/api/v1/email-domains/{domain}/verify. Proved, single sign-on may use it, and so may joining by domain. A public " +
+            "suffix is refused, and so is a domain another organization holds. Not a custom domain: it serves nothing, and no limit counts it.",
+          body: S.EmailDomainInput,
+          ok: [201, "The email domain, not verified yet", data(S.EmailDomain)],
+        }),
+      },
+      "/api/v1/email-domains/{domain}": {
+        parameters: [path("domain", "e.g. acme.com")],
+        delete: op({ summary: "Remove an email domain", scope: "admin", description: "Not while single sign-on uses it: change its domain, or turn it off, first.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/email-domains/{domain}/verify": {
+        parameters: [path("domain", "e.g. acme.com")],
+        post: op({ summary: "Verify an email domain", scope: "admin", description: "Looks up its TXT record now; a 422 names what is missing and what was found. Proves it for single sign-on too.", ok: [200, "The email domain", data(S.EmailDomain)] }),
+      },
       "/api/v1/github-orgs": {
         get: op({ summary: "The organization's GitHub accounts", scope: "admin", description: "Named as its own, proved or not. Organization admin.", ok: [200, "GitHub accounts", data(z.array(S.GithubAccount))] }),
         post: op({

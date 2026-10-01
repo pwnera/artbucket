@@ -50286,6 +50286,446 @@
         }
       }
     },
+    "/api/v1/email-domains": {
+      "get": {
+        "summary": "The organization's email domains",
+        "description": "The domains its people have their email at, proved or not. Organization admin.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Email domains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean",
+                            "description": "Proved by its TXT record: single sign-on and joining by domain may use it"
+                          },
+                          "join": {
+                            "type": "boolean",
+                            "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                          },
+                          "sso": {
+                            "type": "boolean",
+                            "description": "The organization's single sign-on uses it"
+                          },
+                          "record": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "const": "TXT"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "name",
+                              "value"
+                            ],
+                            "additionalProperties": false,
+                            "description": "What proves the domain: add this record at your DNS host"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "verified",
+                          "join",
+                          "sso",
+                          "record"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add an email domain",
+        "description": "A domain the organization's people have their email at. Add the TXT record in `record`, then POST /api/v1/email-domains/{domain}/verify. Proved, single sign-on may use it, and so may joining by domain. A public suffix is refused, and so is a domain another organization holds. Not a custom domain: it serves nothing, and no limit counts it.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253,
+                    "description": "A domain your people have their email at, e.g. acme.com"
+                  }
+                },
+                "required": [
+                  "domain"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The email domain, not verified yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved by its TXT record: single sign-on and joining by domain may use it"
+                        },
+                        "join": {
+                          "type": "boolean",
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                        },
+                        "sso": {
+                          "type": "boolean",
+                          "description": "The organization's single sign-on uses it"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves the domain: add this record at your DNS host"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "verified",
+                        "join",
+                        "sso",
+                        "record"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-domains/{domain}": {
+      "parameters": [
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "description": "e.g. acme.com",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove an email domain",
+        "description": "Not while single sign-on uses it: change its domain, or turn it off, first.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-domains/{domain}/verify": {
+      "parameters": [
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "description": "e.g. acme.com",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Verify an email domain",
+        "description": "Looks up its TXT record now; a 422 names what is missing and what was found. Proves it for single sign-on too.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "The email domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved by its TXT record: single sign-on and joining by domain may use it"
+                        },
+                        "join": {
+                          "type": "boolean",
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                        },
+                        "sso": {
+                          "type": "boolean",
+                          "description": "The organization's single sign-on uses it"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves the domain: add this record at your DNS host"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "verified",
+                        "join",
+                        "sso",
+                        "record"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/github-orgs": {
       "get": {
         "summary": "The organization's GitHub accounts",
