@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
 import { auth, oidc } from "@/lib/auth";
+import { joinOffer } from "@/lib/core/email-domains";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
@@ -198,7 +199,7 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
-  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice] = await Promise.all([
+  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice, joinable] = await Promise.all([
     canEmail(caller.workspace.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
@@ -207,6 +208,7 @@ export async function describeCaller(caller: Caller) {
     ssoOffered(),
     effective("limits", { organizationId: caller.workspace.organizationId }),
     effective("notice", { organizationId: caller.workspace.organizationId }),
+    joinOffer(caller),
   ]);
   const admin = !!caller.user && caller.orgScope === "admin";
   return {
@@ -229,6 +231,8 @@ export async function describeCaller(caller: Caller) {
     hubUrl: env.HUB_URL ? hubHome("private", env.APP_URL, env.HUB_URL) : null,
     // The operator's word to the organization's admins: they are who can act on it.
     notice: admin ? noticeOf(notice.value) : null,
+    // An organization at the domain of their address they may join (lib/core/email-domains.ts).
+    joinable,
     // Connecting makes a key for the sync, so it takes admin on the workspace.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     auth: {

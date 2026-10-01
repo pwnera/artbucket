@@ -19,6 +19,13 @@ export function atDomain(email: string, domain: string) {
   return !!d && email.includes("@") && (at === d || at.endsWith(`.${d}`));
 }
 
+/** The domains an address is at, nearest first: jo@eu.acme.com is at eu.acme.com and acme.com. A provider at any of them is its. */
+export function domainsOf(email: string) {
+  if (!email.includes("@")) return [];
+  const labels = bareDomain(email.split("@").at(-1) ?? "").split(".");
+  return labels.slice(0, -1).map((_, i) => labels.slice(i).join(".")).filter((d) => !!d && !d.startsWith("."));
+}
+
 /** Where a provider publishes its endpoints (OpenID Connect Discovery). */
 export const discoveryUrl = (issuer: string) => `${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`;
 

@@ -382,6 +382,13 @@ export const SsoInput = z.strictObject({
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
 });
+export const EmailDomainInput = z.strictObject({ domain: z.string().min(1).max(253).describe("A domain your people have their email at, e.g. acme.com") });
+export const EmailDomainPatch = z.strictObject({
+  join: z.boolean().describe("Let anyone whose address is at exactly this domain join, able to read. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
+});
+export const SsoRequiredInput = z.strictObject({
+  required: z.boolean().describe("Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"),
+});
 export const GithubInput = z.strictObject({ login: z.string().min(1).max(100).describe("A GitHub account of the organization's: rust-lang, or https://github.com/rust-lang") });
 export const HubReportInput = z.strictObject({
   reason: z.enum(Object.keys(REPORT_REASONS) as [keyof typeof REPORT_REASONS, ...(keyof typeof REPORT_REASONS)[]]).describe(Object.entries(REPORT_REASONS).map(([k, v]) => `${k}: ${v}`).join("; ")),
@@ -1098,6 +1105,10 @@ export const WorkspaceRef = z.object({ id: uuid, slug: z.string(), name: z.strin
 export const WorkspaceItem = z.object({ id: uuid, slug: z.string(), name: z.string(), scope: scope.describe("Yours on all of it; null when a grant inside it is all you have") });
 export const OrganizationCreated = Organization.extend({ workspace: z.object({ id: uuid, slug: z.string(), name: z.string() }) });
 
+export const JoinOffer = z.object({
+  organization: z.object({ id: z.uuid(), name: z.string() }),
+  domain: z.string().describe("The email domain it opened"),
+});
 export const Me = z.object({
   user: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().describe("Signed in as; null for a key or nobody"),
   key: z.boolean().describe("Calling with an API key"),
@@ -1135,6 +1146,7 @@ export const Me = z.object({
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
     .describe("A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"),
+  joinable: JoinOffer.nullable().describe("An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
@@ -1464,8 +1476,16 @@ export const Sso = z.object({
   clientId: z.string(),
   domain: z.string(),
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
+  required: z.boolean().describe("Addresses at the domain sign in only through the provider, but for the organization's admins"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
+});
+export const EmailDomain = z.object({
+  domain: z.string(),
+  verified: z.boolean().describe("Proved by its TXT record: single sign-on and joining by domain may use it"),
+  join: z.boolean().describe("Anyone whose address is at exactly this domain may join the organization, able to read"),
+  sso: z.boolean().describe("The organization's single sign-on uses it"),
+  record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
 });
 export const GithubAccount = z.object({
   login: z.string(),

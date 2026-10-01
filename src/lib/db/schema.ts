@@ -747,6 +747,8 @@ export const ssoProviders = pgTable("sso_providers", {
   /** One organization's at a time: sign-in finds the provider by it. */
   domain: text("domain").notNull().unique(),
   domainVerified: boolean("domain_verified").notNull().default(false),
+  /** Addresses at the domain sign in only through it: no password, but for the organization's admins (lib/core/sso.ts). */
+  required: boolean("required").notNull().default(false),
   /** What the TXT record holds. Nullable only because better-auth refuses a required column it never writes. */
   token: text("token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1117,6 +1119,23 @@ export const domains = pgTable("domains", {
 ]);
 
 /**
+ * A domain the organization's people have their email at, proved by a TXT
+ * record on the domain itself (lib/core/email-domains.ts). Not a custom
+ * domain: it serves nothing. Single sign-on picks one; with `join`, anyone
+ * whose address is at exactly it may join the organization, able to read.
+ */
+export const emailDomains = pgTable("email_domains", {
+  domain: text("domain").primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  join: boolean("join").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("email_domains_org_idx").on(t.organizationId)]);
+
+/**
  * A GitHub account an organization says is its own (lib/core/hub-trust.ts),
  * proved like a domain: a file in its `.github` repository holding `token`.
  * Once proved, BrandHub names it beside a verified domain.
@@ -1198,6 +1217,24 @@ export const hubOffersRefused = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.organizationId, t.brandId] })],
+);
+
+/**
+ * An organization a person was offered to join by their email's domain, and
+ * said not now to (lib/core/email-domains.ts): the offer is no longer made.
+ */
+export const joinOffersRefused = pgTable(
+  "join_offers_refused",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.organizationId] })],
 );
 
 /**

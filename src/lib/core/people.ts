@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { assets, brands, collections, grants, invitations, organizations, users, workspaces } from "@/lib/db/schema";
 import { recordAudit, type AuditBy } from "@/lib/core/audit";
 import { appUrlFor } from "@/lib/core/domains";
+import { joinableAt } from "@/lib/core/email-domains";
 import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
@@ -54,9 +55,10 @@ async function pending(token: string | null) {
 }
 
 /** better-auth asks before it makes an account: see lib/auth.ts for the doors. */
-export async function maySignUp(cookie: string | null, viaOidc: boolean) {
+export async function maySignUp(cookie: string | null, viaOidc: boolean, email: string) {
   if (env.SIGNUP === "open" || viaOidc || !(await hasUsers())) return true;
-  return !!(await pending(cookieValue(cookie, INVITE_COOKIE)));
+  // An organization opened its email domain to whoever proves an address there (lib/core/email-domains.ts).
+  return !!(await pending(cookieValue(cookie, INVITE_COOKIE))) || !!(await joinableAt(email));
 }
 
 /**
@@ -81,7 +83,8 @@ export async function welcome(user: { id: string; name: string; email: string },
   }
   const token = cookieValue(cookie, INVITE_COOKIE);
   if (token && (await pending(token))) await acceptInvitation(decodeURIComponent(token), { ...user, ip: null });
-  else if (n > 1 && env.SIGNUP === "open" && !joined) {
+  // At a domain an organization opened, none either: /welcome offers to join it, or to start one of their own.
+  else if (n > 1 && env.SIGNUP === "open" && !joined && !(await joinableAt(user.email))) {
     const org = await addOrganization(user.id, `${user.name || user.email.split("@")[0]}'s organization`);
     await recordAudit(by, "organization.created", org.name, { signUp: true }, { organizationId: org.id, workspaceId: null });
   }

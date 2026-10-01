@@ -3,3 +3,4 @@ allowBuilds:
   esbuild: true # drizzle-kit
   unrs-resolver: true # eslint resolver
   exifreader: false
+  free-email-domains: false # its script downloads a fresher list at install; the one it ships is used

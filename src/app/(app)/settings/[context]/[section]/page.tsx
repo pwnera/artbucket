@@ -6,6 +6,7 @@ import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import type { HubOffer } from "@/components/hub-offers";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
+import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
 import { SsoPanel, type Sso } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, locked, opens } from "@/components/settings/sections";
@@ -35,6 +36,7 @@ const LOADS: Record<string, string> = {
   "organization/branding": "settings?context=organization",
   "organization/domains": "domains",
   "organization/hub": "github-orgs",
+  "organization/email-domains": "email-domains",
   "organization/sso": "sso",
 };
 
@@ -115,6 +117,8 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       return <DomainsPanel domains={data<Domain[]>()} />;
     case "organization/hub":
       return reports ? <HubPanel github={data<GithubAccount[]>()} reports={reports} domains={domains} offers={offers} /> : <LoadFailed />;
+    case "organization/email-domains":
+      return <EmailDomainsPanel domains={data<EmailDomain[]>()} />;
     case "organization/sso": {
       const { data: sso, redirectUri } = loaded as { data: Sso | null; redirectUri: string };
       // Keyed by what the server has: after a save the form starts from it.

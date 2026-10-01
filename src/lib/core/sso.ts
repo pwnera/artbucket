@@ -1,19 +1,17 @@
-import { randomBytes } from "node:crypto";
-import { resolveTxt } from "node:dns/promises";
-import { and, eq, lt, ne, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { grants, ssoProviders } from "@/lib/db/schema";
+import { grants, sessions, ssoProviders, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
-import { CLAIM_DAYS } from "@/lib/core/domains";
+import { claimEmailDomain, verifyEmailDomain } from "@/lib/core/email-domains";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { fetchPublic } from "@/lib/fetch-public";
 import { memo } from "@/lib/memo";
 import { can, needs } from "@/lib/permissions";
-import { challengeName, hostname } from "@/lib/portal";
-import { atDomain, discoveryUrl, oidcConfigFrom, type OidcConfig } from "@/lib/sso";
+import { challengeName } from "@/lib/portal";
+import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } from "@/lib/sso";
 
 /**
  * An organization's own single sign-on: one OpenID Connect provider (Okta,
@@ -39,6 +37,7 @@ export const presentSso = (r: Row) => ({
   clientId: config(r).clientId,
   domain: r.domain,
   verified: r.domainVerified,
+  required: r.required,
   record: { type: "TXT" as const, name: challengeName(r.domain), value: r.token ?? "" },
   redirectUri: redirectUri(r.organizationId),
 });
@@ -74,15 +73,13 @@ async function discover(issuer: string, client: { clientId: string; clientSecret
 export type SsoInput = { issuer: string; clientId: string; clientSecret?: string; domain: string };
 
 /**
- * Set up, or change, the organization's provider. A new domain waits for its
- * TXT record again; a domain claimed by another organization is refused,
- * unless that claim went CLAIM_DAYS unproved.
+ * Set up, or change, the organization's provider. Its domain is one of the
+ * organization's email domains: one proved already is proved here, a new one
+ * waits for its TXT record, and one another organization holds is refused.
  */
 export async function saveSso(caller: Caller, input: SsoInput) {
   mayManage(caller);
   const organizationId = caller.workspace.organizationId;
-  const domain = hostname(input.domain);
-  if (!domain) throw new AssetError("invalid", `Not a domain: "${input.domain}". Say the part after the @, e.g. acme.com`);
   const issuer = input.issuer.trim().replace(/\/$/, "");
   const [had] = await db.select().from(ssoProviders).where(own(caller));
   // A new provider needs the feature (LIMIT_FEATURES, docs: configuration/limits); one already set up can still change.
@@ -90,19 +87,19 @@ export async function saveSso(caller: Caller, input: SsoInput) {
   const clientSecret = input.clientSecret || (had && config(had).clientSecret);
   if (!clientSecret) throw new AssetError("invalid", "The client secret is needed to set it up");
   const oidc = await discover(issuer, { clientId: input.clientId.trim(), clientSecret });
-
-  const others = and(eq(ssoProviders.domain, domain), ne(ssoProviders.organizationId, organizationId));
-  await db.delete(ssoProviders).where(and(others, eq(ssoProviders.domainVerified, false), lt(ssoProviders.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`)));
-  const [taken] = await db.select({ id: ssoProviders.id }).from(ssoProviders).where(others);
-  if (taken) throw new AssetError("conflict", `${domain} signs in through another organization's provider`);
+  // One of the organization's email domains, made if it isn't yet: proved there, it is proved here (lib/core/email-domains.ts).
+  const { domain, token, verifiedAt } = await claimEmailDomain(organizationId, input.domain);
 
   const moved = !had || had.domain !== domain;
   const values = {
     issuer: oidc.issuer,
     oidcConfig: JSON.stringify(oidc),
     domain,
+    token,
+    domainVerified: !!verifiedAt,
     userId: caller.user?.id ?? null,
-    ...(moved ? { domainVerified: false, token: `artbucket-${randomBytes(16).toString("hex")}` } : {}),
+    // Nobody at a new domain is held to the provider until an admin says so there.
+    ...(moved ? { required: false } : {}),
   };
   const [row] = had
     ? await db.update(ssoProviders).set(values).where(eq(ssoProviders.id, had.id)).returning()
@@ -115,24 +112,61 @@ export async function saveSso(caller: Caller, input: SsoInput) {
   return presentSso(row);
 }
 
-/** Look for the TXT record now; a 422 says what is missing and what was found. */
+/** Look for the domain's TXT record now; a 422 says what is missing and what was found. */
 export async function verifySso(caller: Caller) {
   mayManage(caller);
   const [row] = await db.select().from(ssoProviders).where(own(caller));
   if (!row) return null;
   if (row.domainVerified) return presentSso(row);
-  const name = challengeName(row.domain);
-  const txt = await resolveTxt(name).then(
-    (rs) => rs.map((r) => r.join("")),
-    () => [] as string[],
-  );
-  if (!row.token || !txt.includes(row.token)) {
-    throw new AssetError("invalid", `Not found yet: a TXT record ${name} holding ${row.token}. DNS can take a while to reach everyone`, { found: { txt } });
-  }
-  const [done] = await db.update(ssoProviders).set({ domainVerified: true }).where(eq(ssoProviders.id, row.id)).returning();
+  // The email domain's proof, which marks the provider proved too.
+  await verifyEmailDomain(caller, row.domain);
   ssoOffered.forget();
-  await recordAudit(caller, "sso.verified", row.domain);
+  const [done] = await db.select().from(ssoProviders).where(eq(ssoProviders.id, row.id));
   return presentSso(done);
+}
+
+/** The organization's admins: user ids of whoever holds admin on it. */
+const adminsOf = async (organizationId: string) =>
+  (
+    await db
+      .select({ id: grants.userId })
+      .from(grants)
+      .where(and(eq(grants.resource, "organization"), eq(grants.resourceId, organizationId), eq(grants.scope, "admin")))
+  ).map((g) => g.id);
+
+/**
+ * Hold everyone at the domain to the provider, or let passwords back. Its
+ * admins are never held: a provider that breaks later (a rotated secret, a
+ * changed app) can't lock the organization out of fixing it. Holding them
+ * signs out everyone else at the domain, so they come back through it.
+ */
+export async function setSsoRequired(caller: Caller, required: boolean) {
+  mayManage(caller);
+  const [row] = await db.select().from(ssoProviders).where(own(caller));
+  if (!row) return null;
+  if (required && !row.domainVerified) throw new AssetError("invalid", `Prove ${row.domain} first: until then nobody signs in through the provider`);
+  const [done] = await db.update(ssoProviders).set({ required }).where(eq(ssoProviders.id, row.id)).returning();
+  if (required && !row.required) {
+    const admins = await adminsOf(row.organizationId);
+    // ilike finds the candidates, atDomain decides: a domain's dots and underscores aren't LIKE's to read.
+    const there = (await db.select({ id: users.id, email: users.email }).from(users).where(ilike(users.email, `%${row.domain}`)))
+      .filter((u) => atDomain(u.email, row.domain) && !admins.includes(u.id))
+      .map((u) => u.id);
+    if (there.length) await db.delete(sessions).where(inArray(sessions.userId, there));
+  }
+  await recordAudit(caller, required ? "sso.required" : "sso.optional", row.domain);
+  return presentSso(done);
+}
+
+/**
+ * Whether a password may not sign this address in, nor reset: its domain's
+ * provider is required, and it isn't one of that organization's admins.
+ */
+export async function passwordBarred(email: string) {
+  const row = await ssoAt(email);
+  if (!row?.required) return false;
+  const [me] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.trim().toLowerCase()));
+  return !me || !(await adminsOf(row.organizationId)).includes(me.id);
 }
 
 /** Stop signing in through it. People who joined keep their access and their accounts; they sign in with a password reset. */
@@ -158,6 +192,22 @@ export async function providerFor(providerId: string, email: string) {
     .from(ssoProviders)
     .where(and(eq(ssoProviders.providerId, providerId), eq(ssoProviders.domainVerified, true)));
   return row && atDomain(email, row.domain) ? row : null;
+}
+
+/**
+ * The verified provider of the domain an address is at, if some organization
+ * has one: a password sign-up there goes through it instead (lib/auth.ts), so
+ * its people join it rather than an organization of their own.
+ */
+export async function ssoAt(email: string) {
+  const domains = domainsOf(email);
+  if (!domains.length) return null;
+  const rows = await db
+    .select()
+    .from(ssoProviders)
+    .where(and(inArray(ssoProviders.domain, domains), eq(ssoProviders.domainVerified, true)));
+  // The nearest: eu.acme.com's own provider over acme.com's.
+  return rows.sort((a, b) => b.domain.length - a.domain.length)[0] ?? null;
 }
 
 /** Someone the organization's provider signed in: a member from now on, able to read, unless they already had a grant there. */

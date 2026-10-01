@@ -10,7 +10,7 @@ import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
-import { joinThroughSso, providerFor } from "@/lib/core/sso";
+import { joinThroughSso, passwordBarred, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
 import { underDomain } from "@/lib/portal";
@@ -24,12 +24,16 @@ import { lockedBy } from "@/lib/settings";
  * What someone may do is not better-auth's business: that is `grants`
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
  *
- * Sign-up is closed but for four doors: the first account on a fresh install
+ * Sign-up is closed but for five doors: the first account on a fresh install
  * (which becomes the admin of everything), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
- * admin grants some, and anyone at an organization's verified domain its own
- * provider vouches for, who joins it able to read. SIGNUP=open opens it to
- * anyone, each with an organization of their own.
+ * admin grants some, anyone at an organization's verified domain its own
+ * provider vouches for, who joins it able to read, and anyone at a domain an
+ * organization proved and opened (lib/core/email-domains.ts), offered to join
+ * it once the email code proves the address. SIGNUP=open opens it to anyone,
+ * each with an organization of their own, but for those two: an address at a
+ * single sign-on domain signs up through the provider, never with a password,
+ * and one at an opened domain is offered to join first.
  */
 
 export const OIDC_PROVIDER = "oidc";
@@ -67,6 +71,10 @@ const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCall
  */
 const shared = cookieDomain(env.APP_URL, env.HUB_URL);
 
+/** A password refused for an address its organization signs in through its own provider: the form goes there instead. */
+const ssoRequired = (email: string) =>
+  new APIError("FORBIDDEN", { code: "SSO_REQUIRED", message: `People at ${email.split("@").at(-1)?.toLowerCase()} sign in with single sign-on.` });
+
 export const auth = betterAuth({
   baseURL: env.APP_URL,
   // An organization's verified domain signs in too, with its own cookie: trusted for requests sent to it, and only those.
@@ -77,6 +85,14 @@ export const auth = betterAuth({
       for (const k of REDIRECTS) {
         const v = ctx.body?.[k] ?? ctx.query?.[k];
         if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
+      }
+      const email = ctx.body?.email;
+      if (typeof email === "string") {
+        // An address at an organization's verified domain signs up through its provider, and so joins it. Here, not in
+        // user.create: with email codes on, better-auth answers a refused sign-up as if it went, and the form would wait for a code.
+        if (ctx.path === "/sign-up/email" && (await ssoAt(email))) throw ssoRequired(email);
+        // Held to its organization's provider: the same answer whether or not the account exists.
+        if (ctx.path === "/sign-in/email" && (await passwordBarred(email))) throw ssoRequired(email);
       }
     }),
     // Before the plugins' (nextCookies copies the cookies to Next's from here).
@@ -105,7 +121,8 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 10,
     // Only when some email can go out (lib/core/mail.ts); otherwise an admin resets it.
-    sendResetPassword: async ({ user, url }) => void (await sendPasswordReset(user, url)),
+    // Not to an address held to its organization's provider: it signs in there. better-auth answers the same either way.
+    sendResetPassword: async ({ user, url }) => void ((await passwordBarred(user.email)) || (await sendPasswordReset(user, url))),
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: verify,
   },
@@ -188,7 +205,7 @@ export const auth = betterAuth({
             return { data: { ...user, emailVerified: true } };
           }
           const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
-          if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc))) {
+          if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
         },

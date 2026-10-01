@@ -23,6 +23,32 @@ account gets an organization of its own, with a first workspace, and is its
 admin. Invitations still work: someone signing up from one joins where it
 points instead.
 
+## Email domains
+
+An organization proves the domains its people have their email at in Settings,
+Email domains (`/api/v1/email-domains`): a TXT record at
+`_artbucket-challenge.acme.com` holding the token shown, then Check now. One
+organization holds a domain; a claim left unproved for seven days can be taken
+by another. Public suffixes (`co.uk`, `github.io`) are refused. These are not
+the custom domains the app and portals answer at, and no limit counts them.
+
+### Joining by domain
+
+A proved domain can be opened: "Anyone at acme.com can join, able to read".
+Whoever then signs up, or signs in, with an address at exactly that domain is
+offered to join the organization once the email code has confirmed the
+address: on the welcome page, beside starting an organization of their own,
+or in a banner across the app for an account made before. Not now is kept.
+With sign-up closed, such an address may still make an account: the offer is
+what it is for.
+
+It is refused for domains that give addresses to the public (gmail.com,
+orange.fr, comcast.net: some 14,000 of them), for a domain single sign-on
+covers, whose people join through the provider, and on a server without its
+own email (`EMAIL_*`), where nothing confirms the address. Joining by domain
+doesn't remove anyone who leaves the company: an admin does, or requires
+single sign-on.
+
 ## Single sign-on
 
 ### An organization's own
@@ -38,16 +64,31 @@ one for a server shared by several organizations. An organization admin:
    people use, e.g. `acme.com`. The endpoints are read from the issuer's
    discovery document then, and must be public https addresses
 3. proves the domain: a TXT record at `_artbucket-challenge.acme.com`
-   holding the token shown, then Check now
+   holding the token shown, then Check now. The domain is one of the
+   organization's email domains: one proved there already is proved here
 
 From then on "Sign in with SSO" on the sign-in page takes anyone at that
 domain, or under it, to the provider. The first time, they join the
 organization able to read; an admin raises their access in Team. An account
 made before, with a password, joins at its next sign-in through the provider.
+Signing up with a password at the domain is not on offer: the sign-in page
+takes the address to the provider instead, so nobody there ends up in an
+organization of their own by mistake.
 The provider vouches for its own domain only: an address anywhere else is
 refused. One domain belongs to one organization; a claim left unproved for
 seven days can be taken by another. Turning it off keeps everyone's account
 and access: they sign in with a password, reset by email.
+
+#### Requiring it
+
+Once the domain is proved, Require single sign-on (`PATCH /api/v1/sso` with
+`{"required": true}`) holds everyone at the domain to the provider: password
+sign-in sends them there, and no password reset goes out, so leaving the
+provider means leaving Artbucket. Requiring it signs out everyone at the domain
+at once. The organization's admins are the exception: they keep their password,
+so a provider that breaks later (a rotated secret, a changed app) never locks
+the organization out of fixing it. Members at other domains, an agency's or a
+freelancer's, are never held to it.
 
 ### The server's
 
