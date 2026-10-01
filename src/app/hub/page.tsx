@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { IconMoodEmpty } from "@tabler/icons-react";
+import { IconMoodEmpty, IconTerminal2 } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Cards, TabNav } from "@/components/hub";
+import { Avatar, Cards, Preview, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";
 import { followed, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
 import { env } from "@/lib/env";
@@ -54,43 +54,62 @@ export default async function HubHome({ searchParams }: Props) {
     return `${base || "/"}${p.size ? `?${p}` : ""}`;
   };
   const first = pub[0];
+  // The hero's quick picks and its wall: the public brands with a mark, trending first.
+  const marked = pub.filter((c) => c.logo);
+  const popular = marked.slice(0, 6);
+  const wall = !q && filter === "all" ? marked.slice(0, 24) : [];
   const sample = first ? `${env.HUB_URL}${first.path}/llms.txt` : `${env.HUB_URL}/llms.txt`;
 
   return (
     <>
-      <section className="border-b" style={{ background: "radial-gradient(60rem 20rem at 10% 0%, color-mix(in oklab, var(--primary) 9%, transparent), transparent)" }}>
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 md:py-16 lg:grid-cols-[1fr_28rem] lg:items-center">
-          <div className="grid gap-5">
-            <p className="text-primary-ink text-xs font-semibold tracking-[.14em] uppercase">Open brands, ready for agents</p>
-            <h1 className="font-display text-4xl font-semibold tracking-tight text-balance md:text-5xl">Brands to build with.</h1>
-            <p className="text-muted-foreground max-w-xl text-lg text-pretty">
-              Logos, colors, type and voice that projects, organizations and companies share. Browse them here, or hand one to an agent.
-            </p>
-            <HubSearch action={base || "/"} defaultValue={q} big className="max-w-xl" />
+      <section id="hub-hero" className="relative overflow-hidden border-b">
+        {/* A dot grid fading out from the middle, under two soft glows of the primary. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 [background-image:radial-gradient(color-mix(in_oklab,var(--foreground)_14%,transparent)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,black,transparent)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(40rem 22rem at 50% -4rem, color-mix(in oklab, var(--primary) 22%, transparent), transparent), radial-gradient(30rem 16rem at 85% 30%, color-mix(in oklab, var(--primary) 8%, transparent), transparent)" }} />
+        <div className="relative mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] justify-items-center gap-6 px-4 pt-16 pb-10 text-center md:pt-24">
+          <p className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs backdrop-blur">
+            <span className="bg-primary size-1.5 rounded-full shadow-[0_0_8px_var(--primary)]" />
+            {pub.length} open {pub.length === 1 ? "brand" : "brands"}, ready for people and agents
+          </p>
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-balance md:text-7xl">
+            Brands to <span className="from-primary bg-gradient-to-r to-fuchsia-400 bg-clip-text text-transparent">build with.</span>
+          </h1>
+          <p className="text-muted-foreground max-w-xl text-lg text-pretty md:text-xl">
+            Logos, colors, type and voice that projects, organizations and companies share. Browse them here, or hand one to an agent.
+          </p>
+          <HubSearch action={base || "/"} defaultValue={q} big className="w-full max-w-xl [&_input]:h-14 [&_input]:rounded-2xl [&_input]:shadow-[0_10px_40px_-12px_color-mix(in_oklab,var(--primary)_45%,transparent)]" />
+          {popular.length > 0 && (
+            <nav aria-label="Popular brands" className="flex flex-wrap items-center justify-center gap-2 text-sm">
+              <span className="text-muted-foreground me-1">Popular</span>
+              {popular.map((c) => (
+                <a key={c.path} href={base + c.path} className="bg-background/60 hover:bg-muted flex items-center gap-2 rounded-full border py-1 ps-1 pe-3 backdrop-blur transition-colors">
+                  <Avatar name={c.name} logo={c.logo} tint={c.tint} palette={c.palette} className="size-6 rounded-full text-xs" />
+                  {c.name}
+                </a>
+              ))}
+            </nav>
+          )}
+          <div className="bg-card/70 flex max-w-full items-center gap-2 rounded-lg border py-1.5 ps-3 pe-1.5 font-mono text-xs backdrop-blur">
+            <IconTerminal2 aria-hidden className="text-primary-ink size-4 shrink-0" />
+            <span className="text-muted-foreground shrink-0">Any agent, no key</span>
+            <code className="min-w-0 truncate">curl {sample.replace(/^https?:\/\//, "")}</code>
+            <CopyButton text={`curl ${sample}`} label="Copy the command" what="the command" />
           </div>
-          <figure className="bg-card overflow-hidden rounded-xl border shadow-[0_20px_50px_-20px_rgb(0_0_0/0.18)]">
-            <figcaption className="text-muted-foreground flex items-center gap-2 border-b px-4 py-2.5 text-xs">
-              <span aria-hidden className="flex gap-1.5">
-                <i className="size-2.5 rounded-full bg-[#ff5f57]" />
-                <i className="size-2.5 rounded-full bg-[#febc2e]" />
-                <i className="size-2.5 rounded-full bg-[#28c840]" />
-              </span>
-              <span className="ms-2">Any agent, no key</span>
-              <CopyButton text={`curl ${sample}`} label="Copy the command" what="the command" className="ms-auto" />
-            </figcaption>
-            <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed">
-              <span className="text-muted-foreground">$ </span>curl {sample.replace(/^https?:\/\//, "")}
-              {"\n"}
-              <span className="text-primary-ink"># {first?.name ?? "BrandHub"}</span>
-              {"\n"}
-              <span className="text-muted-foreground">&gt; {first ? `${first.name}'s brand rules, from ${first.owner}.` : "Brand rules that owners share."}</span>
-              {"\n\n"}
-              <span className="text-muted-foreground">- As JSON: …/brand.json</span>
-              {"\n"}
-              <span className="text-muted-foreground">- As design tokens: …/tokens?format=css</span>
-            </pre>
-          </figure>
         </div>
+        {/* A wall of the brands themselves, two rows drifting opposite ways (globals.css .hub-marquee), still for reduced motion. */}
+        {wall.length >= 6 && (
+          <div className="hub-wall relative grid gap-3 pb-12 [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
+            {[wall.filter((_, i) => i % 2 === 0), wall.filter((_, i) => i % 2 === 1)].map((row, r) => (
+              <div key={r} className="hub-marquee flex w-max gap-3" data-reverse={r ? "" : undefined}>
+                {[...row, ...row].map((c, i) => (
+                  <a key={i} href={base + c.path} aria-hidden={i >= row.length || undefined} tabIndex={i >= row.length ? -1 : undefined} title={c.name} className="group block w-40 shrink-0 md:w-48">
+                    <Preview card={c} className="aspect-[3/2] rounded-xl border shadow-sm transition-transform duration-300 group-hover:-translate-y-1" />
+                  </a>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {collections.map((c) => (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IconGauge, IconLayoutGrid, IconLogin2, IconPlus, IconRobot } from "@tabler/icons-react";
 import { notFound } from "next/navigation";
 import { AppIcon } from "@/components/brand";
 import { HubSearch } from "@/components/hub-client";
@@ -24,21 +25,33 @@ export default async function HubLayout({ children }: { children: React.ReactNod
             <AppIcon className="size-7" />
             <span className="font-display text-lg font-semibold tracking-tight">BrandHub</span>
           </Link>
-          <HubSearch action={base || "/"} className="hidden w-full max-w-sm md:block" />
+          <HubSearch action={base || "/"} className="hub-header-search hidden w-full max-w-sm md:block" />
           <nav className="ms-auto flex shrink-0 items-center gap-1">
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href={`${base}/score`}>Agent Score</Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`${base}/score`} aria-label="Agent Score">
+                <IconGauge aria-hidden />
+                <span className="hidden sm:inline">Agent Score</span>
+              </Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <a href={`${base}/llms.txt`}>For agents</a>
+            <Button asChild variant="ghost" size="sm">
+              <a href={`${base}/llms.txt`} aria-label="For agents">
+                <IconRobot aria-hidden />
+                <span className="hidden sm:inline">For agents</span>
+              </a>
             </Button>
             {!viewer && (
               <Button asChild variant="ghost" size="sm">
-                <a href={`${env.APP_URL}/login?next=${encodeURIComponent("/hub")}`}>Sign in</a>
+                <a href={`${env.APP_URL}/login?next=${encodeURIComponent("/hub")}`}>
+                  <IconLogin2 aria-hidden />
+                  Sign in
+                </a>
               </Button>
             )}
             <Button asChild size="sm">
-              <a href={`${env.APP_URL}/brands`}>{viewer ? "Your brands" : "Share your brand"}</a>
+              <a href={`${env.APP_URL}/brands`}>
+                {viewer ? <IconLayoutGrid aria-hidden /> : <IconPlus aria-hidden />}
+                {viewer ? "Your brands" : "Share your brand"}
+              </a>
             </Button>
           </nav>
         </div>

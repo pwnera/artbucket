@@ -442,6 +442,28 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   }
 }
 
+/* BrandHub's front page: its wall of brands drifts, and the header's search steps aside for the hero's. */
+body:has(#hub-hero) .hub-header-search {
+  display: none;
+}
+.hub-wall {
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hub-marquee {
+    to { translate: -50% 0; }
+  }
+  .hub-marquee {
+    animation: hub-marquee 80s linear infinite;
+  }
+  .hub-marquee[data-reverse] {
+    animation-direction: reverse;
+  }
+  .hub-wall:hover .hub-marquee {
+    animation-play-state: paused;
+  }
+}
+
 /* A rule you land on, from the TOC or the palette, flashes and fades rather than staying tinted. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes target-flash {
