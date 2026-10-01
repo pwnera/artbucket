@@ -308,7 +308,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
           <li key={r.label} className="grid gap-1">
             <span className="text-sm font-medium">{r.label}</span>
             <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
-              <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{r.text}</code>
+              <code className="w-0 min-w-0 flex-1 truncate py-1.5 text-xs">{r.text}</code>
               <CopyButton text={r.text} label={`Copy the ${r.label} address`} what="the address" />
             </div>
           </li>

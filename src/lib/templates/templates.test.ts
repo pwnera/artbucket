@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { COLOR_SLOTS, FONT_SLOTS, ThemeSettings } from "../brand-theme.ts";
 import { TEMPLATE_CARDS } from "../brand-templates.ts";
+import { brandDomain } from "../portal.ts";
 import { checkBindings, checkTree, PageInput, pageSlug, pageWarnings, parseSections } from "../pages.ts";
 import { RuleInput, specKeys } from "../rules.ts";
 import { TEMPLATES } from "./index.ts";
@@ -12,6 +13,8 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 for (const [id, t] of Object.entries(TEMPLATES)) {
   test(`template ${id} parses, binds and names only assets it can ingest`, () => {
     assert.equal(TEMPLATE_CARDS.find((c) => c.id === id)?.name, t.name);
+    // Its BrandHub listing is claimable by whoever proves the brand's domain: every template names it, as a brand's domain reads.
+    assert.equal(brandDomain(t.domain ?? ""), t.domain, `template ${id} names its brand's domain`);
     const rules = t.rules.map((r) => ({ assets: [], ...RuleInput.parse(r) }));
     const byKey = new Map(rules.map((r) => [r.key, r]));
     for (const r of rules) for (const k of specKeys("spec" in r ? r.spec : null)) assert.equal(byKey.get(k)?.type, "color", `${r.key} spec names ${k}`);

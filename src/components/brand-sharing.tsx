@@ -112,6 +112,7 @@ export function BrandSharing({
               <Snippet text={`[![Brand on BrandHub](${hub.url}/badge.svg)](${hub.url})`} what="the badge's Markdown" />
             </div>
           )}
+          {hub.visibility === "public" && hub.published && <WellKnown hub={hub} domain={brand.domain ?? (hub.verified?.includes("/") ? null : hub.verified) ?? null} />}
         </Group>
       )}
 
@@ -121,6 +122,25 @@ export function BrandSharing({
         <BrandAddresses brand={brand} origin={origin} hub={hub?.published ? hub : null} release={release} onTokens={() => setTokens(true)} />
       </Group>
       <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
+    </div>
+  );
+}
+
+/**
+ * The one file a brand's owner hosts on their own site, so agents reading
+ * AdCP's brand.json at their domain find the brand on BrandHub: an
+ * Authoritative Location Redirect. A verified domain serving this app answers
+ * it already (app/.well-known/brand.json).
+ */
+function WellKnown({ hub, domain }: { hub: BrandHub; domain: string | null }) {
+  const file = JSON.stringify({ $schema: "https://adcontextprotocol.org/schemas/v3/brand.json", authoritative_location: `${hub.url}/brand.json` });
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-sm font-medium break-words">
+        On {domain ?? "your own site"}, at <code className="font-mono text-xs">{domain ? `https://${domain}` : ""}/.well-known/brand.json</code>
+      </p>
+      <p className="text-muted-foreground text-sm">Agents that read AdCP&apos;s brand.json from a domain then find this brand, its latest release, here. One static file, as it is:</p>
+      <Snippet text={file} what="the brand.json" />
     </div>
   );
 }
@@ -168,7 +188,7 @@ function BrandPortals({
         <ul className="divide-y rounded-lg border">
           {portals.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center gap-3 p-3">
-              <div className="grid min-w-0 flex-1 gap-0.5">
+              <div className="grid min-w-0 flex-1 basis-40 gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
                   <button type="button" onClick={() => setEditing(p)} className="truncate text-start hover:underline">
                     {p.name}

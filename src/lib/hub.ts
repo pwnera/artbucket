@@ -228,6 +228,12 @@ export const githubProofUrl = (login: string) => `https://raw.githubusercontent.
 /** How a proved GitHub account is named beside a verified domain: github.com/rust-lang. */
 export const githubProof = (login: string) => `github.com/${login}`;
 
+/** The domains a host may prove from above: itself and each name above it, but a bare top-level one. For a query that `provesDomain` (lib/domain-proof.ts) then checks. */
+export const domainsAbove = (host: string) => {
+  const labels = host.replace(/^www\./, "").split(".");
+  return labels.slice(0, -1).map((_, i) => labels.slice(i).join("."));
+};
+
 /** Why someone reports a listing: the first is what community listings are most often reported for. */
 export const REPORT_REASONS = {
   impersonation: "It pretends to be the brand's owner",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { brandLook, downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain, wornTheme } from "./portal.ts";
+import { brandDomain, brandLook, downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain, wornTheme } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -30,6 +30,10 @@ test("host names: lowercased and bare, or refused", () => {
   for (const bad of ["localhost", "http://x.com", "a..b.com", "-a.com", "x.c", "a b.com", `${"a".repeat(64)}.com`]) {
     assert.equal(hostname(bad), null, bad);
   }
+  // A brand's domain: from a URL or a host, without www.
+  for (const raw of ["https://www.Acme.com/about?x=1", "acme.com", "WWW.ACME.COM.", "http://user@acme.com:8080/#top"]) assert.equal(brandDomain(raw), "acme.com", raw);
+  assert.equal(brandDomain("shop.acme.com"), "shop.acme.com");
+  assert.equal(brandDomain("mailto:"), null);
 });
 
 test("slugs", () => {

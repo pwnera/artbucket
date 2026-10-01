@@ -222,23 +222,54 @@ export const SaveSearch = z.strictObject({
   query: z.string().max(4000).describe('An /api/v1/assets query string, e.g. "q=fox&f.channel=web"'),
 });
 
+export const PublishInput = z.strictObject({
+  note: z.string().trim().max(2000).optional().describe("What changed, for readers of the history and What's new"),
+  image: uuid.optional().describe("An asset shown beside the note"),
+});
+
 const brandSlug = z.string().max(60).regex(RULE_CONTEXT, "Use a slug, e.g. acme-studio");
-export const BrandCreate = z.strictObject({
-  name: z.string().trim().min(1).max(80),
-  slug: brandSlug.optional().describe("Defaults to the name, as a slug"),
-  from: z
-    .union([brandSlug, z.string().max(130).regex(HUB_REF, "A BrandHub brand, e.g. rust-lang/rust@12")])
-    .optional()
-    .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace"),
-  template: z
-    .enum(["firefox", "rust", "blender"])
-    .optional()
-    .describe("Start from a showcase brand's rules, theme, pages and logos, to edit into your own"),
-}).refine((b) => !(b.from && b.template), "Start from a brand or a template, not both");
+export const BrandCreate = z
+  .strictObject({
+    name: z.string().trim().min(1).max(80).optional().describe("Required, but from a brand.json: then the brand's name there when left out"),
+    slug: brandSlug.optional().describe("Defaults to the name, as a slug; from a brand.json, to its id"),
+    from: z
+      .union([brandSlug, z.string().max(130).regex(HUB_REF, "A BrandHub brand, e.g. rust-lang/rust@12")])
+      .optional()
+      .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace"),
+    template: z
+      .enum(["firefox", "rust", "blender"])
+      .optional()
+      .describe("Start from a showcase brand's rules, theme, pages and logos, to edit into your own"),
+    domain: z
+      .string()
+      .trim()
+      .min(1)
+      .max(253)
+      .optional()
+      .describe(
+        "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from. The brand keeps the document's own domain (its url), else this one",
+      ),
+    brandJson: z.record(z.string(), z.unknown()).optional().describe("Start from this AdCP brand.json document, rather than one read from `domain`"),
+    brand: z
+      .string()
+      .max(100)
+      .regex(/^[a-z0-9_]+$/, "An AdCP brand id, e.g. acme_outdoor")
+      .optional()
+      .describe("Which brand of a house portfolio, by its AdCP id; when left out, the one at `domain`, or its only one"),
+    publish: z
+      .union([z.boolean(), PublishInput])
+      .optional()
+      .describe("Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace"),
+    visibility: z.enum(["private", "public"]).optional().describe("`public` puts its release on BrandHub for anyone, once made; takes `publish`"),
+  })
+  .refine((b) => b.name || b.domain || b.brandJson, { message: "Give the brand a name", path: ["name"] })
+  .refine((b) => [b.from, b.template, b.domain || b.brandJson].filter(Boolean).length < 2, "Start from a brand, a template or a brand.json, one of them")
+  .refine((b) => b.visibility !== "public" || b.publish, { message: "Public takes publish: BrandHub shows a brand's latest release", path: ["visibility"] });
 export const BrandPatch = z.strictObject({
   name: z.string().trim().min(1).max(80).optional(),
   slug: brandSlug.optional(),
   default: z.literal(true).optional().describe("Make this the default brand"),
+  domain: z.string().trim().max(253).nullable().optional().describe("Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it"),
 });
 export const VersionPatch = z.strictObject({
   name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
@@ -253,10 +284,6 @@ export const RuleBatch = z.strictObject({
     .optional(),
 });
 export const PageEdit = z.strictObject({ ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none") });
-export const PublishInput = z.strictObject({
-  note: z.string().trim().max(2000).optional().describe("What changed, for readers of the history and What's new"),
-  image: uuid.optional().describe("An asset shown beside the note"),
-});
 
 const commentBody = z.string().trim().min(1).max(MAX_COMMENT);
 export const CommentCreate = z
@@ -363,6 +390,9 @@ export const HubReportInput = z.strictObject({
 });
 export const HubClaimInput = z.strictObject({
   note: z.string().trim().max(2000).optional().describe("Who you are to the brand, and whether you want the listing handed over or taken down"),
+});
+export const HubOfferAccept = z.strictObject({
+  slug: brandSlug.optional().describe("The new brand's slug in your workspace; the listing's when left out"),
 });
 export const HubReportPatch = z.strictObject({
   status: z.enum(["open", "resolved"]).optional(),
@@ -549,8 +579,38 @@ export const Brand = z.object({
   default: z.boolean(),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
   from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
+  domain: z.string().nullable().optional().describe("Its own domain (acme.com): whoever proves it may claim its BrandHub listing"),
+  movedTo: z.string().nullable().optional().describe("Claimed on BrandHub by whoever proved its domain: the listing that took its place, as {org}/{brand}"),
   rules: z.number().int(),
   createdAt: date,
+});
+/** POST /api/v1/brands: the brand, and what making it from a brand.json left out, and its release when it was published at once. */
+export const BrandMade = Brand.extend({
+  skipped: z.array(z.string()).optional().describe("From a brand.json: files and portfolio brands that wouldn't read, each with why"),
+  dropped: z.array(z.string()).optional().describe("From a brand.json: what it says that has no place in the rules, by its path there"),
+  published: z.number().int().optional().describe("With publish: the version released"),
+  hub: z.object({ visibility: z.enum(["private", "public"]), url: z.string() }).nullable().optional().describe("With publish: where it is on BrandHub"),
+});
+/** GET /api/v1/brand-json: what a domain's brand.json holds, as brands. */
+export const BrandJsonPreview = z.object({
+  domain: z.string().nullable(),
+  pick: z.string().nullable().describe("The brand POST /brands makes when `brand` is left out; null: name one"),
+  brands: z.array(
+    z.object({
+      id: z.string().describe("Its AdCP id: POST /brands takes it as `brand`"),
+      name: z.string(),
+      slug: z.string(),
+      domain: z.string().nullable(),
+      tagline: z.string().nullable(),
+      colors: z.array(z.string()),
+      fonts: z.array(z.string()),
+      logos: z.number().int(),
+      rules: z.number().int(),
+      files: z.number().int(),
+      dropped: z.array(z.string()),
+    }),
+  ),
+  skipped: z.array(z.string()),
 });
 
 // ---- brand pages ------------------------------------------------------------
@@ -784,6 +844,7 @@ export const BrandHub = z.object({
   chosen: z.boolean().describe("That portal was picked; false: it is the brand's first public portal"),
   pulls: z.number().int().describe("Its BrandHub files (brand.json, llms.txt, tokens) read in the last 30 days, as its BrandHub card shows"),
   delisted: z.string().nullable().describe("Taken off BrandHub by whoever runs the server, and why: it can't be made public until they list it again"),
+  movedTo: z.string().nullable().optional().describe("Claimed by whoever proved its domain: the listing that took its place, as {org}/{brand}; it can't be made public again"),
   ref: z.string().describe("How BrandHub names it: {org}/{brand}"),
   verified: z.string().nullable().describe("What its organization proved it holds, a domain or github.com/{login}; null: a community listing"),
   terms: z.string().nullable().describe("The terms of use its guidelines portal asks readers to accept, in markdown"),
@@ -1409,6 +1470,16 @@ export const HubReport = z.object({
   status: z.enum(["open", "resolved"]),
   createdAt: date,
   brand: z.object({ slug: z.string(), name: z.string(), workspace: z.string(), visibility: z.enum(["private", "public"]) }),
+});
+export const HubOffer = z.object({
+  id: uuid.describe("The listing's brand"),
+  org: z.string(),
+  owner: z.string().describe("Its organization's name"),
+  brand: z.string(),
+  name: z.string(),
+  domain: z.string().describe("The domain it names, which your organization proved"),
+  proof: z.string().describe("Your verified domain that proves it"),
+  url: z.string().describe("Its page on BrandHub"),
 });
 export const Domain = domainState.extend({
   primary: z.boolean().describe("The app's default address: links in email point here"),

@@ -1,8 +1,8 @@
-import { brandJson } from "@/lib/brand-json";
 import { record, referrerOf } from "@/lib/core/events";
-import { hubBrand } from "@/lib/core/hub";
+import { hubBrand, listingBrandJson } from "@/lib/core/hub";
+import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
-import { brandText, parseRef } from "@/lib/hub";
+import { brandText, hubHome, hubPath, parseRef } from "@/lib/hub";
 import { TokenQuery } from "@/lib/schemas";
 import { signUrlsIn } from "@/lib/signed";
 import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
@@ -31,7 +31,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   const q = TokenQuery.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!q.success) return Response.json({ error: { code: "invalid", message: q.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400, headers: BASE });
   const b = ref && (await hubBrand(org, ref.slug, { version: ref.version, context: file === "tokens" ? q.data.context : undefined }));
-  if (!b) return missing(`Nothing is listed at ${org}/${brand}`);
+  if (!b) {
+    // Claimed by whoever proved its domain: its files lead to theirs, for good.
+    const moved = ref && (await hubMoved(org, ref.slug));
+    if (!moved) return missing(`Nothing is listed at ${org}/${brand}`);
+    const to = `${hubHome("public", env.APP_URL, env.HUB_URL!)}${hubPath(moved.org, moved.brand)}/${file}${new URL(req.url).search}`;
+    return new Response(null, { status: 308, headers: { ...BASE, Location: to } });
+  }
   // A community listing may not come from the brand's owner: search engines leave its files out, as its page.
   const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
   // Shown on every view of a README, so not a pull: nobody took the brand.
@@ -49,10 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
     const text = signUrlsIn(f.render(rules, { origin: env.APP_URL, title }), (id) => b.signed[id] ?? null);
     return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
   }
-  if (file === "brand.json") {
-    const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: about.guidelines };
-    return Response.json(brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, rules: b.rules, links }), { headers });
-  }
+  if (file === "brand.json") return Response.json(listingBrandJson(b), { headers });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
   return Response.json({ data: out }, { headers });

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
@@ -9,6 +9,7 @@ import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hu
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/external-link";
 import { followed, hubBase, hubBrand, hubViewer } from "@/lib/core/hub";
+import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
 import { ago, hubPath, parseRef } from "@/lib/hub";
 
@@ -17,7 +18,11 @@ type Props = { params: Promise<{ org: string; brand: string }> };
 async function load({ params }: Props) {
   const { org, brand } = await params;
   const ref = parseRef(brand);
-  return ref && hubBrand(org, ref.slug, { version: ref.version, viewer: await hubViewer() });
+  const b = ref && (await hubBrand(org, ref.slug, { version: ref.version, viewer: await hubViewer() }));
+  // Claimed by whoever proved its domain: its address leads to theirs, for good (its releases are theirs to number).
+  const moved = ref && !b && (await hubMoved(org, ref.slug));
+  if (moved) permanentRedirect((await hubBase()) + hubPath(moved.org, moved.brand));
+  return b;
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -66,6 +71,15 @@ export default async function HubListing(props: Props) {
               // What was proved, as the prototype's "lumen.dev verified" says.
               <span className="border-success/40 text-success inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
                 <IconCircleCheckFilled aria-hidden className="size-3" /> {b.verified} verified
+              </span>
+            ) : open && b.domain ? (
+              // It names a domain its organization never proved: whoever proves it is offered the listing (lib/core/hub-claims.ts).
+              <span className="text-muted-foreground inline-flex flex-wrap items-center gap-x-1 text-xs">
+                <span className="rounded-full border px-2 py-0.5 font-medium">Unclaimed</span>
+                <span aria-hidden>·</span>
+                <a href={`${env.APP_URL}/settings/organization/domains`} className="hover:text-foreground underline underline-offset-2">
+                  Is this yours? Prove {b.domain} to claim it
+                </a>
               </span>
             ) : (
               <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
@@ -177,6 +191,11 @@ export default async function HubListing(props: Props) {
             {b.guidelines && (
               <ExternalLink href={b.guidelines} className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
                 <IconBook aria-hidden className="size-4 shrink-0" /> {b.guidelines.replace(/^https?:\/\//, "")}
+              </ExternalLink>
+            )}
+            {b.domain && (
+              <ExternalLink href={`https://${b.domain}`} className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
+                <IconWorld aria-hidden className="size-4 shrink-0" /> {b.domain}
               </ExternalLink>
             )}
             <Owner verified={b.verified} className="text-sm" />

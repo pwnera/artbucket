@@ -42,6 +42,7 @@ export type AuditAction =
   | "brand.published"
   | "brand.public"
   | "brand.private"
+  | "brand.claimed"
   | "domain.added"
   | "domain.verified"
   | "domain.removed"

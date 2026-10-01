@@ -885,12 +885,13 @@
     "type": "object",
     "properties": {
       "name": {
+        "description": "Required, but from a brand.json: then the brand's name there when left out",
         "type": "string",
         "minLength": 1,
         "maxLength": 80
       },
       "slug": {
-        "description": "Defaults to the name, as a slug",
+        "description": "Defaults to the name, as a slug; from a brand.json, to its id",
         "type": "string",
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -918,11 +919,60 @@
           "rust",
           "blender"
         ]
+      },
+      "domain": {
+        "description": "Start from this domain's AdCP brand.json (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs): its colors, type, logos (ingested from their URLs), voice and more, as rules. With `brandJson`, only where that document came from. The brand keeps the document's own domain (its url), else this one",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253
+      },
+      "brandJson": {
+        "description": "Start from this AdCP brand.json document, rather than one read from `domain`",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "brand": {
+        "description": "Which brand of a house portfolio, by its AdCP id; when left out, the one at `domain`, or its only one",
+        "type": "string",
+        "maxLength": 100,
+        "pattern": "^[a-z0-9_]+$"
+      },
+      "publish": {
+        "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace",
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "note": {
+                "description": "What changed, for readers of the history and What's new",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "image": {
+                "description": "An asset shown beside the note",
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "visibility": {
+        "description": "`public` puts its release on BrandHub for anyone, once made; takes `publish`",
+        "type": "string",
+        "enum": [
+          "private",
+          "public"
+        ]
       }
     },
-    "required": [
-      "name"
-    ],
     "additionalProperties": false
   },
   "update_brand": {
@@ -942,6 +992,18 @@
         "description": "Make this the default brand",
         "type": "boolean",
         "const": true
+      },
+      "domain": {
+        "description": "Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 253
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "brand": {
         "type": "string",

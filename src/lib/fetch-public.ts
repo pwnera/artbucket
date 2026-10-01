@@ -79,7 +79,8 @@ const guardedLookup: Lookup = (hostname, options, callback) => {
 /**
  * `timeoutMs` is how long the connection may sit idle; `signal` ends the
  * whole fetch, however slowly it trickles (AbortSignal.timeout). `accept`
- * says which statuses answer rather than throw: 200 unless said.
+ * says which statuses answer rather than throw: 200 unless said. `follow`
+ * says which redirects it may take, from the URL asked to the next.
  */
 export async function fetchPublic(
   raw: string,
@@ -89,7 +90,8 @@ export async function fetchPublic(
     redirects = 5,
     signal,
     accept = (status: number) => status === 200,
-  }: { maxBytes: number; timeoutMs?: number; redirects?: number; signal?: AbortSignal; accept?: (status: number) => boolean },
+    follow,
+  }: { maxBytes: number; timeoutMs?: number; redirects?: number; signal?: AbortSignal; accept?: (status: number) => boolean; follow?: (to: URL, from: URL) => boolean },
 ): Promise<{ bytes: Buffer; mime: string; url: URL; status: number }> {
   const url = new URL(raw);
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new FetchError("Only http and https URLs");
@@ -111,7 +113,9 @@ export async function fetchPublic(
   if (status >= 300 && status < 400 && res.headers.location) {
     res.resume();
     if (redirects <= 0) throw new FetchError("Too many redirects");
-    return fetchPublic(new URL(res.headers.location, url).toString(), { maxBytes, timeoutMs, redirects: redirects - 1, signal, accept });
+    const next = new URL(res.headers.location, url);
+    if (follow && !follow(next, url)) throw new FetchError(`It redirects to ${next.origin}, which isn't followed`);
+    return fetchPublic(next.toString(), { maxBytes, timeoutMs, redirects: redirects - 1, signal, accept, follow });
   }
   if (!accept(status)) {
     res.resume();
