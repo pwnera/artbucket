@@ -560,6 +560,13 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "downloadable": {
+                                  "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -1071,6 +1078,13 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "downloadable": {
+                              "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
                             }
                           },
                           "additionalProperties": false
@@ -1270,6 +1284,13 @@
                                 {
                                   "type": "null"
                                 }
+                              ]
+                            },
+                            "downloadable": {
+                              "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                              "type": [
+                                "boolean",
+                                "null"
                               ]
                             }
                           },
@@ -1703,6 +1724,13 @@
                                   {
                                     "type": "null"
                                   }
+                                ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
                                 ]
                               }
                             },
@@ -2286,6 +2314,13 @@
                                   {
                                     "type": "null"
                                   }
+                                ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
                                 ]
                               }
                             },
@@ -3673,6 +3708,13 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "downloadable": {
+                                  "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -4661,6 +4703,13 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "downloadable": {
+                                  "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -5638,6 +5687,13 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -6094,6 +6150,13 @@
                             {
                               "type": "null"
                             }
+                          ]
+                        },
+                        "downloadable": {
+                          "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                          "type": [
+                            "boolean",
+                            "null"
                           ]
                         }
                       },
@@ -6557,6 +6620,13 @@
                                   {
                                     "type": "null"
                                   }
+                                ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
                                 ]
                               }
                             },
@@ -7259,6 +7329,13 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -7892,6 +7969,13 @@
                                     {
                                       "type": "null"
                                     }
+                                  ]
+                                },
+                                "downloadable": {
+                                  "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                  "type": [
+                                    "boolean",
+                                    "null"
                                   ]
                                 }
                               },
@@ -8783,6 +8867,13 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "downloadable": {
+                                  "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -9442,6 +9533,13 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -10098,6 +10196,13 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -10628,6 +10733,13 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "downloadable": {
+                            "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -10803,6 +10915,10 @@
                   "public": {
                     "type": "boolean",
                     "description": "Its URLs work for anyone while it may be used; otherwise with a key or session, or signed (POST /api/v1/assets/{id}/signed-url)"
+                  },
+                  "downloadable": {
+                    "type": "boolean",
+                    "description": "Whether people outside the workspace may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes"
                   },
                   "urls": {
                     "type": "object",
@@ -10981,6 +11097,7 @@
                   "provenance",
                   "supersededBy",
                   "public",
+                  "downloadable",
                   "urls",
                   "constraints",
                   "alternatives"
@@ -17279,6 +17396,49 @@
                         ],
                         "description": "The brand on BrandHub; null when this server has none"
                       },
+                      "files": {
+                        "type": "object",
+                        "properties": {
+                          "downloadable": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Its rules' files anyone shown them may download"
+                          },
+                          "shownOnly": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "font": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "filename",
+                                "font"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Those people outside the workspace see but can't download (an asset's rights.downloadable, else its license)"
+                          }
+                        },
+                        "required": [
+                          "downloadable",
+                          "shownOnly"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Its rules' files as its portals and BrandHub hand them out"
+                      },
                       "url": {
                         "type": "string",
                         "format": "uri",
@@ -17297,6 +17457,7 @@
                       "live",
                       "portals",
                       "hub",
+                      "files",
                       "url"
                     ],
                     "additionalProperties": false
@@ -39046,6 +39207,10 @@
                           "type": "string",
                           "format": "uri"
                         },
+                        "downloadable": {
+                          "type": "boolean",
+                          "description": "false: shown, not handed out; `download` answers 403 and `url` loads only in this app's pages"
+                        },
                         "thumbnail": {
                           "anyOf": [
                             {
@@ -39071,6 +39236,7 @@
                         "height",
                         "url",
                         "download",
+                        "downloadable",
                         "thumbnail"
                       ],
                       "additionalProperties": false

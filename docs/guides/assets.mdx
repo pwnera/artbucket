@@ -102,6 +102,36 @@ embeds it within one. It follows the same access as `/a/`: anyone when the
 asset is public, otherwise people who can see it. A signed URL names one
 version, so it stays an `/a/` URL.
 
+## Shown, not handed out
+
+Some files may be shown but not given away: a stock photo licensed for your
+site, a foundry's typeface licensed for your pages. An asset's
+`rights.downloadable` says whether people outside the workspace may take the
+file itself. Left empty, its license decides:
+
+- A font goes out only under an open license (SIL Open Font License, Apache,
+  Ubuntu Font License). An uploaded font with no license of its own takes the
+  one its file names, so a Google Fonts family is downloadable and a foundry's
+  is not until you say so.
+- A file whose origin is `licensed` goes out only under an open license, such
+  as Creative Commons.
+- Anything else goes out.
+
+To anyone a public or signed URL lets in (portals, share links, BrandHub, an
+embed), a file kept from them is shown only: renditions up to 1600 px a side,
+its original only into a page of this app that draws it (a portal's
+typeface, a video playing), and `?download` answers `403 shown_only`. Your
+team gets everything, as always. Portals, share links and BrandHub offer no
+download for it, and brand.json leaves its font files out. In the app, an
+asset's **Rights** show **Downloads** (Automatic, Allowed or Shown only) and
+what that means for whoever sees it; releasing a brand, its Sharing tab and a
+portal's door say how many of its files visitors can download.
+
+A browser asked for a file by one of this app's pages says so in its request
+headers, and that is what lets a typeface load into a portal and not open on
+its own. A script outside a browser can claim the same: what it gets is what
+every visitor's browser already gets, as with any font a website serves.
+
 Public goes with the asset: a new version that takes over from a public one is
 public too, when whoever uploads it, or approves it if it was proposed, may
 share it. Otherwise it waits for someone who may, and `/c/` sends anonymous

@@ -53,7 +53,7 @@ own. Where a field lists several keys, the first the brand has wins.
 
 | brand.json | From |
 |---|---|
-| `fonts.{name}` | Every font rule under `type.`, by the rest of its key in snake case: `{ family, files[], opentype_features, fallbacks }`, from its family, its font files, `spec.features` and `spec.fallback` |
+| `fonts.{name}` | Every font rule under `type.`, by the rest of its key in snake case: `{ family, files[], opentype_features, fallbacks }`, from its family, its font files (on BrandHub, those it hands out: [shown, not handed out](/guides/assets#shown-not-handed-out)), `spec.features` and `spec.fallback` |
 | `fonts.primary` | The same as `type.heading`, `type.display`, `type.primary` or `type.headline` |
 | `fonts.secondary` | The same as `type.body`, `type.text`, `type.sans` or `type.secondary` |
 | `visual_guidelines.type_scale.{role}` | A face with a size or a weight in its value, by `spec.role`: `display` and `headline` are `heading`, `subhead` is `subheading`, `body`, `caption`, `button` is `cta`; or by its name, when it is one of those. `{ font, size, weight, line_height, letter_spacing, text_transform }` from its size (px), weight, `spec.lineHeight`, `spec.tracking` (in em) and `spec.case` |
