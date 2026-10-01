@@ -192,6 +192,8 @@ export function useBulk({
   onClear: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Work over many files counts up in the bar, where it was asked for, not in a toast.
+  const [progress, setProgress] = useState<{ verb: string; done: number; of: number } | null>(null);
   const brand = useBrand();
 
   async function each(verb: string, fn: (a: Asset) => Promise<Response>, { which = picked, local, undo, quiet = false }: EachOptions = {}) {
@@ -200,7 +202,7 @@ export function useBulk({
       which.map((a) => a.id),
       local,
     );
-    const id = quiet ? undefined : toast.loading(`${verb} 0 of ${which.length.toLocaleString()}`);
+    if (!quiet) setProgress({ verb, done: 0, of: which.length });
     const done: Asset[] = [];
     let why: string | undefined;
     try {
@@ -214,24 +216,23 @@ export function useBulk({
         }
         if (res?.ok) {
           done.push(a);
-          if (id !== undefined) toast.loading(`${verb} ${done.length.toLocaleString()} of ${which.length.toLocaleString()}`, { id });
+          if (!quiet) setProgress({ verb, done: done.length, of: which.length });
           return;
         }
         why ??= (await res?.json().catch(() => null))?.error?.message;
       });
     } finally {
       setBusy(false);
+      if (!quiet) setProgress(null);
     }
     const failed = which.filter((a) => !done.includes(a));
     if (failed.length) back?.(failed.map((a) => a.id));
     onDone();
-    if (id === undefined) return failed.length === 0;
+    if (quiet) return failed.length === 0;
     const offer = undo && done.length ? { action: { label: "Undo", onClick: () => void undo(done) }, duration: 8000 } : {};
-    if (failed.length) toast.error(`${verb} ${files(done.length)}, ${failed.length.toLocaleString()} failed`, { id, description: why, ...offer });
-    else if (undo && done.length) {
-      toast.dismiss(id);
-      undoable(`${verb} ${files(done.length)}`, { undo: () => undo(done) });
-    } else toast.success(`${verb} ${files(which.length)}`, { id });
+    if (failed.length) toast.error(`${verb} ${files(done.length)}, ${failed.length.toLocaleString()} failed`, { description: why, ...offer });
+    else if (undo && done.length) undoable(`${verb} ${files(done.length)}`, { undo: () => undo(done) });
+    else toast.success(`${verb} ${files(which.length)}`);
     return failed.length === 0;
   }
 
@@ -280,7 +281,7 @@ export function useBulk({
     if (!preset && which.reduce((n, a) => n + a.size, 0) > ZIP_LIMIT)
       return void toast.error("Too big to zip in the browser", { description: "Pick a size instead of originals, or fewer files." });
     setBusy(true);
-    const id = toast.loading(`Preparing ${files(which.length)}`);
+    setProgress({ verb: "Fetched", done: 0, of: which.length });
     const got: { name: string; data: Uint8Array; date: Date }[] = [];
     let failed = 0;
     try {
@@ -293,21 +294,22 @@ export function useBulk({
         const body = res?.ok ? await res.arrayBuffer().catch(() => null) : null;
         if (!body) return void failed++;
         got.push({ name: image ? `${stem(a.filename)}.${extOf(preset.spec)}` : a.filename, data: new Uint8Array(body), date: new Date(a.createdAt) });
-        toast.loading(`Fetched ${got.length.toLocaleString()} of ${which.length.toLocaleString()}`, { id });
+        setProgress({ verb: "Fetched", done: got.length, of: which.length });
       });
     } finally {
       setBusy(false);
+      setProgress(null);
     }
-    if (!got.length) return void toast.error("Nothing could be downloaded", { id });
+    if (!got.length) return void toast.error("Nothing could be downloaded");
     saveZip(got, `${fileSlug(brand.name)}-${preset ? preset.name.toLowerCase().replace(/\s+/g, "-") : "originals"}-${got.length}.zip`);
-    if (failed) toast.warning(`Zipped ${files(got.length)}, ${failed} failed`, { id });
-    else toast.success(`Zipped ${files(got.length)}`, { id });
+    if (failed) toast.warning(`Zipped ${files(got.length)}, ${failed} failed`);
+    else toast.success(`Zipped ${files(got.length)}`);
   }
 
   const deleteLive = (which: Asset[]) =>
     each("Deleted", del, { which, local: () => null, undo: inverse("Restored", restore) });
 
-  return { busy, each, inverse, members, download, deleteLive, patch, onDone, onClear };
+  return { busy, progress, each, inverse, members, download, deleteLive, patch, onDone, onClear };
 }
 export type Bulk = ReturnType<typeof useBulk>;
 
@@ -362,7 +364,7 @@ export function SelectionBar({
   const [last, setLast] = useState(picked);
   if (open && picked !== last) setLast(picked);
   const items = open ? picked : last;
-  const { busy, each, inverse, members, download } = bulk;
+  const { busy, progress, each, inverse, members, download } = bulk;
 
   // A bulk action shows when it is allowed on every asset picked.
   const onAll = (action: Action) => items.length > 0 && items.every((a) => can(action, a));
@@ -492,9 +494,22 @@ export function SelectionBar({
           </Button>
           <span className="flex items-center px-1 text-sm font-medium whitespace-nowrap tabular-nums" aria-live="polite">
             {busy ? <IconLoader2 className="text-muted-foreground mr-1.5 size-4 animate-spin" aria-hidden /> : null}
-            {items.length < total ? `${items.length.toLocaleString()} of ${total.toLocaleString()}` : items.length.toLocaleString()}
-            <span className="hidden sm:inline">&nbsp;selected</span>
+            {progress ? (
+              `${progress.verb} ${progress.done.toLocaleString()} of ${progress.of.toLocaleString()}`
+            ) : (
+              <>
+                {items.length < total ? `${items.length.toLocaleString()} of ${total.toLocaleString()}` : items.length.toLocaleString()}
+                <span className="hidden sm:inline">&nbsp;selected</span>
+              </>
+            )}
           </span>
+          {progress && (
+            <span
+              aria-hidden
+              className="bg-primary pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left transition-transform duration-300"
+              style={{ transform: `scaleX(${progress.done / Math.max(progress.of, 1)})` }}
+            />
+          )}
           {items.length < loaded && (
             <Button variant="link" size="sm" className="hidden px-1 sm:inline-flex" onClick={onSelectAll}>
               Select all {loaded.toLocaleString()}
