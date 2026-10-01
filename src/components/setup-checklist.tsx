@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
@@ -13,6 +13,7 @@ import { gitLink } from "@/lib/git";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { collapse } from "@/lib/motion";
 
 const KEY = "artbucket:setup";
 /** `welcomed`: the full-page first run was seen, whether finished, skipped or left. */
@@ -139,6 +140,17 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
     setLocal(s);
     write(s);
   };
+  // Finished while it was on screen: it says so for a moment, then folds away, rather than vanishing on the last tick.
+  const complete = !!path && !!facts && onboardingSteps(path, facts).every((s) => s.done);
+  const [watched, setWatched] = useState(false);
+  if (path && facts && !complete && !watched) setWatched(true);
+  const [over, setOver] = useState(false);
+  const card = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!complete || !watched) return;
+    const t = setTimeout(() => collapse(card.current, () => setOver(true)), 2600);
+    return () => clearTimeout(t);
+  }, [complete, watched]);
   if (raw === null || !me || !can("organization.manage") || stored.hidden) return null;
   if (!stored.welcomed) return <FirstRun stored={stored} save={save} facts={facts} onUpload={onUpload} org={me.workspace.organization.name} />;
 
@@ -193,7 +205,20 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
 
   const steps = onboardingSteps(path, facts);
   const done = steps.filter((s) => s.done).length;
-  if (done === steps.length) return null;
+  if (done === steps.length) {
+    if (!watched || over) return null;
+    return (
+      <section ref={card} role="status" className="bg-card animate-in fade-in-0 flex items-center gap-3 rounded-xl border p-4">
+        <span className="bg-primary/10 text-primary-ink animate-in zoom-in-50 spin-in-[-20deg] grid size-9 shrink-0 place-items-center rounded-full duration-500">
+          <IconTrophy className="size-5" />
+        </span>
+        <div className="grid gap-0.5">
+          <p className="text-sm font-medium">Done: {chosen.win}</p>
+          <p className="text-muted-foreground text-xs">Every step of {chosen.label.toLowerCase()} is checked off.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">
@@ -236,7 +261,17 @@ function StepList({ steps, onUpload, onGo, className }: { steps: OnboardingStep[
               <IconCircle key="todo" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
             )}
             <span className="grid min-w-0 gap-0.5 text-left">
-              <span className={cn("text-sm", s.win && "font-medium", s.done && "text-muted-foreground line-through decoration-muted-foreground/50")}>{s.label}</span>
+              {/* The strike is a line drawn across, so a step checked while the page is open is crossed out as you watch. */}
+              <span className={cn("text-sm transition-colors duration-500", s.win && "font-medium", s.done && "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "bg-[linear-gradient(currentColor,currentColor)] bg-[position:0_55%] bg-no-repeat transition-[background-size] duration-500 [box-decoration-break:clone]",
+                    s.done ? "bg-[length:100%_1px]" : "bg-[length:0%_1px]",
+                  )}
+                >
+                  {s.label}
+                </span>
+              </span>
               <span className="text-muted-foreground text-xs">{s.why}</span>
             </span>
           </>
