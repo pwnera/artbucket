@@ -226,7 +226,8 @@ export const colorsOf = <T extends Pick<Rule, "key" | "type" | "value">>(rs: T[]
 export const stack = (f: ThemeFace, loaded?: string | null) =>
   [loaded, f.family]
     .filter(Boolean)
-    .map((x) => `"${x}"`)
+    // Quoted as CSS reads a string: a quote or backslash in a family's name stays in it.
+    .map((x) => JSON.stringify(x))
     .concat(f.fallback ?? [], "var(--font-sans)", "sans-serif")
     .join(", ");
 
@@ -399,7 +400,7 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
           ...label,
           case: labelSpec.case ?? "upper",
           // By size: the smallest size's, since labels are small.
-          tracking: (Array.isArray(tracking) ? [...tracking].sort((a, b) => a[0] - b[0])[0][1] : tracking) ?? 0.08,
+          tracking: (Array.isArray(tracking) ? [...tracking].sort((a, b) => a[0] - b[0])[0]?.[1] : tracking) ?? 0.08,
         },
       }),
     },

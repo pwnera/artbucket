@@ -97,6 +97,25 @@ export function merge(base: BrandState, ours: BrandState, theirs: BrandState): M
     const p = pick(`page ${slug}`, piece(bp), piece(op), piece(tp), conflicts);
     if (p) pages.set(slug, p);
   }
+  // Two moves can each be fine and close a loop together (ours: A under B, theirs: B under A). The repository's
+  // tree has none, so its place wins for each page in one, a conflict, until no loop is left.
+  const looped = (slug: string) => {
+    const seen = new Set<string>();
+    for (let x = pages.get(slug)?.parent; x && !seen.has(x); x = pages.get(x)?.parent) {
+      if (x === slug) return true;
+      seen.add(x);
+    }
+    return false;
+  };
+  for (let loop = [...pages.keys()].filter(looped); loop.length; loop = [...pages.keys()].filter(looped)) {
+    for (const slug of loop) {
+      const p = pages.get(slug)!;
+      const theirs = tp.get(slug)?.parent;
+      if (p.parent === theirs) continue;
+      conflicts.push({ what: `page ${slug}'s place`, ours: p.parent ?? null, theirs: theirs ?? null });
+      pages.set(slug, { ...p, parent: theirs });
+    }
+  }
   const slugs = order(pageOrder(b.pages), pageOrder(o.pages), pageOrder(t.pages), new Set(pages.keys()));
   // A page whose parent the other side removed sits at the top: a tree has no dangling branches.
   const merged: SnapPage[] = slugs.map((slug, position) => {

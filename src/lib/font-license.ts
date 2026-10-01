@@ -35,7 +35,10 @@ export function fontLicense(bytes: Uint8Array): string | null {
   return first.length > 200 ? `${first.slice(0, 199).trimEnd()}…` : first;
 }
 
-/** The `name` table's bytes, uncompressed. */
+/** The most a font's tables unpack to here: a big CJK face fits, a decompression bomb doesn't. */
+const MAX_UNPACKED = 1 << 26;
+
+/** The `name` table's bytes, uncompressed, never past the size the directory gives them. */
 function nameTable(b: Buffer): Uint8Array | null {
   const sig = b.toString("latin1", 0, 4);
   if (sig === "wOFF") {
@@ -45,7 +48,7 @@ function nameTable(b: Buffer): Uint8Array | null {
       if (b.toString("latin1", at, at + 4) !== "name") continue;
       const [offset, comp, orig] = [b.readUInt32BE(at + 4), b.readUInt32BE(at + 8), b.readUInt32BE(at + 12)];
       const raw = b.subarray(offset, offset + comp);
-      return comp < orig ? inflateSync(raw) : raw;
+      return comp < orig ? inflateSync(raw, { maxOutputLength: Math.min(orig, MAX_UNPACKED) }) : raw;
     }
     return null;
   }
@@ -97,7 +100,8 @@ function woff2Name(b: Buffer): Uint8Array | null {
     start += stored;
   }
   if (!found) return null;
-  const stream = brotliDecompressSync(b.subarray(at, at + compressed));
+  // The stream is the tables back to back, unpadded: `start` bytes in all.
+  const stream = brotliDecompressSync(b.subarray(at, at + compressed), { maxOutputLength: Math.min(start, MAX_UNPACKED) });
   return stream.subarray(found.start, found.start + found.length);
 }
 

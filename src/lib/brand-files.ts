@@ -271,7 +271,7 @@ function pageFile(p: SnapPage) {
  */
 export function toFiles(state: BrandState, o: { paths?: Record<string, string>; previous?: Files; slug?: string } = {}): Files {
   const paths = o.paths ?? {};
-  const s = canonical(swapStrings(state, (x) => paths[x] ?? x));
+  const s = canonical(swapStrings(state, (x) => (Object.hasOwn(paths, x) ? paths[x] : x)));
   const groups = groupsOf(s.rules);
   const out: Files = {
     [BRAND_FILE]: yaml(
@@ -331,7 +331,14 @@ class Doc {
     this.file = file;
     this.doc = parseDocument(text, { lineCounter: this.lines, prettyErrors: false, uniqueKeys: true });
     for (const e of this.doc.errors) this.problems.push({ file, level: "error", line: this.lines.linePos(e.pos[0]).line, message: e.message.split("\n")[0] });
-    this.data = this.doc.errors.length ? null : this.doc.toJS({ maxAliasCount: 100 });
+    let data: Json = null;
+    // An alias bomb throws here: a problem in the file, like any other.
+    try {
+      if (!this.doc.errors.length) data = this.doc.toJS({ maxAliasCount: 100 });
+    } catch (e) {
+      this.problems.push({ file, level: "error", message: (e as Error).message });
+    }
+    this.data = data;
   }
   line(path: Path): number | undefined {
     for (let n = path.length; n >= 0; n--) {
@@ -407,7 +414,7 @@ function readBrand(d: Doc, raw: Json): BrandData | null {
     return null;
   }
   unknownFields(d, raw, TOP, []);
-  const slug = raw.slug === undefined ? null : String(raw.slug);
+  const slug = raw.slug === undefined || raw.slug === null ? null : String(raw.slug);
   if (slug !== null && !ruleContext.safeParse(slug).success) d.add("error", ["slug"], "the brand's slug, e.g. acme-studio");
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   if (!name || name.length > 120) d.add("error", ["name"], "the brand's name, 1 to 120 characters");
@@ -557,8 +564,9 @@ function readTree(d: Doc, tree: Tree): { slug: string; parent: string | null; at
       return;
     }
     list.forEach((e, i) => {
-      if (typeof e === "string") {
-        out.push({ slug: e, parent, at: [...at, i] });
+      // `- 404` is a number to YAML, and a page slug.
+      if (typeof e === "string" || typeof e === "number") {
+        out.push({ slug: String(e), parent, at: [...at, i] });
         return;
       }
       if (isObj(e) && Object.keys(e).length === 1) {
@@ -598,7 +606,7 @@ export function fromFiles(files: Files, o: { assets?: Record<string, string>; sl
   const used: Record<string, string> = {};
   const swap = (s: string) => {
     const p = norm(s);
-    if (p in assets) return (used[p] = assets[p]);
+    if (Object.hasOwn(assets, p)) return (used[p] = assets[p]);
     if (p.startsWith(ASSETS_DIR) && p.length > ASSETS_DIR.length) {
       missing.add(p);
       return MISSING_ASSET;

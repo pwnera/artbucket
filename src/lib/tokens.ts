@@ -221,15 +221,23 @@ export function toTailwind3(rules: TokenRule[], { title }: Opts) {
 }
 
 type Node = { [k: string]: unknown };
-/** The object at a dotted key, made on the way. */
-const at = (root: Node, key: string) => key.split(".").reduce<Node>((g, p) => (g[p] ??= {}) as Node, root);
+const isNode = (v: unknown): v is Node => !!v && typeof v === "object" && !Array.isArray(v);
+/**
+ * The object at a dotted key, made on the way. Own keys only: `x.constructor.prototype` is a token, not Object.prototype.
+ * A value on the way (color.primary, under color.primary.dark) moves to its `$value`, as a DTCG token holds it.
+ */
+const at = (root: Node, key: string) =>
+  key.split(".").reduce<Node>((g, p) => (Object.hasOwn(g, p) ? (isNode(g[p]) ? g[p] : (g[p] = { $value: g[p] })) : (g[p] = {})) as Node, root);
 
 /** A TypeScript module: the tokens as one typed object, for CSS-in-JS, React Native, or anything else in JS. */
 export function toTs(rules: TokenRule[], { origin, title }: Opts) {
   const root: Node = {};
   const put = (key: string, v: unknown) => {
     const parts = key.split(".");
-    at(root, parts.slice(0, -1).join("."))[parts.at(-1)!] = v;
+    const g = parts.length > 1 ? at(root, parts.slice(0, -1).join(".")) : root;
+    const k = parts.at(-1)!;
+    // A key with keys under it already keeps them: the value joins them, under $value unless it is an object itself.
+    g[k] = Object.hasOwn(g, k) && isNode(g[k]) ? { ...(g[k] as Node), ...(isNode(v) ? v : { $value: v }) } : v;
   };
   const hex = stopHex(rules);
   for (const r of rules) {

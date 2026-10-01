@@ -89,7 +89,11 @@ export function brandJson(b: BrandJsonInput) {
 
   // Every color by its name, then AdCP's five roles from the names brands use for them.
   const palette: Record<string, string> = {};
-  for (const r of colors) palette[snake(tail(r.key))] ??= (r.value as string).slice(0, 7);
+  for (const r of colors) {
+    const k = snake(tail(r.key));
+    // Own keys only: `color.constructor` is a color, not something every object has.
+    if (!Object.hasOwn(palette, k)) palette[k] = (r.value as string).slice(0, 7);
+  }
   for (const [role, keys] of Object.entries({ background: ["color.background", "color.paper", "color.white"], text: ["color.ink", "color.text", "color.black"] })) {
     const r = pick(colors, keys);
     if (r && !palette[role]) palette[role] = (r.value as string).slice(0, 7);
@@ -240,10 +244,20 @@ const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.i
 const isStr = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
 const isList = (v: unknown): v is string[] => Array.isArray(v) && v.length > 0 && v.every(isStr);
 const strings = (v: unknown) => (Array.isArray(v) ? v.filter(isStr) : []);
-const https = (v: unknown): v is string => isStr(v) && /^https:\/\/[^\s/]+/i.test(v);
+const https = (v: unknown): v is string => isStr(v) && /^https:\/\/[^\s/]+/i.test(v) && URL.canParse(v);
 /** `dark_blue` is `darkBlue`, `surface_1` `surface1`: a rule key's camel case. */
 const camel = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : ""));
-const fileName = (url: string) => decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? "") || "file";
+const fileName = (url: string) => {
+  const last = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+  try {
+    return decodeURIComponent(last) || "file";
+  } catch {
+    // A stray % is part of the name.
+    return last;
+  }
+};
+/** A table's entry for a word a document says: "constructor" is none of ours. */
+const known = <T>(table: Record<string, T>, word: string) => (Object.hasOwn(table, word) ? table[word] : undefined);
 const tag = (t: string) => t.replace(/_/g, "-").toLowerCase();
 
 /**
@@ -421,12 +435,12 @@ function brandOf(b: Obj, { domain, language, fallback }: { domain: string | null
   for (const [role, e] of Object.entries(isObj(visual.type_scale) ? visual.type_scale : {})) {
     const key = isObj(e) && isStr(e.font) ? faceKey.get(e.font) : undefined;
     const face = key && drafts.get(`${key}|`);
-    if (!isObj(e) || !face || face.spec?.role || !SCALE_ROLES[role]) {
+    if (!isObj(e) || !face || face.spec?.role || !known(SCALE_ROLES, role)) {
       dropped.push(`visual_guidelines.type_scale.${role}`);
       continue;
     }
     const px = String(e.size ?? "").match(/^(\d+(?:\.\d+)?)px$/)?.[1];
-    const weight = { normal: 400, bold: 700 }[String(e.weight)] ?? (/^\d{3}$/.test(String(e.weight ?? "")) ? Number(e.weight) : undefined);
+    const weight = known({ normal: 400, bold: 700 }, String(e.weight)) ?? (/^\d{3}$/.test(String(e.weight ?? "")) ? Number(e.weight) : undefined);
     const lineHeight = /^\d+(\.\d+)?$/.test(String(e.line_height ?? "")) ? Number(e.line_height) : undefined;
     const tracking = String(e.letter_spacing ?? "").match(/^(-?\d*\.?\d+)em$/)?.[1];
     face.value = { ...(face.value as Obj), ...(px && { size: Number(px) }), ...(weight && { weight }) };
@@ -435,7 +449,7 @@ function brandOf(b: Obj, { domain, language, fallback }: { domain: string | null
       role: SCALE_ROLES[role],
       ...(lineHeight && { lineHeight }),
       ...(tracking && { tracking: Number(tracking) }),
-      ...(isStr(e.text_transform) && CASES[e.text_transform] && { case: CASES[e.text_transform] }),
+      ...(isStr(e.text_transform) && known(CASES, e.text_transform) && { case: CASES[e.text_transform] }),
     };
   }
 
@@ -444,7 +458,7 @@ function brandOf(b: Obj, { domain, language, fallback }: { domain: string | null
     if (!isObj(l) || !https(l.url)) return void dropped.push(`logos[${i}]`);
     const tags = strings(l.tags);
     const own = tags[0]?.startsWith("logo.") && RULE_KEY.test(tags[0]);
-    const variant = isStr(l.variant) && VARIANTS[l.variant] ? l.variant : (tags.find((t) => VARIANTS[t]) ?? "primary");
+    const variant = isStr(l.variant) && known(VARIANTS, l.variant) ? l.variant : (tags.find((t) => known(VARIANTS, t)) ?? "primary");
     const dark = l.background === "dark-bg" || tags.includes("dark-bg") || l.theme === "dark";
     const key = own ? tags[0] : VARIANTS[variant];
     const context = own ? (tags[1] && RULE_CONTEXT.test(tags[1]) ? tags[1] : null) : dark ? "dark-background" : null;

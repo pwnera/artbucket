@@ -233,3 +233,28 @@ test("brand.yaml's slug names the brand the files are for; another brand refuses
   const without = toFiles(blender());
   assert.notEqual(toFiles(blender(), { slug: "blender", previous: without })["brand.yaml"], without["brand.yaml"]);
 });
+
+test("a word that names something on every object (constructor, toString) is read and written as the word", () => {
+  const files = { "brand.yaml": "name: Acme\n", "rules/voice.yaml": "voice.tone:\n  type: text\n  label: constructor\n  value: toString\n" };
+  const read = fromFiles(files, { assets: {} });
+  assert.deepEqual(read.errors, []);
+  assert.deepEqual([read.state?.rules[0].label, read.state?.rules[0].value], ["constructor", "toString"]);
+  assert.deepEqual(read.used, {});
+  assert.match(toFiles(read.state!, { paths: {} })["rules/voice.yaml"], /label: constructor\n {2}value: toString/);
+});
+
+test("a YAML alias bomb is a problem in its file, not a crash", () => {
+  const bomb = ["a: &a [x, x, x, x, x, x, x, x, x, x]", ...["b", "c", "d", "e"].map((k, i) => `${k}: &${k} [${Array(10).fill(`*${"abcd"[i]}`).join(", ")}]`)].join("\n");
+  const read = fromFiles({ "brand.yaml": "name: Acme\n", "rules/x.yaml": bomb });
+  assert.equal(read.state, null);
+  assert.equal(read.errors[0]?.file, "rules/x.yaml");
+  // A file kept as written is compared the same way: a bomb there is just a file that changed.
+  assert.ok(toFiles(blender(), { previous: { "brand.yaml": bomb } })["brand.yaml"].startsWith("# An Artbucket brand"));
+});
+
+test("brand.yaml: an empty slug names no brand; a page slug of digits sits in the tree as YAML reads it, a number", () => {
+  assert.deepEqual(fromFiles({ "brand.yaml": "slug:\nname: Acme\n" }, { slug: "acme" }).errors, []);
+  const read = fromFiles({ "brand.yaml": "name: Acme\npages:\n  - 404\n  - about:\n      - 2024\n", "pages/404.yaml": "title: Lost\n", "pages/about.yaml": "title: About\n", "pages/2024.yaml": "title: This year\n" });
+  assert.deepEqual(read.errors, []);
+  assert.deepEqual(read.state?.pages.map((p) => [p.slug, p.parent ?? null]), [["404", null], ["about", null], ["2024", "about"]]);
+});

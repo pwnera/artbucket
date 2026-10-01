@@ -224,3 +224,32 @@ test("a number keeps its unit: CSS writes it, DTCG makes it a dimension or a dur
   assert.equal(dtcg.motion.fast.$type, "duration");
   assert.equal(dtcg.logo.clearSpace.$type, "number");
 });
+
+test("a key whose segments name what every object has (constructor.prototype) nests as words, never into Object", () => {
+  const rules: TokenRule[] = [
+    { key: "brand.constructor.prototype", type: "color", value: "#ff0000", usage: null, assets: [] },
+    { key: "size.constructor.prototype.evil", type: "number", value: 1, usage: null, assets: [] },
+  ];
+  type Dtcg = { brand: { constructor: { prototype: { $type: string } } }; size: { constructor: { prototype: { evil: { $value: number } } } } };
+  const dtcg = toDtcg(rules, { origin: "https://x" }) as unknown as Dtcg;
+  TOKEN_FORMATS.ts.render(rules, { origin: "https://x", title: "t" });
+  const clean = !("$type" in {}) && !("evil" in {}) && !("$type" in Object);
+  for (const k of ["$type", "$value", "evil"]) {
+    delete (Object.prototype as Record<string, unknown>)[k];
+    delete (Object as unknown as Record<string, unknown>)[k];
+  }
+  assert.ok(clean, "Object.prototype polluted");
+  assert.equal(dtcg.brand.constructor.prototype.$type, "color");
+  assert.equal(dtcg.size.constructor.prototype.evil.$value, 1);
+});
+
+test("TypeScript: a key that is another's prefix keeps its value under $value, as DTCG nests them, in either order", () => {
+  const c = (key: string, value: string): TokenRule => ({ key, type: "color", value, usage: null, assets: [] });
+  const run = (rules: TokenRule[]) =>
+    new Function(TOKEN_FORMATS.ts.render(rules, OPTS).replace(/^\/\/.*$/m, "").replace("export const tokens =", "return").replace(/ as const;[\s\S]*/, ";"))();
+  const want = { primary: { $value: "#111111", dark: "#000000" } };
+  assert.deepEqual(run([c("color.primary", "#111111"), c("color.primary.dark", "#000000")]).color, want);
+  assert.deepEqual(run([c("color.primary.dark", "#000000"), c("color.primary", "#111111")]).color, want);
+  // A one-word key sits at the top, as DTCG puts it.
+  assert.deepEqual(run([{ key: "radius", type: "number", value: 4, usage: null, assets: [] }]), { radius: 4 });
+});
