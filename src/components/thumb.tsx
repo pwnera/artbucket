@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconPhoto } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isFont } from "@/lib/font";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,4 +69,19 @@ export function Thumb({
       />
     </>
   );
+}
+
+/**
+ * A rule's file in a small tile: its picture, or for a font, which has none
+ * to scale (its rendition answers 415), its letters. Its parent must be `relative`.
+ */
+export function FileThumb({ file, src, alt = "", className }: { file: { mime?: string | null; filename?: string | null }; src: string; alt?: string; className?: string }) {
+  // By name too: a version's snapshot of a rule may not carry its files' types.
+  if (isFont(file.mime ?? "", file.filename ?? ""))
+    return (
+      <span role={alt ? "img" : undefined} aria-label={alt || undefined} className="font-display bg-background absolute inset-0 grid place-items-center text-lg font-semibold">
+        Aa
+      </span>
+    );
+  return <Thumb src={src} alt={alt} className={className} />;
 }

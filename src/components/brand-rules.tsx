@@ -4,11 +4,10 @@ import { useState } from "react";
 import { IconCode, IconDownload } from "@tabler/icons-react";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
-import { Thumb } from "@/components/thumb";
+import { FileThumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
-import { isFontAsset } from "@/lib/font";
 import { contextLabel, fontLabel, fontValue, ruleLabel, ruleName, section, type Rule, type RuleValue } from "@/lib/rules";
 import { TOKEN_FORMAT_IDS, TOKEN_FORMATS } from "@/lib/tokens";
 
@@ -77,12 +76,7 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
                         <ul className="flex flex-wrap gap-2">
                           {r.assets.map((a) => (
                             <li key={`${a.id}/${a.rendition}`} className="bg-checker relative size-16 overflow-hidden rounded-md border" title={a.title ?? a.filename}>
-                              {isFontAsset(a) ? (
-                                // A font file has no picture to scale: its letters stand for it, its name on hover.
-                                <span className="font-display grid size-full place-items-center bg-background text-xl font-semibold">Aa</span>
-                              ) : (
-                                <Thumb src={`/a/${a.id}/w_128,f_webp`} alt={a.title ?? a.filename ?? ""} className="p-1" />
-                              )}
+                              <FileThumb file={a} src={`/a/${a.id}/w_128,f_webp`} alt={a.title ?? a.filename ?? ""} className="p-1" />
                             </li>
                           ))}
                         </ul>
