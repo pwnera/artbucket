@@ -240,9 +240,9 @@ A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 |---|---|
 | `/{org}/{brand}` | Its page: colors, type, logos, voice, terms, and a link to its portal |
 | `/{org}/{brand}/llms.txt` | The brand in words, for an agent |
-| `/{org}/{brand}/brand.json` | The brand as an [AdCP brand.json](https://docs.adcontextprotocol.org/docs/brand-protocol/brand-json): logos, colors, fonts, voice, don'ts |
+| `/{org}/{brand}/brand.json` | The brand as an AdCP brand.json: logos, colors, fonts, voice, don'ts ([the mapping](/guides/brand-as-code/brand-json)) |
 | `/{org}/{brand}/rules.json` | Every rule, its files as URLs signed for a day |
-| `/{org}/{brand}/tokens?format=css` | Design tokens, in any format of `GET /api/v1/brand/tokens` |
+| `/{org}/{brand}/tokens?format=css` | Design tokens, in any format of `GET /api/v1/brand/tokens` ([formats](/guides/brand-as-code/standards)) |
 | `/{org}/{brand}/badge.svg` | A README badge with the release that is live ("brand @4"), not counted as a read |
 | `/index.json?q=` | The public brands, or what a search finds |
 | `/llms.txt` | How an agent finds a brand here, and the list |
@@ -369,8 +369,8 @@ values ('open-source', 'Open-source project brands', 'Projects that share their 
 there, for anyone, and scores it out of 100 on the scale of the Brand Agent
 Score in the app: colors (15), typefaces (15), a logo with its file (20) and a
 voice (15), read from the brand's rules; rules a machine reads (15), a
-`brand.json` its `llms.txt` links or at its root, or a public BrandHub listing
-of an organization that verified the domain; an `llms.txt` at its root (10);
+`brand.json` its `llms.txt` links or at `/.well-known/brand.json`, or a public
+BrandHub listing of an organization that verified the domain; an `llms.txt` at its root (10);
 design tokens (5); and an MCP server its `llms.txt` names that answers (5).
 The report lists what raises the score, and offers to list the brand here.
 

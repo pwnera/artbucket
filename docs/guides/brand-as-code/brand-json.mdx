@@ -1,0 +1,290 @@
+---
+title: AdCP brand.json
+description: How a brand becomes an Ad Context Protocol brand.json and back, field by field, and what to write for a complete one.
+---
+
+The [Ad Context Protocol](https://docs.adcontextprotocol.org/docs/brand-protocol/brand-json)
+(AdCP) puts a brand's identity in one file, `brand.json`, at
+`https://{domain}/.well-known/brand.json`: its names, logos, colors, fonts and
+voice, for ad tech and agents. It is the open format Artbucket follows to
+publish a brand for machines, and it reads it back to start a brand.
+
+- **BrandHub** serves each public brand as a Brand Canonical Document, at
+  `/{org}/{brand}/brand.json`, from its latest release (`@{n}` for another).
+  A private or never-released brand has none.
+- **A verified domain** answers `/.well-known/brand.json` with an
+  Authoritative Location Redirect to that document ([below](#your-domain)).
+- **A new brand** can be made from any domain's brand.json
+  ([the import](#the-import)).
+
+## The export
+
+The document is drawn from the release's rules, by key. Only the default
+context is read, but for logos, whose context versions are logos of their
+own. Where a field lists several keys, the first the brand has wins.
+
+### Identity
+
+| brand.json | From |
+|---|---|
+| `$schema` | `https://adcontextprotocol.org/schemas/v3/brand.json` |
+| `version` | The release number, as a string: `"4"` |
+| `last_updated` | When it was released |
+| `id` | The brand's slug, `-` as `_`: `acme_tools` |
+| `names` | `[{ "en": name }]`: one name, in English |
+| `url` | `https://` and the brand's domain (its Settings, or the one it was made from), else the organization's verified domain |
+| `house_domain` | The organization's verified domain, when it proved one |
+| `description` | `brand.description`, `brand.mission` or `brand.promise` (text) |
+| `tagline` | `brand.tagline` or `brand.slogan` (text) |
+| `industries` | `brand.industries` (list) |
+| `disclaimers` | Each `legal.disclaimer` (text), as `{ text }` |
+
+### Colors
+
+| brand.json | From |
+|---|---|
+| `colors.{name}` | Every color rule under `color.`, by the rest of its key in snake case: `color.primary` is `primary`, `color.darkBlue` is `dark_blue`. Six-digit hex: an alpha channel is dropped |
+| `colors.background` | Also from `color.background`, `color.paper` or `color.white`, when no rule is named `background` |
+| `colors.text` | Also from `color.ink`, `color.text` or `color.black`, when no rule is named `text` |
+| `visual_guidelines.colorways[]` | Each color whose `spec.pair` names another: `{ name: "{pair}_on_{color}", foreground: pair, background: color }` |
+| `visual_guidelines.restrictions[]` | The entries of `color.never` (and `neverDo`, `dont`, `donts`, `avoid`, `misuse`) lists, with logo, type and imagery ones |
+
+### Type
+
+| brand.json | From |
+|---|---|
+| `fonts.{name}` | Every font rule under `type.`, by the rest of its key in snake case: `{ family, files[], opentype_features, fallbacks }`, from its family, its files of a `font/*` media type, `spec.features` and `spec.fallback` |
+| `fonts.primary` | The same as `type.heading`, `type.display`, `type.primary` or `type.headline` |
+| `fonts.secondary` | The same as `type.body`, `type.text`, `type.sans` or `type.secondary` |
+| `visual_guidelines.type_scale.{role}` | A face with a size or a weight in its value, by `spec.role`: `display` and `headline` are `heading`, `subhead` is `subheading`, `body`, `caption`, `button` is `cta`; or by its name, when it is one of those. `{ font, size, weight, line_height, letter_spacing, text_transform }` from its size (px), weight, `spec.lineHeight`, `spec.tracking` (in em) and `spec.case` |
+
+### Logos
+
+Every image of every `logo.*` rule, context versions included, is one
+`logos[]` entry; rules named like a do or a don't (`logo.never`,
+`logo.always`) are not logos.
+
+| brand.json | From |
+|---|---|
+| `id` | The rest of the key, the context, and a number from the second image on: `mark`, `primary_dark_background`, `mark_2` |
+| `url` | The file, at the rendition the rule names: `/a/{id}/w_512,f_png`, signed for a day |
+| `variant` | `logo.primary` is `primary`; a key containing mark, icon or symbol is `icon`; a lockup is `full-lockup`; any other `secondary`. `wordmark` is meant for `logo.wordmark`, but the key contains mark, so it reads as `icon` for now |
+| `background` | `dark-bg` when the context says dark, or the key says dark, reversed, inverse or white |
+| `orientation` | `stacked` when the key says stack or vertical; else from the file's size: `horizontal` past 1.25:1, `vertical` past 1:1.25, `square` between |
+| `slots` | An `icon` in the default context: `favicon`, `app_icon`, `profile_mark` |
+| `width`, `height` | The file's |
+| `usage` | The rule's `usage` |
+| `tags` | The rule's key, and its context: how the import puts it back |
+| `visual_guidelines.logo_placement.min_clear_space` | `logo.clearSpace`, `logo.minClearSpace` or `logo.margin`: a number with its unit and `spec.of` ("1x the mark's height"), or the text |
+| `visual_guidelines.logo_placement.min_height` | `logo.minSize` or `logo.minHeight`, the same way ("24px"; px when no unit) |
+| `visual_guidelines.restrictions[]` | The entries of `logo.never` and the like |
+
+### Voice, spacing and imagery
+
+| brand.json | From |
+|---|---|
+| `tone.voice` | `tone.voice` or `voice.voice` (text) |
+| `tone.attributes` | `tone.attributes`, `tone.pillars`, `tone.traits` (lists, joined) |
+| `tone.dos` | `tone.always`, `tone.do`, `tone.dos` |
+| `tone.donts` | `tone.avoid`, `tone.never`, `tone.dont`, `tone.donts` |
+| `visual_guidelines.spacing.scale` | `space.scale` or `spacing.scale` (list): its first six steps as `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, numbers in px |
+| `assets[]` | Every image of every `imagery.*` rule: `{ asset_id, asset_type: "image", url, name, description, width, height, format, tags }`, its description from the rule's `usage` |
+
+### ext.artbucket
+
+What AdCP has no field for stays one link away, under `ext.artbucket`:
+
+```json
+"ext": {
+  "artbucket": {
+    "release": 4,
+    "rules": "https://hub.artbucket.io/acme/acme/rules.json",
+    "tokens": "https://hub.artbucket.io/acme/acme/tokens?format=json",
+    "llms": "https://hub.artbucket.io/acme/acme/llms.txt",
+    "guidelines": "https://press.acme.com"
+  }
+}
+```
+
+`rules` is every rule, losslessly ([rules.json](/guides/brand-as-code/standards#rulesjson));
+`guidelines` the portal BrandHub links as the brand's guidelines, else its
+BrandHub page.
+
+### What the export leaves out
+
+- **Colors:** print values (`cmyk`, `pantone`, `ral`, `rgb`), tints,
+  gradients (the solid is kept), groups and weights, each color's label and
+  usage, alpha, and every context version.
+- **Type:** a bare type scale (AdCP's scale is by role), `spec.license`,
+  `spec.source` and `spec.download`, and the weight and style of each file.
+- **Logos:** visual do's (`logo.always`): AdCP has none.
+- **Everything else:** every rule outside the keys above, the brand's pages
+  and theme, and `brand.audience`. They are in `rules.json`.
+
+## Make it complete
+
+A brand that holds these rules fills every field the export writes. The
+[complete example](/guides/brand-as-code/format#a-complete-example) holds them all.
+
+| To fill | Write |
+|---|---|
+| `description`, `tagline`, `industries` | `brand.description` and `brand.tagline` (text), `brand.industries` (list) |
+| `url`, `house_domain` | The brand's domain in its Settings, and a [verified domain](/guides/portals#a-domain-of-its-own) for the organization |
+| `colors` | `color.primary`, `color.secondary`, `color.accent`, `color.background`, `color.ink` |
+| `colorways` | `spec.pair` on the grounds: `color.primary` paired with the color set on it |
+| `fonts`, `primary`, `secondary` | `type.heading` and `type.body`, with their files uploaded as fonts |
+| `type_scale` | A size and a weight in each face's value, and `spec.role`, `lineHeight`, `tracking`, `case` |
+| `logos` | `logo.primary` and `logo.mark` with their images, and a `dark-background` version of each with its reversed file |
+| `logo_placement` | `logo.clearSpace` (number, `spec.unit: x`, `spec.of`) and `logo.minSize` (number, `spec.unit: px`) |
+| `restrictions` | `logo.never` (and `color.never`) lists |
+| `tone` | `tone.voice` (text), `tone.attributes`, `tone.always`, `tone.avoid` (lists) |
+| `spacing` | `space.scale`, six numbers |
+| `assets` | `imagery.*` rules with images, their `usage` as the description |
+| `disclaimers` | `legal.disclaimer` |
+
+Then release the brand and make it public on BrandHub: the document is the
+release's, so a change shows once it is released.
+
+## An example
+
+The export of the complete example's release 4, with its organization's
+verified domain `acme.com`:
+
+```json
+{
+  "$schema": "https://adcontextprotocol.org/schemas/v3/brand.json",
+  "version": "4",
+  "house_domain": "acme.com",
+  "id": "acme",
+  "names": [{ "en": "Acme" }],
+  "url": "https://acme.com",
+  "description": "Acme makes hand tools for people who fix things.",
+  "tagline": "Tools that last.",
+  "industries": ["tools", "hardware"],
+  "logos": [
+    { "id": "primary", "url": "https://app.artbucket.io/a/1b7e...?s=...", "variant": "primary", "orientation": "horizontal", "width": 480, "height": 120, "tags": ["logo.primary"] },
+    { "id": "primary_dark_background", "url": "https://app.artbucket.io/a/9c40...?s=...", "variant": "primary", "orientation": "horizontal", "background": "dark-bg", "width": 480, "height": 120, "tags": ["logo.primary", "dark-background"] },
+    { "id": "mark", "url": "https://app.artbucket.io/a/2f88.../w_512,f_png?s=...", "variant": "icon", "orientation": "square", "slots": ["favicon", "app_icon", "profile_mark"], "width": 512, "height": 512, "tags": ["logo.mark"] }
+  ],
+  "colors": { "primary": "#1f6feb", "background": "#ffffff", "ink": "#0d1117", "text": "#0d1117" },
+  "fonts": {
+    "heading": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
+    "body": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/77d2...?s=..." }] },
+    "primary": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
+    "secondary": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/77d2...?s=..." }] }
+  },
+  "tone": {
+    "voice": "Plain and warm, like a friend who knows tools.",
+    "attributes": ["plain", "warm", "exact"],
+    "dos": ["Name the tool", "Say what it does"],
+    "donts": ["Jargon", "Exclamation marks"]
+  },
+  "visual_guidelines": {
+    "logo_placement": { "min_clear_space": "1x the mark's height", "min_height": "24px" },
+    "colorways": [
+      { "name": "background_on_primary", "foreground": "#ffffff", "background": "#1f6feb" },
+      { "name": "ink_on_background", "foreground": "#0d1117", "background": "#ffffff" }
+    ],
+    "type_scale": {
+      "heading": { "font": "heading", "size": "40px", "weight": "700", "line_height": "1.1", "letter_spacing": "-0.02em" },
+      "body": { "font": "body", "size": "16px", "weight": "400", "line_height": "1.5" }
+    },
+    "spacing": { "scale": { "xs": "4px", "sm": "8px", "md": "16px", "lg": "24px", "xl": "32px", "2xl": "48px" } },
+    "restrictions": ["Stretch or squash it", "Recolor it", "Set it on a busy photo"]
+  },
+  "assets": [
+    { "asset_id": "examples", "asset_type": "image", "url": "https://app.artbucket.io/a/4a09...?s=...", "name": "workshop.jpg", "width": 2400, "height": 1600, "format": "jpeg", "tags": ["imagery.examples"] }
+  ],
+  "disclaimers": [{ "text": "Acme is a trademark of Acme Tools Ltd." }],
+  "last_updated": "2026-09-30T10:00:00.000Z",
+  "ext": {
+    "artbucket": {
+      "release": 4,
+      "rules": "https://hub.artbucket.io/acme/acme/rules.json",
+      "tokens": "https://hub.artbucket.io/acme/acme/tokens?format=json",
+      "llms": "https://hub.artbucket.io/acme/acme/llms.txt",
+      "guidelines": "https://press.acme.com"
+    }
+  }
+}
+```
+
+File URLs are signed for a day: an agent that keeps the document should
+fetch it again rather than keep its URLs.
+
+## Your domain
+
+To have agents that read your domain find the brand, host one file at
+`https://{domain}/.well-known/brand.json`, an Authoritative Location
+Redirect. The brand's Sharing tab gives it:
+
+```json
+{"$schema":"https://adcontextprotocol.org/schemas/v3/brand.json","authoritative_location":"https://hub.artbucket.io/acme/acme/brand.json"}
+```
+
+A domain the organization [verified](/guides/portals#a-domain-of-its-own),
+serving the app or one of its portals, answers `/.well-known/brand.json`
+itself, from the organization's public, released brands (on a portal's
+domain, those the portal shows):
+
+- the one whose domain the host proves, else the only one, else the default
+  one, as an Authoritative Location Redirect to it on BrandHub;
+- with several and none of those, a House Portfolio of them all, inline:
+  `{ "$schema", "version": "1", "house": { "domain", "name" }, "brands": [...] }`.
+
+Any other host answers `404`.
+
+The public [Brand Agent Score](/guides/portals#a-public-brand-agent-score)
+reads a domain's `/.well-known/brand.json` (or the brand.json its
+`llms.txt` links) for its rules, and doesn't follow an Authoritative Location
+Redirect: prove the domain, so the score reads its BrandHub listing instead.
+
+## The import
+
+**New brand, From a domain** in the app, or `POST /api/v1/brands` with
+`domain` (or the document itself as `brandJson`), makes a brand from a
+brand.json: [making one](/guides/adcp) has the steps. It is the export run
+backwards, so a document Artbucket wrote comes back as it was, as far as the
+document says it.
+
+| brand.json | Rule |
+|---|---|
+| `names` | The brand's name: the English one, else the document's `default_language`, else the first |
+| `id` | The brand's slug, `_` as `-` |
+| `url`, else the primary website in `properties`, else the domain read | The brand's domain |
+| `description` | `brand.description` |
+| `tagline` | `brand.tagline` |
+| `industries` | `brand.industries` |
+| `target_audience` | `brand.audience` |
+| `colors.{role}` | `color.{role}` in camel case (`dark_blue` is `color.darkBlue`); an array gives `color.{role}`, `color.{role}2`, ... `background` and `text` only when they add a color |
+| `visual_guidelines.colorways` | The ground color's `spec.pair`: by name for the export's own `{pair}_on_{color}`, else by matching hexes |
+| `fonts.{role}` | `type.{role}`: the first family of the stack, the rest and `fallbacks` as `spec.fallback`, `opentype_features` as `spec.features`, each file ingested. `primary` and `secondary` only when they add a face |
+| `visual_guidelines.type_scale.{role}` | The face's size and weight, and `spec.role`, `lineHeight`, `tracking`, `case` |
+| `logos` | By their `tags` when the export wrote them (key and context); else `logo.primary`, `logo.secondary`, `logo.mark` (icon), `logo.wordmark`, `logo.lockup` (full-lockup) by `variant`, `dark-bg` ones in the `dark-background` context; each image ingested |
+| `logo_placement.min_height`, `min_clear_space` | `logo.minSize`, `logo.clearSpace`: a number with its unit and `spec.of`, or text |
+| `restrictions` | `logo.never` |
+| `tone.voice`, `attributes`, `dos`, `donts` | `tone.voice`, `tone.attributes`, `tone.always`, `tone.avoid`; a `tone` that is a string is the voice |
+| `spacing.scale` | `space.scale`, from `xs` to `2xl` |
+| `assets` (images) | By their `tags` when they name an `imagery.*` rule, else `imagery.library`; each image ingested |
+| `disclaimers` | `legal.disclaimer`, joined |
+
+- **Localized fields** (AdCP 3.2's `tagline`, `tone.*`, an asset's `name`
+  and `description`) are read in English, else in the document's
+  `default_language`, else as their plain value; never whichever translation
+  comes first. A localized list is taken whole.
+- **Documents of other shapes:** an Authoritative Location Redirect is
+  followed once, exactly; a House Portfolio offers each of its brands, and
+  its `brand_refs` are read at their own domains, ten at most; a document
+  that only points at its house, or only names a brand agent, makes no brand
+  and says why.
+- **Dropped:** what has no place in the rules (`keller_type`, `house_domain`,
+  `trademarks`, `agents`, `brand_agent`, `contact`, `privacy_policy_url`,
+  `visual_guidelines.photography`, `motion`, `graphic_style`, the other
+  `logo_placement` fields, colors that aren't six-digit hex, assets that
+  aren't images) is listed in the answer's `dropped`, by its path. A logo or
+  font file that won't fetch is listed in `skipped`. Neither refuses the
+  brand.
+
+The document is fetched as the protocol says: over https only, from public
+hosts, at most 512 KB and 20 seconds, redirected only to the domain's exact
+`www` twin and back.
