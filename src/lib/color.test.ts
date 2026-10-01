@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { APP_BG, contrast, grade, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk } from "./color.ts";
+import { APP_BG, contrast, grade, groundFor, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk, type Rgb } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -102,4 +102,13 @@ test("CMYK converted from RGB, in whole percents", () => {
   assert.deepEqual(toCmyk("#808080"), [0, 0, 0, 50]);
   assert.deepEqual(toCmyk("#e87d0d"), [0, 46, 94, 9]);
   assert.deepEqual(toCmyk("#265787"), [72, 36, 0, 47]);
+});
+
+test("a card's ground keeps its wash for a dark mark and takes the palette for a white one", () => {
+  const white: Rgb[] = Array(10).fill([255, 255, 255]);
+  const black: Rgb[] = Array(10).fill([0, 0, 0]);
+  assert.equal(groundFor(black, "#fde8e4", ["#4285f4"]), "#fde8e4");
+  assert.equal(groundFor(white, "#fde8e4", ["#fbbc05", "#4285f4", "#000000"]), "#4285f4", "the first that reads, in order");
+  assert.equal(groundFor(white, "#fde8e4", ["#fbbc05"]), "#111111", "none reads: ink");
+  assert.equal(groundFor([], "#fde8e4", ["#4285f4"]), "#fde8e4", "no pixels: as is");
 });

@@ -75,7 +75,7 @@ export default async function HubListing(props: Props) {
         <div className="mx-auto grid max-w-7xl gap-4 px-4 pt-6">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex min-w-0 items-center gap-2 text-xl">
-              <Avatar name={b.owner} logo={b.logo} tint={b.tint} className="size-7 rounded-md text-3xl" />
+              <Avatar name={b.owner} logo={b.logo} tint={b.tint} palette={b.palette} className="size-7 rounded-md text-3xl" />
               <Link href={`${base}/${b.org}`} className="text-primary-ink truncate hover:underline">
                 {b.org}
               </Link>

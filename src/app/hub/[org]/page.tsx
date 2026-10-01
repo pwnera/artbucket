@@ -32,7 +32,7 @@ export default async function HubOwner({ params }: Props) {
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-[16rem_1fr] md:py-10">
       <aside className="grid content-start gap-4">
-        <Avatar name={owner.name} logo={first.logo} tint={first.tint} className="size-24 text-8xl md:size-64 md:rounded-2xl" />
+        <Avatar name={owner.name} logo={first.logo} tint={first.tint} palette={first.palette} className="size-24 text-8xl md:size-64 md:rounded-2xl" />
         <div className="grid gap-1">
           <h1 className="font-display text-2xl font-semibold tracking-tight">{owner.name}</h1>
           <p className="text-muted-foreground text-lg">{owner.slug}</p>

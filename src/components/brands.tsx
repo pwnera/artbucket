@@ -282,7 +282,7 @@ function Row({
   const open = b.visibility === "public";
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
-      <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
+      <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint, palette: b.look.palette }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
       <div className="grid min-w-0 flex-1 gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <Link href={brandHref(b)} className="text-primary-ink truncate font-semibold hover:underline">

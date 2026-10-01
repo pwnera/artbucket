@@ -18,7 +18,7 @@ export default async function HubLayout({ children }: { children: React.ReactNod
   const [base, viewer] = await Promise.all([hubBase(), hubViewer()]);
   return (
     <div className="bg-background text-foreground flex min-h-dvh flex-col">
-      <header className="bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
+      <header className="bg-background/85 sticky top-0 z-30 border-b backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
           <Link href={base || "/"} className="flex shrink-0 items-center gap-2.5" aria-label="BrandHub home">
             <AppIcon className="size-7" />
