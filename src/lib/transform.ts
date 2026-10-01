@@ -28,6 +28,12 @@ export const SIZES = [
   2000, 2048, 2400, 2560, 3000, 3200, 3840, 4000, 4096, 5000, 6000, 7680, MAX_DIMENSION,
 ] as const;
 
+/** The largest side people outside the workspace get of a file they may see but not take (lib/rights.ts isDownloadable): a portal's preview. */
+export const SHOWN_MAX = 1600;
+
+/** A transform within SHOWN_MAX: a side asked larger, or not asked, is SHOWN_MAX, which the default fit (inside) keeps the aspect within. */
+export const shownSize = (t: Transform): Transform => ({ ...t, w: Math.min(t.w ?? SHOWN_MAX, SHOWN_MAX), h: Math.min(t.h ?? SHOWN_MAX, SHOWN_MAX) });
+
 /** A side, up to the next step: never smaller than asked. */
 export const snapSize = (n: number) => SIZES.find((s) => s >= n) ?? MAX_DIMENSION;
 

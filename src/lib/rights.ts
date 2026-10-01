@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFont } from "./font.ts";
 
 /**
  * Rights and provenance: what an asset may be used for, and where it came
@@ -39,6 +40,11 @@ export const RightsInput = z
     embargo: day.nullable().optional().describe("Not to be used before this day"),
     expires: day.nullable().optional().describe("The last day it may be used"),
     modelRelease: z.enum(MODEL_RELEASES).nullable().optional(),
+    downloadable: z
+      .boolean()
+      .nullable()
+      .optional()
+      .describe("Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it."),
   })
   .refine((r) => !r.embargo || !r.expires || r.embargo <= r.expires, "The embargo lifts after it expires")
   .transform(
@@ -49,6 +55,7 @@ export const RightsInput = z
       embargo: r.embargo ?? null,
       expires: r.expires ?? null,
       modelRelease: r.modelRelease ?? null,
+      downloadable: r.downloadable ?? null,
     }),
   );
 
@@ -59,11 +66,32 @@ export type Rights = {
   embargo: string | null;
   expires: string | null;
   modelRelease: (typeof MODEL_RELEASES)[number] | null;
+  /** Set by a person; null (or missing, in rights stored before it) follows the license. */
+  downloadable?: boolean | null;
 };
 
 /** Rights that say nothing are no rights: stored as null. */
 export const isEmpty = (r: Rights) =>
-  !r.license && !r.territories.length && !r.channels.length && !r.embargo && !r.expires && !r.modelRelease;
+  !r.license && !r.territories.length && !r.channels.length && !r.embargo && !r.expires && !r.modelRelease && r.downloadable == null;
+
+/** A license that lets anyone pass the file on: the open font licenses, Creative Commons, the public domain. */
+export const OPEN_LICENSE =
+  /open font licen[cs]e|\bOFL\b|apache licen[cs]e|ubuntu font licen[cs]e|\bMIT\b|creative commons|\bCC[ -]?(BY|0)\b|public domain|\bunlicense\b/i;
+
+/**
+ * Whether people outside the workspace may take the file itself: download
+ * it, or fetch it from anywhere but a page of this app that shows it. Either
+ * way they see it, at a preview's size (lib/transform.ts SHOWN_MAX). A person
+ * decides; until then, a font goes out only under an open license (an upload
+ * takes the one its file names, lib/font-license.ts), anything licensed only
+ * under an open one, and everything else does.
+ */
+export function isDownloadable(a: { rights: Rights | null; origin: Origin | null; mime: string; filename: string }) {
+  if (a.rights?.downloadable != null) return a.rights.downloadable;
+  const open = !!a.rights?.license && OPEN_LICENSE.test(a.rights.license);
+  if (isFont(a.mime, a.filename)) return open;
+  return a.origin !== "licensed" || open;
+}
 
 export const Use = z.strictObject({
   channel: channel.optional().describe("Where it will run, e.g. paid-social"),

@@ -430,6 +430,7 @@ export const Rights = z
     embargo: z.iso.date().nullable().describe("Not before this day"),
     expires: z.iso.date().nullable().describe("The last day it may be used"),
     modelRelease: z.enum(MODEL_RELEASES).nullable(),
+    downloadable: z.boolean().nullable().optional().describe("Set by a person; null or missing follows the license (see `downloadable` on its description)"),
   })
   .nullable();
 
@@ -980,6 +981,11 @@ export const Description = z.object({
   provenance: z.object(provenanceOut),
   supersededBy: uuid.nullable().describe("Replaced: use this one instead"),
   public: z.boolean().describe("Its URLs work for anyone while it may be used; otherwise with a key or session, or signed (POST /api/v1/assets/{id}/signed-url)"),
+  downloadable: z
+    .boolean()
+    .describe(
+      "Whether people outside the workspace may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes",
+    ),
   urls: z.object({
     original: z.url(),
     download: z.url().describe("The original with current metadata written in"),
