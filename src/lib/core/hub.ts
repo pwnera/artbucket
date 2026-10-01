@@ -19,7 +19,8 @@ import type { SnapRule } from "@/lib/history";
 import { readablePages } from "@/lib/page-view";
 import { pool } from "@/lib/pool";
 import { getObject, originalKey } from "@/lib/storage";
-import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, provesDomain, swatches, taglineOf, tintOf } from "@/lib/hub";
+import { provesDomain } from "@/lib/domain-proof";
+import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { brandJson } from "@/lib/brand-json";
 import { withSignature } from "@/lib/signed";
 

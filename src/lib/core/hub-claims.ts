@@ -8,7 +8,8 @@ import { deleteBrand, setHub } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { startFrom } from "@/lib/core/hub";
 import { env } from "@/lib/env";
-import { claimProof, domainsAbove, hubHome, hubPath } from "@/lib/hub";
+import { claimProof } from "@/lib/domain-proof";
+import { domainsAbove, hubHome, hubPath } from "@/lib/hub";
 import { can, needs } from "@/lib/permissions";
 
 /**
@@ -41,7 +42,7 @@ const verifiedHosts = async (orgIds: string[]) => {
 /**
  * The listings offered to the caller's organization: public ones of other
  * organizations whose domain one of its verified hosts proves
- * (lib/hub.ts provesDomain), whose own organization proves none of it, and
+ * (lib/domain-proof.ts provesDomain), whose own organization proves none of it, and
  * that it hasn't refused. `proof` is the host that proves it.
  */
 export async function claimOffers(caller: Caller) {

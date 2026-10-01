@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { backgroundOf, brandText, claimProof, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, provesDomain, swatches, withoutDomain } from "./hub.ts";
+import { claimProof, provesDomain } from "./domain-proof.ts";
+import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
