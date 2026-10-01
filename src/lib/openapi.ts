@@ -1184,6 +1184,16 @@ export function openapi(serverUrl: string) {
           ok: [200, "The address", data(S.PortalAddress)],
         }),
       },
+      "/api/v1/portals/look": {
+        get: op({
+          summary: "The look a portal borrows from its brand",
+          scope: "write",
+          description:
+            "A portal's empty logo or accent is its first brand's when served, from the brand's live release: this is that logo and accent, for a form to show before the portal is saved. A portal sets its own to override them (white-label).",
+          query: { brand: { schema: str, description: "The brand the portal shows first, by slug" } },
+          ok: [200, "The look", data(S.PortalLook)],
+        }),
+      },
       "/api/v1/portals/domains": {
         get: op({
           summary: "Domains a portal can be served at",

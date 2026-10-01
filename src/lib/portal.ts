@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withSignature } from "./asset-url.ts";
+import { logoOf, tintOf, type HubRule } from "./hub.ts";
 import { pageSlug } from "./pages.ts";
 
 /**
@@ -119,6 +120,22 @@ export const PortalThemePatch = z.object({
   logo: z.uuid().nullable().optional().describe("An approved image asset, shown in the header"),
   accent: hex.nullable().optional().describe("Buttons and links"),
   background: hex.nullable().optional().describe("The page behind everything"),
+});
+
+/**
+ * The logo and accent a portal made for a brand wears where it sets none:
+ * its first brand's mark and color, as BrandHub's card draws them (hub.ts
+ * logoOf, tintOf), from the release its visitors read. `rules` carry the
+ * mimes of the files that may be shown; the logo is an asset id.
+ */
+export function brandLook(rules: (Pick<HubRule, "key" | "type" | "value" | "context"> & { assets: { id: string; mime: string }[] })[]) {
+  return { logo: logoOf(rules)?.id ?? null, accent: tintOf(rules) };
+}
+
+/** What a portal wears: what it sets, else its brand's (brandLook), else null, the organization's. Setting one is how a portal white-labels. */
+export const wornTheme = (own: Pick<PortalTheme, "logo" | "accent">, brand: { logo: string | null; accent: string | null } | null) => ({
+  logo: own.logo ?? brand?.logo ?? null,
+  accent: own.accent ?? brand?.accent ?? null,
 });
 
 /**

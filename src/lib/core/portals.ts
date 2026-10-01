@@ -35,7 +35,7 @@ import { checkLimit, limitsOf } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
+import { brandLook, challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, wornTheme, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
@@ -404,24 +404,44 @@ export type Pass = { password?: string | null; key?: string | null; headers?: He
 export const passOf = (req: Request): Pass => ({ password: req.headers.get("x-portal-password"), key: req.headers.get("x-portal-key"), headers: req.headers });
 
 /** The logo, signed as the organization's (lib/core/branding.ts): it shows at the door too, to anyone. */
-const logoUrl = async (p: Row) => {
-  if (!p.theme.logo) return null;
+const logoUrl = async (ws: string, id: string | null) => {
+  if (!id) return null;
   const [a] = await db
     .select({ id: assets.id })
     .from(assets)
-    .where(and(eq(assets.id, p.theme.logo), eq(assets.workspaceId, p.workspaceId), deliverableSql));
+    .where(and(eq(assets.id, id), eq(assets.workspaceId, ws), deliverableSql));
   return a ? withSignature(`/a/${a.id}/h_128,f_webp`, longSig(a.id, 30)) : null;
 };
 
-/** The portal's own look over its organization's brand (lib/core/branding.ts): one source of truth, overridden here. */
+/**
+ * The logo and accent a portal showing this brand wears where it sets none
+ * (lib/portal.ts brandLook): from the release its visitors read, and only
+ * files that may be shown. GET /api/v1/portals/look shows it in the form.
+ */
+export async function brandLookOf(ws: string, slug: string) {
+  const src = await publishedSource(ws, slug);
+  const ids = [...new Set(src?.rules.flatMap((r) => r.assets.map((a) => a.id)) ?? [])];
+  const usable = ids.length
+    ? new Map(
+        (await db.select({ id: assets.id, mime: assets.mime }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))).map((a) => [a.id, a.mime]),
+      )
+    : new Map<string, string>();
+  return brandLook((src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) })));
+}
+
+/**
+ * What the portal wears (lib/portal.ts wornTheme): its own logo and accent,
+ * else its first brand's, else its organization's (lib/core/branding.ts).
+ */
 const shownTheme = async (p: Row) => {
-  const brand = await brandOfWorkspace(p.workspaceId);
+  const [org, first] = await Promise.all([brandOfWorkspace(p.workspaceId), brandsOf(p.id).then((l) => l.find((b) => b.shown))]);
+  const worn = wornTheme(p.theme, first ? await brandLookOf(p.workspaceId, first.slug) : null);
   return {
-    logo: (await logoUrl(p)) ?? brand.logo,
-    accent: p.theme.accent ?? brand.accent,
+    logo: (await logoUrl(p.workspaceId, worn.logo)) ?? org.logo,
+    accent: worn.accent ?? org.accent,
     background: p.theme.background,
-    icon: brand.icon,
-    product: brand.name,
+    icon: org.icon,
+    product: org.name,
   };
 };
 

@@ -131,9 +131,18 @@ until the portal closes. Remove the request to take it back.
 ## Look
 
 A logo (an approved image from the library), an accent color for buttons and
-links, and a header background. Leave them empty for the app's own. They
-dress the portal's header, its door and its Assets view; the pages wear
-their brand's own theme.
+links, and a header background. They dress the portal's header, its door and
+its Assets view; the pages wear their brand's own theme.
+
+A portal made for a brand wears its look: an empty logo is the mark of the
+first brand it shows (its logo rule named mark, icon or symbol, else its first
+logo with an image) and an empty accent its `color.primary` (else its first
+color), from the release visitors read, so the portal follows the brand as it
+changes. The form shows them as "From {brand}". Set either to override it, for
+a white-label portal. With no brand to borrow from, the organization's own.
+
+A brand's Sharing tab makes a portal for it in the same form, the brand
+picked, and lists the portals showing it.
 
 ## Around the pages
 
@@ -205,7 +214,7 @@ is never listed.
 
 A server with `HUB_URL` set runs BrandHub. Every published brand is on it at
 `{organization}/{brand}`, **private** by default: only people who can read its
-workspace see it, signed in. **Make public** on the Brands page (or
+workspace see it, signed in. **Make public** on the brand's Sharing tab or the Brands page (or
 `PATCH /api/v1/brands/{slug}/hub` with `"visibility": "public"`, or the
 `set_brand_hub` tool) and anyone, and any agent, reads it. Either way BrandHub
 shows the brand's latest publish, with only the assets that may be used, so a
@@ -214,7 +223,8 @@ as they happen.
 
 A brand needs no portal to be on BrandHub. When a portal shows it, BrandHub
 links that portal as its guidelines: its first public one, or the one picked
-on the Brands page (`"portal"`).
+on its row of the brand's Sharing tab, where every portal showing the brand
+is listed with who gets in and the requests waiting (`"portal"`).
 
 With a host of its own (`HUB_URL=https://hub.example.com`), BrandHub serves
 public brands there, to anyone. When that host sits beside the app's
@@ -271,10 +281,10 @@ Both land in the listing's organization's Settings, **BrandHub**
 and hand the brand over (the claimant can start from it, below), or **Take off
 BrandHub**, which makes the brand private (`PATCH /api/v1/hub/reports/{id}`
 with `"delist": true`). The organization can always take its own brand off
-the hub the same way on the Brands page.
+BrandHub the same way on the Brands page.
 
 Whoever runs the server reads every report in the database, and can delist a
-brand for good: while `hub_delisted` holds a reason, the brand is off the hub
+brand for good: while `hub_delisted` holds a reason, the brand is off BrandHub
 and its organization can't make it public again, which says why.
 
 ```sql
@@ -313,7 +323,7 @@ card, its page and the brand's Overview show them ("1.2k pulls"), and
 `index.json` and `GET /api/v1/brands/{slug}/hub` carry them as `pulls`.
 
 Someone signed in can **Follow** a public listing
-(`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): the hub's front
+(`PUT /api/v1/hub/{org}/{brand}/follow`, `DELETE` to stop): BrandHub's front
 page then has a **Following** tab with the brands they follow. **Trending
 this week**, the order it opens in, sorts by pulls in the last 7 days. A
 community listing's card says it may not come from the brand's owner, and
@@ -321,7 +331,7 @@ the front page ends with a domain box for the public Brand Agent Score.
 
 Curated collections, like "Open-source project brands", are the server
 operator's: each is a row in `hub_collections`, listing public brands as
-`{org}/{brand}` in order, and shows as a section on the hub's front page
+`{org}/{brand}` in order, and shows as a section on BrandHub's front page
 (lowest `position` first; a brand that isn't public is left out).
 
 ```sql

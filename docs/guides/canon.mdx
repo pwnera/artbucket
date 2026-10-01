@@ -22,23 +22,27 @@ Each brand, under Brands in the sidebar, opens on its page, a repository's:
 the header names it (its mark, whether its organization is verified, whether
 it is public on BrandHub, a link to its page there, `{org}/{brand}`, what is live and whether it is
 the latest: "@4 live · Unreleased changes", "@4 live · Up to date" or "Never
-released", as the builder's Release button says it too, and the release's
-note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
+released", as the builder's Release button says it too, where it is live,
+"@4 live on BrandHub, Press and Partners" or "Only the team", each place a
+link out in a popover (portals only for whoever manages them), and the
+release's note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
 BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand), **Edit** (the
 builder, where you are: at the page on show from Guidelines, in its Rules
 panel from Tokens and rules) and, while readers don't see the latest, **Release** beside it. The page is
 read-only, and every tab stays in it, under the same header (folded to one
-line over Guidelines, so the pages get the screen): Overview,
+line over Guidelines, the tabs inline or, when narrow, in a menu on the
+brand's name, so the pages get the screen): Overview,
 Guidelines (the brand's pages as readers see them, at `/brands/{slug}/guidelines`:
 the live release, or the draft to whoever may edit it while it has
 unreleased changes, always labeled, with a switch between them),
 Tokens and rules (its rules read-only by section, and its tokens in every
 format, at `/brands/{slug}/rules`), Assets (the files its rules hold and its
 pages show, at `/brands/{slug}/assets`, from `GET /api/v1/brands/{slug}/assets`),
-Releases, Portals (the portals showing it, at `/brands/{slug}/portals`),
+Releases, Sharing (who reads it outside the team, at `/brands/{slug}/sharing`:
+BrandHub, public or private, the portals showing it with the one BrandHub
+links as its guidelines, and the addresses agents and code read),
 Insights (at `/brands/{slug}/insights`) and Settings (its name and address,
-the default, BrandHub, its repository, deleting it, at
-`/brands/{slug}/settings`). The Overview says what the brand is (its line, the usage terms of
+the default, its repository, deleting it, at `/brands/{slug}/settings`). The Overview says what the brand is (its line, the usage terms of
 the portal BrandHub links, the BrandHub brand it started from), its colors,
 its latest release with what it changed, the Brand Agent Score, its signals
 and its typefaces. Its
@@ -118,7 +122,11 @@ note and what it changed; **Publish release** in the brand's header, or
 Release in the builder, opens the form (`/brands/{slug}/releases/new`): the
 note, what changes since the last release line by line (a color's value
 before and after, a page's sections edited), and the Brand Agent Score before
-and after.
+and after. While only the team reads the brand (no portal shows it, and it is
+private on BrandHub), the form asks who should see it: a portal of its own,
+open to the workspace's members or to anyone, for whoever manages portals,
+and **Public on BrandHub, for agents too** for whoever may publish there,
+applied once the release lands.
 
 ## Design tokens
 

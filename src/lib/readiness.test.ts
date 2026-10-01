@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentScore, liveLine, publishState, readiness, shownVersion, WEIGHTS } from "./readiness.ts";
+import { agentScore, liveLine, livePlaces, liveWhere, publishState, readiness, shownVersion, WEIGHTS } from "./readiness.ts";
 
 const EMPTY = { rules: [], pages: [], versions: [], portals: [] };
 
@@ -79,6 +79,22 @@ test("the live line names the release readers see, and whether it is the latest"
   assert.equal(liveLine("behind", 4), "@4 live · Unreleased changes");
   assert.equal(liveLine("current", 4), "@4 live · Up to date");
   assert.equal(liveLine("never", null), "Never released");
+});
+
+test("the header names where the release is live, or says only the team has it", () => {
+  const hub = { visibility: "public", url: "https://hub.example.com/acme/fjord" };
+  const portals = [
+    { name: "Press", url: "https://press.example.com", slug: "press" },
+    { name: "Partners", url: "https://partners.example.com", slug: "partners" },
+  ];
+  const all = livePlaces(hub, portals);
+  assert.deepEqual(all?.map((p) => p.name), ["BrandHub", "Press", "Partners"]);
+  assert.equal(liveWhere(all!), "on BrandHub, Press and Partners");
+  assert.equal(liveWhere(livePlaces(hub, [])!), "on BrandHub");
+  assert.equal(liveWhere(livePlaces({ ...hub, visibility: "private" }, [])!), "Only the team", "private on BrandHub is the team's");
+  assert.deepEqual(livePlaces(hub, null), [{ name: "BrandHub", url: hub.url }], "a reader not told the portals still sees BrandHub");
+  assert.equal(livePlaces({ ...hub, visibility: "private" }, null), null, "nor told nowhere");
+  assert.equal(livePlaces(null, null), null);
 });
 
 test("editors read the draft while it is ahead, everyone else the live release", () => {

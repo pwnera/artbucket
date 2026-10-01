@@ -126,7 +126,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
           {signals && (
             <Box title="Signals" icon={<IconChartBar />}>
               <dl className="grid grid-cols-2 gap-3">
-                <Signal label={`hub pulls, ${signals.days} days`} value={signals.pulls} />
+                <Signal label={`BrandHub pulls, ${signals.days} days`} value={signals.pulls} />
                 <Signal label={`portal page views, ${signals.days} days`} value={signals.views} />
                 {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
                 {signals.adoption?.share != null && <Signal label={`fetches on @${signals.adoption.release.number}`} value={`${signals.adoption.share}%`} />}

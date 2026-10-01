@@ -4,37 +4,30 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconBrandGithub, IconStar, IconTrash } from "@tabler/icons-react";
-import { Snippet } from "@/components/agent-access";
-import type { BrandHub } from "@/components/brands";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
-import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { Group, SavedMark } from "@/components/settings/panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink } from "@/components/external-link";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { brandPath } from "@/lib/site";
 
 /**
  * A brand's Settings tab: its name and address, whether it is the default,
- * who sees it on BrandHub and the portal BrandHub links, the repository its
- * files also live in, and deleting it. The same calls the Brands page and
- * the sidebar's brand menu make: PATCH and DELETE /api/v1/brands/{slug},
- * PATCH .../hub, DELETE .../source.
+ * the repository its files also live in, and deleting it (who sees it on
+ * BrandHub is on its Sharing tab). The same calls the Brands page and the
+ * sidebar's brand menu make: PATCH and DELETE /api/v1/brands/{slug}, DELETE
+ * .../source.
  */
-export function BrandSettings({ brand, hub: initialHub, source }: { brand: HeadBrand; hub: BrandHub | null; source: Source | null }) {
+export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Source | null }) {
   const router = useRouter();
-  const can = useCan();
   const b = encodeURIComponent(brand.slug);
   const [name, setName] = useState(brand.name);
   const [slug, setSlug] = useState(brand.slug);
   const [saved, setSaved] = useState<{ name: number; slug: number }>({ name: 0, slug: 0 });
-  const [hub, setHub] = useState(initialHub);
   const [busy, setBusy] = useState<string | null>(null);
 
   const patch = async (what: "name" | "slug", body: Record<string, unknown>) => {
@@ -46,15 +39,6 @@ export function BrandSettings({ brand, hub: initialHub, source }: { brand: HeadB
     // A new address: this page lives at it now.
     if (done.slug !== brand.slug) router.replace(brandPath(done.slug, "/settings"));
     router.refresh();
-  };
-  const share = async (body: { visibility?: "public" | "private"; portal?: string | null }) => {
-    setBusy("hub");
-    const done = (await send("PATCH", `/api/v1/brands/${b}/hub`, body)) as BrandHub | null;
-    setBusy(null);
-    if (done) {
-      setHub(done);
-      router.refresh();
-    }
   };
 
   return (
@@ -115,59 +99,6 @@ export function BrandSettings({ brand, hub: initialHub, source }: { brand: HeadB
           )}
         </div>
       </Group>
-
-      {hub && (
-        <Group
-          title="BrandHub"
-          description={
-            hub.visibility === "public"
-              ? "Public: anyone and any agent reads its latest release, its brand.json, llms.txt and tokens."
-              : "Private: only people in this workspace see it there, signed in."
-          }
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            {can("brand.publish") &&
-              (hub.visibility === "public" ? (
-                <Button variant="outline" size="sm" pending={busy === "hub"} onClick={() => void share({ visibility: "private" })}>
-                  Make private
-                </Button>
-              ) : (
-                <Button size="sm" pending={busy === "hub"} disabled={!hub.published} title={hub.published ? undefined : "Release it first"} onClick={() => void share({ visibility: "public" })}>
-                  Make public
-                </Button>
-              ))}
-            {hub.published && (
-              <Button variant="ghost" size="sm" asChild>
-                <ExternalLink href={hub.url}>See it on BrandHub</ExternalLink>
-              </Button>
-            )}
-          </div>
-          {hub.portals && hub.portals.length > 0 && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="brand-hub-portal">The portal BrandHub links as its guidelines</Label>
-              <Select value={hub.chosen && hub.portal ? hub.portal.slug : "*"} onValueChange={(v) => void share({ portal: v === "*" ? null : v })}>
-                <SelectTrigger id="brand-hub-portal" className="w-full sm:w-80">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="*">Its first public portal</SelectItem>
-                  {hub.portals.map((p) => (
-                    <SelectItem key={p.slug} value={p.slug}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {hub.visibility === "public" && hub.published && (
-            <div className="grid gap-1.5">
-              <p className="text-sm font-medium">A badge for its README, with the release that is live</p>
-              <Snippet text={`[![Brand on BrandHub](${hub.url}/badge.svg)](${hub.url})`} what="the badge's Markdown" />
-            </div>
-          )}
-        </Group>
-      )}
 
       {source && (
         <Group title="Repository" description="Brand as code: its files also live in a repository, and changes go both ways.">
