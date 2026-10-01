@@ -40,6 +40,7 @@ import { contextLabel } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { LeavingLink } from "@/components/link-pending";
+import { useState } from "react";
 
 /**
  * The bar over the canvas (build spec 3.5.3, W6.3), in the order a page is
@@ -296,6 +297,21 @@ function Publish({ b }: { b: BuilderApi }) {
   );
 }
 
+/** The score on the bar: a new one pops in, and a rise glows green for a moment. */
+function ScoreTick({ score }: { score: number }) {
+  const [was, setWas] = useState(score);
+  const [rose, setRose] = useState(false);
+  if (score !== was) {
+    setRose(score > was);
+    setWas(score);
+  }
+  return (
+    <span key={score} className={cn("animate-in fade-in-0 zoom-in-90 inline-block duration-200", rose && "score-rose")}>
+      {score}
+    </span>
+  );
+}
+
 /** What each step of the launch checklist opens: the panel, dialog or page where it is done. */
 function actionOf(b: BuilderApi, id: StepId): { label: string; run?: () => void; href?: string } {
   switch (id) {
@@ -346,7 +362,9 @@ function Checklist({ b }: { b: BuilderApi }) {
         <IconButton variant="ghost" size="sm" label={label} className="relative gap-1.5 px-2">
           <IconListCheck />
           {status && (
-            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">{status.score}</span>
+            <span className="text-muted-foreground hidden text-xs tabular-nums @4xl/bar:inline">
+              <ScoreTick score={status.score} />
+            </span>
           )}
           {found.length > 0 && (
             <span className="bg-warning text-background absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
@@ -372,7 +390,7 @@ function Checklist({ b }: { b: BuilderApi }) {
                 return (
                   <li key={s.id} className={cn("flex items-start gap-2 rounded-md px-1.5 py-1.5", next && "bg-muted")}>
                     {s.done ? (
-                      <IconCircleCheckFilled aria-label="Done" className="text-success mt-0.5 size-4 shrink-0" />
+                      <IconCircleCheckFilled key="done" aria-label="Done" className="text-success animate-in zoom-in-50 mt-0.5 size-4 shrink-0 duration-200" />
                     ) : (
                       <IconCircle aria-label="To do" className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                     )}

@@ -24,6 +24,8 @@ import type { SnapPage } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { brandPath } from "@/lib/site";
+import { useCountUp } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 /**
  * Publish a release (build spec 3.5.3, W6.3, and the prototype's "Publish a
@@ -274,9 +276,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
       {score && (
         <p className="bg-muted flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm">
           <span>Brand Agent Score</span>
-          <b className="tabular-nums">
-            {score.was} → {score.is}
-          </b>
+          <ScoreChange was={score.was} is={score.is} />
         </p>
       )}
 
@@ -438,6 +438,16 @@ function Swatch({ hex }: { hex: string }) {
 }
 
 /** What publishing did: the version readers now get, and the portals that show it. */
+/** What releasing does to the score, counted up from what it was. */
+function ScoreChange({ was, is }: { was: number; is: number }) {
+  const shown = useCountUp(is, 900, was);
+  return (
+    <b className="tabular-nums">
+      {was} → <span className={cn(shown > was && "text-success")}>{shown}</span>
+    </b>
+  );
+}
+
 function Result({ done, brand, onClose }: { done: Published; brand: string; onClose: () => void }) {
   const portals = done.portals ?? [];
   return (

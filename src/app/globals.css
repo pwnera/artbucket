@@ -537,6 +537,14 @@ html[data-loading]::before {
   transition: opacity 150ms var(--ease-out);
 }
 
+/* A score that just rose (builder/top-bar.tsx ScoreTick): green for a moment, then its own color again. */
+@keyframes score-rose {
+  from { color: var(--success); }
+}
+.score-rose {
+  animation: score-rose 1.4s var(--ease-out), enter 200ms var(--ease-out);
+}
+
 /* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes check-draw {

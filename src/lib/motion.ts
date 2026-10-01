@@ -94,6 +94,30 @@ export function Morph({ name, children }: { name: string | null; children: React
 }
 
 /**
+ * A number that counts to `to` (a score, a total) on an ease-out, from
+ * `from` the first time and from where it was after. Whole numbers only; with less
+ * motion, it is simply there.
+ */
+export function useCountUp(to: number, ms = 700, from = 0) {
+  const [shown, setShown] = useState(from);
+  const at = useRef(from);
+  useEffect(() => {
+    const from = at.current;
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = still() ? 1 : Math.min(1, (now - start) / ms);
+      // The house ease-out, near enough: fast, then settling.
+      const v = Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3)));
+      at.current = v;
+      setShown(v);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [to, ms]);
+  return shown;
+}
+
+/**
  * Flashes the rows of `ids` that weren't there last render (`at` finds a
  * row by id): what a refresh brought in shows itself. Never on first render.
  */

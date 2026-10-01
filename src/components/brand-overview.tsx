@@ -13,6 +13,7 @@ import { ago, taglineOf } from "@/lib/hub";
 import type { Rule } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { useCountUp } from "@/lib/motion";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card, as
@@ -206,6 +207,8 @@ function AgentScore({ status, slug }: { status: Status; slug: string }) {
 export function ScoreRing({ score, size = 88 }: { score: number; size?: number }) {
   const r = 38;
   const c = 2 * Math.PI * r;
+  // The ring fills and the number counts up to the score, the first time and whenever it moves.
+  const shown = useCountUp(score);
   return (
     <svg viewBox="0 0 92 92" width={size} height={size} role="img" aria-label={`Score ${score} of 100`} className="shrink-0">
       <circle cx="46" cy="46" r={r} fill="none" strokeWidth="9" className="stroke-muted" />
@@ -217,12 +220,12 @@ export function ScoreRing({ score, size = 88 }: { score: number; size?: number }
         strokeWidth="9"
         strokeLinecap="round"
         strokeDasharray={c.toFixed(1)}
-        strokeDashoffset={(c * (1 - score / 100)).toFixed(1)}
+        strokeDashoffset={(c * (1 - shown / 100)).toFixed(1)}
         transform="rotate(-90 46 46)"
         className="stroke-primary"
       />
-      <text x="46" y="53" textAnchor="middle" className="fill-foreground font-display text-[22px] font-semibold">
-        {score}
+      <text x="46" y="53" textAnchor="middle" className="fill-foreground font-display text-[22px] font-semibold tabular-nums">
+        {shown}
       </text>
     </svg>
   );
