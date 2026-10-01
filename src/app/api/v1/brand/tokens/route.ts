@@ -17,7 +17,7 @@ export const GET = route("brand.read", async (req, _p, caller) => {
   const slug = rules[0]?.brand ?? q.get("brand") ?? "brand";
   const headers = { "Cache-Control": "private, no-cache" };
 
-  const title = `${slug} design tokens${context ? ` for ${context}` : ""}, from artbucket. Generated ${new Date().toISOString()}.`;
+  const title = `${slug} design tokens${context ? ` for ${context}` : ""}, from Artbucket. Generated ${new Date().toISOString()}.`;
   const f = TOKEN_FORMATS[format];
   return new Response(f.render(rules, { origin: env.APP_URL, title }), {
     headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` },

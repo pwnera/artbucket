@@ -24,6 +24,13 @@ type Opts = { origin: string; title: string };
 
 /** `logo.minClearSpace` is `--logo-min-clear-space`. */
 export const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
+/** A number's unit, from its spec. */
+const unitOf = (r: TokenRule) => (r.spec as { unit?: string } | null | undefined)?.unit;
+/** A number as CSS reads it, with its unit: 24px, 1.5rem, 200ms. "x" (so many times something) has no CSS form, so it stays bare. */
+const cssNumber = (r: TokenRule) => {
+  const u = unitOf(r);
+  return u && u !== "x" ? `${r.value}${u}` : String(r.value);
+};
 const fontFiles = (r: TokenRule) => r.assets.filter((a) => a.mime && isFont(a.mime, a.filename ?? ""));
 const isScale = (r: TokenRule) => r.type === "list" && listStyle(r.key, r.value as (string | number)[]) === "scale";
 
@@ -114,7 +121,8 @@ function declarations(rules: TokenRule[]) {
     const g = gradientOf(r);
     if (g) gradients.push({ usage: r.usage, decls: [[`${name}-gradient`, (ref) => gradientCss(g, (c) => (c.startsWith("#") ? c : ref(kebab(c))))]] });
     let decls: Decl[] = via;
-    if (r.type === "color" || r.type === "number") decls = [[name, String(r.value)]];
+    if (r.type === "color") decls = [[name, String(r.value)]];
+    else if (r.type === "number") decls = [[name, cssNumber(r)]];
     else if (isScale(r)) decls = [...(r.value as number[]).map((n, i): Decl => [`${name}-${i + 1}`, `${n}px`]), ...via];
     else if (r.type === "font") {
       const { family, size, weight } = fontValue(r.value);
@@ -163,7 +171,7 @@ export function toTailwind(rules: TokenRule[], { origin, title }: Opts) {
       const g = gradientOf(r);
       const paint = (c: string) => (c.startsWith("#") ? c : `var(--color-${local(c, "color")})`);
       if (g) theme.push(`  --background-image-${local(r.key, "color")}-gradient: ${gradientCss(g, paint)};`);
-    } else if (r.type === "number") root.push(...note, `  --${kebab(r.key)}: ${r.value};`);
+    } else if (r.type === "number") root.push(...note, `  --${kebab(r.key)}: ${cssNumber(r)};`);
     else if (isScale(r)) theme.push(...note, ...(r.value as number[]).map((n, i) => `  --text-${local(r.key, "type")}-${i + 1}: ${n}px;`));
     else if (r.type === "font") {
       const { family, size, weight } = fontValue(r.value);
@@ -420,7 +428,12 @@ export function toDtcg(rules: TokenRule[], { origin }: { origin: string }) {
     // Beside its solid, not in it: a token with tokens inside is no token to DTCG readers.
     if (g) Object.assign(at(root, `${r.key}Gradient`), { ...gradient(g, hex), ...described(r) });
     if (r.type === "color") Object.assign(at(root, r.key), { $type: "color", $value: color(r.value as string), ...described(r) });
-    else if (r.type === "number") Object.assign(at(root, r.key), { $type: "number", $value: r.value, ...described(r) });
+    else if (r.type === "number") {
+      // DTCG has dimensions in px and rem, and durations in ms; any other unit stays a plain number.
+      const u = unitOf(r);
+      const token = u === "px" || u === "rem" ? { $type: "dimension", $value: { value: r.value, unit: u } } : u === "ms" ? { $type: "duration", $value: { value: r.value, unit: "ms" } } : { $type: "number", $value: r.value };
+      Object.assign(at(root, r.key), { ...token, ...described(r) });
+    }
     else if (isScale(r)) {
       const steps = Object.fromEntries(
         (r.value as number[]).map((n, i) => [String(i + 1), { $type: "dimension", $value: { value: n, unit: "px" } }]),
