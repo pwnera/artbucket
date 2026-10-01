@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { groundFor, type Rgb } from "@/lib/color";
 import { REPORT_REASONS, type ReportReason } from "@/lib/hub";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
@@ -119,7 +120,7 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
               ))}
             </div>
           )}
-          <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
+          <div className="bg-muted/60 flex min-w-0 items-center gap-1 rounded-md border ps-2.5">
             <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{shown}</code>
             <CopyButton text={shown} label="Copy the address" what="the address" />
           </div>
@@ -319,5 +320,48 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * A brand's mark on its ground (components/hub.tsx Mark): the server's
+ * ground, swapped once the mark loads for one of the brand's colors it reads
+ * on (lib/color.ts groundFor), so a white wordmark doesn't vanish on a pale
+ * wash. A mark with a ground of its own (nearly every pixel opaque) keeps it.
+ */
+export function TileGround({ logo, ground, groundHex, palette, className, img: imgClass, children }: { logo: string; ground: string; groundHex: string; palette: string[]; className?: string; img: string; children?: React.ReactNode }) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [bg, setBg] = useState(ground);
+  const key = palette.join();
+  useEffect(() => {
+    const img = ref.current;
+    if (!img) return;
+    const pick = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = c.height = 32;
+        const x = c.getContext("2d", { willReadFrequently: true });
+        if (!x) return;
+        x.drawImage(img, 0, 0, 32, 32);
+        const d = x.getImageData(0, 0, 32, 32).data;
+        const px: Rgb[] = [];
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) px.push([d[i], d[i + 1], d[i + 2]]);
+        if (px.length > 0.9 * 32 * 32) return;
+        const g = groundFor(px, groundHex, key ? key.split(",") : []);
+        if (g !== groundHex) setBg(g);
+      } catch {
+        // A mark from another origin can't be read: it keeps the card's ground.
+      }
+    };
+    if (img.complete) pick();
+    else img.addEventListener("load", pick, { once: true });
+    return () => img.removeEventListener("load", pick);
+  }, [groundHex, key]);
+  return (
+    <span className={cn("relative grid transition-colors duration-300", className)} style={{ background: bg }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized */}
+      <img ref={ref} src={logo} alt="" className={imgClass} loading="lazy" />
+      {children}
+    </span>
   );
 }

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
 import type { HubCard } from "@/lib/core/hub";
+import { TileGround } from "@/components/hub-client";
+import { contrast, inkOn, mix } from "@/lib/color";
 import { ago, compact, type CardFace } from "@/lib/hub";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +19,11 @@ import { cn } from "@/lib/utils";
  * and a black one would vanish on a dark wash.
  */
 const PAPER = "#fafaf7";
-export const wash = (tint: string | null, strength = 14) => `color-mix(in oklab, ${tint ?? "#8a8a8a"} ${strength}%, ${PAPER})`;
+const GREY = "#8a8a8a";
+export const wash = (tint: string | null, strength = 14) => `color-mix(in oklab, ${tint ?? GREY} ${strength}%, ${PAPER})`;
+
+/** How a card shows its palette: overlapping dots on its ground, spaced dots on a pill there, or dots under its name. */
+const PALETTE_LOOK: "dots" | "pill" | "meta" = "dots";
 
 /** Verified: the organization proved it holds `verified`, a domain or github.com/{login}. Else a community listing: anyone may list a brand under any name. */
 export function Owner({ verified, className }: { verified: string | null; className?: string }) {
@@ -62,36 +68,44 @@ export function Dots({ colors, className }: { colors: string[]; className?: stri
   );
 }
 
-/** An organization's picture: its first brand's mark on that brand's wash, else its initial. */
-export function Avatar({ name, logo, tint, className }: { name: string; logo?: string | null; tint?: string | null; className?: string }) {
+/**
+ * A brand's mark on its ground (`background`, else its wash), swapped once it
+ * loads for one of its colors the mark reads on (components/hub-client.tsx
+ * TileGround), else its initial in the first of its colors that reads there:
+ * the grid card's top, a list's picture, the banner and an owner's avatar.
+ */
+function Mark({ name, logo, tint, palette = [], background = null, strength = 14, className, img, letter, children }: { name: string; logo?: string | null; tint?: string | null; palette?: { hex: string }[]; background?: string | null; strength?: number; className?: string; img: string; letter: string; children?: React.ReactNode }) {
+  const ground = background ?? wash(tint ?? null, strength);
+  const groundHex = background ?? mix(PAPER, tint ?? GREY, strength / 100);
+  const hexes = palette.map((c) => c.hex);
+  if (logo)
+    return (
+      <TileGround logo={logo} ground={ground} groundHex={groundHex} palette={hexes} className={className} img={img}>
+        {children}
+      </TileGround>
+    );
+  const ink = [tint, ...hexes].find((c) => c && contrast(c, groundHex) >= 3) ?? inkOn(groundHex);
   return (
-    <span aria-hidden className={cn("grid shrink-0 place-items-center overflow-hidden rounded-lg border", className)} style={{ background: wash(tint ?? null, 18) }}>
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized
-        <img src={logo} alt="" className="size-3/5 object-contain" />
-      ) : (
-        <span className="font-display text-[0.45em] font-semibold" style={{ color: tint ?? undefined }}>
-          {name.slice(0, 1).toUpperCase()}
-        </span>
-      )}
+    <span className={cn("relative grid place-items-center", className)} style={{ background: ground }}>
+      <span className={cn("font-display font-semibold", letter)} style={{ color: ink }}>
+        {name.slice(0, 1).toUpperCase()}
+      </span>
+      {children}
     </span>
   );
 }
 
-/** A brand's mark on its wash: the card's top, and the listing's banner. */
-export function Preview({ card, className, children }: { card: Pick<HubCard, "logo" | "tint" | "name">; className?: string; children?: React.ReactNode }) {
+/** An organization's picture: its first brand's mark on that brand's ground, else its initial. */
+export function Avatar({ name, logo, tint, palette, className }: { name: string; logo?: string | null; tint?: string | null; palette?: { hex: string }[]; className?: string }) {
+  return <Mark name={name} logo={logo} tint={tint} palette={palette} strength={18} className={cn("shrink-0 overflow-hidden rounded-lg border", className)} img="absolute inset-[20%] size-3/5 object-contain" letter="text-[0.45em]" />;
+}
+
+/** A brand's mark on its ground: a list's picture, and the listing's banner. */
+export function Preview({ card, className, children }: { card: Pick<HubCard, "logo" | "tint" | "name"> & { palette?: { hex: string }[] }; className?: string; children?: React.ReactNode }) {
   return (
-    <div className={cn("relative grid place-items-center", className)} style={{ background: wash(card.tint) }}>
-      {card.logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized
-        <img src={card.logo} alt="" className="absolute inset-[27%] size-[46%] object-contain transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-      ) : (
-        <span className="font-display text-5xl font-semibold" style={{ color: card.tint ?? undefined }}>
-          {card.name.slice(0, 1)}
-        </span>
-      )}
+    <Mark name={card.name} logo={card.logo} tint={card.tint} palette={card.palette} className={className} img="absolute inset-[27%] size-[46%] object-contain transition-transform duration-300 group-hover:scale-105" letter="text-5xl">
       {children}
-    </div>
+    </Mark>
   );
 }
 
@@ -108,36 +122,37 @@ export const FACES = 8;
 
 /**
  * A brand as a grid card, on the Brands page and BrandHub: its mark on its
- * own ground (color.background, else its wash) beside a band of its colors,
- * each named on hover, then its name in its heading face when that loads
+ * own ground (color.background, else its wash, else a palette color the
+ * mark reads on), its colors as dots, each named on hover, then its name in its heading face when that loads
  * cheaply (`face`, the first FACES of a grid), else the family named beside
  * it. `badges` sit on the ground; the rest of the card is `children`. The
  * whole card is the link.
  */
 export function BrandTile({ id, look, href, face, badges, children }: { id: string; look: TileLook; href: string; face: boolean; badges?: React.ReactNode; children?: React.ReactNode }) {
   const f = look.face;
+  const colors = PALETTE_LOOK;
   const loads = face && !!f && !!(f.src || f.css);
   const name = `card-face-${id.replace(/[^a-z0-9-]/gi, "-")}`;
   return (
     <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
       {loads && f.src && <style>{`@font-face{font-family:"${name}";src:url("${f.src}");font-weight:100 900;font-display:swap}`}</style>}
       {loads && f.css && <link rel="stylesheet" href={f.css} precedence="default" />}
-      <div className="relative flex h-28">
-        <div className="relative grid min-w-0 flex-1 place-items-center" style={{ background: look.background ?? wash(look.tint) }}>
-          {look.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a signed rendition, already sized
-            <img src={look.logo} alt="" className="absolute inset-0 size-full object-contain px-6 py-5 transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-          ) : (
-            <span className="font-display text-4xl font-semibold" style={{ color: look.tint ?? undefined }}>
-              {look.name.slice(0, 1)}
-            </span>
-          )}
-        </div>
-        {look.palette.length > 0 && (
-          // Above the card's link, so each stripe names its color on hover.
-          <ul aria-label="Colors" className="relative z-10 flex w-1/4 shrink-0">
+      <div className="relative h-32">
+        <Mark
+          name={look.name}
+          logo={look.logo}
+          tint={look.tint}
+          palette={look.palette}
+          background={look.background}
+          className="size-full"
+          img="absolute inset-0 size-full object-contain px-6 pt-6 pb-9 transition-transform duration-300 group-hover:scale-105"
+          letter="text-4xl"
+        />
+        {look.palette.length > 0 && colors !== "meta" && (
+          // Above the card's link, so each dot names its color on hover.
+          <ul aria-label="Colors" className={cn("absolute bottom-2.5 start-2.5 z-10 flex", colors === "dots" ? "-space-x-1.5" : "gap-1 rounded-full bg-white/85 p-1 backdrop-blur")}>
             {look.palette.map((c, i) => (
-              <li key={i} title={`${c.name} ${c.hex}`} className="flex-1" style={{ background: c.hex }}>
+              <li key={i} title={`${c.name} ${c.hex}`} className={cn("rounded-full", colors === "dots" ? "size-4 ring-2 ring-white/90" : "size-3 ring-1 ring-black/10")} style={{ background: c.hex }}>
                 <span className="sr-only">{c.name}</span>
               </li>
             ))}
@@ -157,6 +172,7 @@ export function BrandTile({ id, look, href, face, badges, children }: { id: stri
           {f && !loads && <span className="text-muted-foreground truncate text-xs">{f.family}</span>}
         </h3>
         {children}
+        {colors === "meta" && <Dots colors={look.palette.map((c) => c.hex)} className="mt-3" />}
       </div>
     </li>
   );

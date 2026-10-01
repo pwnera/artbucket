@@ -107,3 +107,20 @@ export function lift(color: string, bg: string, min = 3) {
   }
   return hex([to, to, to]);
 }
+
+/**
+ * A card's ground for its mark: `fallback` while the mark's pixels read on
+ * it (a mean contrast of 3), else the first palette color they read on, in
+ * the brand's order, else whichever of ink and paper reads best. A white
+ * mark on a pale wash gets the brand's own blue, not a guess.
+ */
+export function groundFor(pixels: Rgb[], fallback: string, palette: string[], min = 3) {
+  if (!pixels.length) return fallback;
+  const ls = pixels.map(luminance);
+  const score = (g: string) => {
+    const L = luminance(rgb(g));
+    return ls.reduce((s, l) => s + (Math.max(l, L) + 0.05) / (Math.min(l, L) + 0.05), 0) / ls.length;
+  };
+  if (score(fallback) >= min) return fallback;
+  return palette.find((g) => score(g) >= min) ?? ["#111111", "#fafaf7"].sort((a, b) => score(b) - score(a))[0];
+}
