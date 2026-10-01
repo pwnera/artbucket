@@ -33,6 +33,7 @@ import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
+import { behavior, flash } from "@/lib/motion";
 import { undoable } from "@/lib/undo";
 
 /**
@@ -240,6 +241,14 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       commit(t.state);
       remember(t.history);
       send(t.sent);
+      // The section it changed comes into view and lights up: an undo far down the page is seen.
+      const ids = t.sent.flatMap((o) => (o.kind !== "page" ? [] : o.op.op === "add" ? [o.op.section.id] : "id" in o.op ? [o.op.id] : []));
+      requestAnimationFrame(() => {
+        const el = ids.map((id) => id && document.querySelector<HTMLElement>(`[data-canvas-block="${CSS.escape(id)}"]`)).find(Boolean);
+        if (!el) return;
+        el.scrollIntoView({ block: "nearest", behavior: behavior() });
+        flash(el);
+      });
     }
 
     const select = (to: Partial<BuilderState["selection"]>) => {

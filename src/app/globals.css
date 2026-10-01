@@ -518,6 +518,14 @@ body:has(#hub-hero) .hub-header-search {
   [data-flash], [data-block]:target {
     animation: target-flash 1.6s var(--ease-out);
   }
+  /* A section on the canvas has a ground of its own, which a tint would sit under: it rings instead. */
+  @keyframes ring-flash {
+    from { box-shadow: 0 0 0 2px var(--primary), 0 0 0 6px color-mix(in oklab, var(--primary) 20%, transparent); }
+    to { box-shadow: 0 0 0 2px transparent, 0 0 0 6px transparent; }
+  }
+  [data-canvas-block][data-flash], [data-item-root][data-flash] {
+    animation: ring-flash 1.6s var(--ease-out);
+  }
 }
 
 /*
