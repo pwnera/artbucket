@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useKept } from "@/lib/motion";
+import { Waiting } from "@/components/waiting";
 
 /**
  * Signing in and up, against better-auth at /api/auth: who someone is. What
@@ -631,7 +632,7 @@ export function Welcome({ me }: { me: Me }) {
           <IconLogout /> Sign out
         </Button>
       </div>
-      <p className="text-muted-foreground text-xs text-pretty">This page moves on by itself once you have access.</p>
+      <Waiting what="This page moves on by itself once you have access" />
       {shownMaking && <MakeDialog kind="organization" open={making} onClose={() => setMaking(false)} />}
     </Card>
   );

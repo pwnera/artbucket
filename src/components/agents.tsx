@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconKey, IconLoader2, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconKey, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Initials } from "@/components/activity";
 import { SetupPart, Snippet } from "@/components/agent-access";
@@ -27,6 +27,7 @@ import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { collapse } from "@/lib/motion";
+import { Waiting } from "@/components/waiting";
 
 export type Key = {
   id: string;
@@ -374,8 +375,7 @@ function Setup({
       ) : (
         (agent.auth === "oauth" || agent.auth === "key" || agent.auth === "skill") && (
           <div className="flex items-center gap-2 border-t pt-4 text-sm">
-            <IconLoader2 className="text-muted-foreground size-4 animate-spin" />
-            <span className="text-muted-foreground">Waiting for its first call…</span>
+            <Waiting what="Waiting for its first call" className="text-sm" />
             {secret && (
               <Button variant="outline" size="sm" className="ml-auto" onClick={onDone}>
                 Done
