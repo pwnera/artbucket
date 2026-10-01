@@ -42,7 +42,9 @@ const buttonVariants = cva(
  * `pending` reads as working, not unavailable: disabled at full strength,
  * with a spinner in the leading icon's place, or over the hidden label when
  * there is no leading icon, so the width always holds. Keep the label as it
- * is while pending: the spinner says working.
+ * is while pending: the spinner says working. A label that itself says what
+ * is happening ("Laying out the pages") asks for "beside": the spinner leads
+ * and the words stay.
  */
 function Button({
   className,
@@ -56,12 +58,12 @@ function Button({
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-    pending?: boolean
+    pending?: boolean | "beside"
   }) {
   const Comp = asChild ? Slot.Root : "button"
   // A component first is a leading icon (Tabler's are), which the spinner takes the place of.
   const lead = React.Children.toArray(children)[0]
-  const swap = React.isValidElement(lead) && typeof lead.type !== "string"
+  const swap = pending === "beside" || (React.isValidElement(lead) && typeof lead.type !== "string")
 
   return (
     <Comp
@@ -69,8 +71,8 @@ function Button({
       data-variant={variant}
       data-size={size}
       data-pending={pending ? (swap ? "swap" : "over") : undefined}
-      aria-busy={pending || undefined}
-      disabled={disabled || pending || undefined}
+      aria-busy={!!pending || undefined}
+      disabled={disabled || !!pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >

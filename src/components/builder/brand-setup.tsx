@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { IconBrandGit, IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@tabler/icons-react";
@@ -187,6 +187,8 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
   const [from] = useState(() => fromRules(init.rules));
   const [e, setE] = useState<Essentials>(from.values);
   const [busy, setBusy] = useState<string | null>(null);
+  // The refresh that swaps this screen for the editor: still working until it lands, so the button can't be pressed twice.
+  const [opening, open] = useTransition();
   const [picking, setPicking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -210,7 +212,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
     setBusy(null);
     if (!res.ok) return;
     toast.success(`${name}'s pages are ready`, { description: "Everything is a draft until you release it." });
-    router.refresh();
+    open(() => router.refresh());
   };
 
   const onFile = async (f: File | undefined) => {
@@ -318,12 +320,12 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
           </Step>
 
           <div className="flex flex-wrap items-center gap-2 border-t pt-6">
-            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={busy !== null} disabled={!isHex(e.primary)}>
-              {busy ?? "Create the brand pages"}
+            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={(busy !== null || opening) && "beside"} disabled={!isHex(e.primary)}>
+              {busy ?? (opening ? "Opening the editor" : "Create the brand pages")}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="lg" disabled={busy !== null}>
+                <Button variant="ghost" size="lg" disabled={busy !== null || opening}>
                   Other starts <IconChevronDown />
                 </Button>
               </DropdownMenuTrigger>
