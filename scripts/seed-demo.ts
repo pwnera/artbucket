@@ -115,6 +115,11 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     headers: { ...(body ? { "content-type": "application/json" } : {}), ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
+  // Rate limited: wait as long as the server says, then ask again.
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 1000 * Number(res.headers.get("retry-after") || 5)));
+    return api(method, path, body);
+  }
   if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);
   return (await res.json()) as T;
 }
@@ -210,7 +215,8 @@ async function upload(file: string, info: Pick<Info, "url" | "mime">, entry?: st
   if (entry) {
     const found = unzip(bytes).find((e) => e.name === entry);
     if (!found) throw new Error(`${entry} is not in ${info.url}`);
-    bytes = await found.read();
+    // A file the script picked, from a zip it trusts: as large as it is.
+    bytes = await found.read(found.size);
   }
   const { token, uploadUrl } = await api<{ token: string; uploadUrl: string }>("POST", "/api/v1/uploads", {
     filename: file,
