@@ -28,7 +28,7 @@ import { Waiting } from "@/components/waiting";
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
 type Dns<T extends string> = { type: T; name: string; value: string };
-export type Domain = { host: string; verified: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
+export type Domain = { host: string; verified: boolean; app: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
 
 const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 /** The product's own accent, what the picker shows until one is set. */
@@ -209,9 +209,9 @@ function Legibility({ color, on, theme }: { color: string; on: string; theme: st
 const RECHECK = { every: 30_000, for: 10 * 60_000 };
 
 /**
- * The organization's own addresses. One may serve the whole app, turned on
- * here (off when verified), where links in email point too; a portal picks
- * any other in Portals. Each is proved by a TXT record, and by pointing at the server;
+ * The organization's own addresses. Each serves the whole app once turned on
+ * here (off when verified), the default of those being where links in email
+ * point; or one portal, which picks it in Portals. Each is proved by a TXT record, and by pointing at the server;
  * while one isn't yet, it is checked again every 30s for 10 minutes, as DNS
  * takes minutes to spread.
  */
@@ -265,7 +265,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
       <Group
         title="Domains"
         description="Point each at this server, add the TXT record, then check it."
-        info="Use one for the app: people sign in there, and links in email point there. Or give one to a portal, in Portals. A domain used for neither serves nothing."
+        info="Use one for the app and people sign in there; the default is where links in email point. Or give one to a portal, in Portals. A domain used for neither serves nothing."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -282,6 +282,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                     <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
                       {d.host}
                     </span>
+                    {d.primary && domains.filter((x) => x.app).length > 1 && <Badge>Default</Badge>}
                     {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
                     {d.verified ? (
                       <Badge variant="success">
@@ -292,12 +293,17 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                         Check now
                       </Button>
                     )}
+                    {d.app && !d.primary && (
+                      <Button size="sm" variant="ghost" pending={busy[d.host]} onClick={() => act(d.host, "PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
+                        Make default
+                      </Button>
+                    )}
                     {d.verified && !d.portal && (
                       <Label className="text-muted-foreground gap-2 text-xs font-normal">
                         <Switch
-                          checked={d.primary}
+                          checked={d.app}
                           disabled={busy[d.host]}
-                          onCheckedChange={(on) => act(d.host, "PATCH", at, { primary: on }, on ? `The app answers at ${d.host} now` : `The app no longer answers at ${d.host}`)}
+                          onCheckedChange={(on) => act(d.host, "PATCH", at, { app: on }, on ? `The app answers at ${d.host} now` : `The app no longer answers at ${d.host}`)}
                         />
                         Use for the app
                       </Label>

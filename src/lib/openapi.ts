@@ -1420,9 +1420,9 @@ export function openapi(serverUrl: string) {
       "/api/v1/domains/{host}": {
         parameters: [path("host", "e.g. assets.example.com")],
         patch: op({
-          summary: "Make a domain the default",
+          summary: "Use a domain for the app, or make it the default",
           scope: "admin",
-          description: "Use it for the app, or stop: the whole app answers there, and links in email point there. One per organization, off when verified; it must be verified and not serve a portal.",
+          description: "`app`: the whole app answers there, or stops; off when verified, any number of them, never one a portal serves. `primary`: of those, the one links in email point at.",
           body: S.DomainPatch,
           ok: [200, "The domain", data(S.Domain)],
         }),

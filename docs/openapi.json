@@ -49687,9 +49687,13 @@
                             ],
                             "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                           },
+                          "app": {
+                            "type": "boolean",
+                            "description": "Used for the app: the whole app answers here"
+                          },
                           "primary": {
                             "type": "boolean",
-                            "description": "Used for the app: the whole app answers here, and links in email point here"
+                            "description": "The default of those used for the app: links in email point here"
                           },
                           "portal": {
                             "description": "The portal it serves, by slug; null for the whole app",
@@ -49708,6 +49712,7 @@
                           "verified",
                           "record",
                           "cname",
+                          "app",
                           "primary",
                           "portal",
                           "url"
@@ -49853,9 +49858,13 @@
                           ],
                           "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                         },
+                        "app": {
+                          "type": "boolean",
+                          "description": "Used for the app: the whole app answers here"
+                        },
                         "primary": {
                           "type": "boolean",
-                          "description": "Used for the app: the whole app answers here, and links in email point here"
+                          "description": "The default of those used for the app: links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -49874,6 +49883,7 @@
                         "verified",
                         "record",
                         "cname",
+                        "app",
                         "primary",
                         "portal",
                         "url"
@@ -49938,8 +49948,8 @@
         }
       ],
       "patch": {
-        "summary": "Make a domain the default",
-        "description": "Use it for the app, or stop: the whole app answers there, and links in email point there. One per organization, off when verified; it must be verified and not serve a portal.\n\nScope: `admin`.",
+        "summary": "Use a domain for the app, or make it the default",
+        "description": "`app`: the whole app answers there, or stops; off when verified, any number of them, never one a portal serves. `primary`: of those, the one links in email point at.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -49948,14 +49958,16 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "app": {
+                    "description": "Use it for the app, or stop: the whole app answers there. Off when verified",
+                    "type": "boolean"
+                  },
                   "primary": {
+                    "description": "Make it the default of those used for the app: where links in email point",
                     "type": "boolean",
-                    "description": "Use it for the app: the whole app answers there, and links in email point there. One per organization; off when verified"
+                    "const": true
                   }
                 },
-                "required": [
-                  "primary"
-                ],
                 "additionalProperties": false
               }
             }
@@ -50029,9 +50041,13 @@
                           ],
                           "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                         },
+                        "app": {
+                          "type": "boolean",
+                          "description": "Used for the app: the whole app answers here"
+                        },
                         "primary": {
                           "type": "boolean",
-                          "description": "Used for the app: the whole app answers here, and links in email point here"
+                          "description": "The default of those used for the app: links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -50050,6 +50066,7 @@
                         "verified",
                         "record",
                         "cname",
+                        "app",
                         "primary",
                         "portal",
                         "url"
@@ -50254,9 +50271,13 @@
                           ],
                           "description": "Where to point it, when the server says (DOMAIN_TARGET): checked with the TXT record. Null: at this server"
                         },
+                        "app": {
+                          "type": "boolean",
+                          "description": "Used for the app: the whole app answers here"
+                        },
                         "primary": {
                           "type": "boolean",
-                          "description": "Used for the app: the whole app answers here, and links in email point here"
+                          "description": "The default of those used for the app: links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -50275,6 +50296,7 @@
                         "verified",
                         "record",
                         "cname",
+                        "app",
                         "primary",
                         "portal",
                         "url"
