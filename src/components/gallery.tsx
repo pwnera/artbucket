@@ -648,6 +648,15 @@ export function Gallery({
   );
   // Just landed: ringed for a moment, so new files are found in a full grid.
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  // Just added, uploaded or imported: ringed for a moment, so the eye finds it in the grid.
+  const markFresh = useCallback((id: string) => {
+    setFresh((s) => new Set(s).add(id));
+    setTimeout(() => setFresh((s) => (s.delete(id) ? new Set(s) : s)), 3000);
+  }, []);
+  const imported = (ids: string[]) => {
+    ids.forEach(markFresh);
+    refreshSoon();
+  };
 
   // With required fields still unmet, files wait for them; otherwise straight up.
   // Values inherited from the collection being uploaded into count as met.
@@ -688,17 +697,14 @@ export function Gallery({
         // Without write where it landed it waits in Review: where Show looks for it.
         job.proposed = body?.data?.status === "proposed";
         uploads.patch(id, { status: body?.deduped ? "deduped" : "done", assetId });
-        if (assetId && !body?.deduped) {
-          setFresh((s) => new Set(s).add(assetId));
-          setTimeout(() => setFresh((s) => (s.delete(assetId) ? new Set(s) : s)), 3000);
-        }
+        if (assetId && !body?.deduped) markFresh(assetId);
         refreshSoon(); // the grid fills in as files land, not all at the end
       } catch (e) {
         const cancelled = e instanceof DOMException && e.name === "AbortError";
         uploads.patch(id, { status: "failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : "Upload failed" });
       }
     },
-    [uploads, refreshSoon],
+    [uploads, refreshSoon, markFresh],
   );
 
   // Three files at a time. One file failing doesn't stop the rest of the batch;
@@ -1114,14 +1120,14 @@ export function Gallery({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={refreshSoon} />
-            <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={refreshSoon} />
+            <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={imported} />
+            <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={imported} />
             <LinkImport
               open={linking.open}
               defaultValue={linking.url}
               onOpenChange={(o) => setLinking((l) => ({ ...l, open: o }))}
               into={into}
-              onDone={refreshSoon}
+              onDone={imported}
             />
           </div>
         )}

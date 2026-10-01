@@ -231,7 +231,8 @@ export function GoogleFontImport({
   onOpenChange,
 }: {
   into?: string | null;
-  onDone: () => void;
+  /** With the ids of the assets it made. */
+  onDone: (ids: string[]) => void;
   /** Opened from elsewhere (a menu): no button of its own. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -282,7 +283,7 @@ export function GoogleFontImport({
       if (!res.ok) return void toast.error(body.error?.message ?? "Couldn't import it");
       toast.success(`Imported ${body.family}`, { description: `${body.data.length} ${body.data.length === 1 ? "style" : "styles"}` });
       setImported((s) => new Set(s).add(family));
-      onDone();
+      onDone(body.data.map((a: { id: string }) => a.id));
     } finally {
       setImporting(null);
     }
