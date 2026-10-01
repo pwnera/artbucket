@@ -1,6 +1,7 @@
 "use client";
 
 import { useLinkStatus } from "next/link";
+import { useEffect, useState } from "react";
 import { IconLoader2 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
@@ -18,4 +19,32 @@ export function LinkIcon({ icon }: { icon: React.ReactNode }) {
 export function LinkSpinner({ className }: { className?: string }) {
   const { pending } = useLinkStatus();
   return pending ? <IconLoader2 aria-hidden className={cn("text-muted-foreground size-3 shrink-0 animate-spin", className)} /> : null;
+}
+
+/**
+ * A link that leaves the app (to connect an integration): its icon spins from
+ * the click until the next page takes over, and stops if Back brings the page
+ * back from the browser's cache.
+ */
+export function LeavingLink({ icon, children, onClick, ...props }: React.ComponentProps<"a"> & { icon: React.ReactNode }) {
+  const [going, setGoing] = useState(false);
+  useEffect(() => {
+    const back = (e: PageTransitionEvent) => e.persisted && setGoing(false);
+    window.addEventListener("pageshow", back);
+    return () => window.removeEventListener("pageshow", back);
+  }, []);
+  return (
+    <a
+      {...props}
+      aria-busy={going || undefined}
+      onClick={(e) => {
+        onClick?.(e);
+        // A new tab or window leaves this page where it is.
+        if (!e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) setGoing(true);
+      }}
+    >
+      {going ? <IconLoader2 aria-hidden className="animate-spin" /> : icon}
+      {children}
+    </a>
+  );
 }

@@ -39,6 +39,7 @@ import { liveLine, type StepId } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { LeavingLink } from "@/components/link-pending";
 
 /**
  * The bar over the canvas (build spec 3.5.3, W6.3), in the order a page is
@@ -185,10 +186,9 @@ export function TopBar({ b }: TopBarProps) {
           b.source?.connect && (
             // Not kept in a repository yet, and this person may connect one: say so on the bar, not in a menu.
             <IconButton asChild variant="ghost" size="sm" label="Keep this brand in a Git repository" className="gap-1.5 px-2 @5xl/bar:px-2.5">
-              <a href={b.source.connect}>
-                <IconBrandGit />
+              <LeavingLink href={b.source.connect} icon={<IconBrandGit />}>
                 <span className="hidden @5xl/bar:inline">Git</span>
-              </a>
+              </LeavingLink>
             </IconButton>
           )
         )}
