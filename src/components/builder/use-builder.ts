@@ -36,6 +36,12 @@ import type { Media, PageView } from "@/lib/site";
 import { behavior, collapse, flash } from "@/lib/motion";
 import { undoable } from "@/lib/undo";
 
+/** Marks `el` as working ([data-busy] in globals.css: dimmed, not clickable) and hands it back. */
+function busy(el: Element | null) {
+  el?.setAttribute("data-busy", "");
+  return el;
+}
+
 /** A section's block on the canvas (seam.tsx BLOCK), if drawn. */
 const blockOf = (id: string) => document.querySelector(`[data-canvas-block="${CSS.escape(id)}"]`);
 
@@ -385,14 +391,24 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       async moveToPage(id: string, to: string) {
         const from = current();
         const x = sectionsOf(from).find((y) => y.id === id);
-        if (!x || to === from || !(await fetchPage(to))) return;
+        if (!x || to === from) return;
+        // Dimmed while the other page loads, then it folds away: the click shows it was heard.
+        const el = busy(blockOf(id));
+        if (!(await fetchPage(to))) return void el?.removeAttribute("data-busy");
         const there = sectionsOf(to);
         const section: Record<string, unknown> = { ...x };
         if (there.some((y) => y.id === id)) delete section.id;
-        const done = changeAll([
-          { kind: "page", page: from, op: { op: "remove", id } },
-          { kind: "page", page: to, op: { op: "add", section: section as never, after: there.at(-1)?.id ?? null } },
-        ]);
+        let done: Op[] | null = null;
+        await new Promise<void>((settle) =>
+          collapse(el, () => {
+            done = changeAll([
+              { kind: "page", page: from, op: { op: "remove", id } },
+              { kind: "page", page: to, op: { op: "add", section: section as never, after: there.at(-1)?.id ?? null } },
+            ]);
+            settle();
+          }),
+        );
+        el?.removeAttribute("data-busy");
         if (!done) return;
         const title = live.current.state.nav.find((p) => p.slug === to)?.title ?? to;
         toast.success(`Moved to ${title}`, { action: { label: "Open", onClick: () => live.current.state.nav.some((p) => p.slug === to) && select({ page: to, section: null, rule: null }) } });
@@ -408,7 +424,10 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       },
       /** Delete a page with no pages under it, with the 8 s Undo. It is loaded first: its undo puts its sections back. */
       async deletePage(slug: string) {
-        if (!(await fetchPage(slug))) return;
+        const row = busy(document.querySelector(`[data-page-row="${CSS.escape(slug)}"]`));
+        const loaded = await fetchPage(slug);
+        row?.removeAttribute("data-busy");
+        if (!loaded) return;
         const before = live.current.state;
         const done = change({ kind: "delete-page", page: slug });
         if (!done) return;

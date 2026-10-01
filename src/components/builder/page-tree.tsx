@@ -332,6 +332,7 @@ function Outline({
           return (
             <li
               key={n.slug}
+              data-page-row={n.slug}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = "move";

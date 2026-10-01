@@ -506,6 +506,13 @@ body:has(#hub-hero) .hub-header-search {
   }
 }
 
+/* Something working on what you asked (a page loading before it can move): dimmed, and not clickable twice. */
+[data-busy] {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-out);
+}
+
 /* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes check-draw {

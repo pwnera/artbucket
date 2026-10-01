@@ -42,6 +42,7 @@ import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
 import { fieldsOf, withProp } from "@/lib/template-fields";
 import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { LATE, PageCanvasSkeleton } from "@/components/skeletons";
 
 /** Rings item `i` of a section once it is drawn: where an added, copied or moved item went. */
 export const ringItem = (section: string, i: number) => flash(`[${BLOCK}="${CSS.escape(section)}"] [data-item-root="${i}"]`);
@@ -144,9 +145,10 @@ export function Canvas({ b }: CanvasProps) {
                   )}
                 </>
               ) : (
-                <p role="status" className="text-muted-foreground px-6 py-16 text-center text-sm">
-                  Opening the page…
-                </p>
+                // Shaped like a page, so opening one doesn't collapse the canvas to a line and back.
+                <div role="status" aria-label="Opening the page" className={LATE}>
+                  <PageCanvasSkeleton />
+                </div>
               )}
             </div>
             {/* Stuck at the viewport's foot with no height of its own, so it adds no scroll below the page and the panels beside stay put. */}
