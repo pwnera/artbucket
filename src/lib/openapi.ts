@@ -841,7 +841,7 @@ export function openapi(serverUrl: string) {
           summary: "A brand as files",
           scope: "read",
           description:
-            "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (name, theme, the order of `rules/`, " +
+            "Brand as code: the brand as YAML for a Git repository. `brand.yaml` (slug, name, theme, the order of `rules/`, " +
             "the page tree), `rules/{group}.yaml` (the rules whose key starts with the group), `pages/{slug}.yaml` " +
             "(a page's fields and sections). Every default is left out, so the same brand is always the same bytes. " +
             "Assets the repository holds are named by path under `assets/`, the rest by id; `assets=files` gives " +
@@ -872,7 +872,8 @@ export function openapi(serverUrl: string) {
             "source that remembers what both sides last agreed, what changed here since is kept: the files win only " +
             "where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are " +
             "named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line " +
-            "(`detail.errors`) and the files to upload first (`detail.missing`). `dryRun` answers what would change. " +
+            "(`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another " +
+            "brand is one. `dryRun` answers what would change. " +
             "`pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.",
           body: S.BrandImportInput,
           ok: [200, "What changed", data(S.BrandImport)],
@@ -1622,7 +1623,10 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Start the device flow",
           scope: "public",
-          description: "RFC 8628, with a registered `client_id`. A person approves `user_code` at `verification_uri`; poll the token endpoint meanwhile.",
+          description:
+            "RFC 8628, with a registered `client_id`, form-encoded (or JSON). A person approves `user_code` at `verification_uri`; poll the token " +
+            "endpoint meanwhile. `scope` (read, propose or write) is what the consent screen offers first, never more than the person may give; " +
+            "without it, propose. `artbucket login` asks for write.",
           ok: [200, "Codes", z.object({ device_code: z.string(), user_code: z.string(), verification_uri: z.string(), verification_uri_complete: z.string(), expires_in: z.number(), interval: z.number() })],
         }),
       },

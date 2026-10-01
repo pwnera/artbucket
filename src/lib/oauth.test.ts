@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { normalizeCode, pkceMatches, redirectAllowed, userCode } from "./oauth.ts";
+import { askedScope, cappedScope, normalizeCode, pkceMatches, redirectAllowed, userCode } from "./oauth.ts";
 
 test("PKCE: the verifier's SHA-256 is the challenge, and a short verifier never matches", () => {
   const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
@@ -28,4 +28,14 @@ test("user codes read back however they are typed", () => {
   assert.match(c, /^[B-Z]{4}-[B-Z]{4}$/);
   assert.equal(normalizeCode(c.toLowerCase().replace("-", " ")), c);
   assert.equal(normalizeCode("abc"), null);
+});
+
+test("scope: a request's first grantable scope, offered first but never above what the person may give", () => {
+  assert.equal(askedScope("write"), "write");
+  assert.equal(askedScope("openid write read"), "write");
+  assert.equal(askedScope("admin"), null);
+  assert.equal(askedScope(undefined), null);
+  assert.equal(cappedScope("write", "write"), "write");
+  assert.equal(cappedScope("write", "propose"), "propose");
+  assert.equal(cappedScope("read", "write"), "read");
 });

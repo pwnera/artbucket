@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconBrandGithub, IconStar, IconTrash } from "@tabler/icons-react";
+import { Snippet } from "@/components/agent-access";
 import type { BrandHub } from "@/components/brands";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
@@ -157,6 +158,12 @@ export function BrandSettings({ brand, hub: initialHub, source }: { brand: HeadB
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+          {hub.visibility === "public" && hub.published && (
+            <div className="grid gap-1.5">
+              <p className="text-sm font-medium">A badge for its README, with the release that is live</p>
+              <Snippet text={`[![Brand on BrandHub](${hub.url}/badge.svg)](${hub.url})`} what="the badge's Markdown" />
             </div>
           )}
         </Group>

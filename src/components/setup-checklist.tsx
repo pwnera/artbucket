@@ -3,12 +3,13 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
+import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { gitLink } from "@/lib/git";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
@@ -189,6 +190,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
         {hide}
       </div>
       <StepList steps={steps} onUpload={onUpload} className="mt-3 sm:grid-cols-2 lg:grid-cols-3" />
+      <BringIn path={path} git={facts.git} />
     </section>
   );
 }
@@ -239,6 +241,24 @@ function StepList({ steps, onUpload, onGo, className }: { steps: OnboardingStep[
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * The product path's other way in, where the server has a Git integration:
+ * a brand that already lives in a repository comes in from its brand.yaml
+ * (the integration's link with no brand), instead of being set up here.
+ */
+function BringIn({ path, git, onGo }: { path: PathId; git: string | null; onGo?: () => void }) {
+  if (path !== "product" || !git) return null;
+  return (
+    <a href={gitLink(git)} onClick={onGo} className="hover:bg-accent mt-2 flex items-start gap-2.5 rounded-md border border-dashed p-2 transition-colors">
+      <IconBrandGithub aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+      <span className="grid min-w-0 gap-0.5">
+        <span className="text-sm">My brand is already in a repository</span>
+        <span className="text-muted-foreground text-xs">Bring it in from its brand.yaml, with its rules, pages and files.</span>
+      </span>
+    </a>
   );
 }
 
@@ -296,6 +316,7 @@ function FirstRun({ stored, save, facts, onUpload, org }: { stored: Stored; save
               )}
             </div>
             {steps ? <StepList steps={steps} onUpload={onUpload} onGo={leave} className="mt-3" /> : <p className="text-muted-foreground mt-3 text-sm">Looking at what is there…</p>}
+            <BringIn path={path} git={facts?.git ?? null} onGo={leave} />
           </section>
         )}
         <div className="flex justify-end gap-2">

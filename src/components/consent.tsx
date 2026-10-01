@@ -10,7 +10,7 @@ import { Field } from "@/components/fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Grantable } from "@/lib/oauth";
+import { cappedScope, type Grantable } from "@/lib/oauth";
 import type { Scope } from "@/lib/scopes";
 
 /**
@@ -64,6 +64,7 @@ function Choose({
   code,
   redirect,
   error,
+  recommended = "propose",
 }: {
   options: Options;
   onDecide: (d: Decision) => Promise<boolean>;
@@ -75,6 +76,8 @@ function Choose({
   /** Where the chat app gets its answer. */
   redirect?: string | null;
   error?: string | null;
+  /** The option marked recommended: Suggest for an agent, what the CLI asks for on /device. */
+  recommended?: Grantable;
 }) {
   const brand = useBrand();
   const go = useGo();
@@ -84,7 +87,7 @@ function Choose({
   const max = options.workspaces.find((w) => w.id === workspace)?.max ?? "read";
   const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && RANK.indexOf(s.scope) <= RANK.indexOf(max));
   // Moving to a workspace where you have less brings the pick down with you.
-  const picked = offered.some((s) => s.scope === scope) ? scope : "read";
+  const picked = cappedScope(scope, max);
   const decide = async (d: Decision) => {
     setBusy(d.allow ? "allow" : "deny");
     let leaving = false;
@@ -127,7 +130,7 @@ function Choose({
   }
   const only = options.workspaces.length === 1 ? options.workspaces[0] : null;
   return (
-    <Card title={`Connect ${options.client.name}`} lead={`It will work in ${brand.name} as you, doing at most what you pick here. You can disconnect it any time from Agents.`}>
+    <Card title={`Connect ${options.client.name}`} lead={`It will work in ${brand.name} as you, doing at most what you pick here. You can disconnect it any time from Connections.`}>
       <form
         className="space-y-5"
         onSubmit={(e) => {
@@ -183,7 +186,7 @@ function Choose({
               <span className="grid gap-0.5">
                 <span className="font-medium">
                   {s.label}
-                  {s.scope === "propose" && <span className="text-muted-foreground font-normal"> (recommended)</span>}
+                  {s.scope === recommended && <span className="text-muted-foreground font-normal"> (recommended)</span>}
                 </span>
                 <span className="text-muted-foreground text-xs">{s.hint}</span>
               </span>
@@ -333,6 +336,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
         email={email}
         code={code}
         back={`/device?code=${encodeURIComponent(code)}`}
+        recommended={options.scope}
         error={error}
         onDecide={async (d) => {
           setError(null);

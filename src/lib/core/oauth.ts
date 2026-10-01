@@ -10,7 +10,7 @@ import { recordAudit } from "@/lib/core/audit";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, lowest, widest } from "@/lib/access";
 import { env } from "@/lib/env";
-import { Consent, GRANTABLE, normalizeCode, pkceMatches, redirectAllowed, userCode, type Grantable } from "@/lib/oauth";
+import { askedScope, Consent, GRANTABLE, normalizeCode, pkceMatches, redirectAllowed, userCode, type Grantable } from "@/lib/oauth";
 import { SCOPES } from "@/lib/scopes";
 
 /**
@@ -155,8 +155,7 @@ export async function checkAuthorize(caller: Caller, params: Record<string, stri
   const client = await clientOf(parsed.data.client_id);
   if (!client) throw new AssetError("not_found", "This agent isn't registered here. Start connecting again from the agent.");
   if (!client.redirectUris.includes(parsed.data.redirect_uri)) throw new AssetError("invalid", "This agent didn't register that redirect_uri");
-  const asked = parsed.data.scope?.split(" ").find((s): s is Grantable => (GRANTABLE as readonly string[]).includes(s));
-  return { request: parsed.data, client: { name: client.name }, scope: asked ?? "propose", ...(await consentOptions(caller)) };
+  return { request: parsed.data, client: { name: client.name }, scope: askedScope(parsed.data.scope) ?? "propose", ...(await consentOptions(caller)) };
 }
 
 const back = (redirectUri: string, params: Record<string, string | undefined>) => {
@@ -183,15 +182,17 @@ export async function decideAuthorize(caller: Caller, params: Record<string, str
 
 // ---- the device flow, for the CLI -------------------------------------------
 
-type Device = { clientId: string; secret: string } & ({ status: "pending" } | { status: "denied" } | ({ status: "approved" } & Granted));
+/** `asked`: the scope the client asked for (RFC 8628 allows `scope`), which the consent screen offers first. */
+type Device = { clientId: string; secret: string; asked?: Grantable } & ({ status: "pending" } | { status: "denied" } | ({ status: "approved" } & Granted));
 
 /** RFC 8628: the CLI asks for a code, the person approves it on /device, the CLI polls for its key. */
-export async function startDevice(clientId: string | null) {
+export async function startDevice(clientId: string | null, scope?: string | null) {
   const client = await clientOf(clientId);
   if (!client) throw new OAuthError("invalid_client", "Unknown client_id: register first");
   const code = userCode();
   const secret = randomBytes(32).toString("base64url");
-  await remember(`oauth-device:${code}`, { clientId: client.id, secret: hashKey(secret), status: "pending" } satisfies Device);
+  const asked = askedScope(scope) ?? undefined;
+  await remember(`oauth-device:${code}`, { clientId: client.id, secret: hashKey(secret), asked, status: "pending" } satisfies Device);
   return {
     // The user code rides along, so polling finds the row; the secret is what proves it's the CLI.
     device_code: `${code}.${secret}`,
@@ -214,7 +215,7 @@ async function pendingDevice(typed: string) {
 export async function checkDevice(caller: Caller, typed: string) {
   const row = await pendingDevice(typed);
   const client = await clientOf(row.value.clientId);
-  return { client: { name: client?.name ?? "An agent" }, scope: "propose" as Grantable, ...(await consentOptions(caller)) };
+  return { client: { name: client?.name ?? "An agent" }, scope: row.value.asked ?? ("propose" as Grantable), ...(await consentOptions(caller)) };
 }
 
 export async function decideDevice(caller: Caller, typed: string, input: ConsentInput) {

@@ -13,7 +13,7 @@ made to the same rule is named, not lost.
 
 ```
 brand/
-  brand.yaml          name, theme, the order of rules/, the page tree
+  brand.yaml          slug, name, theme, the order of rules/, the page tree
   rules/color.yaml    the rules whose key starts with color.
   rules/logo.yaml
   pages/overview.yaml a page: its fields and sections
@@ -23,6 +23,7 @@ brand/
 
 ```yaml brand.yaml
 # An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+slug: acme
 name: Acme
 theme:
   accent: color.primary
@@ -72,9 +73,9 @@ Where an asset id goes, a path under `assets/` goes too.
 ## Pushing and pulling
 
 ```bash
-artbucket brand pull brand --assets   # the brand as files in brand/, with its assets
-artbucket brand diff brand            # what a push would change
-artbucket brand push brand            # take the brand from its files
+artbucket brand pull brand --brand acme --assets   # acme as files in brand/, with its assets
+artbucket brand diff brand                         # what a push would change
+artbucket brand push brand                         # take the brand from its files
 ```
 
 `push` uploads what `assets/` adds, checks every file, and writes the brand
@@ -87,6 +88,72 @@ pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has co
 
 `pull` writes only the files whose meaning changed: a file that says the same
 keeps its comments and its layout.
+
+Each command acts on the brand `--brand` names, or else the one `slug:` in
+`brand.yaml` names (`pull` writes it), never on the workspace's default. A
+`brand.yaml` whose slug names another brand is refused, so files pushed to
+the wrong brand never land. `push --create` makes the brand when there is
+none by that slug.
+
+## From CI
+
+Without a Git integration (a self-hosted server, or a team that would rather
+not install one), a CI job does the push. Make a write key once, keep it as
+a secret with the server's address, and push the brand's folder when it
+changes on the main branch:
+
+```bash
+artbucket keys create ci --scope write
+```
+
+```yaml .github/workflows/brand.yml
+name: Brand
+on:
+  push:
+    branches: [main]
+    paths: ["brand/**"]
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npx --yes artbucket brand push brand --brand acme --publish --note "$(git log -1 --format=%s)"
+        env:
+          ARTBUCKET_URL: https://app.artbucket.io
+          ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+```
+
+```yaml .gitlab-ci.yml
+brand:
+  image: node:22
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: ["brand/**/*"]
+  script:
+    - npx --yes artbucket brand push brand --brand acme --publish --note "$CI_COMMIT_TITLE"
+```
+
+On GitLab, `ARTBUCKET_URL` and `ARTBUCKET_KEY` are CI/CD variables, the key
+masked. `ARTBUCKET_URL` is your own server when you host one. Without
+`--publish` the push updates the draft, to release from the app. On a pull
+or merge request, `artbucket brand diff brand --brand acme` exits 1 on any
+problem in the files, at its line, which makes it a check.
+
+## A README badge
+
+A public, released brand has a badge on BrandHub with the release that is
+live, "brand @4", at `/{org}/{brand}/badge.svg`. The brand's Settings,
+under BrandHub, give its Markdown:
+
+```md
+[![Brand on BrandHub](https://hub.artbucket.io/acme/acme/badge.svg)](https://hub.artbucket.io/acme/acme)
+```
+
+It follows each release, answers for public brands only, and showing it is
+not counted as a read of the brand.
 
 ## Both ways
 
@@ -125,12 +192,29 @@ reaches it from three places:
 - **The builder's bar:** Git, until the brand is kept somewhere; then the
   repository, and whether both sides are in step.
 
-The integration sends you back to the builder, which says when the first sync
-has landed.
+The integration sends you back to the brand's Overview, which says when the
+first sync has landed and offers Release while readers don't see it yet. On
+the welcome page, the path for a product's brand and design system starts
+there too: "My brand is already in a repository" brings it in.
 
 ## On Artbucket Cloud
 
 Artbucket Cloud connects a GitHub repository to a brand from any of those
 places, and does all of the above itself: pull requests get a check, a
-preview link and a comment listing what they change, merges come in, and
-edits made here go back as a commit or a pull request.
+preview link and a comment listing what they change and what merging does,
+merges come in, and edits made here go back as a commit or a pull request.
+
+The connection also decides what a change that reaches the branch does:
+
+- **From Artbucket:** a merge updates the draft, and someone releases it here.
+- **When a change is merged:** each push to the branch, a merged pull request
+  too, is released, with its commit's first line as the note.
+- **On a GitHub release:** a merge updates the draft, and publishing a
+  release on GitHub releases its tag, with the release's title as the note.
+
+Neither releases while edits made here wait to reach the repository: the
+check says so, and the next merge or release carries both. Each release
+from the repository posts a GitHub deployment (environment `Artbucket`)
+linking to the brand on BrandHub or its portal, so the repository's
+sidebar shows what is live. Without the App, [a CI job](#from-ci) does the
+push.
