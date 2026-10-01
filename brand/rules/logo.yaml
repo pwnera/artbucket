@@ -1,0 +1,29 @@
+logo.primary:
+  type: text
+  label: App icon
+  value: The white mark on a Violet rounded square.
+  usage: The default. Favicons, avatars, the app's corner.
+  assets: [assets/icon.svg]
+logo.mark:
+  type: text
+  label: Mark in black
+  value: "The mark alone in #111111: a tipped paint bucket, a paint line, one drop."
+  usage: On light grounds where Violet can't go, like one-color print.
+  assets: [assets/mark-black.svg]
+logo.markWhite:
+  type: text
+  label: Mark in white
+  value: The mark alone in white.
+  usage: On Violet, on Night, and on photographs dark enough to hold it.
+  assets: [assets/mark-white.svg]
+logo.always:
+  type: list
+  value:
+    - "Always one color: white on Violet, all black, or all white."
+    - Set the wordmark in Funnel Display Bold beside the mark, a quarter of the mark's height apart.
+logo.neverDo:
+  type: list
+  value:
+    - Recolor the mark, or give it a gradient.
+    - Stretch it, rotate it or right the bucket.
+    - Set it on a busy ground it can't stand out from.

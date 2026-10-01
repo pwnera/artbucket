@@ -1,0 +1,14 @@
+title: Color
+lede: Violet leads. Lime marks. The neutrals do the rest.
+sections:
+  - template: palette
+    title: Violet leads, the neutrals carry the page
+    keys:
+      - color.primary
+      - color.primaryInk
+      - color.highlight
+      - color.ink
+      - color.background
+      - color.panel
+      - color.border
+      - color.dark
