@@ -156,6 +156,11 @@ export function PortalView({
 }) {
   const [state, setState] = useState<State>(() => (initial ? next(initial, false, { at: "loading" }) : { at: "loading" }));
   const [pending, setPending] = useState(false);
+  // A page on its way shows as a thin bar along the top (html[data-loading] in globals.css): a click is never dead.
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-loading", pending);
+    return () => document.documentElement.removeAttribute("data-loading");
+  }, [pending]);
   /** Trying a kept password or key on a door the server showed: a skeleton, not the door. */
   const [checking, setChecking] = useState(false);
   /** Bumped by every load: the Assets view starts again from what it brought. */

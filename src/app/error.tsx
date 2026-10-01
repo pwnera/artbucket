@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { useBrand } from "@/components/brand";
 import { Card } from "@/components/sign-in";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 export default function RootError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   const brand = useBrand();
   useEffect(() => console.error(error), [error]);
+  // Retrying fetches the page again: the button says so until it lands.
+  const [trying, tryAgain] = useTransition();
   return (
     <Card
       title="Something went wrong"
@@ -25,7 +27,9 @@ export default function RootError({ error, retry }: { error: Error & { digest?: 
       }
     >
       <div className="grid gap-2">
-        <Button onClick={retry}>Try again</Button>
+        <Button pending={trying} onClick={() => tryAgain(retry)}>
+          Try again
+        </Button>
         <Button variant="outline" asChild>
           <Link href="/">Go to {brand.name}</Link>
         </Button>

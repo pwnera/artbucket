@@ -506,6 +506,30 @@ body:has(#hub-hero) .hub-header-search {
   }
 }
 
+/*
+ * A page on its way in a portal (components/portal-view.tsx): a thin bar along
+ * the top that runs most of the way after a beat, then goes with the page.
+ * Asked for less motion, it is simply there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes loading-bar {
+    from { scale: 0 1; }
+    to { scale: 0.85 1; }
+  }
+}
+html[data-loading]::before {
+  content: "";
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 100;
+  height: 2px;
+  background: var(--primary);
+  transform-origin: left;
+  pointer-events: none;
+  animation: loading-bar 4s var(--ease-out) 150ms both;
+}
+
 /* Something working on what you asked (a page loading before it can move): dimmed, and not clickable twice. */
 [data-busy] {
   opacity: 0.5;
