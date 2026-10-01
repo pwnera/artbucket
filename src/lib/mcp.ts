@@ -318,8 +318,9 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "asset.upload",
     readOnly: false,
     input: TOOL_INPUTS.ingest_asset,
-    run: async (input, caller) => {
-      const { asset, deduped } = await ingestFromUrl(caller, input);
+    run: async ({ title, description, ...input }, caller) => {
+      const said = { ...(title && { title }), ...(description && { description }) };
+      const { asset, deduped } = await ingestFromUrl(caller, { ...input, described: said });
       return { deduped, asset: describeAsset(asset) };
     },
   }),

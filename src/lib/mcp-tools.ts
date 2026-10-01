@@ -93,6 +93,8 @@ export const TOOL_INPUTS = {
   ingest_asset: z.object({
     url: z.url({ protocol: /^https?$/ }).max(2048),
     filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment"),
+    title: z.string().trim().min(1).max(500).optional().describe("What people see it called; the file's own title, if it carries one, wins"),
+    description: z.string().trim().max(5000).optional().describe("What it shows and where it is used; the file's own, if it carries one, wins"),
     tags: z.array(text.max(64)).max(50).optional(),
     fields: z.record(z.string(), z.unknown()).optional().describe("Custom field values; required fields must be set"),
     collections: z.array(z.uuid()).max(50).optional(),
