@@ -169,7 +169,8 @@ function Overview({ data }: { data: InsightsData }) {
 
       <section aria-label="Overview" className="bg-card grid gap-2 rounded-xl border p-2 sm:p-3">
         <Kpis items={kpis} picked={picked} onPick={setPicked} />
-        <div className="border-t px-1 pt-4 pb-1 sm:px-2">
+        {/* Keyed on the chart picked, so a new one draws itself in rather than morphing the last. */}
+        <div key={chart} className="border-t px-1 pt-4 pb-1 sm:px-2">
           {chart === "answers" ? (
             answers.length ? (
               <ComboChart

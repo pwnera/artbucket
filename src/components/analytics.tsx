@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { IconArrowDownRight, IconArrowUpRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useCountUp } from "@/lib/motion";
 
 /**
  * Analytics, as DataFast draws them: one card with the numbers that matter
@@ -40,6 +41,27 @@ export type Kpi = {
   chart?: boolean;
 };
 
+/**
+ * A figure as given ("1,204", "38%", "2.4 GB") that counts up to itself:
+ * its number moves, its words around it stay. Text with no number is as is.
+ */
+function Figure({ text }: { text: string }) {
+  const m = /^(\D*?)(\d[\d,]*(?:\.\d+)?)(.*)$/.exec(text);
+  const decimals = m?.[2].split(".")[1]?.length ?? 0;
+  const scale = 10 ** decimals;
+  const n = useCountUp(m ? Math.round(Number(m[2].replace(/,/g, "")) * scale) : 0);
+  if (!m) return text;
+  const v = n / scale;
+  const body = m[2].includes(",") ? v.toLocaleString("en", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : v.toFixed(decimals);
+  return (
+    <>
+      {m[1]}
+      {body}
+      {m[3]}
+    </>
+  );
+}
+
 /** The KPI strip atop the card: a row of buttons where they pick the chart, wrapping on a phone. */
 export function Kpis({ items, picked, onPick }: { items: Kpi[]; picked?: string; onPick?: (id: string) => void }) {
   return (
@@ -48,7 +70,9 @@ export function Kpis({ items, picked, onPick }: { items: Kpi[]; picked?: string;
         const body = (
           <>
             <span className="text-muted-foreground text-xs font-medium">{k.label}</span>
-            <span className="font-display text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{k.value}</span>
+            <span className="font-display text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">
+              <Figure text={k.value} />
+            </span>
             <Delta value={k.delta} rising={k.rising} against={k.against} />
           </>
         );
@@ -183,7 +207,7 @@ export function ComboChart<R extends Record<string, number | string>>({
             </div>
           ))}
         </div>
-        <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-y-0 start-10 h-full w-[calc(100%-2.75rem)] overflow-visible">
+        <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="chart-reveal absolute inset-y-0 start-10 h-full w-[calc(100%-2.75rem)] overflow-visible">
           <defs>
             <linearGradient id={`${id}-area`} x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
@@ -218,7 +242,7 @@ export function ComboChart<R extends Record<string, number | string>>({
         {at !== null && (
           <span
             aria-hidden
-            className="bg-background border-primary-ink pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 rtl:translate-x-1/2"
+            className="bg-background border-primary-ink pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-[inset-inline-start,top] duration-100 rtl:translate-x-1/2"
             style={{ insetInlineStart: `calc(2.5rem + (100% - 2.75rem) * ${(at + 0.5) / rows.length})`, top: `${(pts[at][1] / H) * 100}%` }}
           />
         )}
@@ -302,7 +326,7 @@ export function BarList({ rows, column, empty }: { rows: Row[]; column: string; 
           <li key={r.key} className="relative isolate min-w-0 overflow-hidden rounded-md">
             <span
               aria-hidden
-              className={cn("absolute inset-y-0 start-0 -z-10 rounded-md", r.tone === "warning" ? "bg-warning/15" : "bg-primary/12")}
+              className={cn("bar-grow absolute inset-y-0 start-0 -z-10 rounded-md", r.tone === "warning" ? "bg-warning/15" : "bg-primary/12")}
               style={{ width: `${Math.max(2, (100 * r.value) / max)}%` }}
             />
             <div className="flex min-h-8 items-center gap-3 px-2 py-1 text-sm">

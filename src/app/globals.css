@@ -545,6 +545,29 @@ html[data-loading]::before {
   animation: score-rose 1.4s var(--ease-out), enter 200ms var(--ease-out);
 }
 
+/*
+ * Charts (components/analytics.tsx): a chart draws in from its start, and a
+ * breakdown's bars grow from theirs, as they appear. Still with less motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes chart-reveal {
+    from { clip-path: inset(0 100% 0 0); }
+  }
+  .chart-reveal {
+    animation: chart-reveal 800ms var(--ease-out) both;
+  }
+  @keyframes bar-grow {
+    from { scale: 0 1; }
+  }
+  .bar-grow {
+    transform-origin: left;
+    animation: bar-grow 600ms var(--ease-out) both;
+  }
+  .bar-grow:dir(rtl) {
+    transform-origin: right;
+  }
+}
+
 /* A checkbox's check draws itself in, as a pen would (ui/checkbox.tsx); Tabler's check is one 21-unit stroke. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes check-draw {
