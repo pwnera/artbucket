@@ -57,7 +57,13 @@ async function startBrand(caller: Caller, input: Omit<z.output<typeof BrandCreat
     const made = await fromBook(caller, { name: rest.name ?? b.name, slug: rest.slug ?? b.slug, domain: b.domain ?? read.domain }, book, { tag: b.slug, lenient: true });
     return { ...made, skipped: [...read.skipped, ...made.skipped], dropped: b.dropped };
   }
-  if (template) return fromBook(caller, { ...rest, name, domain: TEMPLATES[template].domain }, TEMPLATES[template], { tag: template });
+  if (template) {
+    // Named as the template's brand (Rust, as a seed lists it), it is that brand and carries its domain, so the domain's owner may
+    // claim it. Named anything else, it is someone's own brand made from it, and the template's domain (rust-lang.org) isn't theirs.
+    const t = TEMPLATES[template];
+    const same = name.trim().toLowerCase() === t.name.toLowerCase();
+    return fromBook(caller, { ...rest, name, ...(same && { domain: t.domain }) }, t, { tag: template });
+  }
   return createBrand(caller, { ...rest, name });
 }
 
