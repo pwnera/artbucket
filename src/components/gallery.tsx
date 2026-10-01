@@ -1530,6 +1530,8 @@ export function Gallery({
                 onKeyDown={onGridKey}
                 className={cn("group/well grid transition-opacity", GRID_COLS, searching && "opacity-60")}
               >
+                {/* Files on their way, ahead of the rest, until they land as real tiles. */}
+                {!narrowed && !view.review && <GhostTiles store={uploads} shown={assets} />}
                 {assets.map((a) => (
                   <AssetMenu key={a.id} asset={a} {...menuFor(a)}>
                     {/* Off screen, a tile skips layout and paint. The negative margin
@@ -1703,6 +1705,52 @@ export function Gallery({
       )}
     </>
   );
+}
+
+/**
+ * Files uploading, as tiles at the head of the grid: their picture at once
+ * (an image's preview), a ring filling with the bytes sent, then the real
+ * tile in their place once it is drawn. Subscribed on its own, as the tray is,
+ * so progress redraws these tiles and not the grid.
+ */
+function GhostTiles({ store, shown }: { store: UploadStore; shown: Asset[] }) {
+  const rows = useUploads(store);
+  // Landed but not drawn yet (the refresh after it is on its way): still a ghost, so it never blinks out of sight.
+  const waiting = (u: Upload) => isActive(u) || (u.status === "done" && !!u.assetId && !shown.some((a) => a.id === u.assetId));
+  return rows.filter(waiting).map((u) => {
+    const pct = u.size ? u.loaded / u.size : 0;
+    return (
+      <li key={u.id} aria-hidden className="animate-in fade-in-0 zoom-in-95 -m-1 p-1 duration-200">
+        <div className="bg-card flex h-full flex-col overflow-hidden rounded-xl border border-dashed shadow-xs">
+          <div className="bg-muted/50 relative grid aspect-square place-items-center overflow-hidden">
+            {u.preview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={u.preview} alt="" draggable={false} className="absolute inset-0 size-full object-contain p-2 opacity-60" />
+            )}
+            <svg viewBox="0 0 36 36" className={cn("relative size-10 drop-shadow-sm", u.status !== "uploading" && "animate-spin")}>
+              <circle cx="18" cy="18" r="15" fill="var(--background)" fillOpacity="0.85" stroke="var(--border)" strokeWidth="3" />
+              <circle
+                cx="18"
+                cy="18"
+                r="15"
+                fill="none"
+                stroke="var(--primary)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray="100"
+                // Waiting or saving: a short arc that turns; sending: the share sent.
+                strokeDashoffset={u.status === "uploading" ? 100 - pct * 100 : 75}
+                transform="rotate(-90 18 18)"
+                className="transition-[stroke-dashoffset] duration-300"
+              />
+            </svg>
+          </div>
+          <p className="text-muted-foreground truncate px-3 py-2.5 text-sm">{u.name}</p>
+        </div>
+      </li>
+    );
+  });
 }
 
 /**
