@@ -430,6 +430,7 @@ export const Rights = z
     embargo: z.iso.date().nullable().describe("Not before this day"),
     expires: z.iso.date().nullable().describe("The last day it may be used"),
     modelRelease: z.enum(MODEL_RELEASES).nullable(),
+    downloadable: z.boolean().nullable().optional().describe("Set by a person; null or missing follows the license (see `downloadable` on its description)"),
   })
   .nullable();
 
@@ -897,6 +898,14 @@ export const BrandStatus = z.object({
     .nullable()
     .describe("The portals showing it; null without the right to manage portals"),
   hub: BrandHub.nullable().describe("The brand on BrandHub; null when this server has none"),
+  files: z
+    .object({
+      downloadable: z.number().int().describe("Its rules' files anyone shown them may download"),
+      shownOnly: z
+        .array(z.object({ id: uuid, filename: z.string(), font: z.boolean() }))
+        .describe("Those people outside the workspace see but can't download (an asset's rights.downloadable, else its license)"),
+    })
+    .describe("Its rules' files as its portals and BrandHub hand them out"),
   url: z.url().describe("Its guidelines in the app, to read"),
 });
 const refs = z.array(z.object({ slug: z.string(), title: z.string() }));
@@ -980,6 +989,11 @@ export const Description = z.object({
   provenance: z.object(provenanceOut),
   supersededBy: uuid.nullable().describe("Replaced: use this one instead"),
   public: z.boolean().describe("Its URLs work for anyone while it may be used; otherwise with a key or session, or signed (POST /api/v1/assets/{id}/signed-url)"),
+  downloadable: z
+    .boolean()
+    .describe(
+      "Whether people outside the workspace may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes",
+    ),
   urls: z.object({
     original: z.url(),
     download: z.url().describe("The original with current metadata written in"),
@@ -1220,6 +1234,7 @@ export const Shared = z.object({
       height: z.number().int().nullable(),
       url: z.url(),
       download: z.url(),
+      downloadable: z.boolean().describe("false: shown, not handed out; `download` answers 403 and `url` loads only in this app's pages"),
       thumbnail: z.url().nullable(),
     }),
   ),

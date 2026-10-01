@@ -48,6 +48,8 @@ export type RuleAsset = {
   height?: number | null;
   /** Has renditions (lib/preview.ts hasPreview). */
   preview?: boolean;
+  /** Read from outside, a file they may see but not take (lib/rights.ts isDownloadable): no download, no link to its original. */
+  kept?: true;
 };
 
 export type Rule = {

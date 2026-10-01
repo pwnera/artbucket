@@ -143,7 +143,7 @@ export function Fold({
 }) {
   const [open, setOpen] = usePref(`artbucket:fold:${remember}`, false);
   return (
-    <details open={open} onToggle={(e) => e.currentTarget.open !== open && setOpen(e.currentTarget.open)} className="group">
+    <details open={open} onToggle={(e) => e.currentTarget.open !== open && setOpen(e.currentTarget.open)} className="group min-w-0">
       <summary className="hover:bg-muted/50 -mx-2 flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden">
         <IconChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
         {title}

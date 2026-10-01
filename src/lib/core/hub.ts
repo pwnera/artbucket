@@ -283,8 +283,11 @@ export async function hubBrand(
     door ? db.select({ terms: sql<string | null>`${portals.site} ->> 'terms'` }).from(portals).where(eq(portals.id, door.id)) : [],
     db.select({ n: sql<number>`count(*)::int` }).from(hubFollows).where(eq(hubFollows.brandId, row.id)),
   ]);
-  const fileUrl = (a: { id: string; rendition: string | null }) =>
-    withSignature(`${env.APP_URL}/a/${a.id}${a.rendition ? `/${a.rendition}` : ""}`, view.signed[a.id]);
+  // A picture shown, not handed out, is a rendition: its original isn't for taking (lib/rights.ts isDownloadable).
+  const fileUrl = (a: { id: string; rendition: string | null; kept?: true; preview: boolean }) => {
+    const rendition = a.rendition ?? (a.kept && a.preview ? "w_1600,f_png" : null);
+    return withSignature(`${env.APP_URL}/a/${a.id}${rendition ? `/${rendition}` : ""}`, view.signed[a.id]);
+  };
   const rules = view.data.map((r) => ({
     key: r.key,
     label: r.label,

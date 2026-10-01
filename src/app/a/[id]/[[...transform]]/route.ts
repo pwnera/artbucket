@@ -9,7 +9,8 @@ import type { Surface } from "@/lib/insights";
 import { deliverable, maxAge, retired, STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { getStream, originalKey } from "@/lib/storage";
-import { parseTransform } from "@/lib/transform";
+import { isDownloadable } from "@/lib/rights";
+import { parseTransform, shownSize } from "@/lib/transform";
 
 type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
 
@@ -29,6 +30,11 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  * (lib/lifecycle.ts). Expired or archived, the URL answers 410 and every
  * embed breaks on time; a draft, a proposal or an embargoed asset is not
  * there yet (404). Someone who can see it in the library still gets it.
+ *
+ * A file people may see but not take (lib/rights.ts isDownloadable: a
+ * licensed photo, a foundry's font) goes to them only drawn: its renditions
+ * at a preview's size at most, its original only into a page of this app
+ * that shows it (a portal's font, a video), never as a download (403).
  */
 export async function GET(req: Request, { params }: Ctx) {
   try {
@@ -66,6 +72,17 @@ export async function GET(req: Request, { params }: Ctx) {
     const etag = `"${asset.sha256}"`;
 
     const download = !transform?.length && url.searchParams.has("download");
+    // Shown, not handed out, to anyone the URL alone let in. A member who opened such a URL is let through, as a member.
+    const kept = (by.surface === "public" || by.surface === "link") && !isDownloadable(asset);
+    if (kept && (download || (!transform?.length && !drawn(req)))) {
+      const caller = await callerFrom(req, asset.workspaceId);
+      if (!(caller && (await getAsset(caller, id)))) {
+        return fail(403, "shown_only", "This file is shown, not handed out: its owner hasn't made it downloadable", undefined, { "Cache-Control": "no-cache" });
+      }
+      by = { surface: caller.key ? "api" : "app", ...who(caller) };
+    }
+    // The answer depends on who asks, so no shared cache keeps it.
+    if (kept && !transform?.length) cache = cache.replace("public", "private");
     const referrer = referrerOf(req);
     const range = req.headers.get("range");
     // The app drawing its own pages (thumbnails, previews) answers nobody's question, and a video's later ranges are one play.
@@ -118,13 +135,20 @@ export async function GET(req: Request, { params }: Ctx) {
       return fail(415, "unsupported", `Cannot transform ${asset.mime}`);
     }
 
-    const { body, length, contentType } = await renderAsset(asset, parsed);
+    const { body, length, contentType } = await renderAsset(asset, kept ? shownSize(parsed) : parsed);
     served(length);
     return bytes(etag, cache, body, length, contentType);
   } catch (err) {
     return handle(err);
   }
 }
+
+/**
+ * A page of this app drawing the file (a font, a video, an image), not someone opening or saving it. The
+ * browser says so; pages can't make it say otherwise. ponytail: a script outside a browser can claim it,
+ * as it can of any font a website serves; what it gets is what every visitor's browser already gets.
+ */
+const drawn = (req: Request) => req.headers.get("sec-fetch-site") === "same-origin" && req.headers.get("sec-fetch-mode") !== "navigate";
 
 const SANDBOX = "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; font-src 'self' data:";
 

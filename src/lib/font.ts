@@ -33,6 +33,19 @@ export const fontFiles = <A extends File>(r: { assets: A[] }) => r.assets.filter
 /** "Playfair Display": letters, digits and spaces, as Google Fonts names families. */
 export const GOOGLE_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$/;
 
+const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|math|emoji|fangsong|system-ui|ui-[a-z-]+)$/i;
+
+/**
+ * The free face a family is shown in where it can't load itself (a foundry's,
+ * with no file here): the first of its rule's fallback (spec.fallback, "Outfit,
+ * sans-serif"), loaded from Google Fonts. Null when the fallback starts with
+ * nothing Google could name.
+ */
+export function standIn(fallback: string | null | undefined): string | null {
+  const first = fallback?.split(",")[0]?.trim().replace(/^["']|["']$/g, "");
+  return first && !GENERIC.test(first) && GOOGLE_FAMILY.test(first) ? first : null;
+}
+
 const STYLES = [0, 1].flatMap((ital) => [100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => `${ital},${w}`));
 
 /**

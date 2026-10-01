@@ -1,4 +1,4 @@
-import { GOOGLE_FAMILY, isFont } from "./font.ts";
+import { GOOGLE_FAMILY, isFont, standIn } from "./font.ts";
 import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
 /**
@@ -73,7 +73,8 @@ export type HubRule = {
   type: RuleType;
   value: RuleValue;
   usage: string | null;
-  assets: { id: string; rendition: string | null; mime: string; filename: string | null; title: string | null }[];
+  /** `kept`: shown, not handed out (lib/rights.ts isDownloadable). */
+  assets: { id: string; rendition: string | null; mime: string; filename: string | null; title: string | null; kept?: true }[];
 };
 
 /** A card's look: the brand's colors in order, at most `n`. */
@@ -109,15 +110,21 @@ export function backgroundOf(rules: Pick<HubRule, "key" | "type" | "value" | "co
 export const paletteOf = (rules: (Pick<HubRule, "key" | "type" | "value" | "context"> & { label?: string | null })[], n = 6) =>
   rules.filter((r) => r.type === "color" && !r.context && typeof r.value === "string").slice(0, n).map((r) => ({ hex: r.value as string, name: ruleName(r) }));
 
-/** What a card sets its name in: the family, its weight, and how it loads (`css`, Google Fonts; `src`, its own file), neither when it doesn't load cheaply. */
-export type CardFace = { family: string; weight: number | null; css: string | null; src: string | null };
+/**
+ * What a card sets its name in: the family, its weight, and how it loads
+ * (`css`, Google Fonts; `src`, its own file), neither when it doesn't load
+ * cheaply. `named`: the brand's own family, when `family` is a free one
+ * standing in for it, which the card says.
+ */
+export type CardFace = { family: string; weight: number | null; css: string | null; src: string | null; named: string | null };
 
 /**
  * The face a card sets its name in: the heading typeface (a font rule keyed
  * or marked for headings or display), else the first. It loads from an
  * upright file of its own, through `fileUrl`, else from Google
  * Fonts when the rule says it comes from there, only the glyphs of `text`:
- * a few hundred bytes. Neither: the card names the family.
+ * a few hundred bytes. Neither: the free look-alike its fallback names
+ * (lib/font.ts standIn), from Google the same way; else the card names the family.
  */
 export function headingFace<A extends { id: string; mime: string; filename?: string | null }>(
   rules: { key: string; context: string | null; type: RuleType; value: RuleValue; spec?: RuleSpec | null; assets: A[] }[],
@@ -131,12 +138,17 @@ export function headingFace<A extends { id: string; mime: string; filename?: str
   const v = fontValue(r.value);
   // An upright file: a name set in italics would not be the face.
   const file = r.assets.find((a) => isFont(a.mime, a.filename ?? "") && !/italic/i.test(a.filename ?? ""));
-  const google = !file && ((r.spec ?? {}) as { source?: string }).source === "google" && GOOGLE_FAMILY.test(v.family);
+  const spec = (r.spec ?? {}) as { source?: string; fallback?: string };
+  const google = !file && spec.source === "google" && GOOGLE_FAMILY.test(v.family);
+  const stand = !file && !google ? standIn(spec.fallback) : null;
+  const drawn = google ? v.family : stand;
   return {
-    family: v.family,
+    family: drawn ?? v.family,
     weight: v.weight ?? null,
-    css: google ? `https://fonts.googleapis.com/css2?family=${v.family.replace(/ +/g, "+")}${v.weight ? `:wght@${v.weight}` : ""}&text=${encodeURIComponent(text)}&display=swap` : null,
+    css: drawn ? `https://fonts.googleapis.com/css2?family=${drawn.replace(/ +/g, "+")}${v.weight ? `:wght@${v.weight}` : ""}&text=${encodeURIComponent(text)}&display=swap` : null,
     src: file ? fileUrl(file) : null,
+    // A fallback that names the family itself (a Google family not marked as one) is no stand-in.
+    named: stand && stand !== v.family ? v.family : null,
   };
 }
 
@@ -210,7 +222,10 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
     for (const r of here) {
       lines.push("", `### ${ruleName(r)} (\`${r.key}\`, ${r.type})`, "", valueText(r));
       if (r.usage) lines.push("", r.usage);
-      if (r.assets.length) lines.push("", "Files:", ...r.assets.map((a) => `- ${a.title ?? a.filename ?? a.mime}: ${fileUrl(a)}`));
+      if (r.assets.length) {
+        const where = (a: A) => (a.kept && !a.rendition && !a.mime.startsWith("image/") ? "shown only, its owner doesn't hand it out" : fileUrl(a));
+        lines.push("", "Files:", ...r.assets.map((a) => `- ${a.title ?? a.filename ?? a.mime}: ${where(a)}`));
+      }
     }
   }
   return lines.join("\n") + "\n";

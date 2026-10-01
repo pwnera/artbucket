@@ -46,7 +46,7 @@ import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/cor
 import { readablePages } from "@/lib/page-view";
 import { assetRefs, AUDIENCES, isLive, LANG, liveProps, type Audience, type RequestKind } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
-import { rightsReasons, today, type Use } from "@/lib/rights";
+import { isDownloadable, rightsReasons, today, type Use } from "@/lib/rights";
 import { resolve, ruleContext, specAssets } from "@/lib/rules";
 import { hashPassword, verifyPassword } from "@/lib/share";
 import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
@@ -707,7 +707,17 @@ export async function readBrand(
   const usable = new Map(
     (ids.length
       ? await db
-          .select({ id: assets.id, title: sql<string | null>`${assets.metadata} ->> 'title'`, filename: assets.filename, mime: assets.mime, width: assets.width, height: assets.height, probe: assets.probe })
+          .select({
+            id: assets.id,
+            title: sql<string | null>`${assets.metadata} ->> 'title'`,
+            filename: assets.filename,
+            mime: assets.mime,
+            width: assets.width,
+            height: assets.height,
+            probe: assets.probe,
+            rights: assets.rights,
+            origin: assets.origin,
+          })
           .from(assets)
           .where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))
       : []
@@ -729,7 +739,10 @@ export async function readBrand(
       usage: r.usage,
       assets: r.assets.flatMap(({ id, rendition }) => {
         const a = usable.get(id);
-        return a ? [{ id, rendition: rendition ?? null, title: a.title, filename: a.filename, mime: a.mime, width: a.width, height: a.height, preview: hasPreview(a) }] : [];
+        if (!a) return [];
+        // Read from outside: a file kept from them is drawn, never listed to take (brand.json's files).
+        const kept = !isDownloadable(a);
+        return [{ id, rendition: rendition ?? null, title: a.title, filename: a.filename, mime: a.mime, width: a.width, height: a.height, preview: hasPreview(a), ...(kept && { kept: true as const }) }];
       }),
       // A brand with no history shows as it stands: its rules' own times.
       updatedAt: publishedAt ?? now?.updatedAt ?? new Date(),
@@ -785,7 +798,14 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
   const ids = (site.quick ?? []).flatMap((q) => q.asset ?? []);
   const usable = new Set(
     ids.length
-      ? (await db.select({ id: assets.id }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))).map((a) => a.id)
+      ? (
+          await db
+            .select({ id: assets.id, mime: assets.mime, filename: assets.filename, rights: assets.rights, origin: assets.origin })
+            .from(assets)
+            .where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))
+        )
+          // A quick grab is a download: a file shown only isn't one.
+          .flatMap((a) => (isDownloadable(a) ? [a.id] : []))
       : [],
   );
   const quick = site.quick?.flatMap((q) => {

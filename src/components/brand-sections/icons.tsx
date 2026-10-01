@@ -103,7 +103,7 @@ function Icon({ m, glyph, accent, takes }: { m: Media; glyph: string; accent: bo
       <span className="w-full truncate text-xs opacity-80" title={name}>
         {name}
       </span>
-      {takes && (
+      {takes && !m.kept && (
         // Always there on touch, where nothing hovers.
         <span className="absolute end-1 top-1 flex gap-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within/icon:opacity-100 pointer-fine:group-hover/icon:opacity-100">
           <button type="button" onClick={copy} aria-label={`Copy ${name} as SVG`} title="Copy SVG" className={action}>

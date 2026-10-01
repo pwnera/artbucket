@@ -329,7 +329,7 @@ function Family({ f, sample, glyphs, embed }: { f: Face; sample?: string; glyphs
           </Part>
         ))}
 
-      {f.download && f.files.length > 0 && <Files f={f} />}
+      {f.download && f.files.some((a) => !a.kept) && <Files f={{ ...f, files: f.files.filter((a) => !a.kept) }} />}
       {embed && <Embed f={f} />}
 
       {playground && (

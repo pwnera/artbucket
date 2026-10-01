@@ -1,7 +1,7 @@
 import { IconBook, IconPalette, IconPhoto, IconTypography } from "@tabler/icons-react";
 import { withSignature } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";
-import { isFont } from "@/lib/font";
+import { isFont, standIn } from "@/lib/font";
 import { renderMarkdown } from "@/lib/markdown";
 import { fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "@/lib/rules";
 
@@ -11,7 +11,8 @@ import { fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } fro
  * the Overview for the brand's own people: the live release, else the draft.
  */
 
-type CardAsset = { id: string; mime?: string | null; filename?: string | null; title?: string | null };
+/** `kept`: shown, not handed out (lib/rights.ts isDownloadable). */
+type CardAsset = { id: string; mime?: string | null; filename?: string | null; title?: string | null; kept?: true };
 export type CardRule = {
   key: string;
   label?: string | null;
@@ -49,11 +50,13 @@ export function cardParts(b: CardBrand) {
 /**
  * Its typefaces, loaded to set their specimens: the rule's own files, signed
  * (relative, so they load from the hub's host as its images do), else Google
- * Fonts for a family the rule says comes from there.
+ * Fonts for a family the rule says comes from there, else for the free
+ * look-alike its fallback names (lib/font.ts standIn), which `shownIn` says.
  */
 export function faces(b: CardBrand, fonts: CardRule[]) {
   const css: string[] = [];
   const google = new Set<string>();
+  const shownIn: (string | null)[] = [];
   const family = fonts.map((r, i) => {
     const v = fontValue(r.value);
     const spec = (r.spec ?? {}) as { source?: string; fallback?: string };
@@ -65,10 +68,16 @@ export function faces(b: CardBrand, fonts: CardRule[]) {
       return `"hub-font-${i}", ${fallback}`;
     }
     if (spec.source === "google" && /^[A-Za-z0-9 ]{1,80}$/.test(v.family)) google.add(v.family);
+    else {
+      // The family itself first: where it is installed, it shows as it is.
+      const stand = standIn(spec.fallback);
+      if (stand) google.add(stand);
+      shownIn[i] = stand && stand !== v.family ? stand : null;
+    }
     return `"${cssName(v.family)}", ${fallback}`;
   });
   const href = google.size ? `https://fonts.googleapis.com/css2?${[...google].map((f) => `family=${f.replace(/ /g, "+")}:wght@400;700`).join("&")}&display=swap` : null;
-  return { css: css.join("\n"), href, family };
+  return { css: css.join("\n"), href, family, shownIn };
 }
 
 function Section({ id, title, icon: Icon, children }: { id: string; title: string; icon: typeof IconPalette; children: React.ReactNode }) {
@@ -125,6 +134,7 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
                     <span>
                       {v.family}
                       {v.weight ? ` · ${v.weight}` : ""}
+                      {type.shownIn[i] && ` · shown in ${type.shownIn[i]}`}
                     </span>
                   </div>
                   <p className="text-6xl leading-none" style={{ fontFamily: type.family[i], fontWeight: v.weight }}>
@@ -152,9 +162,11 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
                   </div>
                   <div className="flex items-center justify-between gap-2 p-3">
                     <span className="truncate text-sm font-medium">{ruleName(r)}</span>
-                    <a href={fileUrl(b, a.id, "?download")} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
-                      Download
-                    </a>
+                    {!a.kept && (
+                      <a href={fileUrl(b, a.id, "?download")} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
+                        Download
+                      </a>
+                    )}
                   </div>
                 </li>
               )),

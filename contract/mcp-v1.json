@@ -205,6 +205,17 @@
         "minLength": 1,
         "maxLength": 512
       },
+      "title": {
+        "description": "What people see it called; the file's own title, if it carries one, wins",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "description": {
+        "description": "What it shows and where it is used; the file's own, if it carries one, wins",
+        "type": "string",
+        "maxLength": 5000
+      },
       "tags": {
         "maxItems": 50,
         "type": "array",
@@ -327,6 +338,13 @@
               {
                 "type": "null"
               }
+            ]
+          },
+          "downloadable": {
+            "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+            "type": [
+              "boolean",
+              "null"
             ]
           }
         },

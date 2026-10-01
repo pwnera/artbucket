@@ -27,7 +27,8 @@ import { isMonochromeSvg } from "@/lib/icons";
 import { originOf, readC2pa } from "@/lib/c2pa";
 import { extractMetadata } from "@/lib/metadata";
 import type { Surface } from "@/lib/insights";
-import { isEmpty, type Origin, type Rights } from "@/lib/rights";
+import { fontLicense } from "@/lib/font-license";
+import { isDownloadable, isEmpty, RightsInput, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { isReview, STATES, type State } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
@@ -252,6 +253,9 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   const { keywords, ...metadata } = extractMetadata(bytes) ?? {};
   // Content Credentials say how it was made, unless the uploader says otherwise.
   const c2pa = readC2pa(bytes);
+  // A font says what it may be used for: its file names its license, unless the uploader does (lib/rights.ts isDownloadable).
+  const named = mime.startsWith("font/") && !input.rights?.license ? fontLicense(bytes) : null;
+  const rights = named ? { ...(input.rights ?? RightsInput.parse({})), license: named } : input.rights;
 
   // A version keeps what a person wrote about the one before, where the file says nothing.
   const described = Object.fromEntries(EDITABLE.flatMap((k) => (prior?.metadata?.[k] ? [[k, prior.metadata[k]]] : [])));
@@ -302,7 +306,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         proposedBy: proposed ? caller.actor : null,
         private: prior?.private ?? false,
         public: open,
-        rights: input.rights && !isEmpty(input.rights) ? input.rights : null,
+        rights: rights && !isEmpty(rights) ? rights : null,
         origin: input.origin ?? (c2pa && originOf(c2pa)),
         parentAssetId: input.parentAssetId ?? null,
         generator: input.generator ?? (c2pa && (c2pa.softwareAgent ?? c2pa.generator)),
@@ -993,6 +997,7 @@ export function describeAsset(asset: Asset) {
     supersededBy: asset.supersededBy,
     /** Its URLs work for anyone while it may be used; otherwise for people who can see it, and signed. */
     public: asset.public,
+    downloadable: isDownloadable(asset),
     urls: {
       original: base,
       download: `${base}?download`,

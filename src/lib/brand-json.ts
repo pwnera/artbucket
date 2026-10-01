@@ -12,7 +12,8 @@ import { fontValue, RULE_CONTEXT, RULE_KEY, RuleInput, ruleLabel, type RuleType,
  * Pure, like lib/hub.ts: `pnpm test` runs it under plain Node.
  */
 
-type Asset = { url: string; mime: string; title: string | null; filename: string | null; width?: number | null; height?: number | null };
+/** `kept`: read from outside, a file they may see but not take (lib/rights.ts isDownloadable): named, never listed. */
+type Asset = { url: string; mime: string; title: string | null; filename: string | null; width?: number | null; height?: number | null; kept?: true };
 export type BrandJsonRule = {
   key: string;
   label: string | null;
@@ -107,7 +108,7 @@ export function brandJson(b: BrandJsonInput) {
     const s = (r.spec ?? {}) as { role?: string; features?: string[]; fallback?: string; lineHeight?: number; tracking?: unknown; case?: string };
     const name = snake(tail(r.key));
     // The bytes set a font's type at upload; a file stored before that, or as application/octet-stream, is known by its name.
-    const files = r.assets.filter((a) => isFont(a.mime, a.filename ?? "")).map((a) => ({ url: a.url }));
+    const files = r.assets.filter((a) => isFont(a.mime, a.filename ?? "") && !a.kept).map((a) => ({ url: a.url }));
     fonts[name] = {
       family: v.family,
       ...(files.length && { files }),

@@ -78,7 +78,7 @@ import { builderPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
-import { CHANNELS } from "@/lib/rights";
+import { CHANNELS, isDownloadable } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -139,7 +139,9 @@ const territory = (v: string) => (/^[a-z]{2}$/i.test(v.trim()) ? v.trim().toUppe
 
 const TEXT = ["title", "description", "creator", "copyright"] as const;
 const PROVENANCE = ["origin", "generator", "prompt", "parentAssetId", "supersededBy"] as const;
-const RIGHTS = ["license", "territories", "channels", "embargo", "expires", "modelRelease"] as const;
+const RIGHTS = ["license", "territories", "channels", "embargo", "expires", "modelRelease", "downloadable"] as const;
+/** A person's say on downloads as the form holds it: "" leaves it to the license. */
+const said = (v: boolean | null | undefined) => (v == null ? "" : v ? "yes" : "no");
 /** Rights are replaced whole, so their inputs save together. */
 const groupOf = (name: string) => ((RIGHTS as readonly string[]).includes(name) ? "rights" : name);
 
@@ -152,7 +154,7 @@ function serverForm(a: Asset, defs: FieldDef[]): Record<string, string> {
     tags: JSON.stringify(a.tags),
     private: a.private ? "on" : "",
     ...Object.fromEntries(relaxInherited(defs, a.inherited).map((d) => [`field:${d.key}`, fieldFormValue(d, a.fields[d.key])])),
-    rights: JSON.stringify([r?.license ?? "", r?.territories ?? [], r?.channels ?? [], r?.embargo ?? "", r?.expires ?? "", r?.modelRelease ?? ""]),
+    rights: JSON.stringify([r?.license ?? "", r?.territories ?? [], r?.channels ?? [], r?.embargo ?? "", r?.expires ?? "", r?.modelRelease ?? "", said(r?.downloadable)]),
     ...Object.fromEntries(PROVENANCE.map((k) => [k, a[k] ?? ""])),
   };
 }
@@ -168,7 +170,7 @@ function formGroups(form: HTMLFormElement, groups: string[]) {
       g === "tags"
         ? JSON.stringify(all("tags"))
         : g === "rights"
-          ? JSON.stringify([one("license"), all("territories"), all("channels"), one("embargo"), one("expires"), one("modelRelease")])
+          ? JSON.stringify([one("license"), all("territories"), all("channels"), one("embargo"), one("expires"), one("modelRelease"), one("downloadable")])
           : g === "private"
             ? f.get("private") === "on"
               ? "on"
@@ -391,6 +393,7 @@ export function AssetEditor({
           embargo: orNull("embargo"),
           expires: orNull("expires"),
           modelRelease: orNull("modelRelease"),
+          downloadable: str("downloadable") === "yes" ? true : str("downloadable") === "no" ? false : null,
         };
       else if (g.startsWith("field:")) {
         const d = relaxed.find((x) => `field:${x.key}` === g);
@@ -1343,7 +1346,8 @@ const ORIGIN: Option[] = [
 const localDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString();
 const today = () => new Date().toISOString().slice(0, 10);
 
-function rightsSummary(r: Asset["rights"]) {
+function rightsSummary(a: Asset) {
+  const r = a.rights;
   const parts = [
     r?.license,
     r?.territories?.length ? r.territories.join(", ") : null,
@@ -1351,6 +1355,7 @@ function rightsSummary(r: Asset["rights"]) {
     r?.embargo && `from ${localDate(r.embargo)}`,
     r?.expires && `until ${localDate(r.expires)}`,
     r?.modelRelease === "missing" && "editorial only",
+    !isDownloadable(a) && "shown only",
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Any use, anywhere";
 }
@@ -1406,6 +1411,61 @@ function DateProperty({
   );
 }
 
+const DOWNLOADS: Option[] = [
+  { value: "yes", label: "Allowed" },
+  { value: "no", label: "Shown only" },
+];
+
+/**
+ * Whether people outside the workspace may take the file (lib/rights.ts
+ * isDownloadable), saying what that means as it is picked: whoever it is
+ * shown to downloads it, or sees it and can't. Left to the license, it says
+ * which way that goes and why.
+ */
+function DownloadsProperty({ asset, error, onChange }: { asset: Asset; error?: string; onChange: () => void }) {
+  const id = useId();
+  const [v, setV] = useState(said(asset.rights?.downloadable));
+  const auto = isDownloadable({ ...asset, rights: asset.rights && { ...asset.rights, downloadable: null } });
+  const allowed = v === "" ? auto : v === "yes";
+  const font = isFont(asset.mime, asset.filename);
+  const why = font ? "It's a font without an open license." : "It's licensed.";
+  // A font is seen set in the pages; anything else, as pictures at most 1600 px a side.
+  const seen = font ? "Visitors see it set in your pages but can't download it." : "Visitors see it, up to 1600 px, but can't download it.";
+  const note = allowed
+    ? {
+        text: "Anyone who sees it on a portal, a share link or BrandHub can download the file.",
+        // Allowed against what its license suggests: the person chose it, so it warns, it doesn't stop them.
+        warn: v === "yes" && !auto,
+      }
+    : {
+        text: `${v === "" ? `${why} ` : ""}${seen} Your team still can.${v === "" ? " Choose Allowed only if the license lets you share the file." : ""}`,
+        warn: false,
+      };
+  const noteId = `${id}-note`;
+  return (
+    <Property label="Downloads" htmlFor={id} error={error} text={allowed ? "Allowed" : "Shown only"}>
+      <div data-prop="downloadable" className="grid gap-1">
+        <Combobox
+          id={id}
+          name="downloadable"
+          options={DOWNLOADS}
+          defaultValue={v}
+          placeholder={`Automatic: ${auto ? "allowed" : "shown only"}`}
+          onChange={(next) => {
+            setV(next);
+            onChange();
+          }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={[noteId, describedBy(id, { error })].filter(Boolean).join(" ") || undefined}
+        />
+        <p id={noteId} className={cn("text-xs", note.warn ? "text-destructive" : "text-muted-foreground")}>
+          {note.text}
+        </p>
+      </div>
+    </Property>
+  );
+}
+
 /** What it may be used for. /api/v1/check reads these; empty means unrestricted. */
 function RightsInputs({
   asset,
@@ -1426,7 +1486,7 @@ function RightsInputs({
     "aria-describedby": describedBy(`${id}-${n}`, { hint: n === "territories" || n === "channels", error: errors[n] }),
   });
   return (
-    <Fold title="Rights" summary={rightsSummary(r)} remember="rights">
+    <Fold title="Rights" summary={rightsSummary(asset)} remember="rights">
       {/* Keyed as one: rights save whole, so a refusal puts them all back. */}
       <div key={k} className="grid gap-0.5">
         <Property label="License" htmlFor={`${id}-license`} error={errors.license} text={r?.license}>
@@ -1516,6 +1576,7 @@ function RightsInputs({
             />
           </div>
         </Property>
+        <DownloadsProperty asset={asset} error={errors.downloadable} onChange={onChange} />
       </div>
     </Fold>
   );

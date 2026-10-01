@@ -9,6 +9,8 @@ import { BrandAddresses } from "@/components/brand-header";
 import type { BrandHub } from "@/components/brands";
 import { useCan } from "@/components/can";
 import { ExternalLink } from "@/components/external-link";
+import { FilesOut } from "@/components/files-out";
+import type { Status } from "@/components/builder/use-status";
 import { PortalDialog, toastSaved, type Portal } from "@/components/portals";
 import { Group } from "@/components/settings/panels";
 import { useShell } from "@/components/shell";
@@ -40,6 +42,7 @@ export function BrandSharing({
   portals,
   portalDomain,
   release,
+  files,
 }: {
   brand: HeadBrand;
   origin: string;
@@ -48,6 +51,8 @@ export function BrandSharing({
   /** The server's PORTAL_DOMAIN, for the portal dialog. */
   portalDomain?: string;
   release: Release | null;
+  /** Its files as people outside get them (lib/core/brand-status.ts); null when unread. */
+  files: NonNullable<Status["files"]> | null;
 }) {
   const router = useRouter();
   const can = useCan();
@@ -72,8 +77,11 @@ export function BrandSharing({
   // Picking which portal BrandHub links takes publishing, as making it public does.
   const link = hub && can("brand.publish") ? (portal: string | null) => void share({ portal }, `link:${portal ?? "*"}`) : undefined;
 
+  // Said while anyone outside the team reads it: public on BrandHub, or on a portal not just for members.
+  const outside = hub?.visibility === "public" || !!portals?.some((p) => p.access !== "members");
   return (
     <div className="grid gap-4">
+      {outside && files && <FilesOut name={brand.name} files={files} />}
       {hub && (
         <Group
           title="BrandHub"

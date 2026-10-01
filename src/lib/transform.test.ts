@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { drawScale, effective, MAX_DIMENSION, parseTransform, PRESETS, renditionLabel, serializeTransform, SIZES } from "./transform.ts";
+import { drawScale, effective, MAX_DIMENSION, parseTransform, PRESETS, renditionLabel, serializeTransform, SHOWN_MAX, shownSize, SIZES } from "./transform.ts";
 
 test("parses a simple transform", () => {
   assert.deepEqual(parseTransform("w_800,f_webp"), { w: 800, f: "webp" });
@@ -133,4 +133,11 @@ test("a rendition reads as its preset's name, else its spec", () => {
   assert.equal(renditionLabel(null), "Original");
   assert.equal(renditionLabel("w_1200,f_webp"), "Web");
   assert.equal(renditionLabel("w_512,f_png"), "w_512,f_png");
+});
+
+test("a file shown, not handed out, is drawn at a preview's size at most", () => {
+  assert.deepEqual(shownSize(parseTransform("w_800,f_webp")!), { w: 800, h: SHOWN_MAX, f: "webp" });
+  assert.deepEqual(shownSize(parseTransform("w_4000,q_85,f_jpeg")!), { w: SHOWN_MAX, h: SHOWN_MAX, q: 85, f: "jpeg" });
+  assert.deepEqual(shownSize(parseTransform("f_png")!), { w: SHOWN_MAX, h: SHOWN_MAX, f: "png" });
+  assert.deepEqual(shownSize(parseTransform("w_1080,h_1920,fit_cover")!), { w: 1080, h: SHOWN_MAX, fit: "cover" });
 });

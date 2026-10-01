@@ -84,7 +84,7 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
             .filter((r) => r.key === k && r.type !== "color")
             .flatMap((r) => {
               const folder = `${nameOf(k)}${r.context ? ` (${contextLabel(r.context)})` : ""}`.replace(/[\\/]/g, "-");
-              return r.assets.filter(current).map((a): KitFile => ({ name: `${folder}/${a.filename}`, asset: a }));
+              return r.assets.filter((a) => current(a) && !a.kept).map((a): KitFile => ({ name: `${folder}/${a.filename}`, asset: a }));
             }),
         );
 
