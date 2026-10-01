@@ -70,7 +70,7 @@ const shared = cookieDomain(env.APP_URL, env.HUB_URL);
 
 /** A password refused for an address its organization signs in through its own provider: the form goes there instead. */
 const ssoRequired = (email: string) =>
-  new APIError("FORBIDDEN", { code: "SSO_REQUIRED", message: `People at ${email.split("@").at(-1)} sign in with single sign-on.` });
+  new APIError("FORBIDDEN", { code: "SSO_REQUIRED", message: `People at ${email.split("@").at(-1)?.toLowerCase()} sign in with single sign-on.` });
 
 export const auth = betterAuth({
   baseURL: env.APP_URL,
@@ -83,9 +83,14 @@ export const auth = betterAuth({
         const v = ctx.body?.[k] ?? ctx.query?.[k];
         if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
       }
-      // Held to its organization's provider: the same answer whether or not the account exists.
       const email = ctx.body?.email;
-      if (ctx.path === "/sign-in/email" && typeof email === "string" && (await passwordBarred(email))) throw ssoRequired(email);
+      if (typeof email === "string") {
+        // An address at an organization's verified domain signs up through its provider, and so joins it. Here, not in
+        // user.create: with email codes on, better-auth answers a refused sign-up as if it went, and the form would wait for a code.
+        if (ctx.path === "/sign-up/email" && (await ssoAt(email))) throw ssoRequired(email);
+        // Held to its organization's provider: the same answer whether or not the account exists.
+        if (ctx.path === "/sign-in/email" && (await passwordBarred(email))) throw ssoRequired(email);
+      }
     }),
     // Before the plugins' (nextCookies copies the cookies to Next's from here).
     after: createAuthMiddleware(async (ctx) => {
@@ -197,8 +202,6 @@ export const auth = betterAuth({
             return { data: { ...user, emailVerified: true } };
           }
           const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
-          // An address at an organization's verified domain signs up through its provider, and so joins it.
-          if (!viaOidc && (await ssoAt(user.email))) throw ssoRequired(user.email);
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
