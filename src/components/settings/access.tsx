@@ -754,7 +754,7 @@ const SAYS: Record<AuditAction, string> = {
   "email_domain.closed": "stopped joining from",
   "email_domain.joined": "joined by email domain as",
   "domain.removed": "removed the domain",
-  "domain.primary": "made the default domain",
+  "domain.primary": "changed the domain used for the app",
   "github.added": "named the GitHub account",
   "github.verified": "verified the GitHub account",
   "github.removed": "removed the GitHub account",

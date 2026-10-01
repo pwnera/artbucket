@@ -49689,7 +49689,7 @@
                           },
                           "primary": {
                             "type": "boolean",
-                            "description": "The app's default address: links in email point here"
+                            "description": "Used for the app: the whole app answers here, and links in email point here"
                           },
                           "portal": {
                             "description": "The portal it serves, by slug; null for the whole app",
@@ -49855,7 +49855,7 @@
                         },
                         "primary": {
                           "type": "boolean",
-                          "description": "The app's default address: links in email point here"
+                          "description": "Used for the app: the whole app answers here, and links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -49939,7 +49939,7 @@
       ],
       "patch": {
         "summary": "Make a domain the default",
-        "description": "The app's default address: links in email point there. It must be verified, and not serve a portal.\n\nScope: `admin`.",
+        "description": "Use it for the app, or stop: the whole app answers there, and links in email point there. One per organization, off when verified; it must be verified and not serve a portal.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -49950,8 +49950,7 @@
                 "properties": {
                   "primary": {
                     "type": "boolean",
-                    "const": true,
-                    "description": "Make it the default: where links in email point"
+                    "description": "Use it for the app: the whole app answers there, and links in email point there. One per organization; off when verified"
                   }
                 },
                 "required": [
@@ -50032,7 +50031,7 @@
                         },
                         "primary": {
                           "type": "boolean",
-                          "description": "The app's default address: links in email point here"
+                          "description": "Used for the app: the whole app answers here, and links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",
@@ -50257,7 +50256,7 @@
                         },
                         "primary": {
                           "type": "boolean",
-                          "description": "The app's default address: links in email point here"
+                          "description": "Used for the app: the whole app answers here, and links in email point here"
                         },
                         "portal": {
                           "description": "The portal it serves, by slug; null for the whole app",

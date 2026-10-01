@@ -1422,7 +1422,7 @@ export function openapi(serverUrl: string) {
         patch: op({
           summary: "Make a domain the default",
           scope: "admin",
-          description: "The app's default address: links in email point there. It must be verified, and not serve a portal.",
+          description: "Use it for the app, or stop: the whole app answers there, and links in email point there. One per organization, off when verified; it must be verified and not serve a portal.",
           body: S.DomainPatch,
           ok: [200, "The domain", data(S.Domain)],
         }),

@@ -2,10 +2,10 @@ import { body, ok, route } from "@/lib/api";
 import { makePrimary, removeDomain } from "@/lib/core/domains";
 import { DomainPatch } from "@/lib/schemas";
 
-/** PATCH /api/v1/domains/{host} - make it the default: where links in email point. */
+/** PATCH /api/v1/domains/{host} - use it for the app, or stop: the whole app answers there, and links in email point there. */
 export const PATCH = route<{ host: string }>("organization.manage", async (req, { host }, caller) => {
-  await body(req, DomainPatch);
-  const d = await makePrimary(caller, decodeURIComponent(host));
+  const { primary } = await body(req, DomainPatch);
+  const d = await makePrimary(caller, decodeURIComponent(host), primary);
   return d ? ok({ data: d }) : null;
 }, "No such domain");
 

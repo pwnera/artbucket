@@ -423,10 +423,13 @@ record), then **Check now**. With `DOMAIN_TARGET` set, the exact `CNAME` is
 shown, and checked along with the TXT record; at a zone's apex, where a CNAME
 can't go, an ALIAS or flattened record to the same target works.
 
-A verified domain serves the whole app until a portal picks it: in the
-portal, **Domain of its own** lists the organization's verified domains. It
-then serves that portal and nothing else of the app. The default domain,
-where links in email point, can't be picked; make another the default first.
+A verified domain serves nothing until you choose what it is for. Turn on
+**Use for the app** beside it in Settings, Domains, and the whole app answers
+there, with links in email pointing there too (one domain per organization,
+off when verified). Or pick it in a portal: **Domain of its own** lists the
+organization's verified domains, and the domain then serves that portal and
+nothing else of the app. A domain the app used stops serving it when a portal
+takes it.
 Removing a domain in Settings sends its portal back to `/p/{address}`.
 How many domains an organization may add is the operator's `domains`
 [limit](/configuration/limits).

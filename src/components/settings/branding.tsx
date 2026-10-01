@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 import { APP_BG, contrast, grade } from "@/lib/color";
@@ -208,9 +209,9 @@ function Legibility({ color, on, theme }: { color: string; on: string; theme: st
 const RECHECK = { every: 30_000, for: 10 * 60_000 };
 
 /**
- * The organization's own addresses. Each serves the whole app, the default
- * one being where links in email point, or one portal, which picks it in
- * Portals. Each is proved by a TXT record, and by pointing at the server;
+ * The organization's own addresses. One may serve the whole app, turned on
+ * here (off when verified), where links in email point too; a portal picks
+ * any other in Portals. Each is proved by a TXT record, and by pointing at the server;
  * while one isn't yet, it is checked again every 30s for 10 minutes, as DNS
  * takes minutes to spread.
  */
@@ -264,7 +265,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
       <Group
         title="Domains"
         description="Point each at this server, add the TXT record, then check it."
-        info="People sign in at any of them, and the default is where links in email point. A portal can take one instead, in Portals."
+        info="Use one for the app: people sign in there, and links in email point there. Or give one to a portal, in Portals. A domain used for neither serves nothing."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -281,7 +282,6 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                     <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
                       {d.host}
                     </span>
-                    {d.primary && <Badge>Default</Badge>}
                     {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
                     {d.verified ? (
                       <Badge variant="success">
@@ -292,10 +292,15 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                         Check now
                       </Button>
                     )}
-                    {d.verified && !d.primary && !d.portal && (
-                      <Button size="sm" variant="ghost" pending={busy[d.host]} onClick={() => act(d.host, "PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
-                        Make default
-                      </Button>
+                    {d.verified && !d.portal && (
+                      <Label className="text-muted-foreground gap-2 text-xs font-normal">
+                        <Switch
+                          checked={d.primary}
+                          disabled={busy[d.host]}
+                          onCheckedChange={(on) => act(d.host, "PATCH", at, { primary: on }, on ? `The app answers at ${d.host} now` : `The app no longer answers at ${d.host}`)}
+                        />
+                        Use for the app
+                      </Label>
                     )}
                     <Confirm
                       title={`Stop answering at ${d.host}?`}

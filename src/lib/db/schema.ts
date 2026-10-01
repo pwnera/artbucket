@@ -1108,7 +1108,7 @@ export const domains = pgTable("domains", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   /** The portal it serves; null: the app. Deleting the portal gives it back to the app. */
   portalId: uuid("portal_id").references(() => portals.id, { onDelete: "set null" }),
-  /** The app's default address: links in email point here. One per organization. */
+  /** Used for the app: the whole app answers here, and links in email point here. One per organization, off when verified. */
   primary: boolean("primary").notNull().default(false),
   token: text("token").notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
