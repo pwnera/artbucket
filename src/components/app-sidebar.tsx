@@ -77,6 +77,7 @@ import { short } from "@/lib/time";
 import { canonical, parseView, viewQuery } from "@/lib/view";
 import { useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { LinkIcon } from "@/components/link-pending";
 
 export type SavedSearch = { id: string; name: string; query: string };
 
@@ -657,7 +658,7 @@ function Place({
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={hint ? `${label}: ${hint}` : label}>
         <NavLink href={href}>
-          {icon}{" "}
+          <LinkIcon icon={icon} />{" "}
           <span>
             {label}
             {/* What the number counts, for a screen reader; the badge itself is only a picture of it. */}
