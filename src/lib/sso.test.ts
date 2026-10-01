@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { atDomain, oidcConfigFrom } from "./sso.ts";
+import { atDomain, domainsOf, oidcConfigFrom } from "./sso.ts";
 
 const client = { clientId: "id", clientSecret: "secret" };
 const doc = {
@@ -19,6 +19,14 @@ test("an address is a domain's when it is at it or under it, never at a look-ali
   assert.ok(!atDomain("jo@acme.com.evil.io", "acme.com"));
   assert.ok(!atDomain("acme.com", "acme.com"));
   assert.ok(!atDomain("jo@acme.com", ""));
+});
+
+test("an address is at its own domain and the ones above it, never at a bare suffix", () => {
+  assert.deepEqual(domainsOf("Jo@EU.Acme.com"), ["eu.acme.com", "acme.com"]);
+  assert.deepEqual(domainsOf("jo@acme.com"), ["acme.com"]);
+  assert.deepEqual(domainsOf("jo@localhost"), []);
+  assert.deepEqual(domainsOf("acme.com"), []);
+  for (const d of domainsOf("jo@eu.acme.com")) assert.ok(atDomain("jo@eu.acme.com", d));
 });
 
 test("a discovery document becomes the endpoints kept, with a secret the token endpoint takes", () => {

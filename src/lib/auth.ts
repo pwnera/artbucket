@@ -10,7 +10,7 @@ import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
 import { maySignUp, signedIn, welcome } from "@/lib/core/people";
-import { joinThroughSso, providerFor } from "@/lib/core/sso";
+import { joinThroughSso, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
 import { underDomain } from "@/lib/portal";
@@ -29,7 +29,8 @@ import { lockedBy } from "@/lib/settings";
  * anyone the OIDC provider vouches for, who arrives with no access until an
  * admin grants some, and anyone at an organization's verified domain its own
  * provider vouches for, who joins it able to read. SIGNUP=open opens it to
- * anyone, each with an organization of their own.
+ * anyone, each with an organization of their own, but for an address at such
+ * a domain: that one signs up through the provider, never with a password.
  */
 
 export const OIDC_PROVIDER = "oidc";
@@ -66,6 +67,10 @@ const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCall
  * for any host it does not cover, and that host keeps a cookie of its own.
  */
 const shared = cookieDomain(env.APP_URL, env.HUB_URL);
+
+/** A password refused for an address its organization signs in through its own provider: the form goes there instead. */
+const ssoRequired = (email: string) =>
+  new APIError("FORBIDDEN", { code: "SSO_REQUIRED", message: `People at ${email.split("@").at(-1)} sign in with single sign-on.` });
 
 export const auth = betterAuth({
   baseURL: env.APP_URL,
@@ -188,6 +193,8 @@ export const auth = betterAuth({
             return { data: { ...user, emailVerified: true } };
           }
           const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
+          // An address at an organization's verified domain signs up through its provider, and so joins it.
+          if (!viaOidc && (await ssoAt(user.email))) throw ssoRequired(user.email);
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }

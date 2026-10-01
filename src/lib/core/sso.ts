@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { resolveTxt } from "node:dns/promises";
-import { and, eq, lt, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { grants, ssoProviders } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -13,7 +13,7 @@ import { fetchPublic } from "@/lib/fetch-public";
 import { memo } from "@/lib/memo";
 import { can, needs } from "@/lib/permissions";
 import { challengeName, hostname } from "@/lib/portal";
-import { atDomain, discoveryUrl, oidcConfigFrom, type OidcConfig } from "@/lib/sso";
+import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } from "@/lib/sso";
 
 /**
  * An organization's own single sign-on: one OpenID Connect provider (Okta,
@@ -158,6 +158,22 @@ export async function providerFor(providerId: string, email: string) {
     .from(ssoProviders)
     .where(and(eq(ssoProviders.providerId, providerId), eq(ssoProviders.domainVerified, true)));
   return row && atDomain(email, row.domain) ? row : null;
+}
+
+/**
+ * The verified provider of the domain an address is at, if some organization
+ * has one: a password sign-up there goes through it instead (lib/auth.ts), so
+ * its people join it rather than an organization of their own.
+ */
+export async function ssoAt(email: string) {
+  const domains = domainsOf(email);
+  if (!domains.length) return null;
+  const rows = await db
+    .select()
+    .from(ssoProviders)
+    .where(and(inArray(ssoProviders.domain, domains), eq(ssoProviders.domainVerified, true)));
+  // The nearest: eu.acme.com's own provider over acme.com's.
+  return rows.sort((a, b) => b.domain.length - a.domain.length)[0] ?? null;
 }
 
 /** Someone the organization's provider signed in: a member from now on, able to read, unless they already had a grant there. */

@@ -230,6 +230,8 @@ export function AuthForm({
       setFromUp(mode === "up");
       return setConfirming(v.email);
     }
+    // The address's organization signs in through its own provider: go there with it.
+    if (!r.ok && r.code === "SSO_REQUIRED") return void (await orgSso());
     if (!r.ok) {
       setBusy(null);
       setError({ text: r.message, code: r.code });
