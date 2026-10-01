@@ -197,6 +197,22 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
      * apply, with a toast saying why. To show why inline instead, try
      * builder-ops apply() on `state` first.
      */
+    /**
+     * Rings the sections `ops` added, moved or (`all`) changed once they are
+     * drawn, the first scrolled into view. Typing never gets here.
+     */
+    function ring(ops: Op[], all = false) {
+      const ids = ops.flatMap((o) =>
+        o.kind !== "page" ? [] : o.op.op === "add" ? [o.op.section.id] : o.op.op === "move" || (all && "id" in o.op) ? [o.op.id] : [],
+      );
+      if (!ids.length) return;
+      requestAnimationFrame(() => {
+        const els = ids.flatMap((id) => (id ? [...document.querySelectorAll<HTMLElement>(`[data-canvas-block="${CSS.escape(id)}"]`)] : []));
+        els[0]?.scrollIntoView({ block: "nearest", behavior: behavior() });
+        els.forEach(flash);
+      });
+    }
+
     function change(op: Op): Op | null {
       const l = live.current;
       const r = apply(l.state, op);
@@ -207,6 +223,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       remember(push(l.history, r.op, invert(r.op, l.state), fieldOf(r.op, l.state), Date.now()));
       commit(r.state);
       send([r.op]);
+      ring([r.op]);
       return r.op;
     }
 
@@ -221,6 +238,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       remember(pushStep(l.history, { redo: r.done, undo: r.undo, field: null, at: Date.now() }));
       commit(r.state);
       send(r.done);
+      ring(r.done);
       return r.done;
     }
 
@@ -242,13 +260,7 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
       remember(t.history);
       send(t.sent);
       // The section it changed comes into view and lights up: an undo far down the page is seen.
-      const ids = t.sent.flatMap((o) => (o.kind !== "page" ? [] : o.op.op === "add" ? [o.op.section.id] : "id" in o.op ? [o.op.id] : []));
-      requestAnimationFrame(() => {
-        const el = ids.map((id) => id && document.querySelector<HTMLElement>(`[data-canvas-block="${CSS.escape(id)}"]`)).find(Boolean);
-        if (!el) return;
-        el.scrollIntoView({ block: "nearest", behavior: behavior() });
-        flash(el);
-      });
+      ring(t.sent, true);
     }
 
     const select = (to: Partial<BuilderState["selection"]>) => {

@@ -40,7 +40,11 @@ import { boundKeys, type Item, type Section, TEMPLATE_INFO } from "@/lib/pages";
 import { resolve } from "@/lib/rules";
 import { groupTabs, type Media, tree, type ViewAsset } from "@/lib/site";
 import { fieldsOf, withProp } from "@/lib/template-fields";
+import { flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+/** Rings item `i` of a section once it is drawn: where an added, copied or moved item went. */
+export const ringItem = (section: string, i: number) => flash(`[${BLOCK}="${CSS.escape(section)}"] [data-item-root="${i}"]`);
 
 /**
  * The page being edited (build spec 3.5.2, W6.2): PageBody of b.view.page
@@ -368,6 +372,7 @@ function Stage({ b }: { b: BuilderApi }) {
     if (p.i < to) to--;
     if (to === p.i) return;
     b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: moveItem(s, p.i, to) } });
+    ringItem(s.id, to);
   };
 
   /** The picked pictures as items, or as item `at`'s picture. */
@@ -592,7 +597,7 @@ function Stage({ b }: { b: BuilderApi }) {
             {iline && (
               <div
                 aria-hidden
-                className="app-tokens bg-primary pointer-events-none absolute z-40 rounded-full"
+                className="app-tokens bg-primary pointer-events-none absolute z-40 rounded-full transition-[left,top] duration-75"
                 style={
                   iline.across
                     ? { left: (iline.after !== (getComputedStyle(document.documentElement).direction === "rtl") ? iline.box.x + iline.box.w : iline.box.x) - 2, top: iline.box.y, width: 4, height: iline.box.h }
@@ -607,7 +612,10 @@ function Stage({ b }: { b: BuilderApi }) {
                 onClick={() => {
                   const n = own.items?.length ?? 0;
                   if (blank.kind === "asset") onPictures(s.id, n, false);
-                  else b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: insertItems(own, n, [blank.item]) } });
+                  else {
+                    b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: insertItems(own, n, [blank.item]) } });
+                    ringItem(s.id, n);
+                  }
                 }}
               >
                 <IconPlus aria-hidden className="size-3.5" />
@@ -838,6 +846,7 @@ function ItemBar({
             label="Duplicate item (Cmd+D)"
             onClick={() => {
               set(duplicateItem(s, i));
+              ringItem(s.id, i + 1);
               onDone();
             }}
           >

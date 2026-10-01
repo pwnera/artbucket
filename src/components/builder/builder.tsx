@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { History } from "@/components/brand-history";
 import { BrandSetup } from "@/components/builder/brand-setup";
-import { Canvas } from "@/components/builder/canvas";
+import { Canvas, ringItem } from "@/components/builder/canvas";
 import { builderCommands } from "@/components/builder/commands";
 import { reveal } from "@/components/builder/layers";
 import { PageSettings } from "@/components/builder/page-tree";
@@ -202,8 +202,10 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
       if (mod) {
         if (e.altKey || e.shiftKey || key !== "d" || !id || !editing) return;
         e.preventDefault();
-        if (item !== null) setItems(duplicateItem(section!, item));
-        else b.duplicate(id);
+        if (item !== null) {
+          setItems(duplicateItem(section!, item));
+          ringItem(id, item + 1);
+        } else b.duplicate(id);
         return;
       }
       if (e.altKey) {
