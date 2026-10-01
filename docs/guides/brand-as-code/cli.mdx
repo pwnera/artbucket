@@ -1,0 +1,225 @@
+---
+title: CLI and CI
+description: Pull a brand into a folder, see what a push would change, push it, and run both from CI.
+---
+
+The `artbucket` CLI reads and writes a [brand folder](/guides/brand-as-code/format)
+through the [sync API](/guides/brand-as-code/sync-api), and uploads the files
+under `assets/` the library doesn't have yet. It works against any Artbucket
+server, Artbucket Cloud or your own.
+
+## Install and sign in
+
+The CLI is the `artbucket` package on npm, for Node 22 and later:
+
+```bash
+npx artbucket login app.artbucket.io    # or your server: assets.example.com, http://localhost:3000
+npm install -g artbucket                # to keep it, rather than npx each time
+```
+
+`login` signs in through the browser and keeps a key in
+`~/.config/artbucket/credentials.json`, with that server as the default. It
+asks for `write`, since pushing a brand edits it; the consent screen never
+offers more than you have. `artbucket logout` forgets the key; disconnect it
+on the Connections page to revoke it.
+
+Without signing in, two variables say where and as whom:
+
+| Variable | |
+|---|---|
+| `ARTBUCKET_URL` | The server, e.g. `https://app.artbucket.io`. Wins over the one `login` saved |
+| `ARTBUCKET_KEY` | An API key (`ab_...`). It decides the workspace. Wins over the saved one |
+
+A key for CI is made by a workspace admin, in the app (Agents) or with
+`POST /api/v1/keys`. Pushing takes `write` on the workspace; `--publish`
+also takes sharing, which a grant can switch off.
+
+## The brand a command acts on
+
+Every `brand` command acts on the brand `--brand` names, or else the one the
+`slug:` in the folder's `brand.yaml` names. Never the workspace's default:
+a folder pushed without either is refused. `pull` writes `slug:`, so after
+the first pull the folder says which brand it is.
+
+The folder is the command's first argument, `brand` when left out.
+
+## brand pull
+
+```bash
+artbucket brand pull brand --brand acme --assets
+```
+
+```
+  wrote   brand.yaml
+  wrote   rules/color.yaml
+  wrote   pages/overview.yaml
+  wrote   assets/logo.svg
+acme is in brand
+```
+
+Writes the brand as files into the folder:
+
+- Only files whose meaning changed are written: one that says the same
+  keeps its comments and layout.
+- A file of `rules/` or `pages/` the brand no longer has is removed.
+- A file you named `.yml` keeps its name.
+- `--assets` gives every asset the brand points at a path under `assets/`,
+  named after its filename, and downloads the ones whose bytes the folder
+  doesn't already hold. A folder whose `assets/` already holds files pulls
+  this way without the flag.
+- A file already in `assets/` keeps its path, wherever it sits, matched by
+  the SHA-256 of its bytes: references to it stay paths, never ids.
+
+Without `--assets` and with an empty `assets/`, assets are written as asset
+ids, unless the brand's Git integration holds them as files.
+
+## brand diff
+
+```bash
+artbucket brand diff brand
+```
+
+```
+! pages/logo.yaml:12: sections[1]: a second panel ground in a row runs into the one before; make one of them plain
+  ~ color.primary  #1f6feb -> #1a5fd0
+  + color.accent  #ff7a45
+  ~ page color
+  > page type (moved)
+  ~ theme: radius
+(dry run: nothing written)
+```
+
+What a push would change, and every problem in the files, writing nothing.
+Lines start with `+` (added), `-` (removed), `~` (changed) or `>` (a page
+moved in the tree); `!` is a warning or a conflict. It exits 1 on any error
+in the files, each printed at its file and line:
+
+```
+pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has color.primary, color.ink
+```
+
+A file under `assets/` the server doesn't have yet is not a problem: push
+uploads it. `diff` lists it and exits 0, and shows the rest of the change
+once the file is in the library:
+
+```
+  + assets/hero.jpg (push uploads it)
+The rest of the diff shows once those are in the library: push uploads them first
+```
+
+## brand push
+
+```bash
+artbucket brand push brand --publish --note "Bluer primary"
+```
+
+```
+  uploaded assets/hero.jpg
+  ~ color.primary  #1f6feb -> #1a5fd0
+version 14, published
+```
+
+Takes the brand from its files:
+
+1. Hashes every file under `assets/`, checks the files, and uploads each
+   file they point at that the library doesn't have yet.
+2. Writes the brand as one version of its history, so it is undone like any
+   other edit, or prints `nothing changed`.
+3. Publishes, if asked.
+
+| Flag | |
+|---|---|
+| `--brand acme` | The brand, when `brand.yaml` has no `slug:` |
+| `--create` | Make the brand when there is none by that slug |
+| `--publish` | Release it after, without a note |
+| `--note "..."` | Release it after, with this note. A note always publishes, `--publish` or not |
+| `--replace` | Take the files whole, even where the brand has a sync base to merge from |
+| `--dry-run` | Check and print what would change, write nothing: the same as `brand diff` |
+
+### What a push overwrites
+
+A push merges with the app's edits only when the brand has a sync base: the
+files both sides last agreed on, which a [Git integration](/guides/brand-as-code/sync-api)
+records at each commit. A brand synced only by the CLI or CI has none, so a
+push takes the files whole, and an edit made in the app since your last pull
+is undone (it stays in the brand's history). `diff` shows it first, as a
+change back to what the files say:
+
+```
+  ~ color.primary  #1a5fd0 -> #1f6feb
+```
+
+With a sync base, a push keeps those edits instead, and ends with `The brand
+holds changes these files lack: artbucket brand pull brings them in`.
+
+Pull before you push when people also edit the brand in the app, or keep
+edits on one side: the repository, with CI pushing it.
+
+## From CI
+
+A CI job checks the folder on pull requests and pushes it from the main
+branch. Keep the key as a secret, with the server's address beside it.
+
+<CodeGroup>
+
+```yaml .github/workflows/brand.yml
+name: Brand
+on:
+  pull_request:
+    paths: ["brand/**"]
+  push:
+    branches: [main]
+    paths: ["brand/**"]
+env:
+  ARTBUCKET_URL: https://app.artbucket.io
+  ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - if: github.event_name == 'pull_request'
+        run: npx --yes artbucket brand diff brand --brand acme
+      - if: github.event_name == 'push'
+        run: npx --yes artbucket brand push brand --brand acme --note "$(git log -1 --format=%s)"
+```
+
+```yaml .gitlab-ci.yml
+brand-check:
+  image: node:22
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: ["brand/**/*"]
+  script:
+    - npx --yes artbucket brand diff brand --brand acme
+
+brand-push:
+  image: node:22
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: ["brand/**/*"]
+  script:
+    - npx --yes artbucket brand push brand --brand acme --note "$CI_COMMIT_TITLE"
+```
+
+</CodeGroup>
+
+- `ARTBUCKET_URL` is your own server when you host one. On GitLab,
+  `ARTBUCKET_URL` and `ARTBUCKET_KEY` are CI/CD variables, the key masked.
+- With `--note`, each push to main is released with its commit's first line.
+  Leave `--note` out to update the draft only, and release it from the app.
+- The check on a pull request reads the brand with the key, so it needs the
+  secret: pull requests from forks, which get no secrets, can't run it.
+- A pull request that adds a file under `assets/` passes the check: `diff`
+  lists the file, and the push on main uploads it.
+- A CI push has no sync base, so the repository is the source of truth:
+  edits made in the app are undone by the next push. For both sides at once,
+  use a Git integration.
+
+## Without the CLI
+
+Everything the CLI does is a few calls to the sync API, which any language
+can make: [Sync API](/guides/brand-as-code/sync-api).

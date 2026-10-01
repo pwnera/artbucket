@@ -1,0 +1,420 @@
+---
+title: Sync API
+description: The protocol a Git integration implements to keep a brand and its repository in step, both ways.
+---
+
+Artbucket never talks to a Git host. An integration does: a GitHub or GitLab
+app, a bot, a CI job. It holds the host's credentials, reads and writes the
+repository, and calls these endpoints with an API key. The CLI uses the same
+ones.
+
+All of them are under `/api/v1/brands/{slug}`, with
+`Authorization: Bearer ab_...`, and answer `{ "data": ... }`.
+
+| Endpoint | Key | |
+|---|---|---|
+| `GET .../source` | read | Where the brand's files live, and whether the app holds changes they lack |
+| `PUT .../source` | write | Say where they live; with `synced`, record what both sides now agree on |
+| `DELETE .../source` | write | The brand lives in Artbucket alone again; the repository is left as it is |
+| `POST .../files/export` | read | The brand as files, keeping the repository's own where they say the same |
+| `GET .../files` | read | The same, with no files to keep: `?assets=files` gives every asset a path |
+| `POST .../files/import` | write | Take the brand from files, merged with the app's changes |
+| `POST .../previews` | write | A pull request's files as a site at a link, and what they change |
+| `DELETE .../previews?ref=pull/12` | write | Close a preview's link |
+| `GET /api/v1/previews/{token}` | none | A page of a preview, for whoever has its link |
+
+Writing takes `write` on the workspace. An import that publishes also takes
+sharing, which a grant can switch off. The full schemas are in the
+[API reference](/developers/api).
+
+## The model
+
+For each brand kept in a repository, Artbucket stores its **source**: the
+repository, branch and folder, the commit both sides last agreed on, and the
+brand as of that commit (the **base**). Every import merges three states:
+the base, the brand in the app now, and the files.
+
+- **Import at a commit** (the repository changed): the base becomes the
+  files at that commit.
+- **Import without a commit** (files from anywhere else, like the CLI): the
+  base stays, so the next import still merges from what the repository last
+  said.
+- **`PUT .../source` with `synced`** (the integration just committed what
+  Artbucket exported): the base becomes those files, so nothing is merged or
+  exported again.
+- **Moving** the source to another repository, branch or folder forgets the
+  base: the next import takes the files whole.
+
+A brand with no source, or no base yet, has nothing to merge from: an import
+takes the files whole.
+
+### The source
+
+```json GET /api/v1/brands/acme/source
+{
+  "data": {
+    "source": {
+      "remote": "https://github.com/acme/brand",
+      "branch": "main",
+      "path": "brand",
+      "commit": "9f2c1e7",
+      "syncedAt": "2026-09-30T10:12:00.000Z",
+      "pending": false,
+      "files": 7
+    },
+    "connect": null
+  }
+}
+```
+
+| Field | |
+|---|---|
+| `remote` | The repository, as its host shows it |
+| `branch` | `main` unless set |
+| `path` | The brand's folder in the repository, `""` for its root |
+| `commit` | The commit last agreed on, or null |
+| `syncedAt` | When, or null |
+| `pending` | The brand changed in the app since: an export is due |
+| `files` | How many of its assets are files in the repository |
+| `connect` | Where this server's integration connects a brand (`GIT_CONNECT_URL`), for a workspace admin signed in; else null |
+
+`source` is null for a brand that lives in Artbucket alone.
+
+## Connect a brand
+
+### A repository that already holds the brand
+
+```bash
+curl -X PUT https://assets.example.com/api/v1/brands/acme/source \
+  -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"remote": "https://github.com/acme/brand", "branch": "main", "path": "brand"}'
+```
+
+Then import the folder at its head commit, as below. With no base yet, the
+import takes the files whole and records them as the base. Make the brand
+first (`POST /api/v1/brands` with `name` and `slug`) when Artbucket doesn't
+have it: the import names it from `brand.yaml`.
+
+### An empty repository, from a brand Artbucket has
+
+1. Export with every asset given a path:
+   `POST .../files/export` with `{ "assets": "files" }`.
+2. Commit `files`, and each asset in `assets`, fetched from its `url` with the
+   key, at its path.
+3. Record it: `PUT .../source` with the repository and `synced`, the commit
+   and what you committed.
+
+```json PUT /api/v1/brands/acme/source
+{
+  "remote": "https://github.com/acme/brand",
+  "branch": "main",
+  "path": "brand",
+  "synced": {
+    "commit": "4b1d0aa",
+    "files": { "brand.yaml": "...", "rules/color.yaml": "...", "pages/overview.yaml": "..." },
+    "assets": { "assets/logo.svg": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae" }
+  }
+}
+```
+
+`synced` is checked like an import: files that don't check are refused with
+their problems.
+
+## The repository changed
+
+On a push to the source's branch that touches its folder, send the folder at
+that commit:
+
+```json POST /api/v1/brands/acme/files/import
+{
+  "files": {
+    "brand.yaml": "slug: acme\nname: Acme\n...",
+    "rules/color.yaml": "color.primary:\n  type: color\n  value: \"#1a5fd0\"\n",
+    "pages/overview.yaml": "title: Acme\nsections: ..."
+  },
+  "assets": {
+    "assets/logo.svg": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    "assets/workshop.jpg": "fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9"
+  },
+  "commit": "9f2c1e7a0b3d",
+  "message": "Bluer primary\n\nThe old one failed contrast on the new site."
+}
+```
+
+| Field | |
+|---|---|
+| `files` | The folder's `brand.yaml` and its `rules/` and `pages/` YAML, by path in the folder. Any other path is left alone. 500 files at most |
+| `assets` | Each file under `assets/`, by path: the SHA-256 of its bytes, or the id of the asset it is |
+| `commit` | The commit the files are at. With a source, recorded as the new base |
+| `message` | The commit's message: its first line names the version the import makes |
+| `dryRun` | `true`: check and merge, answer what would change, write nothing |
+| `merge` | `false`: take the files whole, ignoring the base |
+| `publish` | `true`, or a note: release the brand after, with that note |
+
+```json 200
+{
+  "data": {
+    "brand": "acme",
+    "applied": true,
+    "version": 14,
+    "published": null,
+    "diff": {
+      "name": null,
+      "rules": [
+        { "change": "changed", "key": "color.primary", "context": null, "type": "color", "before": "#2563eb", "after": "#1a5fd0", "fields": ["value"] }
+      ],
+      "pages": [{ "change": "changed", "slug": "color", "title": "Color" }],
+      "theme": [],
+      "reordered": false
+    },
+    "conflicts": [
+      {
+        "what": "rule color.primary",
+        "ours": { "key": "color.primary", "context": null, "type": "color", "value": "#2563eb", "usage": null, "assets": [] },
+        "theirs": { "key": "color.primary", "context": null, "type": "color", "value": "#1a5fd0", "usage": null, "assets": [] }
+      }
+    ],
+    "warnings": [],
+    "pending": false
+  }
+}
+```
+
+Here `color.primary` was changed on both sides since the base: the files'
+value won, and the app's is in the version before.
+
+| Field | |
+|---|---|
+| `applied` | Something changed: a new version in the brand's history |
+| `version` | The brand's latest version after the import |
+| `published` | The version released, when `publish` was asked and something was new |
+| `diff` | What changed in the brand, piece by piece: `rules` (`added`, `removed`, `changed`, with the `fields` that changed), `pages` (`added`, `removed`, `changed`, `moved`), `theme` (settings by name), `name`, `reordered` |
+| `conflicts` | Pieces both sides changed differently. The files' side was taken; the app's is in the history |
+| `warnings` | What readers would trip on, at file and line |
+| `pending` | The brand still holds changes the files lack: export them back |
+
+A conflict's `what` names its piece: `name`, `theme.radius`,
+`rule color.primary`, `rule color.primary (dark-background)`, `page logo`.
+When two sound sides make an unsound whole (a page in the app binding a rule
+the files removed), the import takes the files whole and says so as a
+conflict on `brand`.
+
+## The brand changed in the app
+
+When `source.pending` is true, export, giving the repository's files at its
+head:
+
+```json POST /api/v1/brands/acme/files/export
+{ "previous": { "brand.yaml": "...", "rules/color.yaml": "...", "pages/overview.yaml": "..." } }
+```
+
+```json 200
+{
+  "data": {
+    "brand": "acme",
+    "files": { "brand.yaml": "...", "rules/color.yaml": "...", "pages/overview.yaml": "..." },
+    "assets": {
+      "assets/logo.svg": {
+        "id": "7b1d0e3c-5a2f-4c1e-9d3b-0f6a2e8c4b11",
+        "filename": "logo.svg",
+        "mime": "image/svg+xml",
+        "size": 4211,
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        "url": "https://assets.example.com/a/7b1d0e3c-5a2f-4c1e-9d3b-0f6a2e8c4b11"
+      }
+    },
+    "source": { "remote": "https://github.com/acme/brand", "branch": "main", "path": "brand", "commit": "9f2c1e7", "syncedAt": "2026-09-30T10:12:00.000Z", "pending": true, "files": 7 }
+  }
+}
+```
+
+`files` is the whole brand. A file that says the same as its `previous` comes
+back exactly as it was, comments and all, so:
+
+- **to write:** each file whose text differs from `previous`, or that
+  `previous` lacks;
+- **to delete:** each file of `previous` under `rules/` or `pages/` that
+  `files` no longer has;
+- **assets:** each path in `assets` whose `sha256` the repository's file
+  doesn't match, fetched from `url` with the key. `assets: "files"` in the
+  request gives every asset the brand points at a path, including ones the
+  repository never held.
+
+Commit them, directly or as a pull request, then record the commit as agreed:
+`PUT .../source` with `synced: { commit, files, assets }`, the folder as
+committed. Until then the source stays `pending`.
+
+If the commit goes through a pull request that people change before merging,
+skip `synced`: the merge comes back as an import, and the base moves then.
+
+## Pull request previews
+
+```json POST /api/v1/brands/acme/previews
+{
+  "ref": "pull/12",
+  "title": "Bluer primary",
+  "commit": "c0ffee1",
+  "files": { "brand.yaml": "...", "rules/color.yaml": "..." },
+  "assets": { "assets/logo.svg": "2c26b46b..." }
+}
+```
+
+```json 200
+{
+  "data": {
+    "brand": "acme",
+    "ref": "pull/12",
+    "url": "https://assets.example.com/preview/q3Jx0f9mT2c8LwP1aZr4vYbn",
+    "pages": [
+      { "slug": "overview", "title": "Acme", "url": "https://assets.example.com/preview/q3Jx0f9mT2c8LwP1aZr4vYbn/overview" },
+      { "slug": "color", "title": "Color", "url": "https://assets.example.com/preview/q3Jx0f9mT2c8LwP1aZr4vYbn/color" }
+    ],
+    "expiresAt": "2026-10-31T09:00:00.000Z",
+    "diff": { "name": null, "rules": [], "pages": [], "theme": [], "reordered": false },
+    "warnings": []
+  }
+}
+```
+
+- The files are checked as an import is, and refused the same way.
+- One preview per `ref`: saving it again (a new push to the pull request)
+  keeps its link and replaces what it shows.
+- `diff` is what merging would change of the brand as it stands, for the
+  pull request's comment.
+- The link needs no account, like a share link, and shows every page that
+  isn't hidden, members' pages too, with files signed for whoever opens it.
+  Treat it as you would the pull request.
+- It closes 30 days after its last update. Close it sooner when the pull
+  request is merged or closed: `DELETE .../previews?ref=pull/12`.
+
+`GET /api/v1/previews/{token}?page=color` answers a page of the preview as
+data, for an integration that draws its own.
+
+## Assets
+
+A path under `assets/` is matched to the library by the SHA-256 of its bytes
+(or an asset id given in its place). When a file the folder points at isn't
+in the library, the request is refused with `missing`:
+
+```json 422
+{
+  "error": {
+    "code": "invalid",
+    "message": "Upload assets/hero.jpg first, then send its SHA-256 in assets",
+    "detail": { "errors": [], "warnings": [], "missing": ["assets/hero.jpg"] }
+  }
+}
+```
+
+Upload each, then send the same request again:
+
+```bash
+# 1. A ticket to upload to storage directly
+curl -X POST https://assets.example.com/api/v1/uploads -H "Authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"filename": "hero.jpg", "mime": "image/jpeg", "size": 482113}'
+# 2. PUT the bytes to the uploadUrl it returned, with the same Content-Type
+# 3. File it
+curl -X POST https://assets.example.com/api/v1/assets -H "Authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"token": "<token>", "filename": "hero.jpg", "mime": "image/jpeg"}'
+```
+
+A font's type is read from its bytes when it is filed, whatever media type
+the upload gave. Files under `assets/` no file points at can be sent or left
+out.
+
+## Problems
+
+Files that don't check are refused with `422`, every problem at its file and
+line, and the files to upload:
+
+```json 422
+{
+  "error": {
+    "code": "invalid",
+    "message": "pages/color.yaml:6: sections[0].keys[0]: no rule \"color.nope\"; this brand has color.primary, color.ink (and 1 more)",
+    "detail": {
+      "errors": [
+        { "file": "pages/color.yaml", "line": 6, "message": "sections[0].keys[0]: no rule \"color.nope\"; this brand has color.primary, color.ink" },
+        { "file": "rules/color.yaml", "line": 3, "message": "color.ink.value: Use #rrggbb or #rrggbbaa" }
+      ],
+      "warnings": [],
+      "missing": []
+    }
+  }
+}
+```
+
+A check on the host (a GitHub check run, a GitLab code quality report) can
+put each at its line, under the folder's path. The messages are listed in
+[the brand folder](/guides/brand-as-code/format#problems).
+
+## Connecting from the app
+
+Set `GIT_CONNECT_URL` on the server to where your integration starts, with
+`{brand}` for the brand's slug: `https://git.example.com/connect?brand={brand}`.
+New brand, a new brand's setup and the builder link there for workspace
+admins, with `{brand}` empty when the brand is to come from a repository.
+When it is done, send the person back to the brand's Overview,
+`{APP_URL}/brands/{slug}?git=connected`, which says when the first sync has
+landed.
+
+## A minimal integration
+
+Import on every push to the main branch, from a CI job or a webhook handler.
+It assumes the brand's source is set (`PUT .../source`, once).
+
+```js sync.mjs
+// node sync.mjs brand acme: import the folder at HEAD, uploading new files first.
+import { createHash } from "node:crypto";
+import { execSync } from "node:child_process";
+import { readdir, readFile } from "node:fs/promises";
+import { basename, join, relative, sep } from "node:path";
+
+const [dir = "brand", slug] = process.argv.slice(2);
+const { ARTBUCKET_URL: url, ARTBUCKET_KEY: key } = process.env;
+const MIME = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", pdf: "application/pdf", woff2: "font/woff2", ttf: "font/ttf", otf: "font/otf" };
+
+const call = async (method, path, body) => {
+  const r = await fetch(`${url}/api/v1${path}`, {
+    method,
+    headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+    body: body && JSON.stringify(body),
+  });
+  return { status: r.status, json: await r.json() };
+};
+
+const paths = (await readdir(dir, { recursive: true, withFileTypes: true }))
+  .filter((e) => e.isFile())
+  .map((e) => relative(dir, join(e.parentPath, e.name)).split(sep).join("/"));
+
+const files = {};
+const assets = {};
+for (const p of paths) {
+  const bytes = await readFile(join(dir, p));
+  if (p.startsWith("assets/")) assets[p] = createHash("sha256").update(bytes).digest("hex");
+  else if (/^(brand\.ya?ml|(rules|pages)\/[^/]+\.ya?ml)$/.test(p)) files[p] = bytes.toString("utf8");
+}
+const body = { files, assets, commit: execSync("git rev-parse HEAD").toString().trim(), message: execSync("git log -1 --format=%B").toString() };
+
+let r = await call("POST", `/brands/${slug}/files/import`, body);
+if (r.status === 422 && !r.json.error.detail.errors.length) {
+  for (const p of r.json.error.detail.missing) {
+    const bytes = await readFile(join(dir, p));
+    const mime = MIME[p.split(".").pop().toLowerCase()] ?? "application/octet-stream";
+    const ticket = (await call("POST", "/uploads", { filename: basename(p), mime, size: bytes.length })).json;
+    await fetch(ticket.uploadUrl, { method: "PUT", headers: { "content-type": mime }, body: bytes });
+    await call("POST", "/assets", { token: ticket.token, filename: basename(p), mime });
+  }
+  r = await call("POST", `/brands/${slug}/files/import`, body);
+}
+if (r.status !== 200) {
+  for (const e of r.json.error.detail?.errors ?? [r.json.error]) console.error(`${e.file ?? ""}${e.line ? `:${e.line}` : ""} ${e.message}`);
+  process.exit(1);
+}
+console.log(r.json.data.applied ? `version ${r.json.data.version}` : "nothing changed");
+if (r.json.data.pending) console.log("The brand holds changes the repository lacks: export them back.");
+```
+
+The rest of a full integration is the other direction (export when the
+source is `pending`, commit, `PUT .../source` with `synced`) and previews on
+pull requests, each one call as above.

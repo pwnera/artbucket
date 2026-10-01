@@ -8,8 +8,8 @@ Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
 it points at.
 
 ```bash
-pnpm artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
-pnpm artbucket rules set color.primary '#5bc27a' --type color --context dark-background
+artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
+artbucket rules set color.primary '#5bc27a' --type color --context dark-background
 curl 'https://assets.example.com/api/v1/brand/rules?context=dark-background'
 ```
 
@@ -83,10 +83,10 @@ import tags). A section shows rules by key and never copies a value, so change
 `color.primary` and every page that shows it follows.
 
 ```bash
-pnpm artbucket templates                  # what each template shows and binds
-pnpm artbucket pages generate             # a first layout from the rules
-pnpm artbucket page save color color.json # make or replace a page whole
-pnpm artbucket page color                 # a page as Markdown
+artbucket templates                  # what each template shows and binds
+artbucket pages generate             # a first layout from the rules
+artbucket page save color color.json # make or replace a page whole
+artbucket page color                 # a page as Markdown
 ```
 
 A page reads as a chapter of the book (`layout: book`, the default: the nav
@@ -105,7 +105,7 @@ the brand as it stands the version [portals](/guides/portals) show, until the
 next publish:
 
 ```bash
-pnpm artbucket publish --note "A warmer primary, and a page on motion"
+artbucket publish --note "A warmer primary, and a page on motion"
 curl -X POST https://assets.example.com/api/v1/brands/default/publish \
   -H 'Content-Type: application/json' -d '{"note": "A warmer primary"}'
 ```
@@ -134,6 +134,8 @@ applied once the release lands.
 with `@font-face`; `format=json` is W3C design tokens; `format=designmd` is a
 [DESIGN.md](https://github.com/google-labs-code/design.md) for coding agents,
 the tokens with the brand's guidance as prose, to keep at a repository's root.
+[Standards](/guides/brand-as-code/standards) has every format and how rules
+become each.
 
 ## Brands and history
 

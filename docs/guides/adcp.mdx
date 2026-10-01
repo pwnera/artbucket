@@ -1,6 +1,6 @@
 ---
-title: AdCP brand.json
-description: Make a brand from the file agents read at a domain.
+title: A brand from a domain
+description: Make a brand from the AdCP brand.json agents read at a domain, and point your domain at BrandHub.
 ---
 
 The [Ad Context Protocol](https://docs.adcontextprotocol.org/docs/brand-protocol/brand-json)
@@ -36,32 +36,13 @@ to the domain's exact `www` twin and back. An Authoritative Location Redirect
 is followed once, exactly, and a House Portfolio's `brand_refs` are read at
 their own domains, ten at most.
 
-What becomes what, the export's mapping run backwards:
-
-| brand.json | Rule |
-|---|---|
-| `description`, `tagline`, `industries`, `target_audience` | `brand.description`, `brand.tagline`, `brand.industries`, `brand.audience` |
-| `colors.{role}` | `color.{role}` (an array: `color.{role}`, `color.{role}2`...) |
-| `visual_guidelines.colorways` | the ground color's `spec.pair` |
-| `fonts.{role}`, its files | `type.{role}`, its files ingested |
-| `visual_guidelines.type_scale` | the face's size, weight and `spec` (role, line height, tracking, case) |
-| `logos` | `logo.primary`, `logo.mark`, `logo.wordmark`, `logo.lockup`, `logo.secondary` by variant, `dark-bg` ones in the `dark-background` context, each image ingested |
-| `logo_placement.min_height`, `min_clear_space` | `logo.minSize`, `logo.clearSpace` |
-| `restrictions` | `logo.never` |
-| `tone.voice`, `attributes`, `dos`, `donts` | `tone.voice`, `tone.attributes`, `tone.always`, `tone.avoid` |
-| `spacing.scale` | `space.scale` |
-| `assets` (images) | `imagery.library`, each image ingested |
-| `disclaimers` | `legal.disclaimer` |
-
-Localized fields (AdCP 3.2's `default_language`, `tone.*`, an asset's `name`
-and `description`) are read in English, else in the document's
-`default_language`, else as their plain value; never whichever translation
-comes first. A localized list is taken whole. Names, which have no plain
-value, fall back to the first when none is in either language. What has no
-place in the rules (`keller_type`, `properties`, `trademarks`, `photography`,
-`motion`...) is left out and listed in the answer's `dropped`; a logo or font
-file that won't fetch is left out and listed in `skipped`, rather than
-refusing the brand.
+What becomes what is the export's mapping run backwards: colors, faces and
+their files, logos by variant, voice, spacing, imagery and disclaimers become
+rules, and each logo, font file and image is ingested into the library. What
+has no place in the rules is left out and listed in the answer's `dropped`; a
+file that won't fetch is listed in `skipped`, rather than refusing the brand.
+[AdCP brand.json](/guides/brand-as-code/brand-json#the-import) has the table,
+field by field.
 
 ## A brand's domain
 
@@ -81,18 +62,10 @@ Whoever proves a listing's domain can claim it: see
 
 ## Your domain points at BrandHub
 
-A public brand's `brand.json` on BrandHub is a Brand Canonical Document. To
-have agents that read your domain find it, the Sharing tab gives the one file
-to host at `https://{domain}/.well-known/brand.json`, an Authoritative Location
-Redirect:
-
-```json
-{"$schema":"https://adcontextprotocol.org/schemas/v3/brand.json","authoritative_location":"https://hub.example.com/acme/acme/brand.json"}
-```
-
-A domain the organization verified, serving this app or one of its portals,
-answers `/.well-known/brand.json` itself: with that redirect to its brand on
-BrandHub (on a portal's domain, a brand the portal shows), the one whose domain
-the host proves, else its only public brand, else its default one; with
-several public brands and none of those, a House Portfolio of them all, inline.
-Any other host answers `404`.
+Every public brand's `brand.json` on BrandHub is a Brand Canonical Document.
+For agents that read your domain to find it, host the one-line Authoritative
+Location Redirect the Sharing tab gives at
+`https://{domain}/.well-known/brand.json`. A verified domain that serves
+Artbucket (the app or a portal) answers that address itself. [Your domain](/guides/brand-as-code/brand-json#your-domain)
+says what it answers, and [the export](/guides/brand-as-code/brand-json#the-export)
+what the document holds.

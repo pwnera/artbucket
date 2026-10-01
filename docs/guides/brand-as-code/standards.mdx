@@ -1,0 +1,181 @@
+---
+title: Standards
+description: The open formats a brand is served in, and how its rules become each of them.
+---
+
+A brand's rules are its source. Everything else is drawn from them, in
+formats other tools already read, so nobody has to copy a hex code by hand:
+
+| Format | For | Where |
+|---|---|---|
+| [AdCP brand.json](/guides/brand-as-code/brand-json) | Ad tech and agents that look a brand up by its domain | BrandHub, `/{org}/{brand}/brand.json`; a verified domain's `/.well-known/brand.json`. Read too, to start a brand |
+| [W3C design tokens](#w3c-design-tokens) (DTCG) | Style Dictionary, Tokens Studio, Figma importers | `?format=json` |
+| [Stylesheets and themes](#token-formats) | CSS, Sass, Less, Tailwind, TypeScript, shadcn/ui, Material UI, Chakra UI | `?format=css`, and the others |
+| [DESIGN.md](#designmd) | Coding agents | `?format=designmd` |
+| [llms.txt](#llmstxt) | Any agent that reads the web | BrandHub, `/{org}/{brand}/llms.txt` and `/llms.txt` |
+| [rules.json](#rulesjson) | Anything that wants every rule, losslessly | BrandHub, `/{org}/{brand}/rules.json` |
+| [MCP](#mcp) | Agents that ask questions, in chat apps and editors | `/api/v1/mcp` |
+| [The brand folder](/guides/brand-as-code/format) | Git, review, scripts | The sync API and the CLI |
+
+## Where tokens come from
+
+The same formats come from two places:
+
+| | Reads | Who |
+|---|---|---|
+| `GET /api/v1/brand/tokens?format=css&brand=acme` | The brand as it stands now, draft included | Anyone who can read the workspace, with a key or signed in |
+| `https://{hub}/{org}/{brand}/tokens?format=css` | The latest release, or `@{n}` for one: `/{org}/{brand}@4/tokens` | Anyone, for a public brand on [BrandHub](/guides/portals#brandhub) |
+
+Both take `context`: `?context=dark-background` gives each rule's version for
+that context and the default of the rest. Without it, every rule's default.
+In the app, the brand's **Tokens and rules** tab shows every format, and
+**Use this brand** copies their addresses.
+
+On BrandHub, file URLs inside an answer (font files, logos) are signed for a
+day, and the answer itself may be cached for an hour: fetch it again rather
+than keeping its URLs.
+
+## W3C design tokens
+
+`format=json` is the [Design Tokens Format](https://www.designtokens.org/)
+(DTCG 2025.10). Each rule's dotted key is its path: `color.primary` is
+`{ "color": { "primary": { ... } } }`.
+
+| Rule | Token |
+|---|---|
+| color | `$type: color`, `$value` in sRGB: `components` from 0 to 1, `alpha` when below 1, and `hex` |
+| color with `spec.gradient` | The color as above, and `{key}Gradient` beside it: `$type: gradient`, stops by reference (`{color.primary}`) or by value, positions from 0 to 1; kind, angle and the CSS in `$extensions["com.artbucket"]` |
+| number | `$type: number` |
+| type scale (a list of numbers) | Steps `1`, `2`, ... each `$type: dimension` in px |
+| font | A group: `fontFamily`, `fontSize` (px) and `fontWeight` when set; the files in `$extensions["com.artbucket"].files`, each with its URL, weight, style and media type |
+| a rule carrying a font's file | `fontFamily` (and `fontWeight`) as references to that font: a heading style set in the brand's face |
+| text, and lists that aren't a scale | Left out: they are guidance, not values |
+
+A rule's `usage` becomes its `$description`.
+
+```json
+{
+  "color": {
+    "primary": {
+      "$type": "color",
+      "$value": { "colorSpace": "srgb", "components": [0.1216, 0.4353, 0.9216], "hex": "#1f6feb" },
+      "$description": "Buttons, links and the mark's tile."
+    }
+  },
+  "type": {
+    "heading": {
+      "fontFamily": { "$type": "fontFamily", "$value": "Inter" },
+      "fontSize": { "$type": "dimension", "$value": { "value": 40, "unit": "px" } },
+      "fontWeight": { "$type": "fontWeight", "$value": 700 },
+      "$extensions": {
+        "com.artbucket": {
+          "files": [{ "url": "https://app.example.com/a/6f1c...", "weight": 700, "style": "normal", "mime": "font/woff2" }]
+        }
+      }
+    }
+  }
+}
+```
+
+A key that is both a token and the start of another key (`color.primary` and
+`color.primary.dark`) nests the second inside the first, which DTCG readers
+refuse: name one of them otherwise (`color.primaryDark`).
+
+## Token formats
+
+| `format` | File | |
+|---|---|---|
+| `css` | `{brand}.tokens.css` | Custom properties on `:root`, with `@font-face` for every font file |
+| `scss` | `_{brand}-tokens.scss` | Sass variables and `@font-face` |
+| `less` | `{brand}.tokens.less` | Less variables and `@font-face` |
+| `tailwind` | `{brand}.theme.css` | A Tailwind CSS 4 `@theme`: utilities like `bg-primary` and `font-headings` |
+| `tailwind3` | `tailwind.{brand}.js` | `theme.extend` for a Tailwind CSS 3 config |
+| `ts` | `{brand}.tokens.ts` | One typed object, for styled-components, Emotion, vanilla-extract, React Native |
+| `shadcn` | `{brand}.shadcn.css` | Colors named like shadcn/ui's take their place, with readable foregrounds |
+| `mui` | `{brand}.mui-theme.ts` | A Material UI `createTheme` with the palette and typography |
+| `chakra` | `{brand}.chakra-system.ts` | A Chakra UI 3 system over the defaults |
+| `json` | `{brand}.tokens.json` | [W3C design tokens](#w3c-design-tokens) |
+| `designmd` | `DESIGN.md` | [DESIGN.md](#designmd) |
+
+Names follow keys: `logo.minClearSpace` is `--logo-min-clear-space` in CSS.
+Colors, numbers, fonts (family, size, weight and their files) and type
+scales become tokens; a font's files are loaded from Artbucket by
+`@font-face`, with each file's weight and style read from its name
+(`Inter-BoldItalic.woff2`). A number is written as it is, without its
+`spec.unit`.
+
+```css
+:root {
+  /* Buttons, links and the mark's tile. */
+  --color-primary: #1f6feb;
+  --type-heading-font-family: "Inter";
+  --type-heading-font-size: 40px;
+  --type-heading-font-weight: 700;
+  --type-scale-1: 12px;
+  --logo-min-size: 24;
+}
+```
+
+## DESIGN.md
+
+`format=designmd` is a [DESIGN.md](https://github.com/google-labs-code/design.md)
+(Google Labs, version alpha), to keep at a repository's root for coding
+agents. It is the one format that carries guidance as well as values:
+
+- **Front matter:** `colors` by their local name (`color.primary` is
+  `primary`; when no color is named primary, `primary` refers to the first),
+  `typography` per face (family, size, weight), `rounded` for number rules
+  named like a radius (in px), and `spacing` for ones named like a gap,
+  margin or padding.
+- **Prose:** Overview (text and lists of any other group), Colors,
+  Typography, Layout, Shapes, and Do's and Don'ts, from lists whose key reads
+  as a do or a don't.
+
+## llms.txt
+
+Every public brand on BrandHub has `/{org}/{brand}/llms.txt`: the brand in
+words for an agent, with who listed it and whether that is verified, links to
+its other files, its portal's terms, and every rule by context, each with its
+files. BrandHub's own `/llms.txt` says how an agent finds a brand there, and
+lists them.
+
+A domain's own `/llms.txt` is the first place the public
+[Brand Agent Score](/guides/portals#a-public-brand-agent-score) looks: link
+your brand.json, your tokens and your MCP server from it.
+
+## rules.json
+
+`/{org}/{brand}/rules.json` is the listing as data, lossless: the release,
+who listed it, its versions, its portal and terms, and every rule with its
+key, label, context, type, value, spec, usage and files, signed for a day.
+
+```json
+{
+  "data": {
+    "org": "acme",
+    "brand": "acme",
+    "name": "Acme",
+    "version": 4,
+    "url": "https://hub.example.com/acme/acme",
+    "rules": [
+      { "key": "color.primary", "label": "Acme blue", "context": null, "type": "color", "value": "#1f6feb", "spec": { "pair": "color.background" }, "usage": "Buttons, links and the mark's tile.", "assets": [] }
+    ]
+  }
+}
+```
+
+## MCP
+
+`/api/v1/mcp` serves the same brand to agents that connect: `brand_rules`
+for a context, `get_theme`, `list_pages` and `get_page`, and the rules and
+pages as resources (`artbucket://brands/{slug}/rules/{context}`). See
+[MCP](/developers/mcp).
+
+## How BrandHub files are served
+
+- Public brands only, from the latest release, or the one `@{n}` names.
+- Keyless, with `Access-Control-Allow-Origin: *`, cached up to an hour.
+- A community listing (its organization proved neither a domain nor a
+  GitHub account) answers with `X-Robots-Tag: noindex`.
+- Each read but the badge's is a pull, counted in
+  [Insights](/guides/insights).

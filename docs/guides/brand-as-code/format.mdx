@@ -1,0 +1,739 @@
+---
+title: The brand folder
+description: Every file and every key of a brand kept as files, with a complete example.
+---
+
+A brand folder holds one brand. Its files are YAML, read by the same checks
+the API runs on a write, so anything the API refuses, the files refuse too,
+at their line.
+
+```
+brand/
+  brand.yaml            the brand: slug, name, theme, the order of rules/, the page tree
+  rules/{group}.yaml    rules, one file per group: rules/color.yaml holds color.*
+  pages/{slug}.yaml     one file per page: pages/logo.yaml is the page logo
+  assets/...            files the rules and pages point at, by path
+```
+
+- `brand.yaml` is the only file that must be there.
+- Only files directly in `rules/` and `pages/` are read, not in folders under
+  them. Anything else in the folder (a README, a `.gitignore`) is left alone.
+- `.yml` is read like `.yaml`, but a name may be there once:
+  `rules/color.yaml` beside `rules/color.yml` is an error. Artbucket writes
+  new files as `.yaml`; the CLI's pull keeps a `.yml` file's name.
+- `assets/` may have folders of its own (`assets/logos/mark.svg`).
+- A request carries at most 500 files, each at most 2 MB.
+
+## brand.yaml
+
+```yaml brand.yaml
+# An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+slug: acme
+name: Acme
+theme:
+  accent: color.primary
+  head: type.heading
+  body: type.body
+  radius: 6
+rules: [brand, color, type, logo, tone]
+pages:
+  - overview
+  - identity:
+      - color
+      - logo
+  - voice
+```
+
+| Key | | |
+|---|---|---|
+| `slug` | optional | The brand these files are for: lowercase letters, digits and dashes. Files whose slug names another brand are refused, so a folder pushed to the wrong brand never lands. Artbucket writes it on every export |
+| `name` | required | The brand's name, 1 to 120 characters |
+| `theme` | optional | How the brand's pages look: [the theme](#the-theme) |
+| `rules` | optional | The files of `rules/` in order, by name: `[color, type, logo]`. Rules show in this order everywhere |
+| `pages` | optional | The page tree: [pages](#the-page-tree) |
+
+Any other key is an error. The comment line on top is what Artbucket writes;
+it is a comment like any other, yours to keep or change.
+
+### The order of rules
+
+`rules` lists each file of `rules/` once, by its name without `.yaml`. A
+name with no file is an error; a file it leaves out is read after the listed
+ones, in alphabetical order, with a warning. Without `rules`, the files are
+read in alphabetical order. Within a file, rules keep the order they are
+written in.
+
+### The page tree
+
+`pages` is the navigation, in reading order. Each entry is a page's slug, or
+a page with pages under it as a map of one key:
+
+```yaml
+pages:
+  - overview
+  - identity:          # identity, with three pages under it
+      - color
+      - logo:
+          - logo-use   # a third level, the deepest a tree goes
+      - type
+  - voice
+```
+
+- Every slug names a file in `pages/`, and is in the tree once.
+- Three levels at most.
+- A page file the tree leaves out comes last, at the top level, with a
+  warning. Without `pages`, every page sits at the top, in alphabetical order.
+- Where a page sits is the tree's alone: a page file can't say `parent` or
+  `position`.
+
+### The theme
+
+Which rules play which part, and the measure and chrome of every page. Each
+part names a rule by key; anything left out is read from the rules (an
+accent from `color.primary`, faces from the font rules' roles and names).
+
+| Key | Value | |
+|---|---|---|
+| `accent` | color rule | Links, marks and brand grounds. `color.primary`, `color.brand` or `color.accent` when left out |
+| `accentUse` | `fill`, `hairline` | `hairline`: the accent draws rules and marks, never fills |
+| `surface` | color rule | The page ground. `color.background`, `surface` or `paper` when left out, else the app's |
+| `panel` | color rule | Panels and alternate sections; a step off the surface when left out |
+| `dark` | color rule | The dark ground |
+| `ink` | color rule | Text. `color.ink`, `text` or `foreground` when left out, else black or white by contrast |
+| `muted` | color rule | Quiet text; mixed from ink and surface when left out |
+| `head` | font rule | Headings |
+| `body` | font rule | Text |
+| `label` | font rule | Eyebrows, labels and running heads; its `spec.case` and `spec.tracking` set them |
+| `logo` | rule with a file | The site's mark. `logo.primary`, `logo.mark` or `logo.wordmark` when left out |
+| `device` | asset | An SVG: the brand's symbol or pattern for covers, dividers and pattern grounds |
+| `radius` | 0 to 40 | Corner radius, in px |
+| `width` | `narrow`, `normal`, `wide` | The reading measure |
+| `density` | `compact`, `normal`, `airy` | Space between things |
+| `scale` | 1.067 to 1.618 | Heading size ratio; 1.25 when left out |
+| `nav` | `sidebar`, `top`, `overlay` | Where the navigation sits |
+| `header` | `plain`, `band`, `split` | A page's opening: on the page, on a band of the brand color, or beside its cover |
+| `band` | boolean | Every page opens on a band of the brand color (`header: band` says the same) |
+| `separation` | `space`, `hairline` | Between two sections on the page's own ground |
+| `numbering` | boolean | Number chapters and pages: 01, 01.2 |
+| `motion` | `none`, `subtle` | `subtle`: sections reveal as they scroll in, never with reduced motion |
+| `toc` | `side`, `inline`, `none` | On this page: a side column, a list under the page header, or hidden |
+| `titles` | `medium`, `large`, `huge` | Section titles as headings or headlines; a section's own `size` wins |
+| `grounds` | `plain`, `alternate` | `alternate`: every other plain section sits on the panel |
+| `languages` | list | The languages readers pick from, `{ code, label, dir? }`, up to 12; the first is the one the pages are written in |
+
+A part naming a rule that isn't there, or isn't the kind it needs (a color
+rule for `accent`, a font rule for `head`, a rule with a file for `logo`), is
+an error. Colors that read badly together (text with too little contrast on
+its ground) are a warning, with the ratio found and the one needed.
+
+## Rule files
+
+A rule file is a map of rules by key. The file's name is the group: the
+first segment of each key it holds, so `color.primary` belongs in
+`rules/color.yaml`.
+
+```yaml rules/color.yaml
+color.primary:
+  type: color
+  label: Acme blue
+  value: "#1f6feb"
+  usage: Buttons, links and the mark's tile.
+  spec:
+    pair: color.background
+    cmyk: [89, 55, 0, 8]
+    pantone: [2387 C]
+  contexts:
+    dark-background:
+      value: "#58a6ff"
+```
+
+A rule in another group's file is read, with a warning, and the next export
+moves it where it belongs. Each key, and each key in each context, is in one
+file only.
+
+| Field | | |
+|---|---|---|
+| key | required | Dotted camelCase, up to 120 characters: `color.primary`, `logo.minClearSpace` |
+| `type` | required | `color`, `text`, `number`, `list` or `font`. It never changes: a new type is a new rule |
+| `value` | required | The value, in the shape its type takes (below) |
+| `label` | optional | The heading readers see, up to 120 characters; the key in words ("Min clear space") when left out |
+| `usage` | optional | How and when to use it, in Markdown, up to 10,000 characters |
+| `spec` | optional | What the value can't say: [specs](#specs), by type |
+| `assets` | optional | The files it points at, in order: [assets](#assets) |
+| `contexts` | optional | Versions of the rule for a context: [contexts](#contexts) |
+
+Any other field is an error.
+
+### Values
+
+| Type | Value | Example |
+|---|---|---|
+| `color` | `#rrggbb` or `#rrggbbaa`, quoted in YAML (`#` starts a comment); kept lowercase | `"#1f6feb"` |
+| `text` | Markdown, 1 to 20,000 characters | `Plain and warm.` |
+| `number` | A number | `24` |
+| `list` | 1 to 100 entries, each a string (up to 500 characters) or a number | `[Jargon, Exclamation marks]` |
+| `font` | A family, or `{ family, size?, weight? }`: size in px, weight 1 to 1000 | `{ family: Inter, weight: 700 }` |
+
+A font's files are its assets, so readers see the face without installing
+it, and design tokens carry them as `@font-face`.
+
+How a list reads follows its key's last segment: `never`, `neverDo`,
+`dont`, `avoid` and the like are don'ts; `always`, `do`, `prefer` are do's;
+a list of numbers under `type.` (or named `scale` or `sizes`) is a type
+scale. Anything else is a plain list.
+
+### Specs
+
+| Type | Spec fields |
+|---|---|
+| `color` | `token` (a scale name: Pink-500), `group` (Primary, Neutrals: palettes group by it), `weight` (0 to 100, its share of the brand's color), `pair` (the color rule set on it: text on this ground), `tints` (up to 12 steps in percent: `[80, 60, 40, 20]`), `cmyk` (`[c, m, y, k]`), `pantone` (up to 4 codes), `ral`, `rgb` (`[r, g, b]`, when the book states it), `print` (`specified` or `converted`), `texture` (an image laid over the swatch), `gradient` |
+| `number` | `unit` (`px`, `pt`, `mm`, `cm`, `in`, `%`, `em`, `rem`, `x`, `ms`), `of` (what `x` or `%` is of: the mark's height) |
+| `font` | `role` (`display`, `headline`, `subhead`, `body`, `label`, `button`, `caption`, `code`), `lineHeight` (0.5 to 3), `tracking` (in em, or `[size, em]` pairs), `case` (`none`, `upper`, `lower`, `title`, `small-caps`), `script` (ISO 15924: `Latn`), `features` (OpenType: `[ss01, tnum]`), `source` (`files`, `google`, `adobe`, `system`, `other`), `url` (where it comes from, http or https), `license`, `fallback` (a CSS stack), `download` (`false` hides the download buttons, not the files) |
+| `text` | `copy` (`true`: a copy button, to paste as it is), `max` (the most characters it may take where it goes) |
+| `list` | none: a spec on a list is an error |
+
+A gradient makes the color a gradient, its `value` the solid for where a
+gradient can't go:
+
+```yaml
+color.sunrise:
+  type: color
+  value: "#ff7a45"
+  spec:
+    gradient:
+      kind: linear          # linear, radial or conic
+      angle: 135
+      stops:                # 2 to 8; a color rule's key or a hex
+        - { color: color.primary, at: 0 }
+        - { color: "#ffd166", at: 100, opacity: 0.8 }
+```
+
+`pair` and the stops name color rules of this brand; any other key is an
+error.
+
+### Assets
+
+A rule points at up to 24 files, each once. Each is a path under `assets/`
+in the folder, an asset's id in the library, or either with a rendition:
+
+```yaml
+logo.mark:
+  type: text
+  value: The mark alone, for small spaces and avatars.
+  assets:
+    - assets/mark.svg
+    - id: assets/mark-white.svg
+      rendition: w_512,f_png      # agents get exactly this rendition's URL
+```
+
+### Contexts
+
+A context version holds the rule as it is in one context: `dark-background`,
+`instagram-story`, `print`, a language. It takes `type`, `label`, `value`,
+`usage`, `spec` and `assets`, and keeps the rule's type unless it says
+another. Asking for a context gets each rule's version there, and the default
+of the rest.
+
+```yaml
+logo.primary:
+  type: text
+  value: The wordmark beside the mark.
+  assets: [assets/logo.svg]
+  contexts:
+    dark-background:
+      value: The logo in white, for dark grounds.
+      assets: [assets/logo-white.svg]
+```
+
+A rule may have only context versions: then it takes `type` and `contexts`,
+and nothing else.
+
+### Keys Artbucket reads
+
+Any key works. These are the ones the pages, the theme, the
+[Brand Agent Score](/guides/canon#brand-pages) and the
+[exports](/guides/brand-as-code/standards) look for by name:
+
+| Key | Type | Read by |
+|---|---|---|
+| `color.primary`, `color.secondary`, `color.accent` | color | The theme's accent; brand.json `colors` |
+| `color.background`, `color.paper`, `color.white` | color | The page ground; brand.json `colors.background` |
+| `color.ink`, `color.text`, `color.black` | color | Text; brand.json `colors.text` |
+| `type.heading`, `type.body` | font | Faces of the pages; brand.json `fonts.primary`, `fonts.secondary` |
+| `type.scale` | list of numbers | A type specimen; tokens |
+| `logo.primary`, `logo.mark`, `logo.wordmark`, `logo.lockup` | any, with files | The site's mark, covers, brand.json `logos` by variant |
+| `logo.clearSpace`, `logo.minSize` | number | Diagrams; brand.json `logo_placement` |
+| `logo.never`, `color.never`, `type.never`, `imagery.never` | list | Don'ts; brand.json `restrictions` |
+| `tone.voice` | text | The voice; brand.json `tone.voice` |
+| `tone.attributes`, `tone.always`, `tone.avoid` | list | brand.json `tone.attributes`, `dos`, `donts` |
+| `space.scale` | list | Spacing tokens; brand.json `spacing` |
+| `imagery.*` | any, with files | brand.json `assets` |
+| `brand.tagline`, `brand.description`, `brand.industries` | text, text, list | brand.json identity |
+| `legal.disclaimer` | text | brand.json `disclaimers` |
+
+[brand.json](/guides/brand-as-code/brand-json) lists every key it reads,
+with the alternatives it accepts.
+
+## Page files
+
+A page file is one page: its name is the page's slug (lowercase words joined
+by `-`, up to 60 characters), and it sits where `brand.yaml`'s tree puts it.
+
+```yaml pages/logo.yaml
+title: Logo
+lede: One mark, and how to give it room.
+sections:
+  - template: logos
+    title: Two versions, every ground
+    keys: [logo.primary, logo.mark, color.primary]
+  - template: diagram
+    title: Room on every side
+    keys: [logo.mark, logo.clearSpace]
+  - template: dodont
+    title: Keep it as drawn
+    keys: [logo.never]
+    items:
+      - asset: assets/logo-stretched.png
+        verdict: dont
+        caption: Never stretch it.
+```
+
+| Field | | |
+|---|---|---|
+| `title` | required | 1 to 120 characters |
+| `eyebrow` | | Above the title, up to 120 characters |
+| `lede` | | Under the title, set large, up to 1,000 characters |
+| `cover` | asset | Its header and card image |
+| `icon` | | One of `folder`, `photo`, `palette`, `brush`, `camera`, `movie`, `music`, `star`, `heart`, `flag`, `bookmark`, `briefcase`, `building-store`, `speakerphone`, `rocket`, `sparkles`, `leaf`, `world`, `users`, `archive` |
+| `layout` | | `book` (the default: a chapter, with the nav beside it, on-this-page and a pager) or `landing` (a front, with none of those) |
+| `tabs` | | `true`: its child pages show as tabs across its top |
+| `audience` | | On portals, who may read it: `everyone` (the default), `partners` or `members` ([who reads what](/guides/portals#who-reads-what)) |
+| `hidden` | | `true`: kept, never shown to readers, with every page under it |
+| `aliases` | | Old slugs of the page, which keep leading to it |
+| `translations` | | Its `title`, `eyebrow` and `lede` by language tag: `{ ar: { title: ... } }` |
+| `sections` | | Top to bottom, up to 60 |
+
+`slug`, `parent` and `position` are errors: the file's name is its slug, and
+the tree places it.
+
+### Sections
+
+Every section has a `template`, and takes the same fields whatever its
+template:
+
+| Field | | |
+|---|---|---|
+| `template` | required | What the section is: [templates](#templates) |
+| `id` | | Letters, digits, `-` and `_`, up to 40; unique on the page. Links (`/logo#clearspace`) and review comments find a section by it |
+| `eyebrow`, `title`, `lede` | | Words above, as the title (up to 300), and under it |
+| `body` | | Markdown under the title, up to 20,000 characters |
+| `aside` | | Markdown in a ruled column beside the body |
+| `keys` | | The rules it shows, by key, in order, each once, up to 100. A section shows rules, never copies their values |
+| `items` | | What the template lists, up to 60: [items](#items) |
+| `props` | | The template's own settings: [templates](#templates). A setting it doesn't take is an error |
+| `tone` | | Its ground: `plain`, `tint`, `brand`, `panel`, `dark`, `color` and `image` (set in `background`), or `pattern` (the theme's device) |
+| `background` | | For `tone: color`, `color` (a color rule) and `to` (one to fade into, at `angle`); for `tone: image`, `image` (an asset) and `scrim` (0 to 0.9) |
+| `width` | | `text` (a reading column), `wide` or `full` |
+| `columns` | | 1 to 4 |
+| `size` | | Title size: `medium`, `large` or `huge` |
+| `space` | | Room above it: `tight` or `loose` |
+| `tab` | | Sections that share a tab name show under one tab |
+| `audience` | | As a page's, for this section alone |
+| `contexts` | | A tab per context, 2 to 8: `[default, dark-background]` |
+| `only` | | Shown only in this context |
+| `hidden` | | Kept, but not shown to readers |
+| `translations` | | Its words by language tag: `title`, `eyebrow`, `lede`, `body`, `aside`, and `items` lined up by position (`title`, `text`, `caption`, or `null` to keep one as written) |
+
+Links in Markdown and items go to `https://`, `mailto:`, or inside the brand:
+`/page`, `/page#section`, `#section`.
+
+### Items
+
+What a template lists, where it lists things. Which fields each needs is in
+the [templates](#templates) table.
+
+| Field | |
+|---|---|
+| `key` | A rule it shows |
+| `asset` | An image, video or file |
+| `title` | Up to 200 characters |
+| `text` | Markdown, up to 4,000 characters |
+| `verdict` | `do` or `dont` |
+| `caption` | Up to 500; the asset's description when left out |
+| `link` | `https://`, `mailto:`, `/page` or `#section` |
+| `label` | A small tag, up to 40: Figma, PDF, Partners only |
+| `icon` | One of the page icons |
+| `download` | `false`: never offered as a download |
+| `span` | `gallery` in bento: `2` takes two cells |
+| `at` | `annotated`: `[x, y]`, percent from the top left |
+| `level` | `cards` as a tree: 0 to 2 |
+
+### Templates
+
+Defaults are the width, columns and tone a section has when it sets none.
+
+| Template | What it shows | `keys` bind | `items` | `props` | Defaults |
+|---|---|---|---|---|---|
+| `cover` | The opening: the name big on its color, a line under it, the palette as a strip | none | none | `image`, `video`, `align` (start, center, end), `height` (auto, tall, screen), `strip`, `mark` (home, always, never), `markFrame` (tile, bare), `markSize`, `titleSize` | full, 1, brand |
+| `header` | A band opening a part of a long page | none | none | `image` | full, 1, tint |
+| `text` | Prose, and rules read as statements | text, number, list | none | none | text, 1, plain |
+| `statement` | One line at headline size | a text rule | none | `align` (start, center) | wide, 1, brand, size huge |
+| `quote` | A pull quote | a text rule | none | `by`, `image` | text, 1, panel |
+| `split` | Words beside an image | rules with files | none | `image`, `flip`, `ratio` (even, words, picture), `align`, `fit` (auto, fill, whole) | wide, 1, plain |
+| `cards` | A card per point | text, list | `title` needed; `text`, `asset`, `icon`, `link`, `label`, `level` | `layout` (cards, list, stats, steps, checklist, tree) | wide, 3, plain |
+| `palette` | Swatches with their values and contrast | color | none | `show` (hex, rgb, hsl, cmyk, pantone, ral, token, css), `media` (screen, print), `matrix`, `ase`, `simulate` | wide, 3, plain |
+| `type` | Faces set in themselves, and the scale | font, a type scale | none | `sample`, `roles`, `glyphs`, `embed`, `formula` (`{ base, ratio, steps }`) | wide, 1, plain |
+| `logos` | Marks on light, dark and the colors it binds, to download | rules with files, color | a pair never to use: `asset` and `key` (a color) needed, `verdict: dont`, `caption` | `kit` (on unless false), `ask` (needs `contexts`), `size` (small, medium, large), `backdrop` (checker, light, dark) | wide, 2, plain |
+| `dodont` | Do's and don'ts side by side | lists | `verdict` needed; `asset`, `title`, `text`, `caption` | `layout` (pairs, grid, rows) | wide, 2, plain |
+| `gallery` | In-use examples | rules with files | `asset` needed; `caption`, `title`, `download`, `span` | `layout` (grid, bento, carousel, strip, collage, crops) | full, 3, plain |
+| `collection` | Live assets from the library | none | none | `collection` or `search` (ids), `query` (`q=poster&type=image`), `sort` (newest, oldest, name), `limit` (24 unless set, up to 200), `layout` (grid, masonry, list), `downloads` | full, 4, plain |
+| `icons` | The brand's icons, live, to find, copy and download | none | none | as `collection`, and `size`; everything tagged `icon` by name, 96 at most, when no source is set | wide, 1, plain |
+| `links` | Resources to open or download | rules with files | `title` or `asset`, and `link` or `asset`; `text`, `label` | `layout` (cards, list) | wide, 2, plain |
+| `pages` | Where to go next: child pages as cards | none | a page: `link` (`/slug`) needed; `title`, `text`, `asset` | `from` (whose children; this page unless set, never with items), `layout` (cards, list), `depth` (1 to 3) | wide, 3, plain |
+| `diagram` | A logo rule drawn over the mark | rules with files, number | `cobrand` only: a partner, `asset` needed, `title` | `kind` (clearspace unless set, minsize, placement, cobrand), `positions` (tl ... br), `partner`, `separator` (line, x, none) | wide, 1, plain |
+| `updates` | The latest releases and what each changed | none | none | `limit` (5 unless set, 20 at most) | text, 1, plain |
+| `annotated` | A picture with numbered hotspots | none | a hotspot: `at` needed; `title`, `text`, `key` | `image` | wide, 1, plain |
+| `specs` | Measurements in a table, a column per context | number, text | none | none | wide, 1, plain |
+| `specimen` | Tokens drawn: spacing, radii, shadows, motion, a grid | number, list, text | none | `kind` (spacing, radius, shadow, motion, grid) | wide, 1, plain |
+| `pattern` | The brand's pattern tiled on its colors | rules with files, color | none | `asset`, `scales` (up to 6 multiples) | wide, 3, plain |
+| `chart` | A sample chart in the brand's colors | color, in series order | none | `kind` (bar, line, donut) | wide, 1, plain |
+| `copy` | Words to paste, and a generator readers fill | text | none | `form` (up to 8 `{ name, label }`), `template` (with `{name}` slots from the form) | text, 1, plain |
+| `faq` | Questions and answers, or a glossary | none | `title` needed; `text` | `layout` (accordion, definitions) | text, 1, plain |
+| `embed` | A live frame from Figma, YouTube (youtube-nocookie.com), Vimeo, Loom or Google Docs; any other address as a link card | none | none | `url` (https, needed), `aspect` (16:9, 4:3, 1:1, auto) | wide, 1, plain |
+| `request` | Where portal readers ask the brand team | none | none | `kind` (asset, review, question), `prompt` | text, 1, panel |
+
+A template that binds none takes no `keys` and no `contexts`; one that lists
+nothing takes no `items`. `verdict` is for `dodont` (and `dont` in `logos`),
+`span` for `gallery`, `at` for `annotated`, `level` for `cards`.
+
+### Ids
+
+A section's id, when the file leaves it out, is its template's name, then
+`-2`, `-3` for the next of the same template on the page: the first `palette`
+is `palette`, the second `palette-2`. Artbucket leaves those out when it
+writes, and writes any other id. Give a section an `id` of its own when
+something links to it and it might move.
+
+## Assets
+
+Anywhere the API takes an asset's id, a file takes a path under `assets/`
+instead: a rule's `assets`, a color's `spec.texture`, the theme's `device`, a
+page's `cover`, a section's `props.image`, `props.video` and `props.asset`,
+`background.image`, and an item's `asset`. An asset id works too, for a file
+in the library that isn't in the repository.
+
+Paths are matched to the library by content: whoever sends the files sends
+each file's SHA-256 too, and Artbucket finds the asset holding those bytes.
+A file it doesn't have yet is named as missing, while the rest still checks:
+upload it, then send the files again ([the sync API](/guides/brand-as-code/sync-api#assets)).
+The CLI does both for you.
+
+Exporting writes an asset the repository holds as its path, and any other as
+its id. Asked to, an export also gives every asset a path under `assets/`,
+to bring them into the repository.
+
+## What a file leaves out
+
+Artbucket writes nothing that is at its default, and reads a missing field
+as its default:
+
+- A rule: no `label`, `usage`, `spec` or `assets` when there are none. A
+  context version leaves out `type` when it is the rule's.
+- A page: `audience: everyone`, `layout: book`, `tabs` and `hidden` when
+  false.
+- A section: its natural `id`, an empty `title` or `body`, the template's
+  width, columns and tone, `hidden: false`, and empty `keys`, `items` or
+  `props`.
+- `brand.yaml`: an empty theme, `rules` with no rule files, `pages` with no
+  pages.
+
+Short lists of words and numbers are written on one line
+(`keys: [color.primary, color.ink]`); the page tree stays a tree.
+
+## Comments and layout
+
+A file whose meaning didn't change is never rewritten. Comments, key order,
+quoting and flow style (`{ unit: px }` or a block) stay as you wrote them.
+Only a file that says something new is written again, and then in
+Artbucket's layout.
+
+## Problems
+
+Every problem comes back at its file and line, with the path to it in the
+file:
+
+```
+brand.yaml:2: slug: names the brand acme, not other
+brand.yaml:8: theme.head: no font rule color.primary
+brand.yaml:21: pages[3]: no file pages/ghost.yaml
+pages/color.yaml:5: sections[0].keys[2]: no rule "color.inky"; this brand has color.primary, color.background
+pages/extra.yaml:5: sections[0].items: a Color palette section takes no items
+pages/voice.yaml:1: parent: set by brand.yaml's pages tree, where the page sits
+rules/color.yaml:17: color.background.spec: names color.nope, which is not a color rule of this brand
+rules/color.yaml:21: color.ink.value: Use #rrggbb or #rrggbbaa
+rules/tone.yaml:15: tone.never.value: Too small: expected array to have >=1 items
+rules/tone.yaml:16: tone.never.spec: not a field here
+```
+
+**Errors** refuse the files: nothing is written. Beyond what each file
+says, they cover what files say together (a section binding a rule that
+isn't there, or of a kind its template can't show; a theme part naming the
+wrong rule), and what the library has (an asset id that isn't a live asset,
+a collection or saved search that isn't there).
+
+**Warnings** let the files through, and say what readers would trip on: a
+file not in `brand.yaml`'s lists, a rule in another group's file, a link to
+a page or section that isn't there or is hidden, units that mix in one
+section, colors with too little contrast, a page that opens with no picture,
+two grounds of a kind in a row.
+
+## A complete example
+
+A brand of eight rule files and six pages, with every part brand.json reads
+([what it exports](/guides/brand-as-code/brand-json#an-example)). It checks
+with no warnings.
+
+```
+acme/
+  brand.yaml
+  rules/brand.yaml  rules/color.yaml  rules/type.yaml  rules/logo.yaml
+  rules/tone.yaml   rules/space.yaml  rules/imagery.yaml  rules/legal.yaml
+  pages/overview.yaml  pages/identity.yaml  pages/color.yaml
+  pages/logo.yaml      pages/type.yaml      pages/voice.yaml
+  assets/logo.svg  assets/logo-white.svg  assets/mark.svg  assets/logo-stretched.png
+  assets/workshop.jpg  assets/inter-bold.woff2  assets/inter-regular.woff2
+```
+
+<CodeGroup>
+
+```yaml brand.yaml
+# An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
+slug: acme
+name: Acme
+theme:
+  accent: color.primary
+  surface: color.background
+  ink: color.ink
+  head: type.heading
+  body: type.body
+  logo: logo.primary
+  radius: 6
+  nav: sidebar
+rules: [brand, color, type, logo, tone, space, imagery, legal]
+pages:
+  - overview
+  - identity:
+      - color
+      - logo
+      - type
+  - voice
+```
+
+```yaml rules/brand.yaml
+brand.tagline:
+  type: text
+  value: Tools that last.
+  spec: { copy: true, max: 30 }
+brand.description:
+  type: text
+  value: Acme makes hand tools for people who fix things.
+brand.industries:
+  type: list
+  value: [tools, hardware]
+```
+
+```yaml rules/color.yaml
+color.primary:
+  type: color
+  label: Acme blue
+  value: "#1f6feb"
+  usage: Buttons, links and the mark's tile.
+  spec:
+    pair: color.background
+    cmyk: [89, 55, 0, 8]
+    pantone: [2387 C]
+  contexts:
+    dark-background:
+      value: "#58a6ff"
+color.background:
+  type: color
+  label: Paper
+  value: "#ffffff"
+  spec: { pair: color.ink }
+color.ink:
+  type: color
+  label: Ink
+  value: "#0d1117"
+```
+
+```yaml rules/type.yaml
+type.heading:
+  type: font
+  value: { family: Inter, size: 40, weight: 700 }
+  spec:
+    role: headline
+    lineHeight: 1.1
+    tracking: -0.02
+    fallback: Helvetica, Arial, sans-serif
+  assets: [assets/inter-bold.woff2]
+type.body:
+  type: font
+  value: { family: Inter, size: 16, weight: 400 }
+  spec: { role: body, lineHeight: 1.5 }
+  assets: [assets/inter-regular.woff2]
+type.scale:
+  type: list
+  value: [12, 14, 16, 20, 28, 40]
+```
+
+```yaml rules/logo.yaml
+logo.primary:
+  type: text
+  label: The logo
+  value: The wordmark beside the mark. Use it whole wherever there is room.
+  assets: [assets/logo.svg]
+  contexts:
+    dark-background:
+      value: The logo in white, for dark grounds.
+      assets: [assets/logo-white.svg]
+logo.mark:
+  type: text
+  value: The mark alone, for small spaces and avatars.
+  assets:
+    - id: assets/mark.svg
+      rendition: w_512,f_png
+logo.clearSpace:
+  type: number
+  value: 1
+  spec: { unit: x, of: the mark's height }
+logo.minSize:
+  type: number
+  value: 24
+  spec: { unit: px }
+logo.never:
+  type: list
+  value: [Stretch or squash it, Recolor it, Set it on a busy photo]
+```
+
+```yaml rules/tone.yaml
+tone.voice:
+  type: text
+  value: Plain and warm, like a friend who knows tools.
+tone.attributes:
+  type: list
+  value: [plain, warm, exact]
+tone.always:
+  type: list
+  value: [Name the tool, Say what it does]
+tone.avoid:
+  type: list
+  value: [Jargon, Exclamation marks]
+```
+
+```yaml rules/space.yaml
+space.scale:
+  type: list
+  value: [4, 8, 16, 24, 32, 48]
+```
+
+```yaml rules/imagery.yaml
+imagery.examples:
+  type: text
+  value: Real hands, real work, daylight.
+  assets: [assets/workshop.jpg]
+```
+
+```yaml rules/legal.yaml
+legal.disclaimer:
+  type: text
+  value: Acme is a trademark of Acme Tools Ltd.
+  spec: { copy: true }
+```
+
+```yaml pages/overview.yaml
+title: Acme
+layout: landing
+sections:
+  - template: cover
+    eyebrow: Brand guidelines
+    title: Acme
+    lede: Tools that last, and how we show them.
+    props:
+      image: assets/workshop.jpg
+  - template: statement
+    tone: tint
+    title: Tools that last.
+    body: Three words we put on every box.
+  - template: pages
+    title: Start with the parts
+    props: { from: identity }
+```
+
+```yaml pages/identity.yaml
+title: Identity
+lede: The parts that make Acme look like Acme.
+sections:
+  - template: pages
+    title: Color, logo and type
+```
+
+```yaml pages/color.yaml
+title: Color
+sections:
+  - template: palette
+    title: Blue leads, white gives it room
+    keys: [color.primary, color.background, color.ink]
+    props:
+      show: [hex, cmyk, pantone]
+      matrix: true
+```
+
+```yaml pages/logo.yaml
+title: Logo
+lede: One mark, and how to give it room.
+sections:
+  - template: logos
+    title: Two versions, every ground
+    keys: [logo.primary, logo.mark, color.primary]
+  - template: diagram
+    title: Room on every side
+    keys: [logo.mark, logo.clearSpace]
+  - template: diagram
+    id: smallest
+    title: Never smaller than 24 px
+    keys: [logo.mark, logo.minSize]
+    props: { kind: minsize }
+  - template: dodont
+    title: Keep it as drawn
+    keys: [logo.never]
+    items:
+      - asset: assets/logo-stretched.png
+        verdict: dont
+        caption: Never stretch it.
+```
+
+```yaml pages/type.yaml
+title: Typography
+sections:
+  - template: type
+    title: One family, two weights
+    keys: [type.heading, type.body, type.scale]
+    props: { sample: Tools that last }
+```
+
+```yaml pages/voice.yaml
+title: Voice
+sections:
+  - template: text
+    title: Say it like you would at the bench
+    keys: [tone.voice, tone.attributes]
+  - template: dodont
+    title: How we write
+    keys: [tone.always, tone.avoid]
+```
+
+</CodeGroup>
+
+To start from a brand you already have, pull it:
+`artbucket brand pull brand --brand acme --assets` writes its folder, files
+included ([CLI](/guides/brand-as-code/cli)).

@@ -19,14 +19,14 @@ naming the variable.
 | `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and where cookie-signed writes are taken from, beside organizations' verified domains |
 | `INTERNAL_URL` | `APP_URL` | Where the server reaches its own API while rendering pages, when it can't reach `APP_URL` from inside (a container behind a proxy): `http://localhost:3000` |
 | `BILLING_URL` | unset | Where an organization's admins manage the plan behind its limits: a "Manage plan" link in Settings, Usage, an "Upgrade" button in the header while the organization has no limits of its own, and named when a limit refuses something. See [Limits](/configuration/limits) |
-| `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug, left empty to bring a new brand in from a repository. New brand, a new brand's setup and the builder link there, for workspace admins. See [Brand as code](/guides/brand-as-code) |
+| `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug, left empty to bring a new brand in from a repository. New brand, a new brand's setup and the builder link there, for workspace admins. See [Sync API](/guides/brand-as-code/sync-api#connecting-from-the-app) |
 | `DOMAIN_TARGET` | unset | The host name organizations' own domains should CNAME to, shown beside their TXT record: this server's, or a provider's (Cloudflare for SaaS's fallback origin). Unset: "point it at this server" |
 | `PORTAL_DOMAIN` | unset | A domain whose subdomains are portals: `{address}.PORTAL_DOMAIN` serves that portal, beside `/p/{address}`. Needs a wildcard DNS record and certificate. See [Portals](/guides/portals#a-subdomain-for-every-portal) |
 | `HUB_URL` | unset | Where BrandHub answers: a host of its own (`https://hub.example.com`) or a path on `APP_URL`'s (`http://localhost:3000/hub`). The path is always `/hub`. A host beside `APP_URL`'s (`hub.` and `app.example.com`) shares its sign-in: the session cookie is then set for `example.com`. Unset: no hub. See [Portals](/guides/portals#brandhub) |
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
-| `OIDC_NAME` | `SSO` | The button: "Sign in with {OIDC_NAME}" |
+| `OIDC_NAME` | `SSO` | The button: "Sign in with `OIDC_NAME`" |
 | `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Set: every organization's email, and new accounts confirm their address with a code. Unset: no email, unless an organization sets its own |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key |
 | `BRAND_NAME` `BRAND_TAGLINE` `BRAND_ACCENT` | the product's | The server's brand, under every organization's own. See [White-labeling](/configuration/white-labeling) |

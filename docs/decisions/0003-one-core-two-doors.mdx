@@ -10,9 +10,9 @@ its own way, validates less, and falls behind on features.
 
 ## Decision
 
-All logic lives in `src/lib/core/`. The REST routes, the MCP server
-(`POST /api/v1/mcp`) and the CLI are thin adapters over it: they parse, call
-core, and shape the answer. MCP is hand-rolled, stateless JSON-RPC over
+All logic lives in one module of the server, its core. The REST routes, the
+MCP server (`POST /api/v1/mcp`) and the CLI are thin adapters over it: they
+parse, call the core, and shape the answer. MCP is hand-rolled, stateless JSON-RPC over
 Streamable HTTP, not the SDK: tools and resources are all it serves.
 
 ## Consequences

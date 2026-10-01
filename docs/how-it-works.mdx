@@ -1,19 +1,19 @@
 ---
 title: How it works
-description: One core, three ways in, and the brand as data.
+description: One server, three ways in, and the brand as data.
 ---
 
 ## One core, three adapters
 
-All the logic lives in `src/lib/core/`. The REST API, the MCP server and the
-CLI are thin adapters over it, and the web app is a client of the REST API
-like any other. If the app needs something the API can't do, the API isn't
+All the logic lives in one place inside the server, its core. The REST API,
+the MCP server and the CLI are thin adapters over it, and the web app is a
+client of the REST API like any other. If the app needs something the API can't do, the API isn't
 finished.
 
 ```
 web app ─┐
 CLI ─────┼─> /api/v1 ─┐
-scripts ─┘            ├─> lib/core ─> Postgres + S3
+scripts ─┘            ├─> core ─> Postgres + S3
 agents ──> /api/v1/mcp┘
 ```
 
@@ -55,7 +55,8 @@ Brand rules are structured records, not a PDF: a dotted key like
 `color.primary`, a typed value, a sentence on how to use it, and the assets it
 points at. A rule can have a variant per context (`dark-background`,
 `instagram-story`). The guidelines page is drawn from these records, and
-agents read the same records over MCP.
+agents read the same records over MCP. The same brand can also live as
+files in a Git repository: see [Brand as code](/guides/brand-as-code).
 
 ## Agents
 

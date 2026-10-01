@@ -1,39 +1,23 @@
 ---
 title: Brand as code
+sidebarTitle: Overview
 description: Keep a brand's rules, pages and theme as files in a Git repository, changed on either side.
 ---
 
-A brand can live in a Git repository as well as here: its rules, pages and
-theme as YAML a person reads and reviews, beside the files they point at.
-Change it in the repository, through a pull request, or here, in the
-builder: each side's changes reach the other, and a change that both sides
+A brand can live in a Git repository as well as in Artbucket: its rules,
+pages and theme as YAML a person reads and reviews, beside the files they
+point at. Change it in the repository, through a pull request, or in the
+app's builder: each side's changes reach the other, and a change both sides
 made to the same rule is named, not lost.
-
-## The files
 
 ```
 brand/
-  brand.yaml          slug, name, theme, the order of rules/, the page tree
+  brand.yaml          the brand's slug and name, its theme, the order of rules/, the page tree
   rules/color.yaml    the rules whose key starts with color.
   rules/logo.yaml
   pages/overview.yaml a page: its fields and sections
   pages/logo.yaml
   assets/logo.svg     files the rules and pages point at
-```
-
-```yaml brand.yaml
-# An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
-slug: acme
-name: Acme
-theme:
-  accent: color.primary
-  radius: 6
-rules: [color, type, logo, tone]
-pages:
-  - overview
-  - logo:
-      - logo-use
-  - color
 ```
 
 ```yaml rules/color.yaml
@@ -42,152 +26,79 @@ color.primary:
   label: Acme blue
   value: "#1f6feb"
   usage: Buttons, links and the mark's tile.
-  spec:
-    pair: color.background
-    cmyk: [89, 55, 0, 8]
   contexts:
     dark-background:
       value: "#58a6ff"
 ```
 
-```yaml pages/logo.yaml
-title: Logo
-lede: One mark, and how to give it room.
-sections:
-  - template: logos
-    title: Versions
-    keys: [logo.primary, logo.mark]
-  - template: dodont
-    items:
-      - asset: assets/logo-stretched.png
-        verdict: dont
-        caption: Never stretch it.
-```
+The files say what the API takes, minus every default, so a brand written
+out, read back and written again is the same bytes. A file whose meaning
+didn't change is never rewritten: its comments and its layout stay as a
+person left them. [The brand folder](/guides/brand-as-code/format) documents
+every file and key.
 
-Each rule, page and section takes what the API takes
-([the canon](/guides/canon)). A file leaves out every default: a section's
-width, tone and columns come from its template unless set, and its id is its
-template's name (`logos`, then `logos-2`) unless it has one of its own.
-Where an asset id goes, a path under `assets/` goes too.
+## When to use it
 
-## Pushing and pulling
+- **A design system or a product's brand**, where the brand sits beside the
+  code that uses it, and changes go through review like the code does.
+- **An open-source project's brand**, where anyone proposes a change by pull
+  request and the maintainers merge it.
+- **Many brands kept the same way**, generated or checked by scripts.
+- **A record of every change** outside the app, in the history your team
+  already reads.
 
-```bash
-artbucket brand pull brand --brand acme --assets   # acme as files in brand/, with its assets
-artbucket brand diff brand                         # what a push would change
-artbucket brand push brand                         # take the brand from its files
-```
+A brand edited only by a brand team in the app needs none of it: the app
+keeps every version itself ([history](/guides/canon#brands-and-history)).
 
-`push` uploads what `assets/` adds, checks every file, and writes the brand
-as one version of its history, so it is undone like any other edit. A
-problem comes back at its file and line:
+## The two-way model
 
-```
-pages/color.yaml:6: sections[0].keys[0]: no rule "color.nope"; this brand has color.primary, color.ink
-```
+Artbucket stores, for each brand kept in a repository, where its files live
+(the repository, a branch, a folder) and the files both sides last agreed on.
+Each import is a three-way merge against that agreement, a piece at a time:
+each rule (by key and context), each page, each theme setting, the name, and
+the order of rules and of pages.
 
-`pull` writes only the files whose meaning changed: a file that says the same
-keeps its comments and its layout.
+- A piece only one side changed takes that side's change.
+- A piece both sides changed the same way is that change.
+- A piece both sides changed differently is a **conflict**: the repository's
+  side wins, since what reached its branch was reviewed there. The answer
+  names each conflict, and the app's side is not lost: the version before the
+  import is in the brand's history, a restore away.
 
-Each command acts on the brand `--brand` names, or else the one `slug:` in
-`brand.yaml` names (`pull` writes it), never on the workspace's default. A
-`brand.yaml` whose slug names another brand is refused, so files pushed to
-the wrong brand never land. `push --create` makes the brand when there is
-none by that slug.
+The agreement is recorded by a Git integration, at each commit it syncs. A
+brand synced only by the CLI or a CI job has none, so its files are taken
+whole: the repository is then the source of truth, and an edit made in the
+app is undone by the next push ([what a push overwrites](/guides/brand-as-code/cli#what-a-push-overwrites)).
 
-## From CI
+An import is written as a version of the brand's history, so it is undone
+like any other edit. With the commit's message, that version is named after
+its first line, a checkpoint of its own. Nothing reaches readers until
+someone publishes: an import updates the draft unless it is asked to publish
+too.
 
-Without a Git integration (a self-hosted server, or a team that would rather
-not install one), a CI job does the push. Make a write key once, keep it as
-a secret with the server's address, and push the brand's folder when it
-changes on the main branch:
+When the brand changes in the app, it is **pending**: the repository lacks
+those changes until they are exported and committed back.
 
-```bash
-artbucket keys create ci --scope write
-```
+## Ways to sync
 
-```yaml .github/workflows/brand.yml
-name: Brand
-on:
-  push:
-    branches: [main]
-    paths: ["brand/**"]
-jobs:
-  push:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      - run: npx --yes artbucket brand push brand --brand acme --publish --note "$(git log -1 --format=%s)"
-        env:
-          ARTBUCKET_URL: https://app.artbucket.io
-          ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
-```
+| | Who talks to Git | Direction | Pull requests |
+|---|---|---|---|
+| [The CLI](/guides/brand-as-code/cli), by hand | You | Pull and push | |
+| [A CI job](/guides/brand-as-code/cli#from-ci) | Your CI | Push from the main branch | A check on the files |
+| A Git integration ([Artbucket Cloud](#on-artbucket-cloud), or [your own](/guides/brand-as-code/sync-api)) | The integration | Both ways, as changes happen | A check, a preview link and a comment |
 
-```yaml .gitlab-ci.yml
-brand:
-  image: node:22
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes: ["brand/**/*"]
-  script:
-    - npx --yes artbucket brand push brand --brand acme --publish --note "$CI_COMMIT_TITLE"
-```
-
-On GitLab, `ARTBUCKET_URL` and `ARTBUCKET_KEY` are CI/CD variables, the key
-masked. `ARTBUCKET_URL` is your own server when you host one. Without
-`--publish` the push updates the draft, to release from the app. On a pull
-or merge request, `artbucket brand diff brand --brand acme` exits 1 on any
-problem in the files, at its line, which makes it a check.
-
-## A README badge
-
-A public, released brand has a badge on BrandHub with the release that is
-live, "brand @4", at `/{org}/{brand}/badge.svg`. The brand's Sharing tab,
-under BrandHub, gives its Markdown:
-
-```md
-[![Brand on BrandHub](https://hub.artbucket.io/acme/acme/badge.svg)](https://hub.artbucket.io/acme/acme)
-```
-
-It follows each release, answers for public brands only, and showing it is
-not counted as a read of the brand.
-
-## Both ways
-
-A brand kept in a repository remembers where (`PUT /api/v1/brands/{slug}/source`)
-and what the two last agreed on. From then on:
-
-- **The repository changes** (a push to its branch): `POST .../files/import`
-  with the files and their `commit`. What was edited here since the last sync
-  is kept; the files win only where both sides changed the same rule, page or
-  theme setting, and the answer names each in `conflicts`. The side that lost
-  is in the brand's history, a restore away.
-- **The brand changes here**: the source reads `pending`. `POST .../files/export`
-  with the repository's files as `previous` answers the files to commit, only
-  those that changed. Commit them, as a commit or a pull request, then send
-  them back with `PUT .../source` and `synced: { commit, files }`.
-
-An import at a commit names the version it makes after the commit's message,
-so each sync stands in the history on its own.
-
-## Previews
-
-`POST /api/v1/brands/{slug}/previews` with a pull request's files and a `ref`
-(`pull/12`) answers a link to the brand's site as those files say it, and
-what it would change. It needs no account, like a share link, and keeps its
-address as the pull request changes. Delete it when the pull request closes.
+All three call the same API. Artbucket never talks to the Git host itself:
+whoever holds the host's credentials (an app, a CI job, you) does.
 
 ## From the app
 
-Where the server has a Git integration (`GIT_CONNECT_URL`), a workspace admin
-reaches it from three places:
+Where the server has a Git integration (`GIT_CONNECT_URL`, see
+[Environment](/configuration/environment)), a workspace admin reaches it from
+three places:
 
 - **New brand, From a Git repository:** bring in a brand a repository already
-  holds (its `brand.yaml`, pages and files), or start a new brand here and
-  keep it in a repository from the first edit.
+  holds (its `brand.yaml`, pages and files), or start a new brand and keep it
+  in a repository from the first edit.
 - **A new brand's setup:** connect a repository before laying out any page.
 - **The builder's bar:** Git, until the brand is kept somewhere; then the
   repository, and whether both sides are in step.
@@ -202,19 +113,58 @@ there too: "My brand is already in a repository" brings it in.
 Artbucket Cloud connects a GitHub repository to a brand from any of those
 places, and does all of the above itself: pull requests get a check, a
 preview link and a comment listing what they change and what merging does,
-merges come in, and edits made here go back as a commit or a pull request.
+merges come in, and edits made in the app go back as a commit or a pull
+request.
 
 The connection also decides what a change that reaches the branch does:
 
-- **From Artbucket:** a merge updates the draft, and someone releases it here.
+- **From Artbucket:** a merge updates the draft, and someone releases it in
+  the app.
 - **When a change is merged:** each push to the branch, a merged pull request
   too, is released, with its commit's first line as the note.
 - **On a GitHub release:** a merge updates the draft, and publishing a
   release on GitHub releases its tag, with the release's title as the note.
 
-Neither releases while edits made here wait to reach the repository: the
-check says so, and the next merge or release carries both. Each release
+Neither releases while edits made in the app wait to reach the repository:
+the check says so, and the next merge or release carries both. Each release
 from the repository posts a GitHub deployment (environment `Artbucket`)
-linking to the brand on BrandHub or its portal, so the repository's
-sidebar shows what is live. Without the App, [a CI job](#from-ci) does the
-push.
+linking to the brand on BrandHub or its portal, so the repository's sidebar
+shows what is live.
+
+## From CI
+
+Without a Git integration (a self-hosted server, or a team that would rather
+not install one), a CI job pushes the brand's folder when it changes on the
+main branch, and checks it on pull requests. The
+[CLI page](/guides/brand-as-code/cli#from-ci) has GitHub Actions and GitLab CI
+recipes.
+
+## A README badge
+
+A public, released brand has a badge on BrandHub with the release that is
+live, "brand @4", at `/{org}/{brand}/badge.svg`. The brand's Sharing tab,
+under BrandHub, gives its Markdown:
+
+```md
+[![Brand on BrandHub](https://hub.artbucket.io/acme/acme/badge.svg)](https://hub.artbucket.io/acme/acme)
+```
+
+It follows each release, answers for public brands only, and showing it is
+not counted as a read of the brand.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="The brand folder" icon="folder-tree" href="/guides/brand-as-code/format">
+    Every file and every key, with a complete example.
+  </Card>
+  <Card title="CLI and CI" icon="terminal" href="/guides/brand-as-code/cli">
+    Pull, diff and push, and the jobs that run them.
+  </Card>
+  <Card title="Sync API" icon="code-branch" href="/guides/brand-as-code/sync-api">
+    The protocol a Git integration implements.
+  </Card>
+  <Card title="Standards" icon="globe" href="/guides/brand-as-code/standards">
+    brand.json, design tokens, DESIGN.md, llms.txt and MCP.
+  </Card>
+</CardGroup>

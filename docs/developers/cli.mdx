@@ -51,7 +51,7 @@ artbucket theme set theme.json
 artbucket publish --note "New accent, and a page on logo use"
 ```
 
-A brand as files for a Git repository ([brand as code](/guides/brand-as-code)):
+A brand as files for a Git repository ([brand as code](/guides/brand-as-code/cli)):
 
 ```bash
 artbucket brand pull brand --brand acme --assets
@@ -61,6 +61,7 @@ artbucket brand push brand --publish --note "Bluer primary"
 
 In CI, with a write key (`artbucket keys create ci --scope write`) in
 `ARTBUCKET_KEY`: `npx --yes artbucket brand push brand --brand acme --publish`.
-The guide has [GitHub Actions and GitLab CI recipes](/guides/brand-as-code#from-ci).
+[CLI and CI](/guides/brand-as-code/cli#from-ci) has every flag, and GitHub
+Actions and GitLab CI recipes.
 
 `--json` prints the raw API response. `artbucket --help` lists every command.
