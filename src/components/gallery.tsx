@@ -86,7 +86,7 @@ import type { C2pa } from "@/lib/c2pa";
 import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
-import { flash } from "@/lib/motion";
+import { flash, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 
@@ -371,6 +371,8 @@ export function Gallery({
   // Files waiting on the required-fields step before they upload.
   const [pending, setPending] = useState<{ files: File[]; open: boolean } | null>(null);
   const [drag, setDrag] = useState<{ count: number } | null>(null);
+  // Kept a moment after the files leave or land, so the overlay fades rather than blinks out.
+  const dragShown = useKept(drag);
   // Selected asset ids. Only the ones on screen count (`picked`), so a filter
   // change can't leave hidden files in a bulk action.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1664,8 +1666,13 @@ export function Gallery({
       )}
 
       {/* Dragging over a populated library: one calm overlay, not a moving target. It says what a drop would do, before it does it. */}
-      {drag && !empty && (
-        <div className="bg-background/80 animate-in fade-in-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-150">
+      {dragShown && !empty && (
+        <div
+          className={cn(
+            "bg-background/80 pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm",
+            drag ? "animate-in fade-in-0 duration-150" : "animate-out fade-out-0 fill-mode-forwards duration-100 ease-in",
+          )}
+        >
           <div
             className={cn(
               "flex size-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed",
@@ -1675,7 +1682,7 @@ export function Gallery({
             <IconCloudUpload className={cn("size-10", !canUpload && "text-muted-foreground")} stroke={1.5} />
             <p className="text-lg font-medium">
               {canUpload
-                ? `Drop ${drag.count > 1 ? `${drag.count.toLocaleString()} files` : drag.count === 1 ? "it" : "files"} to add to ${inCollection ? inCollection.name : "your library"}`
+                ? `Drop ${dragShown.count > 1 ? `${dragShown.count.toLocaleString()} files` : dragShown.count === 1 ? "it" : "files"} to add to ${inCollection ? inCollection.name : "your library"}`
                 : `You can't add files to ${inCollection ? inCollection.name : "this library"}`}
             </p>
             {canUpload && relaxInherited(fields, inherited).some((f) => f.required) && (

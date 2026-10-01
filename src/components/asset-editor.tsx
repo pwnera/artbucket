@@ -81,7 +81,7 @@ import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS, isDownloadable } from "@/lib/rights";
 import { sendResult, type ApiError } from "@/lib/send";
 import { ago } from "@/lib/time";
-import { flash } from "@/lib/motion";
+import { flash, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
@@ -307,6 +307,9 @@ export function AssetEditor({
   const router = useRouter();
   const [tags, searchTags] = useTagSearch(useLibraryTags());
   const { upload, pct } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
+  const overlay = dragging || pct !== null;
+  // Kept a moment once the file leaves or lands, so the overlay fades rather than blinks out.
+  const overlayShown = useKept(overlay || null);
   const m = asset.metadata ?? {};
   const relaxed = relaxInherited(fields, asset.inherited);
 
@@ -774,9 +777,14 @@ export function AssetEditor({
             </IconButton>
           )}
 
-          {(dragging || pct !== null) && (
+          {overlayShown && (
             // Up while dragging, and kept up once dropped: the file's progress shows where it went.
-            <div className="bg-background/85 animate-in fade-in-0 absolute inset-3 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm font-medium duration-150">
+            <div
+              className={cn(
+                "bg-background/85 absolute inset-3 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-sm font-medium",
+                overlay ? "animate-in fade-in-0 zoom-in-[0.98] duration-150" : "animate-out fade-out-0 fill-mode-forwards duration-100 ease-in",
+              )}
+            >
               <IconUpload className="text-muted-foreground size-6" />
               {pct === null ? (
                 "Drop to add a new version"
