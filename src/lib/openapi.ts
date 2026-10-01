@@ -1447,11 +1447,31 @@ export function openapi(serverUrl: string) {
       },
       "/api/v1/email-domains/{domain}": {
         parameters: [path("domain", "e.g. acme.com")],
+        patch: op({
+          summary: "Open an email domain to joining",
+          scope: "admin",
+          description:
+            "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the " +
+            "organization, able to read, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single " +
+            "sign-on covers, and on a server that sends no email of its own.",
+          body: S.EmailDomainPatch,
+          ok: [200, "The email domain", data(S.EmailDomain)],
+        }),
         delete: op({ summary: "Remove an email domain", scope: "admin", description: "Not while single sign-on uses it: change its domain, or turn it off, first.", ok: [200, "Removed", S.Deleted] }),
       },
       "/api/v1/email-domains/{domain}/verify": {
         parameters: [path("domain", "e.g. acme.com")],
         post: op({ summary: "Verify an email domain", scope: "admin", description: "Looks up its TXT record now; a 422 names what is missing and what was found. Proves it for single sign-on too.", ok: [200, "The email domain", data(S.EmailDomain)] }),
+      },
+      "/api/v1/join": {
+        post: op({
+          summary: "Join by email domain",
+          scope: "any",
+          description: "Join the organization that opened your address's domain (me.joinable), able to read. 404 when there is none to join.",
+          ok: [200, "Joined", data(S.JoinOffer)],
+        }),
+        delete: op({ summary: "Turn down joining by email domain", scope: "any", description: "Not now: the offer isn't made again.", ok: [200, "Turned down", data(S.JoinOffer)] }),
       },
       "/api/v1/github-orgs": {
         get: op({ summary: "The organization's GitHub accounts", scope: "admin", description: "Named as its own, proved or not. Organization admin.", ok: [200, "GitHub accounts", data(z.array(S.GithubAccount))] }),

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { IconBuilding, IconKey, IconLogout, IconRefresh } from "@tabler/icons-react";
+import { IconBuilding, IconKey, IconLogout, IconRefresh, IconUsers } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { MakeDialog, pickWorkspace, signOut, useGo, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";
 import type { Brand } from "@/lib/branding";
+import { send } from "@/lib/send";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -629,14 +630,32 @@ export function Welcome({ me }: { me: Me }) {
       document.removeEventListener("visibilitychange", look);
     };
   }, [router]);
+  const offer = me.joinable;
+  const [joining, setJoining] = useState(false);
+  const join = async () => {
+    setJoining(true);
+    const ok = await send("POST", "/api/v1/join");
+    if (!ok) return setJoining(false);
+    // Somewhere to be now: /welcome sends them on. Busy until it does.
+    router.refresh();
+  };
   return (
     <Card
       title={`Welcome, ${me.user?.name || me.user?.email}`}
-      lead="You're signed in, but nobody has given you access to a workspace yet. Ask an admin for an invitation, or start an organization of your own."
+      lead={
+        offer
+          ? `${offer.organization.name} is here, with your ${offer.domain} address. Join it to look around, and ask its admins for more, or start an organization of your own.`
+          : "You're signed in, but nobody has given you access to a workspace yet. Ask an admin for an invitation, or start an organization of your own."
+      }
     >
       <div className="grid gap-2">
-        <Button onClick={() => setMaking(true)}>
-          <IconBuilding /> Make an organization
+        {offer && (
+          <Button pending={joining} onClick={() => void join()}>
+            <IconUsers /> Join {offer.organization.name}
+          </Button>
+        )}
+        <Button variant={offer ? "outline" : "default"} onClick={() => setMaking(true)}>
+          <IconBuilding /> {offer ? "Start my own" : "Make an organization"}
         </Button>
         <Button variant="ghost" onClick={() => signOut(go)}>
           <IconLogout /> Sign out

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { send } from "@/lib/send";
 
 export type EmailDomain = {
@@ -32,6 +33,15 @@ export function EmailDomainsPanel({ domains }: { domains: EmailDomain[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
+  async function join(domain: string, on: boolean) {
+    setBusy(domain);
+    const ok = await send("PATCH", `/api/v1/email-domains/${encodeURIComponent(domain)}`, { join: on });
+    setBusy(null);
+    if (!ok) return;
+    toast.success(on ? `Anyone at ${domain} can join now` : `Nobody joins from ${domain} by itself now`);
+    router.refresh();
+  }
+
   async function check(domain: string) {
     setBusy(domain);
     const ok = await send("POST", `/api/v1/email-domains/${encodeURIComponent(domain)}/verify`);
@@ -45,7 +55,7 @@ export function EmailDomainsPanel({ domains }: { domains: EmailDomain[] }) {
     <div className="space-y-6">
       <Group
         title="Email domains"
-        description="The domains your people have their email at, e.g. acme.com. Prove each with a TXT record: single sign-on uses one. Not addresses for the app or portals: those are in Domains."
+        description="The domains your people have their email at, e.g. acme.com. Prove each with a TXT record: single sign-on uses one, and you can let anyone at one join, able to read, once their email is confirmed. Not addresses for the app or portals: those are in Domains."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -84,6 +94,14 @@ export function EmailDomainsPanel({ domains }: { domains: EmailDomain[] }) {
                     </Confirm>
                   )}
                 </div>
+                {d.verified && !d.sso && (
+                  <div className="flex items-center gap-2">
+                    <Switch id={`${id}-${d.domain}`} checked={d.join} disabled={busy === d.domain} onCheckedChange={(on) => void join(d.domain, on)} />
+                    <Label htmlFor={`${id}-${d.domain}`} className="font-normal">
+                      Anyone at {d.domain} can join, able to read
+                    </Label>
+                  </div>
+                )}
                 {!d.verified && (
                   <Values
                     rows={[

@@ -74,6 +74,8 @@ export type Me = {
   hubUrl: string | null;
   /** The operator's word to the organization's admins, shown across the top of the app (lib/settings.ts, notice). */
   notice: { text: string; href: string | null } | null;
+  /** An organization that opened the domain of their address, which they may join able to read (lib/core/email-domains.ts). */
+  joinable: { organization: { id: string; name: string }; domain: string } | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
 

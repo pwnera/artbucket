@@ -1220,6 +1220,24 @@ export const hubOffersRefused = pgTable(
 );
 
 /**
+ * An organization a person was offered to join by their email's domain, and
+ * said not now to (lib/core/email-domains.ts): the offer is no longer made.
+ */
+export const joinOffersRefused = pgTable(
+  "join_offers_refused",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.organizationId] })],
+);
+
+/**
  * Curated collections on BrandHub's front page ("Open-source project
  * brands"), set by whoever runs the server, in the database (docs: portals,
  * BrandHub): each lists public brands as {org}/{brand}, in order.

@@ -24,13 +24,16 @@ import { lockedBy } from "@/lib/settings";
  * What someone may do is not better-auth's business: that is `grants`
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
  *
- * Sign-up is closed but for four doors: the first account on a fresh install
+ * Sign-up is closed but for five doors: the first account on a fresh install
  * (which becomes the admin of everything), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
- * admin grants some, and anyone at an organization's verified domain its own
- * provider vouches for, who joins it able to read. SIGNUP=open opens it to
- * anyone, each with an organization of their own, but for an address at such
- * a domain: that one signs up through the provider, never with a password.
+ * admin grants some, anyone at an organization's verified domain its own
+ * provider vouches for, who joins it able to read, and anyone at a domain an
+ * organization proved and opened (lib/core/email-domains.ts), offered to join
+ * it once the email code proves the address. SIGNUP=open opens it to anyone,
+ * each with an organization of their own, but for those two: an address at a
+ * single sign-on domain signs up through the provider, never with a password,
+ * and one at an opened domain is offered to join first.
  */
 
 export const OIDC_PROVIDER = "oidc";
@@ -202,7 +205,7 @@ export const auth = betterAuth({
             return { data: { ...user, emailVerified: true } };
           }
           const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
-          if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc))) {
+          if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
         },

@@ -383,6 +383,9 @@ export const SsoInput = z.strictObject({
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
 });
 export const EmailDomainInput = z.strictObject({ domain: z.string().min(1).max(253).describe("A domain your people have their email at, e.g. acme.com") });
+export const EmailDomainPatch = z.strictObject({
+  join: z.boolean().describe("Let anyone whose address is at exactly this domain join, able to read. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
+});
 export const SsoRequiredInput = z.strictObject({
   required: z.boolean().describe("Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"),
 });
@@ -1102,6 +1105,10 @@ export const WorkspaceRef = z.object({ id: uuid, slug: z.string(), name: z.strin
 export const WorkspaceItem = z.object({ id: uuid, slug: z.string(), name: z.string(), scope: scope.describe("Yours on all of it; null when a grant inside it is all you have") });
 export const OrganizationCreated = Organization.extend({ workspace: z.object({ id: uuid, slug: z.string(), name: z.string() }) });
 
+export const JoinOffer = z.object({
+  organization: z.object({ id: z.uuid(), name: z.string() }),
+  domain: z.string().describe("The email domain it opened"),
+});
 export const Me = z.object({
   user: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().describe("Signed in as; null for a key or nobody"),
   key: z.boolean().describe("Calling with an API key"),
@@ -1139,6 +1146,7 @@ export const Me = z.object({
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
     .describe("A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"),
+  joinable: JoinOffer.nullable().describe("An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),

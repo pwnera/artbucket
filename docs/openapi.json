@@ -34281,6 +34281,46 @@
                           ],
                           "description": "A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"
                         },
+                        "joinable": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "organization": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "domain": {
+                                  "type": "string",
+                                  "description": "The email domain it opened"
+                                }
+                              },
+                              "required": [
+                                "organization",
+                                "domain"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"
+                        },
                         "auth": {
                           "type": "object",
                           "properties": {
@@ -34374,6 +34414,7 @@
                         "hub",
                         "hubUrl",
                         "notice",
+                        "joinable",
                         "auth"
                       ],
                       "additionalProperties": false
@@ -50537,6 +50578,132 @@
           }
         }
       ],
+      "patch": {
+        "summary": "Open an email domain to joining",
+        "description": "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the organization, able to read, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single sign-on covers, and on a server that sends no email of its own.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "join": {
+                    "type": "boolean",
+                    "description": "Let anyone whose address is at exactly this domain join, able to read. Needs it proved, not free mail, no single sign-on over it, and the server's own email"
+                  }
+                },
+                "required": [
+                  "join"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The email domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "description": "Proved by its TXT record: single sign-on and joining by domain may use it"
+                        },
+                        "join": {
+                          "type": "boolean",
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                        },
+                        "sso": {
+                          "type": "boolean",
+                          "description": "The organization's single sign-on uses it"
+                        },
+                        "record": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "TXT"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What proves the domain: add this record at your DNS host"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "verified",
+                        "join",
+                        "sso",
+                        "record"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Remove an email domain",
         "description": "Not while single sign-on uses it: change its domain, or turn it off, first.\n\nScope: `admin`.",
@@ -50678,6 +50845,182 @@
                         "join",
                         "sso",
                         "record"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/join": {
+      "post": {
+        "summary": "Join by email domain",
+        "description": "Join the organization that opened your address's domain (me.joinable), able to read. 404 when there is none to join.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "responses": {
+          "200": {
+            "description": "Joined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "organization": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "domain": {
+                          "type": "string",
+                          "description": "The email domain it opened"
+                        }
+                      },
+                      "required": [
+                        "organization",
+                        "domain"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Turn down joining by email domain",
+        "description": "Not now: the offer isn't made again.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "responses": {
+          "200": {
+            "description": "Turned down",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "organization": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "domain": {
+                          "type": "string",
+                          "description": "The email domain it opened"
+                        }
+                      },
+                      "required": [
+                        "organization",
+                        "domain"
                       ],
                       "additionalProperties": false
                     }

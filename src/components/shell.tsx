@@ -3,13 +3,14 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { switchedElsewhere, workspaceChannel } from "@/components/account";
+import { switchedElsewhere, workspaceChannel, type Me } from "@/components/account";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
 import { CommandPalette, type PageCommand } from "@/components/command-palette";
 import { ChordHint, ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
+import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { FieldDef } from "@/lib/fields";
 import { send } from "@/lib/send";
@@ -130,6 +131,40 @@ function NoticeBanner({ notice }: { notice: { text: string; href: string | null 
       <button type="button" onClick={close} aria-label="Close" className="text-muted-foreground hover:text-foreground shrink-0 px-1">
         &times;
       </button>
+    </div>
+  );
+}
+
+/**
+ * An organization that opened the domain of their address (me.joinable),
+ * offered across the top until they join it or say not now, which the server
+ * keeps: it isn't offered again.
+ */
+function JoinBanner({ offer }: { offer: NonNullable<Me["joinable"]> }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<"join" | "no" | null>(null);
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  const act = async (method: "POST" | "DELETE") => {
+    setBusy(method === "POST" ? "join" : "no");
+    const ok = await send(method, "/api/v1/join");
+    setBusy(null);
+    if (!ok) return;
+    setGone(true);
+    if (method === "POST") toast.success(`You joined ${offer.organization.name}`, { description: "Switch to it from the workspace menu." });
+    router.refresh();
+  };
+  return (
+    <div role="status" className="bg-muted/60 text-foreground flex flex-wrap items-center gap-3 border-b px-4 py-2 text-sm">
+      <p className="min-w-0 flex-1">
+        {offer.organization.name} is here, with your {offer.domain} address. Join it to look around.
+      </p>
+      <Button size="sm" pending={busy === "join"} disabled={!!busy} onClick={() => void act("POST")}>
+        Join {offer.organization.name}
+      </Button>
+      <Button size="sm" variant="ghost" pending={busy === "no"} disabled={!!busy} onClick={() => void act("DELETE")}>
+        Not now
+      </Button>
     </div>
   );
 }
@@ -323,6 +358,7 @@ export function Shell({
         />
         <SidebarInset className="min-w-0">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
+          {sidebar.me.joinable && <JoinBanner offer={sidebar.me.joinable} />}
           {children}
         </SidebarInset>
         <CommandPalette
