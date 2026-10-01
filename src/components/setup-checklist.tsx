@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { gitLink } from "@/lib/git";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const KEY = "artbucket:setup";
 /** `welcomed`: the full-page first run was seen, whether finished, skipped or left. */
@@ -172,12 +173,27 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
       </section>
     );
   }
-  if (!facts) return null;
+  const chosen = PATHS.find((p) => p.id === path)!;
+  // A path just picked keeps its card while its steps load: the library below doesn't jump up and back.
+  if (!facts) {
+    return (
+      <section aria-labelledby="setup-title" aria-busy className="bg-card rounded-xl border p-4">
+        <h2 id="setup-title" className="text-sm font-medium">
+          {chosen.label}: on to {chosen.win}
+        </h2>
+        <Skeleton className="mt-3 h-1.5 max-w-48" />
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-12" />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   const steps = onboardingSteps(path, facts);
   const done = steps.filter((s) => s.done).length;
   if (done === steps.length) return null;
-  const chosen = PATHS.find((p) => p.id === path)!;
 
   return (
     <section aria-labelledby="setup-title" className="bg-card rounded-xl border p-4">

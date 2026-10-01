@@ -306,9 +306,11 @@ export function Versions({
     file.current?.click();
   };
   const current = list.find((v) => v.current);
-  const summary = versions
-    ? `${list.length || 1} ${list.length > 1 ? "versions" : "version"}${current && list.length > 1 ? ` · v${current.version} current` : ""}`
-    : "";
+  const summary = versions ? (
+    `${list.length || 1} ${list.length > 1 ? "versions" : "version"}${current && list.length > 1 ? ` · v${current.version} current` : ""}`
+  ) : (
+    <span className="bg-accent inline-block h-3 w-20 animate-pulse rounded-md align-middle" />
+  );
 
   return (
     <Fold title="Versions" summary={summary} remember="versions">

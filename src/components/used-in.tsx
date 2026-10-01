@@ -7,6 +7,7 @@ import { Fold } from "@/components/fields";
 import { ExternalLink } from "@/components/external-link";
 import { contextLabel, ruleLabel } from "@/lib/rules";
 import { builderPath, guidelinesPath } from "@/lib/site";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /** GET /api/v1/assets/{id}/insights, as lib/schemas.ts AssetInsights has it. */
 type UsedInData = {
@@ -52,7 +53,13 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
     };
   }, [assetId]);
   const got = held?.id === assetId ? held.data : null;
-  if (!got) return null;
+  // Its line holds while it loads, so the panel doesn't jump when it lands.
+  if (!got)
+    return (
+      <Fold title="Used in" summary={<span className="bg-accent inline-block h-3 w-28 animate-pulse rounded-md align-middle" />} remember="used-in">
+        <Skeleton className="h-3 w-40" />
+      </Fold>
+    );
   const go = (href: string) => (e: React.MouseEvent) => {
     e.preventDefault();
     leave(() => router.push(href));
