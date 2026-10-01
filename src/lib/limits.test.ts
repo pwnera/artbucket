@@ -13,6 +13,10 @@ test("sizes read the way an operator writes them", () => {
   assert.equal(formatSize(10e9), "10 GB");
   assert.equal(formatSize(1_234_567), "1.2 MB");
   assert.equal(formatSize(0), "0 B");
+  // Rounding up to 1000 of a unit is one of the next.
+  assert.equal(formatSize(999_999), "1 MB");
+  assert.equal(formatSize(999_600_000), "1 GB");
+  assert.equal(formatSize(999), "999 B");
 });
 
 test("nothing is limited until the operator says so, and a limit is only passed by going over it", () => {

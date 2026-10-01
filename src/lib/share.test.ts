@@ -28,3 +28,9 @@ test("tokens are url-safe and don't repeat", () => {
   assert.match(a, /^[A-Za-z0-9_-]{24}$/);
   assert.notEqual(a, shareToken());
 });
+
+test("a stored hash of any other length than hashPassword writes verifies nothing", async () => {
+  const salt = Buffer.alloc(16).toString("base64url");
+  for (const stored of [`scrypt$${salt}$=`, `scrypt$${salt}$!!`, `scrypt$${salt}$${Buffer.alloc(8).toString("base64url")}`])
+    assert.equal(await verifyPassword("anything", stored), false, stored);
+});

@@ -60,6 +60,8 @@ export const ACTIONS = {
   // The brand
   "brand.read": { scope: "read", on: "anywhere" },
   "brand.edit": { scope: "write", on: "workspace", ability: "setup" },
+  /** With brand.edit: its rules, pages and history go, so deleting must be on too. */
+  "brand.delete": { scope: "write", on: "workspace", ability: "delete" },
   /**
    * Comment on its pages, reply, resolve and reopen a thread, and edit or
    * delete one's own comment; deleting someone else's takes brand.edit.

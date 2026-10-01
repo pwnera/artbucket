@@ -269,3 +269,21 @@ test("anyone's brand.json: variants and backgrounds as logo rules, CSS stacks as
   assert.deepEqual(b.dropped, ["industry", "colors.bad", "visual_guidelines.motion", "logos[4]", "visual_guidelines.logo_placement.preferred_position"]);
   for (const r of b.rules) RuleInput.parse(r);
 });
+
+test("from brand.json: a document's odd strings are dropped or kept, never a crash", () => {
+  // A URL a decoder can't read keeps a name; a variant or tag that names what every object has is no variant.
+  const read = fromBrandJson({ id: "acme", logos: [{ url: "https://a.example/logo%.svg" }, { url: "https://a.example/b.svg", variant: "toString", tags: ["constructor"] }] }).brands[0];
+  assert.deepEqual(
+    read.rules.map((r) => r.key),
+    ["logo.primary"],
+  );
+  assert.deepEqual(Object.values(read.files).map((f) => f.filename), ["logo%.svg", "b.svg"]);
+  // A type scale entry whose words are not AdCP's is passed over, its face kept.
+  const face = fromBrandJson({ id: "acme", fonts: { heading: "Inter" }, visual_guidelines: { type_scale: { heading: { font: "heading", size: "32px", weight: "constructor", text_transform: "constructor" }, constructor: { font: "heading" } } } }).brands[0];
+  assert.deepEqual(face.rules, [{ key: "type.heading", type: "font", value: { family: "Inter", size: 32 }, spec: { role: "headline" } }]);
+  assert.deepEqual(face.dropped, ["visual_guidelines.type_scale.constructor"]);
+});
+
+test("a color named like what every object has is in the palette", () => {
+  assert.deepEqual(brandJson({ ...base, rules: [rule("color.constructor", "color", "#ff0000")] }).colors, { constructor: "#ff0000" });
+});

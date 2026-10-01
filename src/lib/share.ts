@@ -12,15 +12,19 @@ const derive = promisify(scrypt) as (password: string, salt: Buffer, keylen: num
 /** 144 random bits: unguessable, and short enough to read aloud in a pinch. */
 export const shareToken = () => randomBytes(18).toString("base64url");
 
+const KEYLEN = 32;
+
 export async function hashPassword(password: string) {
   const salt = randomBytes(16);
-  return `scrypt$${salt.toString("base64url")}$${(await derive(password, salt, 32)).toString("base64url")}`;
+  return `scrypt$${salt.toString("base64url")}$${(await derive(password, salt, KEYLEN)).toString("base64url")}`;
 }
 
 export async function verifyPassword(password: string, stored: string) {
   const [kind, salt, hash] = stored.split("$");
   if (kind !== "scrypt" || !salt || !hash) return false;
   const want = Buffer.from(hash, "base64url");
+  // Only what hashPassword writes: an empty one would equal anything derived to its length.
+  if (want.length !== KEYLEN) return false;
   const got = await derive(password, Buffer.from(salt, "base64url"), want.length);
   return timingSafeEqual(got, want);
 }

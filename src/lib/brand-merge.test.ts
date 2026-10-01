@@ -118,3 +118,12 @@ test("a page's sections are one piece: both editing one page is a conflict", () 
   assert.equal(m.state.pages.find((p) => p.slug === "color")!.title, "Colour");
   assert.equal(m.conflicts[0].what, "page color");
 });
+
+test("two moves that close a loop (ours: overview under voice, theirs: voice under overview): the repository's place wins, and says so", () => {
+  const start = edit(base(), (s) => (s.pages[1].parent = "overview"));
+  const ours = edit(start, (s) => (s.pages[0].parent = "voice"));
+  const theirs = edit(start, (s) => (s.pages[2].parent = "overview"));
+  const m = merge(start, ours, theirs);
+  assert.deepEqual(Object.fromEntries(m.state.pages.map((p) => [p.slug, p.parent ?? null])), { overview: null, color: "overview", voice: "overview" });
+  assert.deepEqual(m.conflicts, [{ what: "page overview's place", ours: "voice", theirs: null }]);
+});

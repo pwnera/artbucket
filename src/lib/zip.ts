@@ -24,13 +24,29 @@ export function crc32(bytes: Uint8Array) {
 
 export type Entry = { name: string; data: Uint8Array; date?: Date };
 
-/** "a.png", "a.png" -> "a.png", "a (2).png": a zip can't hold two of one name. */
+/**
+ * A name no extractor puts outside the folder it extracts to (zip slip): a
+ * file name is anyone's upload. Folders stay; "..", ".", empty and drive
+ * parts go, and a backslash separates like a slash.
+ */
+export const safeName = (name: string) =>
+  name
+    .split(/[\\/]+/)
+    .filter((p) => p && p !== "." && p !== ".." && !/^[a-z]:$/i.test(p))
+    .join("/") || "file";
+
+/** "a.png", "a.png" -> "a.png", "a (2).png": a zip can't hold two of one name, as safeName has it. */
 export function uniqueNames(names: string[]) {
-  const seen = new Map<string, number>();
-  return names.map((name) => {
-    const n = (seen.get(name) ?? 0) + 1;
-    seen.set(name, n);
-    return n === 1 ? name : name.replace(/(\.[^.]*)?$/, (ext) => ` (${n})${ext}`);
+  const used = new Set<string>();
+  const last = new Map<string, number>();
+  return names.map((raw) => {
+    const name = safeName(raw);
+    let n = last.get(name) ?? 1;
+    let out = name;
+    while (used.has(out)) out = name.replace(/(\.[^./]*)?$/, (ext) => ` (${++n})${ext}`);
+    last.set(name, n);
+    used.add(out);
+    return out;
   });
 }
 
@@ -41,7 +57,7 @@ export function zip(entries: Entry[]): Uint8Array<ArrayBuffer> {
   let offset = 0;
 
   for (const e of entries) {
-    const name = enc.encode(e.name);
+    const name = enc.encode(safeName(e.name));
     const d = e.date ?? new Date();
     const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
     const date = ((Math.max(d.getFullYear(), 1980) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
@@ -108,7 +124,7 @@ export const INFLATE_LIMIT = 64 * 1024 * 1024;
  * A zip's entries, each read on demand. Stored and deflated entries, which is
  * every design file that is a zip (Sketch, XD, Keynote, pptx, .fig, dotLottie).
  * Corrupt input throws a RangeError, and so does an entry that inflates past
- * `limit`: its declared size is the zip's say-so, so the bytes are counted.
+ * `limit` (or is stored larger): its declared size is the zip's say-so, so the bytes are counted.
  *
  * ponytail: no ZIP64, like the writer: previews sit in archives far under 4 GB.
  */
@@ -137,6 +153,7 @@ export function unzip(bytes: Uint8Array): ZipEntry[] {
       read: async (limit = INFLATE_LIMIT) => {
         // The local header's own name and extra lengths can differ from the central copy's.
         const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+        if (method === 0 && packed > limit) throw new RangeError(`${name}: more than ${limit} bytes`);
         const data = new Uint8Array(bytes.subarray(start, start + packed));
         if (method === 0) return data;
         if (method !== 8) throw new Error(`${name}: unsupported zip compression ${method}`);

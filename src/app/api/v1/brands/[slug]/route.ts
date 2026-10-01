@@ -1,5 +1,7 @@
 import { body, ok, route } from "@/lib/api";
 import { deleteBrand, listBrands, updateBrand } from "@/lib/core/brands";
+import { AssetError } from "@/lib/core/errors";
+import { can, needs } from "@/lib/permissions";
 import { BrandPatch } from "@/lib/schemas";
 
 type P = { slug: string };
@@ -17,6 +19,7 @@ export const PATCH = route<P>("brand.edit", async (req, { slug }, caller) =>
 
 /** DELETE /api/v1/brands/{slug} - with its rules and history. Not the default. */
 export const DELETE = route<P>("brand.edit", async (_req, { slug }, caller) => {
+  if (!can(caller, "brand.delete")) throw new AssetError("forbidden", `Deleting a brand takes ${needs("brand.delete")}`);
   await deleteBrand(caller.workspace.id, slug);
   return ok({ data: { deleted: true } });
 });

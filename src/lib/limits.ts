@@ -27,7 +27,8 @@ export function parseSize(v: string | number): number | null {
 
 /** 1234567 as "1.2 MB": for messages and Settings, in the same units parseSize reads. */
 export function formatSize(bytes: number) {
-  const [unit, n] = Object.entries(UNITS).reverse().find(([, n]) => bytes >= n) ?? ["b", 1];
+  // From 999.5 of a unit, which would round to "1000", it reads as 1 of the next.
+  const [unit, n] = Object.entries(UNITS).reverse().find(([, n]) => bytes >= n * 0.9995) ?? ["b", 1];
   const v = bytes / n;
   return `${unit === "b" ? v : v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, "")} ${unit.toUpperCase()}`;
 }

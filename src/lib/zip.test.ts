@@ -64,3 +64,23 @@ test("unzip refuses an entry that inflates past its limit, whatever it declares"
   await assert.rejects(e.read(1024 * 1024), RangeError);
   assert.equal((await e.read()).length, big.length);
 });
+
+test("uniqueNames never gives two files one name, even one already called a (2)", () => {
+  assert.deepEqual(uniqueNames(["a.png", "a.png", "a (2).png"]), ["a.png", "a (2).png", "a (2) (2).png"]);
+  // The suffix goes before the file's extension, not a folder's dot.
+  assert.deepEqual(uniqueNames(["kit.v1/logo", "kit.v1/logo"]), ["kit.v1/logo", "kit.v1/logo (2)"]);
+});
+
+test("no entry name can reach outside the folder it is extracted to", () => {
+  const names = (out: Uint8Array) => unzip(out).map((e) => e.name);
+  assert.deepEqual(
+    names(zip(["../../.bashrc", "/etc/passwd", "logos/../../x.png", "C:\\Windows\\a.dll", "logos/./a.png", ".."].map((name) => ({ name, data: new Uint8Array() })))),
+    [".bashrc", "etc/passwd", "logos/x.png", "Windows/a.dll", "logos/a.png", "file"],
+  );
+  assert.deepEqual(uniqueNames(["logos/../a.png", "logos/a.png"]), ["logos/a.png", "logos/a (2).png"]);
+});
+
+test("a stored entry is held to the limit too", async () => {
+  const [e] = unzip(zip([{ name: "big.png", data: new Uint8Array(2048) }]));
+  await assert.rejects(e.read(1024), RangeError);
+});

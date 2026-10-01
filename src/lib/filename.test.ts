@@ -50,3 +50,16 @@ test("byte formatting", () => {
   assert.equal(formatBytes(13_002_342), "12.4 MB"); // the scale's own sample
   assert.equal(formatBytes(700 * 1024), "700 KB"); // no decimal past 100
 });
+
+test("truncating never splits an emoji in two", () => {
+  const out = truncateFilename("😀".repeat(20) + ".png", 12);
+  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(out), out);
+  assert.equal([...out].length, 12, out);
+});
+
+test("a Content-Disposition any browser reads back, whatever the name", async () => {
+  const { disposition } = await import("./filename.ts");
+  // RFC 5987 allows no ' ( ) * in the value: Chrome drops a filename* with a third quote.
+  assert.equal(disposition("attachment", "Brand's logo (2)*.png"), "attachment; filename*=UTF-8''Brand%27s%20logo%20%282%29%2A.png");
+  assert.equal(disposition("inline", 'a"\r\nSet-Cookie: x.png'), "inline; filename*=UTF-8''a%22%0D%0ASet-Cookie%3A%20x.png");
+});

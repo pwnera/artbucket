@@ -463,7 +463,10 @@ const TOOLS: Record<ToolName, Tool> = {
     readOnly: false,
     destructive: true,
     input: TOOL_INPUTS.delete_brand,
-    run: async ({ brand }, caller) => ({ deleted: await deleteBrand(caller.workspace.id, brand), brand }),
+    run: async ({ brand }, caller) => {
+      if (!can(caller, "brand.delete")) throw new AssetError("forbidden", `Deleting a brand takes ${needs("brand.delete")}`);
+      return { deleted: await deleteBrand(caller.workspace.id, brand), brand };
+    },
   }),
 
   // ---- brand pages: guidelines laid out for people, over the rules (lib/pages.ts)

@@ -158,10 +158,12 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
                   <MoveItems s={s} />
                   {!b.default && (
                     <Can do="brand.edit">
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(opening(b))}>
-                        <IconTrash /> Delete
-                      </DropdownMenuItem>
+                      <Can do="brand.delete">
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(opening(b))}>
+                          <IconTrash /> Delete
+                        </DropdownMenuItem>
+                      </Can>
                     </Can>
                   )}
                 </DropdownMenuContent>

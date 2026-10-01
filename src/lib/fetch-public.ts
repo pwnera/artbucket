@@ -35,9 +35,10 @@ for (const [net, bits] of [
 ] as const)
   blocked.addSubnet(net, bits, "ipv4");
 for (const [net, bits] of [
-  ["::", 128],
-  ["::1", 128],
+  // Unspecified, loopback and the deprecated IPv4-compatible ::a.b.c.d.
+  ["::", 96],
   ["64:ff9b::", 96],
+  ["64:ff9b:1::", 48],
   ["100::", 64],
   ["2001:db8::", 32],
   ["fc00::", 7],
@@ -78,7 +79,8 @@ const guardedLookup: Lookup = (hostname, options, callback) => {
 
 /**
  * `timeoutMs` is how long the connection may sit idle; `signal` ends the
- * whole fetch, however slowly it trickles (AbortSignal.timeout). `accept`
+ * whole fetch, however slowly it trickles (AbortSignal.timeout), ten minutes
+ * when not given, so a server dripping a byte at a time can't hold one forever. `accept`
  * says which statuses answer rather than throw: 200 unless said. `follow`
  * says which redirects it may take, from the URL asked to the next.
  */
@@ -88,7 +90,7 @@ export async function fetchPublic(
     maxBytes,
     timeoutMs = 30_000,
     redirects = 5,
-    signal,
+    signal = AbortSignal.timeout(10 * 60_000),
     accept = (status: number) => status === 200,
     follow,
   }: { maxBytes: number; timeoutMs?: number; redirects?: number; signal?: AbortSignal; accept?: (status: number) => boolean; follow?: (to: URL, from: URL) => boolean },

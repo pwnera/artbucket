@@ -34,8 +34,9 @@ function ttf(name: Buffer) {
   return Buffer.concat([dir, ...tables.map(([, t]) => t)]);
 }
 
-function woff(name: Buffer) {
-  const z = deflateSync(name);
+/** `extra` bytes more than the directory says are packed after the table: a bomb's shape. */
+function woff(name: Buffer, extra = 0) {
+  const z = deflateSync(Buffer.concat([name, Buffer.alloc(extra)]));
   const out = Buffer.alloc(44 + 20);
   out.write("wOFF", 0, "latin1");
   out.writeUInt16BE(1, 12);
@@ -47,11 +48,11 @@ function woff(name: Buffer) {
 }
 
 /** WOFF2: `head` (known tag 1) then `name` (5), lengths in UIntBase128, one Brotli stream. */
-function woff2(name: Buffer) {
+function woff2(name: Buffer, extra = 0) {
   const head = Buffer.alloc(54);
   const base128 = (n: number) => (n < 128 ? [n] : [0x80 | (n >> 7), n & 0x7f]);
   const dir = Buffer.from([1, ...base128(head.length), 5, ...base128(name.length)]);
-  const stream = brotliCompressSync(Buffer.concat([head, name]));
+  const stream = brotliCompressSync(Buffer.concat([head, name, Buffer.alloc(extra)]));
   const out = Buffer.alloc(48);
   out.write("wOF2", 0, "latin1");
   out.writeUInt32BE(0x00010000, 4);
@@ -76,4 +77,10 @@ test("no license, or no font, names nothing", () => {
   assert.equal(fontLicense(ttf(nameTable({ 1: "Acme Sans" }))), null);
   assert.equal(fontLicense(Buffer.from("{}")), null);
   assert.equal(fontLicense(Buffer.from("wOF2 broken")), null);
+});
+
+test("a compressed table never unpacks past the size its directory gives: a bomb names nothing", () => {
+  const ofl = nameTable({ 13: "SIL Open Font License" });
+  assert.equal(fontLicense(woff(ofl, 1 << 20)), null);
+  assert.equal(fontLicense(woff2(ofl, 1 << 20)), null);
 });

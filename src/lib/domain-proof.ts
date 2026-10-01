@@ -12,9 +12,10 @@ import { getDomain } from "tldts";
  * a sibling.
  */
 export function provesDomain(host: string, domain: string) {
-  const h = host.replace(/^www\./, "");
+  // www is a site's twin, not a public suffix's: www.duckdns.org is one name there, never duckdns.org.
+  const site = getDomain(host, { allowPrivateDomains: true });
+  const h = site && site !== host ? host.replace(/^www\./, "") : host;
   if (h === domain) return true;
-  const site = getDomain(h, { allowPrivateDomains: true });
   return (h.endsWith(`.${domain}`) || domain.endsWith(`.${h}`)) && site !== null && site === getDomain(domain, { allowPrivateDomains: true });
 }
 

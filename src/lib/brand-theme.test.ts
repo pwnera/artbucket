@@ -407,3 +407,13 @@ test("titles: section titles step down from the h1 at medium, and meet it at hug
   assert.equal(deriveTheme(rules, {}).grounds, "plain");
   assert.equal(deriveTheme(rules, { grounds: "alternate" }).grounds, "alternate");
 });
+
+test("a label face with an empty tracking list takes the default, not a crash", () => {
+  const { spec } = RuleInput.parse({ key: "type.label", type: "font", value: "Inter", spec: { role: "label", tracking: [] } }) as Pick<Rule, "spec">;
+  assert.equal(deriveTheme([r("type.label", "font", { family: "Inter" }, { spec })]).faces.label?.tracking, 0.08);
+});
+
+test("a family with a quote stays one name in the stack: nothing it says ends the declaration", () => {
+  assert.equal(stack({ family: 'A"; color: red; x:"' }, null), `"A\\"; color: red; x:\\"", var(--font-sans), sans-serif`);
+  assert.equal(stack({ family: "Back\\slash" }, null), `"Back\\\\slash", var(--font-sans), sans-serif`);
+});

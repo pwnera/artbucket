@@ -120,8 +120,8 @@ export function parseTransform(spec: string): Transform | null {
   }
 
   if (!out.w && !out.h && !out.f && !out.q) return null;
-  // One side keeps the aspect ratio whatever the fit.
-  if (!(out.w && out.h)) delete out.fit;
+  // One side keeps the aspect ratio whatever the fit; inside is the default, so it names nothing new.
+  if (!(out.w && out.h) || out.fit === "inside") delete out.fit;
   return out;
 }
 
@@ -138,6 +138,9 @@ export function serializeTransform(t: Transform): string {
   if (t.f) parts.push(`f_${t.f}`);
   return parts.join(",");
 }
+
+/** sharp's encoder options: the quality asked, else 82. A PNG gets one only when asked: any quality makes sharp quantize it to a palette. */
+export const encodeOptions = (t: Transform, format: Format) => (format === "png" && !t.q ? {} : { quality: t.q ?? 82 });
 
 /** An SVG: drawn at the size asked rather than rasterized at its own and scaled. */
 export const isVector = (mime: string | null | undefined) => mime === "image/svg+xml";
