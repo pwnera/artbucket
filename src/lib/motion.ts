@@ -64,7 +64,10 @@ export function transition(update: () => void) {
     // What the update drew new is named too, before the new state is captured.
     name();
   });
-  void t.finished.finally(() => named.forEach((el) => (el.style.viewTransitionName = "")));
+  // Skipped (a hidden page, another transition starting) is no error: the update ran all the same.
+  const clear = () => named.forEach((el) => (el.style.viewTransitionName = ""));
+  t.ready.catch(() => {});
+  t.finished.then(clear, clear);
 }
 
 /**
