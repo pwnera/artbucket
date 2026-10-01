@@ -21,6 +21,7 @@ import {
   IconUsers,
   IconWorld,
   IconX,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
@@ -604,6 +605,8 @@ export function PortalDialog({
     };
   }, [f.slug, current]);
   const verdict = check && check.slug === f.slug && f.slug !== current?.slug ? check : null;
+  // Asked and not answered yet: said, after a beat, so the field doesn't seem to ignore the typing.
+  const asking = !verdict && PORTAL_SLUG.test(f.slug) && f.slug !== current?.slug;
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
@@ -695,12 +698,17 @@ export function PortalDialog({
               {sub && <span className="text-muted-foreground shrink-0 text-sm">.{sub}</span>}
             </div>
             <p id={`${id}-slug-check`} aria-live="polite" className="text-xs empty:hidden">
+              {asking && (
+                <span className="text-muted-foreground animate-in fade-in-0 fill-mode-backwards flex items-center gap-1.5 delay-300">
+                  <IconLoader2 aria-hidden className="size-3.5 animate-spin" /> Checking
+                </span>
+              )}
               {verdict &&
                 (verdict.reason ? (
-                  <span className="text-destructive">{verdict.reason}</span>
+                  <span className="text-destructive animate-in fade-in-0">{verdict.reason}</span>
                 ) : (
                   <span className="text-success flex items-center gap-1.5">
-                    <IconCheck className="size-3.5" /> Available{current && `: ${current.slug} will keep leading here`}
+                    <IconCheck className="animate-in zoom-in-50 size-3.5 duration-200" /> Available{current && `: ${current.slug} will keep leading here`}
                   </span>
                 ))}
             </p>
