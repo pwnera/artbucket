@@ -51,6 +51,7 @@ import { deciding, SelectionBar, useBulk, type Patch } from "@/components/select
 import { SetupChecklist } from "@/components/setup-checklist";
 import { useCan } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1217,26 +1218,23 @@ export function Gallery({
                   <IconLock /> Private
                 </Badge>
               )}
+              {view.review ? (
+                <InfoTip>What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it.</InfoTip>
+              ) : searched ? (
+                <InfoTip>Approved and in date, unless Status says otherwise.</InfoTip>
+              ) : activeSearch ? (
+                <InfoTip>A saved search: this link always shows what matches now.</InfoTip>
+              ) : canUpload ? (
+                <InfoTip>{inCollection ? `Uploads made here land in ${inCollection.name}.` : "Drop or paste files anywhere on the page to add them."}</InfoTip>
+              ) : null}
             </>
           }
           description={
-            view.review
-              ? "What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it."
-              : searched
-                ? `${total.toLocaleString()} ${total === 1 ? "result" : "results"}, approved and in date unless Status says otherwise.`
-                : activeSearch
-                ? "A saved search: this link always shows what matches now."
-                : inCollection
-                  ? `${canUpload ? `Uploads made here land in ${inCollection.name}.` : ""}${
-                      Object.keys(inCollection.fields).length
-                        ? ` Its assets read ${Object.entries(inCollection.fields)
-                            .map(([k, v]) => `${fields.find((d) => d.key === k)?.label ?? k}: ${v}`)
-                            .join(", ")}.`
-                        : ""
-                    }`
-                  : canUpload
-                    ? "Everything in the library. Drop files anywhere on the page, or paste them, to add them."
-                    : "Everything in the library."
+            inCollection && !activeSearch && Object.keys(inCollection.fields).length
+              ? `Its assets read ${Object.entries(inCollection.fields)
+                  .map(([k, v]) => `${fields.find((d) => d.key === k)?.label ?? k}: ${v}`)
+                  .join(", ")}.`
+              : undefined
           }
         >
           {/* What can be done with the collection itself: copy its link, share it, edit it. */}
@@ -1435,10 +1433,7 @@ export function Gallery({
                 <IconInbox />
               </EmptyMedia>
               <EmptyTitle>Nothing to review</EmptyTitle>
-              <EmptyDescription>
-                What agents, contributors and upload links send in waits here until someone approves it. Nothing
-                they add reaches the library on its own.
-              </EmptyDescription>
+              <EmptyDescription>Uploads from agents, contributors and upload links wait here for approval.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center">
               {can("share.collect_workspace") && (
@@ -1462,8 +1457,8 @@ export function Gallery({
               <EmptyTitle>{inCollection.name} is empty</EmptyTitle>
               <EmptyDescription>
                 {canUpload
-                  ? "Upload while it's open and files land here. Or select assets in All assets and use Add to."
-                  : "Nothing has been added to it yet."}
+                  ? "Upload here, or use Add to from All assets."
+                  : "Nothing added yet."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center">
@@ -1485,10 +1480,9 @@ export function Gallery({
               </EmptyMedia>
               <EmptyTitle>{view.q ? <>No results for &ldquo;{view.q}&rdquo;</> : "No matches"}</EmptyTitle>
               <EmptyDescription>
-                {view.q ? "Nothing matches it" : "Nothing matches these filters"}
-                {inCollection ? ` in ${inCollection.name}` : ""}. Try fewer words or drop a filter.
+                Try fewer words or drop a filter.
                 {/* lib/core/assets.ts records the empty search; Insights lists them as search gaps. */}
-                {view.q && " The search is logged as a search gap, so the brand team sees what people look for."}
+                {view.q && <> <InfoTip>Logged as a search gap, so the brand team sees what people look for.</InfoTip></>}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center">
@@ -2014,8 +2008,8 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
         <EmptyTitle className="text-xl">{onUpload ? "Your brand, as data" : "Nothing here yet"}</EmptyTitle>
         <EmptyDescription>
           {onUpload
-            ? "Upload assets, write the rules they follow, and let people and agents use both. Every asset is searchable and served at any size, straight from its URL."
-            : "Assets show up here as soon as someone who can add them does. Meanwhile, the guidelines say how the brand is used."}
+            ? "Upload assets, write the rules they follow."
+            : "No assets yet. The guidelines say how the brand is used."}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

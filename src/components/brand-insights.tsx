@@ -31,7 +31,7 @@ const whereOf = (o: { referrer: string | null; client: string | null }) => o.ref
  * (lib/core/insights.ts brandInsights).
  */
 export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
-  if (!data) return <None>Insights couldn&apos;t load. Nothing has changed; try again in a moment.</None>;
+  if (!data) return <None>Insights couldn&apos;t load. Try again in a moment.</None>;
   const { week, adoption } = data;
   const at = adoption && `@${adoption.release.number}`;
   const places = new Set(adoption?.older.map((o) => whereOf(o) ?? o.surface));
@@ -43,8 +43,8 @@ export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
           <span>
             <b className="font-medium">
               {places.size === 1 ? "1 place still loads" : `${places.size} places still load`} files older than {at}
-            </b>{" "}
-            since release {at} on {date(adoption.release.publishedAt.slice(0, 10))}.
+            </b>
+            , released {date(adoption.release.publishedAt.slice(0, 10))}
           </span>
         </p>
       )}
@@ -115,7 +115,7 @@ export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
             ]}
           />
       ) : (
-        <None>Never released: release adoption starts with the first release.</None>
+        <None>Never released: adoption starts with the first release.</None>
       )}
     </div>
   );

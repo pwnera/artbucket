@@ -10,6 +10,7 @@ import { send } from "@/components/collections";
 import { Confirm } from "@/components/confirm";
 import { CopyButton, copyText } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -69,9 +70,9 @@ const PRESETS = [
 ];
 
 const MODES = {
-  team: { label: "Team", icon: IconUsers, hint: "People who can already see it in the library. Anyone else is asked to sign in." },
-  link: { label: "Link", icon: IconLink, hint: "Anyone with the link can look and download, without an account." },
-  public: { label: "Public", icon: IconWorld, hint: "Anyone at all, at a URL: for embedding on a site or in a doc." },
+  team: { label: "Team", icon: IconUsers, hint: "People with access in the library." },
+  link: { label: "Link", icon: IconLink, hint: "Anyone with the link, no account needed." },
+  public: { label: "Public", icon: IconWorld, hint: "Anyone, at a URL to embed." },
 } as const;
 type Mode = keyof typeof MODES;
 
@@ -306,7 +307,7 @@ function Share({
               {bad ? (
                 <>&ldquo;{bad}&rdquo; isn&apos;t an email address.</>
               ) : me?.email ? (
-                "Optional. They get it by email; the link is also shown here."
+                "Optional."
               ) : (
                 <>
                   Email is off: copy the link instead.{" "}
@@ -395,10 +396,10 @@ function Share({
           </DialogTitle>
           <DialogDescription>
             {upload
-              ? "Anyone with the link can send files, without an account. They land in Review, not in the library, until someone approves them."
+              ? "No account needed. Files wait in Review until approved."
               : target.asset
                 ? "Who can open it?"
-                : "Anyone with the link can see and download its approved assets, without an account."}
+                : "Anyone with the link sees its approved assets."}
           </DialogDescription>
         </DialogHeader>
         {target.asset && !upload ? (
@@ -414,7 +415,7 @@ function Share({
               })}
             </TabsList>
             <p className="text-muted-foreground text-xs">
-              {shareable ? MODES[mode].hint : "It goes outside once it is approved, by someone who may share it."}
+              {shareable ? MODES[mode].hint : "Shareable once approved, by someone who may share it."}
             </p>
             <TabsContent value="team" className="grid gap-4">
               <TeamLink id={target.asset.id} />
@@ -572,7 +573,7 @@ function TeamLink({ id }: { id: string }) {
   return (
     <div className="grid gap-3 pt-1">
       <Snippet text={href} what="the link" />
-      <p className="text-muted-foreground text-sm">Only people who can already see it in the library can open this. Anyone else is asked to sign in.</p>
+      <p className="text-muted-foreground text-sm">Anyone else is asked to sign in.</p>
     </div>
   );
 }
@@ -611,9 +612,11 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
       {on && (
         <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-3 duration-150">
           <div className="grid gap-1.5">
-            <p className="text-sm font-medium">Always the current version</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              Always the current version
+              <InfoTip>The one to embed: a new version, once approved, shows wherever it is used.</InfoTip>
+            </p>
             <Snippet text={at(`/c/${asset.id}`)} what="the URL" />
-            <p className="text-muted-foreground text-xs">The one to embed: a new version, once approved, shows wherever it is used.</p>
           </div>
           <div className="grid gap-1.5">
             <p className="text-sm font-medium">This version only</p>
@@ -622,8 +625,7 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
         </div>
       )}
       <p className="text-muted-foreground text-sm">
-        For a site, a doc or an email. Add a size after either, like <code className="font-mono text-xs">/w_800,f_webp</code>. Turn this off, or archive it, and they
-        stop.
+        Add a size, like <code className="font-mono text-xs">/w_800,f_webp</code>. Off or archived, they stop working.
       </p>
     </div>
   );

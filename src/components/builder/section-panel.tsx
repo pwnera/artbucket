@@ -22,6 +22,7 @@ import {
 import { starter } from "@/components/builder/seam";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi, Dock } from "@/components/builder/use-builder";
+import { InfoTip } from "@/components/info-tip";
 import { ThemeEditor } from "@/components/theme-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,14 +101,14 @@ export function SectionPanel({ b }: SectionPanelProps) {
     ) : (
       <div className="grid gap-4 px-3 py-4">
         {preview ? (
-          <p className="text-muted-foreground text-xs">The whole site as readers get it once released. Each change shows here as it is made.</p>
+          <p className="text-muted-foreground text-xs">The site as readers get it once released.</p>
         ) : (
           // The canvas is the page alone: the nav, on this page and the site's mark show around it only in the preview.
-          <div className="bg-muted/50 grid gap-2 rounded-md border p-3">
-            <p className="text-muted-foreground text-xs">Navigation, on this page and the site&apos;s mark show around the page, in the preview.</p>
-            <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => b.setPreview(true)}>
+          <div className="flex items-center gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={() => b.setPreview(true)}>
               <IconEye /> Preview the whole site
             </Button>
+            <InfoTip>Navigation, on this page and the site&apos;s mark show around the page only in the preview.</InfoTip>
           </div>
         )}
         <ThemeEditor slug={b.brand} theme={b.view.theme} active onPatch={(set) => b.apply({ kind: "theme", set })} rules={b.state.rules} />
@@ -197,22 +198,27 @@ function Comments({ b }: { b: BuilderApi }) {
 // ---- the section's settings ------------------------------------------------
 
 /** A group of settings under a heading. */
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function Group({ title, info, children }: { title: string; info?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="grid gap-3 border-b px-3 py-4 last:border-b-0">
-      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{title}</h3>
+      <div className="flex items-center gap-1">
+        <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{title}</h3>
+        {info && <InfoTip>{info}</InfoTip>}
+      </div>
       {children}
     </section>
   );
 }
 
-/** A labelled row: the control under its name, help under it, an error under that. */
+/** A labelled row: the control under its name (help behind an (i) beside it), an error under it. */
 function Row({ label, htmlFor, about, error, children }: { label: string; htmlFor?: string; about?: string; error?: string | null; children: React.ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={htmlFor}>{label}</Label>
+        {about && <InfoTip>{about}</InfoTip>}
+      </div>
       {children}
-      {about && <p className="text-muted-foreground text-xs">{about}</p>}
       {error && (
         <p role="alert" className="text-destructive text-xs">
           {error}
@@ -230,7 +236,7 @@ function Settings({ b }: { b: BuilderApi }) {
   if (!s)
     return (
       <p className="text-muted-foreground px-4 py-10 text-center text-sm">
-        Pick a section on the page to set it up. Right-click one for everything it can do.
+        Pick a section to set it up. Right-click for more.
       </p>
     );
 
@@ -309,7 +315,6 @@ function Settings({ b }: { b: BuilderApi }) {
           <span className="justify-self-start rounded-md border">
             <RulesPicker b={b} s={s} set={set} />
           </span>
-          <p className="text-muted-foreground text-xs">Or drag one in from Add.</p>
         </Group>
       )}
 
@@ -366,10 +371,12 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
       return (
         <div className="grid gap-1">
           <Label className="justify-between font-normal">
-            {f.label}
+            <span className="flex items-center gap-1.5">
+              {f.label}
+              {f.about && <InfoTip>{f.about}</InfoTip>}
+            </span>
             <Switch checked={(value as boolean | undefined) ?? f.fallback} onCheckedChange={put} />
           </Label>
-          {f.about && <p className="text-muted-foreground text-xs">{f.about}</p>}
           {error && <p className="text-destructive text-xs">{error}</p>}
         </div>
       );
@@ -470,7 +477,10 @@ function GroupField({ s, f, error, onSet }: { s: Section; f: Extract<Field, { ki
   return (
     <div className="grid gap-2">
       <Label className="justify-between font-normal">
-        {f.label}
+        <span className="flex items-center gap-1.5">
+          {f.label}
+          {f.about && <InfoTip>{f.about}</InfoTip>}
+        </span>
         <Switch
           checked={!!value}
           onCheckedChange={(on) => onSet(on ? Object.fromEntries(f.fields.map((x) => [x.name, START[x.name] ?? (x.kind === "number" ? (x.min ?? 1) : 1)])) : undefined)}
@@ -488,7 +498,6 @@ function GroupField({ s, f, error, onSet }: { s: Section; f: Extract<Field, { ki
           )}
         </div>
       )}
-      {f.about && <p className="text-muted-foreground text-xs">{f.about}</p>}
       {error && <p className="text-destructive text-xs">{error}</p>}
     </div>
   );
@@ -725,8 +734,7 @@ function Insert({ b }: { b: BuilderApi }) {
 
   return (
     <>
-      <Group title="Blocks">
-        <p className="text-muted-foreground text-xs">Drag one between sections, or click to add it {picked ? "after the picked section" : "at the end"}.</p>
+      <Group title="Blocks" info={`Drag one between sections, or click to add it ${picked ? "after the picked section" : "at the end"}.`}>
         <ul className="grid grid-cols-2 gap-2">
           {TEMPLATES.map((t) => (
             <li key={t}>
@@ -748,8 +756,7 @@ function Insert({ b }: { b: BuilderApi }) {
           ))}
         </ul>
       </Group>
-      <Group title="Rules">
-        <p className="text-muted-foreground text-xs">Drag one onto a section that takes it{picked ? ", or click to add it to the picked one" : ""}.</p>
+      <Group title="Rules" info={`Drag one onto a section that takes it${picked ? ", or click to add it to the picked one" : ""}.`}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a rule" aria-label="Find a rule" className="h-8" />
         <ul className="grid gap-0.5">
           {rules.map((r) => (

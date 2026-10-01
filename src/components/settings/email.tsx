@@ -90,10 +90,11 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
               {v.enabled ? "On" : "Off"}
             </Badge>
             {setting.source === "default"
-              ? "Nothing is configured: invitations are links to send yourself, and forgotten passwords can't be reset."
+              ? "Not configured."
               : `Settings ${FROM[setting.source]}${setting.source === "organization" && Object.values(setting.sources).includes("environment") ? ", the rest from the server's configuration" : ""}.`}
           </>
         }
+        info={setting.source === "default" ? "Without email, invitations are links to send yourself, and forgotten passwords can't be reset." : undefined}
       >
         <form
           className="grid max-w-lg gap-4"
@@ -126,14 +127,14 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
             <Hint text={hint("provider")}>
               {p.site ? (
                 <>
-                  Make an API key at{" "}
+                  Make a key and verify your domain at{" "}
                   <ExternalLink href={p.site} className="underline underline-offset-2">
                     {p.site.replace("https://", "")}
-                  </ExternalLink>{" "}
-                  and verify the domain you send from.
+                  </ExternalLink>
+                  .
                 </>
               ) : (
-                "Messages are printed to the server's log instead of sent: for trying it out."
+                "Printed to the server's log, not sent."
               )}
             </Hint>
           </div>
@@ -177,7 +178,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
                 placeholder={setting.secrets.apiKey ? "Saved. Leave blank to keep it" : "Paste it here"}
                 maxLength={500}
               />
-              <Hint text={hint("apiKey")}>Kept encrypted, and never shown again.</Hint>
+              <Hint text={hint("apiKey")}>Encrypted, never shown again.</Hint>
             </div>
           )}
           <div className="flex flex-wrap gap-2">
@@ -206,7 +207,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
         </form>
       </Group>
 
-      <Group title="Send a test" description="Through the settings above, as they are saved.">
+      <Group title="Send a test" info="Through the settings above, as they are saved.">
         <form
           className="grid max-w-lg gap-2"
           onSubmit={(e) => {

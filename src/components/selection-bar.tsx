@@ -67,6 +67,7 @@ import { sendResult } from "@/lib/send";
 import { undoable } from "@/lib/undo";
 import { hasPreview } from "@/lib/preview";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 
 const files = (n: number) => `${n.toLocaleString()} ${n === 1 ? "asset" : "assets"}`;
 
@@ -701,7 +702,7 @@ export function SelectionBar({
         open={!!asked}
         onOpenChange={onDeletingChange}
         title={`Delete ${files(asked?.length ?? 0)}?`}
-        says="They leave the library, its collections and its links at once, and their URLs stop working. For 30 days they can be restored, from the Deleted status; then they are gone for good."
+        says="They leave the library and their links stop working at once. Restore them from Deleted within 30 days; then they are gone for good."
         action="Delete"
         run={async () => {
           const ok = await bulk.deleteLive(asked ?? []);
@@ -835,9 +836,7 @@ export function RejectAction({
           maxLength={2000}
           rows={2}
         />
-        <p className="text-muted-foreground text-xs">
-          Suggested assets are kept out of the library, with this reason. Suggested tags are dismissed.
-        </p>
+        <p className="text-muted-foreground text-xs">Assets stay out of the library; suggested tags are dismissed.</p>
         <Button
           size="sm"
           variant="destructive"
@@ -901,10 +900,12 @@ function ExpiryAction({
       </PopoverTrigger>
       <PopoverContent side="top" className="grid w-72 gap-3">
         <label className="grid gap-1.5 text-sm font-medium">
-          Last day of use
+          <span className="flex items-center gap-1.5">
+            Last day of use
+            <InfoTip>After it, their links answer 410 and checks refuse them. The rest of their rights stay as they are.</InfoTip>
+          </span>
           <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
         </label>
-        <p className="text-muted-foreground text-xs">After it, their links answer 410 and checks refuse them. The rest of their rights stay as they are.</p>
         <div className="flex gap-2">
           <Button size="sm" className="flex-1" disabled={!day || !!busy} pending={busy === "set"} onClick={() => void apply(day)}>
             Set

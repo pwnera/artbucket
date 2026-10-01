@@ -10,6 +10,7 @@ import type { BrandHub } from "@/components/brands";
 import { useCan } from "@/components/can";
 import { ExternalLink } from "@/components/external-link";
 import { FilesOut } from "@/components/files-out";
+import { InfoTip } from "@/components/info-tip";
 import type { Status } from "@/components/builder/use-status";
 import { PortalDialog, toastSaved, type Portal } from "@/components/portals";
 import { Group } from "@/components/settings/panels";
@@ -87,8 +88,8 @@ export function BrandSharing({
           title="BrandHub"
           description={
             hub.visibility === "public"
-              ? "Public: anyone and any agent reads its latest release, its brand.json, llms.txt and tokens."
-              : "Private: only people in this workspace see it there, signed in."
+              ? "Public: anyone and any agent reads its latest release."
+              : "Private: only people in this workspace, signed in."
           }
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -126,7 +127,7 @@ export function BrandSharing({
 
       {portals && <BrandPortals brand={brand} portals={portals} portalDomain={portalDomain} hub={hub} busy={busy} onLink={link} />}
 
-      <Group title="For agents and code" description="The addresses an agent or a build reads the brand from.">
+      <Group title="For agents and code" info="The addresses an agent or a build reads the brand from.">
         <BrandAddresses brand={brand} origin={origin} hub={hub?.published ? hub : null} release={release} onTokens={() => setTokens(true)} />
       </Group>
       <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
@@ -145,9 +146,10 @@ function WellKnown({ hub, domain }: { hub: BrandHub; domain: string | null }) {
   return (
     <div className="grid gap-1.5">
       <p className="text-sm font-medium break-words">
-        On {domain ?? "your own site"}, at <code className="font-mono text-xs">{domain ? `https://${domain}` : ""}/.well-known/brand.json</code>
+        On {domain ?? "your own site"}, at <code className="font-mono text-xs">{domain ? `https://${domain}` : ""}/.well-known/brand.json</code>{" "}
+        <InfoTip>Agents that read AdCP&apos;s brand.json from a domain then find this brand, its latest release, here.</InfoTip>
       </p>
-      <p className="text-muted-foreground text-sm">Agents that read AdCP&apos;s brand.json from a domain then find this brand, its latest release, here. One static file, as it is:</p>
+      <p className="text-muted-foreground text-sm">One static file, as it is:</p>
       <Snippet text={file} what="the brand.json" />
     </div>
   );
@@ -179,7 +181,7 @@ function BrandPortals({
   const [editing, setEditing] = useState<Portal | "new" | null>(null);
   const linked = hub?.portal?.slug;
   return (
-    <Group title="Portals" description="Where people outside the team read the brand and take its files.">
+    <Group title="Portals" info="Where people outside the team read the brand and take its files.">
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => setEditing("new")}>
           <IconPlus aria-hidden /> New portal

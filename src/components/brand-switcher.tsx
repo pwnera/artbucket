@@ -267,8 +267,8 @@ export function BrandDialog({
             </DialogTitle>
             <DialogDescription>
               {renaming
-                ? "The name shows everywhere; the brand's address stays the same."
-                : "A copy of its rules, pages and theme, with a history of its own."}
+                ? "Its address stays the same."
+                : "Copies its rules, pages and theme."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">

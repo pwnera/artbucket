@@ -521,7 +521,7 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
                 <p className="text-sm font-medium">
                   Thank you: {uploads.length} {uploads.length === 1 ? "file" : "files"} sent for review
                 </p>
-                <p className="text-muted-foreground text-sm">Someone will look them over before they are used. Send more any time.</p>
+                <p className="text-muted-foreground text-sm">Send more any time.</p>
               </div>
             </div>
           )}

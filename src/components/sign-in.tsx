@@ -455,7 +455,7 @@ export function AuthForm({
                     aria-describedby={`${id}-org-hint`}
                   />
                   <p id={`${id}-org-hint`} className="text-muted-foreground text-xs">
-                    What your team is called. You can change it later.
+                    You can change it later.
                   </p>
                 </div>
               )}
@@ -503,7 +503,7 @@ export function AuthForm({
         )}
         {mode === "in" && !forgot && step === "password" && (
           <p className="text-muted-foreground text-xs text-pretty">
-            Forgot your password? This server can&apos;t email a reset link yet. An admin can turn on email in Settings.
+            Forgot it? Ask an admin: this server can&apos;t email reset links yet.
           </p>
         )}
         {below && <p className="text-muted-foreground text-xs text-pretty">{below}</p>}
@@ -710,7 +710,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
     <AuthForm
       heading={(mode) =>
         first
-          ? { title: `Set up ${brand.name}`, lead: "This first account is the admin of everything. You can invite your team next." }
+          ? { title: `Set up ${brand.name}`, lead: "This first account is the admin. Invite your team next." }
           : mode === "up"
             ? { title: `Join ${brand.name}`, lead: why ?? "Your account comes with an organization of its own." }
             : { title: `Sign in to ${brand.name}`, lead: why ?? brand.tagline ?? undefined }
@@ -726,7 +726,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       organization={first}
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
-      below={!first && !auth.open ? "Accounts are by invitation: ask an admin for a link if you don't have one." : undefined}
+      below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
       aside={<SignInAside />}
     />
   );
@@ -738,7 +738,7 @@ export function Unreachable() {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
-    <Card title={`Can't reach ${brand.name} right now`} lead="The server didn't answer. It may be restarting: try again in a moment.">
+    <Card title={`Can't reach ${brand.name} right now`} lead="It may be restarting. Try again in a moment.">
       <Button className="w-full" pending={pending} onClick={() => start(() => router.refresh())}>
         <IconRefresh /> {pending ? "Trying…" : "Try again"}
       </Button>
@@ -777,8 +777,8 @@ export function Welcome({ me }: { me: Me }) {
       title={`Welcome, ${me.user?.name || me.user?.email}`}
       lead={
         offer
-          ? `${offer.organization.name} is here, with your ${offer.domain} address. Join it to look around, and ask its admins for more, or start an organization of your own.`
-          : "You're signed in, but nobody has given you access to a workspace yet. Ask an admin for an invitation, or start an organization of your own."
+          ? `Your ${offer.domain} address can join ${offer.organization.name}, or start your own.`
+          : "No workspace yet. Ask an admin for an invitation, or start your own."
       }
     >
       <div className="grid gap-2">
@@ -886,7 +886,7 @@ export function InvitePage({
       // Taken as the account was made, before its email was confirmed: the person who used it signs in, the code then finishes it.
       <Card
         title="This invitation doesn't work"
-        lead="It was used already, withdrawn, or it expired. If you made your account with it, sign in: you're in. Otherwise ask whoever sent it for a new one."
+        lead="It was used, withdrawn or expired. Made your account with it? Sign in. Otherwise ask for a new one."
       >
         <Button asChild>
           <Link href="/login">Sign in</Link>
@@ -993,7 +993,7 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
     return (
       <Card
         title="Reset your password"
-        lead="This server can't email a reset link yet. An admin can turn on email in Settings, or set a new password for you."
+        lead="This server can't email a reset link yet. Ask an admin to set a new password for you."
       >
         <Button variant="outline" asChild>
           <Link href="/login">Back to sign in</Link>

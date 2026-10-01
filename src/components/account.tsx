@@ -244,8 +244,8 @@ export function MakeDialog({ kind, org, open = true, onClose }: { kind: "workspa
             <DialogTitle>{kind === "workspace" ? "New workspace" : "New organization"}</DialogTitle>
             <DialogDescription>
               {kind === "workspace"
-                ? `A library of its own in ${org}: its own assets, collections, fields, brands and keys. The organization's admins can open it.`
-                : "A team of its own, with a first workspace. You are its admin; invite people from Team."}
+                ? `A separate library in ${org}. Its admins can open it.`
+                : "With a first workspace. You are its admin."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">

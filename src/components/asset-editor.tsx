@@ -945,7 +945,7 @@ export function AssetEditor({
               {m.title ? (
                 <p className="text-muted-foreground mt-0.5 truncate text-xs">{asset.filename}</p>
               ) : (
-                editable && <p className="text-muted-foreground mt-0.5 text-xs">No title yet: click the name to give it one.</p>
+                editable && <p className="text-muted-foreground mt-0.5 text-xs">No title yet</p>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {/* Under the title, not beside it: the title keeps the header's width. */}
@@ -1061,7 +1061,7 @@ export function AssetEditor({
                       maxLength={2000}
                       rows={1}
                       aria-label="Description"
-                      placeholder="Add a description: what it shows, where it is used"
+                      placeholder="Add a description"
                       className={cn(ghost, "-mx-3 min-h-9 w-[calc(100%+1.5rem)] resize-none field-sizing-content")}
                       {...field("description")}
                     />
@@ -1191,8 +1191,7 @@ function EditHint() {
     <div role="note" className="bg-muted/50 animate-in fade-in-0 flex items-start gap-2.5 rounded-lg border p-3 text-xs">
       <IconPencil className="text-muted-foreground mt-px size-3.5 shrink-0" />
       <p className="text-muted-foreground flex-1">
-        <span className="text-foreground font-medium">Click any value to change it.</span> Each saves as you leave it, and goes out
-        with the file when it is downloaded.
+        <span className="text-foreground font-medium">Click any value to change it.</span> It saves itself and goes out with downloads.
       </p>
       <button
         type="button"
@@ -1270,7 +1269,7 @@ function IconStage({ asset, bg, name }: { asset: Asset; bg: PreviewBg | "auto"; 
           </figure>
         ))}
       </div>
-      {mono && <p className="text-2xs max-w-56 text-center opacity-60">One color: it takes the color of the text around it.</p>}
+      {mono && <p className="text-2xs max-w-56 text-center opacity-60">One color: takes the text color</p>}
     </div>
   );
 }
@@ -1452,22 +1451,35 @@ function DownloadsProperty({ asset, error, onChange }: { asset: Asset; error?: s
   const auto = isDownloadable({ ...asset, rights: asset.rights && { ...asset.rights, downloadable: null } });
   const allowed = v === "" ? auto : v === "yes";
   const font = isFont(asset.mime, asset.filename);
-  const why = font ? "It's a font without an open license." : "It's licensed.";
+  const why = font ? "A font without an open license." : "Licensed.";
   // A font is seen set in the pages; anything else, as pictures at most 1600 px a side.
-  const seen = font ? "Visitors see it set in your pages but can't download it." : "Visitors see it, up to 1600 px, but can't download it.";
+  const seen = font ? "set in your pages" : "up to 1600 px";
   const note = allowed
     ? {
-        text: "Anyone who sees it on a portal, a share link or BrandHub can download the file.",
+        text: "Downloadable on portals, share links and BrandHub.",
         // Allowed against what its license suggests: the person chose it, so it warns, it doesn't stop them.
         warn: v === "yes" && !auto,
       }
     : {
-        text: `${v === "" ? `${why} ` : ""}${seen} Your team still can.${v === "" ? " Choose Allowed only if the license lets you share the file." : ""}`,
+        text: `${v === "" ? `${why} ` : ""}Visitors can't download it. Your team can.`,
         warn: false,
       };
   const noteId = `${id}-note`;
   return (
-    <Property label="Downloads" htmlFor={id} error={error} text={allowed ? "Allowed" : "Shown only"}>
+    <Property
+      label={
+        <>
+          Downloads
+          <InfoTip label="More about downloads">
+            Allowed: anyone who sees it on a portal, a share link or BrandHub can download the file. Shown only: visitors see it, {seen}, but
+            can&apos;t download it. Choose Allowed only if the license lets you share the file.
+          </InfoTip>
+        </>
+      }
+      htmlFor={id}
+      error={error}
+      text={allowed ? "Allowed" : "Shown only"}
+    >
       <div data-prop="downloadable" className="grid gap-1">
         <Combobox
           id={id}
@@ -1629,6 +1641,7 @@ function ProvenanceInputs({
         <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-xs">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <IconCertificate className="size-4" /> Content Credentials
+            <InfoTip label="More about Content Credentials">Kept intact in the original and in downloads; not verified here.</InfoTip>
           </p>
           <p className="text-muted-foreground">
             {[
@@ -1638,8 +1651,7 @@ function ProvenanceInputs({
             ]
               .filter(Boolean)
               .join(", ") || "A manifest with nothing to show"}
-            . {c.actions.length > 0 && `Actions: ${c.actions.map((a) => a.replace(/^c2pa\./, "")).join(", ")}. `}
-            Kept intact in the original and in downloads; not verified here.
+            . {c.actions.length > 0 && `Actions: ${c.actions.map((a) => a.replace(/^c2pa\./, "")).join(", ")}.`}
           </p>
         </div>
       )}
@@ -1781,8 +1793,13 @@ function AssetRef({
   );
   return (
     <Property
-      label={label}
-      hint={id ? consequence : about}
+      label={
+        <>
+          {label}
+          <InfoTip label={`More about ${label.toLowerCase()}`}>{about}</InfoTip>
+        </>
+      }
+      hint={id ? consequence : undefined}
       error={error}
       text={face ? <span className="flex min-w-0 items-center gap-2">{face}</span> : null}
     >
@@ -1936,11 +1953,12 @@ function Review({
   if (asset.status === "rejected") {
     return (
       <div className="bg-muted/40 grid gap-1 rounded-lg border p-3 text-sm">
-        <p className="font-medium">Rejected</p>
+        <p className="flex items-center gap-1.5 font-medium">
+          Rejected <InfoTip>It stays out of the library; the agent can read why.</InfoTip>
+        </p>
         <p className="text-muted-foreground text-xs">
           Suggested by {asset.proposedBy ?? "an agent"}.{" "}
-          {asset.reviewNote ? <>Reason: &ldquo;{asset.reviewNote}&rdquo;</> : "No reason given."} It stays out of the
-          library; the agent can read why.
+          {asset.reviewNote ? <>Reason: &ldquo;{asset.reviewNote}&rdquo;</> : "No reason given."}
         </p>
       </div>
     );
@@ -1993,8 +2011,8 @@ function Review({
             <time dateTime={asset.createdAt} title={new Date(asset.createdAt).toLocaleString()} className="text-muted-foreground font-normal" suppressHydrationWarning>
               · {ago(asset.createdAt)}
             </time>
+            <InfoTip>It stays out of the library and search until you approve it.</InfoTip>
           </p>
-          <p className="text-muted-foreground text-xs">It stays out of the library and search until you approve it.</p>
           {rejecting ? (
             <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
               <Textarea
@@ -2008,7 +2026,7 @@ function Review({
                     void reject();
                   }
                 }}
-                placeholder="Why not? The agent reads this, e.g. off-brand colors, low resolution"
+                placeholder="Why not? The agent reads this"
                 aria-label="Reason for rejecting"
                 maxLength={2000}
                 rows={2}

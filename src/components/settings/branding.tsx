@@ -111,7 +111,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <Group title="Name" description="What the product is called: page titles, the sign-in screen, email subjects.">
+      <Group title="Name" info="What the product is called: page titles, the sign-in screen, email subjects.">
         <div className="grid max-w-md gap-2">
           <div className="flex items-center gap-3">
             <BrandMark brand={preview} />
@@ -125,7 +125,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           <Hint text={env("tagline")} />
         </div>
       </Group>
-      <Group title="Look" description="Images come from the library, and show while they stay approved.">
+      <Group title="Look" info="Images come from the library, and show while they stay approved.">
         {image("logo", "Logo", "The sidebar, sign-in, share links and email")}
         {image("icon", "Icon", "Square: the browser tab")}
         <div className="grid gap-2">
@@ -147,7 +147,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           <Hint text={env("accent")} />
         </div>
       </Group>
-      <Group title="Email" description="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
+      <Group title="Email" info="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
         <div className="grid max-w-md gap-2">
           <Label htmlFor={`${id}-footer`}>Footer</Label>
           <Textarea id={`${id}-footer`} rows={2} maxLength={500} value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Acme Inc, 1 Main Street. Questions: brand@acme.com" />
@@ -180,7 +180,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
       {picking && (
         <LibraryPicker
           title={picking === "logo" ? "Choose the logo" : "Choose the icon"}
-          description="An approved image from the library. It shows for as long as it stays approved."
+          description="Shown while it stays approved."
           filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
           onClose={() => setPicking(null)}
           onPick={(a) => {
@@ -263,7 +263,8 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
     <div className="space-y-6">
       <Group
         title="Domains"
-        description="Addresses of your own. People sign in at any of them, and the default is where links in email point; a portal can take one instead, in Portals. Point each at this server, add the TXT record, then check it."
+        description="Point each at this server, add the TXT record, then check it."
+        info="People sign in at any of them, and the default is where links in email point. A portal can take one instead, in Portals."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -327,7 +328,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                       </dl>
                       {d.cname && (
                         <p className="text-muted-foreground">
-                          Both are checked. At a zone&apos;s apex, where a CNAME can&apos;t go, an ALIAS or flattened record to the same target works.
+                          Both are checked. At a zone&apos;s apex, use an ALIAS or flattened record.
                         </p>
                       )}
                       <Waiting what="Waiting for DNS, checked every 30 seconds" checkedAt={checked.at} stopped={checked.gaveUp === waiting} />

@@ -11,6 +11,7 @@ import { upload } from "@/components/brand-sections/slots";
 import type { Transport } from "@/components/builder/use-builder";
 import { ColorField } from "@/components/color-field";
 import { CopyButton } from "@/components/copy-button";
+import { InfoTip } from "@/components/info-tip";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -241,7 +242,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
             </p>
             <h1 className="font-display text-2xl font-semibold tracking-tight">Set up {name}</h1>
             <p className="text-muted-foreground max-w-prose">
-              Four essentials make every page look and sound like {name}. The pages are laid out from them, and all of it stays editable, and private until you release it.
+              Four essentials shape every page. All editable, private until you release.
             </p>
           </div>
 
@@ -251,9 +252,9 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
                 <IconBrandGit aria-hidden className="size-5" />
               </span>
               <div className="grid min-w-0 flex-1 basis-64 gap-0.5">
-                <p className="text-sm font-medium">Keep {name} in a Git repository</p>
-                <p className="text-muted-foreground text-sm">
-                  Start from a repository that already has the brand&apos;s files, or keep these there as you build. Pull requests get a preview, and edits go both ways.
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  Keep {name} in a Git repository
+                  <InfoTip>Start from a repository that already has the brand&apos;s files, or keep these there as you build. Pull requests get a preview, and edits go both ways.</InfoTip>
                 </p>
               </div>
               <Button asChild variant="outline" size="sm">
@@ -345,7 +346,6 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <p className="text-muted-foreground w-full text-sm">An overview, then a page each for color, typography, logo and voice, in the templates they fit.</p>
           </div>
         </main>
 
@@ -390,12 +390,10 @@ function Step({ n, title, about, optional, children }: { n: number; title: strin
         <span aria-hidden className="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums">
           {n}
         </span>
-        <div className="grid gap-0.5">
-          <h2 id={`setup-step-${n}`} className="font-medium">
-            {title} {optional && <span className="text-muted-foreground text-sm font-normal">(optional)</span>}
-          </h2>
-          <p className="text-muted-foreground text-sm">{about}</p>
-        </div>
+        <h2 id={`setup-step-${n}`} className="flex items-center gap-1.5 font-medium">
+          {title} {optional && <span className="text-muted-foreground text-sm font-normal">(optional)</span>}
+          <InfoTip>{about}</InfoTip>
+        </h2>
       </header>
       {children}
     </section>

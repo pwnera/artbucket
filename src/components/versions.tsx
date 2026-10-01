@@ -26,6 +26,7 @@ import { hasPreview } from "@/lib/preview";
 import { ago, exact } from "@/lib/time";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 import { flash } from "@/lib/motion";
 
 const title = (a: Asset) => a.metadata?.title || a.filename;
@@ -116,10 +117,10 @@ export function Lifecycle({
   };
   const purged = asset.deletedAt ? new Date(new Date(asset.deletedAt).getTime() + 30 * 86_400_000).toLocaleDateString() : null;
   const says = {
-    deleted: `Deleted. Its links stop working. Restore it before ${purged}; after that it is gone for good.`,
-    draft: "Out of the library, and its links, until it is approved.",
-    expired: `Its last day of use was ${r?.expires}. Its links stop working and checks refuse it. A later date under Rights brings it back.`,
-    archived: "Archived. Its links stop working and checks refuse it.",
+    deleted: `Deleted, links off. Restore it before ${purged}, or it is gone for good.`,
+    draft: "Out of the library, links off, until approved.",
+    expired: `Expired ${r?.expires}: links off, checks refuse it. A later date under Rights brings it back.`,
+    archived: "Archived: links off, checks refuse it.",
   }[asset.state as "deleted" | "draft" | "expired" | "archived"];
   if (!says) return null;
   return (
@@ -357,8 +358,9 @@ export function Versions({
           ))}
         </ul>
       ) : list.length < 2 ? (
-        <p className="text-muted-foreground text-xs">
-          A new file for the same thing replaces this one once approved: checks point to it, and share links serve it. Drop one on the preview to add it.
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          Drop a new version on the preview.
+          <InfoTip>Once approved, it replaces this one: checks point to it, and share links serve it.</InfoTip>
         </p>
       ) : (
         <ul className="grid gap-1">

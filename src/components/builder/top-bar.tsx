@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { PageTrail } from "@/components/builder/page-tree";
 import type { BuilderApi, Panel } from "@/components/builder/use-builder";
 import { SaveStatus } from "@/components/save-status";
@@ -399,7 +400,7 @@ function Checklist({ b }: { b: BuilderApi }) {
                         {s.title}
                         {!s.done && <span className="text-success ms-1.5 text-xs font-medium tabular-nums">+{s.points}</span>}
                       </span>
-                      {(!s.done || next) && <span className="text-muted-foreground text-xs">{s.detail}</span>}
+                      {next && <span className="text-muted-foreground text-xs">{s.detail}</span>}
                     </span>
                     {!s.done &&
                       (a.href ? (
@@ -417,7 +418,10 @@ function Checklist({ b }: { b: BuilderApi }) {
             </ol>
           </section>
         )}
-        <p className="px-3 pt-3 pb-1 text-sm font-medium">{found.length ? "On this page" : "Nothing to fix on this page"}</p>
+        <p className={cn("flex items-center gap-1.5 px-3 pt-3 text-sm font-medium", found.length ? "pb-1" : "pb-3")}>
+          {found.length ? "On this page" : "Nothing to fix on this page"}
+          <InfoTip>The checks look for starter text left in, grounds that run together, a second cover and titles in capitals.</InfoTip>
+        </p>
         {found.length > 0 ? (
           <ul className="max-h-72 overflow-y-auto pb-1">
             {found.map((f, i) => (
@@ -434,9 +438,7 @@ function Checklist({ b }: { b: BuilderApi }) {
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="text-muted-foreground px-3 pb-3 text-xs">The checks look for starter text left in, grounds that run together, a second cover and titles in capitals.</p>
-        )}
+        ) : null}
       </PopoverContent>
     </Popover>
   );

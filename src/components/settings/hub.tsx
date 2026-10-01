@@ -57,9 +57,6 @@ export function HubPanel({
       {domains.some((d) => d.verified) && <OffersGroup offers={offers} />}
       <GithubAccounts github={github} />
       <Reports reports={reports} />
-      <p className="text-muted-foreground text-sm">
-        Anyone can report a listing, and an organization that proves it holds the brand can claim it. Listings that are not verified stay out of search engines.
-      </p>
     </div>
   );
 }
@@ -69,11 +66,8 @@ function Verified({ proofs }: { proofs: string[] }) {
   return (
     <Group
       title={proofs.length ? "Listings verified" : "Listings"}
-      description={
-        proofs.length
-          ? "Your public brands show on BrandHub as verified, with the proof they name."
-          : "Your public brands show on BrandHub as community listings until the organization proves a domain (Domains) or a GitHub account (below)."
-      }
+      description={proofs.length ? undefined : "Community listings until you prove a domain or GitHub account."}
+      info="Verified listings name their proof. Anyone can report a listing, and an organization that proves it holds the brand can claim it. Listings that are not verified stay out of search engines."
     >
       {proofs.length ? (
         <ul className="grid gap-1.5 text-sm">
@@ -106,7 +100,8 @@ function GithubAccounts({ github }: { github: GithubAccount[] }) {
   return (
     <Group
       title="GitHub accounts"
-      description="Prove your organization runs a GitHub organization, the way a domain is proved: its BrandHub listings then show as verified, like a verified domain in Domains. Add a file to the account's .github repository, then check it."
+      description="Verify your listings with a GitHub organization."
+      info="Proved like a domain: add a file to the account's .github repository, then check it. Its BrandHub listings then show as verified."
     >
       {github.length > 0 && (
         <ul className="divide-y rounded-md border">
@@ -215,7 +210,8 @@ function Reports({ reports }: { reports: HubReport[] }) {
   return (
     <Group
       title="Reports and claims"
-      description="What people said about your public listings. A claim comes from an organization that proved a domain or a GitHub account: reach them, then hand the brand over (they can start from it on BrandHub) or take the listing down. This server's operator sees these too."
+      description="What people said about your public listings."
+      info="A claim comes from an organization that proved a domain or a GitHub account: reach them, then hand the brand over (they can start from it on BrandHub) or take the listing down. This server's operator sees these too."
     >
       {reports.length ? (
         <ul className="divide-y rounded-md border">

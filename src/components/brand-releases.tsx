@@ -6,6 +6,7 @@ import { IconHistory, IconWorldUpload } from "@tabler/icons-react";
 import { ReleaseForm } from "@/components/builder/publish-dialog";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
+import { InfoTip } from "@/components/info-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Update } from "@/lib/history";
@@ -43,8 +44,15 @@ export function ReleaseList({ slug, updates, pending }: { slug: string; updates:
     <div className="grid gap-4">
       {(pending || !updates.length) && (
         <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-          <p className="text-sm">
-            {updates.length ? `There are changes since @${updates[0].version} that readers don't see yet.` : "Never released: portals and BrandHub show nothing of it yet."}
+          <p className="flex items-center gap-1.5 text-sm">
+            {updates.length ? (
+              `Unreleased changes since @${updates[0].version}`
+            ) : (
+              <>
+                Never released
+                <InfoTip>Portals and BrandHub show nothing of it until it is released.</InfoTip>
+              </>
+            )}
           </p>
           {edit && (
             <Button asChild size="sm">
@@ -61,7 +69,7 @@ export function ReleaseList({ slug, updates, pending }: { slug: string; updates:
             <li key={u.version} className="grid gap-1 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={i ? "secondary" : "default"}>@{u.version}</Badge>
-                {i === 0 && <span className="text-muted-foreground text-xs">Latest: what readers see</span>}
+                {i === 0 && <span className="text-muted-foreground text-xs">Live</span>}
                 <span className="text-muted-foreground ms-auto text-xs" title={exact(u.publishedAt)}>
                   {u.publishedBy ? `${u.publishedBy}, ` : ""}
                   {ago(u.publishedAt)}
@@ -75,7 +83,7 @@ export function ReleaseList({ slug, updates, pending }: { slug: string; updates:
       )}
       {edit && (
         <Link href={builderPath(slug, { panel: "history" })} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 justify-self-start text-sm">
-          <IconHistory aria-hidden className="size-4" /> Every version, released or not
+          <IconHistory aria-hidden className="size-4" /> Version history
         </Link>
       )}
     </div>

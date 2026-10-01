@@ -4,6 +4,7 @@ import Link from "next/link";
 import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@tabler/icons-react";
 import { BrandCard, type CardBrand } from "@/components/brand-card";
 import { BrandHeader } from "@/components/brand-header";
+import { InfoTip } from "@/components/info-tip";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Status } from "@/components/builder/use-status";
 import { AppHeader } from "@/components/page";
@@ -58,7 +59,7 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
         <TeamStrip slug={brand.slug} status={status} signals={signals} comments={comments} links={links} />
         <div className="grid min-w-0 content-start gap-4">
           <Box title="About">
-            <p className="text-sm">{tagline ?? <span className="text-muted-foreground">No line yet: say what the brand is in its voice rules.</span>}</p>
+            <p className="text-sm">{tagline ?? <span className="text-muted-foreground">No line yet: add one in its voice rules.</span>}</p>
             {brand.from && (
               <div className="grid content-start gap-0.5 text-sm">
                 <Label>Lineage</Label>
@@ -72,11 +73,11 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
           <section className="bg-card min-w-0 overflow-hidden rounded-xl border">
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
               <h2 className="font-medium">{card.live ? "What readers see" : "Draft"}</h2>
-              <span className="text-muted-foreground text-xs">{card.live ? `@${card.live}` : release ? "Not what readers see yet" : "Never released"}</span>
+              <span className="text-muted-foreground text-xs">{card.live ? `@${card.live}` : release ? "Unreleased" : "Never released"}</span>
             </div>
             <BrandCard
               brand={card.brand}
-              empty={<p className="text-muted-foreground border-t px-5 py-4 text-sm">Nothing to show yet: add colors, typefaces and logos in the guidelines&apos; rules.</p>}
+              empty={<p className="text-muted-foreground border-t px-5 py-4 text-sm">Nothing yet: add colors, type and logos in the rules.</p>}
             />
           </section>
 
@@ -87,10 +88,13 @@ export function BrandOverview({ brand, origin, rules, status, release, changes, 
                 <p className="text-muted-foreground text-xs">
                   {[...(changes ?? []), ago(release.publishedAt)].join(" · ")}
                 </p>
-                {status?.publish === "behind" && <p className="text-muted-foreground text-xs">There are changes readers don&apos;t see yet.</p>}
+                {status?.publish === "behind" && <p className="text-muted-foreground text-xs">Unreleased changes.</p>}
               </>
             ) : (
-              <p className="text-muted-foreground text-sm">Never released: portals and BrandHub show nothing of it yet.</p>
+              <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+                Never released
+                <InfoTip>Portals and BrandHub show nothing of it until it is released.</InfoTip>
+              </p>
             )}
           </Box>
         </div>

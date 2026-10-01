@@ -392,7 +392,7 @@ export function UploadFieldsDialog({
         >
           <DialogHeader>
             <DialogTitle>Describe {count === 1 ? "this file" : `these ${count} files`}</DialogTitle>
-            <DialogDescription>Fields marked * are required by this library.</DialogDescription>
+            <DialogDescription>Fields marked * are required.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <FieldInputs

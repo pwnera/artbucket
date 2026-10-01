@@ -93,7 +93,7 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       return (
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Everyone in the organization, share links and the audit log are in{" "}
+            The whole organization, links and audit log are in{" "}
             <Link href="/team" className="text-foreground underline underline-offset-2">
               Team
             </Link>

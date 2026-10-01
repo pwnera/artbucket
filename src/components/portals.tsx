@@ -31,6 +31,7 @@ import { Confirm } from "@/components/confirm";
 import { Fold } from "@/components/fold";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { AppHeader, PageHeader } from "@/components/page";
 import { useShell } from "@/components/shell";
 import { Thumb } from "@/components/thumb";
@@ -172,7 +173,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
         <PageHeader
           icon={<IconWorld />}
           title="Portals"
-          description="A front door for press, partners and retailers onto the collections and brand guidelines you pick: your look, only approved assets, and downloads sized for the job."
+          description="Branded pages for press, partners and retailers."
         >
           <Button size="sm" onClick={() => setEditing("new")} disabled={!any}>
             <IconPlus /> New portal
@@ -195,8 +196,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
               <EmptyTitle>No portals yet</EmptyTitle>
               <EmptyDescription>
                 {any
-                  ? "Pick a few collections and brands, a logo and a color: a press kit or a partner hub, at an address of its own. Expired, archived and unapproved assets never show."
-                  : "A portal shows collections and brand guidelines: make a collection or a brand first."}
+                  ? "A press kit or partner hub at its own address."
+                  : "Make a collection or a brand first."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -659,7 +660,7 @@ export function PortalDialog({
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug break-words">{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
           <DialogDescription>
-            Only approved, unexpired assets show, in the collections and on the brands&apos; guidelines alike, and they leave the portal the moment that changes.
+            Only approved, unexpired assets show.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -732,7 +733,7 @@ export function PortalDialog({
             >
               {f.pickedBrands.length > 0 && (
                 <div className="grid gap-1.5">
-                  <p className="text-muted-foreground text-xs">Visitors read each brand as last released, never the draft.</p>
+                  <p className="text-muted-foreground text-xs">Visitors see the last release, never the draft.</p>
                   <ul aria-label="What visitors read" className="grid gap-1">
                     {f.pickedBrands.map((slug) => (
                       <PublishState key={slug} brand={brands.find((b) => b.slug === slug) ?? { slug, name: slug }} />
@@ -743,13 +744,11 @@ export function PortalDialog({
             </Picks>
           )}
           {collections.length > 0 && (
-            <Picks legend="Collections, in its Assets view" items={collections} picked={f.picked} onChange={(picked) => set({ picked })}>
-              {brands.length > 0 && <p className="text-muted-foreground text-xs">Or add a Collection section to a brand page.</p>}
-            </Picks>
+            <Picks legend="Collections, in its Assets view" items={collections} picked={f.picked} onChange={(picked) => set({ picked })} />
           )}
           {current && current.brands.length > 0 && (
             <p className="text-muted-foreground text-xs">
-              How often its pages are read is in{" "}
+              Page reads are in{" "}
               <Link href="/insights" className="text-foreground underline-offset-2 hover:underline">
                 Insights
               </Link>
@@ -757,7 +756,16 @@ export function PortalDialog({
             </p>
           )}
           <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">Who gets in</legend>
+            <legend className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              Who gets in
+              {/* Out past the team, what it shows can be taken: said as the door opens (lib/rights.ts isDownloadable). */}
+              {f.access !== "members" && (
+                <InfoTip>
+                  Visitors can download the files it shows, except those whose Rights say Shown only: licensed files and fonts without an open license, unless
+                  you allow them.
+                </InfoTip>
+              )}
+            </legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {(Object.keys(ACCESS) as PortalAccess[]).map((a) => {
                 const A = ACCESS[a];
@@ -776,14 +784,7 @@ export function PortalDialog({
             </div>
             {f.access === "members" && f.domain !== NO_DOMAIN && (
               <p className="text-muted-foreground text-xs">
-                On its own domain, only people you approve get in; members sign in at /p/{f.slug || "its-address"}.
-              </p>
-            )}
-            {/* Out past the team, what it shows can be taken: said as the door opens (lib/rights.ts isDownloadable). */}
-            {f.access !== "members" && (
-              <p className="text-muted-foreground text-xs">
-                Visitors can download the files it shows, except those whose Rights say Shown only: licensed files and fonts without an open license, unless
-                you allow them.
+                On its own domain, only approved people get in. Members sign in at /p/{f.slug || "its-address"}.
               </p>
             )}
           </fieldset>
@@ -831,7 +832,7 @@ export function PortalDialog({
                 )}
               </div>
               <p className="text-muted-foreground text-xs">
-                {!f.logo && from?.logo ? `From ${from.name}: choose one to override it.` : `An approved image. Without one, ${from?.logo ? `${from.name}'s` : "the organization's"} own.`}
+                {!f.logo && from?.logo ? `From ${from.name}` : `Default: ${from?.logo ? `${from.name}'s` : "the organization's"}`}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -848,7 +849,10 @@ export function PortalDialog({
             </Fold>
             <Fold title="Downloads" summary={f.presets.map((p) => PORTAL_PRESETS[p].label).join(", ") || "None picked"}>
           <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">Images download as</legend>
+            <legend className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              Images download as
+              <InfoTip>Anything that isn&apos;t an image (a PDF, a video, a font) downloads as itself.</InfoTip>
+            </legend>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {PRESET_IDS.map((p) => (
                 <label key={p} className="flex items-center gap-2 text-sm">
@@ -862,7 +866,6 @@ export function PortalDialog({
                 </label>
               ))}
             </div>
-            <p className="text-muted-foreground text-xs">Anything that isn&apos;t an image (a PDF, a video, a font) downloads as itself.</p>
           </fieldset>
             </Fold>
             <Fold title="Welcome text" summary={f.intro.trim() ? "Written" : "None"}>
@@ -878,7 +881,7 @@ export function PortalDialog({
               aria-describedby={`${id}-intro-hint`}
             />
             <p id={`${id}-intro-hint`} className="text-muted-foreground text-xs">
-              Markdown works: **bold**, [links](https://example.com), lists.
+              Markdown works.
             </p>
           </div>
             </Fold>
@@ -913,7 +916,7 @@ export function PortalDialog({
             <p className="text-muted-foreground text-xs">
               {current?.expired && !expiryChanged
                 ? `Closed on ${new Date(current.expiresAt!).toLocaleDateString()}. Pick a new date or clear it to reopen.`
-                : "Empty: until you close it."}
+                : "Empty: open until you close it."}
             </p>
           </div>
             </Fold>
@@ -923,7 +926,10 @@ export function PortalDialog({
               open={!!current?.domain && !current.domain.verified}
             >
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
+              <InfoTip>Your organization&apos;s verified domains. Add one in Settings, Domains.</InfoTip>
+            </div>
             <Select value={f.domain} onValueChange={(domain) => set({ domain })}>
               <SelectTrigger id={`${id}-domain`} className="w-full">
                 <SelectValue />
@@ -939,9 +945,6 @@ export function PortalDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs">
-              The organization&apos;s verified domains, but its default. Add and verify one in Settings, Domains.
-            </p>
             {current?.domain && current.domain.host === f.domain && (
               current.domain.verified ? (
                 <p className="text-success flex items-center gap-1.5 text-xs">
@@ -1016,7 +1019,7 @@ export function PortalDialog({
       {picking === "logo" && (
         <LibraryPicker
           title="Pick the logo"
-          description="An approved image from the library: it shows at the top of the portal and at its door."
+          description="Shown at the top of the portal and at its door."
           filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
           onClose={() => setPicking(null)}
           onPick={(a) => {
@@ -1028,7 +1031,7 @@ export function PortalDialog({
       {typeof picking === "number" && (
         <LibraryPicker
           title="Pick the file"
-          description="An approved asset from the library: visitors download it from the header, signed for them."
+          description="Visitors download it from the header."
           filter={(a) => a.state === "active"}
           onClose={() => setPicking(null)}
           onPick={(a) => {
@@ -1141,7 +1144,10 @@ function SiteFields({
   return (
     <div className="grid gap-4">
       <fieldset className="grid gap-2">
-        <legend className="mb-2 text-sm leading-none font-medium">Quick grab</legend>
+        <legend className="mb-2 flex items-center gap-1.5 text-sm leading-none font-medium">
+          Quick grab
+          <InfoTip>Up to six links pinned in the header: a page, a file to download, or an address.</InfoTip>
+        </legend>
         {quick.map((q, i) => {
           const kind = kindOf(q);
           return (
@@ -1237,7 +1243,6 @@ function SiteFields({
             <IconPlus /> Add a link
           </Button>
         )}
-        <p className="text-muted-foreground text-xs">Up to six, pinned in the header: a page, a file to download, or an address.</p>
       </fieldset>
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm leading-none font-medium">Footer</legend>
@@ -1297,7 +1302,10 @@ function SiteFields({
         </div>
       </fieldset>
       <div className="grid gap-2">
-        <Label htmlFor={`${id}-terms`}>Terms of use</Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={`${id}-terms`}>Terms of use</Label>
+          <InfoTip>Visitors accept them once, before their first download. Empty: no terms.</InfoTip>
+        </div>
         <Textarea
           id={`${id}-terms`}
           rows={3}
@@ -1308,7 +1316,7 @@ function SiteFields({
           aria-describedby={`${id}-terms-hint`}
         />
         <p id={`${id}-terms-hint`} className="text-muted-foreground text-xs">
-          Markdown. Visitors accept them once, before their first download. Empty: no terms.
+          Markdown works.
         </p>
       </div>
       {access === "public" && (
@@ -1317,7 +1325,7 @@ function SiteFields({
           <div className="grid gap-1">
             <Label htmlFor={`${id}-listed`}>Let search engines list it</Label>
             <p id={`${id}-listed-hint`} className="text-muted-foreground text-xs">
-              Off, they are asked to stay out. Only a public portal can be listed.
+              Off: they are asked to stay out.
             </p>
           </div>
         </div>
@@ -1399,8 +1407,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>
           <DialogDescription>
-            A yes to access gives them a link of their own, good for 90 days or until the portal closes; revoke it to take it back. Asks from a page&apos;s request section
-            are marked done or dismissed.
+            Approved access lasts 90 days or until the portal closes.
           </DialogDescription>
         </DialogHeader>
         {failed ? (
@@ -1430,7 +1437,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
               </EmptyMedia>
               <EmptyTitle>Nobody has asked yet</EmptyTitle>
               <EmptyDescription>
-                Requests from the portal&apos;s door and its pages&apos; request sections show here, and admins hear about each one by email.
+                Admins hear about each new one by email.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

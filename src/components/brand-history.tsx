@@ -16,6 +16,7 @@ import { Can, useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";
 import { Confirm } from "@/components/confirm";
 import { Thumb } from "@/components/gallery";
+import { InfoTip } from "@/components/info-tip";
 import { FileThumb } from "@/components/thumb";
 import { renditionLabel } from "@/components/rendition-menu";
 import { Badge } from "@/components/ui/badge";
@@ -130,9 +131,9 @@ export function History({
           <SheetTitle className="flex items-center gap-2">
             <IconHistory className="size-5" /> Version history
           </SheetTitle>
-          <SheetDescription>
-            {brand.name}. Every change is kept; edits close together are one version. Name a version to keep it as a
-            checkpoint.
+          <SheetDescription className="flex items-center gap-1.5">
+            {brand.name}
+            <InfoTip>Every change is kept; edits close together are one version. Name a version to keep it as a checkpoint.</InfoTip>
           </SheetDescription>
         </SheetHeader>
 
@@ -161,7 +162,7 @@ export function History({
               [0, 1, 2, 3].map((i) => <Skeleton key={i} className="m-2 h-14" />)}
             {versions?.length === 0 && (
               <p className="text-muted-foreground p-6 text-center text-sm">
-                No changes yet. The first edit starts the history, with the rules as they are now kept as version 1.
+                No changes yet: the first edit starts the history.
               </p>
             )}
             {[...days].map(([label, vs]) => (
@@ -326,7 +327,7 @@ function VersionDetail({
               {!current && can("brand.edit") && (
                 <Confirm
                   title={`Restore version ${number}?`}
-                  says={`The brand's ${restores(v)} go back to how they were in this version. Nothing is lost: what you have now stays in the history, and you can restore it the same way.`}
+                  says={`The brand's ${restores(v)} go back to this version. What you have now stays in the history.`}
                   action="Restore"
                   destructive={false}
                   run={restore}
@@ -350,9 +351,9 @@ function VersionDetail({
         {v && (
           <p className="text-muted-foreground text-sm">
             {got?.mode === "now"
-              ? "What restoring would undo: how the rules, pages and theme changed from this version to now."
+              ? "What restoring would undo."
               : v.kind === "baseline"
-                ? "Where this brand's history starts: every rule and page it had."
+                ? "Where the history starts."
                 : v.against
                   ? `How version ${v.against} became this one.`
                   : "Everything in this version."}

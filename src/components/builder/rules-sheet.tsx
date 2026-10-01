@@ -8,6 +8,7 @@ import type { BuilderApi } from "@/components/builder/use-builder";
 import { fieldIn, onceDrawn, RuleView, type Dnd, type Ed } from "@/components/brand-sections/rule-view";
 import { copy, Editable } from "@/components/brand-values";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -329,7 +330,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
           <SheetTitle className="flex items-center gap-2">
             <IconListDetails className="size-5" /> Rules
           </SheetTitle>
-          <SheetDescription>The brand&apos;s colors, type, logo and words. Pages show them by name, and agents read them as data. Open one to edit it.</SheetDescription>
+          <SheetDescription>Colors, type, logo and words, as data.</SheetDescription>
         </SheetHeader>
 
         <div className="grid gap-3 border-b px-6 py-3">
@@ -377,7 +378,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
         </div>
 
         <div id={bodyId} className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
-          {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with the brand&apos;s main color, its typefaces and its logo.</p>}
+          {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with a color, a typeface and the logo.</p>}
           {rules.length > 0 && !shownSections.length && <p className="text-muted-foreground text-sm">No rule by that name or value.</p>}
           {shownSections.map(([name, keys]) => (
             <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
@@ -560,8 +561,7 @@ function NameDraft({
       <p className="text-muted-foreground text-xs" aria-live="polite">
         {key ? (
           <>
-            A {p.label.toLowerCase()} in {titleOf(at)}, known as <code className="font-mono">{key}</code>. Enter to add, Esc to
-            cancel.
+            Key <code className="font-mono">{key}</code>
           </>
         ) : (
           "A name needs a letter in it."
@@ -676,14 +676,17 @@ function Details({
           <IconX className="size-4" />
         </IconButton>
       </div>
-      <Part label="Heading">
+      <Part
+        label="Heading"
+        info={
+          <>
+            What readers see, for every version. The key, <code className="font-mono">{r.key}</code>, stays: pages, agents and design tokens know the rule by it.
+          </>
+        }
+      >
         <Editable value={r.label ?? ""} placeholder={ruleLabel(r.key)} label="Heading" onSave={onHeading} />
-        <p className="text-muted-foreground text-xs">
-          What readers see, for every version. The key, <code className="font-mono">{r.key}</code>, stays: pages, agents
-          and design tokens know the rule by it.
-        </p>
       </Part>
-      <Part label="Versions">
+      <Part label="Versions" info="A copy of this one, used only in one context: print, a dark background, a channel.">
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -698,7 +701,6 @@ function Details({
             <IconPlus /> Add a version
           </Button>
         </form>
-        <p className="text-muted-foreground text-xs">A copy of this one, used only there: print, a dark background, a channel.</p>
       </Part>
       {r.type in RULE_SPEC && (
         <Part label="Spec">
@@ -722,17 +724,20 @@ function Details({
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground">No page yet. A section on the canvas shows it once it binds it.</p>
+          <p className="text-muted-foreground">No page yet.</p>
         )}
       </Part>
     </div>
   );
 }
 
-function Part({ label, children }: { label: string; children: React.ReactNode }) {
+function Part({ label, info, children }: { label: string; info?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
+      <p className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
+        {label}
+        {info && <InfoTip>{info}</InfoTip>}
+      </p>
       {children}
     </div>
   );

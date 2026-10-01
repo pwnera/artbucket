@@ -765,7 +765,7 @@ function Stage({ b }: { b: BuilderApi }) {
             ? "From the library, for this section."
             : pictures?.replace
               ? "From the library, for this item."
-              : "From the library: each one becomes an item here, in the order picked."
+              : "Each becomes an item, in the order picked."
         }
         transport={b.transport}
         onClose={() => setPictures(null)}

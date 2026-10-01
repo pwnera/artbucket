@@ -78,7 +78,7 @@ export function ThemePanel({
           <SheetTitle className="flex items-center gap-2">
             <IconPalette className="size-5" /> Theme
           </SheetTitle>
-          <SheetDescription>How the brand&apos;s pages look. Changes save as a draft until released.</SheetDescription>
+          <SheetDescription>Saved as a draft until released.</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <ThemeEditor {...props} active={open} />
@@ -230,7 +230,7 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
         <Pick label="Logo" {...slot("logo", (r) => r.assets.length > 0, (r) => ruleName(r))} />
         <Fold bare title="Device" summary={s.device ? "Set" : "None"}>
           <div className="grid gap-1.5">
-            <p className="text-muted-foreground text-xs">The brand&apos;s symbol or pattern, for covers, dividers and pattern grounds.</p>
+            <p className="text-muted-foreground text-xs">Symbol or pattern, for covers, dividers and grounds.</p>
             <div className="flex items-center gap-2">
               {s.device && (
                 <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-md border">
@@ -344,7 +344,7 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
       <Group title="Contrast">
         <p className={cn("flex items-center gap-1.5 text-sm", failing ? "text-warning" : "text-muted-foreground")}>
           {failing ? <IconAlertTriangle aria-hidden className="size-4 shrink-0" /> : <IconCircleCheck aria-hidden className="text-success size-4 shrink-0" />}
-          {failing ? `${failing} ${failing === 1 ? "pair falls" : "pairs fall"} short; the page uses a color that reads instead.` : "Every pair of text and ground reads."}
+          {failing ? `${failing} ${failing === 1 ? "pair falls" : "pairs fall"} short; a color that reads stands in.` : "Every pair of text and ground reads."}
         </p>
         <Fold bare title="Every pair" summary={`${theme.checks.length} checked`}>
           <ul className="grid gap-2">

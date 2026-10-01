@@ -9,6 +9,7 @@ import type { BuilderApi } from "@/components/builder/use-builder";
 import { Editable, ReadOnly, ValueEditor } from "@/components/brand-values";
 import { CopyButton } from "@/components/copy-button";
 import { ImportFamily } from "@/components/font-preview";
+import { InfoTip } from "@/components/info-tip";
 import { usePref } from "@/components/sidebar-prefs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -195,7 +196,7 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
                   <>The {contextLabel(context)} version.</>
                 ) : (
                   <>
-                    From the default, which every context shares: a change here changes it everywhere.{" "}
+                    The default, shared by every context.{" "}
                     <Button variant="link" size="xs" className="h-auto p-0 text-xs" onClick={() => set({ context })}>
                       Make a {contextLabel(context)} version
                     </Button>
@@ -261,7 +262,9 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
           <Part title="Details">
             <div className="text-xs">
               <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-                <dt className="text-muted-foreground">Key</dt>
+                <dt className="text-muted-foreground flex items-center gap-1">
+                  Key <InfoTip>Agents and the API find it by its key. Renaming it changes only the heading readers see.</InfoTip>
+                </dt>
                 <dd className="flex min-w-0 items-center gap-1 font-mono">
                   <span className="truncate">{rule.key}</span>
                   <CopyButton text={rule.key} label="Copy the key" what="Key" />
@@ -271,7 +274,6 @@ export function RuleCard({ b, ruleKey: key, anchor, onClose }: RuleCardProps) {
                 <dt className="text-muted-foreground">Context</dt>
                 <dd>{rule.context ? contextLabel(rule.context) : "Default"}</dd>
               </dl>
-              <p className="text-muted-foreground mt-2">Agents and the API find it by its key. Renaming it changes only the heading readers see.</p>
             </div>
           </Part>
           {section && (

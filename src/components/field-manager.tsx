@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { FIELD_TYPES, type FieldDef, type FieldType } from "@/lib/fields";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 import { transition } from "@/lib/motion";
 
 export const TYPES: Record<FieldType, { label: string; icon: Icon }> = {
@@ -145,9 +146,7 @@ export function FieldsEditor({ fields, onChanged }: { fields: FieldDef[]; onChan
               <IconForms />
             </EmptyMedia>
             <EmptyTitle>No custom fields yet</EmptyTitle>
-            <EmptyDescription>
-              Add fields like Campaign, Usage rights or Approved. Pick lists and yes/no fields become filters.
-            </EmptyDescription>
+            <EmptyDescription>Like Campaign, Usage rights or Approved.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
@@ -160,7 +159,10 @@ export function FieldsEditor({ fields, onChanged }: { fields: FieldDef[]; onChan
         }}
         className="bg-muted/40 grid gap-4 rounded-lg border p-4"
       >
-        <h3 className="text-sm font-medium">Add a field</h3>
+        <h3 className="flex items-center gap-1.5 text-sm font-medium">
+          Add a field
+          <InfoTip>Pick lists and yes/no fields become filters.</InfoTip>
+        </h3>
         <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
           <Field label="Name" htmlFor={`${id}-name`} hint={label && (keyFor(label) ? `Stored as ${keyFor(label)}` : "Start the name with a letter")}>
             <Input id={`${id}-name`} value={label} onChange={(e) => setLabel(e.target.value)} required maxLength={80} placeholder="Campaign" />

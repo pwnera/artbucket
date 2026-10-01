@@ -45,8 +45,8 @@ export function GitReturn({ brand, release, waiting }: { brand: string; release?
           toast.success(`In step with ${where(source.remote)}`, {
             id,
             description: unreleased
-              ? "Readers don't see it yet: release it when it reads right. From now on, changes go both ways."
-              : "Changes merged there come here, and edits here go there.",
+              ? "Not released yet. Changes now sync both ways."
+              : "Changes now sync both ways.",
             ...(unreleased && { action: { label: "Release", onClick: () => router.push(release!) }, duration: 20_000 }),
           });
           router.replace(`${url.pathname}${url.search}`, { scroll: false });
@@ -55,7 +55,7 @@ export function GitReturn({ brand, release, waiting }: { brand: string; release?
         await new Promise((r) => setTimeout(r, 2000));
       }
       // A pull request with its files waits to be merged; nothing more to wait for here.
-      if (!stopped && back) toast.success(remote ? `Connected to ${where(remote)}` : "Connected", { id, description: "Its files are on their way: a commit, or a pull request to merge." });
+      if (!stopped && back) toast.success(remote ? `Connected to ${where(remote)}` : "Connected", { id, description: "Its files follow as a commit or a pull request." });
     })();
     return () => {
       stopped = true;

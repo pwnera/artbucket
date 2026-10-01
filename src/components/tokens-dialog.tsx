@@ -56,8 +56,7 @@ export function TokensDialog({
           <DialogTitle>Design tokens</DialogTitle>
           <DialogDescription>
             {brand.name}
-            {context && ` in ${contextLabel(context)}`}: colors, fonts and the type scale as code for your stack. Each file
-            is also a link that stays current.
+            {context && ` in ${contextLabel(context)}`}: each file is also a link that stays current.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">

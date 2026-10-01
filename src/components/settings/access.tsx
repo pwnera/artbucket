@@ -352,10 +352,10 @@ function InviteLink({ me, url, emailed }: { me: Me; url: string; emailed: boolea
       <Snippet text={url} what="the invitation link" />
       <p className="text-muted-foreground text-sm">
         {emailed ? (
-          "We emailed it to them. It is here too in case it lands in spam, and under Invited until they join."
+          "Emailed. It stays under Invited until they join."
         ) : (
           <>
-            Send it to them yourself. You can copy it again under Invited until it is used or expires.{" "}
+            Send it yourself. It stays under Invited until used or expired.{" "}
             {can(me, "organization.manage") && (
               <>
                 <Link href="/settings/organization/email" className="underline underline-offset-2">
@@ -538,8 +538,8 @@ function GrantDialog({
           <DialogTitle>{dialog.kind === "invite" ? "Invite someone" : `More access for ${dialog.user.name}`}</DialogTitle>
           <DialogDescription>
             {dialog.kind === "invite"
-              ? "They get a link to make an account, or sign in, and join. It works once, for a week."
-              : "Access adds up and reaches down: editor on a collection is editor on everything in it."}
+              ? "The link works once, for a week."
+              : "Access reaches down: editor on a collection is editor on everything in it."}
           </DialogDescription>
         </DialogHeader>
         {link ? (
@@ -654,8 +654,7 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
             </EmptyMedia>
             <EmptyTitle>No links yet</EmptyTitle>
             <EmptyDescription>
-              Request uploads gives a photographer or an agency a link to send files in, no account needed; they wait
-              in Review. Share a collection lets someone look and download. An asset is shared from its dialog.
+              Collect files or share a collection, no account needed.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -816,7 +815,7 @@ export function Audit({ first }: { first: AuditPage }) {
             <IconHistory />
           </EmptyMedia>
           <EmptyTitle>Nothing yet</EmptyTitle>
-          <EmptyDescription>Sign-ins, access changes, invitations, keys and share links are recorded here.</EmptyDescription>
+          <EmptyDescription>Sign-ins, access, invitations, keys and links show here.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

@@ -10,6 +10,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { parseLink } from "@/lib/preview";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 
 /**
  * A Lottie animation, JSON or dotLottie. Plays while `playing` (and the viewer
@@ -109,9 +110,12 @@ export function LinkImport({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add a link</DialogTitle>
-          <DialogDescription>
-            A Figma file or a Google Doc, Sheet, Slides deck or Drive file, shown live. Files shared by link also get a
-            thumbnail; private ones show to people signed in with access.
+          <DialogDescription className="flex items-center gap-1.5">
+            A Figma or Google file, shown live.
+            <InfoTip>
+              A Figma file or a Google Doc, Sheet, Slides deck or Drive file. Files shared by link also get a thumbnail; private ones show to
+              people signed in with access.
+            </InfoTip>
           </DialogDescription>
         </DialogHeader>
         <form action={add} className="grid gap-1.5">

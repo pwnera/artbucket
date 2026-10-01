@@ -22,7 +22,7 @@ export function LibraryPicker({
   onPick,
   filter,
   title = "Add an image",
-  description = "From the library. It goes in the text where the cursor was.",
+  description = "Inserted where the cursor was.",
 }: {
   onClose: () => void;
   onPick: (a: Asset) => void;

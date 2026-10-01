@@ -5,6 +5,7 @@ import { IconPhoto, IconSearch } from "@tabler/icons-react";
 import { asMedia } from "@/components/brand-sections/slots";
 import { startDrag, endDrag } from "@/components/builder/drag";
 import { FloatingPanel } from "@/components/builder/floating-panel";
+import { InfoTip } from "@/components/info-tip";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import type { Asset } from "@/components/gallery";
 import { useSite } from "@/components/site/site-context";
@@ -64,12 +65,14 @@ export function LibraryPanel({ b, onPlace, onClose }: { b: BuilderApi; onPlace(m
           <IconSearch aria-hidden className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
           <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the library" aria-label="Search the library" className="h-8 ps-8" />
         </div>
-        <ToggleGroup type="single" size="sm" variant="outline" value={type} onValueChange={(v) => v && setType(v as typeof type)} aria-label="Kind">
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="image">Pictures</ToggleGroupItem>
-          <ToggleGroupItem value="video">Videos</ToggleGroupItem>
-        </ToggleGroup>
-        <p className="text-muted-foreground text-xs">Drag onto the page, or click to put it on the picked section.</p>
+        <div className="flex items-center gap-1.5">
+          <ToggleGroup type="single" size="sm" variant="outline" value={type} onValueChange={(v) => v && setType(v as typeof type)} aria-label="Kind">
+            <ToggleGroupItem value="all">All</ToggleGroupItem>
+            <ToggleGroupItem value="image">Pictures</ToggleGroupItem>
+            <ToggleGroupItem value="video">Videos</ToggleGroupItem>
+          </ToggleGroup>
+          <InfoTip className="ms-auto">Drag onto the page, or click to put it on the picked section.</InfoTip>
+        </div>
         {failed ? (
           <p role="alert" className="text-destructive text-sm">
             {failed}
