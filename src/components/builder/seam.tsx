@@ -6,7 +6,9 @@ import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TEMPLATE_INFO, TEMPLATES, type Item, type Section, type Template } from "@/lib/pages";
+import { section } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
+import { templateUse } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,6 +38,8 @@ const WORDS = ["eyebrow", "title", "lede", "body", "aside"] as const;
 const PROP_WORDS = ["by", "sample", "url", "form", "template", "prompt", "partner"];
 /** What an item keeps of the example's: how it sits, never what it says. */
 const ITEM_SHAPE = ["verdict", "at", "level", "span"] as const;
+/** Blocks that show a kind of rule whole: every one of it the brand has, not the example's count. */
+const ALL: Template[] = ["palette", "type", "chart", "pattern", "logos"];
 /** Blocks whose words are the point: any rules the brand has would be a guess, so they start with none. */
 const WRITTEN: Template[] = ["text", "statement", "quote", "cards", "copy"];
 
@@ -47,7 +51,7 @@ const WRITTEN: Template[] = ["text", "statement", "quote", "cards", "copy"];
  * `from` page it doesn't have. A cover keeps its words, the brand's name in
  * Blender's place. In the tab of the section it follows, so it lands beside it.
  */
-export function starter(t: Template, rules: ViewRule[], brand: string, pages: string[], tab?: string): Record<string, unknown> {
+export function starter(t: Template, rules: ViewRule[], brand: string, tab?: string): Record<string, unknown> {
   const info = TEMPLATE_INFO[t];
   const s = JSON.parse(JSON.stringify(info.example).replaceAll("Blender", JSON.stringify(brand).slice(1, -1))) as Record<string, unknown> & Partial<Section>;
   if (t !== "cover") {
@@ -63,11 +67,17 @@ export function starter(t: Template, rules: ViewRule[], brand: string, pages: st
   }
   if (WRITTEN.includes(t)) delete s.keys;
   if (s.keys) {
-    const have = new Set(rules.map((r) => r.key));
-    const kept = s.keys.filter((k) => have.has(k));
-    s.keys = kept.length ? kept : [...new Set(rules.filter((r) => info.accepts?.(r)).map((r) => r.key))].slice(0, s.keys.length);
+    // This brand's rules of the example's groups (color, logo, space...) that the template can show: a palette
+    // gets every color, a spacing specimen nothing rather than the voice. Never a rule it can't show.
+    const groups = new Set(s.keys.map(section));
+    const fit = [...new Set(rules.filter((r) => info.accepts?.(r) && groups.has(section(r.key))).map((r) => r.key))];
+    s.keys = ALL.includes(t) ? fit.slice(0, 12) : fit.slice(0, s.keys.length);
+    if (!s.keys.length) delete s.keys;
   }
-  if (typeof s.props?.from === "string" && !pages.includes(s.props.from)) delete s.props.from;
+  // The example's page and library filters are Blender's: this page's children, and the library's pictures.
+  if (s.props?.from) delete s.props.from;
+  if (t === "collection" && s.props) s.props.query = "type=image";
+  if (t === "icons") delete s.props?.query;
   if (tab) s.tab = tab;
   return s;
 }
@@ -92,7 +102,7 @@ export function Seam({ b, after, always }: SeamProps) {
 
   const add = (t: Template) => {
     const tab = after ? b.state.pages.get(page)?.find((x) => x.id === after)?.tab : undefined;
-    const section = starter(t, b.state.rules, b.view.brand.name, b.state.nav.map((p) => p.slug), tab);
+    const section = starter(t, b.state.rules, b.view.brand.name, tab);
     const done = b.apply({ kind: "page", page, op: { op: "add", section: section as never, after } });
     setOpen(false);
     if (done?.kind !== "page" || done.op.op !== "add") return;
@@ -182,7 +192,7 @@ function Gallery({ add, take }: { add: (t: Template) => void; take: () => string
                 <Thumbnail template={t} className="block aspect-[8/5] w-full" />
               </span>
               <span className="text-sm font-medium">{TEMPLATE_INFO[t].name}</span>
-              <span className="text-muted-foreground line-clamp-2 text-xs">{TEMPLATE_INFO[t].use}</span>
+              <span className="text-muted-foreground line-clamp-2 text-xs">{templateUse(t)}</span>
             </button>
           </li>
         ))}

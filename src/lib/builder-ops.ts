@@ -5,6 +5,7 @@ import {
   type Audience,
   boundKeys,
   canon,
+  checkBindings,
   checkTree,
   issues,
   type Item,
@@ -256,6 +257,12 @@ export function apply(s: BuilderState, op: Op): Applied {
     if (!stored) return no([`${op.page} isn't loaded yet`]);
     const { sections, errors } = applyOps(stored, [done.op], op.page);
     if (errors.length) return no(errors);
+    // The rules a section shows, checked here as the server checks them, so a refusal shows now instead of
+    // a save failing later (and every save after it). Only the section this op makes or changes: the page's
+    // others were checked when they were written. Keys it bound already may name a rule since removed.
+    const touched = done.op.op === "add" ? sections.filter((x) => !stored.some((y) => y.id === x.id)) : done.op.op === "update" ? sections.filter((x) => x.id === (done.op as { id: string }).id) : [];
+    const bound = checkBindings(touched, s.rules, new Set(stored.flatMap(boundKeys)));
+    if (bound.length) return no(bound);
     if (done.op.op === "add" && !done.op.section.id) {
       const made = sections.find((x) => !stored.some((y) => y.id === x.id))!;
       done.op = { ...done.op, section: { ...done.op.section, id: made.id } };

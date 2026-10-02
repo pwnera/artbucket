@@ -967,7 +967,6 @@ test("W7 templates: at, level, url, ask and slots only where they go, each with 
       "sections[2].items[0].level: Too big: expected number to be <=2",
       "sections[3].items[0].at: only annotated items sit at a point",
       "sections[4].items[0].level: only cards items have a level",
-      "sections[5].props.url: an embed needs the address it shows",
       "sections[6].props.url: An https:// address",
       "sections[7].props.form: Each name once",
       "sections[8].props.template: {what} is not one of props.form's names",
@@ -987,6 +986,18 @@ test("W7: kinds merge on the wire with each template's values named; an annotate
   );
   const page = { slug: "logo", sections: parseSections([{ template: "annotated", items: [{ at: [50, 50] }] }]).sections };
   assert.deepEqual(pageWarnings(page, [], RULES), ["sections[0].props.image: an annotated image draws its hotspots on a picture; pick one"]);
+});
+
+test("embeds: a watch page pasted is the player it means; no address yet is a warning, not a refusal", () => {
+  const url = (u: string) => (parseSections([{ template: "embed", props: { url: u } }]).sections[0].props.url as string);
+  assert.equal(url("https://www.youtube.com/watch?v=aqz-KE-bpKQ&t=3"), "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ");
+  assert.equal(url("https://youtu.be/aqz-KE-bpKQ"), "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ");
+  assert.equal(url("https://vimeo.com/76979871"), "https://player.vimeo.com/video/76979871");
+  assert.equal(url("https://www.loom.com/share/abc123"), "https://www.loom.com/embed/abc123");
+  assert.equal(url("https://www.figma.com/embed?x=1"), "https://www.figma.com/embed?x=1");
+  const { sections, errors } = parseSections([{ template: "embed" }]);
+  assert.deepEqual(errors, []);
+  assert.ok(designWarnings(sections).some((w) => w.text.startsWith("an embed with no address")));
 });
 
 test("embeds: only the listed hosts frame, over https; proxy.ts frames every one of them", () => {

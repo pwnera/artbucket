@@ -2,10 +2,10 @@
 
 import { useMemo } from "react";
 import { LOOK } from "@/components/brand-sections/look";
-import { Aside, Eyebrow, Lede, SectionScope, Title, titleOf } from "@/components/brand-sections/slots";
+import { Aside, blank, Eyebrow, Lede, SectionScope, Title, titleOf } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { AnchorLink } from "@/components/site/anchors";
-import { ContextScope, useMedia, usePicked, useSite } from "@/components/site/site-context";
+import { ContextScope, useEdit, useMedia, usePicked, useSite } from "@/components/site/site-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sectionGround } from "@/lib/brand-theme";
 import { boundKeys, type Section, TEMPLATE_INFO } from "@/lib/pages";
@@ -171,6 +171,9 @@ export function SectionFrame({
   const others = useMemo(() => ({ section: s, anchors: false }), [s]);
   // Picked on the canvas, the heading's empty slots show too, so a section without a title gets one where it reads.
   const picked = usePicked();
+  // On the canvas an empty section shows where its title goes, picked or not (slots.tsx useWords).
+  const editing = !!useEdit();
+  const open = picked || (editing && blank(s));
 
   const landmark = {
     id,
@@ -225,10 +228,10 @@ export function SectionFrame({
             WIDTH[s.width === "full" && WORDS.has(s.template) ? "wide" : s.width],
           )}
         >
-          {(picked || s.eyebrow || s.title || s.lede) && (
+          {(open || s.eyebrow || s.title || s.lede) && (
             <header className={cn("group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3", s.width === "full" && COLUMN, center && "mx-auto max-w-4xl text-center")}>
               <Eyebrow />
-              {(picked || s.title) && (
+              {(open || s.title) && (
                 // Centered, the copy-link hangs past the title's end, so the title alone is centered.
                 <div className={cn("flex items-center gap-1", center && "relative mx-auto w-fit")}>
                   <Title className={cn("min-w-0", size ? SIZED[size] : H2)} />

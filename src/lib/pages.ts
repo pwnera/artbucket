@@ -515,6 +515,27 @@ export type RequestKind = (typeof REQUEST_KINDS)[number];
  */
 export const EMBED_HOSTS = ["www.figma.com", "embed.figma.com", "www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com"] as const;
 
+/**
+ * The address a person pastes, as the embed it means: a YouTube watch or
+ * youtu.be link, a Vimeo page or a Loom share is what their embed codes
+ * frame; anything else stays as written.
+ */
+export function embedAddress(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^(www|m)\./, "");
+    const yt = host === "youtube.com" ? (u.pathname === "/watch" ? u.searchParams.get("v") : /^\/(?:shorts|live)\/([\w-]+)/.exec(u.pathname)?.[1]) : host === "youtu.be" ? u.pathname.slice(1) : null;
+    if (yt) return `https://www.youtube-nocookie.com/embed/${yt}`;
+    const vimeo = host === "vimeo.com" && /^\/(\d+)/.exec(u.pathname)?.[1];
+    if (vimeo) return `https://player.vimeo.com/video/${vimeo}`;
+    const loom = host === "loom.com" && /^\/share\/(\w+)/.exec(u.pathname)?.[1];
+    if (loom) return `https://www.loom.com/embed/${loom}`;
+  } catch {
+    // Not an address: the schema says so.
+  }
+  return url;
+}
+
 /** Whether an embed section frames its address, or shows it as a link card. */
 export function framed(url: string): boolean {
   try {
@@ -662,6 +683,8 @@ export const TEMPLATE_PROPS = {
     url: z
       .url({ protocol: /^https$/, error: "An https:// address" })
       .max(2000)
+      // A watch page pasted is the player it means (embedAddress).
+      .transform(embedAddress)
       .optional()
       .describe("https"),
     aspect: z.enum(["16:9", "4:3", "1:1", "auto"]).optional(),
@@ -1087,7 +1110,6 @@ export function checkSection(s: Section, at: string): string[] {
   }
   if (s.items?.length && s.props.from) errors.push(`${at}.props.from: items pick the pages, from shows a page's children; one or the other`);
   if (s.template === "updates" && (s.props.limit as number) > 20) errors.push(`${at}.props.limit: an updates section lists 20 publishes at most`);
-  if (s.template === "embed" && !s.props.url) errors.push(`${at}.props.url: an embed needs the address it shows`);
   if (s.props.ask && !s.contexts) errors.push(`${at}.props.ask: the chooser picks among the section's contexts; give it contexts`);
   if (s.template === "copy") {
     const fields = ((s.props.form ?? []) as { name: string }[]).map((f) => f.name);
@@ -1419,6 +1441,7 @@ export function designWarnings(
     const title = s.title ?? "";
     if (title.length > 24 && /\p{Lu}/u.test(title) && title === title.toUpperCase())
       out.push({ at, text: "the title is typed in capitals, which read slowly at length; type it as a sentence" });
+    if (s.template === "embed" && !s.props.url) out.push({ at, text: "an embed with no address shows readers nothing; paste one (props.url)" });
     // A starter's body is one italic prompt (page-sets.ts): still there, it was never written over.
     if (/^_[^_]+_$/.test(s.body ?? "") || /lorem ipsum/i.test(`${title} ${s.body ?? ""}`)) out.push({ at, text: "still has its starter text" });
   });
@@ -1631,7 +1654,7 @@ export function pageMarkdown(page: MarkdownPage, rules: Readable[]): string {
       out.push("", `Drawn: ${p.kind ?? drawn}${p.positions?.length ? `, at ${p.positions.join(", ")}` : ""}${p.partner ? `, beside ${p.partner}` : ""}.`);
     }
     if (s.template === "copy" && s.props.template) out.push("", `Generated from a form: ${s.props.template}`);
-    if (s.template === "embed") out.push("", `${framed(String(s.props.url)) ? "Embedded" : "A link"}: ${s.props.url}`);
+    if (s.template === "embed" && s.props.url) out.push("", `${framed(String(s.props.url)) ? "Embedded" : "A link"}: ${s.props.url}`);
     if (s.template === "request") out.push("", `Readers ask here (${(s.props.kind as string | undefined) ?? "question"})${s.props.prompt ? `: ${s.props.prompt}` : "."}`);
     if (s.aside) out.push("", s.aside.split("\n").map((l) => `> ${l}`.trimEnd()).join("\n"));
     if (s.template === "pages" && !s.items?.length) out.push("", `The pages under ${typeof s.props.from === "string" ? `/${s.props.from}` : "this one"}.`);

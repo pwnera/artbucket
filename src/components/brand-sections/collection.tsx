@@ -59,6 +59,11 @@ export function CollectionSection({ section: s }: SectionProps) {
     <div className="space-y-6">
       <Body />
       {mode === "edit" && found?.error && <p className="text-destructive text-sm">Readers see nothing here: {found.error}</p>}
+      {mode === "edit" && found && !found.error && found.total === 0 && (
+        <p className="text-muted-foreground text-sm">
+          Nothing in the library matches yet, so readers see nothing here. Change what it shows in the section&apos;s options; approved assets that match appear as they come.
+        </p>
+      )}
       {searchable && (
         <div role="search" className="flex flex-wrap items-center gap-3">
           <div className="relative w-full max-w-sm">

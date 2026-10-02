@@ -33,9 +33,10 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apply, duplicateItem, removeItem } from "@/lib/builder-ops";
 import { COLLECTION_ICONS } from "@/lib/collection-icons";
+import { ASSET_TYPES } from "@/lib/filters";
 import { type Item, type Section, TEMPLATE_INFO, TEMPLATES } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
-import { type Field, fieldsOf, withProp } from "@/lib/template-fields";
+import { type Field, fieldsOf, formFor, templateUse, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -258,7 +259,7 @@ function Settings({ b }: { b: BuilderApi }) {
       {/* What is picked comes first, as in a design tool's inspector: the item, then the section around it. */}
       {item !== null && <ItemSettings key={`${s.id}:${item}`} b={b} s={s} i={item} set={set} error={errorOf("item")} />}
       <Group title={item !== null ? `${info.name} section` : "Layout"}>
-        <Row label="Template" about={info.use}>
+        <Row label="Template" about={templateUse(s.template)}>
           <TemplateMenu b={b} s={s} set={set} className="bg-muted/50 h-8 w-full justify-start border" />
         </Row>
         <Row label="Width">
@@ -289,6 +290,18 @@ function Settings({ b }: { b: BuilderApi }) {
             <ToggleGroupItem value="loose">Loose</ToggleGroupItem>
           </ToggleGroup>
         </Row>
+        <Row label="Title size" about="Auto follows the template and the theme's titles.">
+          <ToggleGroup type="single" variant="outline" size="sm" value={s.size ?? "auto"} onValueChange={(v) => v && set({ size: v === "auto" ? null : v })} aria-label="Title size">
+            {["auto", "medium", "large", "huge"].map((v) => (
+              <ToggleGroupItem key={v} value={v}>
+                {choiceLabel(v)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </Row>
+        <Row label="Note beside it" htmlFor={`aside-${s.id}`} about="A ruled column beside the words, in Markdown: a tip, a source, a link. Once there, it is typed on the page.">
+          <Commit id={`aside-${s.id}`} long maxLength={4000} value={s.aside ?? ""} onCommit={(v) => set({ aside: v.trim() || null }, "aside")} />
+        </Row>
         <Row label="Ground">
           <span className="flex items-center gap-2">
             <TonePicker b={b} s={s} set={set} />
@@ -300,7 +313,15 @@ function Settings({ b }: { b: BuilderApi }) {
       {fields.length > 0 && (
         <Group title="Options">
           {fields.map((f) => (
-            <PropField key={f.name} b={b} s={s} f={f} error={errorOf(f.name)} onSet={(props) => set({ props }, f.name)} />
+            <PropField
+              key={f.name}
+              b={b}
+              s={s}
+              f={f}
+              error={errorOf(f.name)}
+              // A copy section's fields follow the {slots} its text has.
+              onSet={(props) => set({ props: s.template === "copy" && f.name === "template" ? withForm(props) : props }, f.name)}
+            />
           ))}
         </Group>
       )}
@@ -405,6 +426,8 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
         />,
       );
     case "text":
+      // A live section's filters, in words: what to search for, the kind, the tags. Other filters it carries stay.
+      if (f.name === "query" && (s.template === "collection" || s.template === "icons")) return <QueryField id={id} value={(value as string | undefined) ?? ""} onSet={put} error={error} />;
       return row(<Commit id={id} long={f.long} maxLength={f.max} value={(value as string | undefined) ?? ""} onCommit={(v) => put(v.trim())} />);
     case "page":
       return row(
@@ -430,8 +453,83 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
     case "group":
       return <GroupField s={s} f={f} error={error} onSet={put} />;
     default:
+      if (s.template === "copy" && f.name === "form") return row(<FormLabels s={s} onSet={put} />);
       return row(<p className="text-muted-foreground text-xs">Set by an agent, with edit_page.</p>);
   }
+}
+
+/** A live section's library filters (props.query, `q=poster&type=image&tag=a`) as fields: words, kind, tags. */
+function QueryField({ id, value, onSet, error }: { id: string; value: string; onSet(v: string | undefined): void; error: string | null }) {
+  const q = new URLSearchParams(value);
+  const set = (name: string, values: string[]) => {
+    const next = new URLSearchParams(q);
+    next.delete(name);
+    for (const v of values) next.append(name, v);
+    onSet(next.toString() || undefined);
+  };
+  const ANY = "\u0000any";
+  return (
+    <div className="grid gap-2">
+      <Row label="Words" htmlFor={`${id}-q`} about="Assets whose name, title or text has these words.">
+        <Commit id={`${id}-q`} value={q.get("q") ?? ""} placeholder="poster, launch" onCommit={(v) => set("q", v.trim() ? [v.trim()] : [])} />
+      </Row>
+      <Row label="Kind">
+        <Select value={q.get("type") ?? ANY} onValueChange={(v) => set("type", v === ANY ? [] : [v])}>
+          <SelectTrigger size="sm" className="w-full" aria-label="Kind">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="app-tokens">
+            <SelectItem value={ANY}>Any</SelectItem>
+            {ASSET_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {choiceLabel(t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Row>
+      <Row label="Tags" htmlFor={`${id}-tag`} about="Assets with every one of these tags, comma separated." error={error}>
+        <Commit
+          id={`${id}-tag`}
+          value={q.getAll("tag").join(", ")}
+          placeholder="campaign, 2026"
+          onCommit={(v) =>
+            set(
+              "tag",
+              v
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+            )
+          }
+        />
+      </Row>
+    </div>
+  );
+}
+
+/** A copy section's props with its form made from its template's {slots}. */
+function withForm(props: Record<string, unknown>) {
+  const form = formFor(String(props.template ?? ""), props.form as { name: string; label: string }[] | undefined);
+  const next: Record<string, unknown> = { ...props, form };
+  if (!form.length) delete next.form;
+  return next;
+}
+
+/** The fields a copy section's readers fill, one per {slot} of its text: each one's label, as readers see it. */
+function FormLabels({ s, onSet }: { s: Section; onSet(v: unknown): void }) {
+  const form = (s.props.form as { name: string; label: string }[] | undefined) ?? [];
+  if (!form.length) return <p className="text-muted-foreground text-xs">Write a {"{name}"} in the text below: each one becomes a field readers fill.</p>;
+  return (
+    <div className="grid gap-1.5">
+      {form.map((f, i) => (
+        <label key={f.name} className="grid grid-cols-[6rem_1fr] items-center gap-2 text-xs">
+          <code className="text-muted-foreground truncate">{`{${f.name}}`}</code>
+          <Commit value={f.label} maxLength={60} aria-label={`Label for {${f.name}}`} onCommit={(v) => v.trim() && onSet(form.map((x, k) => (k === i ? { ...x, label: v.trim() } : x)))} />
+        </label>
+      ))}
+    </div>
+  );
 }
 
 /** A "This page" value in a page select: Radix selects can't hold an empty one. */
@@ -723,7 +821,7 @@ function Insert({ b }: { b: BuilderApi }) {
   const needle = q.trim().toLowerCase();
   const rules = [...byKey(b.state.rules).values()].filter((r) => !needle || r.key.toLowerCase().includes(needle) || ruleName(r).toLowerCase().includes(needle));
   const add = (t: (typeof TEMPLATES)[number]) => {
-    const section = starter(t, b.state.rules, b.view.brand.name, b.state.nav.map((p) => p.slug), picked?.tab);
+    const section = starter(t, b.state.rules, b.view.brand.name, picked?.tab);
     b.insert(section, picked?.id ?? list.at(-1)?.id ?? null);
   };
   const takes = (key: string) => {
@@ -744,7 +842,8 @@ function Insert({ b }: { b: BuilderApi }) {
                 onDragStart={(e) => startDrag(e, { kind: "template", template: t }, "copy")}
                 onDragEnd={endDrag}
                 onClick={() => add(t)}
-                title={TEMPLATE_INFO[t].use}
+                title={templateUse(t)}
+                aria-label={TEMPLATE_INFO[t].name}
                 className="hover:border-primary hover:bg-primary/5 focus-visible:ring-ring/50 grid w-full cursor-grab gap-1 rounded-lg border p-1.5 text-start outline-none focus-visible:ring-3 active:cursor-grabbing"
               >
                 <span className="bg-muted text-foreground block rounded-md p-1">

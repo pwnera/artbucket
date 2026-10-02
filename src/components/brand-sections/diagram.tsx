@@ -77,26 +77,26 @@ export function DiagramSection({ section: s, rules }: SectionProps) {
   const n = numbers.find(kind === "minsize" ? isLength : isRelative) ?? numbers[0];
 
   const warn: string[] = [];
-  if (!asset) warn.push("Bind a rule with the mark's picture: there is nothing to draw on.");
+  if (!asset) warn.push("Add a rule with the mark's picture (Add rules, in the toolbar): there is nothing to draw on yet.");
   let figure: React.ReactNode = null;
 
   if (asset && kind === "clearspace") {
     const mark = markSize(asset.width, asset.height);
     const pad = n && spacing(spacingOf(n), mark);
-    if (!n) warn.push("Bind a number rule, the clear space in x (times the mark's height).");
+    if (!n) warn.push("Add a number rule, the clear space in x (times the mark's height), with Add rules in the toolbar.");
     else if (pad == null) warn.push(`${n.key} is in ${unitOf(n) ?? "no unit"}; a clear space is drawn in x or %.`);
     else figure = <ClearSpaceFigure asset={asset} mark={mark} pad={pad} rule={n} id={anchor(n.key)} />;
   }
 
   if (asset && kind === "minsize") {
-    if (!n) warn.push("Bind a number rule, the minimum size in px or mm.");
+    if (!n) warn.push("Add a number rule, the minimum size in px or mm, with Add rules in the toolbar.");
     else if (!isLength(n)) warn.push(`${n.key} is in ${unitOf(n) ?? "no unit"}; a minimum size is drawn in px, pt or mm.`);
     else figure = <MinSizeFigure asset={asset} rule={n} id={anchor(n.key)} />;
   }
 
   if (asset && kind === "placement") {
     const positions = ((s.props.positions as Position[] | undefined) ?? []).filter((p) => POSITIONS.includes(p));
-    if (!positions.length) warn.push("Set props.positions: where it may sit on a page. None is marked.");
+    if (!positions.length) warn.push("Mark where it may sit on a page: Where it may sit, in the section's options (props.positions). None is marked.");
     const mark = onPage(markSize(asset.width, asset.height));
     const margin = n ? spacing(spacingOf(n), mark, PAGE) : null;
     if (n && margin == null) warn.push(`${n.key} is in ${unitOf(n)}; a margin is drawn in x, %, px, pt or mm.`);
@@ -109,7 +109,7 @@ export function DiagramSection({ section: s, rules }: SectionProps) {
     if (n && gap == null) warn.push(`${n.key} is in ${unitOf(n)}; the space between the marks is drawn in x or %.`);
     const hasItem = !!s.items?.[0]?.asset;
     const partner = typeof s.props.partner === "string" ? s.props.partner : undefined;
-    if (!hasItem && !partner) warn.push("Add the partner: an item with their mark, or props.partner, their name.");
+    if (!hasItem && !partner) warn.push("Add the partner: their mark with Add their mark, or their name as Partner's name in the section's options (props.partner).");
     else
       figure = (
         <CobrandFigure

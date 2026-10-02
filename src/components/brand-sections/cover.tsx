@@ -5,8 +5,7 @@ import { IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react
 import type { z } from "zod";
 import { useGround } from "@/components/brand-sections/frame";
 import { HEAD } from "@/components/brand-sections/look";
-import { BrandIcon } from "@/components/brand-sections/parts";
-import { Body, Eyebrow, Lede, Title } from "@/components/brand-sections/slots";
+import { Body, Eyebrow, Lede, Mark, Title } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { IconButton } from "@/components/icon-button";
 import { useMedia, useSite } from "@/components/site/site-context";
@@ -103,7 +102,7 @@ export function CoverSection({ section: s }: SectionProps) {
       {(still || video) && <div aria-hidden className="absolute inset-0 -z-10 bg-black" style={{ opacity: scrim }} />}
 
       <div className={cn("mx-auto flex w-full flex-col gap-8 px-6 py-16 @3xl:px-10 @3xl:py-24", WIDTH[s.width], ALIGN[p.align ?? "start"])}>
-        {mark && <BrandIcon brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
+        {mark && <Mark brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
         <div className="max-w-full space-y-4">
           <Eyebrow />
           {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{heading}</H>}

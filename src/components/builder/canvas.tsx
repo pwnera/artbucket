@@ -336,7 +336,7 @@ function Stage({ b }: { b: BuilderApi }) {
         if (b.apply({ kind: "page", page: slug, op: { op: "move", id: p.id, after: to } })) b.select({ section: p.id, rule: null });
       });
     } else if (p.kind === "template") {
-      b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages, storedOf(o.id)?.tab), o.mode === "before" ? prev : o.id);
+      b.insert(starter(p.template, b.state.rules, b.view.brand.name, storedOf(o.id)?.tab), o.mode === "before" ? prev : o.id);
     } else if (p.kind === "rule") {
       const s = storedOf(o.id);
       if (s) b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { keys: [...s.keys, p.key] } } });
@@ -718,7 +718,7 @@ function Stage({ b }: { b: BuilderApi }) {
           if (s && s.tab !== overTab) b.apply({ kind: "page", page: slug, op: { op: "update", id: s.id, set: { tab: overTab } } });
         } else if (p.kind === "template" || p.kind === "files" || p.kind === "assets") {
           const last = !shown.length || !!(e.target as Element).closest?.(`[${END}]`);
-          if (last && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name, pages), stored.at(-1)?.id ?? null);
+          if (last && p.kind === "template") b.insert(starter(p.template, b.state.rules, b.view.brand.name), stored.at(-1)?.id ?? null);
           else if (last && p.kind === "assets") placeMedia(p.media, null);
           else if (last) void dropFiles(pictureFiles(e), null);
         }

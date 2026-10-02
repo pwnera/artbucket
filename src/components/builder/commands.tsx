@@ -77,7 +77,6 @@ export function builderCommands(b: BuilderApi): PageCommand[] {
 
   if (editing) {
     const after = s?.id ?? list.at(-1)?.id ?? null;
-    const slugs = b.state.nav.map((p) => p.slug);
     for (const t of TEMPLATES)
       out.push({
         id: `add-${t}`,
@@ -86,7 +85,7 @@ export function builderCommands(b: BuilderApi): PageCommand[] {
         icon: <Thumbnail template={t} className="h-4 w-5" />,
         keywords: ["add", "block", "new", TEMPLATE_INFO[t].use],
         run: () => {
-          const made = b.insert(starter(t, b.state.rules, b.view.brand.name, slugs, s?.tab), after);
+          const made = b.insert(starter(t, b.state.rules, b.view.brand.name, s?.tab), after);
           if (made) requestAnimationFrame(() => reveal(made));
         },
       });

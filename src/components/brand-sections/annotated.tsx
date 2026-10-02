@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { LABEL } from "@/components/brand-sections/look";
-import { Body, ItemText, ItemTitle, itemRoot, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
+import { Body, ItemText, ItemTitle, itemRoot, Placing, PropPicture, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
@@ -52,22 +52,25 @@ export function AnnotatedSection({ section: s, rules }: SectionProps) {
       {image ? (
         <div className="grid items-start gap-8 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @3xl:gap-12">
           {/* At the picture's own shape, so `at` lands where it was set. ponytail: 4:3 until its size is known, which misplaces hotspots on another shape. */}
-          <div className="relative" style={{ aspectRatio: media?.width && media.height ? media.width / media.height : 4 / 3 }}>
+          <Placing className="relative" style={{ aspectRatio: media?.width && media.height ? media.width / media.height : 4 / 3 }}>
             <div className="bg-muted absolute inset-0 overflow-hidden rounded-xl">
               <Thumb src={url(image, "/w_1600,f_webp")} alt={media?.title ?? media?.description ?? media?.filename ?? ""} className="p-0" />
             </div>
             {items.map((it, i) =>
               it.at ? (
-                <Hotspot key={i} n={i + 1} at={it.at} note={noteId(i)}>
+                <Hotspot key={i} i={i} at={it.at} note={noteId(i)}>
                   <Note i={i} rule={ruleOf(it.key)} />
                 </Hotspot>
               ) : null,
             )}
-          </div>
+          </Placing>
           {list}
         </div>
       ) : (
-        list
+        <>
+          <PropPicture label="The picture the notes point at. Then click on it to put a numbered note there." />
+          {list}
+        </>
       )}
     </div>
   );
@@ -79,11 +82,13 @@ export function AnnotatedSection({ section: s, rules }: SectionProps) {
  * this one) rather than into a popover at the end of the page; a screen
  * reader hears the note as the button's description, from the list.
  */
-function Hotspot({ n, at: [x, y], note, children }: { n: number; at: [number, number]; note: string; children: React.ReactNode }) {
+function Hotspot({ i, at: [x, y], note, children }: { i: number; at: [number, number]; note: string; children: React.ReactNode }) {
   return (
     <Popover>
       <PopoverTrigger
         aria-describedby={note}
+        // On the canvas, Placing drags it by this.
+        data-at={i}
         className={cn(
           BADGE,
           "ring-background absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer shadow-md ring-2 outline-none",
@@ -93,7 +98,7 @@ function Hotspot({ n, at: [x, y], note, children }: { n: number; at: [number, nu
         style={{ left: `${x}%`, top: `${y}%` }}
       >
         <span className="sr-only">Note </span>
-        {n}
+        {i + 1}
       </PopoverTrigger>
       <PopoverContent side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
         {children}
