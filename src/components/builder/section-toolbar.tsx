@@ -648,7 +648,7 @@ export function RulesPicker({ b, s, set }: Part) {
       <PopoverTrigger asChild>
         <Button ref={setTrigger} type="button" variant="ghost" size="xs" className="h-7" title="Rules shown here">
           <IconLink aria-hidden />
-          {s.keys.length} {s.keys.length === 1 ? "rule" : "rules"}
+          {s.keys.length ? `${s.keys.length} ${s.keys.length === 1 ? "rule" : "rules"}` : "Add rules"}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-80 gap-3 p-3">

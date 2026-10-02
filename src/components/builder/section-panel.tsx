@@ -35,7 +35,7 @@ import { apply, duplicateItem, removeItem } from "@/lib/builder-ops";
 import { COLLECTION_ICONS } from "@/lib/collection-icons";
 import { type Item, type Section, TEMPLATE_INFO, TEMPLATES } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
-import { type Field, fieldsOf, templateUse, withProp } from "@/lib/template-fields";
+import { type Field, fieldsOf, formFor, templateUse, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -289,6 +289,18 @@ function Settings({ b }: { b: BuilderApi }) {
             <ToggleGroupItem value="loose">Loose</ToggleGroupItem>
           </ToggleGroup>
         </Row>
+        <Row label="Title size" about="Auto follows the template and the theme's titles.">
+          <ToggleGroup type="single" variant="outline" size="sm" value={s.size ?? "auto"} onValueChange={(v) => v && set({ size: v === "auto" ? null : v })} aria-label="Title size">
+            {["auto", "medium", "large", "huge"].map((v) => (
+              <ToggleGroupItem key={v} value={v}>
+                {choiceLabel(v)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </Row>
+        <Row label="Note beside it" htmlFor={`aside-${s.id}`} about="A ruled column beside the words, in Markdown: a tip, a source, a link. Once there, it is typed on the page.">
+          <Commit id={`aside-${s.id}`} long maxLength={4000} value={s.aside ?? ""} onCommit={(v) => set({ aside: v.trim() || null }, "aside")} />
+        </Row>
         <Row label="Ground">
           <span className="flex items-center gap-2">
             <TonePicker b={b} s={s} set={set} />
@@ -300,7 +312,15 @@ function Settings({ b }: { b: BuilderApi }) {
       {fields.length > 0 && (
         <Group title="Options">
           {fields.map((f) => (
-            <PropField key={f.name} b={b} s={s} f={f} error={errorOf(f.name)} onSet={(props) => set({ props }, f.name)} />
+            <PropField
+              key={f.name}
+              b={b}
+              s={s}
+              f={f}
+              error={errorOf(f.name)}
+              // A copy section's fields follow the {slots} its text has.
+              onSet={(props) => set({ props: s.template === "copy" && f.name === "template" ? withForm(props) : props }, f.name)}
+            />
           ))}
         </Group>
       )}
@@ -430,8 +450,33 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
     case "group":
       return <GroupField s={s} f={f} error={error} onSet={put} />;
     default:
+      if (s.template === "copy" && f.name === "form") return row(<FormLabels s={s} onSet={put} />);
       return row(<p className="text-muted-foreground text-xs">Set by an agent, with edit_page.</p>);
   }
+}
+
+/** A copy section's props with its form made from its template's {slots}. */
+function withForm(props: Record<string, unknown>) {
+  const form = formFor(String(props.template ?? ""), props.form as { name: string; label: string }[] | undefined);
+  const next: Record<string, unknown> = { ...props, form };
+  if (!form.length) delete next.form;
+  return next;
+}
+
+/** The fields a copy section's readers fill, one per {slot} of its text: each one's label, as readers see it. */
+function FormLabels({ s, onSet }: { s: Section; onSet(v: unknown): void }) {
+  const form = (s.props.form as { name: string; label: string }[] | undefined) ?? [];
+  if (!form.length) return <p className="text-muted-foreground text-xs">Write a {"{name}"} in the text below: each one becomes a field readers fill.</p>;
+  return (
+    <div className="grid gap-1.5">
+      {form.map((f, i) => (
+        <label key={f.name} className="grid grid-cols-[6rem_1fr] items-center gap-2 text-xs">
+          <code className="text-muted-foreground truncate">{`{${f.name}}`}</code>
+          <Commit value={f.label} maxLength={60} aria-label={`Label for {${f.name}}`} onCommit={(v) => v.trim() && onSet(form.map((x, k) => (k === i ? { ...x, label: v.trim() } : x)))} />
+        </label>
+      ))}
+    </div>
+  );
 }
 
 /** A "This page" value in a page select: Radix selects can't hold an empty one. */

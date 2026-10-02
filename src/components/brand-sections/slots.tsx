@@ -43,6 +43,9 @@ function useScope(): Scope {
   return scope;
 }
 
+/** A section with nothing in it yet: no words, rules or items. On the canvas its title and body slots show unpicked. */
+export const blank = (s: Section) => !s.title && !s.body && !s.eyebrow && !s.lede && !s.keys.length && !s.items?.length;
+
 /** The section the slots around here read. */
 export const useSection = () => useScope().section;
 
@@ -605,7 +608,8 @@ function useWords(field: Word, value: string | undefined): Typing | null {
   const edit = useEdit();
   const picked = usePicked();
   const s = useSection();
-  if (!edit || (!value && !picked)) return null;
+  // A section with nothing in it yet shows where its title and words go, picked or not, so it never reads as a blank band.
+  if (!edit || (!value && !picked && !(blank(s) && (field === "title" || field === "body")))) return null;
   const { lang } = edit;
   return {
     value: value ?? "",
@@ -626,7 +630,8 @@ function useItemWords(i: number, field: ItemWord, value: string | undefined): Ty
   const picked = usePicked();
   const s = useSection();
   const it = s.items?.[i];
-  if (!edit || !it || (!value && !picked)) return null;
+  // An item with nothing in it yet (a new card, a question) shows where its title goes, picked or not.
+  if (!edit || !it || (!value && !picked && !(field === "title" && STUFF.every((f) => !it[f])))) return null;
   const { lang } = edit;
   if (lang && field === "label") return null;
   const items = s.items!;

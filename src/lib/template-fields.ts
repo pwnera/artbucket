@@ -129,3 +129,9 @@ const IN_WORDS: Record<string, string> = { image: "a picture of its own", asset:
 /** A template's use, for a person: a prop named in parentheses goes, one named in the sentence is said in words. */
 export const templateUse = (t: Template) =>
   TEMPLATE_INFO[t].use.replace(/ \(props\.\w+\)/g, "").replace(/props\.(\w+)/g, (_, p: string) => IN_WORDS[p] ?? p);
+
+/** A copy section's form, made from its template's {slots}: a field kept where its slot is, a new one named for it, gone with it. */
+export function formFor(template: string, form: { name: string; label: string }[] = []) {
+  const slots = [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].slice(0, 8);
+  return slots.map((name) => form.find((f) => f.name === name) ?? { name, label: (name.charAt(0).toUpperCase() + name.slice(1)).replace(/_/g, " ") });
+}

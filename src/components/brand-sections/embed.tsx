@@ -48,7 +48,7 @@ export function EmbedSection({ section: s }: SectionProps) {
       canvas
       as="p"
       label="Paste a link: YouTube, Vimeo, Loom, Figma or Google Docs play here; any other page shows as a card"
-      className="app-tokens bg-muted/50 text-muted-foreground rounded-lg border border-dashed px-3 py-2 font-mono text-xs break-all"
+      className="app-tokens bg-background text-foreground rounded-lg border border-dashed px-3 py-2 font-mono text-xs break-all"
     />
   );
   if (!u || u.protocol !== "https:")

@@ -77,19 +77,19 @@ export function DiagramSection({ section: s, rules }: SectionProps) {
   const n = numbers.find(kind === "minsize" ? isLength : isRelative) ?? numbers[0];
 
   const warn: string[] = [];
-  if (!asset) warn.push("Bind a rule with the mark's picture: there is nothing to draw on.");
+  if (!asset) warn.push("Add a rule with the mark's picture (Add rules, in the toolbar): there is nothing to draw on yet.");
   let figure: React.ReactNode = null;
 
   if (asset && kind === "clearspace") {
     const mark = markSize(asset.width, asset.height);
     const pad = n && spacing(spacingOf(n), mark);
-    if (!n) warn.push("Bind a number rule, the clear space in x (times the mark's height).");
+    if (!n) warn.push("Add a number rule, the clear space in x (times the mark's height), with Add rules in the toolbar.");
     else if (pad == null) warn.push(`${n.key} is in ${unitOf(n) ?? "no unit"}; a clear space is drawn in x or %.`);
     else figure = <ClearSpaceFigure asset={asset} mark={mark} pad={pad} rule={n} id={anchor(n.key)} />;
   }
 
   if (asset && kind === "minsize") {
-    if (!n) warn.push("Bind a number rule, the minimum size in px or mm.");
+    if (!n) warn.push("Add a number rule, the minimum size in px or mm, with Add rules in the toolbar.");
     else if (!isLength(n)) warn.push(`${n.key} is in ${unitOf(n) ?? "no unit"}; a minimum size is drawn in px, pt or mm.`);
     else figure = <MinSizeFigure asset={asset} rule={n} id={anchor(n.key)} />;
   }
