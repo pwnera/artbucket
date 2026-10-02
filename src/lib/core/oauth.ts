@@ -1,17 +1,17 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, oauthClients, verifications } from "@/lib/db/schema";
-import { workspacesOf, type Caller } from "@/lib/core/access";
+import { keyWorkspaces, workspacesOf, type Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { hashKey } from "@/lib/core/keys";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, lowest, widest } from "@/lib/access";
 import { env } from "@/lib/env";
-import { askedScope, Consent, GRANTABLE, normalizeCode, pkceMatches, redirectAllowed, userCode, type Grantable } from "@/lib/oauth";
-import { SCOPES } from "@/lib/scopes";
+import { askedScope, cappedScope, Consent, GRANTABLE, normalizeCode, pkceMatches, redirectAllowed, userCode, type Grantable } from "@/lib/oauth";
+import type { Scope } from "@/lib/scopes";
 
 /**
  * An OAuth 2.1 authorization server for agents (the MCP authorization spec):
@@ -121,17 +121,73 @@ export async function consentOptions(caller: Caller) {
 
 type ConsentInput = z.infer<typeof Consent>;
 
-/** What was consented to, checked against what the person may give. */
+/**
+ * What was consented to, checked against what the person may give: in each
+ * workspace picked, the scope asked brought down to the most they may give
+ * there, as the consent screen shows it.
+ */
 async function granted(caller: Caller, input: Extract<ConsentInput, { allow: true }>) {
-  const option = (await consentOptions(caller)).workspaces.find((w) => w.id === input.workspace);
-  if (!option) throw new AssetError("forbidden", "You have nothing in that workspace to give");
-  if (SCOPES.indexOf(input.scope) > SCOPES.indexOf(option.max)) {
-    throw new AssetError("forbidden", `You can give at most ${option.max} in ${option.name}`);
-  }
-  await checkLimit(option.organizationId, "agents");
-  return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, workspaceId: option.id, scope: input.scope };
+  const options = (await consentOptions(caller)).workspaces;
+  const ids = input.workspaces ?? (input.workspace ? [input.workspace] : []);
+  if (!ids.length) throw new AssetError("invalid", "Pick a workspace");
+  const picked = [...new Set(ids)].map((id) => {
+    const option = options.find((w) => w.id === id);
+    if (!option) throw new AssetError("forbidden", "You have nothing in that workspace to give");
+    return { id, organizationId: option.organizationId, scope: cappedScope(input.scope, option.max) };
+  });
+  for (const org of new Set(picked.map((w) => w.organizationId))) await checkLimit(org, "agents");
+  return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, workspaces: picked.map(({ id, scope }) => ({ id, scope })) };
 }
 type Granted = Awaited<ReturnType<typeof granted>>;
+
+/** An agent a person connected, by any of its rows: theirs alone to change. */
+async function connectionOf(caller: Caller, keyId: string) {
+  if (!caller.user) return null;
+  const [key] = await db.select().from(apiKeys).where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, caller.user.id)));
+  return key ?? null;
+}
+
+/** GET /api/v1/keys/{id}: an agent you connected, where it works, and where you could let it work. */
+export async function getConnection(caller: Caller, keyId: string) {
+  const key = await connectionOf(caller, keyId);
+  if (!key) return null;
+  const [workspaces, { workspaces: givable }] = await Promise.all([keyWorkspaces(key.id), consentOptions(caller)]);
+  return { id: key.id, name: key.name, workspaces: workspaces.map((w) => ({ id: w.id, name: w.name, organization: w.organization.name, scope: w.scope })), givable };
+}
+
+/**
+ * PATCH /api/v1/keys/{id}: an agent you connected, given other workspaces or
+ * another scope, as the consent screen gives them. Its secret stays: rows
+ * come, go and change around it, so the agent never signs in again.
+ */
+export async function regrant(caller: Caller, keyId: string, input: { workspaces: string[]; scope: Grantable }) {
+  const key = await connectionOf(caller, keyId);
+  if (!key) return null;
+  const g = await granted(caller, { allow: true, ...input });
+  const rows = await db.select().from(apiKeys).where(and(eq(apiKeys.hash, key.hash), eq(apiKeys.userId, key.userId!)));
+  const keep = new Set(g.workspaces.map((w) => w.id));
+  const open = (await workspacesOf(g.userId)).workspaces;
+  const audit = (workspaceId: string, action: "key.created" | "key.revoked", scope: Scope) => {
+    const workspace = open.find((w) => w.id === workspaceId);
+    return workspace ? recordAudit({ ...caller, workspace }, action, key.name, { scope, via: "connections" }) : null;
+  };
+  await db.transaction(async (tx) => {
+    const gone = rows.filter((r) => !keep.has(r.workspaceId)).map((r) => r.id);
+    if (gone.length) await tx.delete(apiKeys).where(inArray(apiKeys.id, gone));
+    for (const w of g.workspaces) {
+      const row = rows.find((r) => r.workspaceId === w.id);
+      if (row && row.scope !== w.scope) await tx.update(apiKeys).set({ scope: w.scope }).where(eq(apiKeys.id, row.id));
+      if (!row) await tx.insert(apiKeys).values({ name: key.name, scope: w.scope, workspaceId: w.id, userId: key.userId, prefix: key.prefix, hash: key.hash });
+    }
+  });
+  for (const r of rows) if (!keep.has(r.workspaceId)) await audit(r.workspaceId, "key.revoked", r.scope);
+  for (const w of g.workspaces) {
+    const row = rows.find((r) => r.workspaceId === w.id);
+    if (!row || row.scope !== w.scope) await audit(w.id, "key.created", w.scope);
+  }
+  const [any] = await db.select({ id: apiKeys.id }).from(apiKeys).where(eq(apiKeys.hash, key.hash)).limit(1);
+  return getConnection(caller, any.id);
+}
 
 export const AuthorizeRequest = z.object({
   response_type: z.literal("code", { error: "Only response_type=code is supported" }),
@@ -253,18 +309,26 @@ export async function exchange(form: Record<string, string>) {
   throw new OAuthError("unsupported_grant_type", `grant_type must be authorization_code or the device code grant`);
 }
 
-/** The token is a key: named for the agent and its person, so history and Review say whose it was. */
+/**
+ * The token is a key: named for the agent and its person, so history and
+ * Review say whose it was. One secret, a row in each workspace given.
+ */
 async function mint(clientId: string, g: Granted) {
   const client = await clientOf(clientId);
   const secret = `ab_${randomBytes(32).toString("base64url")}`;
   const name = `${client?.name ?? "An agent"} (${g.userName})`.slice(0, 120);
-  const [key] = await db
+  const now = Date.now();
+  const keys = await db
     .insert(apiKeys)
-    .values({ name, scope: g.scope, workspaceId: g.workspaceId, userId: g.userId, prefix: secret.slice(0, 10), hash: hashKey(secret) })
+    // A millisecond apart, in the order picked: the first is where a call that names no workspace goes.
+    .values(g.workspaces.map((w, i) => ({ name, scope: w.scope, workspaceId: w.id, userId: g.userId, prefix: secret.slice(0, 10), hash: hashKey(secret), createdAt: new Date(now + i) })))
     .returning();
-  const [workspace] = (await workspacesOf(g.userId)).workspaces.filter((w) => w.id === g.workspaceId);
-  await recordAudit({ actor: g.userName, user: { id: g.userId }, workspace }, "key.created", name, { scope: g.scope, via: "oauth" });
-  return { access_token: secret, token_type: "Bearer", scope: key.scope };
+  const open = (await workspacesOf(g.userId)).workspaces;
+  for (const k of keys) {
+    const workspace = open.find((w) => w.id === k.workspaceId);
+    if (workspace) await recordAudit({ actor: g.userName, user: { id: g.userId }, workspace }, "key.created", name, { scope: k.scope, via: "oauth" });
+  }
+  return { access_token: secret, token_type: "Bearer", scope: keys[0].scope };
 }
 
 // ---- codes waiting, in better-auth's verifications table ----------------------

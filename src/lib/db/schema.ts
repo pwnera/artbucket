@@ -266,13 +266,18 @@ export const apiKeys = pgTable(
   "api_keys",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** A key works in one workspace, with one scope there. */
+    /**
+     * A key works in one workspace, with one scope there. An agent a person
+     * connected to several workspaces at once holds one secret, so one
+     * `hash`, with a row in each (lib/core/oauth.ts): the request says which
+     * one it means, else it is in the oldest.
+     */
     workspaceId: uuid("workspace_id")
       .notNull()
       .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     prefix: text("prefix").notNull(),
-    hash: text("hash").notNull().unique(),
+    hash: text("hash").notNull(),
     scope: text("scope").$type<Scope>().notNull(),
     /**
      * Whose agent this is, for a key minted by OAuth or `artbucket login`
@@ -287,7 +292,10 @@ export const apiKeys = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (t) => [check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`)],
+  (t) => [
+    check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
+    unique("api_keys_hash_workspace_unique").on(t.hash, t.workspaceId),
+  ],
 );
 
 export type Visibility = "private" | "public";

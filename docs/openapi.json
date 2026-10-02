@@ -54263,6 +54263,20 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
                             "description": "Assets it proposed that wait in Review"
+                          },
+                          "workspaces": {
+                            "description": "For an agent you connected, the names of every workspace it works in; null for anyone else's",
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -54426,6 +54440,20 @@
                           "maximum": 9007199254740991,
                           "description": "Assets it proposed that wait in Review"
                         },
+                        "workspaces": {
+                          "description": "For an agent you connected, the names of every workspace it works in; null for anyone else's",
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "secret": {
                           "type": "string",
                           "description": "Shown once. Send as `Authorization: Bearer <secret>`"
@@ -54502,9 +54530,338 @@
           }
         }
       ],
+      "get": {
+        "summary": "An agent you connected",
+        "description": "Where it works, each workspace with its scope, and every workspace you could give it. Only your own agents.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "The agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "workspaces": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "organization": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string",
+                                "enum": [
+                                  "read",
+                                  "propose",
+                                  "write",
+                                  "admin"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "organization",
+                              "scope"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Where it works, the first where a call without `workspace` goes"
+                        },
+                        "givable": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "organization": {
+                                "type": "string"
+                              },
+                              "max": {
+                                "type": "string",
+                                "enum": [
+                                  "propose",
+                                  "read",
+                                  "write"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "organization",
+                              "max"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Every workspace you could give it, with the most you may give there"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "workspaces",
+                        "givable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Change where an agent you connected works",
+        "description": "Its workspaces and its scope, as the consent screen gives them: the scope is brought down, in each workspace, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.\n\nScope: `read`.",
+        "x-scope": "read",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaces": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "propose",
+                      "read",
+                      "write"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaces",
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The agent, as it is now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "workspaces": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "organization": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string",
+                                "enum": [
+                                  "read",
+                                  "propose",
+                                  "write",
+                                  "admin"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "organization",
+                              "scope"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Where it works, the first where a call without `workspace` goes"
+                        },
+                        "givable": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "organization": {
+                                "type": "string"
+                              },
+                              "max": {
+                                "type": "string",
+                                "enum": [
+                                  "propose",
+                                  "read",
+                                  "write"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "organization",
+                              "max"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Every workspace you could give it, with the most you may give there"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "workspaces",
+                        "givable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Revoke an API key",
-        "description": "Any key, for an admin; the agents you connected, for anyone.\n\nScope: `read`.",
+        "description": "Any key, for an admin; the agents you connected, for anyone. An agent connected to several workspaces stops working in this one and keeps the others.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -54987,6 +55344,15 @@
                         "type": "boolean",
                         "const": true
                       },
+                      "workspaces": {
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
                       "workspace": {
                         "type": "string",
                         "format": "uuid",
@@ -55003,7 +55369,6 @@
                     },
                     "required": [
                       "allow",
-                      "workspace",
                       "scope"
                     ]
                   },
@@ -55157,6 +55522,15 @@
                         "type": "boolean",
                         "const": true
                       },
+                      "workspaces": {
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
                       "workspace": {
                         "type": "string",
                         "format": "uuid",
@@ -55174,7 +55548,6 @@
                     "required": [
                       "request",
                       "allow",
-                      "workspace",
                       "scope"
                     ]
                   },

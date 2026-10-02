@@ -39,7 +39,7 @@ import { importGoogleFont } from "@/lib/core/fonts";
 import { findIconNames, importIcons, searchIconSets } from "@/lib/core/icons";
 import type { IconSet } from "@/lib/icons";
 import { closePortal, createPortal, decideRequest, deletePortal, listPortals, listRequests, portalsShowing, updatePortal } from "@/lib/core/portals";
-import type { Caller } from "@/lib/core/access";
+import { keyWorkspaces, type Caller, type Workspace } from "@/lib/core/access";
 import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
@@ -1110,14 +1110,34 @@ const expected = (err: unknown) => {
   return refused ? REFUSED[refused] : null;
 };
 
+/** The caller as it is in another workspace: the same key's row there, when it has one. */
+export type Switch = (workspaceId: string) => Promise<Caller | undefined>;
+
+/**
+ * An agent connected to several workspaces names one with `workspace` on any
+ * tool: its slug, organization/slug when two share one, or its id. Without
+ * it, it works in the first it was given.
+ */
+const refOf = (w: Workspace, all: Workspace[]) => (all.filter((x) => x.slug === w.slug).length > 1 ? `${w.organization.slug}/${w.slug}` : w.slug);
+const pickWorkspace = (all: Workspace[], ref: string) => all.find((w) => w.id === ref || w.slug === ref || `${w.organization.slug}/${w.slug}` === ref) ?? null;
+const spansOf = async (caller: Caller) => (caller.key ? await keyWorkspaces(caller.key) : []);
+
+/** Said when the agent was given several workspaces: which, and how to name one. */
+const several = async (caller: Caller) => {
+  const spans = await spansOf(caller);
+  if (spans.length < 2) return "";
+  const list = spans.map((w) => `${refOf(w, spans)} (${w.name}, ${w.organization.name})`).join(", ");
+  return `\n\nThis connection works in ${spans.length} workspaces: ${list}. Each has its own library, brands and portals. Every tool takes \`workspace\` to say which; without it, ${refOf(spans[0], spans)}. Ask the person which one when it isn't clear.`;
+};
+
 /** One JSON-RPC message in; the response body, or null for a notification. */
-export async function handleMcp(raw: unknown, caller: Caller): Promise<object | null> {
+export async function handleMcp(raw: unknown, caller: Caller, as: Switch = async () => undefined): Promise<object | null> {
   const parsed = Message.safeParse(raw);
   if (!parsed.success) return error(null, -32600, "Invalid request");
   const { id, method, params = {} } = parsed.data;
   if (id === undefined) return null; // notifications/initialized and friends: nothing to say
   try {
-    return await answer(id, method, params, caller);
+    return await answer(id, method, params, caller, as);
   } catch (err) {
     // Always a JSON-RPC answer, never the REST error shape: a bad request is the caller's, anything else ours.
     const known = expected(err) ?? (err instanceof URIError ? { error: "A %-escape in the URI decodes to nothing" } : null);
@@ -1127,7 +1147,8 @@ export async function handleMcp(raw: unknown, caller: Caller): Promise<object | 
   }
 }
 
-async function answer(id: Id, method: string, params: Record<string, unknown>, caller: Caller): Promise<object> {
+async function answer(id: Id, method: string, params: Record<string, unknown>, home: Caller, as: Switch): Promise<object> {
+  let caller = home;
   switch (method) {
     case "initialize": {
       const asked = String(params.protocolVersion ?? "");
@@ -1135,25 +1156,36 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, c
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: {}, resources: {} },
         serverInfo: { name: "artbucket", version: pkg.version },
-        instructions: can(caller, "brand.edit") ? INSTRUCTIONS : INSTRUCTIONS + READ_ONLY_BRAND,
+        instructions: (can(caller, "brand.edit") ? INSTRUCTIONS : INSTRUCTIONS + READ_ONLY_BRAND) + (await several(caller)),
       });
     }
     case "ping":
       return result(id, {});
-    case "tools/list":
+    case "tools/list": {
+      // Connected to several workspaces: a tool shows when it runs in one of them, and takes `workspace`.
+      const spans = await spansOf(caller);
+      const callers = spans.length > 1 ? (await Promise.all(spans.map((w) => as(w.id)))).filter((c) => c !== undefined) : [caller];
+      const where =
+        spans.length > 1
+          ? {
+              type: "string",
+              description: `The workspace to work in: ${spans.map((w) => `${refOf(w, spans)} (${w.name}, ${w.organization.name}, ${w.scope})`).join("; ")}. Without it, ${refOf(spans[0], spans)}.`,
+            }
+          : null;
       return result(id, {
         tools: await Promise.all(
           Object.entries(TOOLS)
             // Only what this caller may run: a read-only key sees read-only tools.
-            .filter(([, t]) => can(caller, t.action))
+            .filter(([, t]) => callers.some((c) => can(c, t.action)))
             .map(async ([name, t]) => ({
               name,
               description: typeof t.description === "string" ? t.description : await t.description(caller),
-              inputSchema: SCHEMAS[name],
+              inputSchema: where ? { ...SCHEMAS[name], properties: { ...(SCHEMAS[name] as { properties?: object }).properties, workspace: where } } : SCHEMAS[name],
               annotations: { readOnlyHint: t.readOnly, destructiveHint: !!t.destructive, openWorldHint: OPEN_WORLD.has(name) },
             })),
         ),
       });
+    }
     // Brand rules and pages as resources, for clients that attach context by hand.
     case "resources/list": {
       const resources: Record<string, string>[] = [
@@ -1221,6 +1253,18 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, c
       const name = String(params.name);
       const t = Object.hasOwn(TOOLS, name) ? TOOLS[name as ToolName] : undefined;
       if (!t) return error(id, -32602, `Unknown tool: ${String(params.name)}`);
+      // Another of the connection's workspaces, by `workspace`: the tool runs as the key's row there.
+      const { workspace: asked, ...rest } = (params.arguments ?? {}) as Record<string, unknown>;
+      if (asked !== undefined) {
+        const spans = await spansOf(home);
+        const w = typeof asked === "string" ? pickWorkspace(spans, asked) : null;
+        const there = w && (await as(w.id));
+        if (!w || there?.workspace.id !== w.id) {
+          const known = spans.map((x) => refOf(x, spans)).join(", ");
+          return result(id, toolResult({ error: `This connection doesn't reach workspace ${String(asked)}${known ? `. It reaches: ${known}` : ""}` }, true));
+        }
+        caller = there;
+      }
       // For Connections (lib/core/insights.ts): the tool's name and how it came out, never its arguments.
       const called = (verdict: "ok" | "refused" | "error") =>
         record({ workspaceId: caller.workspace.id, kind: "tool", surface: "mcp", ...who(caller), subject: name, verdict });
@@ -1228,7 +1272,7 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, c
         called("refused");
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
-      const args = t.input.safeParse(params.arguments ?? {});
+      const args = t.input.safeParse(rest);
       // One line per problem with its path, as core's own refusals read: ops[1].section.props.chanel: Unrecognized key.
       if (!args.success) {
         called("error");
