@@ -21,5 +21,5 @@ export const PATCH = route<P>("collection.edit", async (req, { id }, caller) => 
 
 /** DELETE /api/v1/collections/{id} - the assets stay; they stop inheriting from it. */
 export const DELETE = route<P>("collection.delete", async (_req, { id }, caller) =>
-  valid(id) && (await deleteCollection(caller.workspace.id, id)) ? ok({ data: { deleted: true } }) : null,
+  valid(id) && (await deleteCollection(caller, id)) ? ok({ data: { deleted: true } }) : null,
 missing);

@@ -245,12 +245,16 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         id: existing.id,
       });
     }
+    // Bytes already here as an asset the caller may not see: nothing of it goes back, and it moves nowhere.
+    const seen = await getAsset(caller, existing.id);
+    if (!seen) throw new AssetError("conflict", "That file is already in the library");
     // A retried new version whose first upload stopped after it was saved: it becomes current now, as it would have
     // then. Never an older version over a newer one (repoint only moves forward).
     if (prior && existing.stackId && existing.stackId === prior.stackId && existing.status === "active") {
       await repoint(existing.stackId, { id: existing.id });
     }
-    return { asset: await fileInto(ws, into, existing.id), deduped: true };
+    // Filing it is adding it to those collections, which a proposal can't do without review.
+    return { asset: proposed ? seen : await fileInto(ws, into, existing.id), deduped: true };
   }
   // The size stored, not the size claimed for the ticket; checked again under a lock as it lands.
   await checkLimit(caller.workspace.organizationId, "storage", { adding: size });

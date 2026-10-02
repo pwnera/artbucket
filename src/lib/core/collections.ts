@@ -118,7 +118,12 @@ export async function updateCollection(
   return found ? getCollection(caller, id) : null;
 }
 
-export async function deleteCollection(ws: string, id: string): Promise<boolean> {
+/** Only one the caller sees and may delete: a private collection's id (sent to everyone in /me's `hidden`) is no key to it. */
+export async function deleteCollection(caller: Caller, id: string): Promise<boolean> {
+  const c = await getCollection(caller, id);
+  if (!c) return false;
+  if (!can(caller, "collection.delete", c)) throw new AssetError("forbidden", `You may not delete ${c.name}`);
+  const ws = caller.workspace.id;
   return db.transaction(async (tx) => {
     const members = await tx
       .select({ id: collectionAssets.assetId })

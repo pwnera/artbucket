@@ -1056,7 +1056,7 @@ const TOOLS: Record<ToolName, Tool> = {
     input: TOOL_INPUTS.delete_collection,
     run: async ({ collection }, caller) => {
       const c = await collectionOf(caller, collection);
-      return { deleted: await deleteCollection(caller.workspace.id, c.id), collection: { id: c.id, name: c.name } };
+      return { deleted: await deleteCollection(caller, c.id), collection: { id: c.id, name: c.name } };
     },
   }),
 
