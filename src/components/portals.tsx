@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Spinner } from "@/components/ui/spinner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -21,8 +22,7 @@ import {
   IconUsers,
   IconWorld,
   IconX,
-  IconLoader2,
-} from "@tabler/icons-react";
+  } from "@tabler/icons-react";
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";
@@ -716,7 +716,7 @@ export function PortalDialog({
             <p id={`${id}-slug-check`} aria-live="polite" className="text-xs empty:hidden">
               {asking && (
                 <span className="text-muted-foreground animate-in fade-in-0 fill-mode-backwards flex items-center gap-1.5 delay-300">
-                  <IconLoader2 aria-hidden className="size-3.5 animate-spin" /> Checking
+                  <Spinner aria-hidden className="size-3.5" /> Checking
                 </span>
               )}
               {verdict &&

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   IconCheck,
@@ -11,7 +12,6 @@ import {
   IconFile,
   IconFileTypePdf,
   IconFileZip,
-  IconLoader2,
   IconMovie,
   IconMusic,
   IconPlayerPlayFilled,
@@ -141,7 +141,7 @@ export function Downloads({ item, variant = "ghost", size = "default" }: { item:
       </Button>
     );
   }
-  const icon = started ? <IconLoader2 className="animate-spin" /> : <IconDownload />;
+  const icon = started ? <Spinner /> : <IconDownload />;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

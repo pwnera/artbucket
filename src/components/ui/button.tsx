@@ -2,7 +2,7 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
-import { IconLoader2 } from "@tabler/icons-react"
+import { Spinner } from "@/components/ui/spinner"
 
 const buttonVariants = cva(
   "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] data-[size^=icon]:active:scale-[0.92] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -72,7 +72,7 @@ function Button({
       {...props}
     >
       {/* Slot takes exactly one child, so asChild never gets the spinner. */}
-      {asChild ? children : <>{pending && <IconLoader2 data-spinner className="animate-spin" />}{children}</>}
+      {asChild ? children : <>{pending && <Spinner data-spinner />}{children}</>}
     </Comp>
   )
 }

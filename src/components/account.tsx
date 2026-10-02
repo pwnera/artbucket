@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Spinner } from "@/components/ui/spinner";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import {
   IconBuilding,
   IconCheck,
   IconKeyboard,
-  IconLoader2,
   IconLogin,
   IconLogout,
   IconPlus,
@@ -164,7 +164,7 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
               <span className="text-muted-foreground truncate text-xs">{me.workspace.organization.name}</span>
             </span>
             {pending ? (
-              <IconLoader2 className="text-muted-foreground ml-auto animate-spin" aria-label="Switching workspace" />
+              <Spinner className="text-muted-foreground ml-auto" aria-label="Switching workspace" />
             ) : (
               <IconSelector className="text-muted-foreground ml-auto" />
             )}

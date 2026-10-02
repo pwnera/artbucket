@@ -1,6 +1,7 @@
 "use client"
 
-import { IconCircleCheck as CircleCheckIcon, IconInfoCircle as InfoIcon, IconLoader2 as Loader2Icon, IconAlertOctagon as OctagonXIcon, IconAlertTriangle as TriangleAlertIcon } from "@tabler/icons-react"
+import { IconCircleCheck as CircleCheckIcon, IconInfoCircle as InfoIcon, IconAlertOctagon as OctagonXIcon, IconAlertTriangle as TriangleAlertIcon } from "@tabler/icons-react"
+import { Spinner } from "@/components/ui/spinner"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
@@ -20,7 +21,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         info: <InfoIcon className="size-4" />,
         warning: <TriangleAlertIcon className="size-4 text-warning" />,
         error: <OctagonXIcon className="size-4 text-destructive" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        loading: <Spinner className="size-4" />,
       }}
       style={
         {

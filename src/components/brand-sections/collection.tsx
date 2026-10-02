@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconLoader2, IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Body } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { PublicGrid } from "@/components/public-grid";
@@ -70,7 +71,7 @@ export function CollectionSection({ section: s }: SectionProps) {
               aria-label={`Search ${s.title || "these assets"}`}
               className="h-9 w-full rounded-(--brand-radius,0.5rem) border border-current/15 bg-transparent ps-8 pe-8 text-sm outline-none placeholder:opacity-60 focus-visible:ring-2 focus-visible:ring-(--brand-accent)"
             />
-            {busy && <IconLoader2 aria-hidden className="absolute end-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin opacity-60" />}
+            {busy && <Spinner aria-hidden className="absolute end-2.5 top-1/2 size-4 -translate-y-1/2 opacity-60" />}
           </div>
           {words && (
             <p role="status" className="text-sm tabular-nums opacity-70">

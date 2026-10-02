@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/page";
 import { GIT_RETURN } from "@/lib/git";
@@ -80,7 +80,7 @@ export function BrandImporting({ name, remote }: { name: string; remote: string 
     <>
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: name }]} />
       <div role="status" className="grid flex-1 place-content-center justify-items-center gap-3 p-8 text-center">
-        <IconLoader2 aria-hidden className="text-muted-foreground size-6 animate-spin" />
+        <Spinner aria-hidden className="text-muted-foreground size-6" />
         <h1 className="font-display text-xl font-semibold tracking-tight">Loading {name}</h1>
         <p className="text-muted-foreground max-w-sm text-sm">
           {late ? (

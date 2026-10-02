@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconCheck, IconLoader2, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
+import { IconCheck, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -364,7 +365,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           Cancel
         </Button>
         <Button onClick={publish} disabled={busy || saving || !!current}>
-          {busy || saving ? <IconLoader2 className="animate-spin" /> : <IconWorldUpload />}
+          {busy || saving ? <Spinner /> : <IconWorldUpload />}
           {saving ? "Saving" : n && !current ? `Publish @${n}` : "Publish"}
         </Button>
       </footer>
