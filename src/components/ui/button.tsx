@@ -5,7 +5,7 @@ import { Slot } from "radix-ui"
 import { IconLoader2 } from "@tabler/icons-react"
 
 const buttonVariants = cva(
-  "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] data-[size^=icon]:active:scale-[0.92] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden data-[pending=over]:[-webkit-text-fill-color:transparent] [&[data-pending=over]>[data-spinner]]:absolute [&[data-pending=over]>[data-spinner]]:inset-0 [&[data-pending=over]>[data-spinner]]:m-auto [&[data-pending=over]>[data-spinner]]:[-webkit-text-fill-color:initial] aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] active:scale-[0.97] data-[size^=icon]:active:scale-[0.92] active:duration-75 focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 data-[pending]:disabled:opacity-100 [&>[data-spinner]+svg]:hidden aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -40,11 +40,9 @@ const buttonVariants = cva(
 
 /**
  * `pending` reads as working, not unavailable: disabled at full strength,
- * with a spinner in the leading icon's place, or over the hidden label when
- * there is no leading icon, so the width always holds. Keep the label as it
- * is while pending: the spinner says working. A label that itself says what
- * is happening ("Laying out the pages") asks for "beside": the spinner leads
- * and the words stay.
+ * with a small spinner before the label, in the leading icon's place when
+ * there is one. Keep the label as it is while pending: the spinner says
+ * working, and the words say what.
  */
 function Button({
   className,
@@ -58,21 +56,18 @@ function Button({
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-    pending?: boolean | "beside"
+    pending?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
-  // A component first is a leading icon (Tabler's are), which the spinner takes the place of.
-  const lead = React.Children.toArray(children)[0]
-  const swap = pending === "beside" || (React.isValidElement(lead) && typeof lead.type !== "string")
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      data-pending={pending ? (swap ? "swap" : "over") : undefined}
-      aria-busy={!!pending || undefined}
-      disabled={disabled || !!pending || undefined}
+      data-pending={pending ? "" : undefined}
+      aria-busy={pending || undefined}
+      disabled={disabled || pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
