@@ -4,110 +4,141 @@ layout: landing
 sections:
   - template: cover
     eyebrow: The Artbucket brand
-    title: Artbucket
-    lede: All your brand. None of the busywork.
+    title: Where brands live.
+    lede: Including ours. The mark, the colors, the type and the words.
     props:
       mark: always
-      align: start
+      align: center
       strip: true
-      height: auto
+      height: screen
       markSize: large
       markFrame: bare
       titleSize: huge
   - template: statement
-    eyebrow: Where brands live
+    eyebrow: One catalog. One answer.
     title: |-
       A little order.
       A lot of possibility.
     body: Assets, guidelines and portals in one catalog. One answer for people and agents.
+    props:
+      align: center
     tone: plain
     size: huge
   - id: the-mark
-    template: split
-    eyebrow: 01 / Our signature
+    template: annotated
+    eyebrow: 01 / Mark · Recognize
     title: Good work starts with a little spill.
+    lede: A tipped paint bucket. A paint line. One drop.
     body: |-
-      A tipped paint bucket. A paint line. One drop.
+      It puts making at the center. Keep its shape, give it room and use the original file.
 
-      Our mark puts making at the center. Keep its shape, give it room and use the original file.
-    aside: "[Meet the mark](/logo)"
+      [Meet the mark](/logo)
+    items:
+      - at: [38, 40]
+        text: Tipped on purpose. Never right it.
+        title: The bucket
+      - at: [52, 58]
+        text: One wave. Work in progress.
+        title: The paint line
+      - at: [74, 68]
+        text: Just one. Check it at actual size.
+        title: The drop
     props:
-      fit: whole
-      flip: true
       image: assets/icon.svg
-      ratio: even
     tone: panel
     width: full
     size: large
+  - id: the-type
+    template: statement
+    eyebrow: 02 / Type · Set
+    title: |-
+      Headlines with character.
+      Reading without fuss.
+    body: |-
+      Funnel Display speaks up. Funnel Sans gets read. Geist Mono handles the code.
+
+      [See the type system](/type)
+    props:
+      align: center
+    width: full
+    size: huge
   - id: the-palette
     template: palette
-    eyebrow: 02 / Our colors
+    eyebrow: 03 / Color · Choose
     title: Violet leads. Lime marks.
     lede: White gives the work room. Violet draws the eye. A little lime picks out what matters.
-    aside: |-
-      Lime is a highlight, never a large background.
+    body: |-
+      Lime is a highlight. Not a background.
 
       [Explore the full palette](/color)
-    keys: [color.primary, color.highlight, color.background]
+    keys:
+      - color.primary
+      - color.highlight
+      - color.background
+      - color.panel
+      - color.ink
+      - color.dark
     props:
       show: [hex]
-    columns: 1
-    size: large
-  - id: the-type
-    template: quote
-    eyebrow: 03 / Our type
-    title: Words with character.
-    lede: Funnel Display for headlines. Funnel Sans for reading. Geist Mono for code.
-    body: Make room for the good work.
-    aside: "[See the type system](/type)"
-    width: full
+    columns: 2
     size: large
   - id: the-voice
     template: statement
-    eyebrow: 04 / Our voice
+    eyebrow: 04 / Voice · Write
     title: |-
       Say what it does.
       Then stop.
     body: |-
-      Plain, exact and a little dry. Short sentences. Familiar words. No fanfare.
+      Plain, exact and a little dry. Less "seamless". More "here you go".
 
       [Write like Artbucket](/voice)
     tone: dark
     width: full
     size: huge
   - template: pages
-    eyebrow: Make something with it
-    title: The right starting point.
+    eyebrow: Six pages. One brand.
+    title: |-
+      Don't just read it.
+      Make something.
     items:
       - link: /logo
-        text: Three approved files. When to use each and what to leave alone.
+        text: Three approved files, and what to leave alone.
         title: Use the mark
       - link: /color
         text: Violet, lime and the neutrals that give them room.
         title: Choose your colors
       - link: /type
-        text: Funnel Display, Funnel Sans and Geist Mono.
+        text: Three faces, one measured scale.
         title: Set the words
       - link: /voice
-        text: Our voice, writing habits and copy you can use.
+        text: Habits, examples and copy to paste.
         title: Sound like Artbucket
-    columns: 2
+      - link: /playground
+        text: Space, corners and motion, drawn.
+        title: Try the system
+      - link: /resources
+        text: Every file, and a way to ask for more.
+        title: Get the originals
     size: large
   - id: resources
     template: links
-    eyebrow: Ready when you are
+    eyebrow: Made for people. Ready for agents.
     title: Take the brand with you.
-    body: Start with the approved logo files. Follow the logo guide for backgrounds and placement.
+    body: Start with the approved logo files. The logo guide covers grounds and placement.
     keys: [logo.primary, logo.mark, logo.markWhite]
     items:
       - link: https://artbucket.io/
-        text: See the identity in use.
+        text: See the brand at work.
         label: Visit the website
         title: Artbucket
       - link: https://docs.artbucket.io/
         text: Put the catalog to work.
         label: Read the docs
         title: Documentation
+      - link: https://github.com/pwnera/artbucket
+        text: The core, in the open.
+        label: See the code
+        title: Open source
     tone: panel
     columns: 3
     size: large
