@@ -275,11 +275,17 @@ export type ReportReason = keyof typeof REPORT_REASONS;
 /** A count as a card shows it: 950, 1.2k, 3.4M. */
 export const compact = (n: number) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase();
 
+/** public/icon.svg's tile and mark, inside a badge. */
+const ICON =
+  `<rect width="512" height="512" rx="121" fill="#6d4aff"/><g transform="translate(256 256) scale(0.8) translate(-270 -244.5)" fill="#fff">` +
+  `<path fill-rule="evenodd" d="M185.5 49 L414 277.5 L263.5 428 A41 41 0 0 1 205.5 428 L84 306.5 A41 41 0 0 1 84 248.5 L204.5 128 L155.5 79 Z M234.5 158 L338.5 262 C326 252 310 246 294 246 C259 246 235 294 200 294 C172 294 148 276 130.5 262 Z"/>` +
+  `<path d="M426.5 297 L463.06 364.83 A41.5 41.5 0 1 1 389.94 364.83 Z"/></g>`;
+
 const xml = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /**
- * The README badge, "[■ Acme | @4 ✓]": the brand's name on Artbucket's ink
- * beside a swatch of its tint, the release that is live on the tint, and a
+ * The README badge, "[Acme | @4 ✓]": Artbucket's icon and the brand's name
+ * on Artbucket's ink, the release that is live on the brand's tint, and a
  * check when its organization is verified. 20px high, as shields.io's are,
  * so it sits in a row of them. Widths are guessed from Verdana 11px and
  * `textLength` holds the text to them, so a guess never spills.
@@ -299,7 +305,7 @@ export function hubBadge({ name, version, tint, verified }: { name: string; vers
     `<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-opacity=".12"/></linearGradient>` +
     `<clipPath id="c"><rect width="${l + r}" height="20" rx="5"/></clipPath>` +
     `<g clip-path="url(#c)"><rect width="${l}" height="20" fill="#20241f"/><rect x="${l}" width="${r}" height="20" fill="${fill}"/><rect width="${l + r}" height="20" fill="url(#g)"/><rect x="${l}" width="1" height="20" fill="#fff" fill-opacity=".2"/></g>` +
-    `<rect x="8" y="5" width="10" height="10" rx="3" fill="${fill}" stroke="#fff" stroke-opacity=".45"/>` +
+    `<svg x="6" y="3" width="14" height="14" viewBox="0 0 512 512">${ICON}</svg>` +
     `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" font-weight="bold">` +
     `<text x="26" y="14" fill="#fff" textLength="${lw}" lengthAdjust="spacingAndGlyphs">${xml(label)}</text>` +
     `<text x="${l + 8}" y="14" fill="${ink}" textLength="${vw}" lengthAdjust="spacingAndGlyphs">${value}</text></g>` +

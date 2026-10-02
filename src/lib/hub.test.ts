@@ -233,9 +233,9 @@ test("hubBadge wears the brand's tint, escapes its name and checks a verified on
   assert.match(svg, /Ben &#38; &#34;Jerry&#34; &#60;3/);
   assert.doesNotMatch(svg, /<3|"Jerry"/);
   assert.match(svg, /fill="#000000"[^>]*>@4</);
-  assert.match(svg, /<path /);
+  assert.match(svg, /stroke-linecap/);
   const plain = hubBadge({ name: "x".repeat(40), version: 2, tint: 'red" onload="alert(1)', verified: false });
   assert.match(plain, /fill="#6d4aff"/);
-  assert.doesNotMatch(plain, /onload|<path /);
+  assert.doesNotMatch(plain, /onload|stroke-linecap/);
   assert.match(plain, /x{23}…</);
 });
