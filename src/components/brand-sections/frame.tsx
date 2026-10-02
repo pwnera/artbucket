@@ -27,6 +27,12 @@ const WIDTH: Record<Section["width"], string> = {
   full: "max-w-none",
 };
 
+/** The wide frame's own column (max-w-280 less its padding): words in a full section line up with the sections around it. */
+const COLUMN = "mx-auto max-w-260";
+
+/** Templates that draw only words: the ground bleeds, they keep to the wide frame (as cover and header do). */
+const WORDS = new Set<Section["template"]>(["statement", "quote", "text"]);
+
 /** Section titles on the theme's scale (its `titles`), or the section's own size, held to the container on a phone. */
 const H2 = "text-[length:min(var(--brand-h2),8cqi)] @3xl:text-[length:min(var(--brand-h2),8cqi)] leading-tight";
 const SIZED: Record<NonNullable<Section["size"]>, string> = {
@@ -214,16 +220,17 @@ export function SectionFrame({
             PAD_END,
             PAD_TOP[joined === "space" ? "joined" : (s.space ?? "normal")],
             joined === "hairline" && "border-t",
-            WIDTH[s.width],
+            WIDTH[s.width === "full" && WORDS.has(s.template) ? "wide" : s.width],
           )}
         >
           {(s.eyebrow || s.title || s.lede) && (
-            <header className={cn("group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3", center && "mx-auto max-w-4xl text-center")}>
+            <header className={cn("group/section mb-[calc(var(--brand-gap)*4/3)] space-y-3", s.width === "full" && COLUMN, center && "mx-auto max-w-4xl text-center")}>
               <Eyebrow />
               {s.title && (
-                <div className={cn("flex items-center gap-1", center && "justify-center")}>
+                // Centered, the copy-link hangs past the title's end, so the title alone is centered.
+                <div className={cn("flex items-center gap-1", center && "relative mx-auto w-fit")}>
                   <Title className={cn("min-w-0", size ? SIZED[size] : H2)} />
-                  <AnchorLink id={id} label={`Copy a link to ${s.title}`} className="group-hover/section:opacity-100" />
+                  <AnchorLink id={id} label={`Copy a link to ${s.title}`} className={cn("group-hover/section:opacity-100", center && "absolute start-full ms-1")} />
                 </div>
               )}
               <Lede />
