@@ -75,11 +75,14 @@ values (
   'operator'
 )
 on conflict (organization_id, workspace_id, key)
-do update set value = excluded.value, updated_at = now();
+do update set value = excluded.value, updated_by = excluded.updated_by, updated_at = now();
 ```
 
 `null` for a limit lifts it, `"readOnly": true` freezes the organization, and
-deleting the row puts it back on the environment's limits. `"lapsing": true`
+deleting the row puts it back on the environment's limits. `updated_by` names
+whoever wrote the row last, so a billing integration that writes these rows
+can leave alone the ones it did not write (an operator's deal), and stop
+owning a row an operator wrote over. `"lapsing": true`
 keeps the row's limits but stops it counting as a plan when someone makes
 another organization (`LIMIT_ORGANIZATIONS`): for a plan whose payment failed
 or was paused, while that is sorted out. Each server
@@ -102,7 +105,7 @@ values (
   'operator'
 )
 on conflict (organization_id, workspace_id, key)
-do update set value = excluded.value, updated_at = now();
+do update set value = excluded.value, updated_by = excluded.updated_by, updated_at = now();
 ```
 
 `GET /api/v1/me` returns it as `notice` for admins, null once it has passed.
