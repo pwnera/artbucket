@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
@@ -43,6 +45,11 @@ const buttonVariants = cva(
  * with a small spinner before the label, in the leading icon's place when
  * there is one. Keep the label as it is while pending: the spinner says
  * working, and the words say what.
+ *
+ * A button that is a link (`asChild` around an <a> or a <Link>) shows the
+ * same from a plain click until the next page shows: within the app, when
+ * the address changes; leaving it (GitHub, Stripe), until the page goes.
+ * Back from the browser's cache, or a wait past a while, clears it.
  */
 function Button({
   className,
@@ -52,6 +59,7 @@ function Button({
   pending = false,
   disabled,
   children,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -59,20 +67,55 @@ function Button({
     pending?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  const link = asChild && React.isValidElement<{ href?: unknown; target?: string; download?: unknown; children?: React.ReactNode }>(children) ? children : null
+  const [going, setGoing] = React.useState(false)
+  React.useEffect(() => {
+    if (!going) return
+    const done = () => setGoing(false)
+    // The Navigation API reports the address changing (a client move commits); older browsers rely on the rest.
+    const nav = (window as { navigation?: EventTarget }).navigation
+    nav?.addEventListener("navigatesuccess", done)
+    window.addEventListener("pageshow", done)
+    window.addEventListener("popstate", done)
+    const late = setTimeout(done, 15000)
+    return () => {
+      nav?.removeEventListener("navigatesuccess", done)
+      window.removeEventListener("pageshow", done)
+      window.removeEventListener("popstate", done)
+      clearTimeout(late)
+    }
+  }, [going])
+  const busy = pending || going
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      data-pending={pending ? "" : undefined}
-      aria-busy={pending || undefined}
+      data-pending={busy ? "" : undefined}
+      aria-busy={busy || undefined}
       disabled={disabled || pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+        onClick?.(e)
+        const href = link?.props.href
+        // A link to a page in this tab: not a new tab or window, a download, an anchor on this page or an email.
+        const goes =
+          !!href &&
+          !link.props.target &&
+          link.props.download === undefined &&
+          !(typeof href === "string" && /^(#|mailto:|tel:)/.test(href)) &&
+          e.button === 0 &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.shiftKey &&
+          !e.altKey
+        if (goes) setGoing(true)
+      }}
       {...props}
     >
-      {/* Slot takes exactly one child, so asChild never gets the spinner. */}
-      {asChild ? children : <>{pending && <Spinner data-spinner />}{children}</>}
+      {/* Slot takes exactly one child: a link gets the spinner inside it, before its label. */}
+      {link ? (going ? React.cloneElement(link, undefined, <>{<Spinner data-spinner />}{link.props.children}</>) : link) : asChild ? children : <>{pending && <Spinner data-spinner />}{children}</>}
     </Comp>
   )
 }
