@@ -44836,7 +44836,7 @@
                         },
                         "madeWith": {
                           "type": "boolean",
-                          "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
+                          "description": "Its pages carry \"Powered by Artbucket\": a public portal whose organization's plan has no white-label"
                         }
                       },
                       "required": [
@@ -45858,7 +45858,7 @@
                             },
                             "madeWith": {
                               "type": "boolean",
-                              "description": "Its pages carry \"Made with Artbucket\": its organization's plan has no white-label"
+                              "description": "Its pages carry \"Powered by Artbucket\": a public portal whose organization's plan has no white-label"
                             },
                             "level": {
                               "type": "string",

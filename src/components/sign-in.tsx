@@ -644,31 +644,25 @@ const POINTS = [
 const AGENTS = ["Claude", "ChatGPT", "Gemini", "Cursor", "Figma"];
 
 /**
- * The start side of /login: the mark, a promise and what backs it. A
- * renamed install keeps its own name and tagline; the product's own words,
- * and its open-source line, only when nothing is customized. They hold
- * self-hosted and on Artbucket Cloud alike: nothing about whose server it is.
+ * The start side of /login, when nothing is customized: the mark, a promise
+ * and what backs it. It holds self-hosted and on Artbucket Cloud alike:
+ * nothing about whose server it is.
  */
 function SignInAside() {
-  const brand = useBrand();
-  const glow = brand.accent ?? "var(--primary)";
   return (
     <aside
       className="relative hidden overflow-hidden bg-zinc-950 text-zinc-50 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16"
-      style={{ backgroundImage: `radial-gradient(70% 55% at 0% 0%, color-mix(in oklab, ${glow} 38%, transparent), transparent)` }}
+      style={{ backgroundImage: "radial-gradient(70% 55% at 0% 0%, color-mix(in oklab, var(--primary) 38%, transparent), transparent)" }}
     >
       <div className="flex items-center gap-3">
         <BrandMark />
-        <span className="font-display text-lg font-semibold tracking-tight">{brand.name}</span>
+        <span className="font-display text-lg font-semibold tracking-tight">Artbucket</span>
       </div>
       <div className="animate-in fade-in-0 slide-in-from-bottom-2 max-w-md space-y-8 duration-500">
         <div className="space-y-3">
-          <h2 className="font-display text-4xl font-semibold tracking-tight text-balance">{brand.custom ? brand.name : "Where brands live"}</h2>
+          <h2 className="font-display text-4xl font-semibold tracking-tight text-balance">Where brands live</h2>
           <p className="text-lg text-pretty text-zinc-300">
-            {brand.tagline ??
-              (brand.custom
-                ? "Your brand's assets and guidelines, in one place."
-                : "Assets, guidelines and portals in one catalog. People and agents ask it the same question and get the same answer.")}
+            Assets, guidelines and portals in one catalog. People and agents ask it the same question and get the same answer.
           </p>
         </div>
         <ul className="space-y-3">
@@ -689,7 +683,7 @@ function SignInAside() {
             </li>
           ))}
         </ul>
-        {!brand.custom && <p className="pt-4 text-xs text-zinc-500">Open source. Your files and their metadata stay yours.</p>}
+        <p className="pt-4 text-xs text-zinc-500">Open source. Your files and their metadata stay yours.</p>
       </div>
     </aside>
   );
@@ -727,7 +721,8 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
-      aside={<SignInAside />}
+      // A renamed or restyled install gets the card alone: the aside is the product's own pitch.
+      aside={brand.custom ? undefined : <SignInAside />}
     />
   );
 }
