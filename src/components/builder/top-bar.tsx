@@ -61,8 +61,8 @@ import { useState } from "react";
  * each bound rule for it (lib/rules.ts resolve, through useRule), with no
  * fetch. In preview the bar steps aside for a Theme toggle and an Exit
  * preview button, so keep it mounted then too. Its keys (Cmd+Z, P, H, T, Esc) are the builder's; the
- * bar only names them. Words drop to icons, with their name in a tooltip,
- * when the bar is narrow.
+ * bar only names them. Its tools are icons, their names their tooltips;
+ * Release alone keeps its word.
  *
  * Props:
  * - b: the builder.
@@ -73,19 +73,17 @@ export type TopBarProps = {
 
 const DEFAULT = "*";
 
-/** A named tool on the bar: its word shows when there is room, its tooltip always. */
+/** A named tool on the bar: its icon, its word its tooltip. */
 function Tool({ label, icon, pressed, ...p }: Omit<React.ComponentProps<typeof Button>, "children"> & { label: string; icon: React.ReactNode; pressed?: boolean }) {
   return (
     <IconButton
       variant="ghost"
-      size="sm"
       label={label}
       aria-pressed={pressed}
-      className="aria-pressed:bg-accent gap-1.5 px-2 @5xl/bar:px-2.5"
+      className="aria-pressed:bg-accent"
       {...p}
     >
       {icon}
-      <span className="hidden @5xl/bar:inline">{label}</span>
     </IconButton>
   );
 }
@@ -187,10 +185,8 @@ export function TopBar({ b }: TopBarProps) {
         ) : (
           b.source?.connect && (
             // Not kept in a repository yet, and this person may connect one: say so on the bar, not in a menu.
-            <IconButton asChild variant="ghost" size="sm" label="Keep this brand in a Git repository" className="gap-1.5 px-2 @5xl/bar:px-2.5">
-              <LeavingLink href={b.source.connect} icon={<IconBrandGit />}>
-                <span className="hidden @5xl/bar:inline">Git</span>
-              </LeavingLink>
+            <IconButton asChild variant="ghost" label="Keep this brand in a Git repository">
+              <LeavingLink href={b.source.connect} icon={<IconBrandGit />} />
             </IconButton>
           )
         )}
@@ -250,8 +246,8 @@ function Repository({ b }: { b: BuilderApi }) {
 
 /**
  * Release, saying where readers stand in the brand header's words (lib/readiness.ts
- * liveLine): "@4 live · Up to date" once they see the latest, else the line
- * beside Release, with a dot while there are changes they don't see.
+ * liveLine): "@4 live · Up to date" once they see the latest, else Release
+ * with the line its tooltip, and a dot while there are changes they don't see.
  */
 function Publish({ b }: { b: BuilderApi }) {
   const state = b.status?.publish;
@@ -262,7 +258,6 @@ function Publish({ b }: { b: BuilderApi }) {
   const live = b.status ? liveLine("current", current ? b.status.live : (b.status.live ?? 0) + 1) : null;
   return (
     <>
-      {!current && line && <span className="text-muted-foreground ms-2 hidden text-xs whitespace-nowrap @5xl/bar:inline">{line}</span>}
       <span className="ms-1 grid justify-items-end *:col-start-1 *:row-start-1">
         <Button
           size="sm"
