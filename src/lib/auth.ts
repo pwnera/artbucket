@@ -71,6 +71,12 @@ const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCall
  */
 const shared = cookieDomain(env.APP_URL, env.HUB_URL);
 
+/** A link better-auth made, on APP_URL instead of the host it was made at. */
+const onApp = (url: string) => {
+  const u = new URL(url);
+  return `${env.APP_URL}${u.pathname}${u.search}`;
+};
+
 /** A password refused for an address its organization signs in through its own provider: the form goes there instead. */
 const ssoRequired = (email: string) =>
   new APIError("FORBIDDEN", { code: "SSO_REQUIRED", message: `People at ${email.split("@").at(-1)?.toLowerCase()} sign in with single sign-on.` });
@@ -78,7 +84,7 @@ const ssoRequired = (email: string) =>
 export const auth = betterAuth({
   baseURL: env.APP_URL,
   // An organization's verified domain signs in too, with its own cookie: trusted for requests sent to it, and only those.
-  // ponytail: single sign-on and reset links still return to APP_URL; a per-host baseURL would fix that.
+  // It has an instance of its own (authAt), so single sign-on comes back there.
   trustedOrigins: (req) => appOriginAt(req?.headers.get("x-forwarded-host") ?? req?.headers.get("host")),
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
@@ -122,7 +128,8 @@ export const auth = betterAuth({
     minPasswordLength: 10,
     // Only when some email can go out (lib/core/mail.ts); otherwise an admin resets it.
     // Not to an address held to its organization's provider: it signs in there. better-auth answers the same either way.
-    sendResetPassword: async ({ user, url }) => void ((await passwordBarred(user.email)) || (await sendPasswordReset(user, url))),
+    // On APP_URL whatever host asked (authAt): a verified domain's owner could point it elsewhere and read the token.
+    sendResetPassword: async ({ user, url }) => void ((await passwordBarred(user.email)) || (await sendPasswordReset(user, onApp(url)))),
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: verify,
   },
@@ -216,3 +223,20 @@ export const auth = betterAuth({
     session: { create: { after: async (session) => signedIn(session) } },
   },
 });
+
+/**
+ * better-auth at the host a request was sent to: `auth` itself, at APP_URL,
+ * but at an organization's verified app domain an instance whose baseURL is
+ * that domain, so single sign-on sends the provider back there, where the
+ * state cookie was set, and the session lands there too. Without it, the
+ * provider came back to APP_URL, which had no state cookie (state_mismatch).
+ */
+// ponytail: one instance per domain used for the app, kept for the process; fine for hundreds.
+const atHost = new Map<string, typeof auth>();
+export async function authAt(host: string | null | undefined) {
+  const [origin] = await appOriginAt(host);
+  if (!origin) return auth;
+  let a = atHost.get(origin);
+  if (!a) atHost.set(origin, (a = betterAuth({ ...auth.options, baseURL: origin }) as typeof auth));
+  return a;
+}

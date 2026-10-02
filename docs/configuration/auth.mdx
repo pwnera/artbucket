@@ -58,8 +58,10 @@ Each organization can bring its own provider in Settings, Single sign-on
 one for a server shared by several organizations. An organization admin:
 
 1. registers a web app with the provider (Okta, Entra ID, Google Workspace, or
-   any OpenID Connect one), with the redirect URI the page shows:
-   `{APP_URL}/api/auth/sso/callback/{organization id}`
+   any OpenID Connect one), with the redirect URIs the page shows:
+   `{APP_URL}/api/auth/sso/callback/{organization id}`, and the same path on
+   each domain the organization uses for the app (Settings, Domains), since
+   signing in there comes back there
 2. saves its issuer URL, client ID and client secret, and the email domain its
    people use, e.g. `acme.com`. The endpoints are read from the issuer's
    discovery document then, and must be public https addresses
@@ -104,7 +106,8 @@ OIDC_NAME="Acme SSO"
 ```
 
 Register `{APP_URL}/api/auth/callback/oidc` as the redirect URI with the
-provider.
+provider, and `/api/auth/callback/oidc` on any organization's domain used for
+the app where people sign in with it.
 
 ## Email
 

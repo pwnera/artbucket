@@ -1,11 +1,12 @@
 import { body, ok, route } from "@/lib/api";
-import { getSso, redirectUri, removeSso, saveSso, setSsoRequired } from "@/lib/core/sso";
+import { getSso, redirectUri, redirectUris, removeSso, saveSso, setSsoRequired } from "@/lib/core/sso";
 import { SsoInput, SsoRequiredInput } from "@/lib/schemas";
 
-/** GET /api/v1/sso - the organization's own single sign-on, or null, and the redirect URI to register before setting it up. Never the secret. */
-export const GET = route("organization.manage", async (_req, _p, caller) =>
-  ok({ data: await getSso(caller), redirectUri: redirectUri(caller.workspace.organizationId) }),
-);
+/** GET /api/v1/sso - the organization's own single sign-on, or null, and the redirect URIs to register before setting it up. Never the secret. */
+export const GET = route("organization.manage", async (_req, _p, caller) => {
+  const org = caller.workspace.organizationId;
+  return ok({ data: await getSso(caller), redirectUri: redirectUri(org), redirectUris: await redirectUris(org) });
+});
 
 /** PUT /api/v1/sso - set up or change it: the issuer's endpoints are discovered now. */
 export const PUT = route("organization.manage", async (req, _p, caller) => ok({ data: await saveSso(caller, await body(req, SsoInput)) }));

@@ -52704,7 +52704,7 @@
     "/api/v1/sso": {
       "get": {
         "summary": "The organization's single sign-on",
-        "description": "Its OpenID Connect provider, or null, and the redirect URI to register with the provider before setting it up. Never the client secret. Organization admin.\n\nScope: `admin`.",
+        "description": "Its OpenID Connect provider, or null, and the redirect URIs to register with the provider before setting it up: `redirectUri` for APP_URL, and in `redirectUris` one more for each domain the organization uses for the app, since signing in there comes back there. Never the client secret. Organization admin.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "200": {
@@ -52783,11 +52783,19 @@
                     "redirectUri": {
                       "type": "string",
                       "format": "uri"
+                    },
+                    "redirectUris": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
                     }
                   },
                   "required": [
                     "data",
-                    "redirectUri"
+                    "redirectUri",
+                    "redirectUris"
                   ],
                   "additionalProperties": false
                 }

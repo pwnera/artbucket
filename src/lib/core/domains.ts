@@ -124,12 +124,14 @@ export async function appOriginAt(rawHost: string | null | undefined) {
   return t?.app ? [`${scheme}//${hostname(rawHost!)}`] : [];
 }
 
+/** The organization's domains used for the app, as origins: its default first. */
+export async function appOrigins(organizationId: string) {
+  return [...(await verified())].filter(([, t]) => t.organizationId === organizationId && t.app).map(([host]) => `${scheme}//${host}`);
+}
+
 /** Where an organization's people use the app: its default domain (the first used for the app without), else APP_URL. For links in email. */
 export async function appUrlFor(organizationId: string | null) {
-  if (organizationId) {
-    for (const [host, t] of await verified()) if (t.organizationId === organizationId && t.app) return `${scheme}//${host}`;
-  }
-  return env.APP_URL;
+  return (organizationId && (await appOrigins(organizationId))[0]) || env.APP_URL;
 }
 
 /** GET /api/v1/domains/check: whether a TLS certificate may be issued for this host (Caddy's on-demand ask). */
