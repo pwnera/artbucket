@@ -4,7 +4,7 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](https://docs.artbucket.io/developers/stability)
 [![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://docs.artbucket.io/developers/mcp)
-[![Brand: live](https://img.shields.io/badge/brand-live-6d4aff.svg)][Live brand page]
+[![Artbucket brand](https://hub.artbucket.io/artbucket/artbucket/badge.svg)][Live brand page]
 
 <img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
