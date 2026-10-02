@@ -1,9 +1,82 @@
 title: Type
-lede: One family for headings and text, a mono for what gets pasted.
+lede: Expressive headlines. Quiet reading. Exact code.
+layout: landing
 sections:
+  - template: cover
+    eyebrow: 03 / Typography
+    title: |-
+      Make room
+      for the words.
+    lede: Funnel for people. Geist Mono for the things they paste.
+    props:
+      mark: never
+      strip: false
+      titleSize: huge
+    tone: panel
   - template: type
-    title: Funnel for words, Geist Mono for what gets pasted
+    title: Go on. Type something.
+    lede: Replace the sample with your own words and see how each face handles them.
     keys: [type.heading, type.body, type.code]
     props:
-      sample: All your brand. None of the busywork.
+      embed: true
       roles: true
+      glyphs: true
+      sample: A little order. A lot of possibility.
+  - id: pause
+    template: statement
+    title: |-
+      Let the headline speak.
+      Let the body explain.
+    body: Use contrast in size and weight before you reach for another typeface.
+    width: full
+  - id: scale
+    template: type
+    title: A rhythm you can repeat.
+    body: A 16px base with a 1.25 ratio. The scale keeps small labels, reading text and headlines related.
+    keys: [type.scale]
+    props:
+      formula:
+        base: 16
+        ratio: 1.25
+        steps: 7
+    tone: panel
+  - id: habits
+    template: dodont
+    title: Make reading the easy part.
+    items:
+      - text: Funnel Display for headings, Funnel Sans for reading, Geist Mono for code and identifiers.
+        title: Give each face a job.
+        verdict: do
+      - text: Avoid all-caps paragraphs, tight body copy or display-sized labels.
+        title: Make every line compete.
+        verdict: dont
+      - text: Let headlines wrap naturally. Keep the meaning intact.
+        title: Check the narrow screen.
+        verdict: do
+      - text: Shorten the line or give it more room before making text hard to read.
+        title: Shrink the message to fit.
+        verdict: dont
+    props:
+      layout: pairs
+  - id: next
+    template: pages
+    title: Keep exploring.
+    items:
+      - link: /logo
+        text: Explore its anatomy. Find the right version. Download the originals.
+        title: 01 / The mark
+      - link: /color
+        text: Copy a color. Compare contrast. Try another view.
+        title: 02 / The palette
+      - link: /type
+        text: Type your own specimen and explore the scale.
+        title: 03 / The words
+      - link: /voice
+        text: See the rewrites. Borrow a line. Make it yours.
+        title: 04 / The voice
+      - link: /playground
+        text: Pattern, spacing and motion. The identity in action.
+        title: 05 / The playground
+      - link: /resources
+        text: Current files, useful links and a way to ask.
+        title: 06 / The essentials

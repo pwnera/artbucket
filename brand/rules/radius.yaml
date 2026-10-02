@@ -1,0 +1,14 @@
+radius.card:
+  type: number
+  label: Soft edges
+  value: 16
+  usage: Cards and small panels in the brand guide.
+  spec:
+    unit: px
+radius.stage:
+  type: number
+  label: A larger canvas
+  value: 24
+  usage: Large showcase panels. Keep the original logo tile shape intact.
+  spec:
+    unit: px

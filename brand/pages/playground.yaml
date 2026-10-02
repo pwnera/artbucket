@@ -1,0 +1,81 @@
+title: Playground
+lede: Try the identity as a system of shapes, space and motion.
+layout: landing
+sections:
+  - template: cover
+    eyebrow: 05 / The playground
+    title: |-
+      Small parts.
+      Many possibilities.
+    lede: A place to try the identity. Patterns, rhythm and a little movement.
+    props:
+      mark: always
+      strip: false
+      markSize: large
+      titleSize: huge
+  - template: pattern
+    title: One mark. A different rhythm.
+    body: A pattern study using the original white mark. Keep the silhouette intact and the ground simple.
+    keys: [color.primary, color.dark]
+    props:
+      asset: assets/mark-white.svg
+      scales: [0.5, 1, 2]
+    tone: panel
+    width: full
+    columns: 2
+  - id: spacing
+    template: specimen
+    title: Space is a design decision.
+    body: These proposed layout tokens make the gaps visible. Small steps connect details; big steps separate ideas.
+    keys: [space.scale]
+    props:
+      kind: spacing
+  - id: corners
+    template: specimen
+    title: Soft edges. Clear boundaries.
+    keys: [radius.card, radius.stage]
+    props:
+      kind: radius
+    tone: panel
+  - id: motion
+    template: specimen
+    title: A response, not a performance.
+    body: Short motion acknowledges an action. Larger moves stay quiet. Reduce motion when the reader asks.
+    keys: [motion.feedback, motion.reveal]
+    props:
+      kind: motion
+  - id: shadow
+    template: specimen
+    title: Give the preview a little lift.
+    keys: [shadow.panel]
+    props:
+      kind: shadow
+    tone: panel
+  - template: chart
+    title: Even the numbers belong.
+    body: Sample data, shown as a palette study. Keep labels visible and check neighboring colors for contrast.
+    keys: [color.primary, color.ink]
+    props:
+      kind: bar
+  - id: next
+    template: pages
+    title: Keep exploring.
+    items:
+      - link: /logo
+        text: Explore its anatomy. Find the right version. Download the originals.
+        title: 01 / The mark
+      - link: /color
+        text: Copy a color. Compare contrast. Try another view.
+        title: 02 / The palette
+      - link: /type
+        text: Type your own specimen and explore the scale.
+        title: 03 / The words
+      - link: /voice
+        text: See the rewrites. Borrow a line. Make it yours.
+        title: 04 / The voice
+      - link: /playground
+        text: Pattern, spacing and motion. The identity in action.
+        title: 05 / The playground
+      - link: /resources
+        text: Current files, useful links and a way to ask.
+        title: 06 / The essentials

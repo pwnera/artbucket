@@ -10,6 +10,7 @@ theme:
   head: type.heading
   body: type.body
   logo: logo.primary
+  device: assets/mark-white.svg
   radius: 16
   width: wide
   density: normal
@@ -22,10 +23,21 @@ theme:
   toc: none
   titles: huge
   grounds: plain
-rules: [brand, color, type, logo, tone]
+rules:
+  - brand
+  - color
+  - type
+  - logo
+  - tone
+  - space
+  - radius
+  - motion
+  - shadow
 pages:
   - overview
   - logo
   - color
   - type
   - voice
+  - playground
+  - resources

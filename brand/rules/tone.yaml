@@ -1,8 +1,6 @@
 tone.voice:
   type: text
-  value: >-
-    Plain, exact and a little dry. We say what a thing does, in the words its
-    reader uses, and stop.
+  value: Plain, exact and a little dry. We say what a thing does, in the words its reader uses, and stop.
   usage: "Anything Artbucket says: the app, the docs, the site, commit messages."
 tone.always:
   type: list
@@ -16,3 +14,27 @@ tone.avoid:
     - Em dashes. Use a comma, a colon, " - " or two sentences.
     - Marketing words like seamless, powerful, effortless.
     - Exclamation marks.
+tone.action:
+  type: text
+  label: An action
+  value: Find the right file.
+  usage: Short, concrete and easy to act on.
+  spec:
+    max: 40
+    copy: true
+tone.empty:
+  type: text
+  label: An empty state
+  value: No files yet. Add your first asset.
+  usage: State what is missing, then give the next step.
+  spec:
+    max: 80
+    copy: true
+tone.error:
+  type: text
+  label: An error
+  value: That file did not upload. Try again.
+  usage: Name the problem without blaming the reader.
+  spec:
+    max: 100
+    copy: true

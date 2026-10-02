@@ -1,9 +1,106 @@
 title: Voice
-lede: Plain, exact and a little dry.
+lede: Plain, exact and a little dry. Now put it into practice.
+layout: landing
 sections:
-  - template: text
-    title: How we write
-    keys: [tone.voice, tone.always, tone.avoid]
+  - template: cover
+    eyebrow: 04 / The voice
+    title: |-
+      Less grand.
+      More useful.
+    lede: Say what the thing does, in the words its reader uses, and stop.
+    props:
+      mark: never
+      strip: false
+      titleSize: huge
+    tone: dark
+  - id: text
+    template: cards
+    title: Three habits. One voice.
+    keys: [tone.always]
+    props:
+      layout: steps
+  - id: rewrites
+    template: dodont
+    title: Same idea. Fewer obstacles.
+    lede: A few words can make the next step obvious.
+    items:
+      - text: Name the job.
+        title: Find the right file.
+        verdict: do
+      - text: Avoid promises the reader has to translate.
+        title: Unlock seamless asset discovery.
+        verdict: dont
+      - text: State what is here and what to do next.
+        title: No files yet. Add your first asset.
+        verdict: do
+      - text: An empty state needs a next step, not a pep talk.
+        title: Your creative journey awaits!
+        verdict: dont
+      - text: Be specific. Keep blame out of it.
+        title: That file did not upload. Try again.
+        verdict: do
+      - text: A vague error gives the reader nowhere to go.
+        title: Oops! Something went wrong.
+        verdict: dont
+    props:
+      layout: pairs
+    tone: panel
+  - id: line
+    template: statement
+    title: |-
+      A little dry.
+      Never unkind.
+    body: Be direct with the task and generous with the person doing it.
+    width: full
   - template: copy
-    title: Lines to paste
-    keys: [brand.tagline, brand.description]
+    title: Good lines. Ready to borrow.
+    keys:
+      - brand.headline
+      - brand.tagline
+      - brand.intro
+      - tone.action
+      - tone.empty
+      - tone.error
+    width: wide
+  - id: generator
+    template: copy
+    title: Write a useful handoff.
+    lede: Fill in the details. Copy a note that gets to the point.
+    props:
+      form:
+        - name: project
+          label: Project name
+        - name: link
+          label: Asset or portal URL
+        - name: detail
+          label: What the recipient should know
+      template: |-
+        The files for {project} are ready.
+
+        {link}
+
+        {detail}
+    tone: panel
+    width: wide
+  - id: next
+    template: pages
+    title: Keep exploring.
+    items:
+      - link: /logo
+        text: Explore its anatomy. Find the right version. Download the originals.
+        title: 01 / The mark
+      - link: /color
+        text: Copy a color. Compare contrast. Try another view.
+        title: 02 / The palette
+      - link: /type
+        text: Type your own specimen and explore the scale.
+        title: 03 / The words
+      - link: /voice
+        text: See the rewrites. Borrow a line. Make it yours.
+        title: 04 / The voice
+      - link: /playground
+        text: Pattern, spacing and motion. The identity in action.
+        title: 05 / The playground
+      - link: /resources
+        text: Current files, useful links and a way to ask.
+        title: 06 / The essentials
