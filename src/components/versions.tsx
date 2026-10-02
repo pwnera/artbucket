@@ -28,6 +28,7 @@ import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
 import { InfoTip } from "@/components/info-tip";
 import { flash } from "@/lib/motion";
+import { reason, refusal } from "@/lib/send";
 
 const title = (a: Asset) => a.metadata?.title || a.filename;
 
@@ -194,7 +195,7 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: f.name, mime, size: f.size }),
       });
-      if (!ticket.ok) throw new Error((await ticket.json().catch(() => null))?.error?.message ?? "Upload failed");
+      if (!ticket.ok) throw new Error(await refusal(ticket, "Upload failed"));
       const { token, uploadUrl } = await ticket.json();
       await putWithProgress(uploadUrl, f, mime, (loaded) => setPct(Math.round((loaded / f.size) * 100)));
       const res = await fetch("/api/v1/assets", {
@@ -202,8 +203,9 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, filename: f.name, mime, versionOf: asset.id, ...(draft && { status: "draft" }) }),
       });
+      if (!res.ok) throw new Error(await refusal(res, "Couldn't add the version"));
       const body = await res.json().catch(() => null);
-      if (!res.ok || !body) throw new Error(body?.error?.message ?? "Couldn't add the version");
+      if (!body) throw new Error("Couldn't add the version");
       const v: Asset = body.data;
       toast.success(
         body.deduped
@@ -214,7 +216,7 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
       );
       onOpen(v.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(reason(e, "Upload failed"));
     } finally {
       setBusy(false);
       setPct(null);

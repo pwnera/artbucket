@@ -7,6 +7,7 @@ import { IconWorldCheck } from "@tabler/icons-react";
 import { ExternalLink } from "@/components/external-link";
 import { Group } from "@/components/settings/panels";
 import { Button } from "@/components/ui/button";
+import { Confirm } from "@/components/confirm";
 import { send } from "@/lib/send";
 import { brandPath } from "@/lib/site";
 
@@ -35,18 +36,27 @@ function OfferActions({ offer, size = "sm" }: { offer: HubOffer; size?: "sm" | "
     setBusy("refuse");
     const ok = await send("DELETE", at);
     setBusy(null);
-    if (!ok) return;
+    if (!ok) return false;
     toast.success(`${offer.org}/${offer.brand} won't be offered again`);
     router.refresh();
+    return true;
   };
   return (
     <span className="flex shrink-0 gap-1">
       <Button size={size} pending={busy === "take"} disabled={!!busy} onClick={() => void take()}>
         Make it yours
       </Button>
-      <Button size={size} variant="ghost" pending={busy === "refuse"} disabled={!!busy} onClick={() => void refuse()}>
-        Not ours
-      </Button>
+      {/* For good, beside the button that takes it: asked first. */}
+      <Confirm
+        title={`Turn down ${offer.name}?`}
+        says={`${offer.org}/${offer.brand} won't be offered to you again, and this can't be undone here.`}
+        action="Not ours"
+        run={refuse}
+      >
+        <Button size={size} variant="ghost" disabled={!!busy}>
+          Not ours
+        </Button>
+      </Confirm>
     </span>
   );
 }

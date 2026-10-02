@@ -96,12 +96,12 @@ export async function GET(req: Request, { params }: Ctx) {
     };
 
     if (download) {
-      const { body, embedded } = await downloadAsset(asset);
-      served(body.byteLength);
-      return new Response(new Uint8Array(body), {
+      const { body, length, embedded } = await downloadAsset(asset);
+      served(length);
+      return new Response(body, {
         headers: {
           "Content-Type": asset.mime,
-          "Content-Length": String(body.byteLength),
+          "Content-Length": String(length),
           // Metadata is editable, so unlike every other byte here this changes.
           "Cache-Control": "private, no-cache",
           "Content-Disposition": disposition("attachment", asset.filename),

@@ -20,11 +20,13 @@ export type SidebarData = {
 
 /**
  * GET /api/v1/{path}, over HTTP like any other client, as the person looking:
- * their session and workspace ride along in the cookies. `fallback` when it
- * fails.
+ * their session and workspace ride along in the cookies. `fallback` when the
+ * answer is no (not signed in, may not see, not found). A server error throws,
+ * so the page shows its error and Try again, never a false "nothing here".
  */
 export async function get<B, T>(path: string, pick: (body: B) => T, fallback: T): Promise<T> {
   const res = await fetch(`${env.INTERNAL_URL ?? env.APP_URL}/api/v1/${path}`, { cache: "no-store", headers: await asked() });
+  if (res.status >= 500) throw new Error(`GET /api/v1/${path} answered ${res.status}`);
   return res.ok ? pick((await res.json()) as B) : fallback;
 }
 
@@ -85,12 +87,13 @@ export const brands = cache(() => get("brands", data<BrandInfo[]>, []));
  */
 export const sidebarData = cache(async (): Promise<SidebarData> => {
   // Alongside who is looking, not after: none of these needs it, and a redirect from whoami still wins.
+  // The shell's extras never take the page down: one that fails shows empty until the next load.
   const [me, collections, brandList, searches, reviewCount] = await Promise.all([
     whoami(),
-    get("collections", data<Collection[]>, []),
-    brands(),
-    get("searches", data<SavedSearch[]>, []),
-    get("assets?review=true&limit=1", (b: { total: number }) => b.total, 0),
+    get("collections", data<Collection[]>, []).catch(() => []),
+    brands().catch(() => []),
+    get("searches", data<SavedSearch[]>, []).catch(() => []),
+    get("assets?review=true&limit=1", (b: { total: number }) => b.total, 0).catch(() => 0),
   ]);
   return { collections, brands: brandList, searches, reviewCount, me };
 });

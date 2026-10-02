@@ -90,6 +90,7 @@ import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
+import { reason, refusal } from "@/lib/send";
 
 export type Asset = {
   id: string;
@@ -687,7 +688,7 @@ export function Gallery({
           body: JSON.stringify({ filename: file.name, mime, size: file.size }),
           signal,
         });
-        if (!ticket.ok) throw new Error((await ticket.json().catch(() => null))?.error?.message ?? "Upload failed");
+        if (!ticket.ok) throw new Error(await refusal(ticket, "Upload failed"));
         const { token, uploadUrl } = await ticket.json();
 
         await putWithProgress(uploadUrl, file, mime, (loaded) => uploads.patch(id, { loaded }), signal);
@@ -699,8 +700,8 @@ export function Gallery({
           body: JSON.stringify({ token, filename: file.name, mime, fields: values, collections: job.into ? [job.into] : [], ...(job.hidden && { private: true }) }),
           signal,
         });
+        if (!done.ok) throw new Error(await refusal(done, "Couldn't add it to the library"));
         const body = await done.json().catch(() => null);
-        if (!done.ok) throw new Error(body?.error?.message ?? "Couldn't add it to the library");
         const assetId: string | undefined = body?.data?.id;
         // Without write where it landed it waits in Review: where Show looks for it.
         job.proposed = body?.data?.status === "proposed";
@@ -709,7 +710,7 @@ export function Gallery({
         refreshSoon(); // the grid fills in as files land, not all at the end
       } catch (e) {
         const cancelled = e instanceof DOMException && e.name === "AbortError";
-        uploads.patch(id, { status: "failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : "Upload failed" });
+        uploads.patch(id, { status: "failed", error: cancelled ? "Cancelled" : reason(e, "Upload failed") });
       }
     },
     [uploads, refreshSoon, markFresh],

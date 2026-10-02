@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { roleName, ROLES, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
+import { RetryLine } from "@/components/retry-line";
+import { undoable } from "@/lib/undo";
 
 /** Admin over one asset is admin over nothing else: people get up to editor here. */
 const PICK = ROLES.filter((r) => r.scope !== "admin");
@@ -26,17 +28,19 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
   const me = useMe();
   const manage = can("member.manage");
   const [members, setMembers] = useState<Members["data"] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
   const load = () =>
     fetch("/api/v1/members?in=workspace")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b: Members | null) => b && setMembers(b.data))
-      .catch(() => {});
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((b: Members) => setMembers(b.data))
+      .catch(() => setFailed(true));
   useEffect(() => {
     if (manage) void load();
   }, [manage, asset.id]);
 
   if (!manage) return <p className="text-muted-foreground py-1 text-xs">A workspace admin can add people to it.</p>;
-  if (!members) return <Skeleton className="h-9" />;
+  if (!members) return failed ? <RetryLine what="who sees it" retry={() => (setFailed(false), void load())} /> : <Skeleton className="h-9" />;
 
   const nameOf = (cid: string) => collections.find((c) => c.id === cid)?.name ?? "a collection";
   const added = members.flatMap((m) => m.grants.filter((g) => g.resource === "asset" && g.resourceId === asset.id).map((g) => ({ m, g })));
@@ -52,8 +56,18 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
   const grant = async (user: string, scope: Scope) => {
     if (await send("POST", "/api/v1/grants", { user, resource: "asset", resourceId: asset.id, scope })) await load();
   };
-  const remove = async (id: string) => {
-    if (await send("DELETE", `/api/v1/grants/${id}`)) await load();
+  const remove = async ({ m, g }: (typeof added)[number]) => {
+    setRemoving(g.id);
+    const done = await send("DELETE", `/api/v1/grants/${g.id}`);
+    setRemoving(null);
+    if (!done) return;
+    await load();
+    undoable(`Removed ${m.name || m.email} from this asset`, {
+      undo: async () => {
+        if (!(await send("POST", "/api/v1/grants", { user: m.id, resource: "asset", resourceId: asset.id, scope: g.scope }))) return false;
+        await load();
+      },
+    });
   };
 
   return (
@@ -77,7 +91,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
                 ))}
               </SelectContent>
             </Select>
-            <IconButton label={`Remove ${m.name || m.email}`} variant="ghost" size="icon" className="size-7" onClick={() => void remove(g.id)}>
+            <IconButton label={`Remove ${m.name || m.email}`} variant="ghost" size="icon" className="size-7" pending={removing === g.id} onClick={() => void remove({ m, g })}>
               <IconX />
             </IconButton>
           </li>

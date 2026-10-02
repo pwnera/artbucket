@@ -179,10 +179,12 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
     return { workspace, ...accessIn(mine, workspace, hidden), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
   }
 
-  const [scope, [picked]] = await Promise.all([
-    anonymousScope(),
-    wanted && z.uuid().safeParse(wanted).success ? workspacesWhere(eq(workspaces.id, wanted)) : [undefined],
-  ]);
+  // Someone signed out picks a workspace by cookie only where anyone may look around (anonymousScope): elsewhere
+  // a workspace's id would show its name, its organization and its private collections' ids to whoever has it.
+  // One the request is about (a public asset's) is still theirs to see it in.
+  const scope = await anonymousScope();
+  const pick = workspaceId ?? (scope ? wanted : undefined);
+  const [picked] = pick && z.uuid().safeParse(pick).success ? await workspacesWhere(eq(workspaces.id, pick)) : [undefined];
   const workspace = picked ?? (await defaultWorkspace());
   return { workspace, scope, narrow: NONE, off: NO_OFF, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
 }

@@ -567,6 +567,8 @@ async function portalAssets(p: Row, { ids, q, limit = 60, offset = 0 }: { ids: s
   const where = and(
     deliverableSql,
     notSuperseded,
+    // An asset only for people added stays theirs, whichever collection it is in.
+    eq(assets.private, false),
     ids.length
       ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ${inArray(sql`ca.collection_id`, ids)})`
       : sql`false`,
@@ -601,7 +603,7 @@ export async function viewPortal(
     .from(workspaces)
     .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
     .where(eq(workspaces.id, p.workspaceId));
-  const usable = and(deliverableSql, notSuperseded);
+  const usable = and(deliverableSql, notSuperseded, eq(assets.private, false));
   const cols = await db
     .select({
       id: collections.id,
@@ -666,6 +668,7 @@ export async function checkPortalUse(slug: string, pass: Pass, { asset: id, ...u
         eq(assets.workspaceId, p.workspaceId),
         deliverableSql,
         notSuperseded,
+        eq(assets.private, false),
         sql`exists (select 1 from ${collectionAssets} ca join ${portalCollections} pc on pc.collection_id = ca.collection_id where ca.asset_id = ${assets.id} and pc.portal_id = ${p.id})`,
       ),
     );

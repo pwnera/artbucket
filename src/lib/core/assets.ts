@@ -36,12 +36,13 @@ import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, isVector, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
-import { buildXmp, embedXmp } from "@/lib/xmp";
+import { buildXmp, embedXmp, writesXmp } from "@/lib/xmp";
 import {
   BYTES_LOCK,
   deleteObject,
   ensureBucket,
   getObject,
+  getStream,
   originalKey,
   presignPut,
   putObject,
@@ -237,14 +238,23 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
 
   const existing = await bySha(ws, sha256);
   if (existing) {
-    await deleteObject(staged);
+    await dropStaged(staged);
     // Uploading a version that is already in the stack changes nothing; the same bytes elsewhere are another asset's.
     if (prior && existing.id !== prior.id && !(prior.stackId && existing.stackId === prior.stackId)) {
       throw new AssetError("conflict", `Those bytes are already in the library as ${existing.metadata?.title ?? existing.filename}`, {
         id: existing.id,
       });
     }
-    return { asset: await fileInto(ws, into, existing.id), deduped: true };
+    // Bytes already here as an asset the caller may not see: nothing of it goes back, and it moves nowhere.
+    const seen = await getAsset(caller, existing.id);
+    if (!seen) throw new AssetError("conflict", "That file is already in the library");
+    // A retried new version whose first upload stopped after it was saved: it becomes current now, as it would have
+    // then. Never an older version over a newer one (repoint only moves forward).
+    if (prior && existing.stackId && existing.stackId === prior.stackId && existing.status === "active") {
+      await repoint(existing.stackId, { id: existing.id });
+    }
+    // Filing it is adding it to those collections, which a proposal can't do without review.
+    return { asset: proposed ? seen : await fileInto(ws, into, existing.id), deduped: true };
   }
   // The size stored, not the size claimed for the ticket; checked again under a lock as it lands.
   await checkLimit(caller.workspace.organizationId, "storage", { adding: size });
@@ -338,7 +348,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
       .returning({ id: assets.id, version: assets.version });
     return { row, purged };
   });
-  await deleteObject(staged);
+  await dropStaged(staged);
   for (const p of purged) if (p.stackId && p.stackId !== stack) await repoint(p.stackId);
 
   // Lost a race with a concurrent upload of identical bytes - that upload won.
@@ -352,6 +362,9 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   await record(caller, proposed ? "suggested" : "added", asset, row.version ? { version: row.version } : undefined);
   return { asset, deduped: false };
 }
+
+/** The upload's landing spot, done with. Never fails the upload: the bucket's lifecycle rule expires what is left in staging. */
+const dropStaged = (key: string) => deleteObject(key).catch(() => {});
 
 /** Whether the stack's current version is public and older than `version` (any, without one): a newer one takes over its embeds. */
 async function takesOverPublic(stack: string, version?: number | null) {
@@ -856,8 +869,12 @@ export async function updateAsset(
   if (status) set.status = status;
   if (reviewNote !== undefined) set.reviewNote = reviewNote?.trim() || null;
   if (proposedTags) set.proposedTags = normalizeTags(proposedTags);
-  // Only ever fewer: what is left of the suggestions after some were accepted or dismissed.
-  if (proposedFields) set.proposedFields = Object.fromEntries(Object.entries(current.proposedFields).filter(([k]) => k in proposedFields));
+  // Only ever fewer: what is left of the suggestions after some were accepted or dismissed. Removed in place, so
+  // a suggestion an agent made since this person looked stays.
+  if (proposedFields) {
+    const gone = Object.keys(current.proposedFields).filter((k) => !(k in proposedFields));
+    set.proposedFields = sql`${assets.proposedFields} - array(select jsonb_array_elements_text(${JSON.stringify(gone)}::jsonb))`;
+  }
   if (custom && Object.keys(custom).length) {
     const values = await validFields(ws, custom, "patch", current.inherited);
     set.fields = sql`jsonb_strip_nulls(${assets.fields} || ${JSON.stringify(values)}::jsonb)`;
@@ -1046,9 +1063,13 @@ export function describeAsset(asset: Asset) {
  * So does a file with Content Credentials: its manifest signs these exact
  * bytes, and a byte more would make it read as tampered with.
  */
-export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embedded: boolean }> {
+export async function downloadAsset(asset: Asset): Promise<{ body: BodyInit; length: number; embedded: boolean }> {
+  // Streamed when nothing is written into it: a video or a PDF never sits in memory whole.
+  if (asset.c2pa || !writesXmp(asset.mime)) {
+    const { body, length } = await getStream(originalKey(asset.sha256));
+    return { body, length, embedded: false };
+  }
   const bytes = await getObject(originalKey(asset.sha256));
-  if (asset.c2pa) return { body: bytes, embedded: false };
   const m = asset.metadata ?? {};
   const xmp = buildXmp({
     title: m.title,
@@ -1057,8 +1078,8 @@ export async function downloadAsset(asset: Asset): Promise<{ body: Buffer; embed
     copyright: m.copyright,
     tags: asset.tags,
   });
-  const out = embedXmp(bytes, asset.mime, xmp);
-  return { body: out ?? bytes, embedded: out !== null };
+  const out = embedXmp(bytes, asset.mime, xmp) ?? bytes;
+  return { body: new Uint8Array(out), length: out.byteLength, embedded: out !== bytes };
 }
 
 /**

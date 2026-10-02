@@ -246,6 +246,8 @@ export async function viewShare(token: string, password: string | null, { limit 
     : and(
         deliverableSql,
         notSuperseded,
+        // An asset only for people added stays theirs, whichever collection it is in.
+        eq(assets.private, false),
         sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${link.collectionId})`,
       );
   const [rows, [{ total }]] = await Promise.all([
@@ -303,6 +305,10 @@ export async function shareFinalize(token: string, password: string | null, inpu
   const { deduped } = await finalizeUpload(await guest(link, ip), {
     ...input,
     collections: link.collectionId ? [link.collectionId] : [],
+  }).catch((err) => {
+    // The same bytes as an asset the guest can't see: it arrived, as far as they are told.
+    if (err instanceof AssetError && err.code === "conflict") return { deduped: true };
+    throw err;
   });
   return { received: true, deduped };
 }

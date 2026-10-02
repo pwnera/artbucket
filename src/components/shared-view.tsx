@@ -20,6 +20,7 @@ import { inkOn } from "@/lib/color";
 import { pool } from "@/lib/pool";
 import { cn } from "@/lib/utils";
 import { shake } from "@/lib/motion";
+import { reason } from "@/lib/send";
 
 type Item = {
   id: string;
@@ -435,7 +436,7 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
           if (!done.ok) throw new Error((await done.json().catch(() => null))?.error?.message ?? "Couldn't hand it in");
           patch(id, { status: "done" });
         } catch (e) {
-          patch(id, { status: "failed", error: e instanceof Error ? e.message : "Upload failed" });
+          patch(id, { status: "failed", error: reason(e, "Upload failed") });
         }
       });
     },

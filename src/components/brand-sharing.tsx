@@ -18,6 +18,7 @@ import { useShell } from "@/components/shell";
 import { TokensDialog } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Confirm } from "@/components/confirm";
 import type { HeadBrand, Release } from "@/lib/brand-head";
 import { send } from "@/lib/send";
 
@@ -74,6 +75,7 @@ export function BrandSharing({
       setHub(done);
       router.refresh();
     }
+    return !!done;
   };
   // Picking which portal BrandHub links takes publishing, as making it public does.
   const link = hub && can("brand.publish") ? (portal: string | null) => void share({ portal }, `link:${portal ?? "*"}`) : undefined;
@@ -99,15 +101,18 @@ export function BrandSharing({
                   Make private
                 </Button>
               ) : (
-                <Button
-                  size="sm"
-                  pending={busy === "hub"}
-                  disabled={!hub.published}
-                  title={hub.published ? undefined : "Release it first"}
-                  onClick={() => void share({ visibility: "public" }, "hub")}
+                // Asked first, as on the Brands page: it is the brand's latest release, for anyone and any agent.
+                <Confirm
+                  title={`Make ${brand.name} public?`}
+                  says="Anyone, and any agent, will read its latest release on BrandHub, with its usable files, and each release after. You can make it private again."
+                  action="Make public"
+                  destructive={false}
+                  run={() => share({ visibility: "public" }, "hub")}
                 >
-                  Make public
-                </Button>
+                  <Button size="sm" disabled={!hub.published} title={hub.published ? undefined : "Release it first"}>
+                    Make public
+                  </Button>
+                </Confirm>
               ))}
             {hub.published && (
               <Button variant="ghost" size="sm" asChild>

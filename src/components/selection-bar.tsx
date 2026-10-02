@@ -63,7 +63,7 @@ import type { FieldDef } from "@/lib/fields";
 import { pool } from "@/lib/pool";
 import type { Action } from "@/lib/permissions";
 import { normalizeTags } from "@/lib/search";
-import { sendResult } from "@/lib/send";
+import { sendResult, refusal } from "@/lib/send";
 import { undoable } from "@/lib/undo";
 import { hasPreview } from "@/lib/preview";
 import { cn } from "@/lib/utils";
@@ -86,6 +86,8 @@ const patchTags = (a: Asset, tags: string[]) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tags }),
   });
+/** Why one of many failed, for the toast that counts them; a lapsed session also says so on its own. */
+const whyNot = (r: Response | null) => (r ? refusal(r, "That didn't work") : Promise.resolve("Couldn't reach the server"));
 const restore = (a: Asset) => fetch(`/api/v1/assets/${a.id}/restore`, { method: "POST" });
 const del = (a: Asset) => fetch(`/api/v1/assets/${a.id}`, { method: "DELETE" });
 
@@ -133,7 +135,7 @@ export function decideLater(
       const r = await run(a).catch(() => null);
       if (r?.ok) return;
       failed.push(a);
-      why ??= (await r?.json().catch(() => null))?.error?.message;
+      why ??= await whyNot(r);
     });
     if (failed.length) {
       back?.(failed.map((a) => a.id));
@@ -231,7 +233,7 @@ export function useBulk({
           if (!quiet) setProgress({ verb, done: done.length, of: which.length });
           return;
         }
-        why ??= (await res?.json().catch(() => null))?.error?.message;
+        why ??= await whyNot(res);
       });
     } finally {
       setBusy(false);

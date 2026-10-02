@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -47,7 +48,13 @@ export function Confirm({
 
   async function go() {
     setBusy(true);
-    const ok = await Promise.resolve().then(run).catch(() => null);
+    // A run that throws (send() never does) still says so, and the dialog stays for another try.
+    const ok = await Promise.resolve()
+      .then(run)
+      .catch(() => {
+        toast.error("That didn't work. Try again.");
+        return null;
+      });
     setBusy(false);
     if (ok !== null && ok !== false) set(false);
   }

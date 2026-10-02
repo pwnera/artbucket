@@ -48,16 +48,19 @@ async function otherOwners() {
 
 /** Rows deleted more than PURGE_DAYS ago, gone for good with their grants. */
 async function purge() {
-  const gone = await db
-    .delete(assets)
-    .where(and(isNotNull(assets.deletedAt), lt(assets.deletedAt, sql`now() - make_interval(days => ${PURGE_DAYS})`)))
-    .returning({ id: assets.id });
-  const ids = gone.map((g) => g.id);
-  if (ids.length) {
-    await db.delete(grants).where(and(eq(grants.resource, "asset"), inArray(grants.resourceId, ids)));
-    await db.delete(invitations).where(and(eq(invitations.resource, "asset"), inArray(invitations.resourceId, ids)));
-  }
-  return ids.length;
+  // Together: grants and invitations never outlive their asset.
+  return db.transaction(async (tx) => {
+    const gone = await tx
+      .delete(assets)
+      .where(and(isNotNull(assets.deletedAt), lt(assets.deletedAt, sql`now() - make_interval(days => ${PURGE_DAYS})`)))
+      .returning({ id: assets.id });
+    const ids = gone.map((g) => g.id);
+    if (ids.length) {
+      await tx.delete(grants).where(and(eq(grants.resource, "asset"), inArray(grants.resourceId, ids)));
+      await tx.delete(invitations).where(and(eq(invitations.resource, "asset"), inArray(invitations.resourceId, ids)));
+    }
+    return ids.length;
+  });
 }
 
 /** What is still held: every row's hash, and every still a row points at. */
