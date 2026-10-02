@@ -148,7 +148,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           <Hint text={env("accent")} />
         </div>
       </Group>
-      <Group title="Email" info="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
+      <Group title="Email" info="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email sending.">
         <div className="grid max-w-md gap-2">
           <Label htmlFor={`${id}-footer`}>Footer</Label>
           <Textarea id={`${id}-footer`} rows={2} maxLength={500} value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Acme Inc, 1 Main Street. Questions: brand@acme.com" />

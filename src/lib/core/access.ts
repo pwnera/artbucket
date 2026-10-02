@@ -243,6 +243,7 @@ export async function describeCaller(caller: Caller) {
     workspaces,
     features: limits.value.features,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
+    billing: admin ? (env.BILLING_URL ?? null) : null,
     hub: !!env.HUB_URL,
     hubUrl: env.HUB_URL ? hubHome("private", env.APP_URL, env.HUB_URL) : null,
     // The operator's word to the organization's admins: they are who can act on it.

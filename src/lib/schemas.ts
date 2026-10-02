@@ -1162,6 +1162,11 @@ export const Me = z.object({
     .url()
     .nullable()
     .describe("Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"),
+  billing: z
+    .string()
+    .url()
+    .nullable()
+    .describe("Where the organization's plan is managed (BILLING_URL): set for its admin, on a plan or not, else null"),
   git: z
     .string()
     .nullable()

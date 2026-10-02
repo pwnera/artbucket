@@ -66,6 +66,8 @@ export type Me = {
   features: Feature[] | null;
   /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
   upgrade: string | null;
+  /** Where an organization's admin manages its plan (BILLING_URL), on a plan or not; null for everyone else. */
+  billing: string | null;
   /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a workspace admin's, when the server has a Git integration. */
   git: string | null;
   /** This server runs BrandHub (HUB_URL). */
