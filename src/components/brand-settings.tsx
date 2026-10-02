@@ -126,8 +126,12 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
             <Button
               variant="outline"
               size="sm"
+              pending={busy === "default"}
               onClick={async () => {
-                if (!(await send("PATCH", `/api/v1/brands/${b}`, { default: true }))) return;
+                setBusy("default");
+                const done = await send("PATCH", `/api/v1/brands/${b}`, { default: true });
+                setBusy(null);
+                if (!done) return;
                 toast.success(`${brand.name} is the default brand`);
                 router.refresh();
               }}
@@ -165,8 +169,7 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
                   says="The brand lives here alone again. The repository is left as it is."
                   action="Disconnect"
                   run={async () => {
-                    const res = await fetch(`/api/v1/brands/${b}/source`, { method: "DELETE" });
-                    if (!res.ok) return false;
+                    if (!(await send("DELETE", `/api/v1/brands/${b}/source`))) return false;
                     router.refresh();
                     return true;
                   }}

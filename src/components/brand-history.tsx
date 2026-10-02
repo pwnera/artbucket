@@ -32,6 +32,7 @@ import { day } from "@/lib/time";
 import { undoable } from "@/lib/undo";
 import { contextLabel, fontLabel, ruleLabel, ruleName, section, type FontValue, type RuleAsset, type RuleValue } from "@/lib/rules";
 import { cn } from "@/lib/utils";
+import { RetryLine } from "@/components/retry-line";
 
 type Meta = {
   number: number;
@@ -99,14 +100,16 @@ export function History({
   const [versions, setVersions] = useState<Meta[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
+  const [failed, setFailed] = useState(false);
   const me = useMe();
 
   useEffect(() => {
     if (!open) return;
     let live = true;
     fetch(`/api/v1/brands/${brand.slug}/versions`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j) => live && setVersions(j.data));
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => live && setVersions(j.data))
+      .catch(() => live && setFailed(true));
     return () => {
       live = false;
     };
@@ -158,7 +161,12 @@ export function History({
           />
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {!versions &&
+            {failed && !versions && (
+              <div className="p-4">
+                <RetryLine what="the history" retry={() => (setFailed(false), setTick((t) => t + 1))} />
+              </div>
+            )}
+            {!versions && !failed &&
               [0, 1, 2, 3].map((i) => <Skeleton key={i} className="m-2 h-14" />)}
             {versions?.length === 0 && (
               <p className="text-muted-foreground p-6 text-center text-sm">
@@ -253,16 +261,21 @@ function VersionDetail({
   const can = useCan();
   const me = useMe();
   const themed = !!v?.themeChanged;
+  const [attempt, setAttempt] = useState(0);
+  // Which ask failed: another version or mode loads afresh.
+  const asked = `${number}|${mode}|${attempt}`;
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
     fetch(`/api/v1/brands/${brand}/versions/${number}${mode === "now" ? "?against=current" : ""}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => live && setGot({ mode, v: j?.data ?? null }));
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => live && setGot({ mode, v: j?.data ?? null }))
+      .catch(() => live && setFailed(asked));
     return () => {
       live = false;
     };
-  }, [brand, number, mode]);
+  }, [brand, number, mode, attempt, asked]);
 
   // Resolves to send()'s result, so a failed restore keeps the confirm open.
   async function restore() {
@@ -339,6 +352,8 @@ function VersionDetail({
               )}
             </div>
           </>
+        ) : failed === asked ? (
+          <RetryLine what="this version" retry={() => setAttempt((n) => n + 1)} />
         ) : (
           <Skeleton className="h-16" />
         )}

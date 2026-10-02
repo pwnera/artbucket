@@ -8,6 +8,7 @@ import { ExternalLink } from "@/components/external-link";
 import { contextLabel, ruleLabel } from "@/lib/rules";
 import { builderPath, guidelinesPath } from "@/lib/site";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RetryLine } from "@/components/retry-line";
 
 /** GET /api/v1/assets/{id}/insights, as lib/schemas.ts AssetInsights has it. */
 type UsedInData = {
@@ -42,17 +43,25 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
   // Kept with the asset it is about, so a step to the next asset doesn't show the last one's.
   const [held, setHeld] = useState<{ id: string; data: UsedInData } | null>(null);
   const router = useRouter();
+  const [failed, setFailed] = useState<{ id: string; attempt: number } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     fetch(`/api/v1/assets/${assetId}/insights`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b: { data: UsedInData } | null) => live && b && setHeld({ id: assetId, data: b.data }))
-      .catch(() => {});
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((b: { data: UsedInData }) => live && setHeld({ id: assetId, data: b.data }))
+      .catch(() => live && setFailed({ id: assetId, attempt }));
     return () => {
       live = false;
     };
-  }, [assetId]);
+  }, [assetId, attempt]);
   const got = held?.id === assetId ? held.data : null;
+  if (!got && failed?.id === assetId && failed.attempt === attempt)
+    return (
+      <Fold title="Used in" summary={null} remember="used-in">
+        <RetryLine what="where it is used" retry={() => setAttempt((n) => n + 1)} />
+      </Fold>
+    );
   // Its line holds while it loads, so the panel doesn't jump when it lands.
   if (!got)
     return (

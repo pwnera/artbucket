@@ -36,6 +36,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Kbd } from "@/components/ui/kbd";
+import { complain } from "@/lib/send";
 import { undoable } from "@/lib/undo";
 import { hasPreview } from "@/lib/preview";
 
@@ -103,7 +104,8 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
     const r = await request().catch(() => null);
     if (!r?.ok) {
       back?.();
-      return void toast.error((await r?.json().catch(() => null))?.error?.message ?? "That didn't work");
+      // Offline, signed out or refused: said as every other change in the app says it.
+      return void complain(r ? { status: r.status, error: (await r.json().catch(() => null))?.error ?? null } : null);
     }
     ctx.onChanged();
     if (!undo) return void toast.success(done);
