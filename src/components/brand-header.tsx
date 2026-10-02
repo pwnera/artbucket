@@ -14,7 +14,6 @@ import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
 import { TabNav } from "@/components/hub";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
@@ -90,7 +89,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const word = compact ? "sr-only" : undefined;
   const actions = (
     <div className="flex items-center gap-2">
-      <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact={compact} />
+      <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
@@ -155,18 +154,23 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
           <div className="grid min-w-0 gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display truncate text-2xl font-semibold tracking-tight">{brand.name}</h1>
+              {/* Icons, their words their tooltips: the badges crowded the actions. */}
               {hub?.verified && (
-                <Badge variant="success" title={`Its organization proved it holds ${hub.verified}`}>
-                  <IconCircleCheckFilled aria-hidden /> {hub.verified} verified
-                </Badge>
+                <span role="img" aria-label={`${hub.verified} verified`} title={`${hub.verified} verified: its organization proved it holds the domain`} className="text-success">
+                  <IconCircleCheckFilled aria-hidden className="size-5" />
+                </span>
               )}
               {hub && (
-                <Badge variant="secondary" asChild>
-                  <ExternalLink href={hub.url}>
-                    {hub.visibility === "public" ? <IconWorld aria-hidden /> : <IconLock aria-hidden />}
-                    {hub.visibility === "public" ? "Public on BrandHub" : "Private on BrandHub"}
-                  </ExternalLink>
-                </Badge>
+                <a
+                  href={hub.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={hub.visibility === "public" ? "Public on BrandHub: open its page" : "Private on BrandHub: open its page"}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {hub.visibility === "public" ? <IconWorld aria-hidden className="size-5" /> : <IconLock aria-hidden className="size-5" />}
+                  <span className="sr-only">{hub.visibility === "public" ? "Public on BrandHub" : "Private on BrandHub"} (opens in a new tab)</span>
+                </a>
               )}
             </div>
             <p className="text-muted-foreground truncate text-sm">
