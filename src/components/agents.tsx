@@ -406,24 +406,27 @@ function Setup({
         <DialogDescription>{agent.blurb}</DialogDescription>
       </DialogHeader>
 
-      {agent.auth === "key" &&
+      {(agent.auth === "key" || agent.key) &&
         (can("key.manage") ? (
           secret ? (
             <p className="border-primary/40 bg-primary/5 rounded-lg border p-3 text-sm">
               Key filled in below. Copy it now: it is shown only once.
             </p>
           ) : (
-            <NewKey
-              name={agent.name}
-              onMade={({ secret, ...k }) => {
-                setSecret({ id: k.id, secret });
-                onMade(k);
-              }}
-            />
+            <div className="space-y-2">
+              {agent.key && <p className="text-muted-foreground text-sm">No OAuth? Make it a key:</p>}
+              <NewKey
+                name={agent.name}
+                onMade={({ secret, ...k }) => {
+                  setSecret({ id: k.id, secret });
+                  onMade(k);
+                }}
+              />
+            </div>
           )
         ) : (
           <p className="text-muted-foreground text-sm">
-            Needs a key: ask an admin for one with the Suggest scope.
+            {agent.key ? "Without OAuth it needs a key" : "Needs a key"}: ask an admin for one with the Suggest scope.
           </p>
         ))}
 

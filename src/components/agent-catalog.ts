@@ -45,8 +45,11 @@ export type Setup = { origin: string; mcp: string; key: string };
 /** A setup, one part at a time: a sentence, something to copy, or a one-click install. */
 export type Part = string | { copy: string; what: string; multiline?: boolean; prose?: boolean } | { href: string; label: string };
 
-/** `logo`: a file in public/logos/agents (Simple Icons, in its brand color); without one, `icon` stands in. */
-export type Agent = { name: string; icon: Icon; logo?: string; group: Group; auth: Auth; blurb: string; snippet: (s: Setup) => Part[] };
+/**
+ * `logo`: a file in public/logos/agents (Simple Icons, in its brand color); without one, `icon` stands in.
+ * `key`: it signs in with OAuth, or takes a key: the setup offers to make one.
+ */
+export type Agent = { name: string; icon: Icon; logo?: string; group: Group; auth: Auth; key?: boolean; blurb: string; snippet: (s: Setup) => Part[] };
 
 /** The GitHub repository: the skill and the Claude Code plugin install from it. */
 export const REPO = "pwnera/artbucket";
@@ -220,6 +223,7 @@ export const AGENTS: Agent[] = [
     logo: "/logos/agents/modelcontextprotocol.svg",
     group: "Other",
     auth: "oauth",
+    key: true,
     blurb: "Streamable HTTP, OAuth or a key",
     snippet: (s) => [
       "Streamable HTTP at this URL. With OAuth it finds its way to sign in on its own; without, send a key as a bearer token.",
