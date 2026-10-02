@@ -1592,8 +1592,11 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "The organization's single sign-on",
           scope: "admin",
-          description: "Its OpenID Connect provider, or null, and the redirect URI to register with the provider before setting it up. Never the client secret. Organization admin.",
-          ok: [200, "Single sign-on", z.object({ data: S.Sso.nullable(), redirectUri: z.url() })],
+          description:
+            "Its OpenID Connect provider, or null, and the redirect URIs to register with the provider before setting it up: " +
+            "`redirectUri` for APP_URL, and in `redirectUris` one more for each domain the organization uses for the app, " +
+            "since signing in there comes back there. Never the client secret. Organization admin.",
+          ok: [200, "Single sign-on", z.object({ data: S.Sso.nullable(), redirectUri: z.url(), redirectUris: z.array(z.url()) })],
         }),
         put: op({
           summary: "Set up single sign-on",

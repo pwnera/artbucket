@@ -120,9 +120,9 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     case "organization/email-domains":
       return <EmailDomainsPanel domains={data<EmailDomain[]>()} />;
     case "organization/sso": {
-      const { data: sso, redirectUri } = loaded as { data: Sso | null; redirectUri: string };
+      const { data: sso, redirectUris } = loaded as { data: Sso | null; redirectUris: string[] };
       // Keyed by what the server has: after a save the form starts from it.
-      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUri={redirectUri} />;
+      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUris={redirectUris} />;
     }
     case "account/profile":
       return <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;

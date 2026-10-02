@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { grants, sessions, ssoProviders, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
+import { appOrigins } from "@/lib/core/domains";
 import { claimEmailDomain, verifyEmailDomain } from "@/lib/core/email-domains";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
@@ -27,7 +28,10 @@ import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } fr
 type Row = typeof ssoProviders.$inferSelect;
 
 /** Where the provider sends people back: registered with it as the app's redirect URI. */
-export const redirectUri = (organizationId: string) => `${env.APP_URL}/api/auth/sso/callback/${organizationId}`;
+export const redirectUri = (organizationId: string, origin = env.APP_URL) => `${origin}/api/auth/sso/callback/${organizationId}`;
+
+/** Every redirect URI to register: APP_URL's, and each domain the organization uses for the app, which signing in there comes back to (lib/auth.ts authAt). */
+export const redirectUris = async (organizationId: string) => [env.APP_URL, ...(await appOrigins(organizationId))].map((o) => redirectUri(organizationId, o));
 
 const config = (r: Row) => JSON.parse(r.oidcConfig) as OidcConfig;
 

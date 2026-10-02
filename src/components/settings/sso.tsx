@@ -44,7 +44,7 @@ export function Values({ rows }: { rows: [label: string, value: string, what: st
  * with the provider, save its client here, prove the email domain. The page
  * remounts it from what the server has after each save.
  */
-export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: string }) {
+export function SsoPanel({ sso, redirectUris }: { sso: Sso | null; redirectUris: string[] }) {
   const id = useId();
   const router = useRouter();
   const [busy, setBusy] = useState<"save" | "check" | "optional" | null>(null);
@@ -92,13 +92,13 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
       >
         <div className="grid gap-2 text-sm">
           <p>
-            1. At your provider, make a web app (OpenID Connect) with this redirect URI:{" "}
+            1. At your provider, make a web app (OpenID Connect) with {redirectUris.length > 1 ? "these redirect URIs, one for each address of the app" : "this redirect URI"}:{" "}
             <InfoTip label="Google Workspace and Entra ID">
               Google Workspace: an OAuth client of type Web application, issuer https://accounts.google.com, and an Internal consent screen. Entra ID: an app
               registration with a Web redirect URI, issuer https://login.microsoftonline.com/&#123;tenant&#125;/v2.0.
             </InfoTip>
           </p>
-          <Values rows={[["Redirect URI", sso?.redirectUri ?? redirectUri, "the redirect URI"]]} />
+          <Values rows={redirectUris.map((u) => [new URL(u).host, u, "the redirect URI"])} />
         </div>
         <form
           className="grid max-w-md gap-4"
