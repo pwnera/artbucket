@@ -30,7 +30,7 @@ const client = (endpoint: string) => new S3Client({
   // The SDK waits forever by default: a stalled storage call would hold its
   // socket, and an upload its database connection, until the process restarts.
   // The socket limit is idle time, so a large file still takes as long as it needs.
-  requestHandler: { connectionTimeout: 5_000, socketTimeout: 60_000 },
+  requestHandler: { connectionTimeout: 5_000, socketTimeout: 30_000 },
 });
 
 export const s3 = client(env.S3_ENDPOINT);
