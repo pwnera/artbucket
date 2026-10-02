@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { People, type Members } from "@/components/settings/access";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
@@ -10,6 +11,7 @@ import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email
 import { SsoPanel, type Sso } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, has, locked, opens } from "@/components/settings/sections";
+import { SectionSkeleton } from "@/components/skeletons";
 import type { FieldDef } from "@/lib/fields";
 import type { Scope } from "@/lib/scopes";
 import type { Collection } from "@/components/collections";
@@ -50,6 +52,15 @@ export default async function SettingsSection({ params }: { params: Promise<Para
   if (!s) notFound();
   // A page of its own elsewhere (Team): the menu links there, and so does this URL.
   if (s.href) redirect(s.href);
+  // Its own placeholder, under the menu and title that stay (../../../loading.tsx is for opening Settings).
+  return (
+    <Suspense fallback={<SectionSkeleton />}>
+      <Section context={context} section={section} s={s} />
+    </Suspense>
+  );
+}
+
+async function Section({ context, section, s }: Params & { s: NonNullable<ReturnType<typeof find>> }) {
   // What the section reads, fetched alongside who is looking: the API checks access itself, and a redirect drops it.
   const loading = LOADS[`${context}/${section}`];
   const forMembers = `${context}/${section}` === "workspace/members";
