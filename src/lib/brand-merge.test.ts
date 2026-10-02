@@ -111,12 +111,34 @@ test("a page moved under a page the other side removed sits at the top", () => {
   assert.equal(voice.parent, undefined);
 });
 
-test("a page's sections are one piece: both editing one page is a conflict", () => {
+test("both editing one page: each field and section is its own piece, so a reword here and a section there both hold", () => {
   const ours = edit(base(), (s) => (s.pages[1].sections[0].body = "ours"));
-  const theirs = edit(base(), (s) => (s.pages[1].title = "Colour"));
+  const theirs = edit(base(), (s) => {
+    s.pages[1].title = "Colour";
+    s.pages[1].sections.push(text("text-2", "theirs"));
+  });
   const m = merge(base(), ours, theirs);
-  assert.equal(m.state.pages.find((p) => p.slug === "color")!.title, "Colour");
-  assert.equal(m.conflicts[0].what, "page color");
+  const color = m.state.pages.find((p) => p.slug === "color")!;
+  assert.equal(color.title, "Colour");
+  assert.deepEqual(
+    color.sections.map((x) => [x.id, x.body]),
+    [
+      ["text", "ours"],
+      ["text-2", "theirs"],
+    ],
+  );
+  assert.deepEqual(m.conflicts, []);
+});
+
+test("one section both changed differently is a conflict, named by page and section; the files' side wins", () => {
+  const ours = edit(base(), (s) => (s.pages[1].sections[0].body = "ours"));
+  const theirs = edit(base(), (s) => (s.pages[1].sections[0].body = "theirs"));
+  const m = merge(base(), ours, theirs);
+  assert.equal(m.state.pages.find((p) => p.slug === "color")!.sections[0].body, "theirs");
+  assert.deepEqual(
+    m.conflicts.map((c) => c.what),
+    ["page color: section text"],
+  );
 });
 
 test("two moves that close a loop (ours: overview under voice, theirs: voice under overview): the repository's place wins, and says so", () => {

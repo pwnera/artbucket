@@ -352,6 +352,11 @@ class Doc {
     }
     return undefined;
   }
+  /** The comment on the line of the value at `path`, when YAML read the value as empty: `value: #1f6feb` is a value and a comment. */
+  lostTo(path: Path): string | undefined {
+    const node = this.doc.getIn(path, true);
+    return isScalar(node) && node.value === null ? node.comment?.trim() : undefined;
+  }
   add(level: Level, path: Path, message: string) {
     this.problems.push({ file: this.file, level, line: this.line(path), message: path.length ? `${pathText(path)}: ${message}` : message });
   }
@@ -440,6 +445,9 @@ function readBrand(d: Doc, raw: Json): BrandData | null {
   return { slug, name, theme, groups, tree };
 }
 
+/** What a color's digits look like, read as a comment: `value: #1f6feb`. */
+const HEX = /^([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
 function readRules(d: Doc, raw: Json): RuleData | null {
   if (raw === null || raw === undefined) return [];
   if (!isObj(raw)) {
@@ -458,6 +466,8 @@ function readRules(d: Doc, raw: Json): RuleData | null {
     }
     unknownFields(d, entry, RULE_FIELDS, [key]);
     const one = (e: Record<string, unknown>, context: string | null, at: Path, type: unknown) => {
+      const hex = d.lostTo([...at, "value"]);
+      if (hex && HEX.test(hex)) return d.add("error", [...at, "value"], `# starts a comment in YAML, so this value is empty: quote it, "#${hex}"`);
       const input = { key, type, context: context ?? undefined, label: e.label, value: e.value, usage: e.usage, spec: e.spec, assets: e.assets };
       const got = RuleInput.safeParse(strip(input));
       if (!got.success) return zodIssues(d, got.error, at);
@@ -536,9 +546,9 @@ function readPage(d: Doc, raw: Json): PageData | null {
     zodIssues(d, page.error, []);
     return null;
   }
-  if (errors.length || sectionList.length > MAX_SECTIONS) return null;
+  if (sectionList.length > MAX_SECTIONS) return null;
   const p = page.data;
-  return {
+  const out: PageData = {
     slug: "",
     title: p.title,
     hidden: p.hidden ?? false,
@@ -553,7 +563,14 @@ function readPage(d: Doc, raw: Json): PageData | null {
     ...(p.layout === "landing" && { layout: "landing" as const }),
     ...(p.translations && Object.keys(p.translations).length && { translations: p.translations }),
   };
+  // A section that didn't read is already an error, which refuses the files. The rest still go through the
+  // checks across files, so one push attempt names every problem rather than one round of them at a time.
+  if (errors.length) PARTIAL.add(out);
+  return out;
 }
+
+/** Pages read without some of their sections: checked across files, but too incomplete to warn about. */
+const PARTIAL = new WeakSet<PageData>();
 
 /** The tree in brand.yaml as pages in reading order with their parents, and its problems. */
 function readTree(d: Doc, tree: Tree): { slug: string; parent: string | null; at: Path }[] {
@@ -669,11 +686,15 @@ export function fromFiles(files: Files, o: { assets?: Record<string, string>; sl
     problems.push(...r.doc.problems.filter((p) => !r.problems.includes(p)).map((p) => ({ ...p, file: r.file })));
   }
 
+  // A rule missing because its own file has an error is that file's problem: said once there, not again
+  // wherever it is named (a spec, a page, the theme).
+  const broken = new Set(readRuleFiles.filter((r) => problems.some((x) => x.file === r.file && x.level === "error")).map((r) => r.group));
+
   // Specs name color rules of the brand.
   const colors = new Set(rules.filter((r) => r.type === "color").map((r) => r.key));
   for (const r of rules) {
     for (const k of specKeys(r.spec)) {
-      if (colors.has(k)) continue;
+      if (colors.has(k) || broken.has(groupOf(k))) continue;
       const f = readRuleFiles.find((x) => (x.data as RuleData | null)?.some((y) => y.key === r.key && y.context === r.context));
       f?.doc.add("error", r.context ? [r.key, "contexts", r.context, "spec"] : [r.key, "spec"], `names ${k}, which is not a color rule of this brand`);
       if (f) problems.push({ ...f.doc.problems[f.doc.problems.length - 1], file: f.file });
@@ -713,10 +734,11 @@ export function fromFiles(files: Files, o: { assets?: Record<string, string>; sl
   if (pages.length > MAX_PAGES) problems.push({ file: BRAND_FILE, level: "error", message: `${pages.length} pages; a brand takes ${MAX_PAGES} at most` });
 
   // Sections bind rules that are there, and the kind their template shows.
+  const brokenRule = (text: string) => broken.has(groupOf(/no (?:\w+ )?rule "?([\w.]+)/.exec(text)?.[1] ?? ""));
   for (const p of pages) {
     const f = readPages.find((x) => x.slug === p.slug)!;
-    for (const e of checkBindings(p.sections, rules)) f.doc.addText("error", e);
-    for (const w of pageWarnings(p, pages, rules)) if (!w.includes(": no rule ")) f.doc.addText("warning", w);
+    for (const e of checkBindings(p.sections, rules)) if (!brokenRule(e)) f.doc.addText("error", e);
+    if (!PARTIAL.has(f.data as PageData)) for (const w of pageWarnings(p, pages, rules)) if (!w.includes(": no rule ")) f.doc.addText("warning", w);
     problems.push(...f.doc.problems.filter((x) => !f.problems.includes(x)).map((x) => ({ ...x, file: f.file })));
   }
 
@@ -725,7 +747,7 @@ export function fromFiles(files: Files, o: { assets?: Record<string, string>; sl
     if (o.slug && top.slug && top.slug !== o.slug) brand.doc.add("error", ["slug"], `names the brand ${top.slug}, not ${o.slug}`);
     const t = top.theme;
     const named = (slot: string, key: string | null | undefined, type: "color" | "font") => {
-      if (key && !rules.some((r) => r.key === key && r.type === type)) brand.doc.add("error", ["theme", slot], `no ${type} rule ${key}`);
+      if (key && !rules.some((r) => r.key === key && r.type === type) && !broken.has(groupOf(key))) brand.doc.add("error", ["theme", slot], `no ${type} rule ${key}`);
     };
     for (const k of COLOR_SLOTS) named(k, t[k], "color");
     for (const k of FONT_SLOTS) named(k, t[k], "font");

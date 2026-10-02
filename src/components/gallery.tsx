@@ -2031,7 +2031,7 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
             </Button>
           )}
           <Button variant="outline" asChild>
-            <Link href="/brand">
+            <Link href={onUpload ? "/brand?edit" : "/brand"}>
               <IconBook /> {onUpload ? "Write your guidelines" : "Read the guidelines"}
             </Link>
           </Button>

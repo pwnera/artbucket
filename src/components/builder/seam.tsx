@@ -5,7 +5,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TEMPLATE_INFO, TEMPLATES, type Section, type Template } from "@/lib/pages";
+import { TEMPLATE_INFO, TEMPLATES, type Item, type Section, type Template } from "@/lib/pages";
 import type { ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -18,28 +18,50 @@ import { cn } from "@/lib/utils";
  * Props:
  * - b: the builder.
  * - after: the section it follows; null for the top of the page.
- * - always: shown without the pointer on it: "empty" as an empty page's only
- *   way in, "end" as the standing way in under a page's last section, with the
- *   blocks most pages take a click away.
+ * - always: "end", shown without the pointer on it: the standing way in under
+ *   a page's last section (or on an empty page), with the blocks most pages
+ *   take a click away.
  */
 export type SeamProps = {
   b: BuilderApi;
   after: string | null;
-  always?: "empty" | "end";
+  always?: "end";
 };
 
 /** The blocks most pages reach for next, one click each under the last section. */
 const QUICK: Template[] = ["text", "split", "palette", "type", "dodont", "gallery"];
 
+/** The example's words, which are Blender's: a new block starts without them, its empty slots naming what goes there. */
+const WORDS = ["eyebrow", "title", "lede", "body", "aside"] as const;
+const PROP_WORDS = ["by", "sample", "url", "form", "template", "prompt", "partner"];
+/** What an item keeps of the example's: how it sits, never what it says. */
+const ITEM_SHAPE = ["verdict", "at", "level", "span"] as const;
+/** Blocks whose words are the point: any rules the brand has would be a guess, so they start with none. */
+const WRITTEN: Template[] = ["text", "statement", "quote", "cards", "copy"];
+
 /**
- * A template's example, made this brand's: its own name for Blender's, its
- * rules where the example's aren't there (as many as the example binds, of
- * those the template takes), and no `from` page it doesn't have. In the
- * tab of the section it follows, so it lands beside it.
+ * A template's example, made this brand's: its shape (layout, items, how it
+ * sits) without Blender's words, its rules where the example's aren't there
+ * (as many as the example binds, of those the template takes; none for a
+ * block that is written rather than drawn from rules), and no
+ * `from` page it doesn't have. A cover keeps its words, the brand's name in
+ * Blender's place. In the tab of the section it follows, so it lands beside it.
  */
 export function starter(t: Template, rules: ViewRule[], brand: string, pages: string[], tab?: string): Record<string, unknown> {
   const info = TEMPLATE_INFO[t];
   const s = JSON.parse(JSON.stringify(info.example).replaceAll("Blender", JSON.stringify(brand).slice(1, -1))) as Record<string, unknown> & Partial<Section>;
+  if (t !== "cover") {
+    for (const w of WORDS) delete s[w];
+    for (const p of PROP_WORDS) delete s.props?.[p];
+    const needs = info.needs ?? [];
+    s.items = s.items
+      ?.map((it) => Object.fromEntries(ITEM_SHAPE.filter((f) => it[f] !== undefined).map((f) => [f, it[f]])) as Item)
+      // A card or a question needs a title: an empty one to type.
+      .map((it) => (needs.some((g) => g.includes("title")) && it.title === undefined ? { ...it, title: "" } : it))
+      .filter((it) => needs.every((g) => g.some((f) => it[f] !== undefined)));
+    if (!s.items?.length) delete s.items;
+  }
+  if (WRITTEN.includes(t)) delete s.keys;
   if (s.keys) {
     const have = new Set(rules.map((r) => r.key));
     const kept = s.keys.filter((k) => have.has(k));
@@ -78,9 +100,10 @@ export function Seam({ b, after, always }: SeamProps) {
     b.select({ section: made.current, rule: null });
   };
 
-  if (always === "end")
+  // mb-16: room under it for the canvas's floating device bar, which would cover the quick picks.
+  if (always)
     return (
-      <div {...{ [END]: "" }} className="app-tokens mx-auto mt-12 grid max-w-3xl justify-items-center gap-3 rounded-xl border border-dashed px-4 py-8 font-sans">
+      <div {...{ [END]: "" }} className="app-tokens mx-auto mt-12 mb-16 grid max-w-3xl justify-items-center gap-3 rounded-xl border border-dashed px-4 py-8 font-sans">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -111,21 +134,16 @@ export function Seam({ b, after, always }: SeamProps) {
     );
 
   return (
-    <div className={cn("app-tokens group/seam z-20 flex items-center justify-center font-sans", always ? "py-16" : "absolute inset-x-0 -bottom-3 h-6")}>
-      {!always && (
-        <div
-          aria-hidden
-          className={cn("bg-primary pointer-events-none absolute inset-x-4 h-0.5 rounded-full opacity-0 transition-opacity group-hover/seam:opacity-100", open && "opacity-100")}
-        />
-      )}
+    <div className="app-tokens group/seam absolute inset-x-0 -bottom-3 z-20 flex h-6 items-center justify-center font-sans">
+      <div
+        aria-hidden
+        className={cn("bg-primary pointer-events-none absolute inset-x-4 h-0.5 rounded-full opacity-0 transition-opacity group-hover/seam:opacity-100", open && "opacity-100")}
+      />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={cn(
-              "bg-primary text-primary-foreground focus-visible:ring-ring/50 relative flex h-6 items-center gap-1 rounded-full px-2.5 text-xs font-medium shadow outline-none focus-visible:ring-3",
-              !always && "opacity-0 transition-opacity group-hover/seam:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
-            )}
+            className="bg-primary text-primary-foreground focus-visible:ring-ring/50 relative flex h-6 items-center gap-1 rounded-full px-2.5 text-xs font-medium opacity-0 shadow outline-none transition-opacity group-hover/seam:opacity-100 focus-visible:opacity-100 focus-visible:ring-3 data-[state=open]:opacity-100"
           >
             <IconPlus aria-hidden className="size-3.5" />
             Add a section

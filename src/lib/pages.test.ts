@@ -73,14 +73,24 @@ const stored = (s: Partial<Section> & Pick<Section, "id" | "template">): Section
 });
 
 test("sections: defaults from the template, ids kept or made", () => {
-  const { sections, errors } = parseSections([{ template: "palette", keys: ["color.primary"] }, { id: "intro", template: "text", body: "Hi" }]);
+  const { sections, errors } = parseSections([
+    { template: "palette", keys: ["color.primary"] },
+    { id: "intro", template: "text", body: "Hi" },
+    { id: "text", template: "text" },
+    { template: "text" },
+    { template: "palette" },
+  ]);
   assert.deepEqual(errors, []);
   assert.equal(sections[0].width, "wide");
   assert.equal(sections[0].columns, 3);
   assert.equal(sections[0].tone, "plain");
-  assert.match(sections[0].id, /^s[a-z0-9]+$/);
   assert.equal(sections[1].id, "intro");
   assert.deepEqual(sections[1].keys, []);
+  // A made id is the template's, then -2, -3: never one the page names, wherever that one sits.
+  assert.deepEqual(
+    sections.map((s) => s.id),
+    ["palette", "intro", "text", "text-2", "palette-2"],
+  );
 });
 
 test("sections: every problem at once, each with its path", () => {
@@ -323,6 +333,14 @@ test("checkTree: an unknown parent, a loop and a fourth level", () => {
 const PAGE = [stored({ id: "a", template: "text", title: "A" }), stored({ id: "b", template: "palette", keys: ["color.primary"] })];
 const ops = (raw: unknown[]) => z.array(PageOp).parse(raw) as PageOp[];
 
+test("a template mistyped is named with the one it likely meant", () => {
+  const said = (t: string) => parseSections([{ template: t }]).errors[0];
+  assert.match(said("logo"), /no template "logo"; did you mean logos\?/);
+  assert.match(said("tipe"), /did you mean type\?/);
+  assert.match(said("Do-Dont"), /did you mean dodont\?/);
+  assert.doesNotMatch(said("hero"), /did you mean/);
+});
+
 test("applyOps: add, update, move and remove in order; page ops fold into one patch", () => {
   const { sections, page, errors } = applyOps(
     PAGE,
@@ -346,7 +364,7 @@ test("applyOps: add, update, move and remove in order; page ops fold into one pa
       ["A2", "01"],
     ],
   );
-  assert.match(sections[1].id, /^s[a-z0-9]+$/);
+  assert.equal(sections[1].id, "text");
   assert.deepEqual(page, { title: "Logos", parent: "brand", slug: "logos" });
   assert.equal(PAGE.length, 2, "the stored sections are left alone");
 });

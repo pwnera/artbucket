@@ -1789,6 +1789,9 @@ export const BrandImportInput = z.strictObject({
   message: z.string().trim().max(2000).optional().describe("The commit's message: its first line names the version the import makes"),
   dryRun: z.boolean().optional().describe("Check and merge, answer what would change, write nothing"),
   merge: z.boolean().optional().describe("Keep what changed here since the source last agreed (default); false takes the files whole"),
+  base: brandFiles
+    .optional()
+    .describe("For a brand with no source: the files as you last had them from it (a pull, or your last push). What changed here since is kept"),
   publish: z.union([z.boolean(), z.string().trim().max(2000)]).optional().describe("Publish after, with this note (true: none). Takes share"),
 });
 export const BrandSourceInput = z.strictObject({
@@ -1827,7 +1830,26 @@ const StateDiff = z.object({
       fields: z.array(z.string()).optional().describe("What changed: value, usage, label, spec, assets, type"),
     }),
   ),
-  pages: z.array(z.object({ change: z.enum(["added", "removed", "changed", "moved"]), slug: z.string(), title: z.string() })),
+  pages: z.array(
+    z.object({
+      change: z.enum(["added", "removed", "changed", "moved"]),
+      slug: z.string(),
+      title: z.string(),
+      fields: z.array(z.string()).optional().describe("Changed: the page's own fields that changed (title, lede...)"),
+      sections: z
+        .array(
+          z.object({
+            change: z.enum(["added", "removed", "changed", "moved"]),
+            id: z.string(),
+            template: z.string(),
+            title: z.string(),
+            fields: z.array(z.string()).optional().describe("Changed: which of its fields"),
+          }),
+        )
+        .optional()
+        .describe("Changed: its sections that changed, by id"),
+    }),
+  ),
   theme: z.array(z.string()).describe("Theme settings changed"),
   reordered: z.boolean().describe("The rules' order changed"),
 });

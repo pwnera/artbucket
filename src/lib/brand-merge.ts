@@ -1,6 +1,6 @@
 import { canonical, type BrandState } from "./brand-files.ts";
 import type { SnapRule } from "./history.ts";
-import { canon, type SnapPage } from "./pages.ts";
+import { canon, type Section, type SnapPage } from "./pages.ts";
 
 /**
  * Two-way sync's merge: the brand changed in the app and in its repository
@@ -66,6 +66,33 @@ const rulePiece = (r: SnapRule): Omit<SnapRule, "position"> => {
   return piece as Omit<SnapRule, "position">;
 };
 
+type PagePiece = Omit<SnapPage, "position">;
+
+/**
+ * A page both sides changed: merged as the brand is, a piece at a time. Each
+ * of its own fields, each section by id, and the sections' order, so a
+ * person rewording one section in the app and an agent adding another in the
+ * files both land. Only a piece both changed differently is a conflict.
+ */
+function mergePage(slug: string, b: PagePiece, o: PagePiece, t: PagePiece, conflicts: Conflict[]): PagePiece {
+  const rec = (p: PagePiece) => p as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(b), ...Object.keys(o), ...Object.keys(t)])) {
+    if (k === "sections") continue;
+    const v = pick(`page ${slug}: ${k}`, rec(b)[k], rec(o)[k], rec(t)[k], conflicts);
+    if (v !== undefined && v !== null) out[k] = v;
+  }
+  const byId = (p: PagePiece) => new Map(p.sections.map((x) => [x.id, x]));
+  const [bs, os, ts] = [b, o, t].map(byId);
+  const sections = new Map<string, Section>();
+  for (const id of new Set([...bs.keys(), ...os.keys(), ...ts.keys()])) {
+    const x = pick(`page ${slug}: section ${id}`, bs.get(id), os.get(id), ts.get(id), conflicts);
+    if (x) sections.set(id, x);
+  }
+  const ids = (p: PagePiece) => p.sections.map((x) => x.id);
+  return { ...out, sections: order(ids(b), ids(o), ids(t), new Set(sections.keys())).map((id) => sections.get(id)!) } as PagePiece;
+}
+
 export function merge(base: BrandState, ours: BrandState, theirs: BrandState): Merged {
   const [b, o, t] = [base, ours, theirs].map(canonical);
   const conflicts: Conflict[] = [];
@@ -91,10 +118,13 @@ export function merge(base: BrandState, ours: BrandState, theirs: BrandState): M
 
   const pagesOf = (s: BrandState) => new Map(s.pages.map((p) => [p.slug, p]));
   const [bp, op, tp] = [b, o, t].map(pagesOf);
-  const pages = new Map<string, Omit<SnapPage, "position">>();
+  const pages = new Map<string, PagePiece>();
   for (const slug of new Set([...bp.keys(), ...op.keys(), ...tp.keys()])) {
     const piece = (m: Map<string, SnapPage>) => (m.has(slug) ? pagePiece(m.get(slug)!) : undefined);
-    const p = pick(`page ${slug}`, piece(bp), piece(op), piece(tp), conflicts);
+    const [pb, po, pt] = [piece(bp), piece(op), piece(tp)];
+    // Changed on both sides, each its own way: merged inside, rather than one side's page over the other's.
+    const both = pb && po && pt && !same(po, pt) && !same(pb, po) && !same(pb, pt);
+    const p = both ? mergePage(slug, pb, po, pt, conflicts) : pick(`page ${slug}`, pb, po, pt, conflicts);
     if (p) pages.set(slug, p);
   }
   // Two moves can each be fine and close a loop together (ours: A under B, theirs: B under A). The repository's
@@ -138,12 +168,43 @@ export type StateDiff = {
   name: { before: string; after: string } | null;
   rules: { change: "added" | "removed" | "changed"; key: string; context: string | null; type: SnapRule["type"]; before?: SnapRule["value"]; after?: SnapRule["value"]; fields?: string[] }[];
   /** A page added, removed, changed in what it says, or only moved in the tree. */
-  pages: { change: "added" | "removed" | "changed" | "moved"; slug: string; title: string }[];
+  pages: { change: "added" | "removed" | "changed" | "moved"; slug: string; title: string; fields?: string[]; sections?: SectionChange[] }[];
   /** Theme settings changed, by name. */
   theme: string[];
   /** The order of rules changed. */
   reordered: boolean;
 };
+
+/** A section of a changed page, by id: what it is and, changed, which of its fields. */
+export type SectionChange = { change: "added" | "removed" | "changed" | "moved"; id: string; template: string; title: string; fields?: string[] };
+
+/** What changed inside a page: its own fields by name, and its sections by id, in the new order with removals last. */
+function pageChanges(old: SnapPage, now: SnapPage): { fields: string[]; sections: SectionChange[] } {
+  const own = (x: SnapPage) => pagePiece({ ...x, parent: undefined, sections: [] }) as Record<string, unknown>;
+  const [o, n] = [own(old), own(now)];
+  const fields = [...new Set([...Object.keys(o), ...Object.keys(n)])].filter((k) => k !== "sections" && !same(o[k], n[k]));
+  const was = new Map(old.sections.map((x) => [x.id, x]));
+  const is = new Set(now.sections.map((x) => x.id));
+  // Moved: its rank among the sections both versions keep changed.
+  const kept = (list: Section[]) => list.filter((x) => was.has(x.id) && is.has(x.id)).map((x) => x.id);
+  const [rankBefore, rankAfter] = [kept(old.sections), kept(now.sections)];
+  const sections: SectionChange[] = [];
+  const of = (x: Section) => ({ id: x.id, template: x.template, title: x.title });
+  for (const x of now.sections) {
+    const before = was.get(x.id);
+    if (!before) {
+      sections.push({ change: "added", ...of(x) });
+      continue;
+    }
+    const a = before as unknown as Record<string, unknown>;
+    const b = x as unknown as Record<string, unknown>;
+    const changed = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !same(a[k], b[k]));
+    if (changed.length) sections.push({ change: "changed", ...of(x), fields: changed });
+    else if (rankBefore.indexOf(x.id) !== rankAfter.indexOf(x.id)) sections.push({ change: "moved", ...of(x) });
+  }
+  for (const x of old.sections) if (!is.has(x.id)) sections.push({ change: "removed", ...of(x) });
+  return { fields, sections };
+}
 
 /** What `after` changes of `before`, piece by piece, for a person: a pull request's comment, an import's answer. */
 export function diffStates(before: BrandState, after: BrandState): StateDiff {
@@ -168,7 +229,7 @@ export function diffStates(before: BrandState, after: BrandState): StateDiff {
     const old = pw.get(p.slug);
     const words = (x: SnapPage) => pagePiece({ ...x, parent: undefined });
     if (!old) pages.push({ change: "added", slug: p.slug, title: p.title });
-    else if (!same(words(old), words(p))) pages.push({ change: "changed", slug: p.slug, title: p.title });
+    else if (!same(words(old), words(p))) pages.push({ change: "changed", slug: p.slug, title: p.title, ...pageChanges(old, p) });
     else if (old.parent !== p.parent || pageOrder(b.pages).indexOf(p.slug) !== pageOrder(a.pages).indexOf(p.slug)) pages.push({ change: "moved", slug: p.slug, title: p.title });
   }
   for (const p of b.pages) if (!pi.has(p.slug)) pages.push({ change: "removed", slug: p.slug, title: p.title });

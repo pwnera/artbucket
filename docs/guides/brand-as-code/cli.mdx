@@ -83,6 +83,11 @@ Writes the brand as files into the folder:
 
 - Only files whose meaning changed are written: one that says the same
   keeps its comments and layout.
+- A file you changed since the last pull or push is never written over or
+  removed: pull refuses and names it. Push it first (push keeps what changed
+  in the app since), then pull; or pull with `--force` to take the brand's.
+  Before the folder's first pull, the files git holds uncommitted count as
+  yours.
 - A file of `rules/` or `pages/` the brand no longer has is removed.
 - A file you named `.yml` keeps its name.
 - `--assets` gives every asset the brand points at a path under `assets/`,
@@ -105,15 +110,18 @@ artbucket brand diff brand
 ! pages/logo.yaml:12: sections[1]: a second panel ground in a row runs into the one before; make one of them plain
   ~ color.primary  #1f6feb -> #1a5fd0
   + color.accent  #ff7a45
-  ~ page color
+  ~ page color: lede
+      ~ palette (palette, "Blue leads, white gives it room"): keys
+      + text-2 (text, "When to use the accent")
   > page type (moved)
   ~ theme: radius
 (dry run: nothing written)
 ```
 
 What a push would change, and every problem in the files, writing nothing.
-Lines start with `+` (added), `-` (removed), `~` (changed) or `>` (a page
-moved in the tree); `!` is a warning or a conflict. It exits 1 on any error
+Lines start with `+` (added), `-` (removed), `~` (changed) or `>` (moved);
+under a changed page, its sections that changed, by id, with what they are
+and which of their fields changed. `!` is a warning or a conflict. It exits 1 on any error
 in the files, each printed at its file and line:
 
 ```
@@ -160,22 +168,29 @@ Takes the brand from its files:
 
 ### What a push overwrites
 
-A push merges with the app's edits only when the brand has a sync base: the
-files both sides last agreed on, which a [Git integration](/guides/brand-as-code/sync-api)
-records at each commit. A brand synced only by the CLI or CI has none, so a
-push takes the files whole, and an edit made in the app since your last pull
-is undone (it stays in the brand's history). `diff` shows it first, as a
-change back to what the files say:
+A push merges with the app's edits from a base: the files both sides last
+agreed on. The CLI keeps one for each folder it pulls into or pushes from
+(beside its key, in `~/.config/artbucket/bases/`), and a
+[Git integration](/guides/brand-as-code/sync-api) records one at each commit.
+An edit made in the app since is kept, piece by piece: a rule, a page's own
+field, a section. Where both sides changed the same piece, the files win, and
+push says so:
+
+```
+! page overview: section palette: changed here and in the files; the files' side is taken
+```
+
+The app's side stays in the brand's history. A push that kept edits from the
+app ends with `The brand holds changes these files lack: artbucket brand pull
+brings them in`.
+
+Without a base (a folder never pulled on this machine, or `--replace`), a
+push takes the files whole, and an edit made in the app is undone. `diff`
+shows it first, as a change back to what the files say:
 
 ```
   ~ color.primary  #1a5fd0 -> #1f6feb
 ```
-
-With a sync base, a push keeps those edits instead, and ends with `The brand
-holds changes these files lack: artbucket brand pull brings them in`.
-
-Pull before you push when people also edit the brand in the app, or keep
-edits on one side: the repository, with CI pushing it.
 
 ## From CI
 
@@ -240,9 +255,9 @@ brand-push:
   secret: pull requests from forks, which get no secrets, can't run it.
 - A pull request that adds a file under `assets/` passes the check: `diff`
   lists the file, and the push on main uploads it.
-- A CI push has no sync base, so the repository is the source of truth:
-  edits made in the app are undone by the next push. For both sides at once,
-  use a Git integration.
+- A CI push has no base, so the repository is the source of truth: edits
+  made in the app are undone by the next push. For both sides at once, use a
+  Git integration.
 
 ## Without the CLI
 
