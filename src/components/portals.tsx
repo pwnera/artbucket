@@ -580,32 +580,37 @@ export function PortalDialog({
   const dirty = JSON.stringify(f) !== JSON.stringify(start);
   const expiryChanged = f.expires !== start.expires;
   const ready = !!f.name.trim() && (f.picked.length > 0 || f.pickedBrands.length > 0);
+  const own = f.domain !== NO_DOMAIN;
   // With no domain of its own: {slug}.{portalDomain}, but for a members portal (sessions stay on the app's) or an old address refused there.
   const sub = portalDomain && f.access !== "members" && !(f.slug === current?.slug && subdomainRefusal(f.slug)) ? portalDomain : null;
+  // On a domain of its own, the slug is only its short link, /p/{slug}, leading there.
+  const subShown = own ? null : sub;
   const here = typeof window === "undefined" ? null : window.location;
   const address =
-    f.domain !== NO_DOMAIN
+    own
       ? `https://${f.domain}`
       : sub
         ? `${here?.protocol ?? "https:"}//${f.slug}.${sub}${here?.port ? `:${here.port}` : ""}`
         : `${here?.origin ?? ""}/p/${f.slug}`;
   const byDefault = sub ? `${f.slug || "its-address"}.${sub}` : `/p/${f.slug || "its-address"}`;
   // Whether a new address is free, asked as it is typed; the portal's own is.
-  const [check, setCheck] = useState<{ slug: string; reason: string | null } | null>(null);
+  const [check, setCheck] = useState<{ slug: string; subdomain: boolean; reason: string | null } | null>(null);
+  // A portal on its own domain, or a members one, never answers at {slug}.{portalDomain}: the reserved names are free to it.
+  const subdomain = !own && f.access !== "members";
   useEffect(() => {
     if (!PORTAL_SLUG.test(f.slug) || f.slug === current?.slug) return;
     const ask = new AbortController();
     const t = setTimeout(() => {
-      fetch(`/api/v1/portals/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }) })}`, { signal: ask.signal })
+      fetch(`/api/v1/portals/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }), ...(!subdomain && { subdomain: "0" }) })}`, { signal: ask.signal })
         .then((r) => (r.ok ? r.json() : null))
-        .then((b) => b && setCheck({ slug: b.data.slug, reason: b.data.reason }), () => {});
+        .then((b) => b && setCheck({ slug: b.data.slug, subdomain, reason: b.data.reason }), () => {});
     }, 300);
     return () => {
       clearTimeout(t);
       ask.abort();
     };
-  }, [f.slug, current]);
-  const verdict = check && check.slug === f.slug && f.slug !== current?.slug ? check : null;
+  }, [f.slug, current, subdomain]);
+  const verdict = check && check.slug === f.slug && check.subdomain === subdomain && f.slug !== current?.slug ? check : null;
   // Asked and not answered yet: said, after a beat, so the field doesn't seem to ignore the typing.
   const asking = !verdict && PORTAL_SLUG.test(f.slug) && f.slug !== current?.slug;
 
@@ -682,10 +687,20 @@ export function PortalDialog({
               onChange={(e) => set({ name: e.target.value, ...(!slugTouched && { slug: slugOf(e.target.value) }) })}
             />
           </div>
+          {own && (
+            <div className="grid gap-2">
+              <Label>Address</Label>
+              <div className="flex min-w-0 items-center gap-1 text-sm">
+                <span className="truncate font-mono">{address}</span>
+                <CopyButton text={address} label="Copy the address" what="the address" />
+              </div>
+              <p className="text-muted-foreground text-xs">Its own domain: change it under More options, Domain.</p>
+            </div>
+          )}
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-slug`}>Address</Label>
+            <Label htmlFor={`${id}-slug`}>{own ? "Short link" : "Address"}</Label>
             <div className="flex items-center gap-1">
-              {!sub && <span className="text-muted-foreground text-sm">/p/</span>}
+              {!subShown && <span className="text-muted-foreground text-sm">/p/</span>}
               <Input
                 id={`${id}-slug`}
                 value={f.slug}
@@ -696,7 +711,7 @@ export function PortalDialog({
                 aria-invalid={!!verdict?.reason || undefined}
                 onChange={(e) => (setSlugTouched(true), set({ slug: typedSlug(e.target.value) }))}
               />
-              {sub && <span className="text-muted-foreground shrink-0 text-sm">.{sub}</span>}
+              {subShown && <span className="text-muted-foreground shrink-0 text-sm">.{subShown}</span>}
             </div>
             <p id={`${id}-slug-check`} aria-live="polite" className="text-xs empty:hidden">
               {asking && (
@@ -714,7 +729,9 @@ export function PortalDialog({
                 ))}
             </p>
             <div id={`${id}-slug-hint`} className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs">
-              {f.slug ? (
+              {own ? (
+                `Leads to ${f.domain}`
+              ) : f.slug ? (
                 <>
                   <span className="truncate font-mono">{address}</span>
                   <CopyButton text={address} label="Copy the address" what="the address" />

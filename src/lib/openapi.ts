@@ -1211,6 +1211,7 @@ export function openapi(serverUrl: string) {
           query: {
             slug: { schema: str, description: "The address, e.g. press-kit" },
             portal: { schema: str, description: "The portal being renamed, by id: its own address counts as free" },
+            subdomain: { schema: str, description: "0 for a portal on a domain of its own, or a members one: it never answers at a subdomain, so the names kept for the service are free to it" },
           },
           ok: [200, "The address", data(S.PortalAddress)],
         }),
