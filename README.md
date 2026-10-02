@@ -9,19 +9,19 @@
 
 ----
 
-Artbucket is where brands live: an open-source DAM and brand manager that keeps
-a brand's assets, guidelines and portals in one catalog. People and agents ask
-it the same question and get the same answer: what to use, where, right now.
+**Your brand's source of truth, open source.**
 
-Finding files is the easy part. The hard part is authority: which logo is
-current, what the rules really are, whether a photo is cleared for paid social
-in Germany. Artbucket writes those answers down as data, next to the files, and
-serves them to people in the web app and on portals, to agents over MCP, and to
-code through the API, the CLI and Git.
+Which logo is current? What colors should an agent use? Is this photo cleared
+for paid social in Germany?
 
-The whole core is here, free to self-host on Postgres and an S3-compatible
-bucket. Nothing held back, nothing to unlock, no telemetry. [Artbucket Cloud]
-runs the same core for you, hosted in the EU.
+Artbucket keeps a brand's assets, rules, rights and releases together, and
+gives the same answer to people, AI agents and code. People read it in the web
+app and on portals, agents query it over MCP, code consumes it through the API,
+the CLI and Git.
+
+**Web app · MCP · REST API · CLI · Git**
+
+[Try Artbucket Cloud][Artbucket Cloud] · [Live demo] · [Docs] · [Run it yourself](#run-it-yourself)
 
 <p align="center">
   <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
@@ -29,43 +29,54 @@ runs the same core for you, hosted in the EU.
 
 ----
 
-## What's in it
+## Your brand is an API
 
-The catalog, everything the brand is made of, once:
+Find the asset, ask whether it may run, get it at the size you need:
 
-- **Library.** Find it, use it, keep creating. Search in milliseconds at
-  100,000 assets, and get any size or format from one original as a URL,
-  `/a/{id}/w_1200,f_webp`: no export, no duplicate.
-- **Guidelines.** A living brand, not a lost PDF. Colors, type, logo rules and
-  don'ts are typed records with history, tied to the assets; guideline pages
-  and design tokens are drawn from them. Release the brand like software.
-- **Portals.** Share your brand, beautifully. A press kit, partner hub or
-  retailer portal on your own domain, plus share and upload links for people
-  without an account.
+```console
+$ npx artbucket search primary logo
+{id}  logo-primary.svg  #logo #primary
 
-The context layer, who may use what, where, right now:
+$ npx artbucket check {spring-hero} --channel paid-social --territory DE
+refused  Spring hero
+  x Replaced by Summer hero
+  x License expired after 2026-03-12
+  → Summer hero  https://assets.example.com/a/{summer-hero}  (Its replacement)
 
-- **Agents.** One MCP URL connects Claude, ChatGPT, Gemini, Figma, Lovable and
-  coding agents to the library your team uses, with the permission you choose:
-  Suggest, Read or Edit.
-- **Check use.** May it run here, now, in this channel and territory? Yes, or
-  why not and what to use instead.
-- **Access.** Grants down to one asset, so an agency sees its slice. Single
-  sign-on in every install, and viewers are never counted.
-- **Review.** Uploads, tags and agent suggestions wait for a person's yes.
-- **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP
-  written back into the file on download. Your files leave with their metadata.
-- **Brand as code.** The brand as YAML in a Git repository, changed on either
-  side and merged a rule at a time.
-- **Insights.** What gets used, by whom, on which release, counted without
-  cookies.
+$ npx artbucket url {id} --width 1200 --format webp
+https://assets.example.com/a/{id}/w_1200,f_webp
+```
 
-## To start using Artbucket
+Agents make the same calls over MCP (`search_assets`, `check_use`,
+`rendition_url`), and code over the [REST API] (`/api/v1`, with an OpenAPI
+spec). The web app is a client of that API, with zero private endpoints, so
+everything it does, you can script. See [May I use this?][check] and the [CLI].
 
-See the documentation at [docs.artbucket.io], or start free on
-[Artbucket Cloud].
+## Connect an AI agent
 
-To run it yourself you need Node 22+, pnpm and Docker:
+`/api/v1/mcp` is an MCP server. Give the URL to any agent: it opens a consent
+screen where you pick what it may do (Suggest, Read or Edit), and the agent
+gets a key bound to you, never more than you can do.
+
+```bash
+claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
+```
+
+That is [Artbucket Cloud]; on your own server, use its URL. Then ask: *"Give me
+the approved logo for a dark background."* The agent checks the use and gets
+the brand's dark-background variant, as a URL at the size it needs.
+
+The Claude Code plugin adds a skill that teaches the workflow (brand rules
+first, a use check before publishing, provenance on anything generated):
+`/plugin marketplace add pwnera/artbucket`, then
+`/plugin install artbucket@artbucket`. Other agents: `npx skills add pwnera/artbucket`.
+See [MCP].
+
+## Run it yourself
+
+The whole core is here, free to self-host on Postgres and an S3-compatible
+bucket. Nothing held back, nothing to unlock, no telemetry. You need Node 22+,
+pnpm and Docker:
 
 ```bash
 git clone https://github.com/pwnera/artbucket.git
@@ -87,32 +98,30 @@ storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pwnera/artbucket)
 
-### Connect your agents
+## What Artbucket manages
 
-`/api/v1/mcp` is an MCP server. Give the URL to any agent: it opens a consent
-screen, and the agent gets a key bound to you, never more than you can do.
-
-```bash
-claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
-```
-
-The Claude Code plugin adds a skill that teaches the workflow (brand rules
-first, a use check before publishing, provenance on anything generated):
-`/plugin marketplace add pwnera/artbucket`, then
-`/plugin install artbucket@artbucket`. Other agents: `npx skills add pwnera/artbucket`.
-See [MCP].
-
-### Use it from anywhere
-
-The web app is a client of the public API, with zero private endpoints, so
-everything it does, you can script: the [REST API] (`/api/v1`, with an OpenAPI
-spec), [MCP], the [CLI] (`npx artbucket`) and [brand as code].
-
-```bash
-npx artbucket search sintel poster
-npx artbucket url {id} --width 1200 --format webp
-npx artbucket check {id} --channel paid-social --territory DE
-```
+- **Assets: what exists.** The library: search in milliseconds at 100,000
+  assets, and any size or format from one original as a URL,
+  `/a/{id}/w_1200,f_webp`, with no export and no duplicate.
+- **Rules: how to use it.** Colors, type, logo rules and don'ts as typed
+  records with history, tied to the assets; guideline pages and design tokens
+  are drawn from them.
+- **Rights: where it may run.** License, channels, territories, embargo and
+  last day of use on each asset. Ask before it runs: yes, or why not and what
+  to use instead.
+- **Releases: what is current.** Release the brand like software, pin a
+  release, roll back. Portals and BrandHub show the release.
+- **Access: who may use it.** Grants down to one asset, so an agency sees its
+  slice. Single sign-on in every install, and viewers are never counted.
+- **Portals.** A press kit, partner hub or retailer portal on your own domain,
+  plus share and upload links for people without an account.
+- **Review.** Uploads, tags and agent suggestions wait for a person's yes.
+- **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP
+  written back into the file on download. Your files leave with their metadata.
+- **Brand as code.** The brand as YAML in a Git repository, changed on either
+  side and merged a rule at a time ([brand as code]).
+- **Insights.** What gets used, by whom, on which release, counted without
+  cookies.
 
 ## To start developing Artbucket
 
@@ -151,6 +160,7 @@ also licenses it commercially: [open an issue][GitHub issues] and ask. `ee/` is
 reserved for commercial code. See [decision 0013].
 
 [Artbucket Cloud]: https://artbucket.io
+[check]: https://docs.artbucket.io/guides/check
 [brand as code]: https://docs.artbucket.io/guides/brand-as-code
 [CLI]: https://docs.artbucket.io/developers/cli
 [CONTRIBUTING.md]: CONTRIBUTING.md
@@ -159,6 +169,7 @@ reserved for commercial code. See [decision 0013].
 [decision records]: docs/decisions/index.mdx
 [Docker Compose]: https://docs.artbucket.io/installation/docker-compose
 [Docker]: https://docs.artbucket.io/installation/docker
+[Docs]: https://docs.artbucket.io
 [docs.artbucket.io]: https://docs.artbucket.io
 [Fly]: https://docs.artbucket.io/installation/fly
 [GitHub issues]: https://github.com/pwnera/artbucket/issues
@@ -168,6 +179,7 @@ reserved for commercial code. See [decision 0013].
 [quick start]: https://docs.artbucket.io/quickstart
 [Render]: https://docs.artbucket.io/installation/render
 [REST API]: https://docs.artbucket.io/developers/api
+[Live demo]: https://artbucket.io/examples/blender
 [ROADMAP.md]: ROADMAP.md
 [SECURITY.md]: SECURITY.md
 [stability]: https://docs.artbucket.io/developers/stability
