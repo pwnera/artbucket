@@ -220,8 +220,9 @@ export function BrandsPage({
         onClose={() => setCreating(false)}
         onDone={(b) => {
           setCreating(false);
-          // A new brand starts from its setup, in the guidelines.
+          // A new brand starts from its setup, in the guidelines; the sidebar's list of brands gets it too.
           router.push(builderPath(b.slug));
+          router.refresh();
         }}
       />
     </>

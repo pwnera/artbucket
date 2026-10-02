@@ -1273,10 +1273,17 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
         return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
       }
       const args = t.input.safeParse(rest);
+      // An argument the tool doesn't take is a mistake, not a no-op: set_rules({ rules: [...] }) would answer
+      // that it changed nothing, and the model would carry on as if it had. Said with what the tool does take.
+      const takes = Object.keys(t.input.shape);
+      const stray = Object.keys(rest).filter((k) => !takes.includes(k));
       // One line per problem with its path, as core's own refusals read: ops[1].section.props.chanel: Unrecognized key.
-      if (!args.success) {
+      if (!args.success || stray.length) {
         called("error");
-        return result(id, toolResult({ error: issues(args.error).join("\n") }, true));
+        // A strict input names a stray key itself: said once, with what the tool takes.
+        const said = new Set(stray.map((k) => `${k}: Unrecognized key`));
+        const lines = [...stray.map((k) => `${k}: Unrecognized key; ${name} takes ${takes.join(", ")}`), ...(args.success ? [] : issues(args.error).filter((l) => !said.has(l)))];
+        return result(id, toolResult({ error: lines.join("\n") }, true));
       }
       // The brand context it works in (brand_rules, get_theme, preview_page); check_use records its own with the check.
       const context = (args.data as { context?: unknown }).context;
