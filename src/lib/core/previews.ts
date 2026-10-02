@@ -95,11 +95,16 @@ export async function backfillPreviews() {
       sql`${assets.mime} !~ ${RENDERABLE.source} and coalesce((${assets.probe} ->> 'previews')::int, 0) < ${VERSION}`,
     );
   for (const r of rows) {
+    // Marked looked at before it is: a file that takes the process down with it is not tried again on every boot.
+    const mark = (version: number) => sql`jsonb_set(coalesce(${assets.probe}, '{}'::jsonb), '{previews}', to_jsonb(${version}::int))`;
+    await db.update(assets).set({ probe: mark(VERSION) }).where(eq(assets.id, r.id));
     try {
       const probe = { ...r.probe, ...(await previewOf(await getObject(originalKey(r.sha256)), r.mime)) };
       const size = probe.width && probe.height ? { width: probe.width, height: probe.height } : {};
       await db.update(assets).set({ probe, ...size }).where(eq(assets.id, r.id));
     } catch (err) {
+      // Storage or the database failing is worth another look at the next boot.
+      await db.update(assets).set({ probe: mark(Number(r.probe?.previews ?? 0)) }).where(eq(assets.id, r.id)).catch(() => {});
       console.warn(`[artbucket] No preview for asset ${r.id}:`, err instanceof Error ? err.message : err);
     }
   }

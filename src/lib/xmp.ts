@@ -49,6 +49,9 @@ export function buildXmp(m: WriteBack): string {
   );
 }
 
+/** The formats embedXmp writes: every other one is served as stored, without being read first. */
+export const writesXmp = (mime: string) => mime === "image/jpeg" || mime === "image/png";
+
 /** Returns the file with `xmp` embedded, or null for a format we can't write. */
 export function embedXmp(bytes: Buffer, mime: string, xmp: string): Buffer | null {
   try {

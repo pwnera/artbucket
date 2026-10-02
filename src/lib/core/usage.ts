@@ -248,20 +248,37 @@ export async function checkOrganizations(userId: string) {
 
 /**
  * One more delivery from /a/{id}: a counter per workspace and day. Never
- * awaited by the response, never fails it.
+ * awaited by the response, never fails it. Added up in memory and written
+ * every few seconds: a library grid of 200 tiles is one write, not 200
+ * waiting on the same row.
  *
- * ponytail: one upsert per request. Batch in memory and flush every few
- * seconds if delivery traffic makes this row hot.
+ * ponytail: what a process holds when it dies (a few seconds' worth) is not counted.
  */
 export function countTraffic(workspaceId: string, bytes: number) {
-  void db
-    .insert(traffic)
-    .values({ workspaceId, day: sql`(now() at time zone 'utc')::date`, requests: 1, bytes })
-    .onConflictDoUpdate({
-      target: [traffic.workspaceId, traffic.day],
-      set: { requests: sql`${traffic.requests} + 1`, bytes: sql`${traffic.bytes} + excluded.bytes` },
-    })
-    .catch((err) => console.error("traffic not counted", err));
+  const key = `${workspaceId}|${new Date().toISOString().slice(0, 10)}`;
+  const c = unwritten.get(key) ?? { requests: 0, bytes: 0 };
+  unwritten.set(key, { requests: c.requests + 1, bytes: c.bytes + bytes });
+  flushing ??= setTimeout(writeTraffic, 5_000);
+}
+
+const unwritten = new Map<string, { requests: number; bytes: number }>();
+let flushing: ReturnType<typeof setTimeout> | undefined;
+
+async function writeTraffic() {
+  const batch = [...unwritten];
+  unwritten.clear();
+  flushing = undefined;
+  for (const [key, c] of batch) {
+    const [workspaceId, day] = key.split("|");
+    await db
+      .insert(traffic)
+      .values({ workspaceId, day, ...c })
+      .onConflictDoUpdate({
+        target: [traffic.workspaceId, traffic.day],
+        set: { requests: sql`${traffic.requests} + excluded.requests`, bytes: sql`${traffic.bytes} + excluded.bytes` },
+      })
+      .catch((err) => console.error("traffic not counted", err));
+  }
 }
 
 /**
