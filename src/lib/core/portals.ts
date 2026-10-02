@@ -34,7 +34,7 @@ import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit, limitsOf } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
-import { can } from "@/lib/permissions";
+import { type Action, can } from "@/lib/permissions";
 import { brandLook, challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, wornTheme, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
@@ -479,22 +479,31 @@ async function madeWith(p: Row) {
 const isMember = (p: Row, headers: Headers | undefined) => readsWorkspace(p.workspaceId, headers);
 
 /**
- * Who is signed in, and a check of the workspaces they may read: a portal's
- * members, BrandHub's private brands. Null when nobody is.
+ * Who is signed in, and a check of what they may do in a workspace: read it
+ * (a portal's members, BrandHub's private brands), or edit its brands (the
+ * floating Edit on BrandHub and portals; never in a read-only organization).
+ * Null when nobody is.
  */
 export async function reader(headers: Headers | undefined) {
   if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
   if (!session) return null;
   const mine = await db.select().from(grants).where(eq(grants.userId, session.user.id));
-  const reads = async (workspaceId: string) => {
+  const may = async (workspaceId: string, action: Action) => {
     const ws = await workspaceById(workspaceId);
     if (!ws) return false;
+    if (action !== "library.read" && (await limitsOf(ws.organizationId)).readOnly) return false;
     const access = accessIn(mine, ws, await hiddenIn(ws.id));
     const orgScope = highest(...mine.filter((g) => g.resource === "organization" && g.resourceId === ws.organizationId).map((g) => g.scope));
-    return can({ ...access, orgScope }, "library.read");
+    return can({ ...access, orgScope }, action);
   };
-  return { user: session.user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads };
+  return { user: session.user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads: (ws: string) => may(ws, "library.read"), may };
+}
+
+/** The workspace of the portal `slug` names, when whoever is signed in may edit its brands; else null. */
+export async function portalEditor(slug: string, headers: Headers) {
+  const p = (await portalNamed(slug))?.p;
+  return p && (await (await reader(headers))?.may(p.workspaceId, "brand.edit")) ? p.workspaceId : null;
 }
 
 async function readsWorkspace(workspaceId: string, headers: Headers | undefined) {

@@ -5,6 +5,7 @@ import { cache } from "react";
 import type { PortalBody } from "@/components/portal-assets";
 import { type Loaded, PortalView, type SiteBody } from "@/components/portal-view";
 import { PRODUCT } from "@/lib/branding";
+import { portalEditor } from "@/lib/core/portals";
 import { env } from "@/lib/env";
 import { plainText } from "@/lib/markdown";
 import { getBody, iconOf } from "@/lib/sidebar";
@@ -130,7 +131,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
  * same paths start at the root.
  */
 export default async function PortalPage(props: Props) {
-  const { slug, where, sp, own, base, got } = await asked(props);
+  const [{ slug, where, sp, own, base, got }, h] = await Promise.all([asked(props), headers()]);
   const { site, assets, collection } = got;
   const context = one(sp.context);
   const lang = one(sp.lang);
@@ -139,5 +140,7 @@ export default async function PortalPage(props: Props) {
     : site
       ? { site, query: context || lang ? `?${new URLSearchParams({ ...(context && { context }), ...(lang && { lang }) })}` : "" }
       : null;
-  return <PortalView slug={slug} base={base} path={where} initial={initial} ownDomain={own} />;
+  // On the app's host, where the session reaches: someone who may edit its brands gets the floating Edit.
+  const workspace = own ? null : await portalEditor(slug, h);
+  return <PortalView slug={slug} base={base} path={where} initial={initial} ownDomain={own} editor={workspace ? { workspace, app: env.APP_URL } : null} />;
 }

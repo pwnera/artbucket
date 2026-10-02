@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
+import { FloatingEdit } from "@/components/floating-edit";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
 import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { followed, hubBase, hubBrand, hubViewer } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
 import { ago, hubPath, parseRef } from "@/lib/hub";
+import { builderPath } from "@/lib/site";
 
 type Props = { params: Promise<{ org: string; brand: string }> };
 
@@ -51,6 +53,9 @@ export default async function HubListing(props: Props) {
   const { colors, fonts, logos, words } = cardParts(b);
   const type = faces(b, fonts);
   const here = base + hubPath(b.org, b.brand, pinned ? b.version : null);
+
+  // Someone signed in who may edit it (where the session reaches): the floating Edit, into the builder in its workspace.
+  const edit = !!viewer && (await viewer.may(b.workspaceId, "brand.edit"));
 
   // It names a domain its organization never proved: whoever proves it is offered the listing (lib/core/hub-claims.ts).
   const claimable = open && !b.verified && !!b.domain;
@@ -274,6 +279,7 @@ export default async function HubListing(props: Props) {
           )}
         </aside>
       </div>
+      {edit && <FloatingEdit always label="Edit this brand" href={env.APP_URL + builderPath(b.brand, { workspace: b.workspaceId })} />}
     </>
   );
 }

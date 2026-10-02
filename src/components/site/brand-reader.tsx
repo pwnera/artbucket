@@ -5,9 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandHeader, type BrandHeaderProps } from "@/components/brand-header";
 import { BrandTabMenu } from "@/components/brand-tabs";
-import { IconArrowUp, IconPalette, IconPencil } from "@tabler/icons-react";
 import { Can } from "@/components/can";
-import { IconButton } from "@/components/icon-button";
+import { FloatingEdit } from "@/components/floating-edit";
 import { AppHeader } from "@/components/page";
 import { useSqueeze } from "@/components/shell";
 import { SiteView } from "@/components/site/site-view";
@@ -17,11 +16,9 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Status } from "@/components/builder/use-status";
-import { behavior } from "@/lib/motion";
 import { liveLine } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { brandPath, builderPath, guidelinesPath, type PageView } from "@/lib/site";
-import { cn } from "@/lib/utils";
 
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
@@ -171,7 +168,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
     <>
       <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
       <Can do="brand.edit">
-        <FloatingEdit edit={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} />
+        <FloatingEdit href={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} />
         {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
         <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
       </Can>
@@ -207,42 +204,5 @@ function Showing({ view, status, onPick }: { view: PageView; status: BrandReader
     <Badge variant="outline" title={text} className="min-w-0 shrink!">
       <span className="truncate">{text}</span>
     </Badge>
-  );
-}
-
-/**
- * For an editor, once the header's Edit has scrolled out of reach: Edit this
- * page (the builder, at the page and context being read), the theme, and
- * back to the top, floating at the bottom of the window. Never in print.
- */
-function FloatingEdit({ edit, onTheme }: { edit: string; onTheme: () => void }) {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const on = () => setShown(window.scrollY > 240);
-    on();
-    window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
-  }, []);
-  return (
-    <div
-      inert={!shown}
-      data-chrome
-      className={cn(
-        "bg-popover text-popover-foreground fixed end-6 bottom-6 z-30 flex items-center gap-1 rounded-full border p-1 shadow-lg transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none print:hidden",
-        shown ? "opacity-100" : "pointer-events-none translate-y-2 opacity-0",
-      )}
-    >
-      <Button asChild size="sm" className="rounded-full">
-        <Link href={edit}>
-          <IconPencil aria-hidden /> Edit this page
-        </Link>
-      </Button>
-      <IconButton label="Theme" variant="ghost" className="rounded-full" onClick={onTheme}>
-        <IconPalette aria-hidden />
-      </IconButton>
-      <IconButton label="Back to the top" variant="ghost" className="rounded-full" onClick={() => window.scrollTo({ top: 0, behavior: behavior() })}>
-        <IconArrowUp aria-hidden />
-      </IconButton>
-    </div>
   );
 }
