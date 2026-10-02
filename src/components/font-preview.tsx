@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   IconCheck,
   IconChevronRight,
   IconDownload,
   IconItalic,
-  IconLoader2,
   IconPlus,
   IconSearch,
   IconTypography,
@@ -370,7 +370,7 @@ export function GoogleFontImport({
                       disabled={importing !== null || imported.has(f.family)}
                       onClick={() => add(f.family)}
                     >
-                      {importing === f.family ? <IconLoader2 className="animate-spin" /> : imported.has(f.family) ? <IconCheck /> : null}
+                      {importing === f.family ? <Spinner /> : imported.has(f.family) ? <IconCheck /> : null}
                       {imported.has(f.family) ? "Imported" : "Import"}
                     </Button>
                   </li>
@@ -419,7 +419,7 @@ export function ImportFamily({ family, onImported }: { family: string; onImporte
           }
         }}
       >
-        {busy ? <IconLoader2 className="animate-spin" /> : <IconTypography />} Import from Google Fonts
+        {busy ? <Spinner /> : <IconTypography />} Import from Google Fonts
       </Button>
       <span>or add its files with Assets.</span>
     </div>

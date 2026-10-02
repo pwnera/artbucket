@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconLoader2, IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { LocalDate, PublicGrid, type PublicItem } from "@/components/public-grid";
 import { Thumb } from "@/components/thumb";
@@ -185,7 +186,7 @@ export function PortalAssets({
       >
         <div className="relative max-w-2xl">
           <span className="text-(--brand-muted) pointer-events-none absolute start-4 top-1/2 -translate-y-1/2">
-            {pending ? <IconLoader2 className="size-5 animate-spin" /> : <IconSearch className="size-5" />}
+            {pending ? <Spinner className="size-5" /> : <IconSearch className="size-5" />}
           </span>
           <Input
             ref={search}

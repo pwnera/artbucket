@@ -3,7 +3,8 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState } from "react";
-import { IconCopy, IconDots, IconLayoutList, IconLoader2, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDots, IconLayoutList, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
 import { send } from "@/components/collections";
@@ -61,7 +62,7 @@ export function BrandTile({ name }: { name: string }) {
   return (
     <span className="bg-muted text-muted-foreground in-data-[active=true]:bg-primary in-data-[active=true]:text-primary-foreground relative flex size-4 shrink-0 items-center justify-center rounded text-2xs font-semibold uppercase transition-colors">
       <span className={cn("transition-opacity", pending && "opacity-0")}>{name[0]}</span>
-      <IconLoader2 aria-hidden className={cn("absolute size-3 opacity-0 transition-opacity", pending && "animate-spin opacity-100")} />
+      <Spinner aria-hidden className={cn("absolute size-3 opacity-0 transition-opacity", pending && "opacity-100")} />
     </span>
   );
 }

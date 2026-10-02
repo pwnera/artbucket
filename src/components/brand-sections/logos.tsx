@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconDownload, IconLoader2 } from "@tabler/icons-react";
+import { IconDownload } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { AssetTile, LogoTile, pictured } from "@/components/brand-sections/parts";
@@ -319,7 +320,7 @@ function Kit({ files, name }: { files: KitFile[]; name: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <Button variant="outline" size="sm" onClick={download} disabled={busy} aria-busy={busy}>
-        {busy ? <IconLoader2 className="motion-safe:animate-spin" /> : <IconDownload />} Download the kit
+        {busy ? <Spinner /> : <IconDownload />} Download the kit
       </Button>
       <span className="text-muted-foreground text-sm">
         {files.length} {files.length === 1 ? "file" : "files"}, {formatBytes(size)}
