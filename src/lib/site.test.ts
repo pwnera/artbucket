@@ -8,6 +8,7 @@ import {
   firstBinding,
   groupTabs,
   legacyAnchor,
+  linkKind,
   type NavPage,
   neighbors,
   order,
@@ -294,4 +295,12 @@ test("scriptOf and dirOf: the script a language is written in, and which way it 
     "Latn",
   ]);
   assert.deepEqual(["ar", "he", "yi", "dv", "ckb", "en", "ar-latn", "ja", "not a tag"].map(dirOf), ["rtl", "rtl", "rtl", "rtl", "rtl", "ltr", "ltr", "ltr", "ltr"]);
+});
+
+test("a theme link wears its host's icon, a subdomain's too, never a look-alike's", () => {
+  assert.equal(linkKind("https://github.com/acme/brand"), "github");
+  assert.equal(linkKind("https://www.figma.com/design/abc"), "figma");
+  assert.equal(linkKind("https://evilgithub.com/x"), "web");
+  assert.equal(linkKind("https://github.com.evil.example/x"), "web");
+  assert.equal(linkKind("not a url"), "web");
 });

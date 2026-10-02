@@ -19092,6 +19092,32 @@
                                     ],
                                     "additionalProperties": false
                                   }
+                                },
+                                "links": {
+                                  "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 40
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "format": "uri",
+                                        "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "url"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 }
                               },
                               "additionalProperties": false
@@ -24275,6 +24301,32 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "links": {
+                              "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri",
+                                    "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "additionalProperties": false,
@@ -25205,6 +25257,39 @@
                       }
                     ]
                   },
+                  "links": {
+                    "anyOf": [
+                      {
+                        "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                        "maxItems": 8,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri",
+                              "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "look": {
                     "description": "A look sets the layout at once (documentation: dense, quiet, easy to scan; editorial: a book: airy, numbered, big titles; swiss: grid, hairlines, no corners, headlines; bold: every chapter opens on the brand color; cinematic: pictures first, dark, wide, airy; playful: round, warm, alternating grounds); keys named beside it win",
                     "type": "string",
@@ -25515,6 +25600,32 @@
                                 "required": [
                                   "code",
                                   "label"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "links": {
+                              "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri",
+                                    "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "url"
                                 ],
                                 "additionalProperties": false
                               }
@@ -26886,6 +26997,32 @@
                                     "required": [
                                       "code",
                                       "label"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "links": {
+                                  "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 40
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "format": "uri",
+                                        "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "url"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -32528,6 +32665,32 @@
                                         "required": [
                                           "code",
                                           "label"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "links": {
+                                      "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 40
+                                          },
+                                          "url": {
+                                            "type": "string",
+                                            "maxLength": 2000,
+                                            "format": "uri",
+                                            "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "url"
                                         ],
                                         "additionalProperties": false
                                       }
@@ -39134,6 +39297,32 @@
                                         ],
                                         "additionalProperties": false
                                       }
+                                    },
+                                    "links": {
+                                      "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 40
+                                          },
+                                          "url": {
+                                            "type": "string",
+                                            "maxLength": 2000,
+                                            "format": "uri",
+                                            "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "url"
+                                        ],
+                                        "additionalProperties": false
+                                      }
                                     }
                                   },
                                   "additionalProperties": false
@@ -44782,6 +44971,32 @@
                                         ],
                                         "additionalProperties": false
                                       }
+                                    },
+                                    "links": {
+                                      "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 40
+                                          },
+                                          "url": {
+                                            "type": "string",
+                                            "maxLength": 2000,
+                                            "format": "uri",
+                                            "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "url"
+                                        ],
+                                        "additionalProperties": false
+                                      }
                                     }
                                   },
                                   "additionalProperties": false
@@ -46646,6 +46861,32 @@
                                             "required": [
                                               "code",
                                               "label"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "links": {
+                                          "description": "Links beside search and print on the brand's pages: its repository, its Figma library, its site",
+                                          "maxItems": 8,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "label": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "url": {
+                                                "type": "string",
+                                                "maxLength": 2000,
+                                                "format": "uri",
+                                                "description": "http or https; a link to GitHub, Figma, npm and the like shows its icon"
+                                              }
+                                            },
+                                            "required": [
+                                              "label",
+                                              "url"
                                             ],
                                             "additionalProperties": false
                                           }
