@@ -33,11 +33,14 @@ type Op = {
   query?: Record<string, { schema: object; description: string }>;
   ok: [status: number, description: string, schema?: z.ZodType];
   extra?: Record<string, object>;
+  /** Kept working, but on its way out: the description says what replaces it (docs/developers/stability.mdx). */
+  deprecated?: true;
 };
 
-function op({ summary, scope, description, body, query, ok: [status, desc, res], extra }: Op) {
+function op({ summary, scope, description, body, query, ok: [status, desc, res], extra, deprecated }: Op) {
   return {
     summary,
+    ...(deprecated && { deprecated }),
     description: [
       description,
       scope === "public" ? "No key needed." : scope === "any" ? "Any caller; the scope needed is checked on what it acts on." : `Scope: \`${scope}\`.`,
@@ -1525,15 +1528,44 @@ export function openapi(serverUrl: string) {
           ok: [202, "Received", data(z.object({ received: z.literal(true), proof: z.string().describe("What the claim names you as holding") }))],
         }),
       },
+      "/api/v1/hub/{org}/{brand}/star": {
+        parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
+        put: op({
+          summary: "Star a BrandHub listing",
+          scope: "any",
+          description: "A person, signed in: the public listing shows in their Starred tab on BrandHub, and counts on its Star button. Starring one already starred changes nothing.",
+          ok: [200, "Starred", data(z.object({ starred: z.literal(true) }))],
+        }),
+        delete: op({ summary: "Unstar a BrandHub listing", scope: "any", description: "A person, signed in.", ok: [200, "Not starred", data(z.object({ starred: z.literal(false) }))] }),
+      },
       "/api/v1/hub/{org}/{brand}/follow": {
         parameters: [path("org", "The listing's organization"), path("brand", "The listing's brand")],
         put: op({
           summary: "Follow a BrandHub listing",
           scope: "any",
-          description: "A person, signed in: the public listing shows in their Following tab on BrandHub. Following one already followed changes nothing.",
+          deprecated: true,
+          description: "Deprecated: use PUT /api/v1/hub/{org}/{brand}/star, which this does. A person, signed in.",
           ok: [200, "Following", data(z.object({ following: z.literal(true) }))],
         }),
-        delete: op({ summary: "Stop following a BrandHub listing", scope: "any", description: "A person, signed in.", ok: [200, "Not following", data(z.object({ following: z.literal(false) }))] }),
+        delete: op({
+          summary: "Stop following a BrandHub listing",
+          scope: "any",
+          deprecated: true,
+          description: "Deprecated: use DELETE /api/v1/hub/{org}/{brand}/star, which this does. A person, signed in.",
+          ok: [200, "Not following", data(z.object({ following: z.literal(false) }))],
+        }),
+      },
+      "/api/v1/hub/{org}/follow": {
+        parameters: [path("org", "The organization, as its BrandHub address names it")],
+        put: op({
+          summary: "Follow a BrandHub organization",
+          scope: "any",
+          description:
+            "A person, signed in, and an organization with something public on BrandHub: its brands, out now and to come, show in " +
+            "their Following tab. Following one already followed changes nothing.",
+          ok: [200, "Following", data(z.object({ following: z.literal(true) }))],
+        }),
+        delete: op({ summary: "Stop following a BrandHub organization", scope: "any", description: "A person, signed in.", ok: [200, "Not following", data(z.object({ following: z.literal(false) }))] }),
       },
       "/api/v1/hub/reports": {
         get: op({

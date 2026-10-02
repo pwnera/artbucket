@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, domains, hubCollections, hubFollows, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import { assets, brands, brandVersions, domains, hubCollections, hubOrgFollows, hubStars, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { ingestBytes } from "@/lib/core/assets";
 import { createBrand } from "@/lib/core/brand";
@@ -143,7 +143,7 @@ async function cards(rows: Row[]) {
     }));
     const logo = logoOf(rules);
     return {
-      /** The brand's id: for the viewer's own Following, never listed (index.json leaves it out). */
+      /** The brand's id: for the viewer's own Starred, never listed (index.json leaves it out). */
       id: r.id,
       org: r.org,
       owner: r.owner,
@@ -209,22 +209,57 @@ export async function hubListings({
   return out;
 }
 
-/** The brands someone follows on BrandHub, by id. */
-export async function followed(userId: string) {
-  const rows = await db.select({ id: hubFollows.brandId }).from(hubFollows).where(eq(hubFollows.userId, userId));
+/** The brands someone starred on BrandHub, by id. */
+export async function starred(userId: string) {
+  const rows = await db.select({ id: hubStars.brandId }).from(hubStars).where(eq(hubStars.userId, userId));
   return new Set(rows.map((r) => r.id));
 }
 
 /**
- * Follow a public listing, or stop (PUT and DELETE
- * /api/v1/hub/{org}/{brand}/follow): a person, signed in. Following puts it
- * in their Following tab on the hub.
+ * Star a public listing, or stop (PUT and DELETE
+ * /api/v1/hub/{org}/{brand}/star): a person, signed in. Starring puts it in
+ * their Starred tab on the hub, and counts on its Star button.
  */
-export async function follow(caller: Caller, org: string, slug: string, on: boolean) {
-  if (!caller.user) throw new AssetError("forbidden", "A person follows a brand, signed in: not a key");
+export async function star(caller: Caller, org: string, slug: string, on: boolean) {
+  if (!caller.user) throw new AssetError("forbidden", "A person stars a brand, signed in: not a key");
   const b = await publicListing(org, slug);
-  if (on) await db.insert(hubFollows).values({ userId: caller.user.id, brandId: b.id }).onConflictDoNothing();
-  else await db.delete(hubFollows).where(and(eq(hubFollows.userId, caller.user.id), eq(hubFollows.brandId, b.id)));
+  if (on) await db.insert(hubStars).values({ userId: caller.user.id, brandId: b.id }).onConflictDoNothing();
+  else await db.delete(hubStars).where(and(eq(hubStars.userId, caller.user.id), eq(hubStars.brandId, b.id)));
+  return { starred: on };
+}
+
+/** The organizations someone follows on BrandHub, by slug: their brands fill the Following tab. */
+export async function followedOrgs(userId: string) {
+  const rows = await db
+    .select({ slug: organizations.slug })
+    .from(hubOrgFollows)
+    .innerJoin(organizations, eq(organizations.id, hubOrgFollows.organizationId))
+    .where(eq(hubOrgFollows.userId, userId));
+  return new Set(rows.map((r) => r.slug));
+}
+
+/**
+ * Follow an organization on BrandHub, or stop (PUT and DELETE
+ * /api/v1/hub/{org}/follow): a person, signed in, and an organization that
+ * lists something public. Its brands, those out now and those to come, show
+ * in their Following tab.
+ */
+export async function followOrg(caller: Caller, org: string, on: boolean) {
+  if (!caller.user) throw new AssetError("forbidden", "A person follows an organization, signed in: not a key");
+  const [o] = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(
+      and(
+        eq(organizations.slug, org),
+        sql`exists (select 1 from ${brands} b join ${workspaces} w on w.id = b.workspace_id
+          where w.organization_id = ${organizations.id} and b.visibility = 'public' and b.hub_delisted is null
+          and exists (select 1 from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null))`,
+      ),
+    );
+  if (!o) throw new AssetError("not_found", `Nothing public is listed by ${org}`);
+  if (on) await db.insert(hubOrgFollows).values({ userId: caller.user.id, organizationId: o.id }).onConflictDoNothing();
+  else await db.delete(hubOrgFollows).where(and(eq(hubOrgFollows.userId, caller.user.id), eq(hubOrgFollows.organizationId, o.id)));
   return { following: on };
 }
 
@@ -242,11 +277,15 @@ export async function hubCollectionsOf(shown: HubCard[]) {
     .filter((c) => c.cards.length);
 }
 
-/** An organization, as its hub page names it, when it lists anything. */
+/** An organization, as its hub page names it, when it lists anything, and how many follow it. */
 export async function hubOwner(org: string) {
   const [o] = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.slug, org));
   if (!o) return null;
-  return { slug: o.slug, name: o.name, verified: (await proofsOf([o.id])).get(o.id) ?? null };
+  const [proofs, [follows]] = await Promise.all([
+    proofsOf([o.id]),
+    db.select({ n: sql<number>`count(*)::int` }).from(hubOrgFollows).where(eq(hubOrgFollows.organizationId, o.id)),
+  ]);
+  return { slug: o.slug, name: o.name, verified: proofs.get(o.id) ?? null, followers: follows?.n ?? 0 };
 }
 
 /**
@@ -272,7 +311,7 @@ export async function hubBrand(
   });
   if (!view?.version) return null;
   const door = await guidelinesPortal(row);
-  const [[card], versions, home, [site], [follows]] = await Promise.all([
+  const [[card], versions, home, [site], [stars]] = await Promise.all([
     cards([row]),
     db
       .select({ number: brandVersions.number, name: brandVersions.name, publishedAt: brandVersions.publishedAt })
@@ -281,7 +320,7 @@ export async function hubBrand(
       .orderBy(desc(brandVersions.number)),
     door && portalHome(door.slug),
     door ? db.select({ terms: sql<string | null>`${portals.site} ->> 'terms'` }).from(portals).where(eq(portals.id, door.id)) : [],
-    db.select({ n: sql<number>`count(*)::int` }).from(hubFollows).where(eq(hubFollows.brandId, row.id)),
+    db.select({ n: sql<number>`count(*)::int` }).from(hubStars).where(eq(hubStars.brandId, row.id)),
   ]);
   // A picture shown, not handed out, is a rendition: its original isn't for taking (lib/rights.ts isDownloadable).
   const fileUrl = (a: { id: string; rendition: string | null; kept?: true; preview: boolean }) => {
@@ -308,8 +347,8 @@ export async function hubBrand(
     publishedAt: view.version.publishedAt,
     latest: row.version,
     versions: versions.map((v) => ({ number: v.number, name: v.name, publishedAt: v.publishedAt! })),
-    /** How many people follow it on the hub: the Follow button's count. */
-    followers: follows?.n ?? 0,
+    /** How many people starred it on the hub: the Star button's count. */
+    stars: stars?.n ?? 0,
     url: hubHome(row.visibility, env.APP_URL, env.HUB_URL!) + path,
     guidelines: home?.url ?? null,
     terms: site?.terms ?? null,

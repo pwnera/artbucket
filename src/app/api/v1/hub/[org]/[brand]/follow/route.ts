@@ -1,10 +1,25 @@
 import { ok, route } from "@/lib/api";
-import { follow } from "@/lib/core/hub";
+import { star } from "@/lib/core/hub";
 
 type P = { org: string; brand: string };
 
-/** PUT /api/v1/hub/{org}/{brand}/follow - follow a public listing: it shows in your Following tab on BrandHub. */
-export const PUT = route<P>(null, async (_req, { org, brand }, caller) => ok({ data: await follow(caller, org, brand, true) }));
+/**
+ * Deprecated: following a brand is starring it now (../star). Kept, as
+ * docs/developers/stability.mdx says, answering as it always did.
+ */
+const deprecated = (req: Request) => ({
+  Deprecation: "true",
+  Link: `<${new URL(req.url).pathname.replace(/\/follow$/, "/star")}>; rel="successor-version"`,
+});
 
-/** DELETE /api/v1/hub/{org}/{brand}/follow - stop following it. */
-export const DELETE = route<P>(null, async (_req, { org, brand }, caller) => ok({ data: await follow(caller, org, brand, false) }));
+/** PUT /api/v1/hub/{org}/{brand}/follow - deprecated: PUT .../star. */
+export const PUT = route<P>(null, async (req, { org, brand }, caller) => {
+  await star(caller, org, brand, true);
+  return ok({ data: { following: true } }, { headers: deprecated(req) });
+});
+
+/** DELETE /api/v1/hub/{org}/{brand}/follow - deprecated: DELETE .../star. */
+export const DELETE = route<P>(null, async (req, { org, brand }, caller) => {
+  await star(caller, org, brand, false);
+  return ok({ data: { following: false } }, { headers: deprecated(req) });
+});

@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Avatar, Cards, Dots, Owner, TabNav } from "@/components/hub";
-import { hubBase, hubListings, hubOwner, hubViewer } from "@/lib/core/hub";
+import { HubToggle } from "@/components/hub-client";
+import { followedOrgs, hubBase, hubListings, hubOwner, hubViewer } from "@/lib/core/hub";
+import { env } from "@/lib/env";
 
 type Props = { params: Promise<{ org: string }> };
 
 async function load(org: string) {
-  const [owner, cards] = await Promise.all([hubOwner(org), hubListings({ org, sort: "name", limit: 200, viewer: await hubViewer() })]);
+  const viewer = await hubViewer();
+  const [owner, cards] = await Promise.all([hubOwner(org), hubListings({ org, sort: "name", limit: 200, viewer })]);
   // An organization that lists nothing isn't on the hub: its name tells nobody anything.
-  return owner && cards.length ? { owner, cards } : null;
+  return owner && cards.length ? { owner, cards, viewer } : null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,8 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function HubOwner({ params }: Props) {
   const got = await load((await params).org);
   if (!got) notFound();
-  const { owner, cards } = got;
-  const base = await hubBase();
+  const { owner, cards, viewer } = got;
+  const [base, mine] = await Promise.all([hubBase(), viewer ? followedOrgs(viewer.user.id) : null]);
+  // Followed for what it shows anyone: an organization whose brands are all private has nobody outside to follow it.
+  const open = cards.some((c) => c.visibility === "public");
   const [first] = cards;
   const colors = [...new Set(cards.flatMap((c) => c.swatches))].slice(0, 8);
   return (
@@ -37,6 +42,17 @@ export default async function HubOwner({ params }: Props) {
           <h1 className="font-display text-2xl font-semibold tracking-tight">{owner.name}</h1>
           <p className="text-muted-foreground text-lg">{owner.slug}</p>
         </div>
+        {open && (
+          <HubToggle
+            kind="follow"
+            variant="outline"
+            className="w-full"
+            api={`/api/v1/hub/${encodeURIComponent(owner.slug)}/follow`}
+            on={!!mine?.has(owner.slug)}
+            count={owner.followers}
+            signIn={mine ? undefined : `${env.APP_URL}/login?next=${encodeURIComponent(`/hub/${owner.slug}`)}`}
+          />
+        )}
         <Owner verified={owner.verified} className="text-sm" />
         <dl className="text-muted-foreground grid gap-2 border-t pt-4 text-sm">
           <div className="flex justify-between">

@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@tabler/icons-react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
+import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -269,11 +270,41 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
   );
 }
 
-/** Follow a listing, or stop: it shows in the Following tab of the hub's front page. */
-export function FollowButton({ org, brand, following, count }: { org: string; brand: string; following: boolean; count?: number }) {
+const TOGGLES = {
+  star: { off: "Star", on: "Starred", got: "starred", Off: IconStar, On: IconStarFilled, turn: "text-warning spin-in-[-72deg]" },
+  follow: { off: "Follow", on: "Following", got: "following", Off: IconUserPlus, On: IconUserCheck, turn: "text-primary-ink" },
+} as const;
+
+/**
+ * Star a listing, or follow an organization, or stop: they show in the
+ * Starred and Following tabs of the hub's front page. `api` is the route
+ * (.../star, .../follow); with `signIn`, nobody is signed in where the
+ * session reaches, so it leads there instead.
+ */
+export function HubToggle({
+  kind,
+  api,
+  on: initial,
+  count,
+  signIn,
+  variant = "ghost",
+  className,
+  compact,
+}: {
+  kind: keyof typeof TOGGLES;
+  api: string;
+  on: boolean;
+  count?: number;
+  signIn?: string;
+  variant?: "ghost" | "outline";
+  className?: string;
+  /** Its icon and count only, its name in a tooltip: for a crowded header. */
+  compact?: boolean;
+}) {
+  const t = TOGGLES[kind];
   const router = useRouter();
-  const [on, setOn] = useState(following);
-  // The count moves with the star, before the server answers; the refresh brings the true one.
+  const [on, setOn] = useState(initial);
+  // The count moves with the button, before the server answers; the refresh brings the true one.
   const [n, setN] = useState(count ?? 0);
   const [seen, setSeen] = useState(count);
   if (count !== seen) {
@@ -281,32 +312,48 @@ export function FollowButton({ org, brand, following, count }: { org: string; br
     setN(count ?? 0);
   }
   const busy = useRef(false);
+  const shown = count !== undefined && n > 0 && (
+    <span key={n} className="text-muted-foreground animate-in fade-in-0 tabular-nums duration-150">
+      {!compact && "· "}
+      {n.toLocaleString("en")}
+    </span>
+  );
+  // Compact, the name moves to a tooltip and the label (the count with it, for screen readers).
+  const Btn = compact ? IconButton : Button;
+  const named = compact ? { label: `${t.off}${count ? `, ${n.toLocaleString("en")}` : ""}` } : {};
+  const word = (w: string) => !compact && <> {w}</>;
+  if (signIn)
+    return (
+      <Btn asChild variant={variant} size="sm" className={className} {...(named as { label: string })}>
+        <a href={signIn}>
+          <t.Off aria-hidden />
+          {word(t.off)}
+          {shown}
+        </a>
+      </Btn>
+    );
   const toggle = async () => {
     if (busy.current) return;
     busy.current = true;
     const next = !on;
     setOn(next);
     setN((x) => Math.max(0, x + (next ? 1 : -1)));
-    const got = await send(next ? "PUT" : "DELETE", `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}/follow`);
+    const got = await send(next ? "PUT" : "DELETE", api);
     busy.current = false;
     if (!got) {
       setOn(!next);
       setN((x) => Math.max(0, x + (next ? -1 : 1)));
       return;
     }
-    setOn(got.following);
+    setOn(got[t.got]);
     router.refresh();
   };
   return (
-    <Button variant="ghost" size="sm" onClick={toggle} aria-pressed={on}>
-      {on ? <IconStarFilled key="on" aria-hidden className="text-warning animate-in zoom-in-50 spin-in-[-72deg] duration-300" /> : <IconStar key="off" aria-hidden />}{" "}
-      {on ? "Following" : "Follow"}
-      {count !== undefined && n > 0 && (
-        <span key={n} className="text-muted-foreground animate-in fade-in-0 tabular-nums duration-150">
-          · {n.toLocaleString("en")}
-        </span>
-      )}
-    </Button>
+    <Btn variant={variant} size="sm" className={className} onClick={toggle} aria-pressed={on} {...(named as { label: string })}>
+      {on ? <t.On key="on" aria-hidden className={cn("animate-in zoom-in-50 duration-300", t.turn)} /> : <t.Off key="off" aria-hidden />}
+      {word(on ? t.on : t.off)}
+      {shown}
+    </Btn>
   );
 }
 
@@ -334,9 +381,9 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <IconGitFork aria-hidden /> Start from this brand
-        </Button>
+        <IconButton variant="ghost" label="Start from this brand">
+          <IconGitFork aria-hidden />
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="grid gap-4">
