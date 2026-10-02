@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconStar, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
 import { FloatingEdit } from "@/components/floating-edit";
 import { Avatar, Owner, Preview, Pulls, TabNav } from "@/components/hub";
-import { FollowButton, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
+import { HubToggle, ListingTrust, StartFrom, UseBrand } from "@/components/hub-client";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/external-link";
-import { followed, hubBase, hubBrand, hubViewer } from "@/lib/core/hub";
+import { IconButton } from "@/components/icon-button";
+import { hubBase, hubBrand, hubViewer, starred } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
 import { ago, hubPath, parseRef } from "@/lib/hub";
@@ -46,7 +47,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function HubListing(props: Props) {
   const [b, viewer] = await Promise.all([load(props), hubViewer()]);
   if (!b) notFound();
-  const [base, mine] = await Promise.all([hubBase(), viewer ? followed(viewer.user.id) : null]);
+  const [base, mine] = await Promise.all([hubBase(), viewer ? starred(viewer.user.id) : null]);
   const open = b.visibility === "public";
   const signIn = `${env.APP_URL}/login?next=${encodeURIComponent(`/hub${hubPath(b.org, b.brand)}`)}`;
   const pinned = b.version !== b.latest;
@@ -109,23 +110,23 @@ export default async function HubListing(props: Props) {
             {pinned && <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium">Pinned to release @{b.version}</span>}
             <div className="ms-auto flex flex-wrap items-center gap-1">
               {b.guidelines && (
-                <Button asChild variant="ghost" size="sm">
-                  <ExternalLink href={b.guidelines}>
-                    <IconBook aria-hidden /> Guidelines
-                  </ExternalLink>
-                </Button>
+                // A bare anchor: ExternalLink's arrow crowds an icon on its own; the label says where it opens.
+                <IconButton asChild variant="ghost" label="Guidelines (opens in a new tab)">
+                  <a href={b.guidelines} target="_blank" rel="noreferrer">
+                    <IconBook aria-hidden />
+                  </a>
+                </IconButton>
               )}
-              {open &&
-                (mine ? (
-                  <FollowButton org={b.org} brand={b.brand} following={mine.has(b.brandId)} count={b.followers} />
-                ) : (
-                  <Button asChild variant="ghost" size="sm">
-                    <a href={signIn}>
-                      <IconStar aria-hidden /> Follow
-                      {b.followers > 0 && <span className="text-muted-foreground tabular-nums">· {b.followers.toLocaleString("en")}</span>}
-                    </a>
-                  </Button>
-                ))}
+              {open && (
+                <HubToggle
+                  kind="star"
+                  api={`/api/v1/hub/${encodeURIComponent(b.org)}/${encodeURIComponent(b.brand)}/star`}
+                  on={!!mine?.has(b.brandId)}
+                  count={b.stars}
+                  signIn={mine ? undefined : signIn}
+                  compact
+                />
+              )}
               {open && mine && <StartFrom from={`${b.org}/${b.brand}@${b.version}`} name={b.name} app={env.APP_URL} />}
               {open ? (
                 <UseBrand url={b.url} name={b.name} />
@@ -176,21 +177,14 @@ export default async function HubListing(props: Props) {
             {!open && (
               <p role="note" className="bg-muted mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconLock aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                <span>
-                  Private: only people in {b.owner}&apos;s workspace see this, signed in. Make it public on the{" "}
-                  <a href={`${env.APP_URL}/brands`} className="underline underline-offset-2">
-                    Brands page
-                  </a>{" "}
-                  for anyone, and any agent, to read it.
-                </span>
+                <span>Private: only {b.owner}&apos;s workspace sees this.</span>
               </p>
             )}
             {open && !b.verified && (
               <p role="note" className="border-warning/40 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconAlertTriangle aria-hidden className="text-warning mt-0.5 size-4 shrink-0" />
                 <span>
-                  A community listing: <bdi>{b.owner}</bdi> hasn&apos;t proved it holds a domain or a GitHub account, so this may not come from <bdi>{b.name}</bdi>&apos;s
-                  owner. Check their own guidelines before you rely on it.
+                  Unverified: may not come from <bdi>{b.name}</bdi>&apos;s owner.
                 </span>
               </p>
             )}
@@ -202,7 +196,6 @@ export default async function HubListing(props: Props) {
         <aside className="flex min-w-0 flex-col gap-6 text-sm">
           <section className="flex flex-col gap-3">
             <h2 className="font-semibold">About</h2>
-            {b.tagline && <p className="text-muted-foreground">{b.tagline}</p>}
             {b.guidelines && (
               <ExternalLink href={b.guidelines} className="text-primary-ink flex items-center gap-2 truncate font-medium hover:underline">
                 <IconBook aria-hidden className="size-4 shrink-0" /> {b.guidelines.replace(/^https?:\/\//, "")}
@@ -270,7 +263,7 @@ export default async function HubListing(props: Props) {
           {open && (
             <section className="flex flex-col gap-3 border-t pt-6">
               <h2 className="font-semibold">For agents</h2>
-              <p className="text-muted-foreground text-xs">Public, no key. Hand this to Claude, ChatGPT or any agent before it makes something in <bdi>{b.name}</bdi>.</p>
+              <p className="text-muted-foreground text-xs">Public, no key: hand it to any agent.</p>
               <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
                 <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{b.url}/llms.txt</code>
                 <CopyButton text={`${b.url}/llms.txt`} label="Copy the llms.txt address" what="the address" />
