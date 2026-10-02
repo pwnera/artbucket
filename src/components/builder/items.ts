@@ -23,7 +23,7 @@ export function blankItem(s: Section, rules: ViewRule[], pages: string[]): Blank
     case "dodont":
       return { kind: "item", item: { verdict: "do", title: "" } };
     case "annotated":
-      return { kind: "item", item: { at: [50, 50], title: "" } };
+      return { kind: "item", item: { at: [50, 50] } };
     case "pages": {
       const featured = new Set((s.items ?? []).map((x) => x.link));
       const next = pages.find((p) => !featured.has(`/${p}`)) ?? pages[0];

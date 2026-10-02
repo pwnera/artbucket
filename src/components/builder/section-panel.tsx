@@ -33,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apply, duplicateItem, removeItem } from "@/lib/builder-ops";
 import { COLLECTION_ICONS } from "@/lib/collection-icons";
+import { ASSET_TYPES } from "@/lib/filters";
 import { type Item, type Section, TEMPLATE_INFO, TEMPLATES } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
 import { type Field, fieldsOf, formFor, templateUse, withProp } from "@/lib/template-fields";
@@ -425,6 +426,8 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
         />,
       );
     case "text":
+      // A live section's filters, in words: what to search for, the kind, the tags. Other filters it carries stay.
+      if (f.name === "query" && (s.template === "collection" || s.template === "icons")) return <QueryField id={id} value={(value as string | undefined) ?? ""} onSet={put} error={error} />;
       return row(<Commit id={id} long={f.long} maxLength={f.max} value={(value as string | undefined) ?? ""} onCommit={(v) => put(v.trim())} />);
     case "page":
       return row(
@@ -453,6 +456,56 @@ function PropField({ b, s, f, error, onSet }: { b: BuilderApi; s: Section; f: Fi
       if (s.template === "copy" && f.name === "form") return row(<FormLabels s={s} onSet={put} />);
       return row(<p className="text-muted-foreground text-xs">Set by an agent, with edit_page.</p>);
   }
+}
+
+/** A live section's library filters (props.query, `q=poster&type=image&tag=a`) as fields: words, kind, tags. */
+function QueryField({ id, value, onSet, error }: { id: string; value: string; onSet(v: string | undefined): void; error: string | null }) {
+  const q = new URLSearchParams(value);
+  const set = (name: string, values: string[]) => {
+    const next = new URLSearchParams(q);
+    next.delete(name);
+    for (const v of values) next.append(name, v);
+    onSet(next.toString() || undefined);
+  };
+  const ANY = "\u0000any";
+  return (
+    <div className="grid gap-2">
+      <Row label="Words" htmlFor={`${id}-q`} about="Assets whose name, title or text has these words.">
+        <Commit id={`${id}-q`} value={q.get("q") ?? ""} placeholder="poster, launch" onCommit={(v) => set("q", v.trim() ? [v.trim()] : [])} />
+      </Row>
+      <Row label="Kind">
+        <Select value={q.get("type") ?? ANY} onValueChange={(v) => set("type", v === ANY ? [] : [v])}>
+          <SelectTrigger size="sm" className="w-full" aria-label="Kind">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="app-tokens">
+            <SelectItem value={ANY}>Any</SelectItem>
+            {ASSET_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {choiceLabel(t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Row>
+      <Row label="Tags" htmlFor={`${id}-tag`} about="Assets with every one of these tags, comma separated." error={error}>
+        <Commit
+          id={`${id}-tag`}
+          value={q.getAll("tag").join(", ")}
+          placeholder="campaign, 2026"
+          onCommit={(v) =>
+            set(
+              "tag",
+              v
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+            )
+          }
+        />
+      </Row>
+    </div>
+  );
 }
 
 /** A copy section's props with its form made from its template's {slots}. */

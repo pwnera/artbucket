@@ -382,7 +382,7 @@ export function Placing({ className, style, children }: { className?: string; st
       }}
       onClick={(e) => {
         if ((e.target as Element).closest("[data-at], button, a, [role=dialog]")) return;
-        edit.update(s.id, insertItems(s, items.length, [{ at: point(e), title: "" }]));
+        edit.update(s.id, insertItems(s, items.length, [{ at: point(e) }]));
       }}
     >
       {children}

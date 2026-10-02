@@ -400,7 +400,7 @@ Defaults are the width, columns and tone a section has when it sets none.
 | `chart` | A sample chart in the brand's colors | color, in series order | none | `kind` (bar, line, donut) | wide, 1, plain |
 | `copy` | Words to paste, and a generator readers fill | text | none | `form` (up to 8 `{ name, label }`), `template` (with `{name}` slots from the form) | text, 1, plain |
 | `faq` | Questions and answers, or a glossary | none | `title` needed; `text` | `layout` (accordion, definitions) | text, 1, plain |
-| `embed` | A live frame from Figma, YouTube (youtube-nocookie.com), Vimeo, Loom or Google Docs; any other address as a link card | none | none | `url` (https, needed), `aspect` (16:9, 4:3, 1:1, auto) | wide, 1, plain |
+| `embed` | A live frame from Figma, YouTube (youtube-nocookie.com), Vimeo, Loom or Google Docs; any other address as a link card | none | none | `url` (https; a YouTube, youtu.be, Vimeo or Loom page is read as its player; left out, a warning: readers see nothing), `aspect` (16:9, 4:3, 1:1, auto) | wide, 1, plain |
 | `request` | Where portal readers ask the brand team | none | none | `kind` (asset, review, question), `prompt` | text, 1, panel |
 
 A template that binds none takes no `keys` and no `contexts`; one that lists

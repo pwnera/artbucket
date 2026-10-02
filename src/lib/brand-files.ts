@@ -1,7 +1,7 @@
 import { Document, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } from "yaml";
 import { checkWarnings, COLOR_SLOTS, deriveTheme, FONT_SLOTS, ThemeSettings } from "./brand-theme.ts";
 import type { SnapRule } from "./history.ts";
-import { canon, checkBindings, checkTree, MAX_PAGES, MAX_SECTIONS, PageInput, pageSlug, pageWarnings, parseSections, TEMPLATE_INFO, type Section, type SnapPage } from "./pages.ts";
+import { canon, checkBindings, checkTree, Item, MAX_PAGES, MAX_SECTIONS, PageInput, pageSlug, pageWarnings, parseSections, TEMPLATE_INFO, type Section, type SnapPage } from "./pages.ts";
 import { RuleInput, ruleContext, ruleKey, section as groupOf, specKeys } from "./rules.ts";
 
 /**
@@ -185,6 +185,9 @@ function naturalIds(templates: string[]): string[] {
   });
 }
 
+/** An item's fields in the order the format documents them. */
+const ITEM_ORDER = Object.keys(Item.shape);
+
 function sectionOut(s: Section, natural: string) {
   const info = TEMPLATE_INFO[s.template];
   const defaults: Record<string, unknown> = { id: natural, title: "", body: "", width: info.width, columns: info.columns, tone: info.tone, hidden: false };
@@ -197,7 +200,8 @@ function sectionOut(s: Section, natural: string) {
     if (k in defaults && v === defaults[k]) continue;
     if ((k === "keys" || k === "items") && Array.isArray(v) && !v.length) continue;
     if (k === "props" && isObj(v) && !Object.keys(v).length) continue;
-    out[k] = v;
+    // An item reads as it is filled in: what it is (title, text), then where and how it sits.
+    out[k] = k === "items" && Array.isArray(v) ? v.map((it) => (isObj(it) ? Object.fromEntries(Object.entries(it).sort(([a], [b]) => ITEM_ORDER.indexOf(a) - ITEM_ORDER.indexOf(b))) : it)) : v;
   }
   return out;
 }
