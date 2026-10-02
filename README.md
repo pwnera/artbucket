@@ -22,7 +22,7 @@ the CLI and Git.
 
 **Web app · MCP · REST API · CLI · Git**
 
-[Try Artbucket Cloud][Artbucket Cloud] · [Live demo] · [Live brand page] · [Docs] · [Run it yourself](#run-it-yourself)
+[Try Artbucket Cloud][Artbucket Cloud] · [Live brand page] · [Docs] · [Run it yourself](#run-it-yourself)
 
 <p align="center">
   <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
@@ -180,7 +180,6 @@ reserved for commercial code. See [decision 0013].
 [quick start]: https://docs.artbucket.io/quickstart
 [Render]: https://docs.artbucket.io/installation/render
 [REST API]: https://docs.artbucket.io/developers/api
-[Live demo]: https://artbucket.io/examples/blender
 [Live brand page]: https://brand.artbucket.io/
 [ROADMAP.md]: ROADMAP.md
 [SECURITY.md]: SECURITY.md
