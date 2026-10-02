@@ -4,8 +4,10 @@ color.primary:
   value: "#6d4aff"
   usage: The mark's tile, primary buttons, focus rings. A fill, rarely text.
   spec:
-    group: Primary
     pair: color.background
+    group: Signature
+    tints: [80, 60, 40, 20]
+    weight: 20
 color.primaryInk:
   type: color
   label: Violet ink
@@ -22,30 +24,36 @@ color.highlight:
   value: "#e1eea1"
   usage: A highlight behind a word or a badge, never a fill for large areas.
   spec:
-    group: Secondary
     pair: color.ink
+    group: Signature
+    weight: 3
 color.ink:
   type: color
   label: Ink
   value: "#20241f"
   usage: Text on light grounds.
   spec:
+    pair: color.background
     group: Neutrals
+    weight: 7
 color.background:
   type: color
   label: Paper
   value: "#ffffff"
-  usage: The page.
+  usage: The page. Leave enough of it empty for the work to stand out.
   spec:
-    group: Neutrals
     pair: color.ink
+    group: Neutrals
+    weight: 50
 color.panel:
   type: color
   label: Mist
   value: "#f4f4f7"
   usage: Panels, secondary buttons and muted grounds.
   spec:
+    pair: color.ink
     group: Neutrals
+    weight: 20
 color.border:
   type: color
   label: Line
@@ -59,4 +67,5 @@ color.dark:
   value: "#141414"
   usage: The dark ground. Neutral grey, since tinted neutrals turn muddy near black.
   spec:
+    pair: color.background
     group: Neutrals

@@ -1,5 +1,5 @@
 # An Artbucket brand: rules in rules/, pages in pages/, files in assets/.
-# Artbucket's own brand, kept here as code (docs/guides/brand-as-code.mdx).
+slug: artbucket
 name: Artbucket
 theme:
   accent: color.primary
@@ -10,7 +10,18 @@ theme:
   head: type.heading
   body: type.body
   logo: logo.primary
-  radius: 10
+  radius: 16
+  width: wide
+  density: normal
+  scale: 1.25
+  nav: top
+  header: plain
+  separation: space
+  numbering: false
+  motion: subtle
+  toc: none
+  titles: huge
+  grounds: plain
 rules: [brand, color, type, logo, tone]
 pages:
   - overview
