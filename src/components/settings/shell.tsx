@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
  */
 export function SettingsShell({ children }: { children: React.ReactNode }) {
   const me = useMe()!;
-  const [context, id] = useSelectedLayoutSegments();
+  // Past the route group the sections sit in ((sections)/[context]/[section]).
+  const [context, id] = useSelectedLayoutSegments().filter((x) => !x.startsWith("("));
   const sections = allowedFor(me);
   const current = context && id ? find(context, id) : undefined;
   const active = useRef<HTMLAnchorElement>(null);

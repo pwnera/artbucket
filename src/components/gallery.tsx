@@ -363,7 +363,7 @@ export function Gallery({
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
-  const { collections, setCollections, reviewCount, setReviewCount, searches, setSearches, openCollection, setUpload, collectionEdits } =
+  const { collections, setCollections, setReviewCount, searches, setSearches, openCollection, setUpload, collectionEdits } =
     useShell();
   // The field schema can change under an open page (here or elsewhere), so it
   // refreshes with everything else. A stale copy sends values for deleted fields.
@@ -1207,7 +1207,7 @@ export function Gallery({
         className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", selecting && "pb-24 md:pb-24")}
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
-        <LibraryTabs at={view.review ? "review" : "assets"} reviewCount={reviewCount} />
+        <LibraryTabs at={view.review ? "review" : "assets"} />
         <PageHeader
           icon={
             view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : <IconPhoto />

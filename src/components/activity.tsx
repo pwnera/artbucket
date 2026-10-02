@@ -27,7 +27,6 @@ import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { useShell } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { ActivityVerb } from "@/lib/db/schema";
 import { ruleLabel } from "@/lib/rules";
@@ -177,7 +176,6 @@ function bursts(list: Item[]) {
  * is one glance away. The filter is in the URL (`?who=`).
  */
 export function ActivityFeed({ first }: { first: Page }) {
-  const { reviewCount } = useShell();
   const can = useCan();
   const me = useMe();
   const params = useSearchParams();
@@ -230,7 +228,7 @@ export function ActivityFeed({ first }: { first: Page }) {
         />
       </AppHeader>
       <div className="flex flex-1 flex-col gap-4 px-4 pb-10 md:px-6">
-        <LibraryTabs at="activity" reviewCount={reviewCount} />
+        <LibraryTabs at="activity" />
         <PageHeader
           icon={<IconActivity />}
           title="Activity"

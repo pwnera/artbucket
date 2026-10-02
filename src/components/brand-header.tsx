@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
 import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
@@ -12,6 +12,7 @@ import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
+import { AppHeader } from "@/components/page";
 import { TabNav } from "@/components/hub";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
@@ -364,6 +365,38 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
         </Link>{" "}
         for the MCP server and the API.
       </p>
+    </>
+  );
+}
+
+/** The crumb after the brand's name, by the address under /brands/{slug}; none on the Overview. */
+const CRUMBS: Record<string, string> = {
+  rules: "Tokens and rules",
+  assets: "Assets",
+  releases: "Releases",
+  "releases/new": "New release",
+  sharing: "Sharing",
+  insights: "Insights",
+  settings: "Settings",
+  score: "Agent Score",
+};
+
+/**
+ * The crumbs and the header over a brand's tabs, drawn by their layout
+ * ((tabs)/layout.tsx) so they stay while a tab changes; the tab on show is
+ * read from the address. None on the Overview while the brand comes in from
+ * its repository: that page says so on its own (BrandImporting).
+ */
+export function BrandPageHeader({ importing, ...head }: Omit<BrandHeaderProps, "at" | "compact"> & { importing: boolean }) {
+  const [tab, sub] = useSelectedLayoutSegments();
+  if (!tab && importing) return null;
+  const crumb = CRUMBS[sub ? `${tab}/${sub}` : tab] ?? CRUMBS[tab];
+  const at = (!tab || tab === "score" ? "overview" : tab) as BrandTab;
+  const { name, slug } = head.brand;
+  return (
+    <>
+      <AppHeader trail={[{ label: "Brands", href: "/brands" }, crumb ? { label: name, href: brandPath(slug) } : { label: name }, ...(crumb ? [{ label: crumb }] : [])]} />
+      <BrandHeader {...head} at={at} />
     </>
   );
 }

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
 import type { Source } from "@/components/builder/use-status";
 import { BrandImporting, GitReturn } from "@/components/git-return";
+import { TabSkeleton } from "@/components/skeletons";
 import { brandHead, changesBetween } from "@/lib/brand-head";
 import { openCounts } from "@/lib/comments";
 import { hubBrand, hubViewer } from "@/lib/core/hub";
-import { env } from "@/lib/env";
 import { releaseSummary } from "@/lib/history";
 import { can } from "@/lib/permissions";
 import { get, whoami } from "@/lib/sidebar";
@@ -24,7 +25,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /** A brand's Overview: its header, card, latest release and signals, from /api/v1 like any client's; the card as BrandHub reads it. */
-export default async function BrandOverviewPage({ params }: Props) {
+export default function BrandOverviewPage({ params }: Props) {
+  return (
+    <Suspense fallback={<TabSkeleton />}>
+      <Tab params={params} />
+    </Suspense>
+  );
+}
+
+async function Tab({ params }: Props) {
   const { slug } = await params;
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
@@ -57,7 +66,6 @@ export default async function BrandOverviewPage({ params }: Props) {
     <>
       <BrandOverview
         brand={brand}
-        origin={env.APP_URL}
         rules={rules}
         status={status}
         release={release}
