@@ -220,21 +220,25 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
   return next;
 }
 
-/** A new address: free, and with PORTAL_DOMAIN, one that may be a subdomain. One already held keeps working. */
-async function slugFree(slug: string, except?: string) {
-  const refused = env.PORTAL_DOMAIN && subdomainRefusal(slug);
+/**
+ * A new address: free, and with PORTAL_DOMAIN, one that may be a subdomain when
+ * it would answer at one (`subdomain`: no domain of its own, not members). One
+ * already held keeps working; a refused one answers at /p/{slug} only.
+ */
+async function slugFree(slug: string, except?: string, subdomain = true) {
+  const refused = env.PORTAL_DOMAIN && subdomain && subdomainRefusal(slug);
   if (refused) throw new AssetError("invalid", refused);
   const named = await portalNamed(slug);
   if (named && named.p.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
 }
 
 /** GET /api/v1/portals/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
-export async function portalAddress(caller: Caller, slug: string, except?: string) {
+export async function portalAddress(caller: Caller, slug: string, except?: string, subdomain = true) {
   mayManage(caller);
   if (!PORTAL_SLUG.test(slug)) throw new AssetError("invalid", "An address is lowercase letters, digits and dashes, e.g. press-kit");
   let reason: string | null = null;
   try {
-    await slugFree(slug, except);
+    await slugFree(slug, except, subdomain);
   } catch (err) {
     if (!(err instanceof AssetError)) throw err;
     reason = err.message;
@@ -277,7 +281,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
   await checkLimit(caller.workspace.organizationId, "shares");
   const access = input.access ?? "public";
   if (access === "password" && !input.password) throw new AssetError("invalid", "A password portal needs a password");
-  await slugFree(input.slug);
+  await slugFree(input.slug, undefined, !input.domain && access !== "members");
   const ids = await checkCollections(caller, input.collections ?? []);
   const brandIds = await checkBrands(caller, input.brands ?? []);
   showsSomething(ids, brandIds);
@@ -311,8 +315,11 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
   mayManage(caller);
   const p = await row(caller, id);
   if (!p) return null;
-  if (input.slug && input.slug !== p.slug) await slugFree(input.slug, p.id);
   const access = input.access ?? p.access;
+  if (input.slug && input.slug !== p.slug) {
+    const own = input.domain !== undefined ? input.domain : (await domainOf(p.id))?.host;
+    await slugFree(input.slug, p.id, !own && access !== "members");
+  }
   const passwordHash = input.password ? await hashPassword(input.password) : p.passwordHash;
   if (access === "password" && !passwordHash) throw new AssetError("invalid", "A password portal needs a password");
   const ids = input.collections && (await checkCollections(caller, input.collections));

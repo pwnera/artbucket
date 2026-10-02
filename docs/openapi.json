@@ -41994,6 +41994,14 @@
               "type": "string"
             },
             "description": "The portal being renamed, by id: its own address counts as free"
+          },
+          {
+            "name": "subdomain",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "0 for a portal on a domain of its own, or a members one: it never answers at a subdomain, so the names kept for the service are free to it"
           }
         ],
         "responses": {
