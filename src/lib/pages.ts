@@ -958,13 +958,21 @@ export function hiddenSlugs(pages: { slug: string; parent?: string | null; hidde
   return new Set(pages.filter((p) => hidden(p, new Set())).map((p) => p.slug));
 }
 
-const newId = () => `s${Math.random().toString(36).slice(2, 10)}`;
+/**
+ * A new section's id, as a brand's files name one they leave out
+ * (brand-files.ts): its template, then -2, -3, the first the page hasn't
+ * taken. Read in a link (/logo#palette-2) or a diff, it says what it is.
+ */
+function newId(t: Template, taken: Set<string>) {
+  let id: string = t;
+  for (let n = 2; taken.has(id); n++) id = `${t}-${n}`;
+  return id;
+}
 
 /** A parsed section with its template's defaults filled in, and an id. New fields are copied only when set (D5). */
 export function normalize(s: z.output<typeof SectionInput>, taken: Set<string>): Section {
   const info = TEMPLATE_INFO[s.template];
-  let id = s.id ?? newId();
-  while (!s.id && taken.has(id)) id = newId();
+  const id = s.id ?? newId(s.template, taken);
   taken.add(id);
   return {
     id,
@@ -990,8 +998,33 @@ export function issues(err: z.ZodError, prefix = ""): string[] {
   });
 }
 
+/** The template a mistyped name meant: logo for logos, do-dont for dodont, palete for palette. */
+function nearTemplate(name: string): Template | undefined {
+  const n = name.toLowerCase().replace(/[^a-z]/g, "");
+  if (n.length < 3) return undefined;
+  const best = TEMPLATES.map((t) => ({ t, d: edits(t, n) })).sort((x, y) => x.d - y.d)[0];
+  return TEMPLATES.find((t) => t.startsWith(n) || n.startsWith(t)) ?? (best.d <= 2 ? best.t : undefined);
+}
+
+/** How many letters to add, drop or change to make one word the other. */
+function edits(a: string, b: string): number {
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return row[b.length];
+}
+
 /** One section parsed, normalized and checked, its problems pushed onto `errors` under `at`. */
 function parseOne(raw: unknown, at: string, taken: Set<string>, errors: string[]): Section | undefined {
+  const t = raw && typeof raw === "object" && "template" in raw ? raw.template : undefined;
+  if (typeof t === "string" && !(TEMPLATES as readonly string[]).includes(t)) {
+    const near = nearTemplate(t);
+    errors.push(`${at}.template: no template "${t}"; ${near ? `did you mean ${near}? ` : ""}one of ${TEMPLATES.join(", ")}`);
+    return undefined;
+  }
   const got = SectionInput.safeParse(raw);
   if (!got.success) {
     errors.push(...issues(got.error, at));
@@ -1157,7 +1190,8 @@ export function checkBindings(sections: Section[], rules: Bindable[], known = ne
       if (!r) {
         if (!known.has(k)) {
           const near = [...byKey.keys()].filter((x) => section(x) === section(k));
-          errors.push(`${prefix}[${i}].${at}: no rule "${k}"${near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
+          const meant = [...byKey.keys()].find((x) => x.toLowerCase() === k.toLowerCase());
+          errors.push(`${prefix}[${i}].${at}: no rule "${k}"${meant ? `; did you mean ${meant}?` : near.length ? `; this brand has ${near.slice(0, 12).join(", ")}` : ""}`);
         }
       } else if (at.startsWith("background.") || (s.template === "logos" && at.startsWith("items["))) {
         const what = at.startsWith("background.") ? "a background" : "a logos item's key";

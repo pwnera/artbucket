@@ -149,6 +149,25 @@ test("problems name the file and the line", () => {
   assert.equal(e.line, line);
 });
 
+test("a color left unquoted is a comment to YAML: said so at its line, and not again on each page that shows it", () => {
+  const files = toFiles(blender());
+  files["rules/color.yaml"] = files["rules/color.yaml"].replace('value: "#e87d0d"', "value: #e87d0d");
+  const read = fromFiles(files);
+  assert.deepEqual(
+    read.errors.map((e) => `${e.file}: ${e.message}`),
+    ['rules/color.yaml: color.primary.value: # starts a comment in YAML, so this value is empty: quote it, "#e87d0d"'],
+  );
+});
+
+test("one bad section doesn't hide the page's other problems: every one comes back at once", () => {
+  const files = toFiles(blender());
+  files["pages/color.yaml"] = files["pages/color.yaml"].replace("color.primary", "color.nope") + "  - template: palete\n";
+  const read = fromFiles(files);
+  const said = read.errors.filter((e) => e.file === "pages/color.yaml").map((e) => e.message);
+  assert.ok(said.some((m) => m.includes('no template "palete"; did you mean palette?')), JSON.stringify(said));
+  assert.ok(said.some((m) => m.includes('no rule "color.nope"')), JSON.stringify(said));
+});
+
 test("a section that binds a rule that is not there is refused at its line", () => {
   const files = toFiles(blender());
   files["pages/color.yaml"] = files["pages/color.yaml"].replace("color.primary", "color.nope");

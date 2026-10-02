@@ -1816,7 +1816,26 @@ const StateDiff = z.object({
       fields: z.array(z.string()).optional().describe("What changed: value, usage, label, spec, assets, type"),
     }),
   ),
-  pages: z.array(z.object({ change: z.enum(["added", "removed", "changed", "moved"]), slug: z.string(), title: z.string() })),
+  pages: z.array(
+    z.object({
+      change: z.enum(["added", "removed", "changed", "moved"]),
+      slug: z.string(),
+      title: z.string(),
+      fields: z.array(z.string()).optional().describe("Changed: the page's own fields that changed (title, lede...)"),
+      sections: z
+        .array(
+          z.object({
+            change: z.enum(["added", "removed", "changed", "moved"]),
+            id: z.string(),
+            template: z.string(),
+            title: z.string(),
+            fields: z.array(z.string()).optional().describe("Changed: which of its fields"),
+          }),
+        )
+        .optional()
+        .describe("Changed: its sections that changed, by id"),
+    }),
+  ),
   theme: z.array(z.string()).describe("Theme settings changed"),
   reordered: z.boolean().describe("The rules' order changed"),
 });

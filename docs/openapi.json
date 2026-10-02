@@ -30823,6 +30823,54 @@
                                   },
                                   "title": {
                                     "type": "string"
+                                  },
+                                  "fields": {
+                                    "description": "Changed: the page's own fields that changed (title, lede...)",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "sections": {
+                                    "description": "Changed: its sections that changed, by id",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "change": {
+                                          "type": "string",
+                                          "enum": [
+                                            "added",
+                                            "removed",
+                                            "changed",
+                                            "moved"
+                                          ]
+                                        },
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "template": {
+                                          "type": "string"
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        },
+                                        "fields": {
+                                          "description": "Changed: which of its fields",
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "change",
+                                        "id",
+                                        "template",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false
+                                    }
                                   }
                                 },
                                 "required": [
@@ -31657,6 +31705,54 @@
                                   },
                                   "title": {
                                     "type": "string"
+                                  },
+                                  "fields": {
+                                    "description": "Changed: the page's own fields that changed (title, lede...)",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "sections": {
+                                    "description": "Changed: its sections that changed, by id",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "change": {
+                                          "type": "string",
+                                          "enum": [
+                                            "added",
+                                            "removed",
+                                            "changed",
+                                            "moved"
+                                          ]
+                                        },
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "template": {
+                                          "type": "string"
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        },
+                                        "fields": {
+                                          "description": "Changed: which of its fields",
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "change",
+                                        "id",
+                                        "template",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false
+                                    }
                                   }
                                 },
                                 "required": [

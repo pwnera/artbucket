@@ -237,10 +237,11 @@ type Problem = { file: string; line?: number; message: string };
 type Diff = {
   name: { before: string; after: string } | null;
   rules: { change: string; key: string; context: string | null; before?: unknown; after?: unknown }[];
-  pages: { change: string; slug: string }[];
+  pages: { change: string; slug: string; fields?: string[]; sections?: { change: string; id: string; template: string; title: string; fields?: string[] }[] }[];
   theme: string[];
   reordered: boolean;
 };
+const MARK: Record<string, string> = { added: "+", removed: "-", changed: "~", moved: ">" };
 
 /** The brand's own files in `dir`: brand.yaml and the YAML in rules/ and pages/. */
 async function brandFiles(dir: string): Promise<Record<string, string>> {
@@ -289,7 +290,14 @@ function diffLines(d: Diff): string[] {
           : `  ~ ${at(r)}${value(r.before) === value(r.after) ? "" : `  ${clip(value(r.before))} -> ${clip(value(r.after))}`}`,
     ),
     ...(d.reordered ? ["  ~ the rules' order"] : []),
-    ...d.pages.map((p) => `  ${{ added: "+", removed: "-", changed: "~", moved: ">" }[p.change] ?? "~"} page ${p.slug}${p.change === "moved" ? " (moved)" : ""}`),
+    ...d.pages.flatMap((p) => [
+      `  ${MARK[p.change] ?? "~"} page ${p.slug}${p.change === "moved" ? " (moved)" : ""}${p.fields?.length ? `: ${p.fields.join(", ")}` : ""}`,
+      // Inside a changed page, each section that changed: its id, what it is, and which of its fields.
+      ...(p.sections ?? []).map(
+        (x) =>
+          `      ${MARK[x.change] ?? "~"} ${x.id} (${x.template}${x.title ? `, "${clip(x.title)}"` : ""})${x.change === "moved" ? " moved" : ""}${x.fields?.length ? `: ${x.fields.join(", ")}` : ""}`,
+      ),
+    ]),
     ...(d.theme.length ? [`  ~ theme: ${d.theme.join(", ")}`] : []),
   ];
 }
