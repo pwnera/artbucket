@@ -45,12 +45,16 @@ export type Setup = { origin: string; mcp: string; key: string };
 /** A setup, one part at a time: a sentence, something to copy, or a one-click install. */
 export type Part = string | { copy: string; what: string; multiline?: boolean; prose?: boolean } | { href: string; label: string };
 
-export type Agent = { name: string; icon: Icon; group: Group; auth: Auth; blurb: string; snippet: (s: Setup) => Part[] };
+/**
+ * `logo`: a file in public/logos/agents (Simple Icons, in its brand color); without one, `icon` stands in.
+ * `key`: it signs in with OAuth, or takes a key: the setup offers to make one.
+ */
+export type Agent = { name: string; icon: Icon; logo?: string; group: Group; auth: Auth; key?: boolean; blurb: string; snippet: (s: Setup) => Part[] };
 
 /** The GitHub repository: the skill and the Claude Code plugin install from it. */
 export const REPO = "pwnera/artbucket";
 
-const SIGN_IN = "It sends you here to sign in and pick what it may do. It shows up below once it makes its first call.";
+const SIGN_IN = "It sends you here to sign in and pick what it may do. It shows up in Connected once it makes its first call.";
 
 /** The common case: somewhere in its settings, a custom MCP server with a URL. */
 const pasteUrl = (where: string) => (s: Setup): Part[] => [where, { copy: s.mcp, what: "the URL" }, SIGN_IN];
@@ -80,6 +84,7 @@ export const AGENTS: Agent[] = [
   {
     name: "Claude",
     icon: IconMessageCircle,
+    logo: "/logos/agents/claude.svg",
     group: "Chat apps",
     auth: "oauth",
     blurb: "Claude.ai, Desktop and Cowork",
@@ -98,10 +103,11 @@ export const AGENTS: Agent[] = [
       { copy: "Make a launch banner in our brand colors, then add it to artbucket as generated, with your prompt.", what: "the prompt", prose: true },
     ],
   },
-  { name: "Perplexity", icon: IconSearch, group: "Chat apps", auth: "oauth", blurb: "Research with the brand at hand", snippet: pasteUrl("Settings, Connectors, add a custom connector. Paste:") },
+  { name: "Perplexity", icon: IconSearch, logo: "/logos/agents/perplexity.svg", group: "Chat apps", auth: "oauth", blurb: "Research with the brand at hand", snippet: pasteUrl("Settings, Connectors, add a custom connector. Paste:") },
   {
     name: "Gemini",
     icon: IconBrandGoogle,
+    logo: "/logos/agents/googlegemini.svg",
     group: "Chat apps",
     auth: "oauth",
     blurb: "Generate with Nano Banana, file it here",
@@ -112,6 +118,7 @@ export const AGENTS: Agent[] = [
   {
     name: "Claude Code",
     icon: IconTerminal2,
+    logo: "/logos/agents/claude.svg",
     group: "Coding agents",
     auth: "oauth",
     blurb: "One command, or the plugin with the skill",
@@ -125,6 +132,7 @@ export const AGENTS: Agent[] = [
   {
     name: "Cursor",
     icon: IconCode,
+    logo: "/logos/agents/cursor.svg",
     group: "Coding agents",
     auth: "oauth",
     blurb: "One click",
@@ -154,14 +162,15 @@ export const AGENTS: Agent[] = [
 
   // App builders: your vibe-coded app, on-brand.
   { name: "Lovable", icon: IconHeart, group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In its integrations, add a custom MCP server. Paste:") },
-  { name: "v0", icon: IconBrandVercel, group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In its MCP connections, add a custom one. Paste:") },
+  { name: "v0", icon: IconBrandVercel, logo: "/logos/agents/v0.svg", group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In its MCP connections, add a custom one. Paste:") },
   { name: "Bolt", icon: IconPlugConnected, group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In its connectors, add a custom MCP server. Paste:") },
-  { name: "Replit", icon: IconCode, group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In Agent's integrations, add an MCP server. Paste:") },
+  { name: "Replit", icon: IconCode, logo: "/logos/agents/replit.svg", group: "App builders", auth: "oauth", blurb: "Apps built on the real brand", snippet: pasteUrl("In Agent's integrations, add an MCP server. Paste:") },
 
   // Design tools
   {
     name: "Figma",
     icon: IconBrandFigma,
+    logo: "/logos/agents/figma.svg",
     group: "Design tools",
     auth: "oauth",
     blurb: "Figma Make and the Figma agent",
@@ -179,6 +188,7 @@ export const AGENTS: Agent[] = [
   {
     name: "n8n",
     icon: IconRoute,
+    logo: "/logos/agents/n8n.svg",
     group: "Automations",
     auth: "key",
     blurb: "MCP Client Tool node",
@@ -187,6 +197,7 @@ export const AGENTS: Agent[] = [
   {
     name: "Make",
     icon: IconRoute,
+    logo: "/logos/agents/make.svg",
     group: "Automations",
     auth: "key",
     blurb: "MCP client module",
@@ -209,8 +220,10 @@ export const AGENTS: Agent[] = [
   {
     name: "Any MCP client",
     icon: IconPlugConnected,
+    logo: "/logos/agents/modelcontextprotocol.svg",
     group: "Other",
     auth: "oauth",
+    key: true,
     blurb: "Streamable HTTP, OAuth or a key",
     snippet: (s) => [
       "Streamable HTTP at this URL. With OAuth it finds its way to sign in on its own; without, send a key as a bearer token.",

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   IconAlertTriangle,
   IconBrandGithub,
   IconCircleCheck,
   IconKey,
+  IconPlugConnected,
   IconPlus,
-  IconRobot,
   IconSearch,
   IconSettings,
   IconStack2,
@@ -20,14 +21,14 @@ import { Initials } from "@/components/activity";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Source } from "@/components/builder/use-status";
-import { AGENTS, GROUPS, type Agent } from "@/components/agent-catalog";
+import { AGENTS, GROUPS, type Agent, type Group } from "@/components/agent-catalog";
 import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { mostOf, scopeLabel, ScopePicker, SCOPE_LABELS, WorkspacePicker, type Givable } from "@/components/consent";
 import { Field } from "@/components/fields";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
-import { AppHeader } from "@/components/page";
+import { AppHeader, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -90,29 +91,70 @@ export type Asked = {
 };
 
 /** What to ask first, once connected: something only the brand can answer. */
-const TRY = [
-  "What's our primary color on dark backgrounds, and how should it be used?",
-  "Find our logo and give me a 512px PNG link.",
-  "Add this photo to the library and suggest tags for it.",
-];
-
-/** The access levels an agent is given, in the prototype's words; Admin is for keys only and not offered to agents. */
-const LEVELS: { scope: Scope; says: string }[] = [
-  { scope: "read", says: "Search, rules, use checks." },
-  { scope: "propose", says: "Changes wait for a person, in Review." },
-  { scope: "write", says: "Writes go live." },
-];
+const TRY = "What's our primary color on dark backgrounds, and how should it be used?";
 
 /** Where a search that finds nothing points: every MCP client connects the same way. */
 const ANY = AGENTS.find((a) => a.name === "Any MCP client");
 
+const LABEL: Record<string, string> = { apps: "Apps", connected: "Connected", keys: "API keys", repositories: "Repositories" };
+
+/** How each kind of agent gets in, on its card. */
+const HOW: Record<Agent["auth"], string> = { oauth: "Signs in with your account", key: "Uses an API key", via: "Through Claude or ChatGPT", skill: "Through the CLI skill" };
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 /**
- * Connect an agent: find it or pick it from its group's tab, follow its two
- * lines, and watch for its first call. Below, every agent connected, when it
- * last called, and what it left waiting in Review; then, for whoever reads
- * Insights (`asked`), what each asked for.
+ * The catalog agent a key is: its name before "(person)", as OAuth names it
+ * after the client, or as the setup names a key it makes.
+ * ponytail: matched by the name a client registers; one that names itself
+ * oddly isn't marked on its card, and is still listed under Connected.
+ */
+const agentOf = (k: Key) => norm(k.name.replace(/\s*\([^)]*\)$/, ""));
+
+/** An agent as a card: what it is, how it gets in, its logo, and whether it is connected here. */
+function AppCard({ agent, connected, onOpen }: { agent: Agent; connected: number; onOpen: () => void }) {
+  return (
+    <li className="bg-card flex flex-col overflow-hidden rounded-xl border">
+      <div className="flex flex-1 gap-3 p-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="truncate font-medium">{agent.name}</p>
+          <p className="text-muted-foreground text-xs">{HOW[agent.auth]}</p>
+          <p className="text-muted-foreground pt-2 text-sm text-pretty">{agent.blurb}</p>
+        </div>
+        {/* Logos keep their brand colors, on white in both themes. */}
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg border bg-white">
+          {agent.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a small static SVG, nothing to optimize
+            <img src={agent.logo} alt="" className="size-6" />
+          ) : (
+            <agent.icon className="size-5 text-neutral-600" />
+          )}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 border-t px-4 py-3">
+        <Button variant="outline" size="sm" onClick={onOpen} aria-label={`${connected ? "Setup for" : "Connect"} ${agent.name}`}>
+          {connected ? "Setup" : "Connect"}
+        </Button>
+        {connected > 0 && (
+          <span className="text-muted-foreground ms-auto flex items-center gap-1.5 text-xs">
+            <span aria-hidden className="bg-success size-1.5 rounded-full" />
+            {connected === 1 ? "Connected" : `${connected} connected`}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Connections, a tab each, in the URL (`?tab=`): Apps, every agent the
+ * catalog knows as a card, by group or found by name, each saying whether it
+ * is connected; Connected, the agents people connected and, for whoever reads
+ * Insights (`asked`), what each asked for; API keys, for an admin; and
+ * Repositories, the brands kept in Git. Custom connection sets up any MCP
+ * client.
  */
 export function Agents({
+  tab = "apps",
   keys: initialKeys,
   origin,
   anonymous,
@@ -120,6 +162,8 @@ export function Agents({
   kept = [],
   connect = null,
 }: {
+  /** The tab asked for on the server (`?tab=`): apps, connected, keys or repositories. */
+  tab?: string;
   keys: Key[];
   origin: string;
   anonymous: Scope | null;
@@ -137,65 +181,44 @@ export function Agents({
   const [holding, setHolding] = useState(false);
   const [asking, setAsking] = useState(false);
   const [q, setQ] = useState("");
+  const [group, setGroup] = useState<Group | "All">("All");
+  const params = useSearchParams();
   const can = useCan();
   const mcp = `${origin}/api/v1/mcp`;
   const needle = q.trim().toLowerCase();
-  const found = needle ? AGENTS.filter((a) => `${a.name} ${a.blurb}`.toLowerCase().includes(needle)) : [];
 
   const pick = (agent: Agent) => {
     setShown((s) => ({ agent, round: (s?.round ?? 0) + 1 }));
     setHolding(false);
     setOpen(true);
   };
-  const grid = (list: Agent[]) => (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      {list.map((a) => (
-        <button
-          key={a.name}
-          type="button"
-          onClick={() => pick(a)}
-          className="hover:bg-muted/60 hover:border-primary/40 flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-        >
-          <a.icon className="text-muted-foreground mt-0.5 size-5 shrink-0" />
-          <span className="grid min-w-0 gap-0.5">
-            <span className="truncate text-sm font-medium">{a.name}</span>
-            <span className="text-muted-foreground line-clamp-2 text-xs">{a.blurb}</span>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  const tabs = ["apps", "connected", can("key.manage") && "keys", (kept.length > 0 || connect) && "repositories"].filter(Boolean) as string[];
+  const wanted = params.get("tab") ?? tab;
+  const current = tabs.includes(wanted) ? wanted : "apps";
+  const go = (t: string) => {
+    const q = new URLSearchParams(params);
+    q.set("tab", t);
+    // Next keeps useSearchParams in step with the native history: the tab switches now, and the URL stays shareable.
+    window.history.replaceState(null, "", `/connections?${q}`);
+  };
+  // A search looks through every group; otherwise the group picked.
+  const list = AGENTS.filter((a) => (needle ? `${a.name} ${a.blurb}`.toLowerCase().includes(needle) : group === "All" || a.group === group));
+  const connected = keys.filter((k) => k.owner);
+  const made = keys.filter((k) => !k.owner);
+  const tally = (n: number) => <span className="text-muted-foreground font-normal tabular-nums">{n}</span>;
 
   return (
     <>
-      <AppHeader trail={[{ label: "Connections" }]} />
+      <AppHeader trail={[{ label: "Connections", href: "/connections" }, { label: LABEL[current]! }]} />
 
-      <div className="mx-auto w-full max-w-4xl space-y-12 px-4 pt-10 pb-24 sm:px-8">
-        <div className="space-y-3">
-          <p className="text-primary-ink flex items-center gap-2 text-sm font-medium">
-            <IconRobot className="size-4" /> Any agent you already use
-          </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Give an agent the brand</h1>
-          <p className="text-muted-foreground text-lg text-pretty">
-            It searches the library and follows the brand rules. What it adds waits in Review.
-          </p>
-          <div className="max-w-xl space-y-1 pt-2">
-            <p className="text-muted-foreground text-xs">One URL for all. Most sign in on their own, no key.</p>
-            <Snippet text={mcp} what="the URL" />
-          </div>
-          {/* The access an agent can be given, as the prototype lays them out: picked when it signs in, or on its key. */}
-          <ul aria-label="Access an agent can have" className="grid max-w-xl gap-2 pt-2 sm:grid-cols-3">
-            {LEVELS.map((l) => (
-              <li key={l.scope} className="grid gap-0.5 rounded-lg border p-3">
-                <span className="text-sm font-medium">
-                  {scopeLabel(l.scope)}
-                  {l.scope === "propose" && <span className="text-muted-foreground font-normal"> (recommended)</span>}
-                </span>
-                <span className="text-muted-foreground text-xs">{l.says}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+        <PageHeader icon={<IconPlugConnected />} title="Connections" description="Agents, apps and code that work with the brand, and the repositories it lives in.">
+          {ANY && (
+            <Button variant="outline" size="sm" onClick={() => pick(ANY)}>
+              <IconPlus /> Custom connection
+            </Button>
+          )}
+        </PageHeader>
 
         {(anonymous === "write" || anonymous === "admin") && (
           <div className="border-warning/40 bg-warning/10 flex gap-3 rounded-lg border p-4 text-sm">
@@ -209,14 +232,46 @@ export function Agents({
           </div>
         )}
 
-        <section className="space-y-3" aria-label="Agents to connect">
-          <div className="relative max-w-sm">
-            <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-            <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find your agent" aria-label="Find your agent" className="pl-8" />
+        <Tabs value={current} onValueChange={go}>
+          {/* Four tabs and their counts don't fit a phone: they scroll sideways instead. */}
+          <div className="-mx-4 overflow-x-auto border-b px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
+            <TabsList variant="line">
+              <TabsTrigger value="apps">Apps</TabsTrigger>
+              <TabsTrigger value="connected">Connected {tally(connected.length)}</TabsTrigger>
+              {tabs.includes("keys") && <TabsTrigger value="keys">API keys {tally(made.length)}</TabsTrigger>}
+              {tabs.includes("repositories") && <TabsTrigger value="repositories">Repositories {tally(kept.length)}</TabsTrigger>}
+            </TabsList>
           </div>
-          {needle ? (
-            found.length ? (
-              grid(found)
+
+          <TabsContent value="apps" className="space-y-4 pt-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">One URL for every agent; most sign in on their own.</span>
+              <Snippet text={mcp} what="the URL" />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Eight groups don't fit a phone: they scroll sideways instead of wrapping. */}
+              <div className="-mx-4 min-w-0 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+                <Tabs value={needle ? "" : group} onValueChange={(g) => (setGroup(g as Group | "All"), setQ(""))}>
+                  <TabsList>
+                    {(["All", ...GROUPS] as const).map((g) => (
+                      <TabsTrigger key={g} value={g}>
+                        {g === "All" ? "All apps" : g}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div className="relative w-full sm:ms-auto sm:w-56">
+                <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Find your agent" className="pl-8" />
+              </div>
+            </div>
+            {list.length ? (
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((a) => (
+                  <AppCard key={a.name} agent={a} connected={keys.filter((k) => agentOf(k) === norm(a.name)).length} onOpen={() => pick(a)} />
+                ))}
+              </ul>
             ) : (
               <Empty size="sm" className="border">
                 <EmptyHeader>
@@ -229,60 +284,34 @@ export function Agents({
                   </Button>
                 )}
               </Empty>
-            )
-          ) : (
-            <Tabs defaultValue={GROUPS[0]}>
-              {/* Seven groups don't fit a phone: the tabs scroll sideways instead of wrapping. */}
-              <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
-                <TabsList variant="line">
-                  {GROUPS.map((group) => (
-                    <TabsTrigger key={group} value={group}>
-                      {group}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </div>
-              {GROUPS.map((group) => (
-                <TabsContent key={group} value={group} className="pt-3">
-                  {grid(AGENTS.filter((a) => a.group === group))}
-                </TabsContent>
-              ))}
-            </Tabs>
+            )}
+          </TabsContent>
+
+          <TabsContent value="connected" className="space-y-10 pt-4">
+            <Connected
+              keys={connected}
+              onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
+              onChanged={async () => {
+                const res = await fetch("/api/v1/keys").catch(() => null);
+                if (res?.ok) setKeys(((await res.json()) as { data: Key[] }).data);
+              }}
+              onBrowse={() => go("apps")}
+            />
+            {asked && <AskedFor asked={asked} keys={keys} />}
+          </TabsContent>
+
+          {tabs.includes("keys") && (
+            <TabsContent value="keys" className="pt-4">
+              <ApiKeys keys={made} onMade={(k) => setKeys((ks) => [...ks, k])} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
+            </TabsContent>
           )}
-        </section>
 
-        {asked && <AskedFor asked={asked} keys={keys} />}
-
-        <Connected
-          keys={keys.filter((k) => k.owner)}
-          onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
-          onChanged={async () => {
-            const res = await fetch("/api/v1/keys").catch(() => null);
-            if (res?.ok) setKeys(((await res.json()) as { data: Key[] }).data);
-          }}
-        />
-
-        {(kept.length > 0 || connect) && <Repositories kept={kept} connect={connect} />}
-
-        {can("key.manage") && (
-          <ApiKeys
-            keys={keys.filter((k) => !k.owner)}
-            onMade={(k) => setKeys((ks) => [...ks, k])}
-            onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
-          />
-        )}
-
-        <section className="space-y-3">
-          <div className="flex items-center gap-1.5">
-            <h2 className="font-display text-lg font-semibold">Try it</h2>
-            <InfoTip>Every page here has a For agents button with the exact call for what it shows.</InfoTip>
-          </div>
-          <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
-            <li>&ldquo;{TRY[0]}&rdquo;</li>
-            <li>&ldquo;{TRY[1]}&rdquo;</li>
-            <li>&ldquo;{TRY[2]}&rdquo; (then look in Review)</li>
-          </ul>
-        </section>
+          {tabs.includes("repositories") && (
+            <TabsContent value="repositories" className="pt-4">
+              <Repositories kept={kept} connect={connect} />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : holding ? setAsking(true) : setOpen(false))}>
@@ -377,24 +406,27 @@ function Setup({
         <DialogDescription>{agent.blurb}</DialogDescription>
       </DialogHeader>
 
-      {agent.auth === "key" &&
+      {(agent.auth === "key" || agent.key) &&
         (can("key.manage") ? (
           secret ? (
             <p className="border-primary/40 bg-primary/5 rounded-lg border p-3 text-sm">
               Key filled in below. Copy it now: it is shown only once.
             </p>
           ) : (
-            <NewKey
-              name={agent.name}
-              onMade={({ secret, ...k }) => {
-                setSecret({ id: k.id, secret });
-                onMade(k);
-              }}
-            />
+            <div className="space-y-2">
+              {agent.key && <p className="text-muted-foreground text-sm">No OAuth? Make it a key:</p>}
+              <NewKey
+                name={agent.name}
+                onMade={({ secret, ...k }) => {
+                  setSecret({ id: k.id, secret });
+                  onMade(k);
+                }}
+              />
+            </div>
           )
         ) : (
           <p className="text-muted-foreground text-sm">
-            Needs a key: ask an admin for one with the Suggest scope.
+            {agent.key ? "Without OAuth it needs a key" : "Needs a key"}: ask an admin for one with the Suggest scope.
           </p>
         ))}
 
@@ -414,7 +446,7 @@ function Setup({
           </p>
           <div className="space-y-1">
             <p className="text-muted-foreground text-xs">Try it: ask it this</p>
-            <Snippet text={TRY[0]!} what="the prompt" prose />
+            <Snippet text={TRY} what="the prompt" prose />
           </div>
           <div className="flex justify-end">
             <Button onClick={onDone}>Done</Button>
@@ -441,7 +473,7 @@ function Setup({
  * admin, yours for anyone else. Yours say every workspace they work in, and
  * Workspaces changes where, and with what, without signing in again.
  */
-function Connected({ keys, onRevoked, onChanged }: { keys: Key[]; onRevoked: (id: string) => void; onChanged: () => void }) {
+function Connected({ keys, onRevoked, onChanged, onBrowse }: { keys: Key[]; onRevoked: (id: string) => void; onChanged: () => void; onBrowse: () => void }) {
   const [editing, setEditing] = useState<Key | null>(null);
   const [open, setOpen] = useState(false);
   return (
@@ -451,7 +483,15 @@ function Connected({ keys, onRevoked, onChanged }: { keys: Key[]; onRevoked: (id
         <InfoTip>One agent can work in several workspaces: pick them when it signs in, or change them here.</InfoTip>
       </div>
       {!keys.length ? (
-        <p className="text-muted-foreground text-sm">None yet. Pick one above.</p>
+        <Empty size="sm" className="border">
+          <EmptyHeader>
+            <EmptyTitle>No agent connected yet</EmptyTitle>
+            <EmptyDescription>Pick yours in Apps: most sign in on their own.</EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" size="sm" onClick={onBrowse}>
+            Browse apps
+          </Button>
+        </Empty>
       ) : (
         <KeyList
           keys={keys}

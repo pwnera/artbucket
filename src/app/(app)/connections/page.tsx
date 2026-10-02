@@ -10,13 +10,14 @@ export const metadata: Metadata = { title: "Connections" };
 
 /**
  * Connections: where a person connects an agent, sees the ones connected,
- * and, for whoever reads Insights, what each asked for. Keys come from
+ * and, for whoever reads Insights, what each asked for; `?tab=` picks the tab. Keys come from
  * /api/v1/keys like any client's: every one for an admin, your own agents
  * for anyone else. Below, the brands kept in a Git repository, each with
  * its way to the integration's page for it.
  */
-export default async function ConnectionsPage() {
-  const [keys, me, asked, list] = await Promise.all([
+export default async function ConnectionsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  const [params, keys, me, asked, list] = await Promise.all([
+    searchParams,
     get("keys", (b: { data: Key[] }) => b.data, []),
     whoami(),
     get("insights/connections", (b: { data: Asked }) => b.data, null),
@@ -37,6 +38,7 @@ export default async function ConnectionsPage() {
   ).filter((k): k is Kept => !!k.source);
   return (
     <Agents
+      tab={params.tab}
       keys={keys}
       origin={env.APP_URL}
       anonymous={me.auth.anonymous}
