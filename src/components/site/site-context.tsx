@@ -1,9 +1,10 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import { createContext, useContext, useMemo, useState } from "react";
 import { AssetUrl } from "@/components/site/asset-url";
 import { withSignature } from "@/lib/asset-url";
-import { fontFaceCss } from "@/lib/brand-theme";
+import { fontFaceCss, nightTheme } from "@/lib/brand-theme";
 import { resolve } from "@/lib/rules";
 import type { Media, PageView, ViewRule } from "@/lib/site";
 
@@ -71,9 +72,14 @@ export function SiteProvider({
   );
   // The theme's faces as @font-face, so SSR and print show them. A family is the brand's words: no "<" ends the <style>.
   const faces = useMemo(() => fontFaceCss(view.theme.faces, sign).replaceAll("<", "\\3c "), [view.theme.faces, sign]);
+  // A light surface the brand pins turns to its dark when the app is dark (nightTheme).
+  // ponytail: the server can't know the scheme, so a dark reader's first paint is light until hydration; a scheme cookie would fix it.
+  const { resolvedTheme } = useTheme();
+  const night = useMemo(() => (resolvedTheme === "dark" ? nightTheme(view.theme) : null), [resolvedTheme, view.theme]);
+  const shown = useMemo(() => (night ? { ...view, theme: { ...view.theme, ...night } } : view), [view, night]);
   const site = useMemo<Site>(
-    () => ({ view, mode, context, setContext, href, url: sign, idOf: (id) => idPrefix + id, portal: portal ? { slug: portal, headers } : null }),
-    [view, mode, context, href, sign, idPrefix, portal, headers],
+    () => ({ view: shown, mode, context, setContext, href, url: sign, idOf: (id) => idPrefix + id, portal: portal ? { slug: portal, headers } : null }),
+    [shown, mode, context, href, sign, idPrefix, portal, headers],
   );
   return (
     <SiteContext.Provider value={site}>
