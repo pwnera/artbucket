@@ -79,6 +79,8 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
     get(`brand/rules?brand=${b}`, (x: { data: Rule[] }) => x.data, null),
   ]);
   const shown = edit?.data;
+  // A page that is gone (deleted, or an old link): the book opens on its first page rather than on nothing.
+  if (page && !shown && pages) redirect(builderPath(brand.slug, { context }));
   if (!pages || !shown || !rules) notFound();
   if (shown.redirect) redirect(builderPath(brand.slug, { page: shown.redirect, context }));
 

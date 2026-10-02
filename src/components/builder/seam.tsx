@@ -18,14 +18,14 @@ import { cn } from "@/lib/utils";
  * Props:
  * - b: the builder.
  * - after: the section it follows; null for the top of the page.
- * - always: shown without the pointer on it: "empty" as an empty page's only
- *   way in, "end" as the standing way in under a page's last section, with the
- *   blocks most pages take a click away.
+ * - always: "end", shown without the pointer on it: the standing way in under
+ *   a page's last section (or on an empty page), with the blocks most pages
+ *   take a click away.
  */
 export type SeamProps = {
   b: BuilderApi;
   after: string | null;
-  always?: "empty" | "end";
+  always?: "end";
 };
 
 /** The blocks most pages reach for next, one click each under the last section. */
@@ -100,9 +100,10 @@ export function Seam({ b, after, always }: SeamProps) {
     b.select({ section: made.current, rule: null });
   };
 
-  if (always === "end")
+  // mb-16: room under it for the canvas's floating device bar, which would cover the quick picks.
+  if (always)
     return (
-      <div {...{ [END]: "" }} className="app-tokens mx-auto mt-12 grid max-w-3xl justify-items-center gap-3 rounded-xl border border-dashed px-4 py-8 font-sans">
+      <div {...{ [END]: "" }} className="app-tokens mx-auto mt-12 mb-16 grid max-w-3xl justify-items-center gap-3 rounded-xl border border-dashed px-4 py-8 font-sans">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -133,21 +134,16 @@ export function Seam({ b, after, always }: SeamProps) {
     );
 
   return (
-    <div className={cn("app-tokens group/seam z-20 flex items-center justify-center font-sans", always ? "py-16" : "absolute inset-x-0 -bottom-3 h-6")}>
-      {!always && (
-        <div
-          aria-hidden
-          className={cn("bg-primary pointer-events-none absolute inset-x-4 h-0.5 rounded-full opacity-0 transition-opacity group-hover/seam:opacity-100", open && "opacity-100")}
-        />
-      )}
+    <div className="app-tokens group/seam absolute inset-x-0 -bottom-3 z-20 flex h-6 items-center justify-center font-sans">
+      <div
+        aria-hidden
+        className={cn("bg-primary pointer-events-none absolute inset-x-4 h-0.5 rounded-full opacity-0 transition-opacity group-hover/seam:opacity-100", open && "opacity-100")}
+      />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={cn(
-              "bg-primary text-primary-foreground focus-visible:ring-ring/50 relative flex h-6 items-center gap-1 rounded-full px-2.5 text-xs font-medium shadow outline-none focus-visible:ring-3",
-              !always && "opacity-0 transition-opacity group-hover/seam:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
-            )}
+            className="bg-primary text-primary-foreground focus-visible:ring-ring/50 relative flex h-6 items-center gap-1 rounded-full px-2.5 text-xs font-medium opacity-0 shadow outline-none transition-opacity group-hover/seam:opacity-100 focus-visible:opacity-100 focus-visible:ring-3 data-[state=open]:opacity-100"
           >
             <IconPlus aria-hidden className="size-3.5" />
             Add a section

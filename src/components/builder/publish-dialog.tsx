@@ -366,7 +366,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         </Button>
         <Button onClick={publish} disabled={busy || saving || !!current}>
           {busy || saving ? <Spinner /> : <IconWorldUpload />}
-          {saving ? "Saving" : n && !current ? `Publish @${n}` : "Publish"}
+          {saving ? "Saving" : n && !current ? `Release @${n}` : "Release"}
         </Button>
       </footer>
 

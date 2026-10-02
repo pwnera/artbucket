@@ -742,7 +742,7 @@ function Stage({ b }: { b: BuilderApi }) {
         {before.map(draw)}
         {tabs.length > 0 && <PageTabs tabs={tabs} render={draw} />}
         {after.map(draw)}
-        {!preview && <Seam b={b} after={stored.at(-1)?.id ?? null} always={shown.length ? "end" : "empty"} />}
+        {!preview && <Seam b={b} after={stored.at(-1)?.id ?? null} always="end" />}
       </article>
       {b.library && !preview && (
         <LibraryPanel
