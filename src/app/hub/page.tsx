@@ -3,7 +3,7 @@ import { IconMoodEmpty } from "@tabler/icons-react";
 import { Input } from "@/components/ui/input";
 import { Cards, Preview, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";
-import { followed, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, type HubSort } from "@/lib/core/hub";
+import { followedOrgs, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubViewer, starred, type HubSort } from "@/lib/core/hub";
 import Form from "next/form";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 type Search = Record<string, string | string[] | undefined>;
 type Props = { searchParams: Promise<Search> };
 
-const FILTERS = { all: "All brands", following: "Following", verified: "Verified", community: "Community", private: "Private" } as const;
+const FILTERS = { all: "All brands", following: "Following", starred: "Starred", verified: "Verified", community: "Community", private: "Private" } as const;
 type Filter = keyof typeof FILTERS;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
@@ -30,19 +30,25 @@ export default async function HubHome({ searchParams }: Props) {
   // Trending this week first, as the prototype's hub opens: most pulled, ties newest first.
   const sort = pick<HubSort>(one(sp.sort), HUB_SORTS, "trending");
   const [base, viewer] = await Promise.all([hubBase(), hubViewer()]);
-  const [all, mine] = await Promise.all([hubListings({ q, sort, limit: 200, viewer }), viewer ? followed(viewer.user.id) : new Set<string>()]);
+  const [all, stars, orgs] = await Promise.all([
+    hubListings({ q, sort, limit: 200, viewer }),
+    viewer ? starred(viewer.user.id) : new Set<string>(),
+    viewer ? followedOrgs(viewer.user.id) : new Set<string>(),
+  ]);
   const pub = all.filter((c) => c.visibility === "public");
   const of: Record<Filter, typeof all> = {
     all,
-    following: all.filter((c) => mine.has(c.id)),
+    following: all.filter((c) => orgs.has(c.org)),
+    starred: all.filter((c) => stars.has(c.id)),
     verified: pub.filter((c) => c.verified),
     community: pub.filter((c) => !c.verified),
     private: all.filter((c) => c.visibility === "private"),
   };
   const counts = Object.fromEntries(Object.entries(of).map(([k, v]) => [k, v.length])) as Record<Filter, number>;
   const cards = of[filter];
-  // Private and Following are the signed-in reader's own: tabs only for them.
-  const tabs = (Object.keys(FILTERS) as Filter[]).filter((f) => (f !== "private" && f !== "following") || counts[f] > 0);
+  // Private, Following and Starred are the signed-in reader's own: tabs only for them.
+  const own: Filter[] = ["private", "following", "starred"];
+  const tabs = (Object.keys(FILTERS) as Filter[]).filter((f) => !own.includes(f) || counts[f] > 0);
   // The operator's curated collections, on the front page as it first opens.
   const collections = !q && filter === "all" ? await hubCollectionsOf(all) : [];
   const href = (o: { filter?: Filter; sort?: HubSort }) => {

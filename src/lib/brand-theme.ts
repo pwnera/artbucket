@@ -436,6 +436,37 @@ export function deriveTheme(rules: R[], s: ThemeSettings = {}): Theme {
   };
 }
 
+/**
+ * The look a light surface wears when the app is dark: the brand's own dark
+ * as the page, its text on dark as the ink, and every ink graded there
+ * again; dark grounds step off the page so they still read as bands. Null
+ * where the page already follows the app (no surface) or is dark.
+ */
+export function nightTheme(t: Theme): Theme | null {
+  if (!t.surface || lum(t.ink) > lum(t.surface)) return null;
+  const rows: Check[] = [];
+  const p = paint(t.accent, t.dark, "surface", t.onDark, t.mutedOnDark, rows);
+  const panel = mix(t.dark, p.ink, 0.06);
+  check(rows, "ink on panel", p.ink, panel, 4.5, () => inkOn(panel));
+  const onAccent = check(rows, "text on accent", t.onAccent, t.accent, 4.5, () => inkOn(t.accent));
+  const dark = mix(t.dark, p.ink, 0.12);
+  const onDark = check(rows, "text on dark", t.onDark, dark, 4.5, () => inkOn(dark));
+  return {
+    ...t,
+    surface: t.dark,
+    panel,
+    dark,
+    ink: p.ink,
+    muted: p.muted,
+    onDark,
+    mutedOnDark: lift(mix(onDark, dark, 0.35), dark, 4.5),
+    accentText: p.accentText,
+    onAccent,
+    line: p.line,
+    checks: rows,
+  };
+}
+
 /** Each failing pair in words, for the warnings of set_theme and get_page. */
 export const checkWarnings = (checks: Check[]) =>
   checks.filter((c) => !c.ok).map((c) => `${c.pair}: ${c.fg} on ${c.bg} is ${c.ratio}:1, under ${c.need}:1; ${c.used} is used`);

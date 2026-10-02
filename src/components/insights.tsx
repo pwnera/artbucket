@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSelectedLayoutSegment } from "next/navigation";
 import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
@@ -64,9 +65,11 @@ export type InsightsTab = "overview" | "checks";
  * release adoption and who is still on an old version, the most used assets
  * by surface, search gaps, and the delivery and page-view counts that lived
  * in Usage and Portals. Use checks (/insights/checks): the use-check log.
+ * The frame (header and tabs) is the layout's, so it stays while a tab
+ * changes; the tab on show is read from the address.
  */
-export function Insights({ data, tab = "overview" }: { data: InsightsData | null; tab?: InsightsTab }) {
-  const checks = tab === "checks";
+export function InsightsFrame({ refused, children }: { refused: number | undefined; children: React.ReactNode }) {
+  const checks = useSelectedLayoutSegment() === "checks";
   return (
     <>
       <AppHeader trail={checks ? [{ label: "Insights", href: "/insights" }, { label: "Use checks" }] : [{ label: "Insights" }]} />
@@ -87,20 +90,20 @@ export function Insights({ data, tab = "overview" }: { data: InsightsData | null
             label="Insights"
             items={[
               { href: "/insights", label: "Overview", current: !checks },
-              { href: "/insights/checks", label: "Use checks", current: checks, count: data?.checks.refused || undefined },
+              { href: "/insights/checks", label: "Use checks", current: checks, count: refused || undefined },
             ]}
           />
         </div>
-        {!data ? (
-          <None>Insights couldn&apos;t load. Try again in a moment.</None>
-        ) : checks ? (
-          <UseChecks data={data} />
-        ) : (
-          <Overview data={data} />
-        )}
+        {children}
       </div>
     </>
   );
+}
+
+/** A tab's body, under the frame. */
+export function InsightsBody({ data, tab = "overview" }: { data: InsightsData | null; tab?: InsightsTab }) {
+  if (!data) return <None>Insights couldn&apos;t load. Try again in a moment.</None>;
+  return tab === "checks" ? <UseChecks data={data} /> : <Overview data={data} />;
 }
 
 type Chart = "answers" | "delivery" | "adoption";

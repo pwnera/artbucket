@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { IconActivity, IconInbox, IconPhoto, IconSearch, IconSparkles } from "@tabler/icons-react";
 import { NavLink } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
@@ -81,8 +82,13 @@ function Trail({ crumbs }: { crumbs: Crumb[] }) {
 /**
  * The library's three views, PostHog style: what's in it, what waits on you,
  * and what happened. Each is a URL; the first two move within the page.
+ * Without `at` (a loading.tsx, drawing the real tabs while the page comes),
+ * Assets or Review by the address.
  */
-export function LibraryTabs({ at, reviewCount }: { at: "assets" | "review" | "activity"; reviewCount: number }) {
+export function LibraryTabs({ at: given }: { at?: "assets" | "review" | "activity" }) {
+  const { reviewCount } = useShell();
+  const review = useSearchParams().has("review");
+  const at = given ?? (review ? "review" : "assets");
   const tabs = [
     { id: "assets", href: "/", label: "Assets", icon: IconPhoto },
     { id: "review", href: "/?review", label: "Review", icon: IconInbox, count: reviewCount },

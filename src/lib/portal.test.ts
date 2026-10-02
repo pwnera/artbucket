@@ -119,6 +119,8 @@ test("a portal made for a brand wears its mark and color, unless it sets its own
   ];
   const look = brandLook(rules);
   assert.deepEqual(look, { logo: "mark", accent: "#e87d0d" });
+  assert.deepEqual(brandLook(rules, "logo.primary"), { logo: "full", accent: "#e87d0d" }, "the logo its theme names first");
+  assert.deepEqual(brandLook(rules, "logo.gone"), look, "a name with no image: the mark");
   assert.deepEqual(brandLook([]), { logo: null, accent: null }, "a brand with nothing to lend");
   assert.deepEqual(wornTheme({ logo: null, accent: null }, look), look, "empty: the brand's");
   assert.deepEqual(wornTheme({ logo: "own", accent: "#000000" }, look), { logo: "own", accent: "#000000" }, "set: its own, for white-label");

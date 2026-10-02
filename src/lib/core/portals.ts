@@ -444,7 +444,7 @@ export async function brandLookOf(ws: string, slug: string) {
         (await db.select({ id: assets.id, mime: assets.mime }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))).map((a) => [a.id, a.mime]),
       )
     : new Map<string, string>();
-  return brandLook((src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) })));
+  return brandLook((src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) })), src?.theme.logo);
 }
 
 /**

@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@tabler/icons-react";
 import { BrandCard, type CardBrand } from "@/components/brand-card";
-import { BrandHeader } from "@/components/brand-header";
 import { InfoTip } from "@/components/info-tip";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Status } from "@/components/builder/use-status";
-import { AppHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import type { Release } from "@/lib/brand-head";
 import { ago, taglineOf } from "@/lib/hub";
@@ -18,7 +16,7 @@ import { useCountUp } from "@/lib/motion";
 
 /**
  * A brand's Overview, the tab it opens on (PRD section 12, the brand card, as
- * the prototype's repository page draws it): under the header, what it is
+ * the prototype's repository page draws it): under the header ((tabs)/layout.tsx), what it is
  * (its line, where it came from), the card readers see
  * (components/brand-card.tsx, BrandHub's) and its latest release with what
  * that changed; beside them the Brand Agent Score and the signals that say
@@ -31,8 +29,6 @@ export type { Release };
 
 export type BrandOverviewProps = {
   brand: BrandInfo & { from?: string | null };
-  /** This server's address (APP_URL): where agents reach it. */
-  origin: string;
   rules: Rule[];
   status: Status | null;
   release: Release | null;
@@ -48,13 +44,11 @@ export type BrandOverviewProps = {
   links: { release?: string; review?: string };
 };
 
-export function BrandOverview({ brand, origin, rules, status, release, changes, signals, card, comments, links }: BrandOverviewProps) {
+export function BrandOverview({ brand, rules, status, release, changes, signals, card, comments, links }: BrandOverviewProps) {
   const tagline = taglineOf(rules);
 
   return (
     <>
-      <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name }]} />
-      <BrandHeader brand={brand} origin={origin} rules={rules} status={status} release={release} at="overview" />
       <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 pt-6 pb-16 md:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <TeamStrip slug={brand.slug} status={status} signals={signals} comments={comments} links={links} />
         <div className="grid min-w-0 content-start gap-4">

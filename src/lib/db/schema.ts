@@ -1196,8 +1196,12 @@ export const hubReports = pgTable(
   ],
 );
 
-/** Who follows which BrandHub brand (lib/core/hub.ts): the hub's Following tab. A person, never a key. */
-export const hubFollows = pgTable(
+/**
+ * Who starred which BrandHub brand (lib/core/hub.ts): the hub's Starred tab,
+ * and the count on its Star button. A person, never a key. Named for when
+ * starring was called following.
+ */
+export const hubStars = pgTable(
   "hub_follows",
   {
     userId: text("user_id")
@@ -1209,6 +1213,21 @@ export const hubFollows = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.brandId] }), index("hub_follows_brand_idx").on(t.brandId)],
+);
+
+/** Who follows which BrandHub organization (lib/core/hub.ts): its brands show in the hub's Following tab. A person, never a key. */
+export const hubOrgFollows = pgTable(
+  "hub_org_follows",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.organizationId] }), index("hub_org_follows_org_idx").on(t.organizationId)],
 );
 
 /**
