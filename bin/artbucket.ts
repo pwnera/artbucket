@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { hostname, homedir } from "node:os";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 const HELP = `artbucket <command>
@@ -61,17 +61,20 @@ const HELP = `artbucket <command>
                           settings into it, and null clears one
   publish [--brand b] [--note text]
                           put the brand's pages, rules and theme in front of portal visitors
-  brand pull [dir] [--brand b] [--assets]
+  brand pull [dir] [--brand b] [--assets] [--force]
                           the brand as files in dir (brand/ by default): brand.yaml,
                           rules/, pages/; a file that says the same is left as it is.
+                          A file changed here since the last pull or push (or, before
+                          the first, one git holds uncommitted) is never written over
+                          or removed, unless --force.
                           --assets fetches the files it points at into assets/ too;
                           a folder whose assets/ holds files always does, and they
                           keep their paths
   brand push [dir] [--brand b] [--create] [--dry-run] [--replace] [--publish] [--note text]
                           take the brand from its files, uploading what assets/ adds,
-                          as one version. A brand kept in a repository keeps what
-                          changed here since the last sync (--replace takes the files
-                          whole); one that isn't takes the files whole: pull first.
+                          as one version. What changed in the app since this folder's
+                          last pull or push (or a Git integration's last sync) is kept;
+                          --replace takes the files whole.
                           --publish releases it after; --note says what changed, and
                           releases it too. --create makes the brand when there is none
   brand diff [dir] [--brand b]
@@ -139,6 +142,7 @@ const { values: opt, positionals } = parseArgs({
     "dry-run": { type: "boolean" },
     create: { type: "boolean" },
     replace: { type: "boolean" },
+    force: { type: "boolean" },
     publish: { type: "boolean" },
     note: { type: "string" },
     status: { type: "string", multiple: true },
@@ -316,12 +320,42 @@ async function post(path: string, body: unknown) {
   return { ok: true as const, data: json.data };
 }
 
+/**
+ * The brand's files as this folder last agreed with the server: written by a
+ * pull, and by a push (the files it sent). Kept beside the key, not in the
+ * folder: a push sends them so the server keeps what changed in the app
+ * since, and a pull reads them to know which files hold work not yet pushed.
+ */
+const baseFile = (dir: string, slug: string) =>
+  join(dirname(CREDENTIALS), "bases", `${createHash("sha256").update(`${BASE}\0${resolve(dir)}\0${slug}`).digest("hex").slice(0, 32)}.json`);
+async function readBase(dir: string, slug: string): Promise<Record<string, string> | null> {
+  return JSON.parse(await readFile(baseFile(dir, slug), "utf8").catch(() => "null"));
+}
+async function writeBase(dir: string, slug: string, files: Record<string, string>) {
+  await mkdir(dirname(baseFile(dir, slug)), { recursive: true });
+  await writeFile(baseFile(dir, slug), JSON.stringify(files));
+}
+
+/** Files under `dir` with changes git holds uncommitted (staged or not), and files it doesn't track: none outside a repository. */
+async function uncommittedIn(dir: string) {
+  const git = (...args: string[]) =>
+    new Promise<string[]>((done) => execFile("git", ["-C", dir, ...args], (err, out) => done(err ? [] : out.split("\0").filter(Boolean))));
+  const [changed, staged, untracked] = await Promise.all([
+    git("ls-files", "-z", "--modified"),
+    git("diff", "--cached", "--name-only", "--relative", "-z"),
+    git("ls-files", "-z", "--others", "--exclude-standard"),
+  ]);
+  return { changed: new Set([...changed, ...staged]), untracked: new Set(untracked) };
+}
+
 async function brandPull(dir: string) {
   const previous = await brandFiles(dir);
+  const slug = filesBrand(previous, dir);
+  const [base, uncommitted] = await Promise.all([readBase(dir, slug), uncommittedIn(dir)]);
   // A folder that keeps its assets keeps them: pulled as files, never turned into ids.
   const local = await assetFiles(dir);
   const withAssets = opt.assets || Object.keys(local).length > 0;
-  const r = await api("POST", `${await brandPath(filesBrand(previous, dir))}/files/export`, { previous, ...(withAssets && { assets: "files" }) });
+  const r = await api("POST", `${await brandPath(slug)}/files/export`, { previous, ...(withAssets && { assets: "files" }) });
   const { files: answered, assets } = r.data as { files: Record<string, string>; assets: Record<string, { sha256: string; url: string }> };
   // The server names files .yaml; a folder that calls one .yml keeps its name, or the next push finds both.
   const yml = (p: string) => p.replace(/\.yaml$/, ".yml");
@@ -333,6 +367,23 @@ async function brandPull(dir: string) {
   });
   const at = (text: string) => moved.reduce((t, [from, to]) => t.replace(new RegExp(`(?<![\\w./-])${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w./-])`, "g"), to), text);
   const files = Object.fromEntries(Object.entries(answered).map(([p, text]) => [p.endsWith(".yaml") && yml(p) in previous ? yml(p) : p, at(text)]));
+  // rules/ and pages/ hold the brand's files alone: one it no longer has goes.
+  const gone = Object.keys(previous).filter((p) => !(p in files));
+  // Work not yet pushed is never written over: a pull to catch up before a push would lose it.
+  const touched = [...Object.keys(files).filter((p) => previous[p] !== files[p]), ...gone];
+  // Local work is what differs from the last pull or push. Without that record, what git holds uncommitted: an
+  // untracked file only where pull would remove it, since one it writes over may be the last pull's, never committed.
+  const unpushed = base
+    ? (p: string) => (previous[p] ?? null) !== (base[p] ?? null)
+    : (p: string) => uncommitted.changed.has(p) || (gone.includes(p) && uncommitted.untracked.has(p));
+  const mine = opt.force ? [] : touched.filter(unpushed);
+  if (mine.length)
+    throw new Error(
+      `${dir} has changes not ${base ? "pushed" : "committed"} that this pull would ${mine.some((p) => gone.includes(p)) ? "remove or " : ""}write over:\n${mine.map((p) => `  ${p}`).join("\n")}\n` +
+        (base
+          ? `Push them first (artbucket brand push ${dir}: it keeps what changed in the app since), then pull; or pull with --force to take the brand's.`
+          : `Push them first (artbucket brand push ${dir}), commit them and pull again to see the brand's side in git diff, or pull with --force to take the brand's.`),
+    );
   const wrote: string[] = [];
   for (const [path, text] of Object.entries(files)) {
     if (previous[path] === text) continue;
@@ -340,8 +391,6 @@ async function brandPull(dir: string) {
     await writeFile(join(dir, path), text);
     wrote.push(path);
   }
-  // rules/ and pages/ hold the brand's files alone: one it no longer has goes.
-  const gone = Object.keys(previous).filter((p) => !(p in files));
   for (const p of gone) await rm(join(dir, p));
   for (const [path, a] of withAssets ? Object.entries(assets) : []) {
     if (local[path] === a.sha256 || bySha.has(a.sha256)) continue;
@@ -351,6 +400,7 @@ async function brandPull(dir: string) {
     await writeFile(join(dir, path), Buffer.from(await res.arrayBuffer()));
     wrote.push(path);
   }
+  await writeBase(dir, slug, await brandFiles(dir));
   return [
     ...wrote.map((p) => `  wrote   ${p}`),
     ...gone.map((p) => `  removed ${p}`),
@@ -369,7 +419,9 @@ async function brandPush(dir: string, dryRun: boolean) {
   }
   const assets = await assetFiles(dir);
   const path = `${await brandPath(slug)}/files/import`;
-  const body = { files, assets, ...(opt.replace && { merge: false }) };
+  // What the folder last agreed on with the brand: edits made in the app since are kept, not undone.
+  const base = opt.replace ? null : await readBase(dir, slug);
+  const body = { files, assets, ...(opt.replace && { merge: false }), ...(base && { base }) };
   let r = await post(path, { ...body, dryRun: true });
   // Upload what the library lacks, then ask again.
   if (!r.ok && !r.problems.errors.length && r.problems.missing.length && !dryRun) {
@@ -398,6 +450,7 @@ async function brandPush(dir: string, dryRun: boolean) {
     }
   }
   const d = r.data as { diff: Diff; conflicts: { what: string }[]; warnings: Problem[]; applied: boolean; version: number | null; published: number | null; pending: boolean };
+  if (!dryRun) await writeBase(dir, slug, files);
   const lines = diffLines(d.diff);
   return [
     ...d.warnings.map((w) => `! ${problemLine(w)}`),

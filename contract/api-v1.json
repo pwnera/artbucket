@@ -30627,6 +30627,19 @@
                   "description": "Keep what changed here since the source last agreed (default); false takes the files whole",
                   "type": "boolean"
                 },
+                "base": {
+                  "description": "For a brand with no source: the files as you last had them from it (a pull, or your last push). What changed here since is kept",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  }
+                },
                 "publish": {
                   "description": "Publish after, with this note (true: none). Takes share",
                   "anyOf": [
@@ -30787,6 +30800,54 @@
                                 },
                                 "title": {
                                   "type": "string"
+                                },
+                                "fields": {
+                                  "description": "Changed: the page's own fields that changed (title, lede...)",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "sections": {
+                                  "description": "Changed: its sections that changed, by id",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "change": {
+                                        "type": "string",
+                                        "enum": [
+                                          "added",
+                                          "removed",
+                                          "changed",
+                                          "moved"
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "template": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "fields": {
+                                        "description": "Changed: which of its fields",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "change",
+                                      "id",
+                                      "template",
+                                      "title"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 }
                               },
                               "required": [
@@ -31621,6 +31682,54 @@
                                 },
                                 "title": {
                                   "type": "string"
+                                },
+                                "fields": {
+                                  "description": "Changed: the page's own fields that changed (title, lede...)",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "sections": {
+                                  "description": "Changed: its sections that changed, by id",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "change": {
+                                        "type": "string",
+                                        "enum": [
+                                          "added",
+                                          "removed",
+                                          "changed",
+                                          "moved"
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "template": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "fields": {
+                                        "description": "Changed: which of its fields",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "change",
+                                      "id",
+                                      "template",
+                                      "title"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 }
                               },
                               "required": [

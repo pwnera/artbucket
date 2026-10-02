@@ -1778,6 +1778,9 @@ export const BrandImportInput = z.strictObject({
   message: z.string().trim().max(2000).optional().describe("The commit's message: its first line names the version the import makes"),
   dryRun: z.boolean().optional().describe("Check and merge, answer what would change, write nothing"),
   merge: z.boolean().optional().describe("Keep what changed here since the source last agreed (default); false takes the files whole"),
+  base: brandFiles
+    .optional()
+    .describe("For a brand with no source: the files as you last had them from it (a pull, or your last push). What changed here since is kept"),
   publish: z.union([z.boolean(), z.string().trim().max(2000)]).optional().describe("Publish after, with this note (true: none). Takes share"),
 });
 export const BrandSourceInput = z.strictObject({

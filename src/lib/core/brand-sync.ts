@@ -244,6 +244,11 @@ export type ImportInput = {
   dryRun?: boolean;
   /** Merge with what changed here since the source last agreed (the default); false takes the files whole. */
   merge?: boolean;
+  /**
+   * The files as the caller last had them from the brand (its last pull, or its last push), for a brand with
+   * no source to agree with: what changed here since is kept, as a source's base keeps it. The CLI sends them.
+   */
+  base?: Files;
   /** Publish after, with this note (true: no note). Takes share on the workspace. */
   publish?: boolean | string;
 };
@@ -265,7 +270,9 @@ export async function importBrand(caller: Caller, slug: string | undefined, inpu
   const theirs = checked.state!;
   const source = await sourceRow(brand.id);
   const ours = await stateOf(db, brand);
-  const base = input.merge === false ? null : (source?.base ?? null);
+  // The caller's own base, read as its files are: one that no longer reads (a rule file it broke since) merges nothing.
+  const theirBase = !source?.base && input.base ? fromFiles(input.base, { assets: checked.used, slug: brand.slug }).state : null;
+  const base = input.merge === false ? null : (source?.base ?? theirBase);
   let { state: merged, conflicts }: { state: BrandState; conflicts: Conflict[] } = base ? merge(base, ours, theirs) : { state: canonical(theirs), conflicts: [] };
   if (base) {
     // Two sound sides can make an unsound whole: a page here binding a rule the files removed. Then the files, whole.
