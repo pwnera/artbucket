@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { IconCircleCheck, IconCircleX, IconLoader2 } from "@tabler/icons-react";
+import { IconCircleCheck, IconCircleX } from "@tabler/icons-react";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,8 +107,8 @@ export function CanIUse({ ask, context = false, onOpen }: { ask: (use: Use) => P
           </label>
         )}
       </div>
-      <Button type="button" variant="outline" size="sm" className="justify-self-start" disabled={got.busy} onClick={() => void run()}>
-        {got.busy && <IconLoader2 className="animate-spin" />} Check
+      <Button type="button" variant="outline" size="sm" className="justify-self-start" pending={got.busy} onClick={() => void run()}>
+        Check
       </Button>
       <div aria-live="polite" className="grid gap-1.5 text-sm">
         {got.error && <p className="text-destructive">{got.error}</p>}

@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconPalette } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconPalette, IconPlus, IconTrash } from "@tabler/icons-react";
 import { Fold } from "@/components/fold";
+import { IconButton } from "@/components/icon-button";
+import { SiteLinkIcon } from "@/components/site/link-icon";
 import { LibraryPicker } from "@/components/asset-picker";
 import { GRADE_STYLE } from "@/components/brand-values";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -341,6 +344,10 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
         </Fold>
       </Group>
 
+      <Group title="Links">
+        <LinksEditor links={s.links ?? []} onSave={(links) => save({ links: links.length ? links : null })} />
+      </Group>
+
       <Group title="Contrast">
         <p className={cn("flex items-center gap-1.5 text-sm", failing ? "text-warning" : "text-muted-foreground")}>
           {failing ? <IconAlertTriangle aria-hidden className="size-4 shrink-0" /> : <IconCircleCheck aria-hidden className="text-success size-4 shrink-0" />}
@@ -485,6 +492,78 @@ function On({ label, checked, onChange }: { label: string; checked: boolean; onC
       <Label htmlFor={id} className="leading-snug font-normal">
         {label}
       </Label>
+    </div>
+  );
+}
+
+type Link = NonNullable<ThemeSettings["links"]>[number];
+const MAX_LINKS = 8;
+const isWeb = (url: string) => {
+  try {
+    return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The links beside search and print on the brand's pages (its repository,
+ * its Figma library): a row each, saved when the row is left, once both are
+ * filled and the address is http or https. A half-filled row waits.
+ */
+function LinksEditor({ links, onSave }: { links: Link[]; onSave: (links: Link[]) => void }) {
+  const [rows, setRows] = useState<Link[]>(links);
+  const [seen, setSeen] = useState(links);
+  const done = (r: Link) => !!r.label.trim() && isWeb(r.url.trim());
+  // Saved (or undone): the saved links, and the rows still being filled in after them.
+  if (links !== seen) {
+    setSeen(links);
+    setRows([...links, ...rows.filter((r) => !done(r))]);
+  }
+  const commit = (next: Link[]) => {
+    const kept = next.filter(done).map((r) => ({ label: r.label.trim(), url: r.url.trim() }));
+    if (JSON.stringify(kept) !== JSON.stringify(links)) onSave(kept);
+  };
+  const edit = (i: number, part: Partial<Link>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...part } : r)));
+  return (
+    <div className="grid gap-2">
+      <p className="text-muted-foreground text-xs">Beside search and print: its repository, its Figma library, its site.</p>
+      {rows.map((r, i) => {
+        const bad = !!r.url.trim() && !isWeb(r.url.trim());
+        return (
+          <div key={i} className="flex min-w-0 items-center gap-1.5" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && commit(rows)}>
+            <SiteLinkIcon url={r.url} className="text-muted-foreground size-4 shrink-0" />
+            <Input aria-label="Label" placeholder="GitHub" maxLength={40} value={r.label} onChange={(e) => edit(i, { label: e.target.value })} className="h-8 w-24 shrink-0" />
+            <Input
+              aria-label="Address"
+              aria-invalid={bad || undefined}
+              type="url"
+              inputMode="url"
+              placeholder="https://"
+              maxLength={2000}
+              value={r.url}
+              onChange={(e) => edit(i, { url: e.target.value })}
+              className="h-8 min-w-0 flex-1"
+            />
+            <IconButton
+              label="Remove the link"
+              variant="ghost"
+              onClick={() => {
+                const next = rows.filter((_, j) => j !== i);
+                setRows(next);
+                commit(next);
+              }}
+            >
+              <IconTrash aria-hidden />
+            </IconButton>
+          </div>
+        );
+      })}
+      {rows.length < MAX_LINKS && (
+        <Button variant="outline" size="sm" className="justify-self-start" onClick={() => setRows((rs) => [...rs, { label: "", url: "" }])}>
+          <IconPlus aria-hidden /> Add a link
+        </Button>
+      )}
     </div>
   );
 }

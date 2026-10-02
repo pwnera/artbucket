@@ -190,13 +190,16 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
   if (!facts) {
     return (
       <section aria-labelledby="setup-title" aria-busy className="bg-card rounded-xl border p-4">
-        <h2 id="setup-title" className="text-sm font-medium">
-          {chosen.label}: on to {chosen.win}
-        </h2>
-        <Skeleton className="mt-3 h-1.5 max-w-48" />
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {/* The loaded card's rows at their heights: the title over its progress, then steps of a label and a line. */}
+        <div className="grid gap-1.5">
+          <h2 id="setup-title" className="text-sm font-medium">
+            {chosen.label}: on to {chosen.win}
+          </h2>
+          <Skeleton className="my-[5px] h-1.5 max-w-48" />
+        </div>
+        <div className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-12" />
+            <Skeleton key={i} className="h-[3.375rem]" />
           ))}
         </div>
       </section>

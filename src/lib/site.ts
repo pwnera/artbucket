@@ -378,3 +378,33 @@ export function scriptOf(lang: string): string {
 
 /** Which way a language reads, from its script: ar and he right to left, ar-latn left to right. */
 export const dirOf = (lang: string): "ltr" | "rtl" => (RTL.has(scriptOf(lang)) ? "rtl" : "ltr");
+
+const LINK_HOSTS = [
+  ["github", "github.com"],
+  ["gitlab", "gitlab.com"],
+  ["figma", "figma.com"],
+  ["npm", "npmjs.com"],
+  ["storybook", "chromatic.com"],
+  ["x", "x.com"],
+  ["x", "twitter.com"],
+  ["linkedin", "linkedin.com"],
+  ["youtube", "youtube.com"],
+  ["youtube", "youtu.be"],
+  ["discord", "discord.com"],
+  ["discord", "discord.gg"],
+  ["instagram", "instagram.com"],
+  ["dribbble", "dribbble.com"],
+  ["bluesky", "bsky.app"],
+] as const;
+export type LinkKind = (typeof LINK_HOSTS)[number][0] | "web";
+
+/** Which icon a theme link wears, by its host (a subdomain too, but never a look-alike such as evilgithub.com). */
+export function linkKind(url: string): LinkKind {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "web";
+  }
+  return LINK_HOSTS.find(([, h]) => host === h || host.endsWith(`.${h}`))?.[0] ?? "web";
+}

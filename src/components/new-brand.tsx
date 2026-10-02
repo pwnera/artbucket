@@ -249,7 +249,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <Button type="button" variant="ghost" onClick={() => setStep("how")} disabled={busy}>
                   <IconArrowLeft /> Back
                 </Button>
-                <Button type="submit" pending={busy && (start ? "beside" : true)} disabled={!name.trim() || (start === "domain" && !pickId)}>
+                <Button type="submit" pending={busy} disabled={!name.trim() || (start === "domain" && !pickId)}>
                   {busy && start ? "Bringing in its logos and fonts" : keep ? "Create and pick a repository" : "Create brand"}
                 </Button>
               </DialogFooter>

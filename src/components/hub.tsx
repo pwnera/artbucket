@@ -239,7 +239,8 @@ export function Cards({ cards, base, className }: { cards: HubCard[]; base: stri
 /** A row of underlined tabs, GitHub's: links, the current one marked. */
 export function TabNav({ label, items, className }: { label: string; items: { href: string; label: string; count?: number; current?: boolean }[]; className?: string }) {
   return (
-    <nav aria-label={label} className={cn("-mb-px flex gap-1 overflow-x-auto", className)}>
+    // Scrolls sideways when narrow, with no scrollbar drawn under the tabs.
+    <nav aria-label={label} className={cn("-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none]", className)}>
       {items.map((t) => (
         <Link
           key={t.href}

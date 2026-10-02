@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandHeader, type BrandHeaderProps } from "@/components/brand-header";
 import { BrandTabMenu } from "@/components/brand-tabs";
 import { Can } from "@/components/can";
+import { FloatingEdit } from "@/components/floating-edit";
 import { AppHeader } from "@/components/page";
 import { useSqueeze } from "@/components/shell";
 import { SiteView } from "@/components/site/site-view";
@@ -61,10 +62,8 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
   const focus = !embed;
   const at = useCallback((page: string | null, o: At) => readerHref(slug, focus, page, o), [focus, slug]);
 
-  // Bumped by a theme save: the same address is fetched again, in its new look.
-  const [rev, setRev] = useState(0);
   const asked = params.get("version");
-  const want = [...["page", "context", "lang"].map((k) => params.get(k) ?? ""), asked ?? fallback, rev].join("\n");
+  const want = [...["page", "context", "lang"].map((k) => params.get(k) ?? ""), asked ?? fallback].join("\n");
   const [shown, setShown] = useState({ want, view: initial });
   // A new `initial` (router.refresh, a link here from elsewhere in the app) is the server's view of the address now.
   const [seen, setSeen] = useState(initial);
@@ -78,7 +77,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
 
   useEffect(() => {
     if (want === shown.want) return;
-    const [page, context, lang, version, n] = want.split("\n");
+    const [page, context, lang, version] = want.split("\n");
     const q = new URLSearchParams(Object.entries({ page, context, lang, version: version === "live" ? version : "" }).filter(([, v]) => v));
     const ac = new AbortController();
     fetch(`/api/v1/brands/${encodeURIComponent(slug)}/view${q.size ? `?${q}` : ""}`, { signal: ac.signal })
@@ -88,7 +87,7 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
         const { data } = (await res.json()) as { data: PageView };
         // A slug the page had before a rename: the page, at its address now, with no new history entry.
         if (data.redirect) window.history.replaceState(null, "", at(data.redirect, { context, lang, version: asked }) + location.hash);
-        setShown({ want: data.redirect ? [data.redirect, context, lang, version, n].join("\n") : want, view: data });
+        setShown({ want: data.redirect ? [data.redirect, context, lang, version].join("\n") : want, view: data });
       })
       .catch(() => {
         if (!ac.signal.aborted) window.location.reload();
@@ -169,7 +168,9 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
     <>
       <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
       <Can do="brand.edit">
-        <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => setRev((r) => r + 1)} />
+        <FloatingEdit href={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} />
+        {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
+        <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
       </Can>
     </>
   );

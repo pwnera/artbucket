@@ -70,6 +70,16 @@ export const ThemeSettings = z.strictObject({
     .refine((ls) => new Set(ls.map((l) => l.code)).size === ls.length, "Each language once")
     .optional()
     .describe("The languages readers pick from; the first is the one the pages are written in"),
+  links: z
+    .array(
+      z.strictObject({
+        label: z.string().trim().min(1).max(40),
+        url: z.url({ protocol: /^https?$/ }).max(2000).describe("http or https; a link to GitHub, Figma, npm and the like shows its icon"),
+      }),
+    )
+    .max(8)
+    .optional()
+    .describe("Links beside search and print on the brand's pages: its repository, its Figma library, its site"),
 });
 export type ThemeSettings = z.output<typeof ThemeSettings>;
 

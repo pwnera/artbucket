@@ -17,9 +17,10 @@ import { hashId, OpenTabProvider } from "@/components/site/tabs";
 import { TermsGate } from "@/components/site/terms";
 import { OnThisPage } from "@/components/site/toc";
 import { WhatsNew } from "@/components/site/updates";
+import { IconButton } from "@/components/icon-button";
+import { SiteLinkIcon } from "@/components/site/link-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,28 +134,25 @@ function Layout({
   const [searching, setSearching] = useState(false);
   const go = useCallback((to: string) => (onNavigate ? onNavigate(to) : window.location.assign(to)), [onNavigate]);
   const first = portal?.brands[0]?.slug;
-  // Search and quick grab: in the bar, or atop the nav's column where it stands.
-  const tools = (wide: boolean) => (
+  // Search, quick grab, the language, the brand's links and print: icons, their words their tooltips, in the bar or atop the nav's column.
+  const links = view.theme.settings.links ?? [];
+  const tools = (
     <>
-      <Button
-        variant={wide ? "outline" : "ghost"}
-        size="sm"
-        aria-keyshortcuts="/"
-        onClick={() => setSearching(true)}
-        className={cn(wide && "text-muted-foreground w-full justify-start")}
-      >
+      <IconButton label="Search" shortcut={["/"]} variant="ghost" aria-keyshortcuts="/" onClick={() => setSearching(true)}>
         <IconSearch aria-hidden />
-        <span className={cn(!wide && "sr-only @md/site:not-sr-only")}>Search</span>
-        <Kbd keys={["/"]} className={cn(wide ? "ms-auto" : "hidden @md/site:inline-flex")} />
-      </Button>
-      {!!portal?.site.quick?.length && first && (
-        <QuickGrab quick={portal.site.quick} base={base} first={first} onNavigate={onNavigate} className={cn(wide && "w-full justify-start")} />
-      )}
-      <LanguageSwitch view={view} onNavigate={onNavigate} className={cn(wide && "w-full")} />
-      <Button variant="ghost" size="sm" onClick={() => window.print()} className={cn(wide && "text-muted-foreground w-full justify-start")}>
+      </IconButton>
+      {!!portal?.site.quick?.length && first && <QuickGrab quick={portal.site.quick} base={base} first={first} onNavigate={onNavigate} />}
+      <LanguageSwitch view={view} onNavigate={onNavigate} />
+      {links.map((l) => (
+        <IconButton key={l.url} asChild variant="ghost" label={l.label} aria-label={`${l.label} (opens in a new tab)`}>
+          <a href={l.url} target="_blank" rel="noopener noreferrer">
+            <SiteLinkIcon url={l.url} />
+          </a>
+        </IconButton>
+      ))}
+      <IconButton label="Print this page" variant="ghost" onClick={() => window.print()}>
         <IconPrinter aria-hidden />
-        <span className={cn(!wide && "sr-only")}>Print this page</span>
-      </Button>
+      </IconButton>
     </>
   );
   // Left for a page: focus goes to that page (below), not back to the menu button.
@@ -258,7 +256,7 @@ function Layout({
         >
           {column && (
             <aside data-chrome className={cn("sticky hidden self-start overflow-y-auto border-e p-3 @6xl/site:block print:hidden", pin.top, pin.tall)}>
-              <div className="mb-3 grid gap-1">{tools(true)}</div>
+              <div className="mb-3 flex flex-wrap items-center gap-1">{tools}</div>
               <NavTree roots={roots} current={current} onNavigate={onNavigate} />
             </aside>
           )}
@@ -307,7 +305,7 @@ function Layout({
                 {path.length > 1 && <span>{path[0].title} / </span>}
                 <span className="text-foreground font-medium">{whatsNew ? "What's new" : (path.at(-1)?.title ?? page?.title)}</span>
               </p>
-              <div className={cn("ms-auto flex shrink-0 items-center gap-1", column && "@6xl/site:hidden")}>{tools(false)}</div>
+              <div className={cn("ms-auto flex shrink-0 items-center gap-1", column && "@6xl/site:hidden")}>{tools}</div>
             </div>
 
             <article ref={article} id={idOf("content")} tabIndex={-1} className="@container outline-none">

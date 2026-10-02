@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { IconCircleCheck, IconLock, IconRefresh, IconSend } from "@tabler/icons-react";
 import { ThemeToggle, useAccent } from "@/components/brand";
+import { FloatingEdit } from "@/components/floating-edit";
 import { type Access, type AssetsView, PortalAssets, type PortalBody, type Theme } from "@/components/portal-assets";
 import { SiteLink } from "@/components/site/nav-tree";
 import { Book } from "@/components/site/book";
@@ -17,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { inkOn } from "@/lib/color";
 import type { Audience } from "@/lib/pages";
 import type { PortalSite } from "@/lib/portal";
-import { canonicalPath, type PageView } from "@/lib/site";
+import { builderPath, canonicalPath, type PageView } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { shake } from "@/lib/motion";
 
@@ -145,6 +146,7 @@ export function PortalView({
   path,
   initial,
   ownDomain = false,
+  editor,
 }: {
   slug: string;
   /** Where the portal's paths start: /p/{slug}, or "" on its own domain. */
@@ -154,6 +156,8 @@ export function PortalView({
   initial: Loaded | null;
   /** Served at the portal's own domain, where signing in can't work. */
   ownDomain?: boolean;
+  /** Whoever is signed in may edit its brands (lib/core/portals.ts portalEditor): their workspace, and the app's address, for the floating Edit. */
+  editor?: { workspace: string; app: string } | null;
 }) {
   const [state, setState] = useState<State>(() => (initial ? next(initial, false, { at: "loading" }) : { at: "loading" }));
   const [pending, setPending] = useState(false);
@@ -446,6 +450,12 @@ export function PortalView({
           />
         )}
       </main>
+      {editor && mode !== "book" && (
+        <FloatingEdit
+          always
+          href={editor.app + builderPath(brand, { page: view.page?.slug, context: view.context, workspace: editor.workspace })}
+        />
+      )}
     </Shell>
   );
 }

@@ -1556,8 +1556,7 @@ export function Gallery({
             {paging && layout === "grid" && <GridSkeleton count={4} />}
             {hasMore ? (
               <div ref={end} className="flex justify-center py-4">
-                <Button variant="outline" size="sm" onClick={() => void loadMore()} disabled={paging}>
-                  {paging && <IconLoader2 className="animate-spin" />}
+                <Button variant="outline" size="sm" onClick={() => void loadMore()} pending={paging}>
                   Load more
                   <span className="text-muted-foreground tabular-nums">
                     {assets.length.toLocaleString()} of {total.toLocaleString()}

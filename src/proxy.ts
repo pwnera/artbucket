@@ -155,6 +155,23 @@ function movedGuidelines(req: NextRequest) {
   return NextResponse.redirect(url, 307);
 }
 
+/**
+ * A link into the app that names a workspace (?workspace=, the floating Edit
+ * on BrandHub and portals): it becomes the open one, the cookie
+ * components/account.tsx pickWorkspace writes, and the address goes on
+ * without it. A preference, not access: lib/core/access.ts opens it only for
+ * someone who may, else their first.
+ */
+function openWorkspace(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("workspace");
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
+  const url = req.nextUrl.clone();
+  url.searchParams.delete("workspace");
+  const res = NextResponse.redirect(url, 307);
+  res.cookies.set("ab_workspace", id, { path: "/", maxAge: 31536000, sameSite: "lax", secure: https });
+  return res;
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // A NUL names nothing here, and Postgres refuses it in text: every route, page and query alike, before any asks.
@@ -178,7 +195,7 @@ export async function proxy(req: NextRequest) {
   const policy = csp(nonce);
   init?.request.headers.set("x-nonce", nonce);
   init?.request.headers.set("Content-Security-Policy", policy);
-  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? movedGuidelines(req) ?? NextResponse.next(init);
+  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? movedGuidelines(req) ?? (page && req.headers.get("host") === appHost ? openWorkspace(req) : null) ?? NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -88,7 +88,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   // The compact header's buttons are their icons: their words are their tooltips, and for screen readers.
   const word = compact ? "sr-only" : undefined;
   const actions = (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit") && (
@@ -173,15 +173,25 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
                 </a>
               )}
             </div>
-            <p className="text-muted-foreground truncate text-sm">
+            {/* Each part whole: a narrow header wraps between them rather than cutting the date in two. */}
+            <p className="text-muted-foreground flex flex-wrap gap-x-1.5 text-sm">
               {parts.map((x, i) => (
-                <Fragment key={i}>
-                  {i > 0 && " · "}
+                <span key={i} className="whitespace-nowrap">
                   {x}
-                </Fragment>
+                  {/* At the end of a part, so a wrapped line never opens on a dot. */}
+                  {i < parts.length - 1 && (
+                    <span aria-hidden className="ms-1.5">
+                      ·
+                    </span>
+                  )}
+                </span>
               ))}
-              {release?.note && <> · &ldquo;{release.note.split("\n")[0]}&rdquo;</>}
             </p>
+            {release?.note && (
+              <p className="text-muted-foreground truncate text-sm" title={release.note}>
+                &ldquo;{release.note.split("\n")[0]}&rdquo;
+              </p>
+            )}
           </div>
         </div>
         {actions}

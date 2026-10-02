@@ -321,7 +321,7 @@ export function BrandSetup({ brand, init, transport = sendResult, header }: Bran
           </Step>
 
           <div className="flex flex-wrap items-center gap-2 border-t pt-6">
-            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={(busy !== null || opening) && "beside"} disabled={!isHex(e.primary)}>
+            <Button size="lg" onClick={() => void create({ kind: "rules" })} pending={busy !== null || opening} disabled={!isHex(e.primary)}>
               {busy ?? (opening ? "Opening the editor" : "Create the brand pages")}
             </Button>
             <DropdownMenu>
