@@ -9,6 +9,7 @@ import {
   fontRoles,
   LAYOUT_KEYS,
   LOOKS,
+  nightTheme,
   renameThemeKey,
   sectionGround,
   stack,
@@ -162,7 +163,7 @@ function book(name: string) {
   return { rules, settings: b.theme, colorOf: (k: string) => rules.find((x) => x.key === k && x.context === null) };
 }
 
-/** Themes to hold the guardrails to: every fixture, one on a dark surface, one with no surface, one with no colors. */
+/** Themes to hold the guardrails to: every fixture and its night (nightTheme), one on a dark surface, one with no surface, one with no colors. */
 function themes(): [string, Theme, (k: string) => Rule | undefined][] {
   const made = ["blender", "ugly", "hairline"].map((n): [string, Theme, (k: string) => Rule | undefined] => {
     const b = book(n);
@@ -171,8 +172,23 @@ function themes(): [string, Theme, (k: string) => Rule | undefined][] {
   const night = [r("color.background", "color", "#0b0b14"), r("color.primary", "color", "#1f3fff"), r("color.ink", "color", "#303040")];
   const bare = [r("color.primary", "color", "#ffd400"), r("color.secondary", "color", "#9aa0a6")];
   const find = (rs: Rule[]) => (k: string) => rs.find((x) => x.key === k);
-  return [...made, ["night", deriveTheme(night), find(night)], ["bare", deriveTheme(bare), find(bare)], ["empty", deriveTheme([]), find([])]];
+  const nights = made.flatMap(([n, t, c]): [string, Theme, (k: string) => Rule | undefined][] => {
+    const d = nightTheme(t);
+    return d ? [[`${n} at night`, d, c]] : [];
+  });
+  return [...made, ...nights, ["night", deriveTheme(night), find(night)], ["bare", deriveTheme(bare), find(bare)], ["empty", deriveTheme([]), find([])]];
 }
+
+test("a light surface turns to the brand's dark when the app is dark; a dark one or none stays", () => {
+  const light = deriveTheme([r("color.background", "color", "#ffffff"), r("color.ink", "color", "#20241f"), r("color.dark", "color", "#141414"), r("color.primary", "color", "#6d4aff")]);
+  const d = nightTheme(light)!;
+  assert.equal(d.surface, "#141414");
+  assert.ok(contrast(d.ink, d.surface) >= 4.5 && contrast(d.muted, d.surface) >= 4.5 && contrast(d.accentText, d.surface) >= 4.5);
+  assert.notEqual(d.dark, d.surface, "dark bands still read as bands");
+  assert.equal(d.accent, light.accent, "the fill is the brand's");
+  assert.equal(nightTheme(deriveTheme([r("color.background", "color", "#0b0b14")])), null);
+  assert.equal(nightTheme(deriveTheme([r("color.primary", "color", "#ffd400")])), null);
+});
 
 test("deriveTheme reads each part from the rules by name, and a setting wins", () => {
   const rules = [

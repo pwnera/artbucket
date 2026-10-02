@@ -125,11 +125,14 @@ export const PortalThemePatch = z.object({
 /**
  * The logo and accent a portal made for a brand wears where it sets none:
  * its first brand's mark and color, as BrandHub's card draws them (hub.ts
- * logoOf, tintOf), from the release its visitors read. `rules` carry the
- * mimes of the files that may be shown; the logo is an asset id.
+ * logoOf, tintOf), from the release its visitors read; the logo its theme
+ * names (`logo`, a rule's key) comes first, since a header is its site's, not
+ * a card. `rules` carry the mimes of the files that may be shown; the logo is
+ * an asset id.
  */
-export function brandLook(rules: (Pick<HubRule, "key" | "type" | "value" | "context"> & { assets: { id: string; mime: string }[] })[]) {
-  return { logo: logoOf(rules)?.id ?? null, accent: tintOf(rules) };
+export function brandLook(rules: (Pick<HubRule, "key" | "type" | "value" | "context"> & { assets: { id: string; mime: string }[] })[], logo?: string | null) {
+  const named = rules.find((r) => !r.context && r.key === logo)?.assets.find((a) => a.mime.startsWith("image/"));
+  return { logo: (named ?? logoOf(rules))?.id ?? null, accent: tintOf(rules) };
 }
 
 /** What a portal wears: what it sets, else its brand's (brandLook), else null, the organization's. Setting one is how a portal white-labels. */
