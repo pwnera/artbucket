@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageSlug, TEMPLATE_PROPS, type Template } from "./pages.ts";
+import { pageSlug, TEMPLATE_INFO, TEMPLATE_PROPS, type Template } from "./pages.ts";
 
 /**
  * A template's props as form fields, read off TEMPLATE_PROPS, so the
@@ -74,7 +74,9 @@ const LABELS: Record<string, string> = {
 const title = (name: string) => LABELS[name] ?? name.charAt(0).toUpperCase() + name.slice(1).replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`);
 
 function fieldOf(t: string, name: string, raw: z.ZodType): Field {
-  const s = raw instanceof z.ZodOptional ? (raw.unwrap() as z.ZodType) : raw;
+  const opt = raw instanceof z.ZodOptional ? (raw.unwrap() as z.ZodType) : raw;
+  // A value the schema rewrites (an embed's address) is set as what goes in.
+  const s = opt instanceof z.ZodPipe ? (opt.in as z.ZodType) : opt;
   const label = title(name);
   const about = raw.description ?? s.description;
   // Help that only says the name again is left out.
@@ -120,3 +122,10 @@ export function withProp(props: Record<string, unknown>, f: Field, value: unknow
   else next[f.name] = value;
   return next;
 }
+
+/** What a prop is called where a person reads a template's use: TEMPLATE_INFO's are written for agents (props.image). */
+const IN_WORDS: Record<string, string> = { image: "a picture of its own", asset: "a tile of its own", template: "a line with {slots}" };
+
+/** A template's use, for a person: a prop named in parentheses goes, one named in the sentence is said in words. */
+export const templateUse = (t: Template) =>
+  TEMPLATE_INFO[t].use.replace(/ \(props\.\w+\)/g, "").replace(/props\.(\w+)/g, (_, p: string) => IN_WORDS[p] ?? p);

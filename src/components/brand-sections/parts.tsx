@@ -50,6 +50,12 @@ const ICON_SIZE = {
 } as const;
 
 /** `bare`: the logo alone on the ground, without the checkered, bordered square. */
+/** The logo rule the brand's mark is drawn from: the first with a picture, a primary, mark or wordmark before the rest. */
+export function markOf<R extends { key: string; assets: RuleAsset[] }>(rules: R[]): R | undefined {
+  const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.some(pictured));
+  return logos.find((r) => /^logo\.(primary|mark|main|wordmark)/.test(r.key)) ?? logos[0];
+}
+
 export function BrandIcon({
   brand,
   rules,
@@ -67,7 +73,7 @@ export function BrandIcon({
 }) {
   const url = useAssetUrl();
   const logos = rules.filter((r) => section(r.key) === "logo" && r.assets.some(pictured));
-  const named = logos.find((r) => /^logo\.(primary|mark|main|wordmark)/.test(r.key)) ?? logos[0];
+  const named = markOf(rules);
   const base = named && (logos.find((r) => r.key === named.key && r.context === null) ?? named);
   const dark = named && logos.find((r) => r.key === named.key && r.context && /dark/.test(r.context));
   const a = base?.assets.find(pictured);

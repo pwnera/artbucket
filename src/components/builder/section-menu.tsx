@@ -107,7 +107,7 @@ function SectionPart({ b, s, onSectionPicture }: { b: BuilderApi; s: Section; on
   const at = list.findIndex((x) => x.id === s.id);
   const set = (patch: Record<string, unknown>) => b.apply({ kind: "page", page, op: { op: "update", id: s.id, set: patch } });
   const moveTo = (after: string | null) => b.apply({ kind: "page", page, op: { op: "move", id: s.id, after } });
-  const insert = (t: Template, after: string | null) => b.insert(starter(t, b.state.rules, b.view.brand.name, b.state.nav.map((p) => p.slug), s.tab), after);
+  const insert = (t: Template, after: string | null) => b.insert(starter(t, b.state.rules, b.view.brand.name, s.tab), after);
   const before = at > 0 ? list[at - 1].id : null;
   const variant = variantOf(s.template);
   const pages = b.state.nav.filter((p) => p.slug !== page);

@@ -4,6 +4,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useM
 import { IconPhoto, IconUpload } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
+import { BrandIcon, markOf } from "@/components/brand-sections/parts";
 import { onceDrawn, RuleView } from "@/components/brand-sections/rule-view";
 import { ReadOnly, ValueEditor } from "@/components/brand-values";
 import { copyText } from "@/components/copy-button";
@@ -15,7 +16,7 @@ import { renderMarkdown, SITE_PATH } from "@/lib/markdown";
 import { TEMPLATE_INFO, type Item, type Section, type Template } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
 import { ruleName, type Rule } from "@/lib/rules";
-import { firstBinding, type Media, type ViewRule } from "@/lib/site";
+import { firstBinding, type Media, type ViewAsset, type ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -84,6 +85,51 @@ export function Body({ className }: { className?: string }) {
   const typing = useWords("body", body);
   if (typing) return <Rich {...typing} label="Body" className={className} />;
   return body ? <Prose text={body} className={className} /> : null;
+}
+
+/**
+ * A template's own words kept in its props (a quote's `by`, a request's
+ * `prompt`, an embed's `url`): typed where they read, as the section's are,
+ * the empty slot named by `label` while its section is picked. `shown`:
+ * what readers get when it is left out, the template's own default.
+ */
+export function PropText({
+  name,
+  label,
+  shown,
+  canvas,
+  as: El = "span",
+  className,
+}: {
+  name: string;
+  label: string;
+  shown?: string;
+  /** Typed on the canvas, never printed for readers (an embed's address: they get the frame). */
+  canvas?: boolean;
+  as?: "p" | "span";
+  className?: string;
+}) {
+  const s = useSection();
+  const edit = useEdit();
+  const picked = usePicked();
+  const value = typeof s.props[name] === "string" ? (s.props[name] as string) : undefined;
+  if (edit && !edit.lang && (value || picked))
+    return (
+      <Plain
+        as={El}
+        value={value ?? ""}
+        label={shown ?? label}
+        className={className}
+        onFocus={picker(edit, s, picked)}
+        onSave={(next) => {
+          const props = { ...s.props, [name]: next || undefined };
+          if (!next) delete props[name];
+          edit.update(s.id, { props });
+        }}
+      />
+    );
+  const text = canvas ? undefined : (value ?? shown);
+  return text ? <El className={className}>{text}</El> : null;
 }
 
 /** The ruled column beside the body; the frame places it. */
@@ -155,6 +201,53 @@ export function ItemLabel({ i, as: L = "span", className }: { i: number; as?: "s
 }
 
 /**
+ * A picture picked from the library or uploaded from the computer, for
+ * `use`: `pick` opens the library, `upload` the computer's file dialog, and
+ * `ui` (rendered anywhere) holds the dialog and the file input.
+ */
+function usePicking(use: (a: Asset) => void, o: { title: string; description: string; accept?: string; done?: (name: string) => string }) {
+  const [picking, setPicking] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  const ui = (
+    <>
+      <input
+        ref={file}
+        type="file"
+        accept={o.accept ?? "image/*"}
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (!f) return;
+          const id = toast.loading(`Uploading ${f.name}`);
+          upload(f).then(
+            (a) => {
+              toast.success(o.done?.(f.name) ?? `${f.name} is in the library`, { id });
+              use(a);
+            },
+            (err: Error) => toast.error(err.message, { id }),
+          );
+        }}
+      />
+      {picking && (
+        <Suspense>
+          <LibraryPicker
+            title={o.title}
+            description={o.description}
+            onClose={() => setPicking(false)}
+            onPick={(a) => {
+              setPicking(false);
+              use(a);
+            }}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+  return { pick: () => setPicking(true), upload: () => file.current?.click(), ui };
+}
+
+/**
  * On the canvas, while its section is picked: where item `i`'s picture is
  * picked from the library or uploaded. Nothing where the site is read, or
  * while a translation shows (a picture is the same in every language).
@@ -166,55 +259,180 @@ export function ItemMedia({ i, className }: { i: number; className?: string }) {
   const picked = usePicked();
   const s = useSection();
   const { url } = useSite();
-  const [picking, setPicking] = useState(false);
-  const file = useRef<HTMLInputElement>(null);
   const it = s.items?.[i];
+  const { pick, upload, ui } = usePicking(
+    (a) => {
+      edit?.addMedia([asMedia(a, url)]);
+      edit?.update(s.id, { items: s.items!.map((x, k) => (k === i ? { ...x, asset: a.id } : x)) });
+    },
+    { title: "Pick a picture", description: "From the library, for this item.", accept: "image/*,video/*" },
+  );
   if (!edit || edit.lang || !picked || !it) return null;
-  const use = (a: Asset) => {
-    edit.addMedia([asMedia(a, url)]);
-    edit.update(s.id, { items: s.items!.map((x, k) => (k === i ? { ...x, asset: a.id } : x)) });
-  };
   return (
     <div className={cn("app-tokens flex flex-wrap gap-1", className)}>
-      <Button type="button" variant="outline" size="xs" onClick={() => setPicking(true)}>
+      <Button type="button" variant="outline" size="xs" onClick={pick}>
         <IconPhoto /> {it.asset ? "Replace" : "Add a picture"}
       </Button>
-      <Button type="button" variant="outline" size="xs" onClick={() => file.current?.click()}>
+      <Button type="button" variant="outline" size="xs" onClick={upload}>
         <IconUpload /> Upload
       </Button>
-      <input
-        ref={file}
-        type="file"
-        accept="image/*,video/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (!f) return;
-          const id = toast.loading(`Uploading ${f.name}`);
-          upload(f).then(
-            (a) => {
-              toast.success(`${f.name} is in the library`, { id });
-              use(a);
-            },
-            (err: Error) => toast.error(err.message, { id }),
-          );
-        }}
-      />
-      {picking && (
-        <Suspense>
-          <LibraryPicker
-            title="Pick a picture"
-            description="From the library, for this item."
-            onClose={() => setPicking(false)}
-            onPick={(a) => {
-              setPicking(false);
-              use(a);
-            }}
-          />
-        </Suspense>
-      )}
+      {ui}
     </div>
+  );
+}
+
+/**
+ * Where a block's own picture goes (an annotated image's, a split's, a
+ * quote's portrait: props `name`), on the canvas while it has none: a frame
+ * to pick one or upload one, where it will show. Readers get nothing; a
+ * picture once set is changed from the section's toolbar, or by a double
+ * click on it.
+ */
+export function PropPicture({ name = "image", label, className }: { name?: string; label: string; className?: string }) {
+  const edit = useEdit();
+  const s = useSection();
+  const { url } = useSite();
+  const { pick, upload, ui } = usePicking(
+    (a) => {
+      edit?.addMedia([asMedia(a, url)]);
+      edit?.update(s.id, { props: { ...s.props, [name]: a.id } });
+    },
+    { title: "Pick a picture", description: label },
+  );
+  if (!edit || edit.lang || typeof s.props[name] === "string") return null;
+  return (
+    <div className={cn("app-tokens text-muted-foreground grid place-items-center gap-3 rounded-xl border border-dashed p-8 text-center text-sm", className)}>
+      <IconPhoto aria-hidden className="size-6" />
+      <p>{label}</p>
+      <div className="flex flex-wrap justify-center gap-1">
+        <Button type="button" variant="outline" size="sm" onClick={pick}>
+          <IconPhoto /> Pick from the library
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={upload}>
+          <IconUpload /> Upload
+        </Button>
+      </div>
+      {ui}
+    </div>
+  );
+}
+
+/**
+ * A picture items sit on at a point (an annotated image's hotspots, `at` in
+ * percent from its top left). On the canvas, while its section is picked, a
+ * click on the picture puts a new item there, and an item's marker
+ * (`data-at={i}`) is dragged to move it. Readers get the picture as it is.
+ */
+export function Placing({ className, style, children }: { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  const edit = useEdit();
+  const picked = usePicked();
+  const s = useSection();
+  const ref = useRef<HTMLDivElement>(null);
+  const moved = useRef(false);
+  if (!edit || edit.lang || !picked)
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  const point = (e: { clientX: number; clientY: number }): [number, number] => {
+    const r = ref.current!.getBoundingClientRect();
+    const pct = (v: number) => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10;
+    return [pct(((e.clientX - r.left) / r.width) * 100), pct(((e.clientY - r.top) / r.height) * 100)];
+  };
+  const items = s.items ?? [];
+  return (
+    <div
+      ref={ref}
+      className={cn(className, "cursor-crosshair")}
+      style={style}
+      title="Click to add a hotspot here; drag one to move it"
+      onPointerDown={(e) => {
+        const marker = (e.target as Element).closest<HTMLElement>("[data-at]");
+        if (!marker || e.button !== 0) return;
+        const i = Number(marker.dataset.at);
+        moved.current = false;
+        const start = { x: e.clientX, y: e.clientY };
+        const move = (m: PointerEvent) => {
+          if (!moved.current && Math.hypot(m.clientX - start.x, m.clientY - start.y) < 4) return;
+          moved.current = true;
+          const [x, y] = point(m);
+          // physical: `at` is measured on the picture, which reads the same in any script.
+          marker.style.left = `${x}%`;
+          marker.style.top = `${y}%`;
+        };
+        const up = (u: PointerEvent) => {
+          removeEventListener("pointermove", move);
+          removeEventListener("pointerup", up);
+          if (moved.current) edit.update(s.id, { items: items.map((x, k) => (k === i ? { ...x, at: point(u) } : x)) });
+        };
+        addEventListener("pointermove", move);
+        addEventListener("pointerup", up);
+      }}
+      onClickCapture={(e) => {
+        // A drag isn't a click: the marker's note stays shut.
+        if (moved.current) {
+          moved.current = false;
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
+      onClick={(e) => {
+        if ((e.target as Element).closest("[data-at], button, a, [role=dialog]")) return;
+        edit.update(s.id, insertItems(s, items.length, [{ at: point(e), title: "" }]));
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---- the brand's mark ---------------------------------------------------------
+
+/**
+ * The brand's mark where a template shows it (a cover). On the canvas it is
+ * the way to change it: a click picks the logo from the library or uploads
+ * one, and the pick becomes the picture of the logo rule the mark is drawn
+ * from (markOf), else of logo.primary, made if it isn't there. So the site's
+ * header, every page and agents reading brand_rules get the same logo.
+ */
+export function Mark(props: React.ComponentProps<typeof BrandIcon>) {
+  const edit = useEdit();
+  const { view, url } = useSite();
+  const defaults = view.rules.filter((r) => r.context === null);
+  const had = markOf(defaults) ?? defaults.find((r) => r.key === "logo.primary");
+  const { pick, upload, ui } = usePicking(
+    (a) => {
+      const m = asMedia(a, url);
+      edit?.addMedia([m]);
+      const picture: ViewAsset = { id: a.id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, width: m.width, height: m.height, preview: !!m.preview, supersededBy: null };
+      // The new picture takes the place of the one the mark showed; the rule's other files (an SVG beside a PNG) stay.
+      const others = had?.assets.filter((x) => x.id !== a.id) ?? [];
+      edit?.setRule(
+        had
+          ? { ...had, assets: [picture, ...(markOf([had]) ? others.slice(1) : others)] }
+          : { key: "logo.primary", context: null, type: "text", label: "Primary logo", value: "The approved logo", usage: null, spec: null, assets: [picture] },
+      );
+    },
+    { title: "Pick the logo", description: "It shows on the cover, in the site's header and to agents reading the brand.", done: (n) => `${n} is the logo` },
+  );
+  if (!edit || edit.lang) return <BrandIcon {...props} />;
+  const name = had && markOf([had]) ? "Change the logo" : "Add the logo";
+  return (
+    <span className="group/mark relative inline-flex shrink-0">
+      <button type="button" aria-label={name} title={name} onClick={pick} className="focus-visible:ring-ring/50 flex rounded-2xl outline-none focus-visible:ring-3">
+        <BrandIcon {...props} />
+      </button>
+      <span className="app-tokens absolute -bottom-3 start-0 flex translate-y-full gap-1 opacity-0 transition-opacity group-focus-within/mark:opacity-100 group-hover/mark:opacity-100">
+        <Button type="button" variant="outline" size="xs" onClick={pick}>
+          <IconPhoto /> {name}
+        </Button>
+        <Button type="button" variant="outline" size="xs" onClick={upload}>
+          <IconUpload /> Upload
+        </Button>
+      </span>
+      {ui}
+    </span>
   );
 }
 

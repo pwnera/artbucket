@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { pictured } from "@/components/brand-sections/parts";
-import { Body, RuleSlot } from "@/components/brand-sections/slots";
+import { Body, PropPicture, RuleSlot } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
@@ -48,7 +48,14 @@ export function SplitSection({ section: s, rules }: SectionProps) {
       ))}
     </div>
   );
-  if (!pic) return words;
+  if (!pic)
+    return (
+      // Two columns only on the canvas, where the frame to pick the picture takes the second; readers get the words.
+      <div className="grid gap-8 @3xl:gap-12 @3xl:[&:has(>:nth-child(2))]:grid-cols-2">
+        {words}
+        <PropPicture label="The picture beside the words" />
+      </div>
+    );
   const flip = s.props.flip === true;
   const ratio = (s.props.ratio as keyof typeof COLUMNS | undefined) ?? "even";
   // A picture fills its frame; a rule's (a logo, say) is a specimen, whole, with room around it.

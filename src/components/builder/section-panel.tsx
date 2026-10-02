@@ -35,7 +35,7 @@ import { apply, duplicateItem, removeItem } from "@/lib/builder-ops";
 import { COLLECTION_ICONS } from "@/lib/collection-icons";
 import { type Item, type Section, TEMPLATE_INFO, TEMPLATES } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
-import { type Field, fieldsOf, withProp } from "@/lib/template-fields";
+import { type Field, fieldsOf, templateUse, withProp } from "@/lib/template-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -258,7 +258,7 @@ function Settings({ b }: { b: BuilderApi }) {
       {/* What is picked comes first, as in a design tool's inspector: the item, then the section around it. */}
       {item !== null && <ItemSettings key={`${s.id}:${item}`} b={b} s={s} i={item} set={set} error={errorOf("item")} />}
       <Group title={item !== null ? `${info.name} section` : "Layout"}>
-        <Row label="Template" about={info.use}>
+        <Row label="Template" about={templateUse(s.template)}>
           <TemplateMenu b={b} s={s} set={set} className="bg-muted/50 h-8 w-full justify-start border" />
         </Row>
         <Row label="Width">
@@ -723,7 +723,7 @@ function Insert({ b }: { b: BuilderApi }) {
   const needle = q.trim().toLowerCase();
   const rules = [...byKey(b.state.rules).values()].filter((r) => !needle || r.key.toLowerCase().includes(needle) || ruleName(r).toLowerCase().includes(needle));
   const add = (t: (typeof TEMPLATES)[number]) => {
-    const section = starter(t, b.state.rules, b.view.brand.name, b.state.nav.map((p) => p.slug), picked?.tab);
+    const section = starter(t, b.state.rules, b.view.brand.name, picked?.tab);
     b.insert(section, picked?.id ?? list.at(-1)?.id ?? null);
   };
   const takes = (key: string) => {
@@ -744,7 +744,8 @@ function Insert({ b }: { b: BuilderApi }) {
                 onDragStart={(e) => startDrag(e, { kind: "template", template: t }, "copy")}
                 onDragEnd={endDrag}
                 onClick={() => add(t)}
-                title={TEMPLATE_INFO[t].use}
+                title={templateUse(t)}
+                aria-label={TEMPLATE_INFO[t].name}
                 className="hover:border-primary hover:bg-primary/5 focus-visible:ring-ring/50 grid w-full cursor-grab gap-1 rounded-lg border p-1.5 text-start outline-none focus-visible:ring-3 active:cursor-grabbing"
               >
                 <span className="bg-muted text-foreground block rounded-md p-1">

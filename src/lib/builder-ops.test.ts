@@ -106,7 +106,7 @@ test("apply and invert: section ops", () => {
   );
   roundTrip(s, on("logo", { op: "add", section: { template: "text" }, after: null }));
   roundTrip(s, on("logo", { op: "update", id: "t1", set: { title: "The mark", eyebrow: "01" } }));
-  roundTrip(s, on("overview", { op: "update", id: "p1", set: { template: "type", props: { roles: true } } }));
+  roundTrip(s, on("overview", { op: "update", id: "p1", set: { template: "chart", props: { kind: "line" } } }));
   roundTrip(s, on("logo", { op: "move", id: "t1", after: "t2" }));
   roundTrip(s, on("overview", { op: "move", id: "p1", after: null }));
   roundTrip(s, on("logo", { op: "remove", id: "t2" }));
@@ -153,6 +153,13 @@ test("apply and invert: rules and theme", () => {
   roundTrip(s, { kind: "rules", set: [], remove: [{ key: "color.primary", context: null }] }, true);
   roundTrip(s, { kind: "theme", set: { accent: "color.primary", radius: 8 } });
   roundTrip(s, { kind: "theme", set: { radius: null } });
+});
+
+test("a section can't show a rule its template doesn't: refused here, as the server would, before it is saved", () => {
+  const s = state();
+  const r = apply(s, on("overview", { op: "update", id: "p1", set: { template: "type" } }));
+  assert.equal(r.state, s);
+  assert.match(r.errors[0], /Type specimen section shows/);
 });
 
 test("a refused op changes nothing and says why", () => {

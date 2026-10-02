@@ -1,9 +1,9 @@
 "use client";
 
 import { HEAD, LABEL } from "@/components/brand-sections/look";
-import { Body, RuleSlot } from "@/components/brand-sections/slots";
+import { Body, PropText, RuleSlot } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
-import { useMedia, useSite } from "@/components/site/site-context";
+import { useEdit, useMedia, useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 export function QuoteSection({ section: s, rules }: SectionProps) {
   const { url } = useSite();
   const by = s.props.by as string | undefined;
+  // On the canvas the caption is there to type who said it into.
+  const edit = !!useEdit();
   const portrait = useMedia(s.props.image as string | undefined);
   const shown = rules.filter((r) => s.keys.includes(r.key));
   return (
@@ -30,14 +32,14 @@ export function QuoteSection({ section: s, rules }: SectionProps) {
           </div>
         ))}
       </blockquote>
-      {(by || portrait?.preview) && (
+      {(by || portrait?.preview || edit) && (
         <figcaption className="flex items-center gap-3">
           {portrait?.preview && (
             <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-full">
               <Thumb src={url(portrait.id, "/w_128,f_webp")} alt={portrait.title ?? portrait.filename} className="object-cover p-0" />
             </span>
           )}
-          {by && <span className={cn(LABEL, "text-muted-foreground")}>{by}</span>}
+          <PropText name="by" label="Who said it" className={cn(LABEL, "text-muted-foreground")} />
         </figcaption>
       )}
     </figure>

@@ -96,7 +96,7 @@ export function DiagramSection({ section: s, rules }: SectionProps) {
 
   if (asset && kind === "placement") {
     const positions = ((s.props.positions as Position[] | undefined) ?? []).filter((p) => POSITIONS.includes(p));
-    if (!positions.length) warn.push("Set props.positions: where it may sit on a page. None is marked.");
+    if (!positions.length) warn.push("Mark where it may sit on a page: Where it may sit, in the section's options (props.positions). None is marked.");
     const mark = onPage(markSize(asset.width, asset.height));
     const margin = n ? spacing(spacingOf(n), mark, PAGE) : null;
     if (n && margin == null) warn.push(`${n.key} is in ${unitOf(n)}; a margin is drawn in x, %, px, pt or mm.`);
@@ -109,7 +109,7 @@ export function DiagramSection({ section: s, rules }: SectionProps) {
     if (n && gap == null) warn.push(`${n.key} is in ${unitOf(n)}; the space between the marks is drawn in x or %.`);
     const hasItem = !!s.items?.[0]?.asset;
     const partner = typeof s.props.partner === "string" ? s.props.partner : undefined;
-    if (!hasItem && !partner) warn.push("Add the partner: an item with their mark, or props.partner, their name.");
+    if (!hasItem && !partner) warn.push("Add the partner: their mark with Add their mark, or their name as Partner's name in the section's options (props.partner).");
     else
       figure = (
         <CobrandFigure

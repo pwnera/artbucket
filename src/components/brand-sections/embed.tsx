@@ -2,7 +2,7 @@
 
 import { IconExternalLink, IconWorld } from "@tabler/icons-react";
 import { HEAD } from "@/components/brand-sections/look";
-import { Body } from "@/components/brand-sections/slots";
+import { Body, PropText } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { EMBED_HOSTS, framed } from "@/lib/pages";
 import { cn } from "@/lib/utils";
@@ -42,13 +42,29 @@ export function EmbedSection({ section: s }: SectionProps) {
   const u = parse(s.props.url);
   const aspect = (s.props.aspect as Aspect | undefined) ?? "auto";
   // The schema holds it to https; a link card never carries another scheme either way.
-  if (!u || u.protocol !== "https:") return <Body />;
+  const address = (
+    <PropText
+      name="url"
+      canvas
+      as="p"
+      label="Paste a link: YouTube, Vimeo, Loom, Figma or Google Docs play here; any other page shows as a card"
+      className="app-tokens bg-muted/50 text-muted-foreground rounded-lg border border-dashed px-3 py-2 font-mono text-xs break-all"
+    />
+  );
+  if (!u || u.protocol !== "https:")
+    return (
+      <div className="space-y-6">
+        <Body />
+        {address}
+      </div>
+    );
   const host = u.hostname.replace(/^www\./, "");
   const name = s.title || host;
   const frame = framed(u.href) && FRAME[u.hostname as keyof typeof FRAME];
   return (
     <div className="space-y-6">
       <Body />
+      {address}
       {frame ? (
         <>
           <iframe
