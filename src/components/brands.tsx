@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";
 import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub";
+import { LinkSpinner } from "@/components/link-pending";
 import { InfoTip } from "@/components/info-tip";
 import { NewBrand } from "@/components/new-brand";
 import { AppHeader, PageHeader } from "@/components/page";
@@ -293,8 +294,9 @@ function Row({
       <Preview card={{ name: b.name, logo: b.look.logo, tint: b.look.tint, palette: b.look.palette }} className="size-10 shrink-0 overflow-hidden rounded-lg border text-[0.6rem] [&_span]:text-lg" />
       <div className="grid min-w-0 flex-1 gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={brandHref(b)} className="text-primary-ink truncate font-semibold hover:underline">
-            {b.name}
+          <Link href={brandHref(b)} className="text-primary-ink inline-flex min-w-0 items-center gap-1.5 font-semibold hover:underline">
+            <LinkSpinner className="text-current" />
+            <span className="truncate">{b.name}</span>
           </Link>
           {hub && (
             <span className="text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">

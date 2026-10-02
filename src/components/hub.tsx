@@ -165,10 +165,11 @@ export function BrandTile({ id, look, href, face, badges, children }: { id: stri
         <h3 className="flex min-w-0 items-baseline gap-2">
           <Link
             href={href}
-            className="font-display truncate text-base font-semibold tracking-tight outline-none after:absolute after:inset-0"
+            className="font-display inline-flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight outline-none after:absolute after:inset-0"
             style={loads ? { fontFamily: `"${f.src ? name : f.family.replace(/["\\]/g, "")}", var(--font-display)`, fontWeight: f.src ? undefined : (f.weight ?? undefined) } : undefined}
           >
-            {look.name}
+            <LinkSpinner className="text-current" />
+            <span className="truncate">{look.name}</span>
           </Link>
           {f && !loads && <span className="text-muted-foreground truncate text-xs">{f.family}</span>}
           {/* A free look-alike stands in for a face that can't load here: said, never passed off as the brand's. */}
