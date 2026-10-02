@@ -5,11 +5,11 @@ type.heading:
     weight: 700
   usage: Headings and the wordmark, tracked a little tight.
   spec:
-    role: headline
-    tracking: -0.03
-    source: google
     url: https://fonts.google.com/specimen/Funnel+Display
+    role: headline
+    source: google
     fallback: system-ui, sans-serif
+    tracking: -0.03
 type.body:
   type: font
   value:
@@ -17,16 +17,22 @@ type.body:
     weight: 400
   usage: Everything people read.
   spec:
+    url: https://fonts.google.com/specimen/Funnel+Sans
     role: body
     source: google
-    url: https://fonts.google.com/specimen/Funnel+Sans
     fallback: system-ui, sans-serif
 type.code:
   type: font
-  value: Geist Mono
+  value:
+    family: Geist Mono
   usage: Code, keys, ids and anything a person might paste into a terminal.
   spec:
+    url: https://fonts.google.com/specimen/Geist+Mono
     role: code
     source: google
-    url: https://fonts.google.com/specimen/Geist+Mono
     fallback: ui-monospace, monospace
+type.scale:
+  type: list
+  label: A measured scale
+  value: [12, 16, 20, 25, 31, 39, 49, 61]
+  usage: Use 16px as the reading size. Move up the scale for headings; 12px is for short labels.
