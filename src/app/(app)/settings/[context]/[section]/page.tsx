@@ -9,7 +9,7 @@ import { HubPanel, type GithubAccount, type HubReport } from "@/components/setti
 import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
 import { SsoPanel, type Sso } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
-import { find, locked, opens } from "@/components/settings/sections";
+import { find, has, locked, opens } from "@/components/settings/sections";
 import type { FieldDef } from "@/lib/fields";
 import type { Scope } from "@/lib/scopes";
 import type { Collection } from "@/components/collections";
@@ -34,9 +34,8 @@ const LOADS: Record<string, string> = {
   "organization/workspaces": "workspaces",
   "organization/email": "settings?context=organization",
   "organization/branding": "settings?context=organization",
-  "organization/domains": "domains",
   "organization/hub": "github-orgs",
-  "organization/email-domains": "email-domains",
+  "organization/domains": "email-domains",
   "organization/sso": "sso",
 };
 
@@ -55,6 +54,7 @@ export default async function SettingsSection({ params }: { params: Promise<Para
   const loading = LOADS[`${context}/${section}`];
   const forMembers = `${context}/${section}` === "workspace/members";
   const forHub = `${context}/${section}` === "organization/hub";
+  const forDomains = `${context}/${section}` === "organization/domains";
   const [me, loaded, collections, reports, domains, offers] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
@@ -63,7 +63,8 @@ export default async function SettingsSection({ params }: { params: Promise<Para
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
     // And its domains: a verified one proves its listings as a GitHub account does.
-    forHub ? get("domains", (b: { data: Domain[] }) => b.data, []) : [],
+    // Domains reads them too, beside its email domains: null there is a failed read.
+    forHub || forDomains ? get("domains", (b: { data: Domain[] }) => b.data, forDomains ? null : []) : [],
     // And the listings those domains claim.
     forHub ? get("hub/offers", (b: { data: HubOffer[] }) => b.data, []) : [],
   ]);
@@ -114,11 +115,28 @@ export default async function SettingsSection({ params }: { params: Promise<Para
       return branding ? <BrandingPanel key={JSON.stringify([branding.value, branding.own])} setting={branding} /> : <LoadFailed />;
     }
     case "organization/domains":
-      return <DomainsPanel domains={data<Domain[]>()} />;
+      // The web half where the plan has it, else the way to one; email domains are everyone's.
+      return (
+        <div className="space-y-6">
+          {has(me, "domains") ? (
+            domains ? <DomainsPanel domains={domains} /> : <LoadFailed />
+          ) : (
+            me.upgrade && (
+              <p className="text-muted-foreground text-sm">
+                Addresses of your own for the app and portals are on a paid plan.{" "}
+                <a href={me.upgrade} className="text-foreground underline underline-offset-2">
+                  Upgrade
+                </a>
+              </p>
+            )
+          )}
+          <EmailDomainsPanel domains={data<EmailDomain[]>()} />
+        </div>
+      );
     case "organization/hub":
-      return reports ? <HubPanel github={data<GithubAccount[]>()} reports={reports} domains={domains} offers={offers} /> : <LoadFailed />;
-    case "organization/email-domains":
-      return <EmailDomainsPanel domains={data<EmailDomain[]>()} />;
+      return reports ? <HubPanel github={data<GithubAccount[]>()} reports={reports} domains={domains ?? []} offers={offers} /> : <LoadFailed />;
+    case "organization/billing":
+      redirect(me.billing!);
     case "organization/sso": {
       const { data: sso, redirectUris } = loaded as { data: Sso | null; redirectUris: string[] };
       // Keyed by what the server has: after a save the form starts from it.

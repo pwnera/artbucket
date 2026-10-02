@@ -1,6 +1,6 @@
 import {
   IconAdjustments,
-  IconAt,
+  IconCreditCard,
   IconChartBar,
   IconBuilding,
   IconKey,
@@ -120,9 +120,9 @@ export const SECTIONS: Section[] = [
     id: "domains",
     label: "Domains",
     icon: IconWorldWww,
-    description: "Your own addresses for the app and portals.",
+    description: "Your own addresses for the app and portals, and where your people have their email.",
     action: "organization.manage",
-    feature: "domains",
+    // Not gated as a whole: email domains are everyone's, the web half is a plan's (feature "domains") and says so itself.
   },
   {
     context: "organization",
@@ -132,14 +132,6 @@ export const SECTIONS: Section[] = [
     description: "Prove your listings are yours with a GitHub account, and act on what people report or claim about them.",
     action: "organization.manage",
     hidden: (me) => !me.hub,
-  },
-  {
-    context: "organization",
-    id: "email-domains",
-    label: "Email domains",
-    icon: IconAt,
-    description: "Where your people have their email.",
-    action: "organization.manage",
   },
   {
     context: "organization",
@@ -153,11 +145,21 @@ export const SECTIONS: Section[] = [
   {
     context: "organization",
     id: "email",
-    label: "Email",
+    label: "Email sending",
     icon: IconMail,
     description: "How invitations and password resets are sent.",
     action: "organization.manage",
     hidden: (me) => me.auth.serverEmail,
+  },
+  {
+    context: "organization",
+    id: "billing",
+    label: "Billing",
+    icon: IconCreditCard,
+    description: "The organization's plan and payments.",
+    action: "organization.manage",
+    // The page sends it on to me.billing (BILLING_URL).
+    hidden: (me) => !me.billing,
   },
   {
     context: "account",
@@ -183,8 +185,10 @@ export const hrefOf = (s: Pick<Section, "context" | "id" | "href">) => s.href ??
 /** Whether this person may open a section: its action, or for the account's, being signed in. */
 export const opens = (me: Me, s: Section) =>
   (!s.dev || process.env.NODE_ENV === "development") && !s.hidden?.(me) && (s.action ? can(me, s.action) : s.dev || !!me.user);
+/** The organization may use this feature. */
+export const has = (me: Me, f: Feature) => !me.features || me.features.includes(f);
 /** Its feature is off for the organization: the section is a plan's, not this person's yet. */
-export const locked = (me: Me, s: Section) => !!s.feature && !!me.features && !me.features.includes(s.feature);
+export const locked = (me: Me, s: Section) => !!s.feature && !has(me, s.feature);
 /** Where the menu takes this section: the plan that has it when locked, else the section. */
 export const hrefFor = (me: Me, s: Section) => (locked(me, s) ? me.upgrade! : hrefOf(s));
 /** The sections to list: what this person may open, a locked one only where there is a plan to take. */
