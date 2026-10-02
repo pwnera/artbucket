@@ -1715,7 +1715,26 @@ export function openapi(serverUrl: string) {
       },
       "/api/v1/keys/{id}": {
         parameters: [path("id", "Key id")],
-        delete: op({ summary: "Revoke an API key", scope: "read", description: "Any key, for an admin; the agents you connected, for anyone.", ok: [200, "Revoked", S.Deleted] }),
+        get: op({
+          summary: "An agent you connected",
+          scope: "read",
+          description: "Where it works, each workspace with its scope, and every workspace you could give it. Only your own agents.",
+          ok: [200, "The agent", data(S.Connection)],
+        }),
+        patch: op({
+          summary: "Change where an agent you connected works",
+          scope: "read",
+          description:
+            "Its workspaces and its scope, as the consent screen gives them: the scope is brought down, in each workspace, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.",
+          body: S.Regrant,
+          ok: [200, "The agent, as it is now", data(S.Connection)],
+        }),
+        delete: op({
+          summary: "Revoke an API key",
+          scope: "read",
+          description: "Any key, for an admin; the agents you connected, for anyone. An agent connected to several workspaces stops working in this one and keeps the others.",
+          ok: [200, "Revoked", S.Deleted],
+        }),
       },
       "/api/v1/oauth/server": {
         get: op({ summary: "OAuth authorization server metadata", scope: "public", description: "RFC 8414. Also at /.well-known/oauth-authorization-server.", ok: [200, "Metadata"] }),

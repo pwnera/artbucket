@@ -2,14 +2,28 @@
 
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconKey, IconPlus, IconRobot, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconBrandGithub,
+  IconCircleCheck,
+  IconKey,
+  IconPlus,
+  IconRobot,
+  IconSearch,
+  IconSettings,
+  IconStack2,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Initials } from "@/components/activity";
 import { SetupPart, Snippet } from "@/components/agent-access";
+import type { BrandInfo } from "@/components/brand-switcher";
+import type { Source } from "@/components/builder/use-status";
 import { AGENTS, GROUPS, type Agent } from "@/components/agent-catalog";
 import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
-import { scopeLabel, SCOPE_LABELS } from "@/components/consent";
+import { mostOf, scopeLabel, ScopePicker, SCOPE_LABELS, WorkspacePicker, type Givable } from "@/components/consent";
 import { Field } from "@/components/fields";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -21,9 +35,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ago as since } from "@/lib/hub";
 import { REASON } from "@/lib/insights";
+import { cappedScope, type Grantable } from "@/lib/oauth";
+import { brandPath } from "@/lib/site";
 import { contextLabel } from "@/lib/rules";
-import type { Scope } from "@/lib/scopes";
+import { SCOPES, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -40,7 +57,23 @@ export type Key = {
   calls: number;
   owner: string | null;
   waiting: number;
+  /** For an agent you connected: every workspace it works in. */
+  workspaces?: string[] | null;
 };
+
+/** A brand kept in a Git repository too: GET /api/v1/brands/{slug}/source, beside the brand. */
+export type Kept = { brand: BrandInfo; source: NonNullable<Source["source"]>; connect: string | null };
+
+/** GET /api/v1/keys/{id}: an agent you connected, where it works and where it could. */
+type Connection = {
+  id: string;
+  name: string;
+  workspaces: { id: string; name: string; organization: string; scope: Scope }[];
+  givable: Givable[];
+};
+
+/** A scope as a person may grant it: an agent's never goes past Edit. */
+const grantable = (s: Scope): Grantable => (s === "admin" ? "write" : s);
 
 /** GET /api/v1/insights/connections, as lib/schemas.ts Connections has it. */
 export type Asked = {
@@ -84,11 +117,17 @@ export function Agents({
   origin,
   anonymous,
   asked,
+  kept = [],
+  connect = null,
 }: {
   keys: Key[];
   origin: string;
   anonymous: Scope | null;
   asked: Asked | null;
+  /** Brands kept in a Git repository too. */
+  kept?: Kept[];
+  /** Where a brand gets brought in from a repository (GIT_CONNECT_URL), for an admin on a server with one. */
+  connect?: string | null;
 }) {
   const [keys, setKeys] = useState(initialKeys);
   const [open, setOpen] = useState(false);
@@ -214,7 +253,16 @@ export function Agents({
 
         {asked && <AskedFor asked={asked} keys={keys} />}
 
-        <Connected keys={keys.filter((k) => k.owner)} onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))} />
+        <Connected
+          keys={keys.filter((k) => k.owner)}
+          onRevoked={(id) => setKeys((ks) => ks.filter((k) => k.id !== id))}
+          onChanged={async () => {
+            const res = await fetch("/api/v1/keys").catch(() => null);
+            if (res?.ok) setKeys(((await res.json()) as { data: Key[] }).data);
+          }}
+        />
+
+        {(kept.length > 0 || connect) && <Repositories kept={kept} connect={connect} />}
 
         {can("key.manage") && (
           <ApiKeys
@@ -388,12 +436,173 @@ function Setup({
   );
 }
 
-/** Agents people connected (OAuth, `artbucket login`): the workspace's for an admin, yours for anyone else. */
-function Connected({ keys, onRevoked }: { keys: Key[]; onRevoked: (id: string) => void }) {
+/**
+ * Agents people connected (OAuth, `artbucket login`): the workspace's for an
+ * admin, yours for anyone else. Yours say every workspace they work in, and
+ * Workspaces changes where, and with what, without signing in again.
+ */
+function Connected({ keys, onRevoked, onChanged }: { keys: Key[]; onRevoked: (id: string) => void; onChanged: () => void }) {
+  const [editing, setEditing] = useState<Key | null>(null);
+  const [open, setOpen] = useState(false);
   return (
     <section className="space-y-3">
-      <h2 className="font-display text-lg font-semibold">Connected agents</h2>
-      {!keys.length ? <p className="text-muted-foreground text-sm">None yet. Pick one above.</p> : <KeyList keys={keys} onRevoked={onRevoked} />}
+      <div className="flex items-center gap-1.5">
+        <h2 className="font-display text-lg font-semibold">Connected agents</h2>
+        <InfoTip>One agent can work in several workspaces: pick them when it signs in, or change them here.</InfoTip>
+      </div>
+      {!keys.length ? (
+        <p className="text-muted-foreground text-sm">None yet. Pick one above.</p>
+      ) : (
+        <KeyList
+          keys={keys}
+          onRevoked={onRevoked}
+          onEdit={(k) => {
+            setEditing(k);
+            setOpen(true);
+          }}
+        />
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          {editing && (
+            <Reach
+              key={editing.id}
+              agent={editing}
+              onDone={() => {
+                setOpen(false);
+                onChanged();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+/** Where an agent you connected works, and what it may do: the consent screen's choice again, its key kept. */
+function Reach({ agent, onDone }: { agent: Key; onDone: () => void }) {
+  const [conn, setConn] = useState<Connection | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [scope, setScope] = useState<Grantable>("propose");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/v1/keys/${agent.id}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ data: Connection }>) : Promise.reject(r)))
+      .then(({ data }) => {
+        if (!live) return;
+        setConn(data);
+        setPicked(data.workspaces.map((w) => w.id));
+        // What it has now, at its most, is where the choice starts.
+        setScope(data.workspaces.map((w) => grantable(w.scope)).reduce((m, s) => (SCOPES.indexOf(s) > SCOPES.indexOf(m) ? s : m), "read"));
+      })
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [agent.id]);
+
+  // Workspaces it works in that you may no longer give stay offered, at what it has there: saving doesn't drop them unasked.
+  const givable: Givable[] = conn
+    ? [
+        ...conn.givable,
+        ...conn.workspaces.filter((w) => !conn.givable.some((g) => g.id === w.id)).map((w) => ({ id: w.id, name: w.name, organization: w.organization, max: grantable(w.scope) })),
+      ]
+    : [];
+  const value = cappedScope(scope, mostOf(givable, picked));
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <IconStack2 className="text-muted-foreground size-5" /> {agent.name}
+        </DialogTitle>
+        <DialogDescription>Where it works and what it may do. It keeps its key, so nothing to sign in again.</DialogDescription>
+      </DialogHeader>
+      {failed ? (
+        <p className="text-muted-foreground text-sm">Couldn&apos;t load it. Close this and try again.</p>
+      ) : !conn ? (
+        <Waiting what="Loading" className="text-sm" />
+      ) : (
+        <form
+          className="space-y-5"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            const ok = await send("PATCH", `/api/v1/keys/${agent.id}`, { workspaces: picked, scope: value });
+            setBusy(false);
+            if (!ok) return;
+            toast.success(`${agent.name} works in ${count(picked.length, "workspace")}`);
+            onDone();
+          }}
+        >
+          <WorkspacePicker workspaces={givable} picked={picked} onChange={setPicked} scope={value} />
+          <ScopePicker max={mostOf(givable, picked)} value={value} onChange={setScope} />
+          <div className="flex justify-end">
+            <Button type="submit" pending={busy} disabled={!picked.length}>
+              Save
+            </Button>
+          </div>
+        </form>
+      )}
+    </>
+  );
+}
+
+/**
+ * Brands kept in a Git repository too (brand as code): where, and how fresh.
+ * Manage opens the integration's page for the brand (GIT_CONNECT_URL), where
+ * its branch, folder, releases and disconnecting live; Bring a brand in
+ * starts one from a repository, from any account the integration reaches.
+ */
+function Repositories({ kept, connect }: { kept: Kept[]; connect: string | null }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-1.5">
+        <h2 className="font-display text-lg font-semibold">Repositories</h2>
+        <InfoTip>Brands kept in Git too, synced both ways. Each brand can live in its own repository.</InfoTip>
+        {connect && (
+          <Button variant="outline" size="sm" className="ms-auto" asChild>
+            <a href={connect}>
+              <IconBrandGithub aria-hidden /> Bring a brand in
+            </a>
+          </Button>
+        )}
+      </div>
+      {!kept.length ? (
+        <p className="text-muted-foreground text-sm">None yet.</p>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {kept.map(({ brand, source, connect: manage }) => (
+            <li key={brand.slug} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
+              <IconBrandGithub aria-hidden className="text-muted-foreground size-4 shrink-0" />
+              <Link href={brandPath(brand.slug)} className="font-medium hover:underline">
+                {brand.name}
+              </Link>
+              <a href={source.remote} className="text-muted-foreground min-w-0 truncate text-xs hover:underline">
+                {source.remote.replace(/^https:\/\/(www\.)?github\.com\//, "")}
+              </a>
+              <span className="text-muted-foreground text-xs">
+                {source.branch}, {source.path ? `${source.path}/` : "the root"}
+              </span>
+              {source.pending && <Badge variant="secondary">Changes to bring in</Badge>}
+              <span className="text-muted-foreground ms-auto text-xs" suppressHydrationWarning>
+                {source.syncedAt ? `Synced ${since(source.syncedAt)}` : "Not synced yet"}
+              </span>
+              {manage && (
+                <Button variant="ghost" size="sm" asChild>
+                  <a href={manage}>
+                    <IconSettings aria-hidden /> Manage
+                  </a>
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -519,11 +728,25 @@ function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) =>
   );
 }
 
-function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoked: (id: string) => void; showPrefix?: boolean; fresh?: string }) {
+function KeyList({
+  keys,
+  onRevoked,
+  onEdit,
+  showPrefix,
+  fresh,
+}: {
+  keys: Key[];
+  onRevoked: (id: string) => void;
+  /** For an agent you connected: change where it works. */
+  onEdit?: (k: Key) => void;
+  showPrefix?: boolean;
+  fresh?: string;
+}) {
   return (
     <ul className="divide-y rounded-lg border">
       {keys.map((k) => {
         const whose = k.owner ? `${k.owner}'s ${k.name}` : k.name;
+        const several = !!k.workspaces && k.workspaces.length > 1;
         return (
           // The key just made stays where the API lists it, last, and flashes so it is found.
           <li key={k.id} data-api-key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
@@ -532,6 +755,11 @@ function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoke
             {k.owner && <span className="text-muted-foreground min-w-0 truncate text-xs">{k.owner}</span>}
             <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
             {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
+            {several && (
+              <span className="text-muted-foreground min-w-0 truncate text-xs" title={k.workspaces!.join(", ")}>
+                {count(k.workspaces!.length, "workspace")}
+              </span>
+            )}
             {k.waiting > 0 && (
               <Link href="/?review" className="text-primary-ink text-xs hover:underline">
                 {k.waiting} waiting in Review
@@ -540,9 +768,18 @@ function KeyList({ keys, onRevoked, showPrefix, fresh }: { keys: Key[]; onRevoke
             <span className="text-muted-foreground ml-auto text-xs" title={k.lastUsedAt ? exact(k.lastUsedAt) : undefined} suppressHydrationWarning>
               {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
             </span>
+            {k.workspaces && onEdit && (
+              <IconButton variant="ghost" label={`Workspaces ${k.name} works in`} className="text-muted-foreground" onClick={() => onEdit(k)}>
+                <IconStack2 />
+              </IconButton>
+            )}
             <Confirm
-              title={`Revoke ${whose}?`}
-              says="Anything using it stops working at once, with a 401. What it already suggested stays in Review."
+              title={`Revoke ${whose}${several ? " here" : ""}?`}
+              says={
+                several
+                  ? "It stops working in this workspace at once and keeps the others. What it suggested stays in Review."
+                  : "Anything using it stops working at once, with a 401. What it already suggested stays in Review."
+              }
               action="Revoke"
               run={async () => {
                 const ok = await send("DELETE", `/api/v1/keys/${k.id}`);

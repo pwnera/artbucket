@@ -9,7 +9,6 @@ import { Card, FormError, UNREACHABLE } from "@/components/sign-in";
 import { Field } from "@/components/fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cappedScope, type Grantable } from "@/lib/oauth";
 import type { Scope } from "@/lib/scopes";
 
@@ -28,15 +27,17 @@ export const SCOPE_LABELS: { scope: Scope; label: string; hint: string }[] = [
 ];
 export const scopeLabel = (s: Scope) => SCOPE_LABELS.find((x) => x.scope === s)?.label ?? s;
 
+/** A workspace a person can give an agent, with the most they may give there. */
+export type Givable = { id: string; name: string; organization: string; max: Grantable };
 export type Options = {
   client: { name: string };
   scope: Grantable;
   workspace: string | null;
-  workspaces: { id: string; name: string; organization: string; max: Grantable }[];
+  workspaces: Givable[];
 };
 /** GET's body as the page read it on the server (lib/sidebar.ts getBody), or null when the API didn't answer. */
 export type Loaded = { data?: Options; error?: { message?: string } } | null;
-type Decision = { allow: true; workspace: string; scope: Grantable } | { allow: false };
+type Decision = { allow: true; workspaces: string[]; scope: Grantable } | { allow: false };
 
 async function call<T>(method: string, url: string, payload?: unknown): Promise<{ data: T } | { error: string }> {
   try {
@@ -49,6 +50,84 @@ async function call<T>(method: string, url: string, payload?: unknown): Promise<
 }
 
 const RANK: Scope[] = ["read", "propose", "write", "admin"];
+
+/** The most an agent may be given across `picked`: what the scope list offers. */
+export const mostOf = (workspaces: Givable[], picked: string[]): Grantable =>
+  workspaces.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (RANK.indexOf(w.max) > RANK.indexOf(m) ? w.max : m), "read");
+
+/**
+ * Which workspaces an agent works in: one is just named, several are boxes to
+ * tick. A workspace where you may give less than `scope` says what it gets.
+ */
+export function WorkspacePicker({ workspaces, picked, onChange, scope }: { workspaces: Givable[]; picked: string[]; onChange: (ids: string[]) => void; scope: Grantable }) {
+  if (workspaces.length === 1) {
+    return (
+      <Field label="Workspace">
+        <p className="text-sm">
+          {workspaces[0].name} <span className="text-muted-foreground">{workspaces[0].organization}</span>
+        </p>
+      </Field>
+    );
+  }
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2 text-sm font-medium">Workspaces</legend>
+      <div className="divide-y rounded-lg border">
+        {workspaces.map((w) => {
+          const on = picked.includes(w.id);
+          const less = on && cappedScope(scope, w.max) !== scope;
+          return (
+            <label key={w.id} className="hover:bg-accent/50 has-[:focus-visible]:ring-ring/50 flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm has-[:focus-visible]:ring-[3px]">
+              <input
+                type="checkbox"
+                checked={on}
+                onChange={() => onChange(on ? picked.filter((id) => id !== w.id) : [...picked, w.id])}
+                className="accent-primary focus-visible:outline-none"
+              />
+              <span className="min-w-0 flex-1 truncate">
+                {w.name} <span className="text-muted-foreground">{w.organization}</span>
+              </span>
+              {less && <span className="text-muted-foreground shrink-0 text-xs">{scopeLabel(w.max)} here</span>}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+/** The scopes as radio cards, up to `max`. */
+export function ScopePicker({ max, value, onChange, recommended = "propose" }: { max: Grantable; value: Grantable; onChange: (s: Grantable) => void; recommended?: Grantable }) {
+  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && RANK.indexOf(s.scope) <= RANK.indexOf(max));
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2 text-sm font-medium">It may</legend>
+      {offered.map((s) => (
+        <label
+          key={s.scope}
+          className="hover:bg-accent/50 has-[:focus-visible]:ring-ring/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors has-[:focus-visible]:ring-[3px]"
+        >
+          <input
+            type="radio"
+            name="scope"
+            value={s.scope}
+            checked={value === s.scope}
+            onChange={() => onChange(s.scope as Grantable)}
+            // The card shows focus; the radio's own outline would be a second ring.
+            className="accent-primary mt-0.5 focus-visible:outline-none"
+          />
+          <span className="grid gap-0.5">
+            <span className="font-medium">
+              {s.label}
+              {s.scope === recommended && <span className="text-muted-foreground font-normal"> (recommended)</span>}
+            </span>
+            <span className="text-muted-foreground text-xs">{s.hint}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
 /**
  * Who is granting, where, and what: the signed-in account (and a way to
@@ -81,13 +160,12 @@ function Choose({
 }) {
   const brand = useBrand();
   const go = useGo();
-  const [workspace, setWorkspace] = useState(options.workspace ?? options.workspaces[0]?.id ?? "");
+  const first = options.workspace ?? options.workspaces[0]?.id;
+  const [workspaces, setWorkspaces] = useState<string[]>(first ? [first] : []);
   const [scope, setScope] = useState<Grantable>(options.scope);
   const [busy, setBusy] = useState<"allow" | "deny" | "switch" | null>(null);
-  const max = options.workspaces.find((w) => w.id === workspace)?.max ?? "read";
-  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && RANK.indexOf(s.scope) <= RANK.indexOf(max));
-  // Moving to a workspace where you have less brings the pick down with you.
-  const picked = cappedScope(scope, max);
+  // Unticking the workspaces where you have more brings the pick down with you.
+  const picked = cappedScope(scope, mostOf(options.workspaces, workspaces));
   const decide = async (d: Decision) => {
     setBusy(d.allow ? "allow" : "deny");
     let leaving = false;
@@ -128,14 +206,13 @@ function Choose({
       </Card>
     );
   }
-  const only = options.workspaces.length === 1 ? options.workspaces[0] : null;
   return (
-    <Card title={`Connect ${options.client.name}`} lead={`It works in ${brand.name} as you, doing at most what you pick. Disconnect it any time from Connections.`}>
+    <Card title={`Connect ${options.client.name}`} lead={`It works in ${brand.name} as you, doing at most what you pick. Change or disconnect it any time from Connections.`}>
       <form
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          void decide({ allow: true, workspace, scope: picked });
+          void decide({ allow: true, workspaces, scope: picked });
         }}
       >
         {who}
@@ -145,61 +222,15 @@ function Choose({
             <p className="text-muted-foreground text-xs">Check it matches your terminal.</p>
           </div>
         )}
-        {only ? (
-          <Field label="Workspace">
-            <p className="text-sm">
-              {only.name} <span className="text-muted-foreground">{only.organization}</span>
-            </p>
-          </Field>
-        ) : (
-          <Field label="Workspace" htmlFor="consent-workspace">
-            <Select value={workspace} onValueChange={setWorkspace}>
-              <SelectTrigger id="consent-workspace" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {options.workspaces.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>
-                    {w.name} <span className="text-muted-foreground">{w.organization}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-sm font-medium">It may</legend>
-          {offered.map((s) => (
-            <label
-              key={s.scope}
-              className="hover:bg-accent/50 has-[:focus-visible]:ring-ring/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors has-[:focus-visible]:ring-[3px]"
-            >
-              <input
-                type="radio"
-                name="scope"
-                value={s.scope}
-                checked={picked === s.scope}
-                onChange={() => setScope(s.scope as Grantable)}
-                // The card shows focus; the radio's own outline would be a second ring.
-                className="accent-primary mt-0.5 focus-visible:outline-none"
-              />
-              <span className="grid gap-0.5">
-                <span className="font-medium">
-                  {s.label}
-                  {s.scope === recommended && <span className="text-muted-foreground font-normal"> (recommended)</span>}
-                </span>
-                <span className="text-muted-foreground text-xs">{s.hint}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
+        <WorkspacePicker workspaces={options.workspaces} picked={workspaces} onChange={setWorkspaces} scope={picked} />
+        <ScopePicker max={mostOf(options.workspaces, workspaces)} value={picked} onChange={setScope} recommended={recommended} />
         {redirect && <p className="text-muted-foreground text-xs">Afterwards you&apos;ll go back to {redirect}.</p>}
         {error && <FormError>{error}</FormError>}
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" pending={busy === "deny"} disabled={!!busy} onClick={() => void decide({ allow: false })}>
             Cancel
           </Button>
-          <Button type="submit" pending={busy === "allow"} disabled={!!busy || !workspace}>
+          <Button type="submit" pending={busy === "allow"} disabled={!!busy || !workspaces.length}>
             Allow
           </Button>
         </div>
@@ -283,7 +314,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
     initial !== undefined && !initial?.data ? (initial?.error?.message ?? UNREACHABLE) : null,
   );
   const [looking, setLooking] = useState(false);
-  const [done, setDone] = useState<{ allowed: boolean; scope?: Grantable; workspace?: string } | null>(null);
+  const [done, setDone] = useState<{ allowed: boolean; scope?: Grantable; workspaces?: string[] } | null>(null);
 
   const look = async (c: string) => {
     setLooking(true);
@@ -302,7 +333,10 @@ export function Device({ code: given, initial, email }: { code?: string; initial
 
   if (done) {
     const client = options?.client.name ?? "The CLI";
-    const where = options?.workspaces.find((w) => w.id === done.workspace)?.name;
+    const where = options?.workspaces
+      .filter((w) => done.workspaces?.includes(w.id))
+      .map((w) => w.name)
+      .join(", ");
     return (
       <Card
         title={
@@ -343,7 +377,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
           const r = await call<{ allowed: boolean }>("POST", `/api/v1/oauth/device/${encodeURIComponent(code)}`, d);
           // A failure stays on the choice, with what was picked.
           if ("error" in r) setError(r.error);
-          else setDone({ allowed: r.data.allowed, ...(d.allow && { scope: d.scope, workspace: d.workspace }) });
+          else setDone({ allowed: r.data.allowed, ...(d.allow && { scope: d.scope, workspaces: d.workspaces }) });
           return false;
         }}
       />

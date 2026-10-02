@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconBrandGithub, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconSettings, IconStar, IconTrash } from "@tabler/icons-react";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
 import { Can } from "@/components/can";
@@ -152,21 +152,30 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
                   {source.source.pending ? ", with changes to bring in" : ""}
                 </span>
               </p>
-              <Confirm
-                title="Disconnect the repository?"
-                says="The brand lives here alone again. The repository is left as it is."
-                action="Disconnect"
-                run={async () => {
-                  const res = await fetch(`/api/v1/brands/${b}/source`, { method: "DELETE" });
-                  if (!res.ok) return false;
-                  router.refresh();
-                  return true;
-                }}
-              >
-                <Button variant="outline" size="sm">
-                  Disconnect
+              {source.connect ? (
+                // The integration made the link and its key: its page moves or disconnects it, and takes the key with it.
+                <Button variant="outline" size="sm" asChild>
+                  <a href={source.connect}>
+                    <IconSettings aria-hidden /> Manage
+                  </a>
                 </Button>
-              </Confirm>
+              ) : (
+                <Confirm
+                  title="Disconnect the repository?"
+                  says="The brand lives here alone again. The repository is left as it is."
+                  action="Disconnect"
+                  run={async () => {
+                    const res = await fetch(`/api/v1/brands/${b}/source`, { method: "DELETE" });
+                    if (!res.ok) return false;
+                    router.refresh();
+                    return true;
+                  }}
+                >
+                  <Button variant="outline" size="sm">
+                    Disconnect
+                  </Button>
+                </Confirm>
+              )}
             </div>
           ) : source.connect ? (
             <Button variant="outline" size="sm" asChild className="justify-self-start">

@@ -23,7 +23,9 @@ import type { Scope } from "@/lib/scopes";
  * to one of three callers:
  *
  * - an API key: one workspace, one scope, named for history. One a person
- *   connected (OAuth, `artbucket login`) is also held to what they can do
+ *   connected (OAuth, `artbucket login`) is also held to what they can do,
+ *   and may be in several workspaces, a row each: the one asked for, else
+ *   the oldest
  * - a signed-in person: the workspace in the `ab_workspace` cookie if they
  *   can open it, else their first; their scope is what their grants add up
  *   to there (lib/access.ts)
@@ -143,7 +145,9 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
     if (!secret) return undefined;
-    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret)));
+    // One secret, a row per workspace it was given: the one asked for, else the first.
+    const rows = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret))).orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
+    const key = rows.find((r) => r.workspaceId === workspaceId) ?? rows[0];
     if (!key) return undefined;
     // Connected agents' "last seen": never worth failing or slowing the request for.
     void db
@@ -190,9 +194,21 @@ export async function workspaceById(id: string): Promise<Workspace | null> {
 /** Every workspace an anonymous caller with a scope can switch to: all of them. */
 export const allWorkspaces = () => workspacesWhere();
 
+/** Every workspace a key's secret is in, oldest row first, each with its scope there. */
+export async function keyWorkspaces(keyId: string): Promise<(Workspace & { scope: Scope })[]> {
+  const same = db.select({ hash: apiKeys.hash }).from(apiKeys).where(eq(apiKeys.id, keyId));
+  return db
+    .select({ ...ws, scope: apiKeys.scope })
+    .from(apiKeys)
+    .innerJoin(workspaces, eq(workspaces.id, apiKeys.workspaceId))
+    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .where(eq(apiKeys.hash, sql`(${same})`))
+    .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
+}
+
 /** Workspaces a caller can switch to, across organizations, for the switcher. */
 export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
-  if (caller.key) return [caller.workspace];
+  if (caller.key) return keyWorkspaces(caller.key);
   if (caller.user) return (await workspacesOf(caller.user.id)).workspaces;
   return caller.scope ? allWorkspaces() : [];
 }

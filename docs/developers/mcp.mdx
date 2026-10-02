@@ -6,9 +6,15 @@ description: One URL connects every agent.
 `/api/v1/mcp` is an MCP server over Streamable HTTP, running the same logic as the
 REST API. Chat apps (Claude, ChatGPT, Perplexity, Gemini), coding agents, app
 builders (Lovable, v0, Bolt, Replit) and Figma take the URL and send you to a
-consent screen, where you pick what the agent may do: Suggest, Read or Edit.
-What it gets is a key bound to you: never more than you can do, and gone with
-your access. The Connections page has the setup for each.
+consent screen, where you pick the workspaces it works in and what it may do
+there: Suggest, Read or Edit. What it gets is a key bound to you: never more
+than you can do, and gone with your access. The Connections page has the setup
+for each, and changes an agent's workspaces and access later without it signing
+in again.
+
+An agent given several workspaces names one with `workspace` on any tool (its
+slug, or `organization/slug` when two share one); without it, the tool runs in
+the first one picked. The server's instructions list them.
 
 ```bash
 claude mcp add --transport http artbucket https://assets.example.com/api/v1/mcp

@@ -7,6 +7,7 @@ import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { ICON_GROUP_NAMES, ICON_NAME, ICON_PREFIX } from "./icons.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
+import { GRANTABLE } from "./oauth.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
@@ -305,6 +306,12 @@ export const CommentPatch = z
 export const CreateKey = z.strictObject({
   name: z.string().trim().min(1).max(120),
   scope: z.enum(SCOPES),
+});
+
+/** PATCH /api/v1/keys/{id}: where an agent you connected works, and what it may do there, as consent gives them. */
+export const Regrant = z.strictObject({
+  workspaces: z.array(z.uuid()).min(1, { error: "Pick a workspace, or disconnect it" }).max(100),
+  scope: z.enum(GRANTABLE),
 });
 
 const named = z.strictObject({ name: z.string().trim().min(1).max(80) });
@@ -967,6 +974,22 @@ export const ApiKey = z.object({
   calls: z.number().int().describe("Requests that presented it"),
   owner: z.string().nullable().describe("Whose agent it is, for one a person connected; null for a key an admin made"),
   waiting: z.number().int().describe("Assets it proposed that wait in Review"),
+  workspaces: z
+    .array(z.string())
+    .nullable()
+    .optional()
+    .describe("For an agent you connected, the names of every workspace it works in; null for anyone else's"),
+});
+/** What `GET` and `PATCH /api/v1/keys/{id}` return: an agent you connected, where it works and where it could. */
+export const Connection = z.object({
+  id: uuid,
+  name: z.string(),
+  workspaces: z
+    .array(z.object({ id: uuid, name: z.string(), organization: z.string(), scope: z.enum(SCOPES) }))
+    .describe("Where it works, the first where a call without `workspace` goes"),
+  givable: z
+    .array(z.object({ id: uuid, name: z.string(), organization: z.string(), max: z.enum(GRANTABLE) }))
+    .describe("Every workspace you could give it, with the most you may give there"),
 });
 export const ApiKeyCreated = ApiKey.extend({
   secret: z.string().describe("Shown once. Send as `Authorization: Bearer <secret>`"),

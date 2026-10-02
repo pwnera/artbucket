@@ -21,7 +21,8 @@ agents ──> /api/v1/mcp┘
 
 `/api/v1` is versioned and public. Every request carries an API key
 (`Authorization: Bearer ab_...`) or a session from the app. A key works in one
-workspace with one scope, and scopes are a ladder:
+workspace with one scope (an agent a person connected to several holds one key
+in each, behind one secret), and scopes are a ladder:
 
 | Scope | May |
 |---|---|

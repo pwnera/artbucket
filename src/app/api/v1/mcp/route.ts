@@ -1,4 +1,5 @@
 import { authorize, fail, handle } from "@/lib/api";
+import { callerFrom } from "@/lib/core/access";
 import { isAppOrigin } from "@/lib/core/domains";
 import { handleMcp } from "@/lib/mcp";
 
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
     } catch {
       return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 });
     }
-    const res = await handleMcp(message, caller);
+    // An agent connected to several workspaces names one per call: the same key, as its row there.
+    const res = await handleMcp(message, caller, (workspaceId) => callerFrom(req, workspaceId));
     return res ? Response.json(res) : new Response(null, { status: 202 });
   } catch (err) {
     return handle(err);

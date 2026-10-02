@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { apiKeys, assets, users } from "@/lib/db/schema";
+import { apiKeys, assets, users, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit } from "@/lib/core/usage";
@@ -46,7 +47,27 @@ const mine = (caller: Caller) =>
 const keysWhere = (where?: SQL) =>
   db.select(PUBLIC).from(apiKeys).leftJoin(users, eq(users.id, apiKeys.userId)).where(where).orderBy(asc(apiKeys.createdAt));
 
-export const listKeys = (caller: Caller) => keysWhere(and(eq(apiKeys.workspaceId, caller.workspace.id), mine(caller)));
+/** The other rows of a key's secret: an agent connected to several workspaces. */
+const sibling = alias(apiKeys, "sibling");
+
+/**
+ * The workspace's keys. An agent the caller connected also names every
+ * workspace it works in, so Connections shows one connected to several;
+ * nobody else's says where else it reaches.
+ */
+export async function listKeys(caller: Caller) {
+  const keys = await keysWhere(and(eq(apiKeys.workspaceId, caller.workspace.id), mine(caller)));
+  const theirs = caller.user
+    ? await db
+        .select({ id: apiKeys.id, name: workspaces.name })
+        .from(apiKeys)
+        .innerJoin(sibling, eq(sibling.hash, apiKeys.hash))
+        .innerJoin(workspaces, eq(workspaces.id, sibling.workspaceId))
+        .where(and(eq(apiKeys.workspaceId, caller.workspace.id), eq(apiKeys.userId, caller.user.id)))
+        .orderBy(asc(sibling.createdAt))
+    : [];
+  return keys.map((k) => ({ ...k, workspaces: theirs.some((t) => t.id === k.id) ? theirs.filter((t) => t.id === k.id).map((t) => t.name) : null }));
+}
 
 export async function revokeKey(caller: Caller, id: string) {
   const [gone] = await db
