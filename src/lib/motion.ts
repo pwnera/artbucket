@@ -41,14 +41,21 @@ export function shake(el: Element | null | undefined) {
 }
 
 /**
+ * A modal, open or still fading out. Named elements paint above every layer
+ * while a view transition runs, so the tiles behind one would show through it.
+ */
+const MODAL = "[data-slot=dialog-content], [data-slot=alert-dialog-content], [data-slot=sheet-content], [aria-modal=true]";
+
+/**
  * Runs `update` as a view transition: what it moves glides from where it was,
  * the rest crossfades. An element keeps its identity across it by `data-vt`
  * (a name unique on the page), named only while the transition runs, so
  * nothing is named at rest and two lists can't clash. Plain `update` where
- * the browser can't, or with less motion.
+ * the browser can't, with less motion, or under a modal (MODAL): what it
+ * changes there is out of sight.
  */
 export function transition(update: () => void) {
-  if (!document.startViewTransition || still()) return update();
+  if (!document.startViewTransition || still() || document.querySelector(MODAL)) return update();
   const named: HTMLElement[] = [];
   const name = () => {
     // An element that gave up its name in the update (a tile now open in the viewer) drops it, or the name would be taken twice.
