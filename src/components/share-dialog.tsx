@@ -72,7 +72,7 @@ const PRESETS = [
 const MODES = {
   team: { label: "Team", icon: IconUsers, hint: "People with access in the library." },
   link: { label: "Link", icon: IconLink, hint: "Anyone with the link, no account needed." },
-  public: { label: "Public", icon: IconWorld, hint: "Anyone, at a URL to embed." },
+  public: { label: "Embed", icon: IconWorld, hint: "Anyone gets the file at a URL, for a site, a doc or an email." },
 } as const;
 type Mode = keyof typeof MODES;
 
@@ -607,7 +607,7 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
             onChanged?.(a);
           }}
         />
-        <Label htmlFor={fieldId}>{on ? "Anyone with the URL gets the file" : "Off: only people with access"}</Label>
+        <Label htmlFor={fieldId}>{on ? "On: anyone with the URL gets the file" : "Off: no URL works outside the team"}</Label>
       </div>
       {on && (
         <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-3 duration-150">

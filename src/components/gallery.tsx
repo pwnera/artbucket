@@ -370,7 +370,7 @@ export function Gallery({
   const [fields, setFields] = useState(initialFields);
   const inCollection = collections.find((c) => c.id === view.collection);
   // Files waiting on the required-fields step before they upload.
-  const [pending, setPending] = useState<{ files: File[]; open: boolean } | null>(null);
+  const [pending, setPending] = useState<{ files: File[]; hidden: boolean; open: boolean } | null>(null);
   const [drag, setDrag] = useState<{ count: number } | null>(null);
   // Kept a moment after the files leave or land, so the overlay fades rather than blinks out.
   const dragShown = useKept(drag);
@@ -652,7 +652,7 @@ export function Gallery({
   const uploading = useUploads(uploads, (rows) => rows.some(isActive));
   // What a row needs to be sent again, or stopped.
   const jobs = useRef(
-    new Map<string, { file: File; values: Record<string, FieldValue>; into: string | null; stop: AbortController; proposed?: boolean }>(),
+    new Map<string, { file: File; values: Record<string, FieldValue>; into: string | null; hidden: boolean; stop: AbortController; proposed?: boolean }>(),
   );
   // Just landed: ringed for a moment, so new files are found in a full grid.
   const [fresh, setFresh] = useState<Set<string>>(new Set());
@@ -696,7 +696,7 @@ export function Gallery({
         const done = await fetch("/api/v1/assets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, filename: file.name, mime, fields: values, collections: job.into ? [job.into] : [] }),
+          body: JSON.stringify({ token, filename: file.name, mime, fields: values, collections: job.into ? [job.into] : [], ...(job.hidden && { private: true }) }),
           signal,
         });
         const body = await done.json().catch(() => null);
@@ -718,9 +718,9 @@ export function Gallery({
   // Three files at a time. One file failing doesn't stop the rest of the batch;
   // it's marked in the tray with its reason, and can be sent again.
   const upload = useCallback(
-    async (files: File[], values: Record<string, FieldValue> = {}) => {
+    async (files: File[], values: Record<string, FieldValue> = {}, hidden = false) => {
       const batch = files.map((file) => ({ file, id: crypto.randomUUID() }));
-      for (const { file, id } of batch) jobs.current.set(id, { file, values, into, stop: new AbortController() });
+      for (const { file, id } of batch) jobs.current.set(id, { file, values, into, hidden, stop: new AbortController() });
       // A new batch clears finished rows from an earlier one, keeps anything in flight.
       uploads.set((us) => {
         for (const u of us) if (!isActive(u)) jobs.current.delete(u.id);
@@ -741,11 +741,17 @@ export function Gallery({
     [into, uploads, sendOne],
   );
 
-  const start = (list: FileList | File[]) => {
+  const start = (list: FileList | File[], hidden = false) => {
     const files = Array.from(list);
     if (!files.length) return;
-    if (relaxInherited(fields, inherited).some((f) => f.required)) setPending({ files, open: true });
-    else void upload(files);
+    if (relaxInherited(fields, inherited).some((f) => f.required)) setPending({ files, hidden, open: true });
+    else void upload(files, {}, hidden);
+  };
+  // "Upload privately" opens the same picker: this says which one it was.
+  const privately = useRef(false);
+  const choose = (hidden: boolean) => {
+    privately.current = hidden;
+    input.current?.click();
   };
 
   // Leaving mid-upload drops the rest of the batch: the browser asks first.
@@ -765,7 +771,7 @@ export function Gallery({
 
   // ⌘K offers Upload while this page can take one.
   useEffect(() => {
-    setUpload(canUpload ? () => input.current?.click() : null);
+    setUpload(canUpload ? () => choose(false) : null);
     return () => setUpload(null);
   }, [canUpload, setUpload]);
 
@@ -1089,7 +1095,7 @@ export function Gallery({
         {/* Every way files come in, in one control: Upload, and the others in its menu. Stays enabled mid-upload: a second batch queues alongside the first. */}
         {canUpload && (
           <div className="flex">
-            <Button size="sm" className="rounded-r-none" onClick={() => input.current?.click()} aria-busy={uploading}>
+            <Button size="sm" className="rounded-r-none" onClick={() => choose(false)} aria-busy={uploading}>
               <IconUpload />
               <span className="hidden sm:inline">Upload</span>
             </Button>
@@ -1100,9 +1106,15 @@ export function Gallery({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => input.current?.click()}>
+                <DropdownMenuItem onSelect={() => choose(false)}>
                   <IconUpload /> Upload files
                 </DropdownMenuItem>
+                {!inCollection?.private && (
+                  <DropdownMenuItem onSelect={() => choose(true)}>
+                    <IconLock /> Upload privately
+                    <span className="text-muted-foreground ml-auto pl-4 text-xs">you choose who</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={() => folder.current?.click()}>
                   <IconFolder /> Upload a folder
                 </DropdownMenuItem>
@@ -1147,7 +1159,7 @@ export function Gallery({
           aria-hidden
           tabIndex={-1}
           onChange={(e) => {
-            if (e.target.files) start(e.target.files);
+            if (e.target.files) start(e.target.files, privately.current);
             e.target.value = ""; // the same file can be picked again after a cancel
           }}
         />
@@ -1259,7 +1271,7 @@ export function Gallery({
           )}
         </PageHeader>
 
-        {!view.review && !activeSearch && !inCollection && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => input.current?.click() : undefined} />}
+        {!view.review && !activeSearch && !inCollection && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
 
         {/* Heard once a search settles, not per keystroke. */}
         <span className="sr-only" aria-live="polite">
@@ -1422,7 +1434,7 @@ export function Gallery({
             </EmptyContent>
           </Empty>
         ) : empty ? (
-          <EmptyState dragging={!!drag} onUpload={canUpload ? () => input.current?.click() : undefined} />
+          <EmptyState dragging={!!drag} onUpload={canUpload ? () => choose(false) : undefined} />
         ) : moving || (assets.length === 0 && searching) ? (
           // Don't flash "no matches", or the last place's tiles, for a view that hasn't answered yet.
           skeleton
@@ -1463,7 +1475,7 @@ export function Gallery({
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center">
               {canUpload && (
-                <Button onClick={() => input.current?.click()}>
+                <Button onClick={() => choose(false)}>
                   <IconUpload /> Upload here
                 </Button>
               )}
@@ -1605,7 +1617,7 @@ export function Gallery({
           onCancel={() => setPending((p) => p && { ...p, open: false })}
           onSubmit={(values) => {
             setPending((p) => p && { ...p, open: false });
-            void upload(pending.files, values);
+            void upload(pending.files, values, pending.hidden);
           }}
         />
       )}

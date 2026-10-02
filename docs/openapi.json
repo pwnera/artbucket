@@ -1196,6 +1196,10 @@
                           "draft",
                           "active"
                         ]
+                      },
+                      "private": {
+                        "description": "Only people added to it, or to a collection it is in, and admins see it. A new version keeps the one before's",
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -1403,6 +1407,10 @@
                           "draft",
                           "active"
                         ]
+                      },
+                      "private": {
+                        "description": "Only people added to it, or to a collection it is in, and admins see it. A new version keeps the one before's",
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -34503,6 +34511,18 @@
                           ],
                           "description": "Where you can take a plan (BILLING_URL): set for an organization's admin while it runs on the server's own limits, else null"
                         },
+                        "billing": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where the organization's plan is managed (BILLING_URL): set for its admin, on a plan or not, else null"
+                        },
                         "git": {
                           "description": "Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null",
                           "type": [
@@ -34682,6 +34702,7 @@
                         "workspaces",
                         "features",
                         "upgrade",
+                        "billing",
                         "git",
                         "hub",
                         "hubUrl",
