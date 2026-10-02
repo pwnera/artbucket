@@ -1,14 +1,86 @@
 title: Color
-lede: Violet leads. Lime marks. The neutrals do the rest.
+lede: Violet does the talking. The neutrals give it room.
+layout: landing
 sections:
+  - template: cover
+    eyebrow: 02 / The palette
+    title: |-
+      A little color.
+      A lot of character.
+    lede: Violet leads. Lime picks out a detail. Light and dark set the pace.
+    props:
+      mark: never
+      strip: true
+      titleSize: huge
   - template: palette
-    title: Violet leads, the neutrals carry the page
+    title: Start with the signature.
+    lede: Copy the values. Try the tints. Check each pairing.
+    keys: [color.primary, color.highlight]
+    props:
+      ase: true
+      show: [hex, rgb, hsl, css]
+      simulate: true
+    columns: 2
+  - id: rest
+    template: statement
+    title: The empty space is part of the palette.
+    body: Use the proportions as a starting point for a composition, not a quota for every screen.
+    tone: dark
+    width: full
+  - id: neutrals
+    template: palette
+    title: Give the work a ground.
+    keys:
+      - color.background
+      - color.panel
+      - color.ink
+      - color.dark
+      - color.border
+    props:
+      show: [hex, css]
+  - id: contrast
+    template: palette
+    title: Looks good. Reads clearly.
+    lede: Compare text and background pairs before you use them.
     keys:
       - color.primary
       - color.primaryInk
       - color.highlight
       - color.ink
       - color.background
-      - color.panel
-      - color.border
-      - color.dark
+    props:
+      show: [hex]
+      matrix: true
+      simulate: true
+    tone: panel
+  - id: contexts
+    template: palette
+    title: The same intent, after dark.
+    body: Violet ink gets lighter on dark backgrounds. Choose the context to see the value change.
+    keys: [color.primaryInk]
+    props:
+      show: [hex, css]
+    columns: 1
+    contexts: [default, dark-background]
+  - id: next
+    template: pages
+    title: Keep exploring.
+    items:
+      - link: /logo
+        text: Explore its anatomy. Find the right version. Download the originals.
+        title: 01 / The mark
+      - link: /color
+        text: Copy a color. Compare contrast. Try another view.
+        title: 02 / The palette
+      - link: /type
+        text: Type your own specimen and explore the scale.
+        title: 03 / The words
+      - link: /voice
+        text: See the rewrites. Borrow a line. Make it yours.
+        title: 04 / The voice
+      - link: /playground
+        text: Pattern, spacing and motion. The identity in action.
+        title: 05 / The playground
+      - link: /resources
+        text: Current files, useful links and a way to ask.
+        title: 06 / The essentials

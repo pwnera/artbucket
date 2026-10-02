@@ -1,0 +1,5 @@
+space.scale:
+  type: list
+  label: Room to work
+  value: [4, 8, 16, 24, 32, 48, 64, 96]
+  usage: A proposed spacing scale for brand layouts. Small steps within a group; large steps between ideas.

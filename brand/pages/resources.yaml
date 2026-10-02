@@ -1,0 +1,55 @@
+title: Resources
+lede: The originals, the next steps, and a way to ask.
+layout: landing
+sections:
+  - template: cover
+    eyebrow: 06 / The essentials
+    title: Here you go.
+    lede: Current logo files, words to borrow, and the people behind the brand.
+    props:
+      mark: never
+      strip: false
+      titleSize: huge
+    tone: dark
+  - id: files
+    template: links
+    title: Start with the originals.
+    body: Use the logo guide to choose the right file for the background.
+    keys: [logo.primary, logo.mark, logo.markWhite]
+    columns: 3
+  - id: questions
+    template: faq
+    title: Before you make it.
+    items:
+      - text: Use the white mark on Night or Violet. Check the [logo guide](/logo) before placing it on a photo.
+        title: Which mark belongs on a dark background?
+      - text: Keep it white or black. The app icon uses the white mark on its Violet tile. Do not add a gradient or change the silhouette.
+        title: Can the mark be recolored?
+      - text: Open [Type](/type). Try your own words, inspect the characters and copy the font-loading code.
+        title: Where are the font specimens and embed code?
+      - text: Use the copyable lines on [Voice](/voice). Keep the description concrete and the sentences short.
+        title: How should I describe Artbucket?
+    tone: panel
+  - template: request
+    title: Missing something?
+    props:
+      kind: asset
+      prompt: Tell us which asset or format you need, where it will appear, and when you need it.
+    tone: plain
+  - id: links
+    template: links
+    title: Take it further.
+    items:
+      - link: https://artbucket.io/
+        text: Artbucket's home on the web.
+        label: Visit Artbucket
+        title: See the brand at work
+      - link: https://docs.artbucket.io/
+        text: Guides for people and tools.
+        label: Open the docs
+        title: Build with the catalog
+      - link: /overview
+        text: The whole identity at a glance.
+        label: Explore the brand
+        title: Back to the beginning
+    columns: 3

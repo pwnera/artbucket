@@ -1,0 +1,14 @@
+motion.feedback:
+  type: number
+  label: A quick response
+  value: 180
+  usage: Small feedback transitions, following the website's button timing.
+  spec:
+    unit: ms
+motion.reveal:
+  type: number
+  label: A quiet entrance
+  value: 320
+  usage: A proposed duration for larger reveals. Respect reduced motion.
+  spec:
+    unit: ms

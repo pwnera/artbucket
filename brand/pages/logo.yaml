@@ -1,9 +1,98 @@
 title: Logo
-lede: A tipped paint bucket, a paint line, one drop. Always one color.
+lede: A small spill. A clear signature.
+layout: landing
 sections:
+  - template: cover
+    eyebrow: 01 / The mark
+    title: |-
+      A small spill.
+      A clear signature.
+    lede: One bucket. One paint line. One drop. Three ways to show up.
+    props:
+      mark: never
+      strip: false
+      titleSize: huge
+    tone: dark
+  - id: anatomy
+    template: annotated
+    title: Every part earns its place.
+    lede: Explore the shape before you put it to work.
+    items:
+      - at: [37, 24]
+        text: The angle is part of the mark. Keep it exactly as supplied.
+        title: The tipped bucket
+      - at: [44, 55]
+        text: The curved cutout gives the solid shape its character. Never fill it in.
+        title: The paint line
+      - at: [75, 70]
+        text: Small, but essential. Check that it stays visible at the size you use.
+        title: The last drop
+    props:
+      image: assets/icon.svg
+    tone: panel
   - template: logos
-    title: Versions
-    keys: [logo.primary, logo.mark, logo.markWhite, color.primary]
+    title: The right mark for the ground.
+    lede: Choose a version, inspect its backgrounds, or take the whole kit.
+    keys:
+      - logo.primary
+      - logo.mark
+      - logo.markWhite
+      - color.primary
+      - color.dark
+    items:
+      - key: color.dark
+        asset: assets/mark-black.svg
+        caption: The black mark disappears on Night. Use white.
+        verdict: dont
+      - key: color.primary
+        asset: assets/mark-black.svg
+        caption: Use the white mark on Violet.
+        verdict: dont
+    props:
+      ask: false
+      kit: true
+      size: large
+    columns: 3
+  - id: clearspace
+    template: diagram
+    title: Leave a little room.
+    body: For these layouts, keep a quarter of the mark's height clear on every side.
+    keys: [logo.mark, logo.clearSpace]
+    props:
+      kind: clearspace
+    tone: panel
+  - id: small
+    template: diagram
+    title: Small should still feel like us.
+    body: See the standalone mark at actual size. The paint line and drop should remain distinct.
+    keys: [logo.mark, logo.minSize]
+    props:
+      kind: minsize
   - template: dodont
-    title: Do and don't
+    title: Keep the bucket itself.
     keys: [logo.always, logo.neverDo]
+    props:
+      layout: pairs
+    tone: panel
+  - id: next
+    template: pages
+    title: Keep exploring.
+    items:
+      - link: /logo
+        text: Explore its anatomy. Find the right version. Download the originals.
+        title: 01 / The mark
+      - link: /color
+        text: Copy a color. Compare contrast. Try another view.
+        title: 02 / The palette
+      - link: /type
+        text: Type your own specimen and explore the scale.
+        title: 03 / The words
+      - link: /voice
+        text: See the rewrites. Borrow a line. Make it yours.
+        title: 04 / The voice
+      - link: /playground
+        text: Pattern, spacing and motion. The identity in action.
+        title: 05 / The playground
+      - link: /resources
+        text: Current files, useful links and a way to ask.
+        title: 06 / The essentials

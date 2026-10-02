@@ -1,0 +1,5 @@
+shadow.panel:
+  type: text
+  label: A little lift
+  value: 0 16px 48px -24px rgba(32,36,31,0.24)
+  usage: A proposed shadow for floating previews.
