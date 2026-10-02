@@ -126,6 +126,22 @@ Group assets with `create_collection` and `update_collection_assets`; `list_coll
    and resolve with `update_comment`. `list_versions` shows the history; `restore_version` undoes a bad change
    as a new version, never losing anything.
 
+## A brand kept as files
+
+When the repository holds the brand (a `brand.yaml` with `rules/` and `pages/` beside it), edit those
+files rather than the pages over MCP: the folder is what people review and push.
+
+1. `artbucket brand diff brand` after each edit: every problem at its file and line, and what a push would
+   change, down to each section. It exits 1 on errors.
+2. `artbucket brand push brand` sends it. What people changed in the app since your last pull stays; where
+   you both changed the same piece, yours wins and push says so.
+3. `artbucket brand pull brand` brings in what changed in the app. It never writes over a file you changed
+   and haven't pushed: push first.
+4. Leave a section's `id` out unless something links to it: a new one is named after its template. Quote
+   colors, `value: "#1f6feb"`: in YAML `#` starts a comment.
+
+Publish only when the person asks: `artbucket brand push brand --note "What changed"`.
+
 ## Fonts
 
 A brand rule may name a Google font that isn't in the library yet: `import_google_font({"family": "IBM Plex Sans"})`

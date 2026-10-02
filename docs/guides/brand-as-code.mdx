@@ -55,8 +55,10 @@ keeps every version itself ([history](/guides/canon#brands-and-history)).
 Artbucket stores, for each brand kept in a repository, where its files live
 (the repository, a branch, a folder) and the files both sides last agreed on.
 Each import is a three-way merge against that agreement, a piece at a time:
-each rule (by key and context), each page, each theme setting, the name, and
-the order of rules and of pages.
+each rule (by key and context), each page's own fields and each of its
+sections (by id), each theme setting, the name, and the order of rules, of
+pages and of a page's sections. A person rewording one section in the app and
+a pull request adding another to the same page both land.
 
 - A piece only one side changed takes that side's change.
 - A piece both sides changed the same way is that change.
@@ -65,10 +67,11 @@ the order of rules and of pages.
   names each conflict, and the app's side is not lost: the version before the
   import is in the brand's history, a restore away.
 
-The agreement is recorded by a Git integration, at each commit it syncs. A
-brand synced only by the CLI or a CI job has none, so its files are taken
-whole: the repository is then the source of truth, and an edit made in the
-app is undone by the next push ([what a push overwrites](/guides/brand-as-code/cli#what-a-push-overwrites)).
+The agreement is recorded by a Git integration, at each commit it syncs. The
+CLI keeps its own for the folder it pulls into, so a push from your machine
+merges the same way. A CI job has none, so its files are taken whole: the
+repository is then the source of truth, and an edit made in the app is undone
+by the next push from CI ([what a push overwrites](/guides/brand-as-code/cli#what-a-push-overwrites)).
 
 An import is written as a version of the brand's history, so it is undone
 like any other edit. With the commit's message, that version is named after

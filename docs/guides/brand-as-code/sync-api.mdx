@@ -46,7 +46,8 @@ the base, the brand in the app now, and the files.
   base: the next import takes the files whole.
 
 A brand with no source, or no base yet, has nothing to merge from: an import
-takes the files whole.
+takes the files whole, unless it sends a `base` of its own (the files as the
+caller last had them, as the CLI does).
 
 ### The source
 
@@ -149,6 +150,7 @@ that commit:
 | `message` | The commit's message: its first line names the version the import makes |
 | `dryRun` | `true`: check and merge, answer what would change, write nothing |
 | `merge` | `false`: take the files whole, ignoring the base |
+| `base` | For a brand with no source: the files as you last had them from it (your last pull, or your last push), merged from as a source's base is. The CLI sends it |
 | `publish` | `true`, or a note: release the brand after, with that note |
 
 ```json 200
@@ -188,13 +190,14 @@ value won, and the app's is in the version before.
 | `applied` | Something changed: a new version in the brand's history |
 | `version` | The brand's latest version after the import |
 | `published` | The version released, when `publish` was asked and something was new |
-| `diff` | What changed in the brand, piece by piece: `rules` (`added`, `removed`, `changed`, with the `fields` that changed), `pages` (`added`, `removed`, `changed`, `moved`), `theme` (settings by name), `name`, `reordered` |
+| `diff` | What changed in the brand, piece by piece: `rules` (`added`, `removed`, `changed`, with the `fields` that changed), `pages` (`added`, `removed`, `changed`, `moved`; a changed page with its own `fields` that changed and its `sections` by id), `theme` (settings by name), `name`, `reordered` |
 | `conflicts` | Pieces both sides changed differently. The files' side was taken; the app's is in the history |
 | `warnings` | What readers would trip on, at file and line |
 | `pending` | The brand still holds changes the files lack: export them back |
 
 A conflict's `what` names its piece: `name`, `theme.radius`,
-`rule color.primary`, `rule color.primary (dark-background)`, `page logo`.
+`rule color.primary`, `rule color.primary (dark-background)`, `page logo`
+(one side added or removed it), `page logo: lede`, `page logo: section clearspace`.
 When two sound sides make an unsound whole (a page in the app binding a rule
 the files removed), the import takes the files whole and says so as a
 conflict on `brand`.
