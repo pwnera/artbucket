@@ -200,6 +200,8 @@ type FinalizeInput = {
   described?: Partial<Record<(typeof EDITABLE)[number], string>>;
   /** Brought in by the server from outside (an icon set, Google Fonts, a template), never said by a client. */
   via?: "import";
+  /** Hidden from the workspace from the start; a new version keeps the one before's. */
+  private?: boolean;
 } & Provenance;
 
 async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
@@ -320,7 +322,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         fields: values as FieldValues,
         status,
         proposedBy: proposed ? caller.actor : null,
-        private: prior?.private ?? false,
+        private: prior?.private ?? input.private ?? false,
         public: open,
         rights: rights && !isEmpty(rights) ? rights : null,
         origin: input.origin ?? (c2pa && originOf(c2pa)),
@@ -343,6 +345,8 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   if (!row) return { asset: await fileInto(ws, into, (await bySha(ws, sha256))!.id), deduped: true };
   // An approved new version becomes current; one in review waits for its approval.
   if (stack) await repoint(stack, status === "active" ? { id: row.id } : undefined);
+  // Whoever hides it at upload still reaches it, as they would hiding it after.
+  if (!prior && input.private) await keepReach(caller, "asset", row.id);
   const asset = await fileInto(ws, into, row.id);
   if (open) await recordAudit(caller, "asset.published", asset.filename);
   await record(caller, proposed ? "suggested" : "added", asset, row.version ? { version: row.version } : undefined);

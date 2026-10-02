@@ -235,10 +235,10 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
       ? [
           {
             id: "public",
-            label: a.public ? "Stop public link" : "Make public",
+            label: a.public ? "Turn off embed URL" : "Get an embed URL",
             icon: a.public ? <IconLinkOff /> : <IconLink />,
             run: () =>
-              void act(() => patch({ public: !a.public }), a.public ? "Only people with access can open it now" : "Public: anyone with its URL gets the file", {
+              void act(() => patch({ public: !a.public }), a.public ? "Embed URL off: only the team opens it now" : "Embed URL on: anyone with it gets the file", {
                 local: (x) => ({ ...x, public: !a.public }),
                 undo: () => ok(patch({ public: !!a.public })),
               }),
