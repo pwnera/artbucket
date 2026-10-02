@@ -101,6 +101,12 @@ export function logoOf<A extends { mime: string }>(rules: { key: string; context
   return null;
 }
 
+/** A badge's icon: the image of a logo rule named for a mark, icon or symbol; never a wordmark drawn at 14px. */
+export function markOf<A extends { mime: string }>(rules: { key: string; context: string | null; assets: A[] }[]) {
+  const r = rules.find((x) => !x.context && x.key.startsWith("logo.") && /(?<!word)mark|icon|symbol/i.test(x.key) && x.assets.some((a) => a.mime.startsWith("image/")));
+  return r?.assets.find((a) => a.mime.startsWith("image/")) ?? null;
+}
+
 /** The color a card is tinted with: color.primary, else the first color. */
 export function tintOf(rules: Pick<HubRule, "key" | "type" | "value" | "context">[]) {
   const colors = rules.filter((r) => r.type === "color" && !r.context && typeof r.value === "string");
@@ -284,13 +290,14 @@ const ICON =
 const xml = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /**
- * The README badge, "[Acme | @4 ✓]": Artbucket's icon and the brand's name
- * on Artbucket's ink, the release that is live on the brand's tint, and a
+ * The README badge, "[Acme | @4 ✓]": the brand's mark (a PNG data URI, see
+ * markOf) on a white tile, else Artbucket's icon, and the brand's name on
+ * Artbucket's ink, the release that is live on the brand's tint, and a
  * check when its organization is verified. 20px high, as shields.io's are,
  * so it sits in a row of them. Widths are guessed from Verdana 11px and
  * `textLength` holds the text to them, so a guess never spills.
  */
-export function hubBadge({ name, version, tint, verified }: { name: string; version: number; tint: string | null; verified: boolean }) {
+export function hubBadge({ name, version, tint, verified, mark = null }: { name: string; version: number; tint: string | null; verified: boolean; mark?: string | null }) {
   const fill = tint && isHex(tint) ? tint.slice(0, 7) : "#6d4aff";
   const ink = inkOn(fill);
   const chars = [...name];
@@ -305,7 +312,9 @@ export function hubBadge({ name, version, tint, verified }: { name: string; vers
     `<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-opacity=".12"/></linearGradient>` +
     `<clipPath id="c"><rect width="${l + r}" height="20" rx="5"/></clipPath>` +
     `<g clip-path="url(#c)"><rect width="${l}" height="20" fill="#20241f"/><rect x="${l}" width="${r}" height="20" fill="${fill}"/><rect width="${l + r}" height="20" fill="url(#g)"/><rect x="${l}" width="1" height="20" fill="#fff" fill-opacity=".2"/></g>` +
-    `<svg x="6" y="3" width="14" height="14" viewBox="0 0 512 512">${ICON}</svg>` +
+    (mark && /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(mark)
+      ? `<rect x="6" y="3" width="14" height="14" rx="3.5" fill="#fff"/><image x="7.5" y="4.5" width="11" height="11" href="${mark}"/>`
+      : `<svg x="6" y="3" width="14" height="14" viewBox="0 0 512 512">${ICON}</svg>`) +
     `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" font-weight="bold">` +
     `<text x="26" y="14" fill="#fff" textLength="${lw}" lengthAdjust="spacingAndGlyphs">${xml(label)}</text>` +
     `<text x="${l + 8}" y="14" fill="${ink}" textLength="${vw}" lengthAdjust="spacingAndGlyphs">${value}</text></g>` +

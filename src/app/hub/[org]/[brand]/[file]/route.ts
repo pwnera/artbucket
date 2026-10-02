@@ -1,8 +1,12 @@
 import { record, referrerOf } from "@/lib/core/events";
-import { hubBrand, listingBrandJson } from "@/lib/core/hub";
+import { hubBrand, listingBrandJson, type HubBrand } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
-import { brandText, hubBadge, hubHome, hubPath, parseRef } from "@/lib/hub";
+import { brandText, hubBadge, hubHome, hubPath, markOf, parseRef } from "@/lib/hub";
+import { findAsset } from "@/lib/core/assets";
+import { renderAsset } from "@/lib/core/renditions";
+import { deliverable } from "@/lib/lifecycle";
+import { hasPreview } from "@/lib/preview";
 import { TokenQuery } from "@/lib/schemas";
 import { signUrlsIn } from "@/lib/signed";
 import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
@@ -41,7 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   // A community listing may not come from the brand's owner: search engines leave its files out, as its page.
   const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
   // Shown on every view of a README, so not a pull: nobody took the brand.
-  if (file === "badge.svg") return new Response(hubBadge({ name: b.name, version: b.version, tint: b.tint, verified: !!b.verified }), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
+  if (file === "badge.svg") return new Response(hubBadge({ name: b.name, version: b.version, tint: b.tint, verified: !!b.verified, mark: await markPng(b.rules) }), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
   record({ workspaceId: b.workspaceId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
   const about = { name: b.name, owner: b.owner, verified: b.verified, version: b.version, url: b.url, guidelines: b.guidelines ?? b.url, terms: b.terms };
 
@@ -59,4 +63,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
   return Response.json({ data: out }, { headers });
+}
+
+/**
+ * The brand's mark as a 64px PNG data URI, for the badge: a README shows it
+ * as an <img>, which loads nothing an SVG links to. Null, so Artbucket's icon,
+ * when there is no mark, it may not leave, or it can't be drawn. The
+ * rendition is kept once made (lib/core/renditions.ts), so later badges read it.
+ */
+async function markPng(rules: HubBrand["rules"]) {
+  try {
+    const a = markOf(rules);
+    const asset = a && (await findAsset(a.id));
+    if (!asset || !deliverable(asset) || !hasPreview(asset)) return null;
+    const { body } = await renderAsset(asset, { w: 64, h: 64, f: "png", fit: "inside" });
+    return `data:image/png;base64,${Buffer.from(await new Response(body).arrayBuffer()).toString("base64")}`;
+  } catch {
+    return null;
+  }
 }
