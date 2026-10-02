@@ -16,9 +16,7 @@ sections:
       titleSize: huge
   - template: statement
     eyebrow: One catalog. One answer.
-    title: |-
-      A little order.
-      A lot of possibility.
+    title: A little order. A lot of possibility.
     body: Assets, guidelines and portals in one catalog. One answer for people and agents.
     props:
       align: center
@@ -46,7 +44,6 @@ sections:
     props:
       image: assets/icon.svg
     tone: panel
-    width: full
     size: large
   - id: the-type
     template: statement
@@ -58,8 +55,6 @@ sections:
       Funnel Display speaks up. Funnel Sans gets read. Geist Mono handles the code.
 
       [See the type system](/type)
-    props:
-      align: center
     width: full
     size: huge
   - id: the-palette

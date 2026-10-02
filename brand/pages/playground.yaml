@@ -9,9 +9,9 @@ sections:
       Many possibilities.
     lede: A place to try the identity. Patterns, rhythm and a little movement.
     props:
-      mark: always
+      mark: never
       strip: false
-      markSize: large
+      markFrame: bare
       titleSize: huge
   - template: pattern
     title: One mark. A different rhythm.
