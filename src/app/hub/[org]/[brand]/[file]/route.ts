@@ -1,8 +1,12 @@
 import { record, referrerOf } from "@/lib/core/events";
-import { hubBrand, listingBrandJson } from "@/lib/core/hub";
+import { hubBrand, listingBrandJson, type HubBrand } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
-import { brandText, hubHome, hubPath, parseRef } from "@/lib/hub";
+import { brandText, hubBadge, hubHome, hubPath, markOf, parseRef } from "@/lib/hub";
+import { findAsset } from "@/lib/core/assets";
+import { renderAsset } from "@/lib/core/renditions";
+import { deliverable } from "@/lib/lifecycle";
+import { hasPreview } from "@/lib/preview";
 import { TokenQuery } from "@/lib/schemas";
 import { signUrlsIn } from "@/lib/signed";
 import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
@@ -12,7 +16,7 @@ import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
  * (the brand as AdCP's brand.json, lib/brand-json.ts), /rules.json (every
  * rule, its files as signed URLs), /llms.txt (the same in words), and
  * /tokens?format=css (lib/tokens.ts, as GET /api/v1/brand/tokens; ?context=
- * resolves for one), and /badge.svg for a README ("brand | @4"). Files are
+ * resolves for one), and /badge.svg for a README ("Acme | @4", lib/hub.ts hubBadge). Files are
  * signed for a day, so a CDN keeps an answer an hour at most.
  *
  * Each read but the badge's is a `pull` for Insights (lib/core/events.ts): the file, the
@@ -41,7 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   // A community listing may not come from the brand's owner: search engines leave its files out, as its page.
   const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
   // Shown on every view of a README, so not a pull: nobody took the brand.
-  if (file === "badge.svg") return new Response(badge(`@${b.version}`), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
+  if (file === "badge.svg") return new Response(hubBadge({ name: b.name, version: b.version, tint: b.tint, verified: !!b.verified, mark: await markPng(b.rules) }), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
   record({ workspaceId: b.workspaceId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
   const about = { name: b.name, owner: b.owner, verified: b.verified, version: b.version, url: b.url, guidelines: b.guidelines ?? b.url, terms: b.terms };
 
@@ -61,13 +65,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   return Response.json({ data: out }, { headers });
 }
 
-/** shields.io's flat look, "brand | @4": widths guessed from Verdana 11px, wider for "@" and digits. */
-function badge(value: string) {
-  const label = "brand";
-  const [l, r] = [label.length * 7 + 10, value.length * 8 + 12];
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${l + r}" height="20" role="img" aria-label="${label}: ${value}"><title>${label}: ${value}</title>` +
-    `<clipPath id="r"><rect width="${l + r}" height="20" rx="3"/></clipPath><g clip-path="url(#r)"><rect width="${l}" height="20" fill="#555"/><rect x="${l}" width="${r}" height="20" fill="#007ec6"/></g>` +
-    `<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11"><text x="${l / 2}" y="14">${label}</text><text x="${l + r / 2}" y="14">${value}</text></g></svg>`
-  );
+/**
+ * The brand's mark as a 64px PNG data URI, for the badge: a README shows it
+ * as an <img>, which loads nothing an SVG links to. Null, so Artbucket's icon,
+ * when there is no mark, it may not leave, or it can't be drawn. The
+ * rendition is kept once made (lib/core/renditions.ts), so later badges read it.
+ */
+async function markPng(rules: HubBrand["rules"]) {
+  try {
+    const a = markOf(rules);
+    const asset = a && (await findAsset(a.id));
+    if (!asset || !deliverable(asset) || !hasPreview(asset)) return null;
+    const { body } = await renderAsset(asset, { w: 64, h: 64, f: "png", fit: "inside" });
+    return `data:image/png;base64,${Buffer.from(await new Response(body).arrayBuffer()).toString("base64")}`;
+  } catch {
+    return null;
+  }
 }

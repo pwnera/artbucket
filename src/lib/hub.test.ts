@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { claimProof, provesDomain } from "./domain-proof.ts";
-import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain, expireHostOnly } from "./hub.ts";
+import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubBadge, hubHome, hubPath, logoOf, markOf, paletteOf, parseRef, swatches, withoutDomain, expireHostOnly } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -225,4 +225,29 @@ test("a listing is offered to whoever proves its domain, unless its own organiza
   // No domain, or nothing the claimant proves: none.
   assert.equal(claimProof(null, ["acme.com"], []), null);
   assert.equal(claimProof("acme.com", ["acme.org"], []), null);
+});
+
+test("hubBadge wears the brand's tint, escapes its name and checks a verified one", () => {
+  const svg = hubBadge({ name: 'Ben & "Jerry" <3', version: 4, tint: "#e1eea1", verified: true });
+  assert.match(svg, /fill="#e1eea1"/);
+  assert.match(svg, /Ben &#38; &#34;Jerry&#34; &#60;3/);
+  assert.doesNotMatch(svg, /<3|"Jerry"/);
+  assert.match(svg, /fill="#000000"[^>]*>@4</);
+  assert.match(svg, /stroke-linecap/);
+  const plain = hubBadge({ name: "x".repeat(40), version: 2, tint: 'red" onload="alert(1)', verified: false });
+  assert.match(plain, /fill="#6d4aff"/);
+  assert.doesNotMatch(plain, /onload|stroke-linecap/);
+  assert.match(plain, /x{23}…</);
+});
+
+test("a badge shows the brand's mark when it has one, else Artbucket's icon", () => {
+  const img = (id: string, mime = "image/png") => ({ id, mime });
+  const rule = (key: string, assets = [img(key)], context: string | null = null) => ({ key, context, assets });
+  assert.equal(markOf([rule("logo.primary"), rule("logo.wordmark")]), null);
+  assert.equal(markOf([rule("logo.primary"), rule("logo.mark", [img("x", "application/pdf"), img("m")])])?.id, "m");
+  assert.equal(markOf([rule("logo.icon", [img("i")], "social")]), null);
+  const badge = (mark: string | null) => hubBadge({ name: "Acme", version: 1, tint: null, verified: false, mark });
+  assert.match(badge("data:image/png;base64,iVBORw0KGgo="), /<image [^>]*href="data:image\/png;base64,iVBORw0KGgo="/);
+  assert.doesNotMatch(badge('data:image/png;base64,x"/><script>'), /<image|<script/);
+  assert.match(badge(null), /viewBox="0 0 512 512"/);
 });

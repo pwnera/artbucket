@@ -1,3 +1,4 @@
+import { inkOn, isHex } from "./color.ts";
 import { GOOGLE_FAMILY, isFont, standIn } from "./font.ts";
 import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
@@ -98,6 +99,12 @@ export function logoOf<A extends { mime: string }>(rules: { key: string; context
     if (a) return a;
   }
   return null;
+}
+
+/** A badge's icon: the image of a logo rule named for a mark, icon or symbol; never a wordmark drawn at 14px. */
+export function markOf<A extends { mime: string }>(rules: { key: string; context: string | null; assets: A[] }[]) {
+  const r = rules.find((x) => !x.context && x.key.startsWith("logo.") && /(?<!word)mark|icon|symbol/i.test(x.key) && x.assets.some((a) => a.mime.startsWith("image/")));
+  return r?.assets.find((a) => a.mime.startsWith("image/")) ?? null;
 }
 
 /** The color a card is tinted with: color.primary, else the first color. */
@@ -273,3 +280,45 @@ export type ReportReason = keyof typeof REPORT_REASONS;
 
 /** A count as a card shows it: 950, 1.2k, 3.4M. */
 export const compact = (n: number) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase();
+
+/** public/icon.svg's tile and mark, inside a badge. */
+const ICON =
+  `<rect width="512" height="512" rx="121" fill="#6d4aff"/><g transform="translate(256 256) scale(0.8) translate(-270 -244.5)" fill="#fff">` +
+  `<path fill-rule="evenodd" d="M185.5 49 L414 277.5 L263.5 428 A41 41 0 0 1 205.5 428 L84 306.5 A41 41 0 0 1 84 248.5 L204.5 128 L155.5 79 Z M234.5 158 L338.5 262 C326 252 310 246 294 246 C259 246 235 294 200 294 C172 294 148 276 130.5 262 Z"/>` +
+  `<path d="M426.5 297 L463.06 364.83 A41.5 41.5 0 1 1 389.94 364.83 Z"/></g>`;
+
+const xml = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/**
+ * The README badge, "[Acme | @4 ✓]": the brand's mark (a PNG data URI, see
+ * markOf) on a white tile, else Artbucket's icon, and the brand's name on
+ * Artbucket's ink, the release that is live on the brand's tint, and a
+ * check when its organization is verified. 20px high, as shields.io's are,
+ * so it sits in a row of them. Widths are guessed from Verdana 11px and
+ * `textLength` holds the text to them, so a guess never spills.
+ */
+export function hubBadge({ name, version, tint, verified, mark = null }: { name: string; version: number; tint: string | null; verified: boolean; mark?: string | null }) {
+  const fill = tint && isHex(tint) ? tint.slice(0, 7) : "#6d4aff";
+  const ink = inkOn(fill);
+  const chars = [...name];
+  const label = chars.length > 24 ? `${chars.slice(0, 23).join("")}…` : name;
+  const value = `@${version}`;
+  const [lw, vw] = [[...label].length * 7, value.length * 7.5];
+  const l = 26 + lw + 8;
+  const r = 8 + vw + (verified ? 17 : 8);
+  const alt = xml(`${name} brand: ${value}${verified ? ", verified" : ""}`);
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${l + r}" height="20" role="img" aria-label="${alt}"><title>${alt}</title>` +
+    `<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-opacity=".12"/></linearGradient>` +
+    `<clipPath id="c"><rect width="${l + r}" height="20" rx="5"/></clipPath>` +
+    `<g clip-path="url(#c)"><rect width="${l}" height="20" fill="#20241f"/><rect x="${l}" width="${r}" height="20" fill="${fill}"/><rect width="${l + r}" height="20" fill="url(#g)"/><rect x="${l}" width="1" height="20" fill="#fff" fill-opacity=".2"/></g>` +
+    (mark && /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(mark)
+      ? `<rect x="6" y="3" width="14" height="14" rx="3.5" fill="#fff"/><image x="7.5" y="4.5" width="11" height="11" href="${mark}"/>`
+      : `<svg x="6" y="3" width="14" height="14" viewBox="0 0 512 512">${ICON}</svg>`) +
+    `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" font-weight="bold">` +
+    `<text x="26" y="14" fill="#fff" textLength="${lw}" lengthAdjust="spacingAndGlyphs">${xml(label)}</text>` +
+    `<text x="${l + 8}" y="14" fill="${ink}" textLength="${vw}" lengthAdjust="spacingAndGlyphs">${value}</text></g>` +
+    (verified ? `<path d="M${l + r - 14} 10.5l2.5 2.5 4.5-5" fill="none" stroke="${ink}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>` : "") +
+    `</svg>`
+  );
+}

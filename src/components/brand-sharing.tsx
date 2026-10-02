@@ -117,7 +117,9 @@ export function BrandSharing({
           </div>
           {hub.visibility === "public" && hub.published && (
             <div className="grid gap-1.5">
-              <p className="text-sm font-medium">A badge for its README, with the release that is live</p>
+              <p className="text-sm font-medium">A badge for its README, in its color, with the release that is live</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${hub.url}/badge.svg`} alt="The brand's README badge" className="h-5 w-fit" />
               <Snippet text={`[![Brand on BrandHub](${hub.url}/badge.svg)](${hub.url})`} what="the badge's Markdown" />
             </div>
           )}
