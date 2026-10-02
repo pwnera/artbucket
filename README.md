@@ -4,6 +4,7 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](https://docs.artbucket.io/developers/stability)
 [![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://docs.artbucket.io/developers/mcp)
+[![Brand: live](https://img.shields.io/badge/brand-live-6d4aff.svg)][Live brand page]
 
 <img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
@@ -21,7 +22,7 @@ the CLI and Git.
 
 **Web app · MCP · REST API · CLI · Git**
 
-[Try Artbucket Cloud][Artbucket Cloud] · [Live demo] · [Docs] · [Run it yourself](#run-it-yourself)
+[Try Artbucket Cloud][Artbucket Cloud] · [Live demo] · [Live brand page] · [Docs] · [Run it yourself](#run-it-yourself)
 
 <p align="center">
   <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
@@ -180,6 +181,7 @@ reserved for commercial code. See [decision 0013].
 [Render]: https://docs.artbucket.io/installation/render
 [REST API]: https://docs.artbucket.io/developers/api
 [Live demo]: https://artbucket.io/examples/blender
+[Live brand page]: https://brand.artbucket.io/
 [ROADMAP.md]: ROADMAP.md
 [SECURITY.md]: SECURITY.md
 [stability]: https://docs.artbucket.io/developers/stability
