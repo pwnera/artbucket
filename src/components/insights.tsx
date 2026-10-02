@@ -5,6 +5,7 @@ import Link from "next/link";
 import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
+import { InfoTip } from "@/components/info-tip";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Group } from "@/components/settings/panels";
@@ -73,10 +74,12 @@ export function Insights({ data, tab = "overview" }: { data: InsightsData | null
         <PageHeader
           icon={<IconChartBar />}
           title={checks ? "Use checks" : "Insights"}
-          description={
-            checks
-              ? "Every use checked, by a person, a portal visitor or an agent: what was refused, why, what was offered instead, and whether it was taken."
-              : "What gets used, by whom and through which surface. Counted in this server's own database: no IP addresses, no names of people, no full URLs, and nothing sent anywhere."
+          aside={
+            <InfoTip>
+              {checks
+                ? "Every use checked, by a person, a portal visitor or an agent: what was refused, why, what was offered instead, and whether it was taken."
+                : "Brand answers count every file served, listing read, use checked and search that finds something. Counted in this server's own database: no IP addresses, no names of people, no full URLs, nothing sent anywhere."}
+            </InfoTip>
           }
         />
         <div className="-mt-2 border-b">
@@ -89,7 +92,7 @@ export function Insights({ data, tab = "overview" }: { data: InsightsData | null
           />
         </div>
         {!data ? (
-          <None>Insights couldn&apos;t load. Nothing has changed; try again in a moment.</None>
+          <None>Insights couldn&apos;t load. Try again in a moment.</None>
         ) : checks ? (
           <UseChecks data={data} />
         ) : (
@@ -163,7 +166,7 @@ function Overview({ data }: { data: InsightsData }) {
       {sites.size > 0 && (
         <p role="status" className="border-warning/40 bg-warning/10 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
           <IconAlertTriangle aria-hidden className="text-warning size-4 shrink-0" />
-          {sites.size === 1 ? "1 site still loads" : `${sites.size} sites still load`} a replaced version: see them under Where from, Old versions.
+          {sites.size === 1 ? "1 site still loads" : `${sites.size} sites still load`} a replaced version: see Where from, Old versions.
         </p>
       )}
 
@@ -186,7 +189,7 @@ function Overview({ data }: { data: InsightsData }) {
                 ]}
               />
             ) : (
-              <None>No answers yet: every file served, listing read, use checked and search that finds something counts here.</None>
+              <None>No answers yet.</None>
             )
           ) : chart === "delivery" ? (
             data.delivery.length ? (
@@ -217,7 +220,7 @@ function Overview({ data }: { data: InsightsData }) {
               id: "top",
               label: "Most used",
               column: "Fetches",
-              empty: "Nothing fetched yet. Each file served outside the library's own pages counts here.",
+              empty: "Nothing fetched yet.",
               rows: data.top.map((t) => ({
                 key: t.asset.id,
                 label: <AssetLink a={t.asset} />,
@@ -298,7 +301,7 @@ function Overview({ data }: { data: InsightsData }) {
               id: "page",
               label: "Page",
               column: "Views",
-              empty: "No page viewed yet: each page a portal visitor opens counts, a day at a time.",
+              empty: "No page viewed yet.",
               rows: data.pageViews.map((p) => ({ key: `${p.portal.id}/${p.brand.slug}/${p.page}`, label: p.page, sub: `${p.portal.name}, ${p.brand.name}`, value: p.views })),
             },
             {
@@ -343,7 +346,7 @@ function Overview({ data }: { data: InsightsData }) {
         />
       </div>
       <p className="text-muted-foreground text-xs">
-        Brand answers and adoption over the last {data.weeks} weeks; delivery, assets, portals and searches over the last {data.days} days. {on(current + replaced)} in all.
+        Answers and adoption: last {data.weeks} weeks. The rest: last {data.days} days. {on(current + replaced)} in all.
       </p>
     </>
   );
@@ -400,10 +403,10 @@ function UseChecks({ data }: { data: InsightsData }) {
         )}
       </section>
       {c.refused === 0 ? (
-        <None>Nothing refused. Every check an agent, a portal visitor or a person makes shows here.</None>
+        <None>Nothing refused.</None>
       ) : (
         <>
-          <Group title="Recent refusals" description="The latest refusals. Took it: the same client fetched what was offered, or checked it and was allowed, afterwards.">
+          <Group title="Recent refusals">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-muted-foreground text-left text-xs">
@@ -413,7 +416,11 @@ function UseChecks({ data }: { data: InsightsData }) {
                     <th className={th}>Asset</th>
                     <th className={th}>Reason</th>
                     <th className={th}>Offered</th>
-                    <th className={th}>Took it</th>
+                    <th className={th}>
+                      <span className="inline-flex items-center gap-1">
+                        Took it <InfoTip>The same client fetched what was offered, or checked it and was allowed, afterwards.</InfoTip>
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -460,7 +467,7 @@ function UseChecks({ data }: { data: InsightsData }) {
               </table>
             </div>
           </Group>
-          <Group title="By reason" description="What the refusals were for. Replaced files still in use show in the overview, under Assets and Where from, with the sites that load them.">
+          <Group title="By reason">
             <BarList column="Refusals" empty="Nothing refused." rows={c.reasons.map((r) => ({ key: r.code, label: REASON[r.code] ?? r.code, value: r.count, tone: "warning" as const }))} />
             <Button variant="outline" size="sm" className="justify-self-start" asChild>
               <Link href="/insights">Open the overview</Link>

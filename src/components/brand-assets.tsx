@@ -23,7 +23,7 @@ export type BrandAsset = {
  */
 export function BrandAssets({ assets }: { assets: BrandAsset[] | null }) {
   if (!assets) return <p className="text-muted-foreground text-sm">The brand&apos;s files couldn&apos;t load. Try again in a moment.</p>;
-  if (!assets.length) return <p className="text-muted-foreground text-sm">No files yet: a rule&apos;s logo or a page&apos;s image shows here once the brand uses it.</p>;
+  if (!assets.length) return <p className="text-muted-foreground text-sm">No files yet: logos and images show here once used.</p>;
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {assets.map((a) => (

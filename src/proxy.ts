@@ -100,6 +100,8 @@ async function portalRoute(req: NextRequest, init?: { request: { headers: Header
   // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
   if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
   if (pathname.startsWith("/api/") || bytes(pathname) || pathname === "/robots.txt" || pathname === "/.well-known/brand.json") return null;
+  // A verified domain the organization uses neither for the app nor for a portal serves no page.
+  if (target && !target.portal && !target.app) return new NextResponse("This domain isn't in use yet", { status: 404 });
   const onApp = asked ? null : pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
   const slug = asked ?? onApp?.[1];
   if (!slug) return null;

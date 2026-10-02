@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { FONT_CATEGORIES, fontStyle, weightName } from "@/lib/font";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 
 /**
  * A font asset, loaded from `url` (its /a/{id}, as this page builds it) under
@@ -301,9 +302,9 @@ export function GoogleFontImport({
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-4 sm:max-w-3xl md:h-[min(760px,calc(100dvh-2rem))]">
           <DialogHeader>
             <DialogTitle>Google Fonts</DialogTitle>
-            <DialogDescription>
-              Importing adds every weight and italic as files in the library, and pages load them from here. Only these previews load
-              from Google.
+            <DialogDescription className="flex items-center gap-1.5">
+              Every weight and italic, as files in the library.
+              <InfoTip>Pages load the fonts from here. Only these previews load from Google.</InfoTip>
             </DialogDescription>
           </DialogHeader>
 

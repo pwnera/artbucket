@@ -6,6 +6,7 @@ import { IconCheck, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
+import { InfoTip } from "@/components/info-tip";
 import { Group } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,15 +87,18 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
     <div className="space-y-6">
       <Group
         title="Single sign-on"
-        description="Your people sign in through your own identity provider (Okta, Entra ID, Google Workspace, or any OpenID Connect one) with their work email. The first time, they join the organization able to read; raise anyone's access in Team."
+        description="Okta, Entra ID, Google Workspace or any OpenID Connect provider."
+        info="Your people sign in with their work email. The first time, they join the organization able to read; raise anyone's access in Team."
       >
         <div className="grid gap-2 text-sm">
-          <p>1. At your provider, make a web app (OpenID Connect) and give it this redirect URI:</p>
-          <Values rows={[["Redirect URI", sso?.redirectUri ?? redirectUri, "the redirect URI"]]} />
-          <p className="text-muted-foreground text-xs text-pretty">
-            Google Workspace: an OAuth client of type Web application, issuer https://accounts.google.com, and an Internal consent screen. Entra ID: an app registration
-            with a Web redirect URI, issuer https://login.microsoftonline.com/&#123;tenant&#125;/v2.0.
+          <p>
+            1. At your provider, make a web app (OpenID Connect) with this redirect URI:{" "}
+            <InfoTip label="Google Workspace and Entra ID">
+              Google Workspace: an OAuth client of type Web application, issuer https://accounts.google.com, and an Internal consent screen. Entra ID: an app
+              registration with a Web redirect URI, issuer https://login.microsoftonline.com/&#123;tenant&#125;/v2.0.
+            </InfoTip>
           </p>
+          <Values rows={[["Redirect URI", sso?.redirectUri ?? redirectUri, "the redirect URI"]]} />
         </div>
         <form
           className="grid max-w-md gap-4"
@@ -124,7 +128,10 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`${id}-domain`}>Email domain</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor={`${id}-domain`}>Email domain</Label>
+              <InfoTip>Whoever signs in with an address there, or under it, goes through your provider.</InfoTip>
+            </div>
             <Input
               id={`${id}-domain`}
               name="domain"
@@ -137,7 +144,7 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
               aria-describedby={`${id}-domain-hint`}
             />
             <p id={`${id}-domain-hint`} className="text-muted-foreground text-xs">
-              Whoever signs in with an address there, or under it, goes through your provider. It joins your email domains, proved once for both.
+              Joins your email domains, proved once for both.
             </p>
           </div>
           <Button type="submit" className="justify-self-start" pending={busy === "save"} disabled={busy === "check"}>
@@ -168,8 +175,8 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
             )}
             <p className="text-muted-foreground text-xs text-pretty">
               {sso.verified
-                ? `People at ${sso.domain} choose "Sign in with SSO" on the sign-in page.`
-                : "Nobody signs in through it until the record is found. DNS can take a few minutes."}
+                ? `People at ${sso.domain} are sent to it from the sign-in page.`
+                : "Off until the record is found. DNS can take a few minutes."}
             </p>
           </div>
         )}
@@ -177,7 +184,8 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
       {sso?.verified && (
         <Group
           title="Require single sign-on"
-          description={`Nobody at ${sso.domain} signs in with a password or resets one: leaving your provider leaves Artbucket. Organization admins keep their password, so a provider that breaks never locks you out. People outside ${sso.domain} are not affected.`}
+          description={`Nobody at ${sso.domain} but the organization's admins signs in with a password.`}
+          info={`Nor resets one: leaving your provider leaves Artbucket. Admins keep their password, so a provider that breaks never locks you out. People outside ${sso.domain} are not affected.`}
         >
           <div className="flex flex-wrap items-center gap-3">
             {sso.required ? (
@@ -205,7 +213,7 @@ export function SsoPanel({ sso, redirectUri }: { sso: Sso | null; redirectUri: s
         </Group>
       )}
       {sso && (
-        <Group title="Turn off single sign-on" tone="danger" description="Your people keep their accounts and access. From then on they sign in with a password, reset by email.">
+        <Group title="Turn off single sign-on" tone="danger" description="People keep their accounts and access, and sign in with a password.">
           <Confirm
             title="Turn off single sign-on?"
             says={`People at ${sso.domain} will sign in with a password instead.`}

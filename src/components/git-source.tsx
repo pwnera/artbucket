@@ -30,8 +30,8 @@ export function RepositoryDetails({ source: s, manage }: { source: NonNullable<S
       </p>
       <p className="text-muted-foreground text-xs">
         {s.pending
-          ? "Edits made here since the last sync go to the repository next: as a commit, or a pull request to review."
-          : "The brand here and its files say the same. Changes merged there come here, and edits here go there."}
+          ? "Edits made here go next, as a commit or a pull request."
+          : "Synced both ways."}
       </p>
       {manage && (
         <a href={manage} className="text-xs underline underline-offset-2">
@@ -84,7 +84,7 @@ export function GitSource({ source, slug, editor, compact }: { source: Source | 
         ) : (
           <>
             <p className="font-medium">Keep this brand in Git</p>
-            <p className="text-muted-foreground text-xs">Its rules, pages and theme as YAML beside its files, reviewed in pull requests. Pull it with the CLI, then push what the repository changes.</p>
+            <p className="text-muted-foreground text-xs">Its rules, pages and theme as YAML, reviewed in pull requests. Pull it with the CLI.</p>
             <div className="bg-muted/60 flex items-center gap-1 rounded-md border ps-2.5">
               <code className="w-0 min-w-0 flex-1 truncate py-1.5 text-xs">{pull}</code>
               <CopyButton text={pull} label="Copy the command" what="the command" />

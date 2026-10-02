@@ -111,9 +111,8 @@ export function FormError({ id, children }: { id?: string; children: React.React
 }
 
 /**
- * The page around a card: anchored near the top, so what grows below never
- * moves what's above. With an `aside`, the page splits on wide screens: the
- * aside on the start side, the card on the end side.
+ * The page around a card, centred on it. With an `aside`, the page splits on
+ * wide screens: the aside on the start side, the card on the end side.
  */
 function Shell({ aside, children }: { aside?: React.ReactNode; children: React.ReactNode }) {
   const card = (
@@ -122,12 +121,12 @@ function Shell({ aside, children }: { aside?: React.ReactNode; children: React.R
     </div>
   );
   if (!aside) {
-    return <main className="bg-muted/40 dark:bg-background flex min-h-svh items-start justify-center px-4 pt-[12svh] pb-8 sm:pt-[18svh]">{card}</main>;
+    return <main className="bg-muted/40 dark:bg-background flex min-h-svh items-center justify-center px-4 py-8">{card}</main>;
   }
   return (
     <main className="grid min-h-svh lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {aside}
-      <div className="bg-muted/40 dark:bg-background flex items-start justify-center px-4 pt-[12svh] pb-8 sm:pt-[18svh]">{card}</div>
+      <div className="bg-muted/40 dark:bg-background flex min-h-svh items-center justify-center px-4 py-8">{card}</div>
     </main>
   );
 }
@@ -232,7 +231,7 @@ export function AuthForm({
   const [step, setStep] = useState<"email" | "password">("email");
   /** The address the second step is for, shown above the password. */
   const [shown, setShown] = useState("");
-  const [busy, setBusy] = useState<"form" | "sso" | "org" | null>(null);
+  const [busy, setBusy] = useState<"form" | "sso" | null>(null);
   const [error, setError] = useState<{ text: string; code?: string } | null>(initialError ? { text: initialError } : null);
   /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -258,8 +257,9 @@ export function AuthForm({
   };
 
   async function submit(form: FormData) {
-    // The first step only asks for the address: the browser checked it is one.
-    if (step === "email") return toStep("password");
+    // The first step only asks for the address, which the browser checked: one whose organization has its own provider
+    // goes there, any other on to the password. Not straight back to a provider that just failed: the password is the way round.
+    if (step === "email") return void ((ssoOffered && !initialError && (await orgSso(true))) || toStep("password"));
     const v: Values = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
@@ -306,23 +306,25 @@ export function AuthForm({
     setError({ text: r.ok ? "Single sign-on isn't answering. Try again, or use your password." : r.message });
   }
 
-  /** The organization's own provider, by the domain of the email typed above. */
-  async function orgSso() {
-    const field = emailInput.current;
-    const email = field?.value.trim() ?? "";
-    if (!field || !email || !field.checkValidity()) {
-      setError({ text: "Type your work email above first." });
-      field?.focus();
-      return;
-    }
-    setBusy("org");
+  /**
+   * The organization's own provider, by the domain of the email typed. From
+   * the email step `quiet`: false, and no error, when the domain has none.
+   */
+  async function orgSso(quiet = false) {
+    const email = emailInput.current?.value.trim() ?? "";
+    setBusy("form");
     setError(null);
     beforeSubmit?.();
     const r = await authPost("sign-in/sso", { email, callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
-    if (r.ok && r.data.url) return window.location.assign(r.data.url);
+    if (r.ok && r.data.url) {
+      window.location.assign(r.data.url);
+      return true;
+    }
     setBusy(null);
     const mine = r.ok || (r.code !== "NETWORK" && r.code !== "RATE_LIMITED");
+    if (quiet && mine) return false;
     setError({ text: mine ? `${email.split("@")[1]} doesn't sign in with single sign-on here. Use your password, or ask your admin.` : r.message });
+    return true;
   }
 
   const switchMode = (to: "in" | "up") => {
@@ -453,7 +455,7 @@ export function AuthForm({
                     aria-describedby={`${id}-org-hint`}
                   />
                   <p id={`${id}-org-hint`} className="text-muted-foreground text-xs">
-                    What your team is called. You can change it later.
+                    You can change it later.
                   </p>
                 </div>
               )}
@@ -490,11 +492,6 @@ export function AuthForm({
               "Make account"
             )}
           </Button>
-          {ssoOffered && step === "email" && (
-            <Button type="button" variant="outline" pending={busy === "org"} disabled={!!busy && busy !== "org"} onClick={() => void orgSso()}>
-              <IconBuilding /> Continue with SSO
-            </Button>
-          )}
         </form>
         {signUp && (
           <p className="text-muted-foreground text-center text-sm">
@@ -506,7 +503,7 @@ export function AuthForm({
         )}
         {mode === "in" && !forgot && step === "password" && (
           <p className="text-muted-foreground text-xs text-pretty">
-            Forgot your password? This server can&apos;t email a reset link yet. An admin can turn on email in Settings.
+            Forgot it? Ask an admin: this server can&apos;t email reset links yet.
           </p>
         )}
         {below && <p className="text-muted-foreground text-xs text-pretty">{below}</p>}
@@ -713,7 +710,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
     <AuthForm
       heading={(mode) =>
         first
-          ? { title: `Set up ${brand.name}`, lead: "This first account is the admin of everything. You can invite your team next." }
+          ? { title: `Set up ${brand.name}`, lead: "This first account is the admin. Invite your team next." }
           : mode === "up"
             ? { title: `Join ${brand.name}`, lead: why ?? "Your account comes with an organization of its own." }
             : { title: `Sign in to ${brand.name}`, lead: why ?? brand.tagline ?? undefined }
@@ -729,7 +726,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       organization={first}
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
-      below={!first && !auth.open ? "Accounts are by invitation: ask an admin for a link if you don't have one." : undefined}
+      below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
       aside={<SignInAside />}
     />
   );
@@ -741,7 +738,7 @@ export function Unreachable() {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
-    <Card title={`Can't reach ${brand.name} right now`} lead="The server didn't answer. It may be restarting: try again in a moment.">
+    <Card title={`Can't reach ${brand.name} right now`} lead="It may be restarting. Try again in a moment.">
       <Button className="w-full" pending={pending} onClick={() => start(() => router.refresh())}>
         <IconRefresh /> {pending ? "Trying…" : "Try again"}
       </Button>
@@ -780,8 +777,8 @@ export function Welcome({ me }: { me: Me }) {
       title={`Welcome, ${me.user?.name || me.user?.email}`}
       lead={
         offer
-          ? `${offer.organization.name} is here, with your ${offer.domain} address. Join it to look around, and ask its admins for more, or start an organization of your own.`
-          : "You're signed in, but nobody has given you access to a workspace yet. Ask an admin for an invitation, or start an organization of your own."
+          ? `Your ${offer.domain} address can join ${offer.organization.name}, or start your own.`
+          : "No workspace yet. Ask an admin for an invitation, or start your own."
       }
     >
       <div className="grid gap-2">
@@ -889,7 +886,7 @@ export function InvitePage({
       // Taken as the account was made, before its email was confirmed: the person who used it signs in, the code then finishes it.
       <Card
         title="This invitation doesn't work"
-        lead="It was used already, withdrawn, or it expired. If you made your account with it, sign in: you're in. Otherwise ask whoever sent it for a new one."
+        lead="It was used, withdrawn or expired. Made your account with it? Sign in. Otherwise ask for a new one."
       >
         <Button asChild>
           <Link href="/login">Sign in</Link>
@@ -996,7 +993,7 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
     return (
       <Card
         title="Reset your password"
-        lead="This server can't email a reset link yet. An admin can turn on email in Settings, or set a new password for you."
+        lead="This server can't email a reset link yet. Ask an admin to set a new password for you."
       >
         <Button variant="outline" asChild>
           <Link href="/login">Back to sign in</Link>

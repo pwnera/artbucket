@@ -419,8 +419,9 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
 
 /*
  * Upgrade (components/page.tsx) is an offer, not an action on the page like
- * Upload beside it: an outline whose border a slow light runs around, and a
- * sparkle that twinkles now and then. Still, with reduced motion.
+ * Upload beside it: an outline whose border a light runs around while
+ * hovered, and a sparkle that twinkles; still otherwise, so the header is
+ * calm. Still, with reduced motion.
  */
 @property --upgrade-angle {
   syntax: "<angle>";
@@ -445,11 +446,11 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
     0%, 84%, 100% { scale: 1; rotate: 0deg; }
     90% { scale: 1.2; rotate: 15deg; }
   }
-  .upgrade {
-    animation: upgrade-run 6s linear infinite;
+  .upgrade:hover {
+    animation: upgrade-run 3s linear infinite;
   }
-  .upgrade svg {
-    animation: upgrade-twinkle 5s var(--ease-out) infinite;
+  .upgrade:hover svg {
+    animation: upgrade-twinkle 1.2s var(--ease-out);
   }
 }
 

@@ -20,6 +20,7 @@ import { endDrag, payloadOf } from "@/components/builder/drag";
 import { Layers } from "@/components/builder/layers";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -466,7 +467,7 @@ function Outline({
           );
         })}
       </ul>
-      <p id={hint} className="text-muted-foreground px-2 pt-2 text-xs">
+      <p id={hint} className="sr-only">
         Drag a page onto another to nest it. Or press Space on its handle, then Tab nests, Shift+Tab lifts out, arrows reorder, Space puts it down.
       </p>
     </div>
@@ -554,7 +555,7 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
       <DialogContent className="app-tokens">
         <DialogHeader>
           <DialogTitle>Page settings</DialogTitle>
-          <DialogDescription>How {entry.title} sits in the book, and who reads it.</DialogDescription>
+          <DialogDescription>{entry.title}</DialogDescription>
         </DialogHeader>
         <form id="page-details" onSubmit={save} className="grid gap-4">
           <div className="grid gap-1.5">
@@ -562,7 +563,10 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
             <Input id="page-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} required />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="page-slug">Address</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="page-slug">Address</Label>
+              <InfoTip>Change it and the old address still leads here.</InfoTip>
+            </div>
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground font-mono text-sm">/</span>
               <Input
@@ -578,16 +582,16 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
               />
             </div>
             <p id="page-slug-hint" className={cn("text-xs", error ? "text-destructive" : "text-muted-foreground")}>
-              {error ??
-                (entry.aliases.length
-                  ? `Old addresses still lead here: ${entry.aliases.map((a) => `/${a}`).join(", ")}.`
-                  : "Change it and the old address still leads here.")}
+              {error ?? (entry.aliases.length ? `Redirects from ${entry.aliases.map((a) => `/${a}`).join(", ")}` : null)}
             </p>
           </div>
           <div className="grid gap-1.5">
-            <p id="page-layout" className="text-sm font-medium">
-              Layout
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p id="page-layout" className="text-sm font-medium">
+                Layout
+              </p>
+              <InfoTip>Book: a chapter, with the page list beside it, on this page and the pager. Landing: a front without them, for a home or a campaign.</InfoTip>
+            </div>
             <ToggleGroup
               type="single"
               variant="outline"
@@ -603,9 +607,6 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
                 Landing
               </ToggleGroupItem>
             </ToggleGroup>
-            <p className="text-muted-foreground text-xs">
-              {layout === "book" ? "A chapter: the page list beside it, on this page, and the pager." : "A front: no page list, on this page or pager. For a home or a campaign."}
-            </p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="page-audience">Who reads it on portals</Label>
@@ -625,7 +626,7 @@ function Details({ b, entry, onClose }: { b: BuilderApi; entry: NavEntry; onClos
           <div className="flex items-center gap-3">
             <Switch id="page-tabs" checked={tabs} onCheckedChange={setTabs} />
             <Label htmlFor="page-tabs" className="leading-snug font-normal">
-              Show the pages under it as tabs across its top{!hasKids && " (it has none yet)"}
+              Show subpages as tabs{!hasKids && " (none yet)"}
             </Label>
           </div>
         </form>

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
 import { APP_BG, contrast, grade } from "@/lib/color";
@@ -27,7 +28,7 @@ import { Waiting } from "@/components/waiting";
 type Source = "organization" | "environment" | "default";
 export type BrandingSetting = { value: BrandingSettings; sources: Partial<Record<keyof BrandingSettings, Source>>; own: boolean };
 type Dns<T extends string> = { type: T; name: string; value: string };
-export type Domain = { host: string; verified: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
+export type Domain = { host: string; verified: boolean; app: boolean; primary: boolean; record: Dns<"TXT">; cname: Dns<"CNAME"> | null; portal: string | null; url: string };
 
 const asAssetId = (raw: string) => raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 /** The product's own accent, what the picker shows until one is set. */
@@ -111,7 +112,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <Group title="Name" description="What the product is called: page titles, the sign-in screen, email subjects.">
+      <Group title="Name" info="What the product is called: page titles, the sign-in screen, email subjects.">
         <div className="grid max-w-md gap-2">
           <div className="flex items-center gap-3">
             <BrandMark brand={preview} />
@@ -125,7 +126,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           <Hint text={env("tagline")} />
         </div>
       </Group>
-      <Group title="Look" description="Images come from the library, and show while they stay approved.">
+      <Group title="Look" info="Images come from the library, and show while they stay approved.">
         {image("logo", "Logo", "The sidebar, sign-in, share links and email")}
         {image("icon", "Icon", "Square: the browser tab")}
         <div className="grid gap-2">
@@ -147,7 +148,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           <Hint text={env("accent")} />
         </div>
       </Group>
-      <Group title="Email" description="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
+      <Group title="Email" info="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email.">
         <div className="grid max-w-md gap-2">
           <Label htmlFor={`${id}-footer`}>Footer</Label>
           <Textarea id={`${id}-footer`} rows={2} maxLength={500} value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Acme Inc, 1 Main Street. Questions: brand@acme.com" />
@@ -180,7 +181,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
       {picking && (
         <LibraryPicker
           title={picking === "logo" ? "Choose the logo" : "Choose the icon"}
-          description="An approved image from the library. It shows for as long as it stays approved."
+          description="Shown while it stays approved."
           filter={(a) => a.mime.startsWith("image/") && a.state === "active"}
           onClose={() => setPicking(null)}
           onPick={(a) => {
@@ -208,9 +209,9 @@ function Legibility({ color, on, theme }: { color: string; on: string; theme: st
 const RECHECK = { every: 30_000, for: 10 * 60_000 };
 
 /**
- * The organization's own addresses. Each serves the whole app, the default
- * one being where links in email point, or one portal, which picks it in
- * Portals. Each is proved by a TXT record, and by pointing at the server;
+ * The organization's own addresses. Each serves the whole app once turned on
+ * here (off when verified), the default of those being where links in email
+ * point; or one portal, which picks it in Portals. Each is proved by a TXT record, and by pointing at the server;
  * while one isn't yet, it is checked again every 30s for 10 minutes, as DNS
  * takes minutes to spread.
  */
@@ -263,7 +264,8 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
     <div className="space-y-6">
       <Group
         title="Domains"
-        description="Addresses of your own. People sign in at any of them, and the default is where links in email point; a portal can take one instead, in Portals. Point each at this server, add the TXT record, then check it."
+        description="Point each at this server, add the TXT record, then check it."
+        info="Use one for the app and people sign in there; the default is where links in email point. Or give one to a portal, in Portals. A domain used for neither serves nothing."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -280,7 +282,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                     <span className="min-w-48 flex-1 truncate font-medium" title={d.host}>
                       {d.host}
                     </span>
-                    {d.primary && <Badge>Default</Badge>}
+                    {d.primary && domains.filter((x) => x.app).length > 1 && <Badge>Default</Badge>}
                     {d.portal && <Badge variant="outline">Portal /p/{d.portal}</Badge>}
                     {d.verified ? (
                       <Badge variant="success">
@@ -291,10 +293,20 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                         Check now
                       </Button>
                     )}
-                    {d.verified && !d.primary && !d.portal && (
+                    {d.app && !d.primary && (
                       <Button size="sm" variant="ghost" pending={busy[d.host]} onClick={() => act(d.host, "PATCH", at, { primary: true }, `Links in email point at ${d.host} now`)}>
                         Make default
                       </Button>
+                    )}
+                    {d.verified && !d.portal && (
+                      <Label className="text-muted-foreground gap-2 text-xs font-normal">
+                        <Switch
+                          checked={d.app}
+                          disabled={busy[d.host]}
+                          onCheckedChange={(on) => act(d.host, "PATCH", at, { app: on }, on ? `The app answers at ${d.host} now` : `The app no longer answers at ${d.host}`)}
+                        />
+                        Use for the app
+                      </Label>
                     )}
                     <Confirm
                       title={`Stop answering at ${d.host}?`}
@@ -327,7 +339,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                       </dl>
                       {d.cname && (
                         <p className="text-muted-foreground">
-                          Both are checked. At a zone&apos;s apex, where a CNAME can&apos;t go, an ALIAS or flattened record to the same target works.
+                          Both are checked. At a zone&apos;s apex, use an ALIAS or flattened record.
                         </p>
                       )}
                       <Waiting what="Waiting for DNS, checked every 30 seconds" checkedAt={checked.at} stopped={checked.gaveUp === waiting} />

@@ -33,6 +33,7 @@ import { AssetPicker } from "@/components/builder/asset-picker";
 import { PictureField } from "@/components/builder/picture-field";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
+import { InfoTip } from "@/components/info-tip";
 import { useEdit, useSite } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -300,14 +301,16 @@ function SectionPictures({ b, s, set }: Part) {
       >
         {fields.map((f) => (
           <div key={f.name} className="grid gap-1.5">
-            <Label className="text-xs">{f.label}</Label>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs">{f.label}</Label>
+              {f.about && <InfoTip>{f.about}</InfoTip>}
+            </div>
             <PictureField
               b={b}
               value={s.props[f.name] as string | undefined}
               video={f.name === "video"}
               onPick={(id) => set({ props: withProp(s.props, f, id) })}
             />
-            {f.about && <p className="text-muted-foreground text-xs">{f.about}</p>}
           </div>
         ))}
       </PopoverContent>
@@ -507,7 +510,10 @@ export function TonePicker({ b, s, set }: Part) {
               {!image?.thumbnail && <IconPhoto className="size-4" />}
             </Swatch>
           </div>
-          <p className="text-muted-foreground text-xs">Palette</p>
+          <p className="text-muted-foreground flex items-center gap-1 text-xs">
+            Palette
+            <InfoTip>A color you add joins the brand&apos;s palette. Change its value in Rules and every page follows.</InfoTip>
+          </p>
           <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-1">
             {colors.map((r) => (
               <Swatch
@@ -520,7 +526,6 @@ export function TonePicker({ b, s, set }: Part) {
             ))}
             <AddColor onPick={addColor} />
           </div>
-          <p className="text-muted-foreground -mt-1 text-xs">A color you add joins the brand&apos;s palette. Change its value in Rules and every page follows.</p>
           {fade?.color && colors.length > 1 && (
             <>
               <p className="text-muted-foreground text-xs">Fade into</p>
@@ -586,7 +591,7 @@ export function TonePicker({ b, s, set }: Part) {
               />
             </Label>
           )}
-          {s.tone === "pattern" && !device &&<p className="text-muted-foreground text-xs">The pattern is the theme&apos;s: pick an SVG for every page.</p>}
+          {s.tone === "pattern" && !device &&<p className="text-muted-foreground text-xs">No pattern yet: pick an SVG for every page.</p>}
         </PopoverContent>
       </Popover>
       <AssetPicker
@@ -729,7 +734,10 @@ export function Visibility({ b, s, set }: Part) {
   return (
     <>
       <div className="grid gap-1.5">
-        <Label htmlFor={`${id}-tab`}>Tab</Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={`${id}-tab`}>Tab</Label>
+          <InfoTip>Sections with the same tab show under one tab.</InfoTip>
+        </div>
         <Input
           // A new value from elsewhere (undo) shows: the input starts again from it.
           key={s.tab ?? ""}
@@ -750,18 +758,19 @@ export function Visibility({ b, s, set }: Part) {
             <option key={t} value={t} />
           ))}
         </datalist>
-        <p className="text-muted-foreground text-xs">Sections with the same tab show under one tab.</p>
       </div>
       {TEMPLATE_INFO[s.template].accepts && view.contexts.length > 0 && (
         <fieldset className="grid gap-1.5">
-          <legend className="mb-1.5 text-sm font-medium">A tab per context</legend>
+          <legend className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            A tab per context
+            <InfoTip>Pick two or more: each shows the rules as that context has them.</InfoTip>
+          </legend>
           {contexts.map((c) => (
             <Label key={c} className="font-normal">
               <Checkbox checked={picked.includes(c)} onCheckedChange={(v) => toggle(c, v === true)} />
               {contextLabel(c)}
             </Label>
           ))}
-          <p className="text-muted-foreground text-xs">Pick two or more: each shows the rules as that context has them.</p>
         </fieldset>
       )}
       <fieldset className="grid gap-1.5">

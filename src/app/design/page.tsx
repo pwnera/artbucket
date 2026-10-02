@@ -234,7 +234,7 @@ export default function DesignSystem() {
   const [pending, setPending] = useState(false);
   return (
     <div className="min-h-dvh">
-      <header className="bg-background/95 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
+      <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4 md:px-6">
         <Button variant="ghost" size="icon-sm" asChild>
           <Link href="/" aria-label="Back to library">
             <IconArrowLeft />

@@ -34,6 +34,7 @@ import { ruleLabel } from "@/lib/rules";
 import { send } from "@/lib/send";
 import { ago, day, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 import { flash } from "@/lib/motion";
 
 type Item = {
@@ -110,7 +111,7 @@ export function DayGroups<T extends { id: string; at: string }>({ items, childre
       {[...days].map(([when, list]) => (
         <section key={when} className="space-y-1">
           <h2
-            className="bg-background/95 supports-[backdrop-filter]:bg-background/80 text-muted-foreground sticky top-14 z-[5] -mx-1 px-2 py-1.5 text-xs font-medium tracking-wide uppercase backdrop-blur"
+            className="bg-background text-muted-foreground sticky top-14 z-[5] -mx-1 px-2 py-1.5 text-xs font-medium tracking-wide uppercase"
             suppressHydrationWarning
           >
             {when}
@@ -233,7 +234,7 @@ export function ActivityFeed({ first }: { first: Page }) {
         <PageHeader
           icon={<IconActivity />}
           title="Activity"
-          description="Who did what, newest first. People go by their name, agents by the name of their key."
+          aside={<InfoTip>Who did what, newest first. People go by their name, agents by the name of their key.</InfoTip>}
         >
           <ToggleGroup type="single" variant="outline" size="sm" value={who} onValueChange={(v) => v && filter(v as Who)} aria-label="Show">
             <ToggleGroupItem value="all" className="px-3">
@@ -255,9 +256,7 @@ export function ActivityFeed({ first }: { first: Page }) {
                 <IconActivity />
               </EmptyMedia>
               <EmptyTitle>Nothing yet</EmptyTitle>
-              <EmptyDescription>
-                Uploads, suggestions, review decisions and brand rule changes show up here as they happen.
-              </EmptyDescription>
+              <EmptyDescription>Uploads, reviews and rule changes show up here.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : shown.length === 0 ? (

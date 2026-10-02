@@ -214,7 +214,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
         </span>
         <div className="grid gap-0.5">
           <p className="text-sm font-medium">Done: {chosen.win}</p>
-          <p className="text-muted-foreground text-xs">Every step of {chosen.label.toLowerCase()} is checked off.</p>
+          <p className="text-muted-foreground text-xs">Every step checked off.</p>
         </div>
       </section>
     );
@@ -316,7 +316,7 @@ function BringIn({ path, git, onGo }: { path: PathId; git: string | null; onGo?:
       <IconBrandGithub aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
       <span className="grid min-w-0 gap-0.5">
         <span className="text-sm">My brand is already in a repository</span>
-        <span className="text-muted-foreground text-xs">Bring it in from its brand.yaml, with its rules, pages and files.</span>
+        <span className="text-muted-foreground text-xs">Bring it in from its brand.yaml.</span>
       </span>
     </a>
   );
@@ -345,7 +345,7 @@ function FirstRun({ stored, save, facts, onUpload, org }: { stored: Stored; save
           <h1 id="welcome-title" className="text-3xl font-semibold tracking-tight">
             What do you want to do?
           </h1>
-          <p className="text-muted-foreground">We will set things up for that first. You can do the rest later.</p>
+          <p className="text-muted-foreground">We set that up first. The rest can wait.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What do you want to do">
           {PATHS.map((p) => (

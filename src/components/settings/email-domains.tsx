@@ -55,7 +55,8 @@ export function EmailDomainsPanel({ domains }: { domains: EmailDomain[] }) {
     <div className="space-y-6">
       <Group
         title="Email domains"
-        description="The domains your people have their email at, e.g. acme.com. Prove each with a TXT record: single sign-on uses one, and you can let anyone at one join, able to read, once their email is confirmed. Not addresses for the app or portals: those are in Domains."
+        description="Where your people have their email, e.g. acme.com."
+        info="Prove each with a TXT record: single sign-on uses one, and you can let anyone at one join, able to read, once their email is confirmed. Not addresses for the app or portals: those are in Domains."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">

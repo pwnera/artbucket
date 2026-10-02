@@ -46,7 +46,7 @@ export function Team({
         <PageHeader
           icon={<IconUsers />}
           title={`Team · ${me.workspace.organization.name}`}
-          description="Everyone in the organization and the invitations waiting, links for people without an account, and who changed what."
+          description="People, share links and the audit log."
         >
           {can("member.manage") && (
             <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>

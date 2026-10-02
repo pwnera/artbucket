@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
-import { GitReturn } from "@/components/git-return";
+import type { Source } from "@/components/builder/use-status";
+import { BrandImporting, GitReturn } from "@/components/git-return";
 import { brandHead, changesBetween } from "@/lib/brand-head";
 import { openCounts } from "@/lib/comments";
 import { hubBrand, hubViewer } from "@/lib/core/hub";
@@ -28,6 +29,18 @@ export default async function BrandOverviewPage({ params }: Props) {
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
   const { brand, rules, status, releases, release } = head;
+  const releasing = can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined;
+  // Brought in from a repository and not in yet: nothing to show but that it is coming.
+  // ponytail: an empty brand sent out as a pull request waits here too until it merges; tell them apart if that bites.
+  const source = !rules.length && !release ? await get(`brands/${encodeURIComponent(slug)}/source`, (x: { data: Source }) => x.data.source, null) : null;
+  if (source && !source.syncedAt) {
+    return (
+      <>
+        <BrandImporting name={brand.name} remote={source.remote} />
+        <GitReturn brand={slug} release={releasing} waiting />
+      </>
+    );
+  }
   const before = releases[1]?.number;
   type Thread = Parameters<typeof openCounts>[0][number];
   const [signals, changes, live, comments] = await Promise.all([
@@ -63,7 +76,7 @@ export default async function BrandOverviewPage({ params }: Props) {
         }}
       />
       {/* The Git integration lands here after connecting or bringing the brand in. */}
-      <GitReturn brand={slug} release={can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined} />
+      <GitReturn brand={slug} release={releasing} />
     </>
   );
 }

@@ -122,8 +122,8 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
           <DialogDescription>
             {description ??
               (rule.type === "font"
-              ? "The family's font files, one per style. Agents get each file's URL."
-                : "The logo it governs, examples of it done right. Pick a size under each to say which one the rule means; agents get that exact URL.")}
+              ? "One file per style. Agents get each file's URL."
+                : "Pick a size under each: agents get that exact URL.")}
           </DialogDescription>
         </DialogHeader>
         <div className="relative">

@@ -1,4 +1,5 @@
 import { IconDownload } from "@tabler/icons-react";
+import { InfoTip } from "@/components/info-tip";
 import type { Status } from "@/components/builder/use-status";
 
 /** A few names, then how many more. */
@@ -30,7 +31,7 @@ export function FilesOut({ name, files }: { name: string; files: NonNullable<Sta
             {kept.length === 1 ? "One is" : `${kept.length} are`} shown only: {some(kept.map((f) => f.filename))}.{" "}
           </>
         )}
-        <span className="text-muted-foreground">Each file&apos;s Rights set this, under Downloads.</span>
+        <InfoTip>Each file&apos;s Rights set this, under Downloads.</InfoTip>
       </span>
     </p>
   );

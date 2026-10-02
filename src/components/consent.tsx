@@ -120,7 +120,7 @@ function Choose({
 
   if (!options.workspaces.length) {
     return (
-      <Card title={`Connect ${options.client.name}`} lead="You don't have access to any workspace yet, so there is nothing to give it. Ask an admin for an invitation.">
+      <Card title={`Connect ${options.client.name}`} lead="You have no workspace to give it yet. Ask an admin for an invitation.">
         {who}
         <Button variant="outline" className="w-full" pending={busy === "deny"} onClick={() => void decide({ allow: false })}>
           Cancel
@@ -130,7 +130,7 @@ function Choose({
   }
   const only = options.workspaces.length === 1 ? options.workspaces[0] : null;
   return (
-    <Card title={`Connect ${options.client.name}`} lead={`It will work in ${brand.name} as you, doing at most what you pick here. You can disconnect it any time from Connections.`}>
+    <Card title={`Connect ${options.client.name}`} lead={`It works in ${brand.name} as you, doing at most what you pick. Disconnect it any time from Connections.`}>
       <form
         className="space-y-5"
         onSubmit={(e) => {

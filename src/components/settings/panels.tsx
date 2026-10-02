@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { MakeDialog, pickWorkspace, useGo, type Me } from "@/components/account";
 import { FieldsEditor } from "@/components/field-manager";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -37,18 +38,24 @@ import { cn } from "@/lib/utils";
 export function Group({
   title,
   description,
+  info,
   tone,
   children,
 }: {
   title: string;
   description?: React.ReactNode;
+  /** The longer explanation, behind an (i) beside the title. */
+  info?: React.ReactNode;
   tone?: "danger";
   children: React.ReactNode;
 }) {
   return (
     <section className={cn("space-y-4 rounded-lg border p-4 sm:p-5", tone === "danger" && "border-destructive/40 bg-destructive/5")}>
       <div className="space-y-1">
-        <h2 className={cn("font-display text-sm font-semibold", tone === "danger" && "text-destructive")}>{title}</h2>
+        <h2 className={cn("font-display flex items-center gap-1.5 text-sm font-semibold", tone === "danger" && "text-destructive")}>
+          {title}
+          {info && <InfoTip>{info}</InfoTip>}
+        </h2>
         {description && <p className="text-muted-foreground text-sm text-pretty">{description}</p>}
       </div>
       {children}
@@ -101,7 +108,7 @@ export function useLeaveGuard(dirty: boolean) {
 export function LoadFailed() {
   const router = useRouter();
   return (
-    <Group title="Couldn't load this" description="The server didn't answer, or answered with an error. Nothing here has changed.">
+    <Group title="Couldn't load this" description="The server didn't answer. Nothing here has changed.">
       <Button variant="outline" className="w-fit" onClick={() => router.refresh()}>
         <IconRefresh /> Try again
       </Button>
@@ -119,7 +126,7 @@ export function NameForm({ what, url, name }: { what: string; url: string; name:
   const [busy, setBusy] = useState(false);
   const next = value.trim();
   return (
-    <Group title="Name" description={`What people see the ${what} called: in the sidebar, in invitations, on share links.`}>
+    <Group title="Name" info={`What people see the ${what} called: in the sidebar, in invitations, on share links.`}>
       <form
         className="flex max-w-md items-center gap-2"
         onSubmit={async (e) => {
@@ -306,7 +313,7 @@ export function ProfilePanel({ me, passwordReset }: { me: Me; passwordReset: boo
   const nextName = name.trim();
   return (
     <div className="space-y-6">
-      <Group title="Name" description={`How history and invitations name you. You sign in as ${me.user?.email}.`}>
+      <Group title="Name" description={`You sign in as ${me.user?.email}.`} info="How history and invitations name you.">
         <form
           className="grid max-w-md gap-2"
           onSubmit={async (e) => {
@@ -349,11 +356,8 @@ export function ProfilePanel({ me, passwordReset }: { me: Me; passwordReset: boo
       </Group>
       <Group
         title="Password"
-        description={
-          passwordReset
-            ? "Changing it signs you out everywhere else."
-            : "Changing it signs you out everywhere else. There is no email here to reset a forgotten one: keep it somewhere safe."
-        }
+        description="Changing it signs you out everywhere else."
+        info={passwordReset ? undefined : "There is no email here to reset a forgotten one: keep it somewhere safe."}
       >
         <form
           className="grid max-w-md gap-3"
@@ -536,7 +540,8 @@ export function UsagePanel({ usage }: { usage: Usage }) {
     <div className="space-y-6">
       <Group
         title="Limits"
-        description={`${billing ? "What your plan allows." : "Set by whoever runs this server, not from here."} Deleted assets stop counting at once. Editors are people with write or admin anywhere, invitations included.`}
+        description={billing ? "What your plan allows." : "Set by whoever runs this server."}
+        info="Deleted assets stop counting at once. Editors are people with write or admin anywhere, invitations included."
       >
         {l.readOnly && (
           <p role="status" className="text-destructive text-sm font-medium">
@@ -584,7 +589,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
           </Button>
         )}
       </Group>
-      <Group title={`Delivery, last ${traffic.days} days`} description="What asset URLs served, originals, renditions and downloads, by workspace.">
+      <Group title={`Delivery, last ${traffic.days} days`} info="What asset URLs served, originals, renditions and downloads, by workspace.">
         <table className="w-full max-w-2xl text-sm">
           <thead className="text-muted-foreground text-left text-xs">
             <tr>

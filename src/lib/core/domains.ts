@@ -13,9 +13,10 @@ import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } fr
 
 /**
  * Host names this server answers for besides APP_URL's: an organization's
- * own, added in its settings. Each serves the whole app (white-labeling), the
- * `primary` one being where links in email point, or one of its portals,
- * which picks it from these. Each is proved by a TXT record, and by pointing
+ * own, added in its settings. Each serves the whole app (white-labeling) once
+ * turned on in Settings, Domains (`app`, never by itself), the `primary` one
+ * of those being where links in email point; or one portal, which picks it.
+ * One that does neither serves nothing. Each is proved by a TXT record, and by pointing
  * at the server when it says where (DOMAIN_TARGET), before anything is served
  * at it or a TLS certificate asked for it (GET /api/v1/domains/check).
  * src/proxy.ts asks on every request to another host, so lookups are cached.
@@ -26,7 +27,7 @@ import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } fr
 const appHost = new URL(env.APP_URL).host.replace(/:\d+$/, "");
 const scheme = new URL(env.APP_URL).protocol;
 
-type Target = { organizationId: string; portal: string | null; primary: boolean };
+type Target = { organizationId: string; portal: string | null; app: boolean; primary: boolean };
 
 // ponytail: per process, a minute stale at most: a domain verified on another instance takes that long to answer there.
 let hostCache: { at: number; map: Map<string, Target> } | null = null;
@@ -35,12 +36,12 @@ export const forgetHosts = () => void (hostCache = null);
 async function verified() {
   if (!hostCache || Date.now() - hostCache.at > 60_000) {
     const rows = await db
-      .select({ host: domains.host, organizationId: domains.organizationId, portal: portals.slug, primary: domains.primary })
+      .select({ host: domains.host, organizationId: domains.organizationId, portal: portals.slug, app: domains.app, primary: domains.primary })
       .from(domains)
       .leftJoin(portals, eq(portals.id, domains.portalId))
       .where(isNotNull(domains.verifiedAt))
       .orderBy(desc(domains.primary), asc(domains.createdAt));
-    hostCache = { at: Date.now(), map: new Map(rows.map((r) => [r.host, { organizationId: r.organizationId, portal: r.portal, primary: r.primary }])) };
+    hostCache = { at: Date.now(), map: new Map(rows.map((r) => [r.host, { organizationId: r.organizationId, portal: r.portal, app: r.app, primary: r.primary }])) };
   }
   return hostCache.map;
 }
@@ -54,7 +55,7 @@ export async function hostTarget(rawHost: string): Promise<Target | null> {
   const slug = slugAtHost(host, env.PORTAL_DOMAIN);
   // Not cached: a portal made or renamed on another instance answers at once.
   const named = slug ? await portalNamed(slug) : null;
-  return named && { organizationId: named.organizationId, portal: slug, primary: false };
+  return named && { organizationId: named.organizationId, portal: slug, app: false, primary: false };
 }
 
 /** The portal a slug names, now or before a rename (portal_aliases), with its organization. */
@@ -106,7 +107,7 @@ export async function isAppOrigin(origin: string) {
   if (origin === new URL(env.APP_URL).origin || (env.HUB_URL && origin === new URL(env.HUB_URL).origin)) return true;
   try {
     const t = await hostTarget(new URL(origin).host);
-    return !!t && !t.portal;
+    return !!t?.app;
   } catch {
     return false;
   }
@@ -120,13 +121,13 @@ export async function isAppOrigin(origin: string) {
  */
 export async function appOriginAt(rawHost: string | null | undefined) {
   const t = rawHost ? await hostTarget(rawHost).catch(() => null) : null;
-  return t && !t.portal ? [`${scheme}//${hostname(rawHost!)}`] : [];
+  return t?.app ? [`${scheme}//${hostname(rawHost!)}`] : [];
 }
 
-/** Where an organization's people use the app: its default domain (the first verified one without), else APP_URL. For links in email. */
+/** Where an organization's people use the app: its default domain (the first used for the app without), else APP_URL. For links in email. */
 export async function appUrlFor(organizationId: string | null) {
   if (organizationId) {
-    for (const [host, t] of await verified()) if (t.organizationId === organizationId && !t.portal) return `${scheme}//${host}`;
+    for (const [host, t] of await verified()) if (t.organizationId === organizationId && t.app) return `${scheme}//${host}`;
   }
   return env.APP_URL;
 }
@@ -218,23 +219,17 @@ export async function proveHost(by: Caller, d: typeof domains.$inferSelect, deta
     });
   }
   const [row] = await db.update(domains).set({ verifiedAt: new Date() }).where(eq(domains.host, d.host)).returning();
-  await ensurePrimary(row.organizationId);
   forgetHosts();
   await recordAudit(by, "domain.verified", d.host, detail);
   return row;
 }
 
-/** With no default, the oldest verified app domain becomes it: links in email always point somewhere on purpose. */
+/** With no default, the oldest domain used for the app becomes it: links in email always point somewhere on purpose. */
 async function ensurePrimary(organizationId: string) {
   const own = eq(domains.organizationId, organizationId);
   const [has] = await db.select({ host: domains.host }).from(domains).where(and(own, eq(domains.primary, true)));
   if (has) return;
-  const [next] = await db
-    .select({ host: domains.host })
-    .from(domains)
-    .where(and(own, isNull(domains.portalId), isNotNull(domains.verifiedAt)))
-    .orderBy(asc(domains.createdAt))
-    .limit(1);
+  const [next] = await db.select({ host: domains.host }).from(domains).where(and(own, eq(domains.app, true))).orderBy(asc(domains.createdAt)).limit(1);
   if (next) await db.update(domains).set({ primary: true }).where(eq(domains.host, next.host));
 }
 
@@ -246,6 +241,7 @@ export const cnameFor = (host: string) => (env.DOMAIN_TARGET ? { type: "CNAME" a
 export const presentDomain = (d: typeof domains.$inferSelect, portal: string | null = null) => ({
   host: d.host,
   verified: !!d.verifiedAt,
+  app: d.app,
   primary: d.primary,
   record: { type: "TXT" as const, name: challengeName(d.host), value: d.token },
   cname: cnameFor(d.host),
@@ -295,13 +291,29 @@ export async function verifyAppDomain(caller: Caller, host: string) {
   return r ? presentDomain(await proveHost(caller, r.d), r.portal) : null;
 }
 
-/** Make a verified app domain the default: where links in email point. */
+/** Use a verified domain for the app, or stop (`on`): the whole app answers there. A domain a portal holds can't. */
+export async function useForApp(caller: Caller, host: string, on: boolean) {
+  mayManage(caller);
+  const r = await ownRow(caller, host);
+  if (!r) return null;
+  if (on && !r.d.verifiedAt) throw new AssetError("invalid", `Verify ${r.d.host} first`);
+  if (on && r.d.portalId) throw new AssetError("invalid", `${r.d.host} serves the portal /p/${r.portal}: take it off the portal first`);
+  if (r.d.app !== on) {
+    await db.update(domains).set({ app: on, primary: false }).where(eq(domains.host, r.d.host));
+    await ensurePrimary(r.d.organizationId);
+    forgetHosts();
+    await recordAudit(caller, "domain.app", r.d.host, { on });
+  }
+  const now = await ownRow(caller, host);
+  return now && presentDomain(now.d, now.portal);
+}
+
+/** Make a domain used for the app the default: where links in email point. */
 export async function makePrimary(caller: Caller, host: string) {
   mayManage(caller);
   const r = await ownRow(caller, host);
   if (!r) return null;
-  if (!r.d.verifiedAt) throw new AssetError("invalid", `Verify ${r.d.host} first`);
-  if (r.d.portalId) throw new AssetError("invalid", `${r.d.host} serves the portal /p/${r.portal}: take it off the portal first`);
+  if (!r.d.app) throw new AssetError("invalid", `Use ${r.d.host} for the app first`);
   if (!r.d.primary) {
     await db.transaction(async (tx) => {
       await tx.update(domains).set({ primary: false }).where(and(eq(domains.organizationId, r.d.organizationId), eq(domains.primary, true)));
@@ -325,14 +337,14 @@ export async function removeDomain(caller: Caller, host: string) {
   return true;
 }
 
-/** What a portal may be served at: the organization's verified domains but the default, and the portal each serves. */
+/** What a portal may be served at: the organization's verified domains, and the portal each serves. */
 export async function portalDomains(caller: Caller) {
   if (!can(caller, "portal.manage")) throw new AssetError("forbidden", `Portals take ${needs("portal.manage")}`);
   const rows = await db
     .select({ host: domains.host, portal: portals.slug })
     .from(domains)
     .leftJoin(portals, eq(portals.id, domains.portalId))
-    .where(and(eq(domains.organizationId, caller.workspace.organizationId), isNotNull(domains.verifiedAt), eq(domains.primary, false)))
+    .where(and(eq(domains.organizationId, caller.workspace.organizationId), isNotNull(domains.verifiedAt)))
     .orderBy(asc(domains.host));
   return rows;
 }
@@ -340,29 +352,27 @@ export async function portalDomains(caller: Caller) {
 /**
  * The domain `raw` names, if the portal (null: one not made yet) may take it;
  * null when it has it already. Refuses what isn't the organization's, isn't
- * verified, is the default, or serves another portal.
+ * verified, or serves another portal. The default may: it stops being one.
  */
 export async function assignable(organizationId: string, portalId: string | null, raw: string) {
   const [d] = await db.select().from(domains).where(own(organizationId, raw));
   if (!d) throw new AssetError("invalid", `${hostname(raw) ?? raw} isn't one of the organization's domains: add it in Settings, Domains`);
   if (portalId && d.portalId === portalId) return null;
   if (!d.verifiedAt) throw new AssetError("invalid", `Verify ${d.host} in Settings, Domains first`);
-  if (d.primary) throw new AssetError("invalid", `${d.host} is the app's default address: make another the default first`);
   if (d.portalId) throw new AssetError("conflict", `${d.host} serves another portal`);
   return d;
 }
 
 /**
  * Serve a portal at one of the organization's verified domains, or at none
- * (null): the domain it had goes back to the app. The default can't: it is
- * where the app's links point.
+ * (null): the domain it had serves nothing. One the app used stops serving it.
  */
 export async function assignHost(organizationId: string, portalId: string, raw: string | null) {
   const d = raw === null ? undefined : await assignable(organizationId, portalId, raw);
   if (d === null) return;
   await db.transaction(async (tx) => {
     await tx.update(domains).set({ portalId: null }).where(eq(domains.portalId, portalId));
-    if (d) await tx.update(domains).set({ portalId }).where(eq(domains.host, d.host));
+    if (d) await tx.update(domains).set({ portalId, app: false, primary: false }).where(eq(domains.host, d.host));
   });
   await ensurePrimary(organizationId);
   forgetHosts();

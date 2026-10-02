@@ -1229,7 +1229,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "Domains a portal can be served at",
           scope: "write",
-          description: "The organization's verified domains but the default, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
+          description: "The organization's verified domains, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).",
           ok: [200, "Domains", data(z.array(S.PortalDomain))],
         }),
       },
@@ -1420,9 +1420,9 @@ export function openapi(serverUrl: string) {
       "/api/v1/domains/{host}": {
         parameters: [path("host", "e.g. assets.example.com")],
         patch: op({
-          summary: "Make a domain the default",
+          summary: "Use a domain for the app, or make it the default",
           scope: "admin",
-          description: "The app's default address: links in email point there. It must be verified, and not serve a portal.",
+          description: "`app`: the whole app answers there, or stops; off when verified, any number of them, never one a portal serves. `primary`: of those, the one links in email point at.",
           body: S.DomainPatch,
           ok: [200, "The domain", data(S.Domain)],
         }),

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ExternalLink } from "@/components/external-link";
+import { InfoTip } from "@/components/info-tip";
 import { releaseLines, type ReleaseLine, type SnapRule } from "@/lib/history";
 import type { SnapPage } from "@/lib/pages";
 import { ruleName } from "@/lib/rules";
@@ -242,10 +243,10 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         <div className="flex flex-wrap items-center justify-between gap-2 pe-8">
           <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
             <IconWorldUpload aria-hidden className="size-5" /> {n && !current ? `Release @${n}` : "Release"}
+            <InfoTip>Portals and BrandHub show the latest release. Until then, readers see what they saw before.</InfoTip>
           </h2>
           {draft?.draftSince && !current && <Badge variant="warning">Draft since {draftDate(draft.draftSince)}</Badge>}
         </div>
-        <p className="text-muted-foreground text-sm">Portals and BrandHub show the latest release. Until then, readers see what they saw before.</p>
       </header>
 
       <div className="grid gap-1.5">
@@ -265,11 +266,11 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         ) : "error" in news ? (
           <p className="text-muted-foreground text-sm">{news.error} You can still release.</p>
         ) : current ? (
-          <p className="text-muted-foreground text-sm">Nothing new: release @{news.draft} is already what readers see.</p>
+          <p className="text-muted-foreground text-sm">Nothing new: readers already see @{news.draft}.</p>
         ) : news.changes && news.since ? (
           <Changes lines={news.changes} />
         ) : (
-          <p className="text-sm">The first release: readers get every page and rule.</p>
+          <p className="text-sm">First release: every page and rule.</p>
         )}
       </section>
 
@@ -324,7 +325,10 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           <p className="text-muted-foreground text-xs">Only the team reads {host.name} yet.</p>
           {portalOffer && (
             <div className="grid gap-1.5">
-              <p className="text-sm">On a portal: its own address, which you can style and close later</p>
+              <p className="flex items-center gap-1.5 text-sm">
+                On a portal
+                <InfoTip>Its own address, which you can style and close later.</InfoTip>
+              </p>
               <div role="radiogroup" aria-label="Who gets in to the portal" className="grid gap-1">
                 {(Object.keys(DOORS) as Door[]).map((d) => (
                   <label key={d} className="flex items-center gap-2 text-sm">
@@ -338,9 +342,9 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           {hubOffer && (
             <label className="flex items-start gap-2 text-sm">
               <Checkbox checked={hubPublic} onCheckedChange={(on) => setHubPublic(on === true)} className="mt-0.5" />
-              <span className="grid gap-0.5">
-                Public on BrandHub, for agents too
-                <span className="text-muted-foreground text-xs">Anyone and any agent reads the release there: its brand.json, llms.txt and tokens.</span>
+              <span className="flex items-center gap-1.5">
+                Public on BrandHub
+                <InfoTip>Anyone and any agent reads the release there: its brand.json, llms.txt and tokens.</InfoTip>
               </span>
             </label>
           )}
@@ -390,7 +394,7 @@ const MARK: Record<ReleaseLine["mark"], { sign: string; tone: string; say: strin
 
 /** What changes, a line each (lib/history.ts releaseLines): a mark, the rule or page, and how; a color's swatches before and after. */
 function Changes({ lines }: { lines: ReleaseLine[] }) {
-  if (!lines.length) return <p className="text-muted-foreground text-sm">Nothing readers would notice: only hidden pages, order or wording they don&apos;t see.</p>;
+  if (!lines.length) return <p className="text-muted-foreground text-sm">Nothing readers would notice.</p>;
   return (
     <ul className="grid gap-1.5 rounded-lg border p-3 text-sm">
       {lines.slice(0, LINES).map((l) => {
@@ -465,11 +469,7 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
           )}
           {done.unchanged ? "Already released" : done.number ? `Released @${done.number}` : "Released"}
         </h2>
-        <p className="text-muted-foreground text-sm">
-          {done.unchanged
-            ? `Nothing changed since release @${done.number ?? "the last"}, so readers already see this.`
-            : `Readers now get ${done.number ? `release @${done.number}` : "this release"}.`}
-        </p>
+        {done.unchanged && <p className="text-muted-foreground text-sm">Nothing changed since {done.number ? `@${done.number}` : "the last release"}.</p>}
       </header>
       {portals.length ? (
         <div className="grid gap-2">
@@ -487,7 +487,7 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
       ) : (
         <div className="bg-muted grid gap-2 rounded-lg p-3">
           <p className="text-sm font-medium">Share it outside the team</p>
-          <p className="text-muted-foreground text-sm">No portal shows this brand yet. A portal is its own address, with your look and who may read it.</p>
+          <p className="text-muted-foreground text-sm">No portal shows this brand yet.</p>
           <Button asChild size="sm" variant="outline" className="justify-self-start">
             <Link href={brandPath(brand, "/sharing")}>Create a portal for it</Link>
           </Button>

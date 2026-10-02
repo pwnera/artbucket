@@ -120,16 +120,16 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <>
               <DialogHeader>
                 <DialogTitle>New brand</DialogTitle>
-                <DialogDescription>Choose how to set it up. Either way it is a draft until you release it.</DialogDescription>
+                <DialogDescription>A draft until you release it.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="How to set it up">
-                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, from a blank brand or a template like Firefox, Rust or Blender.">
+                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, blank or from a template.">
                   <BuilderArt />
                 </Choice>
-                <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Connect Claude, Cursor or Codex and it writes the rules and pages for you to review.">
+                <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
                   <AgentArt />
                 </Choice>
-                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Keep the brand as files in a repository: reviewed in pull requests, in step both ways.">
+                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
                   <FilesArt />
                 </Choice>
               </div>
@@ -148,16 +148,16 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <form onSubmit={create} className="grid min-w-0 gap-4">
               <DialogHeader>
                 <DialogTitle>Build it in the builder</DialogTitle>
-                <DialogDescription>Start blank, from your domain&apos;s brand.json, or from a template: its colors, type, logos and pages, yours to change.</DialogDescription>
+                <DialogDescription>Start blank, from a domain or from a template.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3" role="radiogroup" aria-label="Start from">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules and no pages: add them as you go." compact>
+                  <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules, no pages." compact>
                     <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
                       <IconPlus className="size-4" />
                     </div>
                   </Choice>
-                  <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json, the file agents read: colors, type, logos and voice." compact>
+                  <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json: colors, type, logos, voice." compact>
                     <div className="text-muted-foreground flex h-10 items-center justify-center gap-1.5 rounded-md border font-mono text-xs">
                       <IconWorld className="size-4" /> /.well-known/brand.json
                     </div>
@@ -241,7 +241,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   <Checkbox id={`${id}-keep`} checked={keep} onCheckedChange={(v) => setKeep(v === true)} className="mt-0.5" />
                   <Label htmlFor={`${id}-keep`} className="grid gap-0.5 font-normal">
                     <span className="font-medium">Keep it in a Git repository too</span>
-                    <span className="text-muted-foreground">Pick the repository next. Its files and this brand stay in step, both ways.</span>
+                    <span className="text-muted-foreground">Pick it next. Synced both ways.</span>
                   </Label>
                 </div>
               )}
@@ -260,9 +260,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <div className="grid min-w-0 gap-4">
               <DialogHeader>
                 <DialogTitle>From a Git repository</DialogTitle>
-                <DialogDescription>
-                  The brand as YAML beside its logos and fonts: change it in a pull request, with a preview of the brand as it would be, or here in the builder. Each side&apos;s edits reach the other.
-                </DialogDescription>
+                <DialogDescription>Edit in pull requests, with a preview, or in the builder. Synced both ways.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
                 <a
@@ -271,7 +269,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 >
                   <IconFolder className="text-primary size-5" aria-hidden />
                   <span className="text-sm font-medium">Bring in a brand from a repository</span>
-                  <span className="text-muted-foreground text-sm">It already has a brand.yaml: pick the repository, and the brand comes in with its pages and files.</span>
+                  <span className="text-muted-foreground text-sm">The repository already has a brand.yaml.</span>
                 </a>
                 <button
                   type="button"
@@ -283,7 +281,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 >
                   <IconPlus className="text-primary size-5" aria-hidden />
                   <span className="text-sm font-medium">Start a new brand, kept in a repository</span>
-                  <span className="text-muted-foreground text-sm">Blank or from a template, then pick a repository: its files go there as you build.</span>
+                  <span className="text-muted-foreground text-sm">Blank or from a template, its files in a repository.</span>
                 </button>
               </div>
               <DialogFooter className="sm:justify-start">
@@ -298,9 +296,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <div className="grid min-w-0 gap-4">
               <DialogHeader>
                 <DialogTitle>From a Git repository</DialogTitle>
-                <DialogDescription>
-                  The brand as YAML beside its logos and fonts, pushed from your repository with the Artbucket CLI. This server has no Git integration, so a push is yours to run, by hand or in CI.
-                </DialogDescription>
+                <DialogDescription>Push its files with the Artbucket CLI, by hand or in CI.</DialogDescription>
               </DialogHeader>
               {made ? (
                 <div className="grid min-w-0 gap-3">
@@ -348,7 +344,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <div className="grid min-w-0 gap-4">
               <DialogHeader>
                 <DialogTitle>Let an agent build it</DialogTitle>
-                <DialogDescription>Connect your agent, then paste the prompt. It makes the brand and fills it in; you review the draft.</DialogDescription>
+                <DialogDescription>Connect your agent, paste the prompt, review the draft.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-2">

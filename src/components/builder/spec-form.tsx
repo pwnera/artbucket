@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { z } from "zod";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -162,11 +163,14 @@ function Field({ name, raw, value, path, form }: { name: string; raw: z.ZodType;
   const about = raw.description ?? s.description;
   const error = form.errors[path.join(".")];
   const set = (v: unknown) => form.set(path, v);
-  const note = (error || about) && (
-    <p id={`${id}-note`} className={cn("text-2xs", error ? "text-destructive" : "text-muted-foreground")}>
-      {error ?? about}
-    </p>
-  );
+  const described = error || about ? `${id}-note` : undefined;
+  // quiet: the help is behind the label's (i), kept here for screen readers; an error always shows.
+  const note = (quiet = false) =>
+    described && (
+      <p id={described} className={cn("text-2xs", error ? "text-destructive" : quiet ? "sr-only" : "text-muted-foreground")}>
+        {error ?? about}
+      </p>
+    );
 
   // A group of fields of its own (a gradient): added, filled, removed whole.
   if (s instanceof z.ZodObject) {
@@ -176,7 +180,7 @@ function Field({ name, raw, value, path, form }: { name: string; raw: z.ZodType;
           <Button variant="outline" size="xs" onClick={() => set({})}>
             <IconPlus /> Add {label.toLowerCase()}
           </Button>
-          {note}
+          {note()}
         </div>
       );
     return (
@@ -209,7 +213,7 @@ function Field({ name, raw, value, path, form }: { name: string; raw: z.ZodType;
         <Button variant="outline" size="xs" className="justify-self-start" onClick={() => set([...rows, {}])}>
           <IconPlus /> Add {one}
         </Button>
-        {note}
+        {note()}
       </fieldset>
     );
   }
@@ -222,7 +226,7 @@ function Field({ name, raw, value, path, form }: { name: string; raw: z.ZodType;
         value={value === undefined ? UNSET : String(value)}
         onValueChange={(v) => set(v === UNSET ? undefined : s instanceof z.ZodBoolean ? v === "true" : v)}
       >
-        <SelectTrigger id={id} size="sm" className="h-8 w-full text-xs" aria-describedby={note ? `${id}-note` : undefined}>
+        <SelectTrigger id={id} size="sm" className="h-8 w-full text-xs" aria-describedby={described}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -247,18 +251,21 @@ function Field({ name, raw, value, path, form }: { name: string; raw: z.ZodType;
         list={namesRule(s) ? form.keys : undefined}
         inputMode={s instanceof z.ZodNumber ? "decimal" : undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={note ? `${id}-note` : undefined}
+        aria-describedby={described}
         className={cn("h-8 text-xs", namesRule(s) && "font-mono")}
       />
     );
   }
   return (
     <div className="grid content-start gap-1">
-      <label htmlFor={id} className="text-xs font-medium">
-        {label}
-      </label>
+      <div className="flex items-center gap-1">
+        <label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </label>
+        {about && <InfoTip>{about}</InfoTip>}
+      </div>
       {input}
-      {note}
+      {note(true)}
     </div>
   );
 }

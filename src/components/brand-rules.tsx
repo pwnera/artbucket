@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconCode, IconDownload } from "@tabler/icons-react";
 import type { BrandInfo } from "@/components/brand-switcher";
+import { InfoTip } from "@/components/info-tip";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { FileThumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,14 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
     <div className="grid gap-4">
       <section className="bg-card grid gap-3 rounded-xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-medium">Tokens</h2>
+          <h2 className="flex items-center gap-1.5 font-medium">
+            Tokens
+            <InfoTip>Colors, faces and the type scale as code for your stack, each a link that stays current.</InfoTip>
+          </h2>
           <Button size="sm" variant="outline" onClick={() => setTokens(true)}>
             <IconCode aria-hidden /> Look at them
           </Button>
         </div>
-        <p className="text-muted-foreground text-sm">Colors, faces and the type scale as code for your stack, each a link that stays current.</p>
         <ul className="flex flex-wrap gap-2">
           {TOKEN_FORMAT_IDS.map((id) => (
             <li key={id}>
@@ -47,7 +50,7 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
       </section>
 
       {sections.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No rules yet: Edit opens the builder, where they are added.</p>
+        <p className="text-muted-foreground text-sm">No rules yet. Add them in Edit.</p>
       ) : (
         sections.map((s) => (
           <section key={s} aria-labelledby={`rules-${s}`} className="bg-card rounded-xl border">

@@ -50,7 +50,7 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
             <h2 className="font-display text-2xl font-semibold">{status.score} out of 100</h2>
             <p className="text-muted-foreground text-sm">
               {fixes.length
-                ? `Agents can find and use ${status.score >= 50 ? "most" : "some"} of ${name}. ${fixes.length === 1 ? "One fix" : `${fixes.length === 2 ? "Two" : fixes.length} fixes`} would get you to ${to}.`
+                ? `${fixes.length === 1 ? "One fix" : `${fixes.length === 2 ? "Two" : fixes.length} fixes`} would get you to ${to}.`
                 : `Agents can find and use all of ${name}.`}
             </p>
           </div>
@@ -69,7 +69,7 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="grid w-[min(28rem,calc(100vw-2rem))] gap-2 p-3">
-                <p className="text-sm">Paste this to an agent connected over MCP. It suggests each change before making it.</p>
+                <p className="text-sm">Paste this to an agent connected over MCP.</p>
                 <div className="bg-muted/60 flex items-start gap-1 rounded-md border ps-2.5">
                   <pre className="max-h-48 min-w-0 flex-1 overflow-auto py-2 text-xs whitespace-pre-wrap">{text}</pre>
                   <CopyButton text={text} label="Copy the prompt" what="the prompt" />

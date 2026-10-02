@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";
 import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub";
+import { InfoTip } from "@/components/info-tip";
 import { NewBrand } from "@/components/new-brand";
 import { AppHeader, PageHeader } from "@/components/page";
 import { OfferBanners, type HubOffer } from "@/components/hub-offers";
@@ -118,11 +119,11 @@ export function BrandsPage({
         <PageHeader
           icon={<IconPalette />}
           title="Brands"
-          aside={<span className="text-muted-foreground text-sm tabular-nums">{brands.length}</span>}
-          description={
-            hub
-              ? "Every released brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read."
-              : "The workspace's brands, each with its own rules, pages and history."
+          aside={
+            <>
+              <span className="text-muted-foreground text-sm tabular-nums">{brands.length}</span>
+              {hub && <InfoTip>Every released brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read.</InfoTip>}
+            </>
           }
         >
           {canEdit && (
@@ -204,8 +205,8 @@ export function BrandsPage({
         title={`Make ${going?.name ?? "it"} public?`}
         says={
           <>
-            Anyone, and any agent, will read its latest release on BrandHub: its rules, logos, typefaces and voice, as a page, llms.txt, JSON and
-            design tokens, with its usable files. Later releases show there too. You can make it private again.
+            Anyone, and any agent, will read its latest release on BrandHub, with its usable files, and each release after. You can make it
+            private again.
           </>
         }
         action="Make public"

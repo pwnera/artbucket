@@ -405,7 +405,10 @@ export const HubReportPatch = z.strictObject({
   status: z.enum(["open", "resolved"]).optional(),
   delist: z.literal(true).optional().describe("Take the listing off BrandHub: the brand goes private"),
 });
-export const DomainPatch = z.strictObject({ primary: z.literal(true).describe("Make it the default: where links in email point") });
+export const DomainPatch = z.strictObject({
+  app: z.boolean().optional().describe("Use it for the app, or stop: the whole app answers there. Off when verified"),
+  primary: z.literal(true).optional().describe("Make it the default of those used for the app: where links in email point"),
+});
 export const SignedUrlInput = z.strictObject({
   expiresIn: z
     .number()
@@ -1517,7 +1520,8 @@ export const HubOffer = z.object({
   url: z.string().describe("Its page on BrandHub"),
 });
 export const Domain = domainState.extend({
-  primary: z.boolean().describe("The app's default address: links in email point here"),
+  app: z.boolean().describe("Used for the app: the whole app answers here"),
+  primary: z.boolean().describe("The default of those used for the app: links in email point here"),
   portal: z.string().nullable().describe("The portal it serves, by slug; null for the whole app"),
   url: z.url(),
 });

@@ -47,6 +47,7 @@ export type AuditAction =
   | "domain.verified"
   | "domain.removed"
   | "domain.primary"
+  | "domain.app"
   | "email_domain.added"
   | "email_domain.verified"
   | "email_domain.removed"

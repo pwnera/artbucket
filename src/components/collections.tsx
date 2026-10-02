@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoTip } from "@/components/info-tip";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -168,8 +169,8 @@ export function CollectionDialog({
             <DialogTitle>{collection ? "Edit collection" : "New collection"}</DialogTitle>
             <DialogDescription>
               {fields.length
-                ? "Values set here are inherited by every asset in the collection, unless it sets its own."
-                : "Group assets without moving them. An asset can sit in many collections."}
+                ? "Assets inherit these values, unless they set their own."
+                : "Group assets without moving them."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -207,9 +208,9 @@ export function CollectionDialog({
               <Label htmlFor={`${id}-private`} className="grid flex-1 gap-1 font-normal">
                 <span className="flex items-center gap-1.5 font-medium">
                   <IconLock className="size-4" /> Private
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  Only people you add, and admins, see it. Assets that are only in private collections are private too.
+                  <InfoTip label="More about private">
+                    Only people you add, and admins, see it. Assets that are only in private collections are private too.
+                  </InfoTip>
                 </span>
               </Label>
               <Switch id={`${id}-private`} name="private" defaultChecked={!!collection?.private} onCheckedChange={() => setDirty(true)} />

@@ -12,6 +12,7 @@ import { Confirm } from "@/components/confirm";
 import { scopeLabel, SCOPE_LABELS } from "@/components/consent";
 import { Field } from "@/components/fields";
 import { IconButton } from "@/components/icon-button";
+import { InfoTip } from "@/components/info-tip";
 import { AppHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,11 +138,10 @@ export function Agents({
           </p>
           <h1 className="font-display text-3xl font-semibold tracking-tight">Give an agent the brand</h1>
           <p className="text-muted-foreground text-lg text-pretty">
-            A connected agent searches the library, reads the brand rules before it makes anything, and hands out
-            assets at the right size. What it adds is only a suggestion: it waits in Review until you approve it.
+            It searches the library and follows the brand rules. What it adds waits in Review.
           </p>
           <div className="max-w-xl space-y-1 pt-2">
-            <p className="text-muted-foreground text-xs">One URL for all of them. Most sign you in on their own; no key to paste.</p>
+            <p className="text-muted-foreground text-xs">One URL for all. Most sign in on their own, no key.</p>
             <Snippet text={mcp} what="the URL" />
           </div>
           {/* The access an agent can be given, as the prototype lays them out: picked when it signs in, or on its key. */}
@@ -182,7 +182,7 @@ export function Agents({
               <Empty size="sm" className="border">
                 <EmptyHeader>
                   <EmptyTitle>No agent called &ldquo;{q.trim()}&rdquo; here</EmptyTitle>
-                  <EmptyDescription>Anything that speaks MCP connects the same way, with the URL above.</EmptyDescription>
+                  <EmptyDescription>Any MCP client connects with the URL above.</EmptyDescription>
                 </EmptyHeader>
                 {ANY && (
                   <Button variant="outline" size="sm" onClick={() => pick(ANY)}>
@@ -225,10 +225,10 @@ export function Agents({
         )}
 
         <section className="space-y-3">
-          <h2 className="font-display text-lg font-semibold">Try it</h2>
-          <p className="text-muted-foreground text-sm">
-            Ask something only the brand can answer. Every page here has a For agents button with the exact call for what it shows.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <h2 className="font-display text-lg font-semibold">Try it</h2>
+            <InfoTip>Every page here has a For agents button with the exact call for what it shows.</InfoTip>
+          </div>
           <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
             <li>&ldquo;{TRY[0]}&rdquo;</li>
             <li>&ldquo;{TRY[1]}&rdquo;</li>
@@ -260,7 +260,7 @@ export function Agents({
             open={asking}
             onOpenChange={setAsking}
             title="Close without copying the key?"
-            says="It is shown this once. Once closed it can't be shown again: you would revoke it and make another."
+            says="It is shown only once. To get another, revoke it and make a new one."
             action="Close"
             run={() => {
               setOpen(false);
@@ -333,7 +333,7 @@ function Setup({
         (can("key.manage") ? (
           secret ? (
             <p className="border-primary/40 bg-primary/5 rounded-lg border p-3 text-sm">
-              Key made and filled in below. Copy it now: it is shown this once.
+              Key filled in below. Copy it now: it is shown only once.
             </p>
           ) : (
             <NewKey
@@ -346,7 +346,7 @@ function Setup({
           )
         ) : (
           <p className="text-muted-foreground text-sm">
-            This one needs a key, and only an admin can make one. Ask an admin for a key with the Suggest scope.
+            Needs a key: ask an admin for one with the Suggest scope.
           </p>
         ))}
 
@@ -413,18 +413,15 @@ const td = "px-3 py-2";
 function AskedFor({ asked, keys }: { asked: Asked; keys: Key[] }) {
   return (
     <section className="space-y-3">
-      <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
         <h2 className="font-display text-lg font-semibold">What they asked for</h2>
-        <p className="text-muted-foreground text-sm">
-          The last {asked.days} days, by agent. Tools keep their name, never what was passed to them. Every refusal is in{" "}
-          <Link href="/insights/checks" className="text-foreground underline underline-offset-2">
-            Insights, Use checks
-          </Link>
-          .
-        </p>
+        <InfoTip>The last {asked.days} days, by agent. Tools keep their name, never what was passed to them.</InfoTip>
+        <Link href="/insights/checks" className="text-muted-foreground hover:text-foreground ms-auto text-xs underline underline-offset-2">
+          Use checks
+        </Link>
       </div>
       {!asked.clients.length ? (
-        <p className="text-muted-foreground text-sm">Nothing yet: once an agent calls, what it asks for shows here.</p>
+        <p className="text-muted-foreground text-sm">Nothing yet.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
@@ -495,11 +492,9 @@ function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) =>
   const [made, setMade] = useState<{ id: string; name: string; secret: string } | null>(null);
   return (
     <section className="space-y-4">
-      <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
         <h2 className="font-display text-lg font-semibold">API keys</h2>
-        <p className="text-muted-foreground text-sm">
-          For what can&apos;t sign in on its own: n8n, scripts, CI. One per use, so you can revoke one without the others.
-        </p>
+        <InfoTip>For what can&apos;t sign in on its own: n8n, scripts, CI. One per use, so you can revoke one without the others.</InfoTip>
       </div>
       <NewKey
         name=""

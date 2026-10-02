@@ -8,6 +8,7 @@ import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
 import { Can } from "@/components/can";
 import { Confirm } from "@/components/confirm";
+import { InfoTip } from "@/components/info-tip";
 import { Group, SavedMark } from "@/components/settings/panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,10 +48,7 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
 
   return (
     <div className="grid gap-4">
-      <Group
-        title="Name and address"
-        description="The name shows everywhere. The address names it in links, the API and on BrandHub: old links stop working when it changes. The domain is the brand's own website: whoever proves it holds that domain may claim the brand's BrandHub listing."
-      >
+      <Group title="Name and address">
         <form
           className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
           onSubmit={(e) => {
@@ -77,7 +75,9 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="brand-slug">Address</Label>
+            <Label htmlFor="brand-slug">
+              Address <InfoTip>Used in links, the API and on BrandHub. Old links stop working when it changes.</InfoTip>
+            </Label>
             <Input id="brand-slug" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} maxLength={60} className="font-mono" />
           </div>
           <span className="flex items-center gap-2">
@@ -95,7 +95,9 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="brand-domain">Domain</Label>
+            <Label htmlFor="brand-domain">
+              Domain <InfoTip>The brand&apos;s own website. Whoever proves they hold it may claim the brand&apos;s BrandHub listing.</InfoTip>
+            </Label>
             <Input
               id="brand-domain"
               value={domain}
@@ -116,8 +118,9 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
           </span>
         </form>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-          <p className="text-sm">
-            {brand.default ? "The default brand: the API and agents read it when no brand is named." : "Agents and the API read the default brand when no brand is named."}
+          <p className="flex items-center gap-1.5 text-sm">
+            {brand.default ? "Default brand" : "Not the default brand"}
+            <InfoTip>Agents and the API read the default brand when no brand is named.</InfoTip>
           </p>
           {!brand.default && (
             <Button
@@ -136,7 +139,7 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
       </Group>
 
       {source && (
-        <Group title="Repository" description="Brand as code: its files also live in a repository, and changes go both ways.">
+        <Group title="Repository" description="Brand as code, synced both ways.">
           {source.source ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="grid gap-0.5 text-sm">
@@ -172,9 +175,11 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
               </a>
             </Button>
           ) : (
-            <p className="text-muted-foreground text-sm">
-              Its files live here alone. <code className="font-mono text-xs">GET /api/v1/brands/{brand.slug}/files</code> exports them as a folder, and{" "}
-              <code className="font-mono text-xs">.../files/import</code> brings a folder back.
+            <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+              Not connected
+              <InfoTip>
+                <code className="font-mono">GET /api/v1/brands/{brand.slug}/files</code> exports its files as a folder; <code className="font-mono">.../files/import</code> brings one back.
+              </InfoTip>
             </p>
           )}
         </Group>

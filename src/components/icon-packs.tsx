@@ -15,6 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ExternalLink } from "@/components/external-link";
 import { ICON_GROUP_NAMES, type IconGroup, type IconSet } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { InfoTip } from "@/components/info-tip";
 
 /** Icons asked for at once; the API takes up to 100 per import. */
 const BATCH = 50;
@@ -96,9 +97,9 @@ function SetsView({ open, onPick }: { open: boolean; onPick: (s: IconSet) => voi
     <>
       <DialogHeader>
         <DialogTitle>Icon packs</DialogTitle>
-        <DialogDescription>
-          Open source sets, through Iconify. Pick the icons you use: each becomes an SVG in the library, credited, with its license
-          in its rights.
+        <DialogDescription className="flex items-center gap-1.5">
+          Open source sets, through Iconify.
+          <InfoTip>Each icon you pick becomes an SVG in the library, credited, with its license in its rights.</InfoTip>
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -319,8 +320,8 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
           )}
         </div>
         <DialogDescription>
-          {set.total.toLocaleString()} icons{set.author && ` by ${set.author.name}`}. Click to pick, Shift-click to pick a run. Each is
-          imported at the size it is drawn at, {set.height ? `${set.height}px` : "its own grid"}.
+          {set.total.toLocaleString()} icons{set.author && ` by ${set.author.name}`}. Shift-click to pick a run.{" "}
+          <InfoTip>Each is imported at the size it is drawn at, {set.height ? `${set.height}px` : "its own grid"}.</InfoTip>
         </DialogDescription>
       </DialogHeader>
 
