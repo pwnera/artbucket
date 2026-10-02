@@ -1,0 +1,1 @@
+Agents' logos for the Connections page, from [Simple Icons](https://simpleicons.org) (CC0), each in its brand color. Brands Simple Icons doesn't carry keep the catalog's icon (`src/components/agent-catalog.ts`).
