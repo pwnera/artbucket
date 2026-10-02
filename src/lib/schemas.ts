@@ -72,6 +72,10 @@ const lifecycle = {
     .describe("draft keeps it out of the library until it is submitted and approved. Without write it is proposed whatever this says"),
 };
 
+const hiddenAtUpload = z
+  .boolean()
+  .optional()
+  .describe("Only people added to it, or to a collection it is in, and admins see it. A new version keeps the one before's");
 export const Finalize = z.union([
   z.strictObject({
     token: uuid.describe("From POST /api/v1/uploads, after the PUT"),
@@ -80,6 +84,7 @@ export const Finalize = z.union([
     ...promote,
     ...provenance,
     ...lifecycle,
+    private: hiddenAtUpload,
   }),
   z.strictObject({
     url: z.url({ protocol: /^https?$/ }).max(2048).describe("Public http(s) URL the server fetches. A Figma or Google Docs, Sheets, Slides or Drive link is kept as the link and shows as its embed"),
@@ -87,6 +92,7 @@ export const Finalize = z.union([
     ...promote,
     ...provenance,
     ...lifecycle,
+    private: hiddenAtUpload,
   }),
 ]);
 

@@ -20,8 +20,8 @@ artbucket share {collection-id} --upload --name "Photographer drop"
 
 ## One asset
 
-Files are private: people see them as far as their access goes. **Share** on
-an asset offers four ways out:
+Nothing leaves the team until someone sends it out. **Share** on an asset
+offers four ways out:
 
 - **Team**: its link in the library, for people who can see it. Nobody else
   gets in.
@@ -29,7 +29,7 @@ an asset offers four ways out:
   you like.
 - **Signed URL**: the file itself, for anyone who has the URL, for an hour to a
   year. Add a rendition before the query (`/a/{id}/w_800,f_webp?s=...`).
-- **Public**: the file for anyone, for good, to embed on a site, in a doc or
+- **Embed**: the file for anyone, until turned off, to embed on a site, in a doc or
   in an email. It shows two URLs: `/c/{id}`, always the current version, the
   one to embed, and `/a/{id}`, this version only
   ([delivery](/guides/assets#delivery)). Turning it off stops both.
@@ -62,7 +62,8 @@ one. What a person may do is their **grants**: a scope (`read`, `propose`,
 `write`, `admin`) on the organization, a workspace, a collection or one asset.
 Grants add up and reach down: admin on the organization is admin everywhere in
 it, write on a collection is write on its assets. A grant can switch off
-abilities: an editor who can't delete, or can't share.
+abilities: an editor who can't delete, or can't share. [Who sees what](/guides/access)
+draws it out, with what **Who sees it** on an asset changes.
 
 Invite people on Team: an email and a scope on something, and a link that
 works once, for a week.

@@ -1196,6 +1196,10 @@
                           "draft",
                           "active"
                         ]
+                      },
+                      "private": {
+                        "description": "Only people added to it, or to a collection it is in, and admins see it. A new version keeps the one before's",
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -1403,6 +1407,10 @@
                           "draft",
                           "active"
                         ]
+                      },
+                      "private": {
+                        "description": "Only people added to it, or to a collection it is in, and admins see it. A new version keeps the one before's",
+                        "type": "boolean"
                       }
                     },
                     "required": [

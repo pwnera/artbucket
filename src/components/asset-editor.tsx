@@ -46,12 +46,13 @@ import { usePref } from "@/components/sidebar-prefs";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Can, useCan, Writable } from "@/components/can";
+import { Can, useCan, useMe, Writable } from "@/components/can";
 import { UsedIn } from "@/components/used-in";
 import { CanIUse } from "@/components/can-i-use";
 import { InfoTip } from "@/components/info-tip";
 import { IconButton } from "@/components/icon-button";
 import { ShareDialog } from "@/components/share-dialog";
+import { AssetPeople } from "@/components/asset-people";
 import { Lifecycle, PREVIEW_BG, StatusBadges, usePreviewBg, useVersionUpload, Versions, type PreviewBg } from "@/components/versions";
 import { DialogClose, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -65,7 +66,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -307,6 +308,16 @@ export function AssetEditor({
   const [rev, setRev] = useState<Record<string, number>>({});
   const can = useCan();
   const editable = can("asset.edit", asset) && asset.state !== "deleted";
+  const me = useMe();
+  // The switch says it as it flips; the server's word wins once it comes back, or for the next asset.
+  const [privateOn, setPrivate] = useState(!!asset.private);
+  const [seenPrivate, setSeenPrivate] = useState(`${asset.id}:${!!asset.private}`);
+  if (`${asset.id}:${!!asset.private}` !== seenPrivate) {
+    setSeenPrivate(`${asset.id}:${!!asset.private}`);
+    setPrivate(!!asset.private);
+  }
+  const inCollections = collections.filter((c) => asset.collections.includes(c.id));
+  const hiddenByCollections = asset.collections.length > 0 && inCollections.length === asset.collections.length && inCollections.every((c) => c.private);
   const router = useRouter();
   const [tags, searchTags] = useTagSearch(useLibraryTags());
   const { upload, pct } = useVersionUpload(asset, (v) => leave(() => onOpen(v)));
@@ -1130,25 +1141,40 @@ export function AssetEditor({
                   <Property
                     label={
                       <>
-                        <IconLock className="size-3.5" /> Private
+                        <IconLock className="size-3.5" /> Who sees it
                       </>
                     }
                     htmlFor={`${id}-private`}
-                    text={asset.private ? "Yes: only people added, and admins" : null}
+                    text={asset.private ? "Only people added" : null}
                   >
-                    <div data-prop="private" className="flex min-h-9 items-center gap-2">
-                      <Switch
+                    <div data-prop="private" className="flex min-h-9 items-center">
+                      <Select
                         key={keyOf("private")}
-                        id={`${id}-private`}
                         name="private"
-                        defaultChecked={!!asset.private}
-                        onCheckedChange={() => setTimeout(() => void flush())}
-                      />
-                      <InfoTip label="More about private">
-                        Only people you add, and admins, see it. People added to one of its collections see it too. In only private collections, it is private anyway.
-                      </InfoTip>
+                        defaultValue={asset.private ? "on" : "everyone"}
+                        onValueChange={(v) => {
+                          setPrivate(v === "on");
+                          setTimeout(() => void flush());
+                        }}
+                      >
+                        <SelectTrigger id={`${id}-private`} size="sm" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="everyone">Everyone in {me?.workspace.name ?? "the workspace"}</SelectItem>
+                          <SelectItem value="on">Only people added</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </Property>
+                  <p className="text-muted-foreground pb-1 text-xs">
+                    {privateOn
+                      ? "The people below and admins. Nobody else in the workspace finds it."
+                      : hiddenByCollections
+                        ? "Its collections are all private, so only people added to them, and admins, see it."
+                        : "Anyone who can open the library finds it. This is about your team: links and embeds are in Share."}
+                  </p>
+                  {(privateOn || hiddenByCollections) && <AssetPeople asset={asset} collections={collections} />}
                 </Group>
               )}
 
