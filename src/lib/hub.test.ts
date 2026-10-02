@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { claimProof, provesDomain } from "./domain-proof.ts";
-import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain, expireHostOnly } from "./hub.ts";
+import { backgroundOf, brandText, cookieDomain, domainsAbove, headingFace, hubBadge, hubHome, hubPath, logoOf, paletteOf, parseRef, swatches, withoutDomain, expireHostOnly } from "./hub.ts";
 
 test("parseRef reads a brand and a pinned version, and nothing else", () => {
   assert.deepEqual(parseRef("rust"), { slug: "rust" });
@@ -225,4 +225,17 @@ test("a listing is offered to whoever proves its domain, unless its own organiza
   // No domain, or nothing the claimant proves: none.
   assert.equal(claimProof(null, ["acme.com"], []), null);
   assert.equal(claimProof("acme.com", ["acme.org"], []), null);
+});
+
+test("hubBadge wears the brand's tint, escapes its name and checks a verified one", () => {
+  const svg = hubBadge({ name: 'Ben & "Jerry" <3', version: 4, tint: "#e1eea1", verified: true });
+  assert.match(svg, /fill="#e1eea1"/);
+  assert.match(svg, /Ben &#38; &#34;Jerry&#34; &#60;3/);
+  assert.doesNotMatch(svg, /<3|"Jerry"/);
+  assert.match(svg, /fill="#000000"[^>]*>@4</);
+  assert.match(svg, /<path /);
+  const plain = hubBadge({ name: "x".repeat(40), version: 2, tint: 'red" onload="alert(1)', verified: false });
+  assert.match(plain, /fill="#6d4aff"/);
+  assert.doesNotMatch(plain, /onload|<path /);
+  assert.match(plain, /x{23}…</);
 });

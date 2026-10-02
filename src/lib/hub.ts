@@ -1,3 +1,4 @@
+import { inkOn, isHex } from "./color.ts";
 import { GOOGLE_FAMILY, isFont, standIn } from "./font.ts";
 import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
@@ -273,3 +274,36 @@ export type ReportReason = keyof typeof REPORT_REASONS;
 
 /** A count as a card shows it: 950, 1.2k, 3.4M. */
 export const compact = (n: number) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase();
+
+const xml = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/**
+ * The README badge, "[■ Acme | @4 ✓]": the brand's name on Artbucket's ink
+ * beside a swatch of its tint, the release that is live on the tint, and a
+ * check when its organization is verified. 20px high, as shields.io's are,
+ * so it sits in a row of them. Widths are guessed from Verdana 11px and
+ * `textLength` holds the text to them, so a guess never spills.
+ */
+export function hubBadge({ name, version, tint, verified }: { name: string; version: number; tint: string | null; verified: boolean }) {
+  const fill = tint && isHex(tint) ? tint.slice(0, 7) : "#6d4aff";
+  const ink = inkOn(fill);
+  const chars = [...name];
+  const label = chars.length > 24 ? `${chars.slice(0, 23).join("")}…` : name;
+  const value = `@${version}`;
+  const [lw, vw] = [[...label].length * 7, value.length * 7.5];
+  const l = 26 + lw + 8;
+  const r = 8 + vw + (verified ? 17 : 8);
+  const alt = xml(`${name} brand: ${value}${verified ? ", verified" : ""}`);
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${l + r}" height="20" role="img" aria-label="${alt}"><title>${alt}</title>` +
+    `<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-opacity=".12"/></linearGradient>` +
+    `<clipPath id="c"><rect width="${l + r}" height="20" rx="5"/></clipPath>` +
+    `<g clip-path="url(#c)"><rect width="${l}" height="20" fill="#20241f"/><rect x="${l}" width="${r}" height="20" fill="${fill}"/><rect width="${l + r}" height="20" fill="url(#g)"/><rect x="${l}" width="1" height="20" fill="#fff" fill-opacity=".2"/></g>` +
+    `<rect x="8" y="5" width="10" height="10" rx="3" fill="${fill}" stroke="#fff" stroke-opacity=".45"/>` +
+    `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" font-weight="bold">` +
+    `<text x="26" y="14" fill="#fff" textLength="${lw}" lengthAdjust="spacingAndGlyphs">${xml(label)}</text>` +
+    `<text x="${l + 8}" y="14" fill="${ink}" textLength="${vw}" lengthAdjust="spacingAndGlyphs">${value}</text></g>` +
+    (verified ? `<path d="M${l + r - 14} 10.5l2.5 2.5 4.5-5" fill="none" stroke="${ink}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>` : "") +
+    `</svg>`
+  );
+}
