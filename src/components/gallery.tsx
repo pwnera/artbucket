@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Spinner } from "@/components/ui/spinner";
 import { useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -16,7 +17,6 @@ import {
   IconInbox,
   IconLayoutGrid,
   IconList,
-  IconLoader2,
   IconPencil,
   IconPhoto,
   IconPlayerPlayFilled,
@@ -1069,7 +1069,7 @@ export function Gallery({
       <AppHeader trail={where ? [{ label: "Library", href: "/" }, { label: where }] : [{ label: "Library" }]}>
         <div className="relative w-36 min-w-20 shrink! sm:w-64">
           {searching ? (
-            <IconLoader2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 animate-spin" />
+            <Spinner className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           ) : (
             <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           )}

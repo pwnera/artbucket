@@ -3,7 +3,8 @@
 import Link, { useLinkStatus } from "next/link";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { IconLoader2, IconLock, type Icon } from "@tabler/icons-react";
+import { IconLock, type Icon } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
 import { allowedFor, contextTitle, CONTEXTS, find, hrefFor, locked } from "@/components/settings/sections";
@@ -82,5 +83,5 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 /** The section's icon, a spinner in its place while its link is on its way: same size, so nothing moves. */
 function NavIcon({ icon: I }: { icon: Icon }) {
   const { pending } = useLinkStatus();
-  return pending ? <IconLoader2 className="size-4 shrink-0 animate-spin" /> : <I className="size-4 shrink-0" />;
+  return pending ? <Spinner className="size-4 shrink-0" /> : <I className="size-4 shrink-0" />;
 }

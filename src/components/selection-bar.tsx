@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   IconArchive,
   IconArrowBackUp,
@@ -9,7 +10,6 @@ import {
   IconChevronDown,
   IconDots,
   IconDownload,
-  IconLoader2,
   IconMinus,
   IconPlus,
   IconSend,
@@ -506,7 +506,7 @@ export function SelectionBar({
             <IconX />
           </Button>
           <span className="flex items-center px-1 text-sm font-medium whitespace-nowrap tabular-nums" aria-live="polite">
-            {busy ? <IconLoader2 className="text-muted-foreground mr-1.5 size-4 animate-spin" aria-hidden /> : null}
+            {busy ? <Spinner className="text-muted-foreground mr-1.5 size-4" aria-hidden /> : null}
             {progress ? (
               `${progress.verb} ${progress.done.toLocaleString()} of ${progress.of.toLocaleString()}`
             ) : (

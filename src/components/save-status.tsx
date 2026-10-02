@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconCheck, IconLoader2 } from "@tabler/icons-react";
+import { IconCheck } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export function SaveStatus({ fallback = null, className }: { fallback?: React.Re
   const shown = inFlight ? (
     // Only a write that takes a while says so: a quick one goes straight to Saved, without a flicker.
     <span className="animate-in fade-in-0 fill-mode-backwards flex items-center gap-1 delay-300">
-      <IconLoader2 className="size-3 animate-spin" /> Saving
+      <Spinner className="size-3" /> Saving
     </span>
   ) : failedAt && failedAt !== base.failedAt ? (
     <span className="text-destructive">Not saved</span>

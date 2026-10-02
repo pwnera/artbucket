@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { IconFileText, IconHash, IconLoader2, IconPalette, IconPhoto, IconSearch } from "@tabler/icons-react";
+import { IconFileText, IconHash, IconPalette, IconPhoto, IconSearch } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { TYPING } from "@/components/site/anchors";
 import { useSite } from "@/components/site/site-context";
 import type { SitePortal } from "@/components/site/site-view";
@@ -135,7 +136,7 @@ export function SiteSearch({
         <Command shouldFilter={false} loop>
           <div className="flex items-center gap-2 border-b px-3">
             {term && !ready ? (
-              <IconLoader2 aria-hidden className="size-4 shrink-0 animate-spin opacity-50" />
+              <Spinner aria-hidden className="size-4 shrink-0 opacity-50" />
             ) : (
               <IconSearch aria-hidden className="size-4 shrink-0 opacity-50" />
             )}

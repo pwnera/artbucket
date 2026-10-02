@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   IconActivity,
   IconBook,
@@ -12,7 +13,6 @@ import {
   IconHistory,
   IconInbox,
   IconKeyboard,
-  IconLoader2,
   IconMailPlus,
   IconMoon,
   IconPhoto,
@@ -267,7 +267,7 @@ export function CommandPalette({
       {/* CommandInput's row, with a spinner in place of the glass while assets load. */}
       <div data-slot="command-input-wrapper" className="flex items-center gap-2 border-b px-3">
         {pending ? (
-          <IconLoader2 className="size-4 shrink-0 animate-spin opacity-50" aria-hidden />
+          <Spinner className="size-4 shrink-0 opacity-50" aria-hidden />
         ) : (
           <IconSearch className="size-4 shrink-0 opacity-50" aria-hidden />
         )}

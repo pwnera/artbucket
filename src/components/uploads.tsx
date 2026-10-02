@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   IconArrowsMaximize,
   IconAlertCircle,
   IconChevronDown,
   IconCircleCheck,
-  IconLoader2,
   IconRefresh,
   IconX,
   IconCheck,
@@ -184,7 +184,7 @@ export function UploadTray({
           className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left"
         >
           {active ? (
-            <IconLoader2 className="text-muted-foreground size-4 shrink-0 animate-spin" />
+            <Spinner className="text-muted-foreground size-4 shrink-0" />
           ) : failed ? (
             <IconAlertCircle className="text-destructive size-4 shrink-0" />
           ) : (

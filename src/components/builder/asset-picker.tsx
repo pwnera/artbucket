@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconChevronDown, IconLoader2, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import type { Transport } from "@/components/builder/use-builder";
 import { FontThumb } from "@/components/font-preview";
 import type { Asset } from "@/components/gallery";
@@ -137,7 +138,7 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
             className="ps-8 pe-8"
           />
           {searching && results && (
-            <IconLoader2 aria-label="Searching" className="text-muted-foreground absolute end-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin" />
+            <Spinner aria-label="Searching" className="text-muted-foreground absolute end-2.5 top-1/2 size-4 -translate-y-1/2" />
           )}
         </div>
         {picked.length > 0 && (

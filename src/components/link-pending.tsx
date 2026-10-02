@@ -2,7 +2,7 @@
 
 import { useLinkStatus } from "next/link";
 import { useEffect, useState } from "react";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,13 +12,13 @@ import { cn } from "@/lib/utils";
  */
 export function LinkIcon({ icon }: { icon: React.ReactNode }) {
   const { pending } = useLinkStatus();
-  return pending ? <IconLoader2 aria-hidden className="animate-spin" /> : icon;
+  return pending ? <Spinner aria-hidden /> : icon;
 }
 
 /** For a link without an icon (a tab): a small spinner at its end while its page is on the way. */
 export function LinkSpinner({ className }: { className?: string }) {
   const { pending } = useLinkStatus();
-  return pending ? <IconLoader2 aria-hidden className={cn("text-muted-foreground size-3 shrink-0 animate-spin", className)} /> : null;
+  return pending ? <Spinner aria-hidden className={cn("text-muted-foreground size-3 shrink-0", className)} /> : null;
 }
 
 /**
@@ -43,7 +43,7 @@ export function LeavingLink({ icon, children, onClick, ...props }: React.Compone
         if (!e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) setGoing(true);
       }}
     >
-      {going ? <IconLoader2 aria-hidden className="animate-spin" /> : icon}
+      {going ? <Spinner aria-hidden /> : icon}
       {children}
     </a>
   );

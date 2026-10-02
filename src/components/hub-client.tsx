@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconLoader2, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export function HubSearch({ action, defaultValue = "", className, big }: { actio
 /** The search box's glass, or a spinner while its results come: in the page, without a reload. */
 function SearchMark({ className }: { className: string }) {
   const { pending } = useFormStatus();
-  return pending ? <IconLoader2 aria-hidden className={cn(className, "animate-spin")} /> : <IconSearch aria-hidden className={className} />;
+  return pending ? <Spinner aria-hidden className={className} /> : <IconSearch aria-hidden className={className} />;
 }
 
 /** Inside a form whose answer is slow to come (a crawl): what it is doing, while it does. */
@@ -68,7 +69,7 @@ export function WhilePending({ children, className }: { children: React.ReactNod
   if (!pending) return null;
   return (
     <p role="status" className={cn("text-muted-foreground animate-in fade-in-0 flex items-center gap-2 text-sm", className)}>
-      <IconLoader2 aria-hidden className="size-4 shrink-0 animate-spin" />
+      <Spinner aria-hidden className="size-4 shrink-0" />
       {children}
     </p>
   );
