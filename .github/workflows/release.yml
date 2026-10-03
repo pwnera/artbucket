@@ -11,6 +11,12 @@ name: Release
 # supports the previous minor) or an old tag pushed again never sends people
 # back. Release please (release-please.yml) calls this with the tag it made. A tag
 # whose package.json says another version publishes nothing.
+#
+# Each image is built on a runner of its own architecture (ubuntu-24.04-arm for
+# arm64, no emulation), pushed by digest, then joined into one multi-arch image
+# under its tags. Run by hand with a tag, it publishes that release again (a
+# failed build, say): the npm job skips a version npm already has, and a
+# package.json that disagrees with the tag is only a warning.
 on:
   push:
     tags: ["v*"]
@@ -18,6 +24,12 @@ on:
     inputs:
       tag:
         description: The tag to publish, such as v1.8.0
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to publish again, such as v1.8.0
         type: string
         required: true
 
@@ -48,6 +60,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
           REPO: ${{ github.server_url }}/${{ github.repository }}
+          EVENT: ${{ github.event_name }}
         run: |
           version=${TAG#v}
           # The version the app and the CLI report is package.json's: a tag must agree with it, so
@@ -55,8 +68,12 @@ jobs:
           for f in package.json cli/package.json; do
             have=$(node -p "require('./$f').version")
             if [ "$have" != "$version" ]; then
-              echo "::error::$TAG is on a commit whose $f says $have. Release through the release pull request, or set both package.json files to $version before tagging."
-              exit 1
+              if [ "$EVENT" = workflow_dispatch ]; then
+                echo "::warning::$TAG is on a commit whose $f says $have; publishing again as $version, as asked."
+              else
+                echo "::error::$TAG is on a commit whose $f says $have. Release through the release pull request, or set both package.json files to $version before tagging."
+                exit 1
+              fi
             fi
           done
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -73,15 +90,26 @@ jobs:
           { echo "latest=$latest"; echo "major=$ofmajor"; echo "minor=$ofminor"; echo "npm_tag=$npm"; } >> "$GITHUB_OUTPUT"
           echo "$TAG: latest=$latest, $major=$ofmajor, $major.$minor=$ofminor, npm dist-tag $npm"
 
-  image:
+  # One image per architecture, on its own hardware, pushed by digest only.
+  build:
     needs: version
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: app, file: Dockerfile, platform: linux/amd64, runner: ubuntu-24.04 }
+          - { image: app, file: Dockerfile, platform: linux/arm64, runner: ubuntu-24.04-arm }
+          - { image: cli, file: cli/Dockerfile, platform: linux/amd64, runner: ubuntu-24.04 }
+          - { image: cli, file: cli/Dockerfile, platform: linux/arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      NAME: ghcr.io/${{ github.repository }}${{ matrix.image == 'cli' && '/cli' || '' }}
+      PAIR: ${{ matrix.image }}-${{ matrix.platform == 'linux/arm64' && 'arm64' || 'amd64' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -91,32 +119,46 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.version.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.minor }}
-            type=semver,pattern={{major}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.major }}
-            type=raw,value=latest,enable=${{ needs.version.outputs.latest }}
-          flavor: latest=false
-      - uses: docker/build-push-action@v7
+          images: ${{ env.NAME }}
+      - id: build
+        uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          outputs: type=image,name=${{ env.NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ env.PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PAIR }}
+      - name: Keep the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
-  cli-image:
-    needs: version
+  # Both architectures under one name, with the release's tags.
+  publish:
+    needs: [version, build]
+    strategy:
+      matrix:
+        image: [app, cli]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    env:
+      NAME: ghcr.io/${{ github.repository }}${{ matrix.image == 'cli' && '/cli' || '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          ref: ${{ needs.version.outputs.tag }}
-      - uses: docker/setup-qemu-action@v4
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -126,23 +168,22 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}/cli
+          images: ${{ env.NAME }}
           tags: |
             type=semver,pattern={{version}},value=${{ needs.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.minor }}
             type=semver,pattern={{major}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.major }}
             type=raw,value=latest,enable=${{ needs.version.outputs.latest }}
           flavor: latest=false
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: cli/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=cli
-          cache-to: type=gha,mode=max,scope=cli
+      - name: One image, both architectures
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          # shellcheck disable=SC2086 # one -t per tag
+          docker buildx imagetools create $tags $(printf "$NAME@sha256:%s " *)
+          docker buildx imagetools inspect "$NAME:$VERSION"
 
   npm:
     needs: version
@@ -167,5 +208,9 @@ jobs:
       - if: env.NODE_AUTH_TOKEN != ''
         working-directory: cli
         run: |
+          if [ "$(npm view "artbucket@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+            echo "artbucket@$VERSION is already on npm."
+            exit 0
+          fi
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm publish --provenance --access public --tag "$NPM_TAG"

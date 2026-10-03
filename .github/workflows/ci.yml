@@ -143,6 +143,21 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # And for arm64, on an arm64 runner, as release.yml builds it: an image that
+  # only fails there would otherwise first fail on a release.
+  image-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          cache-from: type=gha,scope=app-arm64
+          cache-to: type=gha,mode=max,scope=app-arm64
+
   # So does the CLI's (ghcr.io/pwnera/artbucket/cli), and it runs.
   cli-image:
     runs-on: ubuntu-latest
