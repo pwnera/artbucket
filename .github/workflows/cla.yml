@@ -1,0 +1,76 @@
+# The contributor license agreement (CLA.md), signed once per person on their first pull request:
+# they comment the sentence the bot asks for, and the signature (GitHub account, name, pull request,
+# date) is committed to signatures/cla.json on the cla-signatures branch, never main. The check is
+# this workflow's CLAAssistant job, required by the main ruleset.
+#
+# Pull requests from people who can write to the repository, and bots', skip it. Every commit
+# author on an outside pull request must sign, so a commit whose author is not linked to a GitHub
+# account fails until it is re-authored. A merged pull request is locked, so its signing comment
+# stays.
+#
+# pull_request_target, with no checkout of the pull request: it only reads the pull request through
+# the API. contributor-assistant/github-action is pinned to v2.6.1's commit.
+name: CLA
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
+
+jobs:
+  CLAAssistant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.pull_request.user.type != 'Bot') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        (github.event.comment.body == 'recheck' ||
+         github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
+    steps:
+      # Whoever can write to the repository is not asked. Not author_association: an organization
+      # member whose membership is private shows there as a contributor.
+      - id: who
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
+        run: |
+          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR/permission" --jq .permission 2>/dev/null || true)
+          case "$perm" in admin|maintain|write) echo "$AUTHOR can write here ($perm): no CLA asked."; echo "skip=true" >> "$GITHUB_OUTPUT" ;; esac
+
+      # The signatures live on their own branch, made once from main.
+      - name: Signatures branch
+        if: steps.who.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/branches/cla-signatures" >/dev/null 2>&1 && exit 0
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/heads/cla-signatures -f sha="$sha" >/dev/null
+
+      - uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        if: steps.who.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          path-to-document: https://github.com/pwnera/artbucket/blob/main/CLA.md
+          path-to-signatures: signatures/cla.json
+          branch: cla-signatures
+          allowlist: aminekaabachi,dependabot[bot],artbucket[bot],github-actions[bot]
+          signed-commit-message: "chore(cla): $contributorName signs the CLA in #$pullRequestNo"
+          create-file-commit-message: "chore(cla): the signatures file"
+          custom-notsigned-prcomment: >
+            Thanks for this pull request. Artbucket is AGPLv3 and also licensed commercially by
+            Pwnera SAS, so before it can be merged, each person whose commits it carries signs the
+            [Contributor License Agreement](https://github.com/pwnera/artbucket/blob/main/CLA.md)
+            once, by posting the comment below. You keep your copyright.
+          custom-allsigned-prcomment: Everyone in this pull request has signed the CLA. Thank you.
