@@ -113,7 +113,7 @@ const schema = z.object({
    * Google vouches for the address, not for a place here: sign-up stays
    * closed to it as to a password (SIGNUP).
    */
-  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_ID: z.string().regex(/^[\w-]+\.apps\.googleusercontent\.com$/, "A Google client ID: 1234-abc.apps.googleusercontent.com").optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   /**
    * The server's email, for every organization that doesn't set its own in
