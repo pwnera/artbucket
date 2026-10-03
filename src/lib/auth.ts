@@ -6,6 +6,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
 import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
@@ -43,7 +44,25 @@ export const oidc = env.OIDC_ISSUER ? { provider: OIDC_PROVIDER, name: env.OIDC_
 
 export const GOOGLE_PROVIDER = "google";
 export const google = !!env.GOOGLE_CLIENT_ID;
-const viaGoogle = (ctx: { path?: string } | null | undefined) => ctx?.path === `/callback/${GOOGLE_PROVIDER}`;
+
+/**
+ * The social provider (Google, OIDC_*) a request came back from, if it did: to
+ * APP_URL, or at an organization's domain from APP_URL through the proxy below.
+ * ctx.path is the route, not the URL: the provider is its :id.
+ */
+const socialCallback = (ctx: { path?: string; params?: Record<string, string | undefined> } | null | undefined) =>
+  ((ctx?.path === "/callback/:id" || ctx?.path === "/callback/:id/oauth-proxy") && ctx.params?.id) || null;
+const viaGoogle = (ctx: Parameters<typeof socialCallback>[0]) => socialCallback(ctx) === GOOGLE_PROVIDER;
+
+/**
+ * Google, and the OIDC_* provider, know one redirect URI: APP_URL's. Signing
+ * in at an organization's domain goes there and back: APP_URL takes the code
+ * and sends the profile on, encrypted with BETTER_AUTH_SECRET for a minute, to
+ * the domain, which makes the session with its own cookie (authAt). At
+ * APP_URL itself, `currentURL` keeps it out of the way behind a proxy, where
+ * the request's own URL is an internal one.
+ */
+const proxy = (origin: string) => oAuthProxy({ productionURL: env.APP_URL, currentURL: origin });
 
 const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? null;
 
@@ -162,6 +181,8 @@ export const auth = betterAuth({
     "/sso/verify-domain",
     "/sso/callback",
     "/sso/saml2/sp/metadata",
+    // The proxy's old way back, which would land without its provider (socialCallback): the new one is /callback/:id/oauth-proxy.
+    "/oauth-proxy-callback",
   ],
   telemetry: { enabled: false },
   // Single sign-on errors land on the sign-in page, which says so (app/(auth)/login), not on better-auth's own unbranded one.
@@ -205,6 +226,7 @@ export const auth = betterAuth({
       // Someone who had an account before the provider did joins at their next sign-in through it.
       provisionUserOnEveryLogin: true,
     }),
+    proxy(env.APP_URL),
     nextCookies(),
   ],
   databaseHooks: {
@@ -223,7 +245,7 @@ export const auth = betterAuth({
           // Held to its organization's provider, as a password is: Google would walk around it.
           if (viaGoogle(ctx) && (await ssoAt(user.email))) throw ssoRequired(user.email);
           // The operator's own provider only: Google vouches for anyone with an address.
-          const viaOidc = ctx?.path === `/callback/${OIDC_PROVIDER}`;
+          const viaOidc = socialCallback(ctx) === OIDC_PROVIDER;
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
@@ -259,6 +281,9 @@ export async function authAt(host: string | null | undefined) {
   const [origin] = await appOriginAt(host);
   if (!origin) return auth;
   let a = atHost.get(origin);
-  if (!a) atHost.set(origin, (a = betterAuth({ ...auth.options, baseURL: origin }) as typeof auth));
+  if (!a) {
+    const plugins = auth.options.plugins.map((p) => (p.id === "oauth-proxy" ? proxy(origin) : p)) as typeof auth.options.plugins;
+    atHost.set(origin, (a = betterAuth({ ...auth.options, baseURL: origin, plugins }) as typeof auth));
+  }
   return a;
 }
