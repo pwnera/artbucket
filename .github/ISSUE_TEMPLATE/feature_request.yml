@@ -1,6 +1,6 @@
 name: Feature request
 description: Propose something artbucket should do.
-labels: [enhancement]
+labels: [enhancement, needs-triage]
 body:
   - type: markdown
     attributes:

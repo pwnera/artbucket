@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "52336d996d2a0d4411a986158cae3ab28ad58374",
+  "pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-header": "Merging this releases Artbucket: it tags the version, publishes the GitHub release, the images and the CLI (release.yml). Until then it collects what lands on main.",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "artbucket",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "extra-files": [
+        { "type": "json", "path": "cli/package.json", "jsonpath": "$.version" }
+      ],
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "revert", "section": "Reverts" },
+        { "type": "docs", "section": "Documentation" },
+        { "type": "refactor", "section": "Refactoring", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "build", "section": "Build", "hidden": true },
+        { "type": "ci", "section": "CI", "hidden": true },
+        { "type": "chore", "section": "Chores", "hidden": true },
+        { "type": "style", "section": "Style", "hidden": true }
+      ]
+    }
+  }
+}

@@ -5,20 +5,65 @@ name: Release
 # and additions, never a break (docs: developers/stability). It also
 # publishes the CLI to npm as artbucket, at the tag's version (cli/), and
 # as an image, ghcr.io/pwnera/artbucket/cli, tagged the same way.
+#
+# Only the newest release moves latest, the newest of a major moves {{major}},
+# and npm's latest follows the same rule: a patch on an older line (SECURITY.md
+# supports the previous minor) or an old tag pushed again never sends people
+# back. Release please (release-please.yml) calls this with the tag it made.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag to publish, such as v1.8.0
+        type: string
+        required: true
 
 permissions:
   contents: read
   packages: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+      latest: ${{ steps.v.outputs.latest }}
+      major: ${{ steps.v.outputs.major }}
+      minor: ${{ steps.v.outputs.minor }}
+      npm-tag: ${{ steps.v.outputs.npm_tag }}
+    steps:
+      - id: v
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+          REPO: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          version=${TAG#v}
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Released versions only (no -rc), newest last.
+          tags=$(git ls-remote --tags --refs "$REPO" 'v*' | sed 's|.*refs/tags/v||' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+          IFS=. read -r major minor _ <<<"$version"
+          newest() { grep -E "^$1" <<<"$tags" | tail -1; }
+          stable=true; case "$version" in *-*) stable=false ;; esac
+          latest=false; [ "$stable" = true ] && [ "$(newest '')" = "$version" ] && latest=true
+          ofmajor=false; [ "$stable" = true ] && [ "$(newest "$major\\.")" = "$version" ] && ofmajor=true
+          ofminor=false; [ "$stable" = true ] && [ "$(newest "$major\\.$minor\\.")" = "$version" ] && ofminor=true
+          if [ "$latest" = true ]; then npm=latest; elif [ "$stable" = true ]; then npm="release-$major.$minor"; else npm=next; fi
+          { echo "latest=$latest"; echo "major=$ofmajor"; echo "minor=$ofminor"; echo "npm_tag=$npm"; } >> "$GITHUB_OUTPUT"
+          echo "$TAG: latest=$latest, $major=$ofmajor, $major.$minor=$ofminor, npm dist-tag $npm"
+
   image:
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
@@ -31,10 +76,11 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.minor }}
+            type=semver,pattern={{major}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.major }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.latest }}
+          flavor: latest=false
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -46,10 +92,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   cli-image:
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
@@ -62,10 +111,11 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}/cli
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.minor }}
+            type=semver,pattern={{major}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.major }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.latest }}
+          flavor: latest=false
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -78,6 +128,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=cli
 
   npm:
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -85,8 +136,12 @@ jobs:
       id-token: write
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      VERSION: ${{ needs.version.outputs.version }}
+      NPM_TAG: ${{ needs.version.outputs.npm-tag }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -95,5 +150,5 @@ jobs:
       - if: env.NODE_AUTH_TOKEN != ''
         working-directory: cli
         run: |
-          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
-          npm publish --provenance --access public
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm publish --provenance --access public --tag "$NPM_TAG"

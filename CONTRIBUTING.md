@@ -9,6 +9,9 @@ conversation before a large PR saves us both time.
 - **Anything larger?** Open an issue first. The [roadmap](ROADMAP.md) is
   deliberately opinionated about ordering, and some features are deferred on
   purpose with a stated trigger for adding them.
+- **Looking for a way in?** Issues labeled `good first issue` are small and
+  well described; `help wanted` ones are accepted and nobody is on them. Say
+  you're taking one. Who decides what is in [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Setup
 
@@ -99,4 +102,14 @@ pull request means you agree that:
 ## Commits
 
 Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Keep the
-subject under 72 characters.
+subject under 72 characters. CI checks every commit in a pull request, because
+the changelog and the next version are made from them: a `fix:` is a patch, a
+`feat:` a minor, and its subject is the line people read in the release notes.
+Write it for them.
+
+## Releases
+
+Nobody bumps a version by hand. Each push to `main` updates the release pull
+request, `chore: release x.y.z`; merging it tags the version and publishes the
+release, the images and the CLI. How versions and support work is in
+[GOVERNANCE.md](GOVERNANCE.md#versions-and-releases).
