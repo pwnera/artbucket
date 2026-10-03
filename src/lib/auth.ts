@@ -1,5 +1,6 @@
 import { sso } from "@better-auth/sso";
 import { betterAuth } from "better-auth";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
@@ -17,9 +18,9 @@ import { underDomain } from "@/lib/portal";
 import { lockedBy } from "@/lib/settings";
 
 /**
- * Who someone is: better-auth, mounted at /api/auth. Email and password, any
- * OpenID Connect provider when OIDC_* is set, and each organization's own
- * (lib/core/sso.ts). Single sign-on is not a paid tier here, and never will be.
+ * Who someone is: better-auth, mounted at /api/auth. Email and password,
+ * Google when GOOGLE_* is set, any OpenID Connect provider when OIDC_* is
+ * set, and each organization's own (lib/core/sso.ts). Single sign-on is not a paid tier here, and never will be.
  *
  * What someone may do is not better-auth's business: that is `grants`
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
@@ -27,7 +28,8 @@ import { lockedBy } from "@/lib/settings";
  * Sign-up is closed but for five doors: the first account on a fresh install
  * (which becomes the admin of everything), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
- * admin grants some, anyone at an organization's verified domain its own
+ * admin grants some (Google is not that provider: it proves an address, the
+ * way an email code does, and opens no door of its own), anyone at an organization's verified domain its own
  * provider vouches for, who joins it able to read, and anyone at a domain an
  * organization proved and opened (lib/core/email-domains.ts), offered to join
  * it once the email code proves the address. SIGNUP=open opens it to anyone,
@@ -38,6 +40,10 @@ import { lockedBy } from "@/lib/settings";
 
 export const OIDC_PROVIDER = "oidc";
 export const oidc = env.OIDC_ISSUER ? { provider: OIDC_PROVIDER, name: env.OIDC_NAME } : null;
+
+export const GOOGLE_PROVIDER = "google";
+export const google = !!env.GOOGLE_CLIENT_ID;
+const viaGoogle = (ctx: { path?: string } | null | undefined) => ctx?.path === `/callback/${GOOGLE_PROVIDER}`;
 
 const cookieOf = (headers: Headers | undefined) => headers?.get("cookie") ?? null;
 
@@ -133,6 +139,9 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: verify,
   },
+  socialProviders: google
+    ? { [GOOGLE_PROVIDER]: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, prompt: "select_account" as const } }
+    : {},
   emailVerification: { sendOnSignUp: verify, sendOnSignIn: verify, autoSignInAfterVerification: true },
   // Of the email-code plugin, only confirming an address: no passwordless sign-in or reset by code.
   disabledPaths: [
@@ -211,7 +220,10 @@ export const auth = betterAuth({
             }
             return { data: { ...user, emailVerified: true } };
           }
-          const viaOidc = ctx?.path?.startsWith("/callback/") ?? false;
+          // Held to its organization's provider, as a password is: Google would walk around it.
+          if (viaGoogle(ctx) && (await ssoAt(user.email))) throw ssoRequired(user.email);
+          // The operator's own provider only: Google vouches for anyone with an address.
+          const viaOidc = ctx?.path === `/callback/${OIDC_PROVIDER}`;
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
@@ -220,7 +232,17 @@ export const auth = betterAuth({
         after: async (user, ctx) => welcome(user, cookieOf(ctx?.headers), !!ssoCallback(ctx)),
       },
     },
-    session: { create: { after: async (session) => signedIn(session) } },
+    session: {
+      create: {
+        // An account that exists, signing in with Google: refused where a password would be.
+        before: async (session, ctx) => {
+          if (!viaGoogle(ctx)) return;
+          const [u] = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.id, session.userId));
+          if (u && (await passwordBarred(u.email))) throw ssoRequired(u.email);
+        },
+        after: async (session) => signedIn(session),
+      },
+    },
   },
 });
 
