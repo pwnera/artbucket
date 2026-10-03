@@ -4,6 +4,24 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.8.1](https://github.com/pwnera/artbucket/compare/v1.8.0...v1.8.1) (2026-10-03)
+
+
+### Fixes
+
+* **ci:** the CLA skips whoever can write here, by permission ([d161adc](https://github.com/pwnera/artbucket/commit/d161adcb9fd7e277788a9a42636769cbcbe4404a))
+* **ci:** the terms check asks only those who can't write here ([c268842](https://github.com/pwnera/artbucket/commit/c268842dabd9f0c32aad8ba4d500c66ac19e7299))
+* **ci:** the terms check asks only those who can't write here ([63362dd](https://github.com/pwnera/artbucket/commit/63362dd85647d79b3b784657444353ba2d2dc2b9))
+
+
+### Documentation
+
+* a contributor license agreement, signed once by comment ([0bc5508](https://github.com/pwnera/artbucket/commit/0bc5508f3f1117129f2274b971194d50cb98f1a5))
+* a contributor license agreement, signed once by comment ([cced3c3](https://github.com/pwnera/artbucket/commit/cced3c37a6378899af31896fcdc050efde7fd5db))
+* **cla:** version 1.0 is in force ([2f65072](https://github.com/pwnera/artbucket/commit/2f650729c267e95529552ba67ec11a710f4b176a))
+* **roadmap:** milestones ahead have names, not version numbers ([d75c6ec](https://github.com/pwnera/artbucket/commit/d75c6ecb3a3f244c3fe15bf743cb924dbefe2e48))
+* **roadmap:** milestones ahead have names, not version numbers ([9410890](https://github.com/pwnera/artbucket/commit/9410890d8b1d0cecca4ab33b718fad6a3ede1740))
+
 ## 1.8.0 (2026-10-03)
 
 - Sign in with Google, and Google or OIDC sign-in at an organization's own domain.
