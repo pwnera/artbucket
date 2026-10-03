@@ -87,8 +87,10 @@ to yours. A migration that changes a table changes that fixture too.
 ## Contributor terms
 
 Artbucket is under the [AGPLv3](LICENSE), and Pwnera SAS, which holds its
-copyright, also licenses it commercially. For that to keep working, opening a
-pull request means you agree that:
+copyright, also licenses it commercially. For that to keep working, everyone
+whose commits a pull request carries signs the
+[Contributor License Agreement](CLA.md) once: a bot asks on your first pull
+request, and you sign by posting the comment it gives. In short:
 
 - You keep the copyright in your contribution.
 - You give Pwnera SAS a perpetual, irrevocable, worldwide, royalty-free,
@@ -96,8 +98,13 @@ pull request means you agree that:
   contribution, and to license it to others under any terms, the AGPLv3 and
   commercial licenses included, together with a license under any patent
   claims of yours that your contribution would otherwise infringe.
+- Pwnera SAS keeps your contribution available under the AGPLv3 (or another
+  open-source license) for as long as it distributes it.
 - You have the right to give these licenses: the work is yours, or whoever
   owns it, such as your employer, has agreed.
+
+Each commit's author must be linked to a GitHub account (its email added to
+your GitHub settings), so the bot can tell who signed.
 
 ## Commits
 

@@ -72,8 +72,9 @@ jobs:
             echo
 
             echo "## Branches merged into main"
-            # Not the brand-as-code app's artbucket/{brand} branches, which it reuses, nor the bots'.
-            merged=$(git branch -r --merged origin/main | sed 's|^ *origin/||' | grep -vE '^(HEAD|main)( |$)|^(artbucket|dependabot|release-please)' || true)
+            # Not the brand-as-code app's artbucket/{brand} branches, which it reuses, the bots', or
+            # cla-signatures (cla.yml), which holds the signed CLAs.
+            merged=$(git branch -r --merged origin/main | sed 's|^ *origin/||' | grep -vE '^(HEAD|main)( |$)|^(artbucket|dependabot|release-please|cla-signatures)' || true)
             if [ -n "$merged" ]; then
               echo "$(wc -l <<<"$merged") can be deleted (turn on Settings > General > Automatically delete head branches to stop the pile):"
               echo

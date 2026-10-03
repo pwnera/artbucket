@@ -24,8 +24,9 @@ Decisions are made in the open:
 2. **Accepted** issues are open to anyone; `help wanted` ones nobody is on, `good first issue` ones
    are small and well described. Say you're on one before starting.
 3. **Pull requests** follow [CONTRIBUTING.md](CONTRIBUTING.md). CI checks the code, the migrations,
-   the v1 contract, commit subjects (Conventional Commits) and, for a first pull request, the
-   contributor terms. The maintainer reviews every one.
+   the v1 contract, commit subjects (Conventional Commits) and, from anyone outside the
+   repository's collaborators, the [Contributor License Agreement](CLA.md), signed once. The
+   maintainer reviews every one.
 4. **Releases** are cut by merging the release pull request, which collects what landed on `main`
    since the last one (below).
 
