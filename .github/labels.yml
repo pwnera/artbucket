@@ -1,0 +1,116 @@
+# Every label the repository uses, kept here and synced by .github/workflows/labels.yml.
+# Labels made by hand and missing here stay (skip-delete): add them here to keep them.
+# Dependabot's (dependencies, javascript, github_actions) and release-please's
+# (autorelease: pending, autorelease: tagged) are listed so they keep their colors.
+
+# What it is. The issue templates set bug and enhancement.
+- name: bug
+  color: "d73a4a"
+  description: Behaves differently from how it is documented
+- name: enhancement
+  color: "a2eeef"
+  description: Something new, or something better
+- name: documentation
+  color: "0075ca"
+  description: Docs, README, decisions
+- name: security
+  color: "b60205"
+  description: A hardening change (report vulnerabilities privately, see SECURITY.md)
+- name: breaking
+  color: "000000"
+  description: Changes the frozen v1 contract; waits for v2
+- name: dependencies
+  color: "0366d6"
+  description: Dependabot
+- name: javascript
+  color: "f1e05a"
+  description: Dependabot, npm
+- name: github_actions
+  color: "000000"
+  description: Dependabot, GitHub Actions
+
+# Where it is. Pull requests get these from the files they touch (.github/labeler.yml).
+- name: "area: api"
+  color: "c5def5"
+  description: /api/v1, the OpenAPI spec, contract/
+- name: "area: mcp"
+  color: "c5def5"
+  description: The MCP server and its tools
+- name: "area: cli"
+  color: "c5def5"
+  description: The artbucket CLI
+- name: "area: library"
+  color: "c5def5"
+  description: Assets, fields, search, collections, review
+- name: "area: delivery"
+  color: "c5def5"
+  description: /a and /c, renditions, signed URLs
+- name: "area: brands"
+  color: "c5def5"
+  description: Brand rules, pages, the builder, brand as code
+- name: "area: portals"
+  color: "c5def5"
+  description: Portals and their domains
+- name: "area: hub"
+  color: "c5def5"
+  description: BrandHub
+- name: "area: auth"
+  color: "c5def5"
+  description: Sign-in, SSO, organizations, grants, keys
+- name: "area: db"
+  color: "c5def5"
+  description: Schema and migrations
+- name: "area: ui"
+  color: "c5def5"
+  description: The web app
+- name: "area: deploy"
+  color: "c5def5"
+  description: Docker, Kubernetes, one-click installs, CI
+
+# Where it stands. New issues start at needs-triage; .github/workflows/triage.yml moves needs-info.
+- name: needs-triage
+  color: "fbca04"
+  description: Not looked at yet
+- name: needs-info
+  color: "fef2c0"
+  description: Waiting on the author; closed after 14 days without an answer
+- name: accepted
+  color: "0e8a16"
+  description: Will be done; a pull request is welcome
+- name: deferred
+  color: "d4c5f9"
+  description: On ROADMAP.md's deferred list, waiting on its trigger
+- name: stale
+  color: "ededed"
+  description: At needs-info with no answer; closes in four days
+- name: blocked
+  color: "e99695"
+  description: Waits on something else, linked in the thread
+- name: duplicate
+  color: "cfd3d7"
+  description: Already reported
+- name: wontfix
+  color: "ffffff"
+  description: Out of scope, see ROADMAP.md's non-goals
+- name: question
+  color: "d876e3"
+  description: Better in Discussions
+
+# For newcomers.
+- name: good first issue
+  color: "7057ff"
+  description: Small, well described, and a good way in
+- name: help wanted
+  color: "008672"
+  description: Accepted, and nobody is on it
+
+# Releases (release-please's own).
+- name: "autorelease: pending"
+  color: "ededed"
+  description: The release pull request, not merged yet
+- name: "autorelease: tagged"
+  color: "ededed"
+  description: Released
+- name: digest
+  color: "ededed"
+  description: The weekly maintainer digest

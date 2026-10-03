@@ -1,0 +1,50 @@
+# Area labels a pull request gets from the files it touches (actions/labeler, run by pr.yml).
+# The labels themselves are in labels.yml.
+
+"area: api":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/api/v1/**", "src/lib/openapi.ts", "contract/**", "docs/openapi.json"]
+
+"area: mcp":
+  - changed-files:
+      - any-glob-to-any-file: ["src/lib/mcp.ts", "src/lib/mcp-tools.ts", "src/lib/playbook.ts", "plugin/**", ".claude-plugin/**", "docs/developers/mcp.mdx"]
+
+"area: cli":
+  - changed-files:
+      - any-glob-to-any-file: ["cli/**", "bin/**", "docs/developers/cli.mdx"]
+
+"area: delivery":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/a/**", "src/app/c/**", "src/lib/asset-url.ts", "src/lib/preview.ts", "src/lib/presets.ts", "src/lib/core/renditions*", "src/lib/core/previews*"]
+
+"area: brands":
+  - changed-files:
+      - any-glob-to-any-file: ["src/components/brand*", "src/components/brand-sections/**", "src/components/builder/**", "src/components/site/**", "src/lib/brand-*", "src/lib/pages.ts", "src/lib/builder-ops.ts", "src/lib/git.ts"]
+
+"area: portals":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/p/**", "src/components/portal*", "src/lib/portal.ts"]
+
+"area: hub":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/hub/**", "src/components/hub*", "src/lib/hub.ts", "src/lib/follow.ts"]
+
+"area: auth":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/(auth)/**", "src/app/api/auth/**", "src/lib/auth.ts", "src/lib/access.ts", "src/lib/permissions.ts", "src/lib/oauth.ts"]
+
+"area: db":
+  - changed-files:
+      - any-glob-to-any-file: ["drizzle/**", "src/lib/db/**", "scripts/upgrade-fixture.sql"]
+
+"area: ui":
+  - changed-files:
+      - any-glob-to-any-file: ["src/app/(app)/**", "src/components/**", "src/app/globals.css"]
+
+"area: deploy":
+  - changed-files:
+      - any-glob-to-any-file: ["Dockerfile", "docker-compose.yml", "render.yaml", "deploy/**", ".github/**", "docs/installation/**"]
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "*.md"]
