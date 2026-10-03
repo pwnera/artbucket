@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { brandDomain, brandLook, downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain, wornTheme } from "./portal.ts";
+import { brandDomain, brandLook, darkTwin, downloadsFor, hostname, PORTAL_SLUG, portalRedirect, PortalSite, slugAtHost, subdomainRefusal, underDomain, wornTheme } from "./portal.ts";
 import { PortalPatch } from "./schemas.ts";
 
 const base = "https://assets.example.com";
@@ -126,4 +126,17 @@ test("a portal made for a brand wears its mark and color, unless it sets its own
   assert.deepEqual(wornTheme({ logo: "own", accent: "#000000" }, look), { logo: "own", accent: "#000000" }, "set: its own, for white-label");
   assert.deepEqual(wornTheme({ logo: null, accent: "#000000" }, look), { logo: "mark", accent: "#000000" }, "each on its own");
   assert.deepEqual(wornTheme({ logo: null, accent: null }, null), { logo: null, accent: null }, "no brand: the organization's");
+});
+
+test("in dark mode a header wears the brand's logo for dark grounds, when it draws one", () => {
+  const rules = [
+    { key: "logo.primary", context: null, assets: [{ id: "full", mime: "image/svg+xml" }] },
+    { key: "logo.primary", context: "dark-background", assets: [{ id: "guide", mime: "application/pdf" }, { id: "full-white", mime: "image/svg+xml" }] },
+    { key: "logo.mark", context: null, assets: [{ id: "mark", mime: "image/png" }] },
+    { key: "logo.mark", context: "print", assets: [{ id: "print", mime: "image/png" }] },
+  ];
+  assert.equal(darkTwin(rules, "full"), "full-white", "the same rule on dark grounds, its first image");
+  assert.equal(darkTwin(rules, "mark"), null, "none drawn for dark: the one logo shows in both");
+  assert.equal(darkTwin(rules, null), null);
+  assert.equal(darkTwin(rules, "elsewhere"), null, "a logo no rule holds (the portal's own)");
 });

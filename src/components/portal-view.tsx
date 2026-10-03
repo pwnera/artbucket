@@ -537,7 +537,12 @@ function PortalHeader({
           {theme.logo && (
             // A rendition already sized for this: next/image would only resize it again.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={theme.logo} alt="" className="h-6 w-auto max-w-28 object-contain" />
+            <img src={theme.logo} alt="" className={cn("h-6 w-auto max-w-28 object-contain", theme.logoDark && "dark:hidden")} />
+          )}
+          {theme.logo && theme.logoDark && (
+            // The brand's logo for dark grounds, in dark mode: the other one would vanish on the dark header.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={theme.logoDark} alt="" className="hidden h-6 w-auto max-w-28 object-contain dark:block" />
           )}
           <span className="truncate">{name}</span>
         </SiteLink>

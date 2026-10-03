@@ -135,6 +135,16 @@ export function brandLook(rules: (Pick<HubRule, "key" | "type" | "value" | "cont
   return { logo: (named ?? logoOf(rules))?.id ?? null, accent: tintOf(rules) };
 }
 
+/**
+ * The same logo drawn for dark grounds, for a header in dark mode: the image
+ * of the rule holding `id` in a dark context (dark-background). Null when the
+ * brand has none, and the one logo shows in both.
+ */
+export function darkTwin(rules: (Pick<HubRule, "key" | "context"> & { assets: { id: string; mime: string }[] })[], id: string | null) {
+  const key = id && rules.find((r) => !r.context && r.assets.some((a) => a.id === id))?.key;
+  return (key && rules.find((r) => r.key === key && /dark/.test(r.context ?? ""))?.assets.find((a) => a.mime.startsWith("image/"))?.id) || null;
+}
+
 /** What a portal wears: what it sets, else its brand's (brandLook), else null, the organization's. Setting one is how a portal white-labels. */
 export const wornTheme = (own: Pick<PortalTheme, "logo" | "accent">, brand: { logo: string | null; accent: string | null } | null) => ({
   logo: own.logo ?? brand?.logo ?? null,
