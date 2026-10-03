@@ -3,7 +3,7 @@
 # date) is committed to signatures/cla.json on the cla-signatures branch, never main. The check is
 # this workflow's CLAAssistant job, required by the main ruleset.
 #
-# The maintainer's pull requests and bots' skip it (a skipped job counts as passed). Every commit
+# Pull requests from people who can write to the repository, and bots', skip it. Every commit
 # author on an outside pull request must sign, so a commit whose author is not linked to a GitHub
 # account fails until it is re-authored. A merged pull request is locked, so its signing comment
 # stays.
@@ -32,15 +32,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: >-
-      (github.event_name == 'pull_request_target' &&
-        github.event.pull_request.user.type != 'Bot' &&
-        !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.user.type != 'Bot') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
         (github.event.comment.body == 'recheck' ||
          github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
     steps:
+      # Whoever can write to the repository is not asked. Not author_association: an organization
+      # member whose membership is private shows there as a contributor.
+      - id: who
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
+        run: |
+          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$AUTHOR/permission" --jq .permission 2>/dev/null || true)
+          case "$perm" in admin|maintain|write) echo "$AUTHOR can write here ($perm): no CLA asked."; echo "skip=true" >> "$GITHUB_OUTPUT" ;; esac
+
       # The signatures live on their own branch, made once from main.
       - name: Signatures branch
+        if: steps.who.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,6 +58,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/heads/cla-signatures -f sha="$sha" >/dev/null
 
       - uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        if: steps.who.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
