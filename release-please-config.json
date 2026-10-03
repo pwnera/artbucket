@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "bootstrap-sha": "52336d996d2a0d4411a986158cae3ab28ad58374",
+  "bootstrap-sha": "8bb3b8fd34ea4eec3dba564d933a2a3610ad52a1",
   "pull-request-title-pattern": "chore: release ${version}",
   "pull-request-header": "Merging this releases Artbucket: it tags the version, publishes the GitHub release, the images and the CLI (release.yml). Until then it collects what lands on main.",
   "packages": {

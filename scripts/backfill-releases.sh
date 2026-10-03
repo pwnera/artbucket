@@ -38,6 +38,7 @@ versions="
 1.6.0 33a4db4
 1.6.1 3a76038
 1.7.0 9b1165c
+1.8.0 8bb3b8f
 "
 
 git fetch -q --tags origin
@@ -56,7 +57,10 @@ if [ "${#new[@]}" -gt 0 ]; then
 fi
 
 echo "Releases:"
+# The newest backfilled version becomes Latest only if nothing is released yet: run after a newer
+# release, this must not send the Releases page's Latest back.
 newest=$(awk '/^[0-9]/{v=$1} END{print v}' <<<"$versions")
+gh api "repos/{owner}/{repo}/releases/latest" >/dev/null 2>&1 && newest=none
 while read -r v _; do
   [ -z "$v" ] && continue
   if gh release view "v$v" >/dev/null 2>&1; then echo "  v$v exists"; continue; fi

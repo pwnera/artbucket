@@ -9,7 +9,8 @@ name: Release
 # Only the newest release moves latest, the newest of a major moves {{major}},
 # and npm's latest follows the same rule: a patch on an older line (SECURITY.md
 # supports the previous minor) or an old tag pushed again never sends people
-# back. Release please (release-please.yml) calls this with the tag it made.
+# back. Release please (release-please.yml) calls this with the tag it made. A tag
+# whose package.json says another version publishes nothing.
 on:
   push:
     tags: ["v*"]
@@ -36,12 +37,28 @@ jobs:
       minor: ${{ steps.v.outputs.minor }}
       npm-tag: ${{ steps.v.outputs.npm_tag }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          sparse-checkout: |
+            package.json
+            cli/package.json
+          sparse-checkout-cone-mode: false
       - id: v
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
           REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
           version=${TAG#v}
+          # The version the app and the CLI report is package.json's: a tag must agree with it, so
+          # nothing is published under a number it doesn't carry. The release pull request bumps both.
+          for f in package.json cli/package.json; do
+            have=$(node -p "require('./$f').version")
+            if [ "$have" != "$version" ]; then
+              echo "::error::$TAG is on a commit whose $f says $have. Release through the release pull request, or set both package.json files to $version before tagging."
+              exit 1
+            fi
+          done
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # Released versions only (no -rc), newest last.

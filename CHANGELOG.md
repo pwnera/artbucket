@@ -1,8 +1,23 @@
 # Changelog
 
-Every release since 1.7.0 is written here by the release pull request, from the commit subjects
+Every release after 1.8.0 is written here by the release pull request, from the commit subjects
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
+
+## 1.8.0 (2026-10-03)
+
+- Sign in with Google, and Google or OIDC sign-in at an organization's own domain.
+- Any verified domain may serve the app, each turned on in Settings, Domains; one Domains tab, a
+  Billing tab and Email sending in settings.
+- Who sees an asset, said plainly and chosen at upload; private assets stay private on links,
+  portals, uploads and deletes.
+- Blocks edited where they read, guidelines that read like a person wrote them, a floating Edit on
+  portals and BrandHub for editors.
+- BrandHub: stars and follows, a badge that wears the brand.
+- Agents across several workspaces, Connections in tabs, a key for MCP clients without OAuth; an
+  MCP tool refuses an argument it doesn't take.
+- A CLI push keeps what changed in the app, and a pull never eats unpushed work.
+- Reliability: storage calls time out, downloads stream, failures say what happened, with Retry.
 
 ## 1.7.0 (2026-10-01)
 
