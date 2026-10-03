@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { IconX } from "@tabler/icons-react";
 import { Initials } from "@/components/activity";
 import { useCan, useMe } from "@/components/can";
@@ -108,7 +109,17 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
           </li>
         ))}
       </ul>
-      {options.length > 0 && <Combobox options={options} value="" onChange={(v) => v && void grant(v, "read")} placeholder="Add a person" />}
+      {options.length > 0 ? (
+        <Combobox options={options} value="" onChange={(v) => v && void grant(v, "read")} placeholder="Add a person" />
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          Everyone in the workspace is here already.{" "}
+          <Link href="/team?invite" className="text-foreground underline underline-offset-2">
+            Invite someone
+          </Link>{" "}
+          to add them.
+        </p>
+      )}
       <p className="text-muted-foreground text-xs">
         {admins.length ? `Admins see it too: ${admins.map((m) => m.name || m.email).join(", ")}.` : "Admins see it too."}
       </p>
