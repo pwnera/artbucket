@@ -6,7 +6,14 @@ blob store attached - not a blob store with tags.
 One maintainer. Every milestone below is independently shippable and demoable.
 Estimates assume evenings and weekends, and are guesses.
 
-**Status:** v0.1 to v1.6 shipped. v1.7 in progress (current release 1.7.0).
+**Status:** v0.1 to v1.6 shipped. Analytics in progress. Current release: see
+[Releases](https://github.com/pwnera/artbucket/releases) and [CHANGELOG.md](CHANGELOG.md).
+
+**Milestones are not versions.** Up to v1.6 each milestone was released as its
+own version, and those headings keep their numbers. From here on, milestones
+have names: a milestone ships in whichever release it lands in, and that
+release's notes say so. Version numbers follow semver from the commits
+([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)).
 
 ---
 
@@ -264,7 +271,7 @@ _~6 weekends. The unglamorous one that decides adoption._
 - Access via v0.7 share-link rules: expiry, password, guest request-access
 - Built as a plain API client, same as the main UI - no private endpoints
 
-**Not in this one:** portal page builder. Portal usage lands in v1.7 analytics.
+**Not in this one:** portal page builder. Portal usage lands in Analytics.
 _~3 weekends._
 
 ---
@@ -336,7 +343,7 @@ Shipped in 1.6.0.
 
 ---
 
-## v1.7 - Analytics
+## Analytics
 **Question:** which assets actually get used, where, and by whom?
 
 In progress: 1.6.0 ships its foundation, the `events` table and the Insights
@@ -375,7 +382,7 @@ _~3 weekends._
 
 ---
 
-## v1.8 - Migration
+## Migration
 **Question:** can a team leave their current DAM in an afternoon?
 
 A complete switching strategy, not a pile of one-off scripts.
@@ -407,7 +414,7 @@ _~4 weekends._
 
 ---
 
-## v1.9 - Bring your own bucket
+## Bring your own bucket
 **Question:** can an organization keep its files in its own bucket, on a
 server someone else runs?
 
