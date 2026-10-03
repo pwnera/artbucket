@@ -168,6 +168,16 @@ type Heading = { title: string; lead?: React.ReactNode };
 /** What the form held when it went: `then` reads it, after the code step too. */
 type Values = { name: string; email: string; organization: string };
 
+/** Google's own mark, in its colors: its sign-in buttons are to carry it. */
+const GoogleG = () => (
+  <svg viewBox="0 0 48 48" aria-hidden>
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  </svg>
+);
+
 /**
  * Email and password, one way or the other, and single sign-on when there
  * is some, in its own card: the heading follows the mode and the step.
@@ -178,6 +188,7 @@ export function AuthForm({
   mode: initial,
   signUp,
   oidc,
+  google = false,
   sso: ssoOffered = false,
   email: fixed,
   callbackURL = "/",
@@ -196,6 +207,8 @@ export function AuthForm({
   /** Whether signing up is on offer at all. */
   signUp: boolean;
   oidc: { name: string } | null;
+  /** "Continue with Google" (GOOGLE_*). */
+  google?: boolean;
   /** Some organization signs its people in through its own provider: found by the email's domain. */
   sso?: boolean;
   /** From an invitation: filled in. */
@@ -231,7 +244,7 @@ export function AuthForm({
   const [step, setStep] = useState<"email" | "password">("email");
   /** The address the second step is for, shown above the password. */
   const [shown, setShown] = useState("");
-  const [busy, setBusy] = useState<"form" | "sso" | null>(null);
+  const [busy, setBusy] = useState<"form" | "sso" | "google" | null>(null);
   const [error, setError] = useState<{ text: string; code?: string } | null>(initialError ? { text: initialError } : null);
   /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -296,14 +309,15 @@ export function AuthForm({
     done();
   }
 
-  async function sso() {
-    setBusy("sso");
+  /** The server's own provider (`sso`, OIDC_*) or Google. */
+  async function social(provider: "sso" | "google") {
+    setBusy(provider);
     setError(null);
     beforeSubmit?.();
-    const r = await authPost("sign-in/social", { provider: "oidc", callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
+    const r = await authPost("sign-in/social", { provider: provider === "sso" ? "oidc" : provider, callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
     if (r.ok && r.data.url) return window.location.assign(r.data.url);
     setBusy(null);
-    setError({ text: r.ok ? "Single sign-on isn't answering. Try again, or use your password." : r.message });
+    setError({ text: r.ok ? `${provider === "sso" ? "Single sign-on" : "Google"} isn't answering. Try again, or use your password.` : r.message });
   }
 
   /**
@@ -363,11 +377,18 @@ export function AuthForm({
     <Card title={h.title} lead={h.lead} aside={aside}>
       {/* Hidden, not unmounted, during the code step: going back finds everything as it was typed. */}
       <div hidden={!!confirming} className={cn("space-y-4", returned && "animate-in fade-in-0 slide-in-from-left-2 duration-200")}>
-        {oidc && step === "email" && (
+        {(oidc || google) && step === "email" && (
           <>
-            <Button type="button" variant="outline" className="w-full" pending={busy === "sso"} disabled={!!busy && busy !== "sso"} onClick={() => void sso()}>
-              <IconKey /> Continue with {oidc.name}
-            </Button>
+            {google && (
+              <Button type="button" variant="outline" className="w-full" pending={busy === "google"} disabled={!!busy && busy !== "google"} onClick={() => void social("google")}>
+                <GoogleG /> Continue with Google
+              </Button>
+            )}
+            {oidc && (
+              <Button type="button" variant="outline" className="w-full" pending={busy === "sso"} disabled={!!busy && busy !== "sso"} onClick={() => void social("sso")}>
+                <IconKey /> Continue with {oidc.name}
+              </Button>
+            )}
             <div className="text-muted-foreground flex items-center gap-3 text-xs">
               <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
             </div>
@@ -713,6 +734,7 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
       mode={first ? "up" : "in"}
       signUp={!first && auth.open}
       oidc={auth.oidc}
+      google={auth.google}
       sso={auth.sso}
       callbackURL={next || "/"}
       errorURL={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
@@ -944,6 +966,7 @@ export function InvitePage({
       mode={info.signUp ? "up" : "in"}
       signUp
       oidc={me?.auth.oidc ?? null}
+      google={!!me?.auth.google}
       sso={!!me?.auth.sso}
       email={info.email}
       // A new single sign-on account took the invitation as it was made; one that existed comes back to accept it.

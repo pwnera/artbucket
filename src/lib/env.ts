@@ -109,6 +109,13 @@ const schema = z.object({
   /** The sign-in button's label: "Sign in with {OIDC_NAME}". */
   OIDC_NAME: z.string().default("SSO"),
   /**
+   * "Continue with Google": a Google Cloud OAuth client, both or neither.
+   * Google vouches for the address, not for a place here: sign-up stays
+   * closed to it as to a password (SIGNUP).
+   */
+  GOOGLE_CLIENT_ID: z.string().regex(/^[\w-]+\.apps\.googleusercontent\.com$/, "A Google client ID: 1234-abc.apps.googleusercontent.com").optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  /**
    * The server's email, for every organization that doesn't set its own in
    * Settings (lib/settings.ts). Unset: no email until an organization turns
    * it on.
@@ -120,7 +127,7 @@ const schema = z.object({
 }).refine(
   (e) => [e.OIDC_ISSUER, e.OIDC_CLIENT_ID, e.OIDC_CLIENT_SECRET].filter(Boolean).length % 3 === 0,
   "Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together, or none of them",
-);
+).refine((e) => !e.GOOGLE_CLIENT_ID === !e.GOOGLE_CLIENT_SECRET, "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together, or neither");
 
 const parsed = schema.safeParse(process.env);
 

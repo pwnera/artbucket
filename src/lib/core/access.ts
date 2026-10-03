@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
-import { auth, oidc } from "@/lib/auth";
+import { auth, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
@@ -258,6 +258,7 @@ export async function describeCaller(caller: Caller) {
       signUp,
       open: env.SIGNUP === "open",
       oidc: oidc && { name: oidc.name },
+      google,
       sso,
       anonymous,
       passwordReset,

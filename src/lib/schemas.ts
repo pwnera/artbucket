@@ -1188,6 +1188,7 @@ export const Me = z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
+    google: z.boolean().describe("Sign-in with Google is on (GOOGLE_*)"),
     sso: z.boolean().describe("Some organization here signs its people in through its own provider: sign-in offers it by email domain"),
     anonymous: scope.describe("What a request without a key or a session may do"),
     passwordReset: z.boolean().describe("A forgotten password can be reset by email"),

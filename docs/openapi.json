@@ -34644,6 +34644,10 @@
                               ],
                               "description": "Single sign-on, when configured"
                             },
+                            "google": {
+                              "type": "boolean",
+                              "description": "Sign-in with Google is on (GOOGLE_*)"
+                            },
                             "sso": {
                               "type": "boolean",
                               "description": "Some organization here signs its people in through its own provider: sign-in offers it by email domain"
@@ -34678,6 +34682,7 @@
                             "signUp",
                             "open",
                             "oidc",
+                            "google",
                             "sso",
                             "anonymous",
                             "passwordReset",
