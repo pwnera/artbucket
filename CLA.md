@@ -2,9 +2,6 @@
 
 Version 1.0
 
-> **Draft, not in force.** This text waits on review by counsel. Until this note is removed, the
-> contributor terms in [CONTRIBUTING.md](CONTRIBUTING.md#contributor-terms) apply.
-
 This agreement is between you and **Pwnera SAS**, 47 rue Vivienne, 75002 Paris, France
 ("Pwnera"), which holds the copyright in Artbucket and licenses it under the
 [GNU Affero General Public License v3](LICENSE) and commercially. It lets Pwnera keep doing both
