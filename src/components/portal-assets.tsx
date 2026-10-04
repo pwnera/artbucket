@@ -16,7 +16,7 @@ import { Kbd } from "@/components/ui/kbd";
 import type { PortalSite } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
-export type Theme = { logo: string | null; logoDark?: string | null; accent: string | null; background: string | null; icon?: string | null; product?: string };
+export type Theme = { logo: string | null; logoDark?: string | null; logoSays?: string | null; accent: string | null; background: string | null; icon?: string | null; product?: string };
 export type Access = "password" | "members";
 type Download = { preset: string; label: string; hint: string; url: string; filename: string };
 type Item = Omit<PublicItem, "downloads" | "original"> & { downloads: Download[] };

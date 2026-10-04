@@ -618,8 +618,12 @@ export function sectionGround(t: Theme, s: Pick<Section, "tone" | "background">,
       const ink = [pair, inkOn(bg), inkOn(to)].filter((c): c is string => !!c).reduce((a, b) => (reads(b) > reads(a) ? b : a));
       const [from, into] = [bg, to].map((end) => check(rows, `fade end under text`, end, ink, 4.5, () => lift(end, ink, 4.5)));
       const worst = contrast(ink, from) <= contrast(ink, into) ? from : into;
+      // Quiet text (an eyebrow, a lede) is the ink softened toward the ground; graded on one end alone it could
+      // turn dark on a light end and vanish on a dark one, so it softens only as far as both ends allow, else it is the ink.
+      const soft = mix(ink, worst, 0.35);
+      const muted = Math.min(contrast(soft, from), contrast(soft, into)) >= 4.5 ? soft : ink;
       return {
-        ...on(worst, `${key} fading into ${s.background!.to}`, ink),
+        ...on(worst, `${key} fading into ${s.background!.to}`, ink, muted),
         background: from,
         gradient: `linear-gradient(${s.background?.angle ?? 180}deg, ${from}, ${into})`,
       };

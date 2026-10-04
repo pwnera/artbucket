@@ -544,7 +544,8 @@ function PortalHeader({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={theme.logoDark} alt="" className="hidden h-6 w-auto max-w-28 object-contain dark:block" />
           )}
-          <span className="truncate">{name}</span>
+          {/* The logo spells the name already: the words stay for screen readers. */}
+          <span className={cn("truncate", theme.logo && theme.logoSays?.trim().toLowerCase() === name.trim().toLowerCase() && "sr-only")}>{name}</span>
         </SiteLink>
         {children}
         {/* On a painted header the toggle keeps the header's ink, hovered or not. */}

@@ -464,9 +464,12 @@ const shownTheme = async (p: Row) => {
   const worn = wornTheme(p.theme, shown && brandLook(shown.rules, shown.logo));
   // Its own logo is the portal's choice for every ground; the brand's has a twin for dark mode when the brand draws one.
   const dark = shown && !p.theme.logo ? darkTwin(shown.rules, worn.logo) : null;
+  // A wordmark or lockup spells the brand's name, which the header then need not repeat beside it.
+  const key = shown && !p.theme.logo ? shown.rules.find((r) => !r.context && r.assets.some((a) => a.id === worn.logo))?.key : undefined;
   return {
     logo: (await logoUrl(p.workspaceId, worn.logo)) ?? org.logo,
     logoDark: await logoUrl(p.workspaceId, dark),
+    logoSays: key && !/mark|icon|symbol|glyph/.test(key) ? first!.name : null,
     accent: worn.accent ?? org.accent,
     background: p.theme.background,
     icon: org.icon,
