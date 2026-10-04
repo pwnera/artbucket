@@ -35,7 +35,7 @@ import { checkLimit, limitsOf } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { type Action, can } from "@/lib/permissions";
-import { brandLook, challengeName, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, wornTheme, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
+import { brandLook, challengeName, darkTwin, DEFAULT_PRESETS, PORTAL_SLUG, PortalSite, subdomainRefusal, wornTheme, type PortalAccess, type PortalPreset, type PortalTheme } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
@@ -437,6 +437,12 @@ const logoUrl = async (ws: string, id: string | null) => {
  * files that may be shown. GET /api/v1/portals/look shows it in the form.
  */
 export async function brandLookOf(ws: string, slug: string) {
+  const { rules, logo } = await shownRules(ws, slug);
+  return brandLook(rules, logo);
+}
+
+/** A brand's published rules with only the files that may be shown, each with its mime, and the logo its theme names. */
+async function shownRules(ws: string, slug: string) {
   const src = await publishedSource(ws, slug);
   const ids = [...new Set(src?.rules.flatMap((r) => r.assets.map((a) => a.id)) ?? [])];
   const usable = ids.length
@@ -444,7 +450,8 @@ export async function brandLookOf(ws: string, slug: string) {
         (await db.select({ id: assets.id, mime: assets.mime }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))).map((a) => [a.id, a.mime]),
       )
     : new Map<string, string>();
-  return brandLook((src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) })), src?.theme.logo);
+  const rules = (src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) }));
+  return { rules, logo: src?.theme.logo };
 }
 
 /**
@@ -453,9 +460,16 @@ export async function brandLookOf(ws: string, slug: string) {
  */
 const shownTheme = async (p: Row) => {
   const [org, first] = await Promise.all([brandOfWorkspace(p.workspaceId), brandsOf(p.id).then((l) => l.find((b) => b.shown))]);
-  const worn = wornTheme(p.theme, first ? await brandLookOf(p.workspaceId, first.slug) : null);
+  const shown = first ? await shownRules(p.workspaceId, first.slug) : null;
+  const worn = wornTheme(p.theme, shown && brandLook(shown.rules, shown.logo));
+  // Its own logo is the portal's choice for every ground; the brand's has a twin for dark mode when the brand draws one.
+  const dark = shown && !p.theme.logo ? darkTwin(shown.rules, worn.logo) : null;
+  // A wordmark or lockup spells the brand's name, which the header then need not repeat beside it.
+  const key = shown && !p.theme.logo ? shown.rules.find((r) => !r.context && r.assets.some((a) => a.id === worn.logo))?.key : undefined;
   return {
     logo: (await logoUrl(p.workspaceId, worn.logo)) ?? org.logo,
+    logoDark: await logoUrl(p.workspaceId, dark),
+    logoSays: key && !/mark|icon|symbol|glyph/.test(key) ? first!.name : null,
     accent: worn.accent ?? org.accent,
     background: p.theme.background,
     icon: org.icon,

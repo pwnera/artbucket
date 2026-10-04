@@ -54,7 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>{accent && <style>{accent}</style>}</head>
       <body className="font-sans antialiased">
         {/* Its script sets the theme before the page paints: it runs under the policy's nonce (src/proxy.ts). */}
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange nonce={h.get("x-nonce") ?? undefined}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange nonce={h.get("x-nonce") ?? undefined}>
           <BrandProvider value={b}>
             <TooltipProvider delayDuration={400} skipDelayDuration={300}>
               {children}

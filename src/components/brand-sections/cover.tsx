@@ -5,6 +5,7 @@ import { IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react
 import type { z } from "zod";
 import { useGround } from "@/components/brand-sections/frame";
 import { HEAD } from "@/components/brand-sections/look";
+import { markOf } from "@/components/brand-sections/parts";
 import { Body, Eyebrow, Lede, Mark, Title } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { IconButton } from "@/components/icon-button";
@@ -71,6 +72,9 @@ export function CoverSection({ section: s }: SectionProps) {
   const home = view.page?.home ?? true;
   const mark = p.mark === "always" || (p.mark !== "never" && home);
   const heading = home ? view.brand.name : (view.page?.title ?? view.brand.name);
+  // A wordmark or lockup already spells the name: the heading saying it again stays for readers of the outline only.
+  const spelled = mark && !/mark|icon|symbol|glyph/.test(markOf(view.rules.filter((r) => r.context === null))?.key ?? "mark");
+  const echo = spelled && (s.title ?? heading).trim().toLowerCase() === view.brand.name.trim().toLowerCase();
   const big = cn(TITLE[p.titleSize ?? "large"], "leading-[1.1] break-words");
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
@@ -105,7 +109,7 @@ export function CoverSection({ section: s }: SectionProps) {
         {mark && <Mark brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
         <div className="max-w-full space-y-4">
           <Eyebrow />
-          {s.title ? <Title as={H} className={big} /> : <H className={cn(HEAD, big, "text-balance")}>{heading}</H>}
+          {s.title ? <Title as={H} className={cn(big, echo && "sr-only")} /> : <H className={cn(HEAD, big, "text-balance", echo && "sr-only")}>{heading}</H>}
           <Lede className="max-w-2xl @3xl:text-2xl" />
         </div>
         <Body className="max-w-2xl" />

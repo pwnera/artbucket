@@ -319,6 +319,14 @@ test("grounds: tones take the theme's colors, a pair when it reads, and a hairli
   assert.notEqual(into, (colorOf("color.primary")!.value as string).toLowerCase());
   for (const end of [from, into]) assert.ok(contrast(fade.vars["--brand-ink"], end) >= 4.5, end);
   assert.ok(fade.checks.some((c) => c.pair === "fade end under text" && !c.ok), "the darkened end shows as a contrast note");
+  // Its quiet text (an eyebrow, a lede) reads on both ends too, never graded on one alone (black into a mid blue).
+  for (const end of [from, into]) assert.ok(contrast(fade.vars["--brand-muted"], end) >= 4.5, `muted on ${end}`);
+  const night = (hex: string) => ({ key: "color.x", type: "color" as const, value: hex, spec: null, context: null, assets: [] });
+  const deep = sectionGround(t, { tone: "color", background: { color: "color.black", to: "color.blue" } }, (k) =>
+    k === "color.black" ? night("#000000") : k === "color.blue" ? night("#007fae") : undefined,
+  );
+  const [, black, sea] = deep.gradient!.match(/^linear-gradient\(180deg, (#\w+), (#\w+)\)$/)!;
+  for (const end of [black, sea]) assert.ok(contrast(deep.vars["--muted-foreground"], end) >= 4.5, `muted on ${end}`);
   assert.equal(g({ tone: "color", background: { color: "color.secondary", to: "color.gone" } }).gradient, undefined, "a gone second color: no fade");
   assert.equal(g({ tone: "image", background: { image: "x", scrim: 0.8 } }).scrim, 0.8);
   assert.equal(g({ tone: "image", background: { image: "x" } }).scrim, 0.54, "raised until white reads on any picture");

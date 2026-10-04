@@ -117,7 +117,15 @@ function Card(p: Pick) {
         <div className="bg-muted relative aspect-[16/9] overflow-hidden border-b">
           {/* The card's title names the page, so its cover says nothing more. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url(cover.id, "/w_640,f_webp")} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
+          <img
+            src={url(cover.id, "/w_640,f_webp")}
+            // Twice as wide for a sharp card on a high-density screen, as Thumb does.
+            srcSet={`${url(cover.id, "/w_1280,f_webp")} 2x`}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="size-full object-cover"
+          />
         </div>
       )}
       <div className="flex flex-1 flex-col gap-2 p-4 [&_a]:relative [&_a]:z-10">
