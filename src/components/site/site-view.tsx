@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from "@tabler/icons-react";
+import { IconDots, IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from "@tabler/icons-react";
 import { PageBody } from "@/components/brand-sections";
 import { LABEL, LookProvider, useSiteLook } from "@/components/brand-sections/look";
 import { goTo, TYPING, useHashFlash } from "@/components/site/anchors";
@@ -20,6 +20,7 @@ import { WhatsNew } from "@/components/site/updates";
 import { IconButton } from "@/components/icon-button";
 import { SiteLinkIcon } from "@/components/site/link-icon";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -134,22 +135,48 @@ function Layout({
   const [searching, setSearching] = useState(false);
   const go = useCallback((to: string) => (onNavigate ? onNavigate(to) : window.location.assign(to)), [onNavigate]);
   const first = portal?.brands[0]?.slug;
-  // Search, quick grab, the language, the brand's links and print: icons, their words their tooltips, in the bar or atop the nav's column.
-  const links = view.theme.settings.links ?? [];
+  // The brand's links (its repository first), quick grab, the language, then search and print, always last: icons,
+  // their words their tooltips, in the bar or atop the nav's column.
+  const links = useMemo(() => {
+    const all = view.theme.settings.links ?? [];
+    const repo = (u: string) => /^https:\/\/(www\.)?github\.com\//i.test(u);
+    return [...all.filter((l) => repo(l.url)), ...all.filter((l) => !repo(l.url))];
+  }, [view.theme.settings.links]);
+  // Past three, the first two stay as icons and the rest fold into a menu, so the bar never crowds.
+  const [inline, folded] = links.length > 3 ? [links.slice(0, 2), links.slice(2)] : [links, []];
   const tools = (
     <>
-      <IconButton label="Search" shortcut={["/"]} variant="ghost" aria-keyshortcuts="/" onClick={() => setSearching(true)}>
-        <IconSearch aria-hidden />
-      </IconButton>
-      {!!portal?.site.quick?.length && first && <QuickGrab quick={portal.site.quick} base={base} first={first} onNavigate={onNavigate} />}
-      <LanguageSwitch view={view} onNavigate={onNavigate} />
-      {links.map((l) => (
+      {inline.map((l) => (
         <IconButton key={l.url} asChild variant="ghost" label={l.label} aria-label={`${l.label} (opens in a new tab)`}>
           <a href={l.url} target="_blank" rel="noopener noreferrer">
             <SiteLinkIcon url={l.url} />
           </a>
         </IconButton>
       ))}
+      {folded.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <IconButton label="More links" variant="ghost">
+              <IconDots aria-hidden />
+            </IconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {folded.map((l) => (
+              <DropdownMenuItem key={l.url} asChild>
+                <a href={l.url} target="_blank" rel="noopener noreferrer" aria-label={`${l.label} (opens in a new tab)`}>
+                  <SiteLinkIcon url={l.url} />
+                  {l.label}
+                </a>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {!!portal?.site.quick?.length && first && <QuickGrab quick={portal.site.quick} base={base} first={first} onNavigate={onNavigate} />}
+      <LanguageSwitch view={view} onNavigate={onNavigate} />
+      <IconButton label="Search" shortcut={["/"]} variant="ghost" aria-keyshortcuts="/" onClick={() => setSearching(true)}>
+        <IconSearch aria-hidden />
+      </IconButton>
       <IconButton label="Print this page" variant="ghost" onClick={() => window.print()}>
         <IconPrinter aria-hidden />
       </IconButton>
