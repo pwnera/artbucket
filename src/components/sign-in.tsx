@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { MakeDialog, pickWorkspace, signOut, useGo, type Me } from "@/components/account";
+import { MakeDialog, pickWorkspace, signOut, useGo, type Legal, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";
 import type { Brand } from "@/lib/branding";
 import { send } from "@/lib/send";
@@ -200,6 +200,7 @@ export function AuthForm({
   organization = false,
   error: initialError,
   below,
+  legal,
   aside,
 }: {
   heading: (mode: "in" | "up") => Heading;
@@ -230,6 +231,8 @@ export function AuthForm({
   error?: string;
   /** A muted line under the form. */
   below?: React.ReactNode;
+  /** Where an account is made: going on agrees to these. */
+  legal?: Legal | null;
   /** Beside the card on wide screens: see Shell. */
   aside?: React.ReactNode;
 }) {
@@ -527,6 +530,7 @@ export function AuthForm({
             Forgot it? Ask an admin: this server can&apos;t email reset links yet.
           </p>
         )}
+        {legal && !organization && (signUp || mode === "up") && <Agrees legal={legal} />}
         {below && <p className="text-muted-foreground text-xs text-pretty">{below}</p>}
       </div>
       {confirming && (
@@ -637,6 +641,22 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
   );
 }
 
+/** Above the button that makes an account (Google's too): going on agrees to the operator's terms. */
+function Agrees({ legal }: { legal: Legal }) {
+  const link = (href: string, label: string) => (
+    <a href={href} target="_blank" rel="noreferrer" className="text-foreground underline underline-offset-2">
+      {label}
+    </a>
+  );
+  const parts = [legal.terms && link(legal.terms, "Terms"), legal.privacy && link(legal.privacy, "Privacy Policy")].filter(Boolean);
+  return (
+    <p className="text-muted-foreground text-xs text-pretty">
+      By continuing, you agree to the {parts[0]}
+      {parts[1] && <> and the {parts[1]}</>}.
+    </p>
+  );
+}
+
 /** First run: the seeded organization is "Default" until named. Best effort: Settings can rename it any time. */
 async function nameOrganization(name: string) {
   if (!name) return;
@@ -743,6 +763,7 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
+      legal={auth.legal}
       // A renamed or restyled install gets the card alone: the aside is the product's own pitch.
       aside={brand.custom ? undefined : <SignInAside />}
     />
@@ -970,6 +991,7 @@ export function InvitePage({
       sso={!!me?.auth.sso}
       email={info.email}
       // A new single sign-on account took the invitation as it was made; one that existed comes back to accept it.
+      legal={me?.auth.legal}
       callbackURL={`/invite/${token}?accept=1`}
       newUserURL="/"
       errorURL={`/invite/${token}`}

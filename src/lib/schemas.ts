@@ -1201,6 +1201,11 @@ export const Me = z.object({
     serverEmail: z
       .boolean()
       .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
+    legal: z
+      .object({ terms: z.url().nullable(), privacy: z.url().nullable() })
+      .nullable()
+      .optional()
+      .describe("The operator's terms and privacy policy (TERMS_URL, PRIVACY_URL), which making an account agrees to; null when neither is set"),
   }),
 });
 
