@@ -1,7 +1,7 @@
-import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { assets, brands, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
@@ -113,13 +113,20 @@ async function editorsOf(organizationId: string, q: Tx | typeof db = db) {
 const workspacesOf = async (organizationId: string, q: Tx | typeof db = db) =>
   (await q.select({ n: count() }).from(workspaces).where(eq(workspaces.organizationId, organizationId)))[0].n;
 
+/** A workspace's default brand before anything is in it (no rules, pages or release): where it starts, not a brand that takes the plan's slot. */
+const untouched = (q: Tx | typeof db) =>
+  and(
+    eq(brands.isDefault, true),
+    ...[brandRules, brandPages, brandVersions].map((t) => notExists(q.select({ id: t.brandId }).from(t).where(eq(t.brandId, brands.id)))),
+  )!;
+
 const brandsOf = async (organizationId: string, q: Tx | typeof db = db) =>
   (
     await q
       .select({ n: count() })
       .from(brands)
       .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-      .where(eq(workspaces.organizationId, organizationId))
+      .where(and(eq(workspaces.organizationId, organizationId), not(untouched(q))))
   )[0].n;
 
 const domainsOf = async (organizationId: string, q: Tx | typeof db = db) =>

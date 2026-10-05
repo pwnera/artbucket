@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { hubListings } from "@/lib/core/hub";
 import { env } from "@/lib/env";
 
+// Read at request time: HUB_URL is a runtime setting, unset at build, which would freeze an empty sitemap.
+export const dynamic = "force-dynamic";
+
 /** The hub's verified listings and their owners, for search engines: community ones stay out, as their pages say. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!env.HUB_URL) return [];

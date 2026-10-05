@@ -93,6 +93,18 @@ export const defaultWorkspace = memo(60_000, async () => {
   return first;
 });
 
+const NIL = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Where /me says a caller who can open no workspace is: nowhere. Never the
+ * workspace they fell back to (the oldest), whose name and organization are
+ * someone else's.
+ */
+const NOWHERE: Workspace = { id: NIL, slug: "", name: "", organizationId: NIL, organization: { id: NIL, slug: "", name: "" } };
+
+/** The caller can open their workspace: a key, a scope there or on its organization, or grants inside it. */
+export const placed = (c: Caller) => !!c.key || !!c.scope || !!c.orgScope || isNarrowed(c);
+
 /** Private collections where `where` says: what a workspace's scope doesn't reach (lib/access.ts). */
 const privateCollections = (where: SQL) =>
   db
@@ -217,15 +229,16 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
 export async function describeCaller(caller: Caller) {
+  const here = placed(caller) ? caller.workspace : NOWHERE;
   const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice, joinable] = await Promise.all([
-    canEmail(caller.workspace.organizationId),
+    canEmail(here.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
     anonymousScope(),
     canResetPasswords(),
     ssoOffered(),
-    effective("limits", { organizationId: caller.workspace.organizationId }),
-    effective("notice", { organizationId: caller.workspace.organizationId }),
+    effective("limits", { organizationId: here.organizationId }),
+    effective("notice", { organizationId: here.organizationId }),
     joinOffer(caller),
   ]);
   const admin = !!caller.user && caller.orgScope === "admin";
@@ -233,7 +246,7 @@ export async function describeCaller(caller: Caller) {
     user: caller.user,
     key: !!caller.key,
     actor: caller.actor,
-    workspace: caller.workspace,
+    workspace: here,
     scope: caller.scope,
     orgScope: caller.orgScope,
     readOnly: !!caller.readOnly,
@@ -241,7 +254,7 @@ export async function describeCaller(caller: Caller) {
     email,
     narrow: caller.narrow,
     off: caller.off,
-    hidden: caller.hidden,
+    hidden: here === NOWHERE ? [] : caller.hidden,
     workspaces,
     features: limits.value.features,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),

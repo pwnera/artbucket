@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { IconGauge, IconLayoutGrid, IconLogin2, IconPlus, IconRobot } from "@tabler/icons-react";
 import { notFound } from "next/navigation";
@@ -14,6 +16,20 @@ import { env } from "@/lib/env";
  * (lib/hub.ts cookieDomain); a hub on a host of its own elsewhere shows
  * public brands only.
  */
+/** Listings' logos are relative (/a/...): they unfurl from the host that was asked, never APP_URL's default. */
+export async function generateMetadata(): Promise<Metadata> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0].trim();
+  const app = new URL(env.APP_URL);
+  const title = "BrandHub: brands to build with";
+  const description = "Logos, colors, type and voice that open source projects, organizations and companies share, for people and agents.";
+  return {
+    metadataBase: new URL(host ? `${app.protocol}//${host}` : app.origin),
+    openGraph: { siteName: "BrandHub", title, description },
+    twitter: { card: "summary" },
+  };
+}
+
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
   if (!hubOn()) notFound();
   const [base, viewer] = await Promise.all([hubBase(), hubViewer()]);

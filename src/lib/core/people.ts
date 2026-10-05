@@ -9,7 +9,7 @@ import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit, checkOrganizations } from "@/lib/core/usage";
-import { defaultWorkspace, type Caller } from "@/lib/core/access";
+import { defaultWorkspace, placed, type Caller } from "@/lib/core/access";
 import { onlyOrganization } from "@/lib/core/branding";
 import { highest, type Ability, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -137,7 +137,7 @@ async function addWorkspace(tx: Tx, organizationId: string, name: string) {
 
 /** Organizations this caller belongs to: any grant in one is membership. */
 export async function listOrganizations(caller: Caller) {
-  if (!caller.user) return [caller.workspace.organization];
+  if (!caller.user) return placed(caller) ? [caller.workspace.organization] : [];
   const rows = await db
     .selectDistinct({ id: organizations.id, slug: organizations.slug, name: organizations.name, createdAt: organizations.createdAt })
     .from(organizations)
@@ -208,7 +208,7 @@ export async function listWorkspaces(caller: Caller) {
     .from(workspaces)
     .where(eq(workspaces.organizationId, caller.workspace.organizationId))
     .orderBy(asc(workspaces.createdAt));
-  if (!caller.user) return all.map((w) => ({ ...w, scope: w.id === caller.workspace.id ? caller.scope : caller.orgScope }));
+  if (!caller.user) return placed(caller) ? all.map((w) => ({ ...w, scope: w.id === caller.workspace.id ? caller.scope : caller.orgScope })) : [];
   const mine = await db
     .select({ workspaceId: grants.workspaceId, resource: grants.resource, scope: grants.scope })
     .from(grants)

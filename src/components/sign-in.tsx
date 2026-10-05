@@ -711,7 +711,7 @@ function SignInAside() {
 }
 
 /** /login: sign in, or on a fresh install set it up. */
-export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; next?: string; error?: boolean }) {
+export function SignInPage({ auth, next, error = false, up = false }: { auth: Me["auth"]; next?: string; error?: boolean; up?: boolean }) {
   const first = auth.signUp;
   const brand = useBrand();
   const go = useGo();
@@ -730,8 +730,8 @@ export function SignInPage({ auth, next, error = false }: { auth: Me["auth"]; ne
             ? { title: `Join ${brand.name}`, lead: why ?? "Your account comes with an organization of its own." }
             : { title: `Sign in to ${brand.name}`, lead: why ?? brand.tagline ?? undefined }
       }
-      // First run: making the account is all there is; nobody has one to sign in with.
-      mode={first ? "up" : "in"}
+      // First run: making the account is all there is; nobody has one to sign in with. Sent to sign up (?mode=up): that form first.
+      mode={first || (up && auth.open) ? "up" : "in"}
       signUp={!first && auth.open}
       oidc={auth.oidc}
       google={auth.google}
