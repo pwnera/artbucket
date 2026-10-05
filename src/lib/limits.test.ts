@@ -29,14 +29,16 @@ test("nothing is limited until the operator says so, and a limit is only passed 
 });
 
 test("the environment sets every organization's; one organization's row overrides it property by property", () => {
-  const env = { LIMIT_STORAGE: "10GB", LIMIT_EDITORS: "5", LIMIT_DOMAINS: "2", LIMIT_FEATURES: "shares" };
-  assert.deepEqual(limitsFromEnv(env), { ...UNLIMITED, storage: 10e9, editors: 5, domains: 2, features: ["shares"] });
+  const env = { LIMIT_STORAGE: "10GB", LIMIT_EDITORS: "5", LIMIT_DOMAINS: "2", LIMIT_EMAILS: "50", LIMIT_FEATURES: "shares" };
+  assert.deepEqual(limitsFromEnv(env), { ...UNLIMITED, storage: 10e9, editors: 5, domains: 2, emails: 50, features: ["shares"] });
   assert.equal(limitsFromEnv({}), null);
   assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "none" })?.features, []);
   const org = resolve("limits", { organization: { storage: "1TB", readOnly: true } }, env).value;
   assert.equal(org.storage, 1e12);
   assert.equal(org.editors, 5);
   assert.equal(org.readOnly, true);
+  assert.equal(org.emails, 50);
+  assert.equal(resolve("limits", { organization: { emails: 500 } }, env).value.emails, 500, "a plan's own");
   assert.throws(() => limitsFromEnv({ LIMIT_STORAGE: "lots" }));
   assert.throws(() => limitsFromEnv({ LIMIT_FEATURES: "chatbot" }));
   assert.deepEqual(limitsFromEnv({ LIMIT_FEATURES: "agents,shares" })?.features, ["agents", "shares"]);

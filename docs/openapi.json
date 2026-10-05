@@ -35197,6 +35197,13 @@
                                 "null"
                               ]
                             },
+                            "emails": {
+                              "description": "Emails a day: invitations, share links, tests; null: no limit",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
                             "features": {
                               "anyOf": [
                                 {
@@ -35226,6 +35233,7 @@
                             "workspaces",
                             "brands",
                             "domains",
+                            "emails",
                             "features",
                             "readOnly"
                           ],

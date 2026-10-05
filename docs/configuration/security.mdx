@@ -27,13 +27,14 @@ reverse proxy that sets that header, and don't expose its port directly.
 
 ## Email
 
-Each organization sends at most `EMAIL_DAILY_LIMIT` emails a day (200 by
-default; `0` turns the cap off): invitations, share links and tests. Past it,
-links are still made to copy, and sending one by email answers `429`. Sign-up
-codes, password resets and portal requests to an organization's admins never
-count, so one organization can't stop them. A test email goes only to whoever
-sends it, and an organization has at most 200 invitations waiting at once. The
-count lives in each process's memory, like the rate limits.
+An organization sends as many emails a day as its `emails` limit allows
+(`LIMIT_EMAILS`, or its own limits row; unlimited until set): invitations,
+share links and tests. With open sign-up, set it, so no one account can spend
+your sender's reputation. Past it, links are still made to copy, and sending
+one by email answers `429`. Sign-up codes, password resets and portal requests
+to an organization's admins never count, so one organization can't stop them.
+A test email goes only to whoever sends it, and an organization has at most
+200 invitations waiting at once. See [Limits](/configuration/limits).
 
 ## Headers
 

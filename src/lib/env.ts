@@ -102,8 +102,6 @@ const schema = z.object({
   SIGNUP: z.enum(["invite", "open"]).default("invite"),
   /** /api requests per minute per client (lib/rate.ts); 0 turns the limit off. */
   RATE_LIMIT: z.coerce.number().int().nonnegative().default(1200),
-  /** Emails a day per organization (lib/core/mail.ts); 0 turns the cap off. Sign-up codes and password resets never count. */
-  EMAIL_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(200),
   /** Single sign-on with any OpenID Connect provider: all three, or none. */
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
