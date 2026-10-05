@@ -754,6 +754,7 @@ const SAYS: Record<AuditAction, string> = {
   "email_domain.removed": "removed the email domain",
   "email_domain.opened": "let anyone join from",
   "email_domain.closed": "stopped joining from",
+  "email_domain.landing": "changed where people land joining from",
   "email_domain.joined": "joined by email domain as",
   "domain.removed": "removed the domain",
   "domain.primary": "made the default domain",

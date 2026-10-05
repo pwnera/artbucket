@@ -8,7 +8,7 @@ import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import type { HubOffer } from "@/components/hub-offers";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
 import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
-import { SsoPanel, type Sso } from "@/components/settings/sso";
+import { SsoPanel, type Sso, type Workspace } from "@/components/settings/sso";
 import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
 import { find, has, locked, opens } from "@/components/settings/sections";
 import { SectionSkeleton } from "@/components/skeletons";
@@ -66,7 +66,8 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
   const forMembers = `${context}/${section}` === "workspace/members";
   const forHub = `${context}/${section}` === "organization/hub";
   const forDomains = `${context}/${section}` === "organization/domains";
-  const [me, loaded, collections, reports, domains, offers] = await Promise.all([
+  const forSso = `${context}/${section}` === "organization/sso";
+  const [me, loaded, collections, reports, domains, offers, spaces] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
     // What a member's access can be scoped to.
@@ -78,6 +79,8 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     forHub || forDomains ? get("domains", (b: { data: Domain[] }) => b.data, forDomains ? null : []) : [],
     // And the listings those domains claim.
     forHub ? get("hub/offers", (b: { data: HubOffer[] }) => b.data, []) : [],
+    // Where people joining by email domain or single sign-on land, when there is more than one.
+    forDomains || forSso ? get("workspaces", (b: { data: Workspace[] }) => b.data, []) : [],
   ]);
   if (!opens(me, s)) redirect("/settings");
   // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
@@ -141,7 +144,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
               </p>
             )
           )}
-          <EmailDomainsPanel domains={data<EmailDomain[]>()} />
+          <EmailDomainsPanel domains={data<EmailDomain[]>()} workspaces={spaces} />
         </div>
       );
     case "organization/hub":
@@ -151,7 +154,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     case "organization/sso": {
       const { data: sso, redirectUris } = loaded as { data: Sso | null; redirectUris: string[] };
       // Keyed by what the server has: after a save the form starts from it.
-      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUris={redirectUris} />;
+      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUris={redirectUris} workspaces={spaces} />;
     }
     case "account/profile":
       return <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;
