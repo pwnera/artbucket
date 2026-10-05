@@ -14,6 +14,7 @@ import { SCOPES } from "./scopes.ts";
 import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
+import { MAX_UPLOAD_BYTES } from "./filename.ts";
 import { FITS, FORMATS } from "./transform.ts";
 import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, PRESET_IDS } from "./portal.ts";
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
@@ -31,7 +32,7 @@ import { HUB_REF, REPORT_REASONS } from "./hub.ts";
 
 export { FieldDefInput, FieldDefPatch, PageInput, RuleInput, RuleOrder, RulePatch, ThemePatch, ThemeSettings };
 
-export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+export { MAX_UPLOAD_BYTES };
 const uuid = z.uuid();
 const values = z.record(z.string(), z.unknown()).describe("Custom field values, keyed by field key");
 const tags = z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS);
@@ -43,6 +44,8 @@ export const CreateUpload = z.object({
   mime: z.string().min(1).max(255),
   size: z.number().int().positive().max(MAX_UPLOAD_BYTES),
 });
+/** What the routes parse: the size unbounded, so core answers too_large in MB, not a generic body error. */
+export const CreateUploadInput = CreateUpload.extend({ size: z.number().int().positive() });
 
 const promote = {
   /** Custom field values; validated against the schema, required ones enforced. */

@@ -25,6 +25,9 @@ Step 3 hashes what arrived. The same bytes uploaded twice are one asset
 the server fetch it; a Figma or Google Docs link is kept as the link and shows
 as its embed.
 
+Files go up to 512 MB each. A bigger one is refused at step 1, before any
+bytes move, with `413 too_large`.
+
 On ingest, EXIF, IPTC and XMP are read (title, caption, creator, copyright,
 camera), embedded keywords become tags, and C2PA Content Credentials say how
 the file was made.

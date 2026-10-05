@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "@/components/external-link";
 import type { Brand } from "@/lib/branding";
 import { inkOn } from "@/lib/color";
+import { tooLargeToUpload } from "@/lib/filename";
 import { pool } from "@/lib/pool";
 import { cn } from "@/lib/utils";
 import { shake } from "@/lib/motion";
@@ -418,6 +419,8 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
       await pool(batch, 3, async ({ file, id }) => {
         const mime = file.type || "application/octet-stream";
         try {
+          const big = tooLargeToUpload(file.size);
+          if (big) throw new Error(big);
           patch(id, { status: "uploading" });
           const ticket = await fetch(`/api/v1/shared/${token}/uploads`, {
             method: "POST",

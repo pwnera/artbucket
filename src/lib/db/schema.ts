@@ -1122,6 +1122,10 @@ export const domains = pgTable("domains", {
   primary: boolean("primary").notNull().default(false),
   token: text("token").notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  /** When a verified one's TXT record was last looked at again (lib/core/reproof.ts). */
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  /** Since when that record has been gone, at every look; null while it is there. */
+  missingSince: timestamp("missing_since", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("domains_portal_unique").on(t.portalId),
@@ -1141,6 +1145,10 @@ export const emailDomains = pgTable("email_domains", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   token: text("token").notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  /** When a verified one's TXT record was last looked at again (lib/core/reproof.ts). */
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  /** Since when that record has been gone, at every look; null while it is there. */
+  missingSince: timestamp("missing_since", { withTimezone: true }),
   join: boolean("join").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("email_domains_org_idx").on(t.organizationId)]);

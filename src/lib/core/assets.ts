@@ -32,7 +32,7 @@ import { isDownloadable, isEmpty, RightsInput, type Origin, type Rights } from "
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { isReview, STATES, type State } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
-import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
+import { MAX_UPLOAD_BYTES, tooLargeToUpload } from "@/lib/filename";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, isVector, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
@@ -139,9 +139,8 @@ export async function createUploadTicket(
   caller: Pick<Caller, "workspace">,
   input: { filename: string; mime: string; size: number },
 ): Promise<UploadTicket> {
-  if (input.size > MAX_UPLOAD_BYTES) {
-    throw new AssetError("too_large", `Max upload size is ${MAX_UPLOAD_BYTES} bytes`);
-  }
+  const big = tooLargeToUpload(input.size);
+  if (big) throw new AssetError("too_large", big);
   await checkLimit(caller.workspace.organizationId, "storage", { adding: input.size });
   await ensureBucket();
   const token = randomUUID();

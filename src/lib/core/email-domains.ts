@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { resolveTxt } from "node:dns/promises";
 import { and, eq, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import { getDomain } from "tldts";
 import { db } from "@/lib/db";
@@ -8,6 +7,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { txtAt } from "@/lib/domain-proof";
 import { can, needs } from "@/lib/permissions";
 import { freeMail } from "@/lib/free-mail";
 import { challengeName, hostname } from "@/lib/portal";
@@ -107,10 +107,7 @@ export async function verifyEmailDomain(caller: Caller, domain: string) {
   if (!row) return null;
   if (row.verifiedAt) return present(row, await ssoDomain(organizationId));
   const name = challengeName(row.domain);
-  const txt = await resolveTxt(name).then(
-    (rs) => rs.map((r) => r.join("")),
-    () => [] as string[],
-  );
+  const txt = (await txtAt(name)) ?? [];
   if (!txt.includes(row.token)) {
     throw new AssetError("invalid", `Not found yet: a TXT record ${name} holding ${row.token}. DNS can take a while to reach everyone`, { found: { txt } });
   }
