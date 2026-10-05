@@ -615,7 +615,7 @@ export const Brand = z.object({
 });
 /** POST /api/v1/brands: the brand, and what making it from a brand.json left out, and its release when it was published at once. */
 export const BrandMade = Brand.extend({
-  skipped: z.array(z.string()).optional().describe("From a brand.json: files and portfolio brands that wouldn't read, each with why"),
+  skipped: z.array(z.string()).optional().describe("From a brand.json: files and portfolio brands that wouldn't read; from a BrandHub brand: files shown there but not handed out. Each with why"),
   dropped: z.array(z.string()).optional().describe("From a brand.json: what it says that has no place in the rules, by its path there"),
   published: z.number().int().optional().describe("With publish: the version released"),
   hub: z.object({ visibility: z.enum(["private", "public"]), url: z.string() }).nullable().optional().describe("With publish: where it is on BrandHub"),
