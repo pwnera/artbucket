@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Waiting } from "@/components/waiting";
 import { shake, useKept } from "@/lib/motion";
+import { solve, type Challenge } from "@/lib/pow";
 
 /**
  * Signing in and up, against better-auth at /api/auth: who someone is. What
@@ -39,14 +40,19 @@ const COPY: Record<string, string> = {
   INVALID_TOKEN: "This link expired or was used already. Ask for a new one.",
   // Signed in from an address other than the server's own (APP_URL): a proxy, an IP, a second hostname.
   INVALID_ORIGIN: "This page isn't at the address the server is set up for (its APP_URL). Open it there, or ask its operator, then try again.",
+  // The sign-up check (useCaptcha): not done yet, or refused.
+  MISSING_RESPONSE: "Finish the check above the button, then try again.",
+  VERIFICATION_FAILED: "The check above the button didn't pass. Try it again.",
 };
 
 type AuthResult = { ok: true; data: { url?: string; token?: string | null } } | { ok: false; message: string; code?: string };
 
-async function authPost(path: string, body: unknown): Promise<AuthResult> {
+/** `captcha`: the sign-up check's answer (useCaptcha), for the calls lib/auth.ts guards with one. */
+async function authPost(path: string, body: unknown, captcha?: string | null): Promise<AuthResult> {
   let res: Response;
   try {
-    res = await fetch(`/api/auth/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const headers: Record<string, string> = { "Content-Type": "application/json", ...(captcha ? { "x-captcha-response": captcha } : {}) };
+    res = await fetch(`/api/auth/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
   } catch {
     return { ok: false, code: "NETWORK", message: UNREACHABLE };
   }
@@ -85,6 +91,132 @@ function useCarriedEmail(skip = false) {
     }
   }, [skip]);
   return input;
+}
+
+type Turnstile = {
+  render: (el: HTMLElement, options: Record<string, unknown>) => string | undefined;
+  reset: (id: string) => void;
+  remove: (id: string) => void;
+};
+const turnstileApi = () => (window as { turnstile?: Turnstile }).turnstile;
+let turnstileScript: Promise<Turnstile> | null = null;
+/** Cloudflare's script, once, the first time a form needs it: never on pages that don't. */
+function loadTurnstile() {
+  return (turnstileScript ??= new Promise<Turnstile>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true;
+    s.onload = () => {
+      const ts = turnstileApi();
+      if (ts) resolve(ts);
+      else reject(new Error("Turnstile didn't load"));
+    };
+    s.onerror = () => {
+      turnstileScript = null;
+      reject(new Error("Turnstile didn't load"));
+    };
+    document.head.append(s);
+  }));
+}
+
+/**
+ * The Turnstile widget (TURNSTILE_SITE_KEY, lib/auth.ts) in the element
+ * `box` lands on, while `siteKey` is set. `take` hands over its token for one
+ * guarded call and starts the widget over: a token is good once.
+ */
+function useTurnstile(siteKey: string | null, appearance: "always" | "interaction-only" = "always") {
+  const box = useRef<HTMLDivElement>(null);
+  const widget = useRef<string | undefined>(undefined);
+  const token = useRef<string | null>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!siteKey || !el) return;
+    let gone = false;
+    loadTurnstile()
+      .then((ts) => {
+        if (gone) return;
+        widget.current = ts.render(el, {
+          sitekey: siteKey,
+          size: "flexible",
+          appearance,
+          callback: (t: string) => void (token.current = t),
+          "expired-callback": () => void (token.current = null),
+          "error-callback": () => void (token.current = null),
+        });
+      })
+      // Blocked or offline: the server says the check is missing, and the form shows that.
+      .catch(() => {});
+    return () => {
+      gone = true;
+      if (widget.current) turnstileApi()?.remove(widget.current);
+      widget.current = undefined;
+      token.current = null;
+    };
+  }, [siteKey, appearance]);
+  const take = () => {
+    const t = token.current;
+    token.current = null;
+    if (widget.current) turnstileApi()?.reset(widget.current);
+    return t;
+  };
+  return [box, take] as const;
+}
+
+/**
+ * The proof of work (lib/pow.ts) while `on`: fetched and solved as soon as
+ * the form shows, so it is usually done by the time it goes. `take` waits for
+ * it and starts the next: each is good once.
+ */
+function usePow(on: boolean) {
+  const [solving, setSolving] = useState(false);
+  const pending = useRef<Promise<string | null> | null>(null);
+  const abort = useRef<AbortController | null>(null);
+  const start = useRef(() => {
+    abort.current?.abort();
+    const ac = (abort.current = new AbortController());
+    setSolving(true);
+    pending.current = fetch("/api/auth/captcha/challenge", { cache: "no-store", signal: ac.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<Challenge>) : null))
+      .then((c) => c && solve(c, ac.signal))
+      // Offline: the server says the check is missing, and the form shows that.
+      .catch(() => null)
+      .finally(() => abort.current === ac && setSolving(false));
+  });
+  useEffect(() => {
+    if (!on) return;
+    start.current();
+    return () => {
+      abort.current?.abort();
+      abort.current = null;
+      pending.current = null;
+      setSolving(false);
+    };
+  }, [on]);
+  const take = async () => {
+    const p = pending.current;
+    if (!p) return null;
+    const answer = await p;
+    start.current();
+    return answer;
+  };
+  return [take, solving] as const;
+}
+
+/**
+ * The host's sign-up check (/api/v1/me auth.captcha) while `on`: Turnstile's
+ * widget in `box` when `widget`, or a proof of work, solved out of sight.
+ * `take` gives the answer for one guarded call; `checking` while the work runs.
+ */
+function useCaptcha(
+  kind: Me["auth"]["captcha"],
+  siteKey: string | null,
+  on: boolean,
+  appearance?: "always" | "interaction-only",
+) {
+  const [box, takeTurnstile] = useTurnstile(on && kind === "turnstile" ? siteKey : null, appearance);
+  const [takePow, checking] = usePow(on && kind === "pow");
+  const take = async () => (kind === "pow" ? takePow() : kind === "turnstile" ? takeTurnstile() : null);
+  return [box, take, checking, on && kind === "turnstile" && !!siteKey] as const;
 }
 
 /** Seconds until a code or link may go again: better-auth sends three a minute, then refuses. */
@@ -202,6 +334,8 @@ export function AuthForm({
   below,
   legal,
   aside,
+  captcha = null,
+  turnstile = null,
 }: {
   heading: (mode: "in" | "up") => Heading;
   mode: "in" | "up";
@@ -235,6 +369,9 @@ export function AuthForm({
   legal?: Legal | null;
   /** Beside the card on wide screens: see Shell. */
   aside?: React.ReactNode;
+  /** The host's sign-up check (/api/v1/me auth.captcha), and Turnstile's site key when it is that. */
+  captcha?: Me["auth"]["captcha"];
+  turnstile?: string | null;
 }) {
   const id = useId();
   const go = useGo();
@@ -258,6 +395,8 @@ export function AuthForm({
   const emailInput = useCarriedEmail(!!fixed);
   const passwordInput = useRef<HTMLInputElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
+  // From the email step on: the proof of work has the time it takes to type the rest.
+  const [checkBox, takeCheck, checking, widget] = useCaptcha(captcha, turnstile, mode === "up" && (step === "password" || captcha === "pow"));
   const done = () => (then ? then(values.current) : go(callbackURL));
 
   /** On to the password, or back to the email: focus follows, after the step paints. */
@@ -289,7 +428,7 @@ export function AuthForm({
     const r =
       mode === "in"
         ? await authPost("sign-in/email", { email: v.email, password })
-        : await authPost("sign-up/email", { name: v.name || v.email.split("@")[0], email: v.email, password });
+        : await authPost("sign-up/email", { name: v.name || v.email.split("@")[0], email: v.email, password }, await takeCheck());
     // Made, or known but unconfirmed: either way a code is on its way.
     if ((r.ok && mode === "up" && !r.data.token) || (!r.ok && r.code === "EMAIL_NOT_VERIFIED")) {
       setBusy(null);
@@ -485,6 +624,12 @@ export function AuthForm({
               )}
             </div>
           )}
+          {widget && <div ref={checkBox} />}
+          {checking && mode === "up" && step === "password" && (
+            <p role="status" className="text-muted-foreground text-xs">
+              Checking you&apos;re not a bot…
+            </p>
+          )}
           {error && (
             <FormError id={errorId}>
               {error.text}
@@ -540,6 +685,8 @@ export function AuthForm({
           onDone={done}
           onBack={() => leaveCode()}
           onSignIn={fromUp && signUp ? () => leaveCode("in") : undefined}
+          captcha={captcha}
+          turnstile={turnstile}
         />
       )}
     </Card>
@@ -547,8 +694,24 @@ export function AuthForm({
 }
 
 /** The six digits mailed to a new account: pasted, typed or autofilled, it goes as soon as all six are in. */
-function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDone: () => void; onBack: () => void; onSignIn?: () => void }) {
+function ConfirmEmail({
+  email,
+  onDone,
+  onBack,
+  onSignIn,
+  captcha,
+  turnstile,
+}: {
+  email: string;
+  onDone: () => void;
+  onBack: () => void;
+  onSignIn?: () => void;
+  /** A new code takes the sign-up check too: out of sight unless Turnstile asks for a click. */
+  captcha: Me["auth"]["captcha"];
+  turnstile: string | null;
+}) {
   const id = useId();
+  const [checkBox, takeCheck, , widget] = useCaptcha(captcha, turnstile, true, "interaction-only");
   const input = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -571,7 +734,7 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
 
   async function resend() {
     setSending(true);
-    const r = await authPost("email-otp/send-verification-otp", { email, type: "email-verification" });
+    const r = await authPost("email-otp/send-verification-otp", { email, type: "email-verification" }, await takeCheck());
     setSending(false);
     if (r.ok) restart();
     setNote(r.ok ? { error: false, text: "A new code is on its way." } : { error: true, text: r.message });
@@ -637,6 +800,8 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
           </button>
         </p>
       )}
+      {/* Last, out of the way: it only shows when Cloudflare wants a click before a new code goes. */}
+      {widget && <div ref={checkBox} />}
     </form>
   );
 }
@@ -766,6 +931,8 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       legal={auth.legal}
       // A renamed or restyled install gets the card alone: the aside is the product's own pitch.
       aside={brand.custom ? undefined : <SignInAside />}
+      captcha={auth.captcha}
+      turnstile={auth.turnstile}
     />
   );
 }
@@ -999,6 +1166,8 @@ export function InvitePage({
       then={() => void accept(true)}
       forgot={!!me?.auth.passwordReset}
       error={ssoError ? SSO_FAILED : undefined}
+      captcha={me?.auth.captcha ?? null}
+      turnstile={me?.auth.turnstile ?? null}
     />
   );
 }

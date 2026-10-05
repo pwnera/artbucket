@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import type { BetterAuthPlugin } from "better-auth";
+import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
@@ -15,6 +17,7 @@ import { maySignUp, signedIn, welcome } from "@/lib/core/people";
 import { joinThroughSso, passwordBarred, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
+import { makeChallenge, verifySolution } from "@/lib/pow";
 import { underDomain } from "@/lib/portal";
 import { lockedBy } from "@/lib/settings";
 
@@ -95,6 +98,55 @@ const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCall
  * for any host it does not cover, and that host keeps a cookie of its own.
  */
 const shared = cookieDomain(env.APP_URL, env.HUB_URL);
+
+/**
+ * Making an account with a password, and sending its email code, take a check
+ * against scripted sign-ups, its answer in the x-captcha-response header
+ * (components/sign-in.tsx). Not signing in, nor a reset, nor a provider's
+ * sign-up: the provider vouched. Which check depends on the address the app
+ * answers at: Cloudflare Turnstile at APP_URL's when TURNSTILE_* is set (its
+ * widget knows the hosts it may run on); anywhere else then, and everywhere
+ * with SIGNUP_CAPTCHA=pow, a proof of work of our own (lib/pow.ts). Else none.
+ */
+const CAPTCHA_PATHS = ["/sign-up/email", "/email-otp/send-verification-otp"];
+const appOrigin = new URL(env.APP_URL).origin;
+export const captchaAt = (origin: string) =>
+  env.TURNSTILE_SECRET_KEY && origin === appOrigin ? "turnstile" : env.TURNSTILE_SECRET_KEY || env.SIGNUP_CAPTCHA === "pow" ? "pow" : null;
+/** The check at a host a request came to: its own if it is an organization's domain for the app (authAt), else APP_URL's. */
+export const captchaAtHost = async (host: string | null | undefined) => captchaAt((await appOriginAt(host))[0] ?? appOrigin);
+
+/** The path under /api/auth, as better-auth routes it: `//sign-up/email/` is `/sign-up/email`. */
+const authPath = (url: string) => `/${new URL(url).pathname.replace(/^\/api\/auth/, "").replace(/\/{2,}/g, "/").replace(/^\/|\/$/g, "")}`;
+
+// Its own key, made from BETTER_AUTH_SECRET: a signature here is good for nothing else.
+const POW_KEY = `${env.BETTER_AUTH_SECRET}:signup-pow`;
+
+/** GET /api/auth/captcha/challenge hands out a challenge; the guarded calls take its solution. */
+const pow = {
+  id: "captcha",
+  onRequest: async (req: Request) => {
+    const path = authPath(req.url);
+    if (path === "/captcha/challenge" && req.method === "GET") {
+      return { response: Response.json(await makeChallenge(POW_KEY), { headers: { "Cache-Control": "no-store" } }) };
+    }
+    if (!CAPTCHA_PATHS.includes(path)) return;
+    const answer = req.headers.get("x-captcha-response");
+    const why = answer ? await verifySolution(POW_KEY, answer) : "missing";
+    if (!why) return;
+    return {
+      response: Response.json(
+        why === "missing" ? { code: "MISSING_RESPONSE", message: "Missing CAPTCHA response" } : { code: "VERIFICATION_FAILED", message: "Captcha verification failed" },
+        { status: why === "missing" ? 400 : 403 },
+      ),
+    };
+  },
+} satisfies BetterAuthPlugin;
+
+const captchaFor = (origin: string): BetterAuthPlugin[] => {
+  const kind = captchaAt(origin);
+  if (kind === "pow") return [pow];
+  return kind === "turnstile" ? [captcha({ provider: "cloudflare-turnstile", secretKey: env.TURNSTILE_SECRET_KEY!, endpoints: CAPTCHA_PATHS })] : [];
+};
 
 /** A link better-auth made, on APP_URL instead of the host it was made at. */
 const onApp = (url: string) => {
@@ -190,6 +242,7 @@ export const auth = betterAuth({
   // A session and its person in one query (db/schema.ts relations): every request reads one.
   advanced: { database: { joins: true }, ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}) },
   plugins: [
+    ...captchaFor(appOrigin),
     ...(verify
       ? [
           emailOTP({
@@ -282,7 +335,8 @@ export async function authAt(host: string | null | undefined) {
   if (!origin) return auth;
   let a = atHost.get(origin);
   if (!a) {
-    const plugins = auth.options.plugins.map((p) => (p.id === "oauth-proxy" ? proxy(origin) : p)) as typeof auth.options.plugins;
+    // Its own check too: Turnstile's widget runs at APP_URL only (captchaAt).
+    const plugins = auth.options.plugins.flatMap((p) => (p.id === "oauth-proxy" ? [proxy(origin)] : p.id === "captcha" ? captchaFor(origin) : [p])) as typeof auth.options.plugins;
     atHost.set(origin, (a = betterAuth({ ...auth.options, baseURL: origin, plugins }) as typeof auth));
   }
   return a;

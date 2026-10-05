@@ -57,7 +57,8 @@ A test email goes only to whoever sends it, and an organization has at most
 
 Every page carries a Content-Security-Policy (only scripts carrying that
 response's nonce run, frames from Figma and Google's embeds only, uploads to
-your storage only),
+your storage only; with `TURNSTILE_*`, Cloudflare Turnstile's script and frame
+too),
 `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, a strict referrer
 policy, a Permissions-Policy that turns off camera, microphone and location,
 and `Cross-Origin-Opener-Policy: same-origin`. With an `https` `APP_URL`, HSTS

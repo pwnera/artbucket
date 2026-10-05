@@ -3,7 +3,7 @@ import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
 import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
-import { auth, google, oidc } from "@/lib/auth";
+import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
@@ -229,10 +229,10 @@ export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
   return caller.scope ? allWorkspaces() : [];
 }
 
-/** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in. */
-export async function describeCaller(caller: Caller) {
+/** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in, at the host asked. */
+export async function describeCaller(caller: Caller, host?: string | null) {
   const here = placed(caller) ? caller.workspace : NOWHERE;
-  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice, joinable] = await Promise.all([
+  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice, joinable, captcha] = await Promise.all([
     canEmail(here.organizationId),
     openWorkspaces(caller),
     hasUsers().then((some) => !some),
@@ -242,6 +242,7 @@ export async function describeCaller(caller: Caller) {
     effective("limits", { organizationId: here.organizationId }),
     effective("notice", { organizationId: here.organizationId }),
     joinOffer(caller),
+    captchaAtHost(host),
   ]);
   const admin = !!caller.user && caller.orgScope === "admin";
   return {
@@ -280,6 +281,8 @@ export async function describeCaller(caller: Caller) {
       anonymous,
       passwordReset,
       serverEmail: lockedBy("email", process.env),
+      captcha,
+      turnstile: captcha === "turnstile" ? (env.TURNSTILE_SITE_KEY ?? null) : null,
       legal: env.TERMS_URL || env.PRIVACY_URL ? { terms: env.TERMS_URL ?? null, privacy: env.PRIVACY_URL ?? null } : null,
     },
   };

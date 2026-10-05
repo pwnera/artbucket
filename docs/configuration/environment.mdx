@@ -27,6 +27,8 @@ naming the variable.
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
 | `OIDC_NAME` | `SSO` | The button: "Sign in with `OIDC_NAME`" |
+| `TURNSTILE_SITE_KEY` `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile on making an account with a password at `APP_URL`, a proof of work at an organization's own domain; both or neither. See [Authentication](/configuration/auth#a-check-against-scripted-sign-ups) |
+| `SIGNUP_CAPTCHA` | unset | `pow`: a built-in proof of work on making an account with a password, on every host Turnstile doesn't cover. See [Authentication](/configuration/auth#a-check-against-scripted-sign-ups) |
 | `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Set: every organization's email, and new accounts confirm their address with a code. Unset: no email, unless an organization sets its own |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key. `EMAIL_REPLY_TO` is also where Help's Send feedback writes; unset, the app offers none |
 | `TERMS_URL` `PRIVACY_URL` | unset | Your terms and privacy policy. Set: wherever an account is made, it says that going on agrees to them, with links. `PRIVACY_URL` also shows as a "Privacy" link where visitors without an account land: portals (their door and requests for access too), share links and BrandHub |
