@@ -13,7 +13,7 @@ import { AssetError } from "@/lib/core/errors";
 import { recordSearch, who } from "@/lib/core/events";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
-import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
+import { checkLimit, claimStorage, limitsOf, uncountRenditions } from "@/lib/core/usage";
 import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -1091,6 +1091,7 @@ export async function deleteAsset(caller: Caller, id: string) {
   if (!asset) return false;
   if (asset.deletedAt) return true;
   await db.update(assets).set({ deletedAt: sql`now()`, updatedAt: sql`now()` }).where(eq(assets.id, id));
+  await uncountRenditions(asset.workspaceId, typeof asset.probe?.preview === "string" ? asset.probe.preview : asset.sha256);
   // Deleting the current version hands over to the newest approved one left.
   if (asset.stackId) await repoint(asset.stackId);
   await record(caller, "deleted", asset);

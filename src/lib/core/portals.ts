@@ -21,7 +21,7 @@ import {
   type PortalRequestStatus,
 } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
-import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
+import { hiddenIn, ipOf, workspaceById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
 import { listUpdates } from "@/lib/core/brand";
 import { brandOfWorkspace } from "@/lib/core/branding";
@@ -411,8 +411,13 @@ export async function verifyDomain(caller: Caller, portalId: string) {
 
 // ---- the visitor's side -----------------------------------------------------------
 
-/** Wrong passwords per portal, and requests per address: as share links (lib/core/shares.ts). */
+/**
+ * Wrong passwords: ten in ten minutes from one address, two hundred in all
+ * per portal against guessing from many. Only misses count, so whoever knows
+ * the password is never kept out by someone else guessing.
+ */
 const guesses = limiter(10, 10 * 60_000);
+const sprays = limiter(200, 10 * 60_000);
 const asks = limiter(5, 60 * 60_000);
 const floods = limiter(30, 60 * 60_000);
 
@@ -554,10 +559,12 @@ async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience
   if (await keyValid(p, pass.key)) return { p, level: "partners" };
   if (p.access === "public") return { p, level: "everyone" };
   if (p.access === "password" && pass.password) {
-    const wait = guesses.wait(p.id);
+    const from = `${ipOf(pass.headers ?? new Headers()) ?? "?"}:${p.id}`;
+    const wait = guesses.wait(from) || sprays.wait(p.id);
     if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
     if (p.passwordHash && (await verifyPassword(pass.password, p.passwordHash))) return { p, level: "partners" };
-    guesses.hit(p.id);
+    guesses.hit(from);
+    sprays.hit(p.id);
   }
   if (p.access === "members" && (await isMember(p, pass.headers))) return { p, level: "members" };
   const detail = { name: p.name, access: p.access, theme: await shownTheme(p) };

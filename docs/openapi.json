@@ -16410,7 +16410,7 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
                         },
                         "skipped": {
-                          "description": "From a brand.json: files and portfolio brands that wouldn't read, each with why",
+                          "description": "From a brand.json: files and portfolio brands that wouldn't read; from a BrandHub brand: files shown there but not handed out. Each with why",
                           "type": "array",
                           "items": {
                             "type": "string"
@@ -54097,7 +54097,7 @@
     "/api/v1/audit": {
       "get": {
         "summary": "The audit log",
-        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace admin, the workspace's.\n\nScope: `admin`.",
+        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace admin, the workspace's.\n\nScope: `admin`.",
         "x-scope": "admin",
         "parameters": [
           {
