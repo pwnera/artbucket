@@ -1,7 +1,7 @@
 # Contributing
 
-Thanks for looking. This project has one maintainer, so a short
-conversation before a large PR saves us both time.
+Thanks for looking. Pwnera SAS runs this project, and a short conversation
+before a large PR saves us both time.
 
 ## Before you write code
 

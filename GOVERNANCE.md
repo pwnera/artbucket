@@ -4,8 +4,8 @@ How Artbucket is run, who decides, and what you can count on.
 
 ## Who decides
 
-Artbucket has one maintainer, [@aminekaabachi](https://github.com/aminekaabachi), for
-[Pwnera SAS](LICENSE), which holds its copyright. The maintainer decides what lands, in what order,
+Artbucket is built and run by [Pwnera SAS](LICENSE), which holds its copyright. Its maintainer,
+[@aminekaabachi](https://github.com/aminekaabachi), decides what lands, in what order,
 and when it ships. That is said plainly so nobody has to guess.
 
 Decisions are made in the open:

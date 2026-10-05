@@ -3,11 +3,12 @@
 Agent-first, headless-by-design asset management. A brand knowledge graph with a
 blob store attached - not a blob store with tags.
 
-One maintainer. Every milestone below is independently shippable and demoable.
-Estimates assume evenings and weekends, and are guesses.
+Built and run by [Pwnera SAS](LICENSE). Every milestone below is independently
+shippable and demoable.
 
-**Status:** v0.1 to v1.6 shipped. Analytics in progress. Current release: see
-[Releases](https://github.com/pwnera/artbucket/releases) and [CHANGELOG.md](CHANGELOG.md).
+**Status:** milestones v0.1 to v1.6 shipped; releases since, through 1.9, are in
+[CHANGELOG.md](CHANGELOG.md) and [Releases](https://github.com/pwnera/artbucket/releases).
+Analytics is in progress: its foundation and the Insights page shipped.
 
 **Milestones are not versions.** Up to v1.6 each milestone was released as its
 own version, and those headings keep their numbers. From here on, milestones
@@ -44,8 +45,6 @@ Three rules, in priority order:
 
 **Not in this one:** metadata, search, tags, anything multi-user.
 **Done when:** a fresh clone reaches a visible thumbnail in under five minutes.
-_~2 weekends._
-
 ---
 
 ## v0.2 - It becomes a DAM
@@ -60,8 +59,6 @@ _~2 weekends._
 
 **Not in this one:** semantic/vector search. Postgres FTS until it visibly fails.
 **Done when:** 1,000 assets are searchable and a query returns in <100ms.
-_~3 weekends._
-
 ---
 
 ## v0.3 - The API becomes the product
@@ -77,7 +74,7 @@ _~3 weekends._
 
 **Not in this one:** new features. This milestone is entirely structural.
 **Done when:** the UI has zero endpoints of its own, and the OpenAPI spec is complete.
-_~2 weekends. Painful, non-negotiable, and cheap only if done now._
+_Painful, non-negotiable, and cheap only if done now._
 
 ---
 
@@ -92,7 +89,7 @@ _~2 weekends. Painful, non-negotiable, and cheap only if done now._
 **Not in this one:** a chatbot in the sidebar. The agent lives in the user's
 editor, not in this app.
 **Done when:** an agent finds an asset and returns a correctly-sized URL, unaided.
-_~2 weekends. This is the launch-worthy milestone._
+_This is the launch-worthy milestone._
 
 ---
 
@@ -108,8 +105,6 @@ _~2 weekends. This is the launch-worthy milestone._
 
 **Done when:** an agent asks "what's our primary blue for dark backgrounds"
 and gets a hex code with its usage rule.
-_~3 weekends._
-
 ---
 
 ## v0.6 - Verdict and provenance
@@ -122,7 +117,7 @@ _~3 weekends._
 - C2PA manifest read and preserve
 
 **Done when:** `/check` correctly refuses a superseded logo and names its replacement.
-_~3 weekends. This is the moat._
+_This is the moat._
 
 ---
 
@@ -136,7 +131,7 @@ _~3 weekends. This is the moat._
 - Audit log (also free - cheap trust)
 
 **Not in this one:** SAML, SCIM. Those are the eventual commercial line.
-_~4 weekends. Deliberately deferred: single-user validates the thesis fine._
+_Deliberately deferred: single-user validates the thesis fine._
 
 ---
 
@@ -189,8 +184,6 @@ generators (Veo, Kling, Seedance) wait on video renditions.
 **Done when:** a person connects Claude.ai and ChatGPT by pasting one URL, with
 no key, and sees each appear in Connected agents after its first call; and an
 image generated in Recraft lands in Review with its generator and prompt.
-_~2 weekends._
-
 ---
 
 ## v0.8 - Lifecycle
@@ -200,8 +193,6 @@ _~2 weekends._
 - States: draft → in review → approved → expired → archived
 - **Expiry enforced at delivery** - rendition URLs 410 and caches purge
 - Bulk operations
-
-_~3 weekends._
 
 ---
 
@@ -242,7 +233,7 @@ _~3 weekends._
     if the hosted plan stops fitting
 - Telemetry **off by default**
 
-_~6 weekends. The unglamorous one that decides adoption._
+_The unglamorous one that decides adoption._
 
 ---
 
@@ -272,8 +263,6 @@ _~6 weekends. The unglamorous one that decides adoption._
 - Built as a plain API client, same as the main UI - no private endpoints
 
 **Not in this one:** portal page builder. Portal usage lands in Analytics.
-_~3 weekends._
-
 ---
 
 ## v1.2 - Full white-labeling
@@ -288,8 +277,6 @@ _~3 weekends._
 - One theme source of truth, reused by portals from v1.1
 
 **Not in this one:** branded API docs, branded MCP server names.
-_~3 weekends._
-
 ---
 
 ## v1.3 - Server email and brands in portals
@@ -378,8 +365,6 @@ revenue attribution. This is first-party usage data, separate from the v0.9
 telemetry, which stays off.
 **Done when:** you can name the ten most-used assets this month, the channel
 each came through, and every external domain embedding a superseded logo.
-_~3 weekends._
-
 ---
 
 ## Migration
@@ -410,8 +395,6 @@ A complete switching strategy, not a pile of one-off scripts.
 **Not in this one:** two-way sync, migrating *out* beyond the standard export.
 **Done when:** a 10k-asset Brandfolder export imports with zero lost metadata
 and a clean dry-run diff on rerun.
-_~4 weekends._
-
 ---
 
 ## Bring your own bucket
@@ -451,15 +434,12 @@ client-side encryption, non-S3 backends.
 **Done when:** an organization on a shared server points at its own R2 bucket,
 moves a 10k-asset library there with zero lost files, and the server's bucket
 holds none of its bytes afterwards.
-_~3 weekends._
-
 ---
 
 ## Later - Backup and restore
 **Question:** can a lost file or a dropped table come back?
 
-Planned, not scheduled. Picked up when a hosted server holds data someone
-cannot lose.
+Planned: a backup and restore guide and tooling for self-hosted servers.
 
 - Postgres first: without it the bucket is a pile of hashes. Point-in-time
   recovery where the host offers it, plus a nightly `pg_dump` to another provider
@@ -470,8 +450,6 @@ cannot lose.
 - Deleted originals pruned from the backup after the soft-delete window, so
   erasure has a stated deadline
 - A restore that is actually tested, documented step by step
-
-_~2 weekends._
 
 ---
 
