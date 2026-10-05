@@ -70,7 +70,8 @@ the brand's dark-background variant, as a URL at the size it needs.
 The Claude Code plugin adds a skill that teaches the workflow (brand rules
 first, a use check before publishing, provenance on anything generated):
 `/plugin marketplace add pwnera/artbucket`, then
-`/plugin install artbucket@artbucket`. Other agents: `npx skills add pwnera/artbucket`.
+`/plugin install artbucket@artbucket` (Cloud; on your own server, start Claude
+Code with `ARTBUCKET_URL` set to its URL). Other agents: `npx skills add pwnera/artbucket`.
 See [MCP].
 
 ## Run it yourself
