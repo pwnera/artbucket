@@ -66,7 +66,7 @@ import { guidelinesPath } from "@/lib/site";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format, pinned to that version. On a site, in docs or anywhere it should follow the asset, use /c/{id}/w_800,f_webp instead: it redirects to the current version, so a new logo reaches every page without touching it. Asset URLs are private: they work with your key, and for people who can see the asset. When your own fetch can't send the key (a web fetch, a sandbox), open fetchUrl from describe_asset or rendition_url: signed for a few minutes, for you, not to hand on. For anyone else, ask rendition_url with expiresIn: it answers when the asset is public, shown on a public portal, or your key may share; otherwise it says what the person can do, so tell them. What you ingest, import or tag is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets still open with your key, for the team, but never for anyone else: a URL you hand on answers 410, so check_use first.
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format, pinned to that version. On a site, in docs or anywhere it should follow the asset, use /c/{id}/w_800,f_webp instead: it redirects to the current version, so a new logo reaches every page without touching it. Asset URLs are private: they work with your key, and for people who can see the asset. When your own fetch can't send the key (a web fetch, a sandbox), open fetchUrl from describe_asset or rendition_url: signed for a few minutes, for you, not to hand on. For anyone else, ask rendition_url with expiresIn: it answers when the asset is public, shown on a public portal, or your key may share; otherwise it says what the person can do, so tell them. With a propose key (Suggest), what you ingest or import is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a write key (Edit) it goes straight into the library, so never tell a person it waits for review; describe_asset's status says which it is. Tags and field values you suggest wait for a person either way. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so, and never what you proposed yourself. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets still open with your key, for the team, but never for anyone else: a URL you hand on answers 410, so check_use first.
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
@@ -314,8 +314,9 @@ const TOOLS: Record<ToolName, Tool> = {
   ingest_asset: tool({
     description:
       "Add a file to the library from a public http(s) URL. Identical bytes dedupe to the existing asset. " +
-      "The new asset is proposed: it shows up for review, not in the library, until a person approves it. " +
-      "Required fields may be left out; the person approving fills them in. Check back with my_proposals.",
+      "With a propose key the new asset is proposed: it shows up for review, not in the library, until a person " +
+      "approves it, and required fields may be left out for them to fill in; check back with my_proposals. With a write " +
+      "key it is in the library at once (`status` active) and required fields are required.",
     action: "asset.upload",
     readOnly: false,
     input: TOOL_INPUTS.ingest_asset,
@@ -330,7 +331,7 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
       "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
-      "until a person approves them, and styles already here dedupe. Use it before a brand rule names a Google font.",
+      "until a person approves them with a propose key, and in the library at once with a write key; styles already here dedupe. Use it before a brand rule names a Google font.",
     action: "asset.upload",
     readOnly: false,
     input: TOOL_INPUTS.import_google_font,
@@ -360,7 +361,8 @@ const TOOLS: Record<ToolName, Tool> = {
   import_icons: tool({
     description:
       "Add icons from an open source set to the library, one SVG each, carrying the set's license and author. " +
-      "Like ingest_asset, they are proposed until a person approves them, and icons already here dedupe. " +
+      "Like ingest_asset, they are proposed until a person approves them with a propose key, and in the library at once " +
+      "with a write key; icons already here dedupe. " +
       "`missing` names any the set doesn't have.",
     action: "asset.upload",
     readOnly: false,
@@ -910,7 +912,8 @@ const TOOLS: Record<ToolName, Tool> = {
       "the library (its required fields set first, in `fields` if need be), reject turns it down with a `note` " +
       "saying why, which its proposer reads in my_proposals. Suggested tags and field values (describe_asset shows " +
       "them) are applied with acceptTags and acceptFields, or dropped with dismissTags and dismissFields, on any " +
-      "asset. All in one change. search_assets with review: true lists what waits. Only on a person's say-so.",
+      "asset. All in one change. search_assets with review: true lists what waits. Only on a person's say-so, and never " +
+      "on what you proposed yourself: whoever proposed it can reject it or dismiss its suggestions, not approve them.",
     action: "asset.review",
     readOnly: false,
     input: TOOL_INPUTS.review_asset,
@@ -923,6 +926,9 @@ const TOOLS: Record<ToolName, Tool> = {
         throw new AssetError("invalid", `Not suggested: ${strayTags.join(", ")}. Suggested tags: ${a.proposedTags.join(", ") || "none"}`);
       }
       const [take, drop] = [acceptFields ?? [], dismissFields ?? []];
+      if (a.proposedBy === caller.actor && (accept.length || take.length)) {
+        throw new AssetError("forbidden", "You proposed this asset or its suggestions, so someone else accepts them");
+      }
       const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));
       if (strayKeys.length) {
         throw new AssetError("invalid", `No suggested value for ${strayKeys.join(", ")}. Suggested: ${Object.keys(a.proposedFields).join(", ") || "none"}`);

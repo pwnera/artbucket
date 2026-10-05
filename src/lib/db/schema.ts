@@ -759,6 +759,8 @@ export const ssoProviders = pgTable("sso_providers", {
   required: boolean("required").notNull().default(false),
   /** What the TXT record holds. Nullable only because better-auth refuses a required column it never writes. */
   token: text("token"),
+  /** Where its people land the first time, able to read: null for the organization's oldest workspace. */
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1122,6 +1124,10 @@ export const domains = pgTable("domains", {
   primary: boolean("primary").notNull().default(false),
   token: text("token").notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  /** When a verified one's TXT record was last looked at again (lib/core/reproof.ts). */
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  /** Since when that record has been gone, at every look; null while it is there. */
+  missingSince: timestamp("missing_since", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("domains_portal_unique").on(t.portalId),
@@ -1132,7 +1138,7 @@ export const domains = pgTable("domains", {
  * A domain the organization's people have their email at, proved by a TXT
  * record on the domain itself (lib/core/email-domains.ts). Not a custom
  * domain: it serves nothing. Single sign-on picks one; with `join`, anyone
- * whose address is at exactly it may join the organization, able to read.
+ * whose address is at exactly it may join, able to read its workspace.
  */
 export const emailDomains = pgTable("email_domains", {
   domain: text("domain").primaryKey(),
@@ -1141,7 +1147,13 @@ export const emailDomains = pgTable("email_domains", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   token: text("token").notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  /** When a verified one's TXT record was last looked at again (lib/core/reproof.ts). */
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  /** Since when that record has been gone, at every look; null while it is there. */
+  missingSince: timestamp("missing_since", { withTimezone: true }),
   join: boolean("join").notNull().default(false),
+  /** Where whoever joins by it lands, able to read: null for the organization's oldest workspace. */
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("email_domains_org_idx").on(t.organizationId)]);
 

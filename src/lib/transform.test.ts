@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { drawScale, effective, MAX_DIMENSION, parseTransform, PRESETS, renditionLabel, serializeTransform, SHOWN_MAX, shownSize, SIZES } from "./transform.ts";
+import { capSides, drawScale, effective, isStock, MAX_DIMENSION, parseTransform, PRESETS, renditionLabel, serializeTransform, SHOWN_MAX, shownSize, SIZES } from "./transform.ts";
 
 test("parses a simple transform", () => {
   assert.deepEqual(parseTransform("w_800,f_webp"), { w: 800, f: "webp" });
@@ -156,4 +156,30 @@ test("a PNG not asked a quality stays lossless: any quality makes sharp quantize
   assert.equal((await sharp(png).metadata()).isPalette, false);
   assert.deepEqual(encodeOptions({ q: 60 }, "png"), { quality: 60 });
   assert.deepEqual(encodeOptions({}, "webp"), { quality: 82 });
+});
+
+test("stock renditions are what pages draw and the presets, a bounded few per file", () => {
+  const presets = [...PRESETS.map((p) => p.spec), "w_8000,q_95,f_jpeg", null];
+  const stock = (spec: string) => isStock(parseTransform(spec)!, presets);
+  for (const spec of ["w_800,f_webp", "w_8000,f_webp", "f_webp", "w_320,h_320,fit_cover,f_webp", "f_png", "w_1600,f_avif", "w_8000,q_95,f_jpeg"]) {
+    assert.ok(stock(spec), spec);
+  }
+  // Shown only: shownSize bounds the height, which stays stock.
+  assert.ok(isStock(shownSize(parseTransform("w_800,f_webp")!), presets));
+  for (const spec of ["w_800,q_100,f_webp", "w_800,h_800,f_webp", "w_800,h_800,fit_fill,f_webp", "w_800,f_png", "w_800", "w_4000,f_avif", "q_95,f_jpeg"]) {
+    assert.ok(!stock(spec), spec);
+  }
+  // However they are asked, there are only so many.
+  const all = new Set<string>();
+  for (const w of SIZES) for (const h of [undefined, SHOWN_MAX, 800]) {
+    const t = { w, h, f: "webp" as const };
+    if (isStock(t, presets)) all.add(serializeTransform(t));
+  }
+  assert.equal(all.size, SIZES.length * 2);
+});
+
+test("capSides bounds the sides asked and adds none", () => {
+  assert.deepEqual(capSides({ w: 8000, h: 600, f: "avif" }, 4096), { w: 4096, h: 600, f: "avif" });
+  assert.deepEqual(capSides({ f: "png" }, 4096), { f: "png" });
+  assert.deepEqual(capSides({ h: 5000, fit: "cover" }, 4096), { h: 4096, fit: "cover" });
 });

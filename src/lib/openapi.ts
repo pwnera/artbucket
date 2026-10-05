@@ -311,7 +311,8 @@ export function openapi(serverUrl: string) {
             "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and " +
             "`supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through " +
             "its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking " +
-            "a draft takes write; any other move takes write with the approve ability.",
+            "a draft takes write; any other move takes write with the approve ability. Whoever proposed an asset " +
+            "(`proposedBy`, the same key or person) can't approve it: 403, someone else does.",
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
         }),
@@ -1456,7 +1457,8 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the " +
-            "organization, able to read, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "organization, able to read one workspace, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "They land in `workspaceId`, or the organization's oldest workspace when it is null, never the whole organization. " +
             "Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single " +
             "sign-on covers, and on a server that sends no email of its own.",
           body: S.EmailDomainPatch,
@@ -1472,7 +1474,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Join by email domain",
           scope: "any",
-          description: "Join the organization that opened your address's domain (me.joinable), able to read. 404 when there is none to join.",
+          description: "Join the organization that opened your address's domain (me.joinable), able to read the workspace it lands people in. 404 when there is none to join.",
           ok: [200, "Joined", data(S.JoinOffer)],
         }),
         delete: op({ summary: "Turn down joining by email domain", scope: "any", description: "Not now: the offer isn't made again.", ok: [200, "Turned down", data(S.JoinOffer)] }),
@@ -1639,7 +1641,7 @@ export function openapi(serverUrl: string) {
             "`redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the " +
             "issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then " +
             "POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the " +
-            "organization able to read. A new domain is proved again; one another organization proved is refused.",
+            "organization able to read `workspaceId` (the oldest workspace when null). A new domain is proved again; one another organization proved is refused.",
           body: S.SsoInput,
           ok: [200, "Single sign-on", data(S.Sso)],
         }),
@@ -1683,7 +1685,7 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, " +
-            "workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace " +
+            "workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace " +
             "admin, the workspace's.",
           query: {
             before: { schema: { type: "string", format: "date-time" }, description: "The `next` of the previous page" },
@@ -1726,7 +1728,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Send a test email",
           scope: "any",
-          description: "Through the organization's email settings, to you or `to`. A 422 carries the provider's reason. Organization admin.",
+          description: "Through the organization's email settings, to your own address only. A 422 carries the provider's reason, a 429 says the organization's emails for the day are spent. Organization admin.",
           body: S.EmailTest,
           ok: [200, "Sent", data(z.object({ sent: z.literal(true), to: z.string() }))],
         }),
@@ -1805,7 +1807,7 @@ export function openapi(serverUrl: string) {
           description:
             "RFC 8628, with a registered `client_id`, form-encoded (or JSON). A person approves `user_code` at `verification_uri`; poll the token " +
             "endpoint meanwhile. `scope` (read, propose or write) is what the consent screen offers first, never more than the person may give; " +
-            "without it, propose. `artbucket login` asks for write.",
+            "without it, propose. `artbucket login` asks for propose unless `--scope` says otherwise.",
           ok: [200, "Codes", z.object({ device_code: z.string(), user_code: z.string(), verification_uri: z.string(), verification_uri_complete: z.string(), expires_in: z.number(), interval: z.number() })],
         }),
       },

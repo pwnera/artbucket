@@ -13,14 +13,15 @@ server, Artbucket Cloud or your own.
 The CLI is the `artbucket` package on npm, for Node 22 and later:
 
 ```bash
-npx artbucket login app.artbucket.io    # or your server: assets.example.com, http://localhost:3000
+npx artbucket login app.artbucket.io --scope write  # or your server: assets.example.com, http://localhost:3000
 npm install -g artbucket                # to keep it, rather than npx each time
 ```
 
 `login` signs in through the browser and keeps a key in
-`~/.config/artbucket/credentials.json`, with that server as the default. It
-asks for `write`, since pushing a brand edits it; the consent screen never
-offers more than you have. `artbucket logout` forgets the key; disconnect it
+`~/.config/artbucket/credentials.json`, with that server as the default.
+Pushing a brand edits it, so ask for `write`: without `--scope`, `login` asks
+for `propose`, what an agent gets. The consent screen never offers more than
+you have. `artbucket logout` forgets the key; disconnect it
 on the Connections page to revoke it.
 
 Without signing in, two variables say where and as whom:

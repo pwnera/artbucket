@@ -301,7 +301,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
               {made ? (
                 <div className="grid min-w-0 gap-3">
                   <p className="text-sm font-medium">1. In a checkout of Artbucket, sign the CLI in to this server</p>
-                  <Snippet text={`ARTBUCKET_URL=${origin} pnpm artbucket login`} what="the command" />
+                  <Snippet text={`ARTBUCKET_URL=${origin} pnpm artbucket login --scope write`} what="the command" />
                   <p className="text-sm font-medium">2. Push your repository&apos;s folder holding brand.yaml</p>
                   <Snippet text={`pnpm artbucket brand push path/to/your-repo/brand --brand ${made.slug}`} what="the command" />
                   <p className="text-muted-foreground text-sm">
