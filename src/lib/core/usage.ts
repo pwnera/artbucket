@@ -1,11 +1,11 @@
-import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
-import { FEATURES, formatSize, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, held, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
 import { RENDITION_DAYS } from "@/lib/storage";
 
@@ -15,7 +15,16 @@ import { RENDITION_DAYS } from "@/lib/storage";
  * a limited thing calls it first, and it refuses with what the limit is.
  */
 
-export const limitsOf = async (organizationId: string): Promise<Limits> => (await effective("limits", { organizationId })).value;
+export const limitsOf = async (organizationId: string): Promise<Limits> => held((await effective("limits", { organizationId })).value);
+
+/**
+ * SQL: the organization `organizationId` names is not suspended (lib/limits.ts
+ * `suspended`, only ever in its limits row): for queries of what the public
+ * sees, as `limitsOf` would answer it.
+ */
+export const notSuspended = (organizationId: SQLWrapper) =>
+  sql`not exists (select 1 from ${settings} s where s.organization_id = ${organizationId} and s.workspace_id is null
+    and s.key = 'limits' and coalesce(s.value ->> 'suspended', 'false') not in ('false', ''))`;
 
 const EDITOR = inArray(grants.scope, ["write", "admin"]);
 
@@ -344,7 +353,7 @@ export async function usageOf(caller: Caller) {
   const since = sql`(now() at time zone 'utc')::date - ${DAYS - 1}::int`;
   const [limits, storage, editors, spaces, brandCount, domainCount, byWorkspace, byDay] = await Promise.all([
     // Fresh: a plan just taken (a limits row the operator's billing wrote) shows here at once, not a minute later.
-    effective("limits", { organizationId: org }, { fresh: true }).then((l) => l.value),
+    effective("limits", { organizationId: org }, { fresh: true }).then((l) => held(l.value)),
     storageOf(org),
     editorsOf(org),
     workspacesOf(org),

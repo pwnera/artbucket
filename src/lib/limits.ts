@@ -54,10 +54,30 @@ export const Limits = z.object({
   features: z.array(z.enum(FEATURES)).nullable(),
   /** Nothing changes: every caller is held to read. */
   readOnly: z.boolean(),
+  /**
+   * Suspended by the operator, and why (`true` gives no reason): nothing of it
+   * reaches the public, and it is read-only. Only ever in the database.
+   */
+  suspended: z
+    .union([z.string(), z.boolean()])
+    .nullable()
+    .transform((v) => (v === true ? "Suspended" : v || null)),
 });
 export type Limits = z.infer<typeof Limits>;
 
-export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, domains: null, features: null, readOnly: false };
+export const UNLIMITED: Limits = {
+  storage: null,
+  editors: null,
+  workspaces: null,
+  brands: null,
+  domains: null,
+  features: null,
+  readOnly: false,
+  suspended: null,
+};
+
+/** The limits as they hold: a suspended organization is read-only too, so its people keep their data and change nothing. */
+export const held = (l: Limits): Limits => (l.suspended ? { ...l, readOnly: true } : l);
 
 type Env = Record<string, string | undefined>;
 

@@ -6,6 +6,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
+import { notSuspended } from "@/lib/core/usage";
 import { FetchError, fetchPublic } from "@/lib/fetch-public";
 import { GITHUB_PROOF_FILE, githubLogin, githubProof, githubProofUrl, type ReportReason } from "@/lib/hub";
 import { can, needs } from "@/lib/permissions";
@@ -134,7 +135,7 @@ export async function removeGithub(caller: Caller, raw: string) {
 
 // ---- reports and claims ---------------------------------------------------------------
 
-/** A public listing at {org}/{brand}: public, published, and not delisted. */
+/** A public listing at {org}/{brand}: public, published, not delisted, and its organization not suspended. */
 export async function publicListing(org: string, slug: string) {
   const [b] = await db
     .select({ id: brands.id, name: brands.name, orgId: organizations.id })
@@ -147,6 +148,7 @@ export async function publicListing(org: string, slug: string) {
         eq(brands.slug, slug),
         eq(brands.visibility, "public"),
         isNull(brands.hubDelisted),
+        notSuspended(organizations.id),
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
       ),
     );

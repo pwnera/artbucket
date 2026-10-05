@@ -32,6 +32,7 @@ import { record, recordSearch } from "@/lib/core/events";
 import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit, limitsOf } from "@/lib/core/usage";
+import { suspended, suspendedIn } from "@/lib/core/suspension";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { type Action, can } from "@/lib/permissions";
@@ -540,16 +541,22 @@ async function keyValid(p: Row, key: string | null | undefined) {
   return !!r;
 }
 
+/** A suspended organization's portal (lib/suspension.ts): a 451 that names nobody. */
+const UNAVAILABLE = () => new AssetError("suspended", "This content is unavailable");
+
 /**
  * The portal a slug names, if this visitor may open it, and who they are to
  * it (D19): everyone on a public portal; partners, let in by the password or
  * an approved request's key (on any portal); members, signed in to a members
- * portal's workspace. 404 for none, 410 once it closed, 401 (`password`)
- * naming how to get in otherwise.
+ * portal's workspace. 404 for none, 451 while its organization is suspended
+ * (lib/suspension.ts), 410 once it closed, 401 (`password`) naming how to get
+ * in otherwise.
  */
 async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience }> {
-  const p = (await portalNamed(slug))?.p;
-  if (!p) throw new AssetError("not_found", "There is no portal here");
+  const named = await portalNamed(slug);
+  if (!named) throw new AssetError("not_found", "There is no portal here");
+  if (await suspended(named.organizationId)) throw UNAVAILABLE();
+  const { p } = named;
   if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
   if (await keyValid(p, pass.key)) return { p, level: "partners" };
   if (p.access === "public") return { p, level: "everyone" };
@@ -1089,6 +1096,7 @@ export async function requestAccess(
   if (kind === "access") {
     [p] = await db.select().from(portals).where(eq(portals.slug, slug));
     if (!p) throw new AssetError("not_found", "There is no portal here");
+    if (await suspendedIn(p.workspaceId)) throw UNAVAILABLE();
     // A public portal takes asks when some page or section of what it shows is for partners or members.
     if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
       throw new AssetError("invalid", "This portal is open: no need to ask");

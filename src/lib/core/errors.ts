@@ -16,6 +16,8 @@ export class AssetError extends Error {
       | "limit_reached"
       /** The organization is read-only. */
       | "read_only"
+      /** Its organization is suspended by whoever runs the server: unavailable for legal reasons (451). */
+      | "suspended"
       /** Too many tries: a share link's password. */
       | "rate_limited"
       /** The server lacks what this needs (a browser to draw pages): a 503, not the caller's fault. */

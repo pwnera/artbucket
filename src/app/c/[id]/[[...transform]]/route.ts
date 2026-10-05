@@ -1,6 +1,7 @@
 import { fail, handle } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
 import { findAsset, getAsset } from "@/lib/core/assets";
+import { suspendedIn } from "@/lib/core/suspension";
 import { latestVersion } from "@/lib/core/versions";
 import { followPath } from "@/lib/follow";
 
@@ -31,9 +32,13 @@ export async function GET(req: Request, { params }: Ctx) {
     const nope = () => fail(404, "not_found", "No such asset", undefined, { "Cache-Control": "no-cache" });
     if (!asset) return nope();
     let cache = "public, max-age=60";
-    if (!asset.public) {
+    // A suspended organization's files go to its own people only (lib/suspension.ts).
+    const off = await suspendedIn(asset.workspaceId);
+    if (!asset.public || off) {
       const caller = await callerFrom(req, asset.workspaceId);
-      if (!(caller && (await getAsset(caller, id)))) return nope();
+      if (!(caller && (await getAsset(caller, id)))) {
+        return off ? fail(451, "suspended", "This content is unavailable", undefined, { "Cache-Control": "no-store" }) : nope();
+      }
       cache = "private, max-age=60";
     }
     const to = await latestVersion(asset);
