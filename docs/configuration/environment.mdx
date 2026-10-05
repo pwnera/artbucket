@@ -29,7 +29,7 @@ naming the variable.
 | `OIDC_NAME` | `SSO` | The button: "Sign in with `OIDC_NAME`" |
 | `EMAIL_PROVIDER` | unset | `resend`, `postmark`, `sendgrid` or `console`. Set: every organization's email, and new accounts confirm their address with a code. Unset: no email, unless an organization sets its own |
 | `EMAIL_FROM` `EMAIL_REPLY_TO` `EMAIL_API_KEY` | unset | Sender, reply address, provider key |
-| `TERMS_URL` `PRIVACY_URL` | unset | Your terms and privacy policy. Set: wherever an account is made, it says that going on agrees to them, with links |
+| `TERMS_URL` `PRIVACY_URL` | unset | Your terms and privacy policy. Set: wherever an account is made, it says that going on agrees to them, with links. `PRIVACY_URL` also shows as a "Privacy" link where visitors without an account land: portals (their door and requests for access too), share links and BrandHub |
 | `BRAND_NAME` `BRAND_TAGLINE` `BRAND_ACCENT` | the product's | The server's brand, under every organization's own. See [White-labeling](/configuration/white-labeling) |
 | `ANONYMOUS_SCOPE` | nothing | What a request with no key and no session may do: `read` makes a public library |
 | `RATE_LIMIT` | `1200` | `/api` requests per minute per client; `0` turns it off. See [Security](/configuration/security) |

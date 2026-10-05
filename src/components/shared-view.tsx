@@ -7,6 +7,7 @@ import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { Downloads, LocalDate, meta, PublicGrid, Stage, type PublicItem } from "@/components/public-grid";
 import { Card } from "@/components/sign-in";
 import { GridSkeleton } from "@/components/skeletons";
+import { PrivacyLink } from "@/components/site/footer";
 import { type BrandLook, Looked, Opening } from "@/components/site/looked";
 import { isActive, putWithProgress, UploadTray, type Upload } from "@/components/uploads";
 import { Button } from "@/components/ui/button";
@@ -114,7 +115,18 @@ const accentVars = (accent: string | null | undefined) =>
  * (`initial`). A password goes in a header, and is kept in this tab once it
  * worked.
  */
-export function SharedView({ token, initial, asset = null }: { token: string; initial: SharedBody | null; asset?: string | null }) {
+export function SharedView({
+  token,
+  initial,
+  asset = null,
+  privacy = null,
+}: {
+  token: string;
+  initial: SharedBody | null;
+  asset?: string | null;
+  /** The server's privacy policy (PRIVACY_URL), in the footer. */
+  privacy?: string | null;
+}) {
   const [state, setState] = useState<State>(() => (initial ? next(initial, false, { at: "loading" }) : { at: "loading" }));
   const [checking, setChecking] = useState(false);
   const [pending, setPending] = useState(false);
@@ -238,6 +250,7 @@ export function SharedView({ token, initial, asset = null }: { token: string; in
                 This link works until <LocalDate at={share.expiresAt} />
               </p>
             )}
+            {privacy && <PrivacyLink href={privacy} />}
           </div>
         </footer>
       </Looked>

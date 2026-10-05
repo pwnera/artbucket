@@ -1,16 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { IconExternalLink, IconWorld } from "@tabler/icons-react";
 import { HEAD } from "@/components/brand-sections/look";
 import { Body, PropText } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
+import { Button } from "@/components/ui/button";
 import { EMBED_HOSTS, framed } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 /**
  * A live frame from a host the page lets in (lib/pages.ts EMBED_HOSTS, which
  * proxy.ts frame-src allows) at props.aspect; any other https address is a
- * link card to it, since the browser would refuse to frame it anyway.
+ * link card to it, since the browser would refuse to frame it anyway. The
+ * frame waits for a click: until then the reader's browser contacts no one
+ * else, a placeholder of the same size names who would be.
  */
 
 type Aspect = "16:9" | "4:3" | "1:1" | "auto";
@@ -20,14 +24,15 @@ const RATIO: Record<Exclude<Aspect, "auto">, string> = { "16:9": "aspect-video",
 // Cross-origin all, so scripts with their own origin can't reach this page. Popups open "watch on" and "open in" links.
 const BASE = "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox";
 const VIDEO = { sandbox: `${BASE} allow-presentation`, allow: "encrypted-media; fullscreen; picture-in-picture", auto: "aspect-video" };
+const FIGMA = { name: "Figma", sandbox: BASE, allow: "fullscreen", auto: "aspect-video" };
 // A document reads down the page: most of a screen tall. Forms post from Google's own origin.
-const FRAME: Record<(typeof EMBED_HOSTS)[number], { sandbox: string; allow: string; auto: string }> = {
-  "www.figma.com": { sandbox: BASE, allow: "fullscreen", auto: "aspect-video" },
-  "embed.figma.com": { sandbox: BASE, allow: "fullscreen", auto: "aspect-video" },
-  "www.youtube-nocookie.com": VIDEO,
-  "player.vimeo.com": VIDEO,
-  "www.loom.com": VIDEO,
-  "docs.google.com": { sandbox: `${BASE} allow-forms`, allow: "fullscreen", auto: "h-[80svh] min-h-96" },
+const FRAME: Record<(typeof EMBED_HOSTS)[number], { name: string; sandbox: string; allow: string; auto: string }> = {
+  "www.figma.com": FIGMA,
+  "embed.figma.com": FIGMA,
+  "www.youtube-nocookie.com": { name: "YouTube", ...VIDEO },
+  "player.vimeo.com": { name: "Vimeo", ...VIDEO },
+  "www.loom.com": { name: "Loom", ...VIDEO },
+  "docs.google.com": { name: "Google Docs", sandbox: `${BASE} allow-forms`, allow: "fullscreen", auto: "h-[80svh] min-h-96" },
 };
 
 const parse = (url: unknown) => {
@@ -41,6 +46,7 @@ const parse = (url: unknown) => {
 export function EmbedSection({ section: s }: SectionProps) {
   const u = parse(s.props.url);
   const aspect = (s.props.aspect as Aspect | undefined) ?? "auto";
+  const [on, setOn] = useState(false);
   // The schema holds it to https; a link card never carries another scheme either way.
   const address = (
     <PropText
@@ -67,14 +73,28 @@ export function EmbedSection({ section: s }: SectionProps) {
       {address}
       {frame ? (
         <>
-          <iframe
-            src={u.href}
-            title={s.title ? `${s.title}, from ${host}` : `From ${host}`}
-            loading="lazy"
-            sandbox={frame.sandbox}
-            allow={frame.allow}
-            className={cn("bg-muted block w-full rounded-xl border print:hidden", aspect === "auto" ? frame.auto : RATIO[aspect])}
-          />
+          {on ? (
+            <iframe
+              src={u.href}
+              title={s.title ? `${s.title}, from ${host}` : `From ${host}`}
+              sandbox={frame.sandbox}
+              allow={frame.allow}
+              className={cn("bg-muted block w-full rounded-xl border print:hidden", aspect === "auto" ? frame.auto : RATIO[aspect])}
+            />
+          ) : (
+            <div
+              className={cn(
+                "bg-muted flex w-full flex-col items-center justify-center gap-3 rounded-xl border p-6 text-center print:hidden",
+                aspect === "auto" ? frame.auto : RATIO[aspect],
+              )}
+            >
+              {s.title && <p className={cn(HEAD, "text-base")}>{s.title}</p>}
+              <Button variant="outline" onClick={() => setOn(true)}>
+                <IconWorld aria-hidden /> Load from {frame.name}
+              </Button>
+              <p className="text-muted-foreground max-w-sm text-xs text-pretty">Loading it connects to {frame.name}, which may set cookies.</p>
+            </div>
+          )}
           {/* Paper can't play it: where to find it instead. */}
           <p className="hidden text-sm break-all print:block">{u.href}</p>
         </>
