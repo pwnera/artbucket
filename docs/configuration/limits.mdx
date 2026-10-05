@@ -13,7 +13,7 @@ next to what they use.
 | `storage` | Bytes of assets across the organization's workspaces; deleted ones stop counting at once | An upload is started, and again for its real size when it is filed |
 | `editors` | People with write or admin anywhere in it, and invitations that would make more | Access is given, or an invitation made |
 | `workspaces` | Workspaces | One is made |
-| `brands` | Brands, across its workspaces | One is made |
+| `brands` | Brands, across its workspaces; a workspace's default brand counts once it holds rules, pages or a release | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
 | `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
