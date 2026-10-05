@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fileTypeBadge, formatBytes } from "@/lib/filename";
+import { fileTypeBadge, formatBytes, tooLargeToUpload } from "@/lib/filename";
 import { STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { ago, exact } from "@/lib/time";
@@ -190,6 +190,8 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
     setPct(0);
     const mime = f.type || "application/octet-stream";
     try {
+      const big = tooLargeToUpload(f.size);
+      if (big) throw new Error(big);
       const ticket = await fetch("/api/v1/uploads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

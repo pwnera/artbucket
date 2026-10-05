@@ -123,7 +123,7 @@ and **Contact**, the footer's feedback address when one is set.
 | Access | Who |
 |---|---|
 | Anyone with the address | Everyone. Search engines are asked to stay out, unless it is [listed](#search-engines). |
-| Whoever has the password | Ten wrong guesses in ten minutes, then it waits. |
+| Whoever has the password | Ten wrong guesses in ten minutes from one address, then it waits. |
 | People in this workspace | Signed in, with access to the workspace. |
 
 A portal can close on a date: after it, the address answers `410`.
@@ -336,12 +336,14 @@ Signed in, **Start from this brand** on a public listing makes a new brand in
 the workspace you have open from that release: its rules, its theme, the pages
 and sections anyone may read (none hidden, or for partners or members), and
 the files they use that may be delivered, copied into your library (the same
-bytes, stored once). The new brand is yours to edit, with a history of its
+bytes, stored once). A file the listing shows but doesn't hand out, a foundry
+font or a licensed photo, isn't copied: its rule starts without it, and
+`skipped` names it. The new brand is yours to edit, with a history of its
 own, and keeps where it came from as `from`. An agent does the same with
 `create_brand` and `from: "rust-lang/rust@12"`, or `POST /api/v1/brands` with
 `{"name": "...", "from": "rust-lang/rust@12"}`; leave out `@12` for the
 latest release. A claimant a listing is handed over to starts from it the
-same way.
+same way, and takes every file, since the domain proved them its owner.
 
 ### Pulls, follows, trending and collections
 
@@ -431,6 +433,9 @@ organization's verified domains, and the domain then serves that portal and
 nothing else of the app. A domain the app used stops serving it when a portal
 takes it.
 Removing a domain in Settings sends its portal back to `/p/{address}`.
+Keep the TXT record: a domain whose record is gone for 7 days is unverified,
+as [for the app](/configuration/white-labeling#a-domain-for-the-app), and its
+portal stops answering there until it is proved again.
 How many domains an organization may add is the operator's `domains`
 [limit](/configuration/limits).
 

@@ -130,7 +130,7 @@ async function mail(caller: Caller, row: Link, out: Awaited<ReturnType<typeof pr
         expiresAt: row.expiresAt,
       }),
     );
-    if (!r.sent && r.error && !sent) throw new AssetError("invalid", `Not sent: ${r.error}`);
+    if (!r.sent && r.error && !sent) throw new AssetError(r.limited ? "rate_limited" : "invalid", `Not sent: ${r.error}`);
     if (r.sent) sent++;
   }
   await recordAudit(caller, "share.sent", out.target.label ?? caller.workspace.name, { kind: row.kind, to: [...new Set(emails)].length, sent });

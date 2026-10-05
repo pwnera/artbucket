@@ -1,3 +1,4 @@
+import { resolveTxt } from "node:dns/promises";
 import { getDomain } from "tldts";
 
 // Server only: the public suffix list it reads is some 40 KB gzipped, kept out of lib/hub.ts, which pages load too.
@@ -27,4 +28,34 @@ export function provesDomain(host: string, domain: string) {
 export function claimProof(domain: string | null, claimant: string[], owner: string[]) {
   if (!domain || owner.some((h) => provesDomain(h, domain))) return null;
   return claimant.find((h) => provesDomain(h, domain)) ?? null;
+}
+
+/**
+ * The TXT records at `name`, each joined; null when the resolver gave no
+ * answer (SERVFAIL, a timeout, refused), which says nothing about the record.
+ */
+export async function txtAt(name: string): Promise<string[] | null> {
+  try {
+    return (await resolveTxt(name)).map((r) => r.join(""));
+  } catch (err) {
+    // No such name, or no TXT at it: an answer, and an empty one.
+    const code = (err as { code?: string }).code;
+    return code === "ENOTFOUND" || code === "ENODATA" ? [] : null;
+  }
+}
+
+/** How long a verified domain's TXT record may be gone, at every re-check, before the domain stops counting as proved. */
+export const PROOF_GRACE_DAYS = 7;
+
+/**
+ * A verified domain re-checked (lib/core/reproof.ts): since when its proof
+ * has been gone (null: it is there), and whether to unverify it now. No
+ * answer (`txt` null) changes nothing: a resolver's bad day is not the
+ * record gone.
+ */
+export function reproof(txt: string[] | null, token: string, missingSince: Date | null, now: Date) {
+  if (!txt) return { missingSince, unverify: false };
+  if (txt.includes(token)) return { missingSince: null, unverify: false };
+  const since = missingSince ?? now;
+  return { missingSince: since, unverify: now.getTime() - since.getTime() >= PROOF_GRACE_DAYS * 86_400_000 };
 }

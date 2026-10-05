@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { assets, grants, instance, invitations, renditions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { rollUp } from "@/lib/core/events";
+import { reprove } from "@/lib/core/reproof";
 import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject, RENDITION_DAYS } from "@/lib/storage";
 
 /**
@@ -123,10 +124,13 @@ export async function sweep() {
 
 const EVERY_MS = 6 * 60 * 60 * 1000;
 
-/** At boot, then every six hours, with Insights' daily rollup; a failed run is logged and tried again next time. */
+/** At boot, then every six hours, with Insights' daily rollup and the domains' re-check; a failed run is logged and tried again next time. */
 export function scheduleSweep() {
   const run = () => {
     rollUp().catch((err) => console.warn("[artbucket] Insights rollup stopped:", err instanceof Error ? err.message : err));
+    reprove()
+      .then((n) => n && console.info(`[artbucket] Unverified ${n} domains whose TXT record is gone`))
+      .catch((err) => console.warn("[artbucket] Domain re-check stopped:", err instanceof Error ? err.message : err));
     return sweep()
       .then(({ purged, removed }) => {
         if (purged || removed) console.info(`[artbucket] Swept: ${purged} deleted assets purged, ${removed} files removed`);

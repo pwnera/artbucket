@@ -25,6 +25,9 @@ Step 3 hashes what arrived. The same bytes uploaded twice are one asset
 the server fetch it; a Figma or Google Docs link is kept as the link and shows
 as its embed.
 
+Files go up to 512 MB each. A bigger one is refused at step 1, before any
+bytes move, with `413 too_large`.
+
 On ingest, EXIF, IPTC and XMP are read (title, caption, creator, copyright,
 camera), embedded keywords become tags, and C2PA Content Credentials say how
 the file was made.
@@ -139,7 +142,9 @@ visitors to a URL that answers `404` until then.
 
 Transforms: `w` `h` (1 to 8000), `fit` (cover, contain, inside, outside, fill),
 `q` (1 to 100), `f` (jpeg, png, webp, avif). A rendition is made on the first
-request and kept for 30 days.
+request and kept for 30 days. Through a public or signed URL, people outside
+the workspace get any width in WebP and the presets, and up to 16 other
+renditions of a file ([what a rendition URL can cost](/configuration/security)).
 
 The bytes are private: these URLs work for people who can see the asset in
 the library, signed in or with a key, as far as its permissions go. For
