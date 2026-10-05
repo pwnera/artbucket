@@ -20,9 +20,9 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /**
  * Sign in, or on a fresh install make the first account. Someone signed in
  * goes home. `error` is single sign-on coming back without an account
- * (lib/auth.ts onAPIError).
+ * (lib/auth.ts onAPIError); `mode=up` opens on making one, where sign-up is open.
  */
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[]; error?: string | string[] }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[]; error?: string | string[]; mode?: string | string[] }> }) {
   const me = (await readMe())?.data;
   // The API is down, not the visitor signed out: a sign-in form would say otherwise.
   if (!me) return <Unreachable />;
@@ -31,5 +31,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // Only paths here: never send someone on to another site after signing in.
   const next = localPath(asked) ? asked : undefined;
   if (me.user) redirect(next ?? "/");
-  return <SignInPage auth={me.auth} next={next} error={!!one(params.error)} />;
+  return <SignInPage auth={me.auth} next={next} error={!!one(params.error)} up={one(params.mode) === "up"} />;
 }
