@@ -25,22 +25,41 @@ points instead.
 
 ### A check against scripted sign-ups
 
-With sign-up open, set a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/)
-widget's keys, and making an account with a password takes its check:
+With sign-up open, making an account with a password, and sending its email
+code, can take a check that a script can't pass for free. Two kinds:
 
-```bash
-TURNSTILE_SITE_KEY=0x4AAAAAAA...
-TURNSTILE_SECRET_KEY=0x4AAAAAAA...
-```
+- **Cloudflare Turnstile**, at `APP_URL`'s address. Set a
+  [Turnstile](https://developers.cloudflare.com/turnstile/) widget's keys, with
+  `APP_URL`'s host among its hostnames:
 
-The sign-up form (first run and invitations included) shows the widget above
-its button, and the server verifies its token with Cloudflare before the
-account is made. Sending a new email code takes one too, out of sight unless
-Cloudflare asks for a click. Signing in, resetting a password, and signing up
-through Google, the OIDC provider or an organization's own are not checked.
-The widget's hostnames are set on Cloudflare: list every address people sign
-up at (`APP_URL`, and an organization's own domain for the app). Unset: no
-check, and no request to Cloudflare.
+  ```bash
+  TURNSTILE_SITE_KEY=0x4AAAAAAA...
+  TURNSTILE_SECRET_KEY=0x4AAAAAAA...
+  ```
+
+  The sign-up form (first run and invitations included) shows the widget above
+  its button, and the server verifies its token with Cloudflare before the
+  account is made.
+- **A proof of work**, built in: the browser spends a second or so finding a
+  number the server asked for (the [ALTCHA](https://altcha.org) protocol),
+  while the form is filled in, with "Checking you're not a bot" under it until
+  it is done. Nothing third party, nothing loaded from elsewhere, so it works
+  on any domain.
+
+Which one a sign-up takes depends on where the app is open:
+
+| | `APP_URL` | An organization's own domain for the app |
+| --- | --- | --- |
+| `TURNSTILE_*` set | Turnstile | proof of work |
+| `SIGNUP_CAPTCHA=pow` alone | proof of work | proof of work |
+| neither | no check | no check |
+
+A Turnstile widget only runs on the hostnames it lists, and organizations add
+their domains as they go: they get the proof of work instead. Sending a new
+email code takes the same check, out of sight unless Turnstile asks for a
+click. Signing in, resetting a password, and signing up through Google, the
+OIDC provider or an organization's own are not checked. `GET /api/v1/me`
+says which check the host asked takes (`auth.captcha`).
 
 ## Email domains
 

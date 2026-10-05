@@ -116,11 +116,14 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().regex(/^[\w-]+\.apps\.googleusercontent\.com$/, "A Google client ID: 1234-abc.apps.googleusercontent.com").optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   /**
-   * Cloudflare Turnstile on making an account and on sending its email code
-   * (lib/auth.ts): a widget's site key and secret key, both or neither, from
-   * dash.cloudflare.com. Against scripted sign-ups where SIGNUP=open. Unset:
-   * no challenge.
+   * A check on making an account with a password and on sending its email
+   * code, against scripted sign-ups where SIGNUP=open (lib/auth.ts captchaAt).
+   * TURNSTILE_*: a Cloudflare Turnstile widget's site key and secret key, both
+   * or neither, for APP_URL's host; any other host (an organization's own
+   * domain for the app) takes a proof of work instead (lib/pow.ts), as every
+   * host does with SIGNUP_CAPTCHA=pow alone. Unset: no check.
    */
+  SIGNUP_CAPTCHA: z.enum(["pow"]).optional(),
   TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
   /**

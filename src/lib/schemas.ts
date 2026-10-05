@@ -1195,10 +1195,13 @@ export const Me = z.object({
     serverEmail: z
       .boolean()
       .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
-    turnstile: z
-      .string()
+    captcha: z
+      .enum(["turnstile", "pow"])
       .nullable()
-      .describe("The Cloudflare Turnstile site key (TURNSTILE_SITE_KEY): making an account and sending its email code take a token from its widget, in the x-captcha-response header; null when off"),
+      .describe(
+        "What making an account with a password and sending its email code take at this host, in the x-captcha-response header: a Cloudflare Turnstile token (turnstile), a solved proof of work from GET /api/auth/captcha/challenge, ALTCHA's protocol (pow), or nothing (null)",
+      ),
+    turnstile: z.string().nullable().describe("The Cloudflare Turnstile site key (TURNSTILE_SITE_KEY) when captcha is turnstile, else null"),
   }),
 });
 
