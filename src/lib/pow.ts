@@ -21,9 +21,18 @@ const hex = (b: ArrayBuffer | Uint8Array) => Array.from(new Uint8Array(b), (x) =
 const sha256 = async (s: string) => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
 const hmacKey = (secret: string) => crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 
+/** A uniform integer in [0, n): drawn again past the last whole multiple of n, so no number is likelier. */
+function randomBelow(n: number) {
+  const limit = 2 ** 32 - (2 ** 32 % n);
+  const draw = new Uint32Array(1);
+  do crypto.getRandomValues(draw);
+  while (draw[0] >= limit);
+  return draw[0] % n;
+}
+
 export async function makeChallenge(secret: string, now = Date.now(), maxnumber = POW_MAX): Promise<Challenge> {
   const salt = `${hex(crypto.getRandomValues(new Uint8Array(12)))}?expires=${Math.floor((now + POW_TTL) / 1000)}`;
-  const n = crypto.getRandomValues(new Uint32Array(1))[0] % (maxnumber + 1);
+  const n = randomBelow(maxnumber + 1);
   const challenge = await sha256(salt + n);
   const signature = hex(await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(challenge)));
   return { algorithm: "SHA-256", challenge, maxnumber, salt, signature };
