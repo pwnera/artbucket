@@ -57,3 +57,9 @@ assets.example.com {
 
 The app migrates its database when it starts. To upgrade, check out the new
 tag, `pnpm install --frozen-lockfile`, `pnpm build`, and restart the service.
+
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>

@@ -86,7 +86,7 @@ export type Me = {
   /** Where Help's "Send feedback" writes (EMAIL_REPLY_TO) and the version running; null without one, or for nobody. */
   feedback: { email: string; version: string } | null;
   joinable: { organization: { id: string; name: string }; domain: string } | null;
-  auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; google: boolean; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean; captcha: "turnstile" | "pow" | null; turnstile: string | null; legal?: Legal | null };
+  auth: { signUp: boolean; setupToken: boolean; open: boolean; oidc: { name: string } | null; google: boolean; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean; captcha: "turnstile" | "pow" | null; turnstile: string | null; legal?: Legal | null };
 };
 
 /** The operator's terms and privacy policy, which making an account agrees to. */

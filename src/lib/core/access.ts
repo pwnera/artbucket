@@ -274,6 +274,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,
     auth: {
       signUp,
+      setupToken: signUp && !!env.SETUP_TOKEN,
       open: env.SIGNUP === "open",
       oidc: oidc && { name: oidc.name },
       google,

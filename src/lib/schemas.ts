@@ -1200,6 +1200,7 @@ export const Me = z.object({
   joinable: JoinOffer.nullable().describe("An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
+    setupToken: z.boolean().describe("Making that first account takes the server's setup token (SETUP_TOKEN)"),
     open: z.boolean().describe("Anyone may make an account, and gets an organization of their own (SIGNUP=open)"),
     oidc: z.object({ name: z.string() }).nullable().describe("Single sign-on, when configured"),
     google: z.boolean().describe("Sign-in with Google is on (GOOGLE_*)"),

@@ -13,7 +13,7 @@ import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
-import { maySignUp, signedIn, welcome } from "@/lib/core/people";
+import { hasUsers, maySignUp, signedIn, welcome } from "@/lib/core/people";
 import { joinThroughSso, passwordBarred, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
@@ -30,7 +30,8 @@ import { lockedBy } from "@/lib/settings";
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
  *
  * Sign-up is closed but for five doors: the first account on a fresh install
- * (which becomes the admin of everything), someone holding an invitation,
+ * (which becomes the admin of everything, so it takes SETUP_TOKEN when that is
+ * set), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
  * admin grants some (Google is not that provider: it proves an address, the
  * way an email code does, and opens no door of its own), anyone at an organization's verified domain its own
@@ -324,6 +325,8 @@ export const auth = betterAuth({
           // The operator's own provider only: Google vouches for anyone with an address.
           const viaOidc = socialCallback(ctx) === OIDC_PROVIDER;
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
+            // First run without the setup token. Not a 403: with email codes on, better-auth answers that as if the account were made.
+            if (!(await hasUsers())) throw new APIError("UNAUTHORIZED", { code: "SETUP_TOKEN", message: "That isn't this server's setup token (SETUP_TOKEN)." });
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
         },

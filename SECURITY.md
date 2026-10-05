@@ -41,8 +41,9 @@ headers with no exploit path, and issues in a deployment's own infrastructure.
   script. PDFs are exempt, since browsers show them in a viewer the sandbox
   would stop.
 - A fresh install does nothing until its first account is made, and that
-  account is the admin: make it before exposing the server, or whoever gets
-  there first owns it. Until then the API answers `403 setup_required`, API
+  account is the admin: make it before exposing the server, or set
+  `SETUP_TOKEN`, which the first account then has to give; otherwise whoever
+  gets there first owns it. Until then the API answers `403 setup_required`, API
   keys from an earlier version included; only asset bytes at `/a/{id}` stay
   served, so links already out in the world keep working.
 - Set `BETTER_AUTH_SECRET` to a random value (`openssl rand -base64 32`); the

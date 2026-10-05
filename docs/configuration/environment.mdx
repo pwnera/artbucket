@@ -25,6 +25,7 @@ naming the variable.
 | `HUB_URL` | unset | Where BrandHub answers: a host of its own (`https://hub.example.com`) or a path on `APP_URL`'s (`http://localhost:3000/hub`). The path is always `/hub`. A host beside `APP_URL`'s (`hub.` and `app.example.com`) shares its sign-in: the session cookie is then set for `example.com`. Unset: no hub. See [Portals](/guides/portals#brandhub) |
 | `BETTER_AUTH_SECRET` | required in production | Signs sessions, encrypts secrets in settings. `openssl rand -base64 32` |
 | `SIGNUP` | `invite` | `open`: anyone may make an account, and gets an organization of their own |
+| `SETUP_TOKEN` | unset | Asked for by the first account, the admin of everything, so whoever reaches a fresh server first can't make it. Unset: anyone can, and the log warns at start until someone has |
 | `OIDC_ISSUER` `OIDC_CLIENT_ID` `OIDC_CLIENT_SECRET` | unset | Single sign-on; all three or none. See [Authentication](/configuration/auth) |
 | `OIDC_NAME` | `SSO` | The button: "Sign in with `OIDC_NAME`" |
 | `TURNSTILE_SITE_KEY` `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile on making an account with a password at `APP_URL`, a proof of work at an organization's own domain; both or neither. See [Authentication](/configuration/auth#a-check-against-scripted-sign-ups) |

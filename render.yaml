@@ -23,6 +23,9 @@ services:
       # Signs sessions and encrypts secrets stored in settings: never change it.
       - key: BETTER_AUTH_SECRET
         generateValue: true
+      # The first account, the admin, asks for it: the address is public before that account exists.
+      - key: SETUP_TOKEN
+        generateValue: true
       # https://<service name>.onrender.com, or your own domain.
       - key: APP_URL
         sync: false
