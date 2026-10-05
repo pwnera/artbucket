@@ -5,11 +5,15 @@ import { Spinner } from "@/components/ui/spinner";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import {
+  IconBook2,
+  IconBug,
   IconBuilding,
   IconCheck,
+  IconHelp,
   IconKeyboard,
   IconLogin,
   IconLogout,
+  IconMessage,
   IconPlus,
   IconSelector,
   IconSettings,
@@ -18,8 +22,9 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { Feature } from "@/lib/limits";
-import { BrandMark, ThemeItems } from "@/components/brand";
+import { BrandMark, ThemeItems, useBrand } from "@/components/brand";
 import { send } from "@/components/collections";
+import { ExternalLink } from "@/components/external-link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -43,6 +48,7 @@ import { can } from "@/lib/permissions";
 import { roleName, type Scope } from "@/lib/scopes";
 import type { Off } from "@/lib/access";
 import { useKept } from "@/lib/motion";
+import { DOCS_URL, PROJECT_URL } from "@/lib/branding";
 
 type Ref = { id: string; slug: string; name: string };
 export type WorkspaceRef = Ref & { organization: Ref };
@@ -77,6 +83,8 @@ export type Me = {
   /** The operator's word to the organization's admins, shown across the top of the app (lib/settings.ts, notice). */
   notice: { text: string; href: string | null } | null;
   /** An organization that opened the domain of their address, which they may join able to read (lib/core/email-domains.ts). */
+  /** Where Help's "Send feedback" writes (EMAIL_REPLY_TO) and the version running; null without one, or for nobody. */
+  feedback: { email: string; version: string } | null;
   joinable: { organization: { id: string; name: string }; domain: string } | null;
   auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; google: boolean; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
 };
@@ -268,12 +276,36 @@ export function MakeDialog({ kind, org, open = true, onClose }: { kind: "workspa
   );
 }
 
-/** The sidebar's foot: who you are, settings, keys, theme and signing out; or signing in, for nobody, back to this page. */
+/**
+ * Help, in the account menu and the command palette. The docs and the
+ * project's issues name the product, so a white-labeled one leaves them out,
+ * as its sign-in leaves out the product's pitch. Feedback goes to whoever runs
+ * the server, when they gave an address, with the page and version filled in.
+ */
+export function useHelp(me: Me | null) {
+  const brand = useBrand();
+  const own = !brand.custom;
+  const to = me?.feedback;
+  return {
+    docs: own ? DOCS_URL : null,
+    issues: own ? `${PROJECT_URL}/issues/new/choose` : null,
+    feedback: to
+      ? () => {
+          const subject = encodeURIComponent(`Feedback on ${brand.name}`);
+          const body = encodeURIComponent(`\n\n--\nPage: ${location.href}\nVersion: ${to.version}`);
+          location.href = `mailto:${to.email}?subject=${subject}&body=${body}`;
+        }
+      : null,
+  };
+}
+
+/** The sidebar's foot: who you are, settings, theme, help and signing out; or signing in, for nobody, back to this page. */
 export function AccountMenu({ me, openShortcuts }: { me: Me; openShortcuts: () => void }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const go = useGo();
   const pathname = usePathname();
   const params = useSearchParams();
+  const help = useHelp(me);
   if (!me.user) {
     const here = `${pathname}${params.size ? `?${params}` : ""}`;
     return (
@@ -320,23 +352,49 @@ export function AccountMenu({ me, openShortcuts }: { me: Me; openShortcuts: () =
             </DropdownMenuShortcut>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setOpenMobile(false);
-            openShortcuts();
-          }}
-        >
-          <IconKeyboard /> Keyboard shortcuts
-          <DropdownMenuShortcut className="tracking-normal">
-            <Kbd keys={["?"]} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <IconSunMoon /> Theme
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <ThemeItems />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconHelp /> Help
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-56">
+            {help.docs && (
+              <DropdownMenuItem asChild>
+                <ExternalLink href={help.docs}>
+                  <IconBook2 /> Docs
+                </ExternalLink>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => {
+                setOpenMobile(false);
+                openShortcuts();
+              }}
+            >
+              <IconKeyboard /> Keyboard shortcuts
+              <DropdownMenuShortcut className="tracking-normal">
+                <Kbd keys={["?"]} />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            {help.issues && (
+              <DropdownMenuItem asChild>
+                <ExternalLink href={help.issues}>
+                  <IconBug /> Report an issue
+                </ExternalLink>
+              </DropdownMenuItem>
+            )}
+            {help.feedback && (
+              <DropdownMenuItem onSelect={help.feedback}>
+                <IconMessage /> Send feedback
+              </DropdownMenuItem>
+            )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
