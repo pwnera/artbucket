@@ -379,6 +379,13 @@
       "when": 1791195064317,
       "tag": "0053_join_landing_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791212922992,
+      "tag": "0054_session_origin",
+      "breakpoints": true
     }
   ]
 }
