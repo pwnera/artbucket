@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { send } from "@/lib/send";
 
 export type Sso = {
@@ -20,9 +21,30 @@ export type Sso = {
   domain: string;
   verified: boolean;
   required: boolean;
+  workspaceId: string | null;
   record: { type: "TXT"; name: string; value: string };
   redirectUri: string;
 };
+
+export type Workspace = { id: string; name: string };
+
+/** The workspace people who join land in, able to read: one of the organization's, oldest first. */
+export function Landing({ id, workspaces, value, onChange, disabled }: { id: string; workspaces: Workspace[]; value: string | null; onChange: (id: string) => void; disabled?: boolean }) {
+  return (
+    <Select value={value ?? workspaces[0]?.id} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger id={id} className="w-full sm:w-64">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {workspaces.map((w) => (
+          <SelectItem key={w.id} value={w.id}>
+            {w.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 /** A value to copy into the provider or the DNS host: its label, the value, and a copy button in its own column. */
 export function Values({ rows }: { rows: [label: string, value: string, what: string][] }) {
@@ -44,10 +66,12 @@ export function Values({ rows }: { rows: [label: string, value: string, what: st
  * with the provider, save its client here, prove the email domain. The page
  * remounts it from what the server has after each save.
  */
-export function SsoPanel({ sso, redirectUris }: { sso: Sso | null; redirectUris: string[] }) {
+export function SsoPanel({ sso, redirectUris, workspaces }: { sso: Sso | null; redirectUris: string[]; workspaces: Workspace[] }) {
   const id = useId();
   const router = useRouter();
   const [busy, setBusy] = useState<"save" | "check" | "optional" | null>(null);
+  // Only an organization with more than one workspace has a choice to make: the oldest, unless picked.
+  const [landing, setLanding] = useState(sso?.workspaceId ?? null);
 
   async function save(form: FormData) {
     const clientSecret = String(form.get("clientSecret") ?? "");
@@ -57,6 +81,7 @@ export function SsoPanel({ sso, redirectUris }: { sso: Sso | null; redirectUris:
       clientId: String(form.get("clientId") ?? "").trim(),
       ...(clientSecret ? { clientSecret } : {}),
       domain: String(form.get("domain") ?? "").trim(),
+      ...(workspaces.length > 1 ? { workspaceId: landing ?? workspaces[0].id } : {}),
     });
     setBusy(null);
     if (!ok) return;
@@ -88,7 +113,7 @@ export function SsoPanel({ sso, redirectUris }: { sso: Sso | null; redirectUris:
       <Group
         title="Single sign-on"
         description="Okta, Entra ID, Google Workspace or any OpenID Connect provider."
-        info="Your people sign in with their work email. The first time, they join the organization able to read; raise anyone's access in Team."
+        info="Your people sign in with their work email. The first time, they join able to read one workspace, never the whole organization; raise anyone's access in Team."
       >
         <div className="grid gap-2 text-sm">
           <p>
@@ -147,6 +172,13 @@ export function SsoPanel({ sso, redirectUris }: { sso: Sso | null; redirectUris:
               Joins your email domains, proved once for both.
             </p>
           </div>
+          {workspaces.length > 1 && (
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-landing`}>They land in</Label>
+              <Landing id={`${id}-landing`} workspaces={workspaces} value={landing} onChange={setLanding} />
+              <p className="text-muted-foreground text-xs">The first time they sign in, able to read this workspace only.</p>
+            </div>
+          )}
           <Button type="submit" className="justify-self-start" pending={busy === "save"} disabled={busy === "check"}>
             {sso ? "Save" : "Set up"}
           </Button>

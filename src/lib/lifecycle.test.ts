@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deliverable, expiring, isReview, maxAge, retired, stateOf } from "./lifecycle.ts";
+import { approvesOwn, deliverable, expiring, isReview, maxAge, retired, stateOf } from "./lifecycle.ts";
 
 const rights = (r: { expires?: string; embargo?: string }) => ({ expires: r.expires ?? null, embargo: r.embargo ?? null });
 
@@ -57,4 +57,13 @@ test("an approved asset says when its last day is close", () => {
   assert.equal(expiring(a, "2026-08-01"), null, "far off");
   assert.equal(expiring({ ...a, status: "draft" }, "2026-09-30"), null);
   assert.equal(expiring({ status: "active", rights: null }), null);
+});
+
+test("whoever proposed an asset can't approve it, and anyone else with approve can", () => {
+  const a = { status: "proposed" as const, proposedBy: "Claude" };
+  assert.ok(approvesOwn(a, "active", "Claude"));
+  assert.ok(approvesOwn({ ...a, status: "rejected" }, "active", "Claude"));
+  assert.ok(!approvesOwn(a, "rejected", "Claude"), "turning your own proposal down is withdrawing it");
+  assert.ok(!approvesOwn(a, "active", "Ada"));
+  assert.ok(!approvesOwn({ status: "draft", proposedBy: null }, "active", "Ada"));
 });

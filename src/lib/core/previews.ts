@@ -276,6 +276,18 @@ async function inTemp<T>(bytes: Buffer, name: string, work: (path: string, dir: 
 const missing = new Set<string>();
 
 /**
+ * What a converter sees of the server's environment: enough to find itself and
+ * read text, none of the server's secrets (it reads untrusted files). Its home
+ * is the temp dir, so nothing it writes there outlives the upload.
+ */
+const childEnv = () => ({
+  ...Object.fromEntries(["PATH", "LANG", "LC_ALL", "LC_CTYPE", "TZ"].flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))),
+  NODE_ENV: process.env.NODE_ENV,
+  HOME: tmpdir(),
+  TMPDIR: tmpdir(),
+});
+
+/**
  * Run the first of `names` that is installed and return what it printed; null
  * when none is, said once in the log, with what goes without it.
  */
@@ -287,6 +299,7 @@ async function run(names: string[], args: string[], without: string): Promise<Bu
         encoding: "buffer",
         maxBuffer: 256 * 1024 * 1024,
         timeout: 120_000,
+        env: childEnv(),
       });
       return stdout;
     } catch (err) {

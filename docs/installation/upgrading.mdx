@@ -37,12 +37,29 @@ your bucket's `assets/` prefix for the originals.
 
 `ghcr.io/pwnera/artbucket:1` follows every 1.x release: fixes and additions,
 never a change that breaks an integration ([Stability](/developers/stability)).
-Pin `1.0` to take fixes only, or `1.0.0` to move only when you say.
+Pin a minor line (such as `1.8`) to take fixes only, or a version (such as
+`1.8.1`) to move only when you say. Not every release has an image: [the
+registry](https://github.com/pwnera/artbucket/pkgs/container/artbucket) lists the tags there are, and [the releases](https://github.com/pwnera/artbucket/releases) what each
+changed.
 
 Before 1.0 the API changed between minor versions (0.8 to 0.9); the release
 notes said how. From 0.9, upgrading to 1.0 changes nothing you call.
 
 ## Notes by version
+
+**1.8.** Sign in with Google, and Google or OIDC sign-in at an organization's
+own domain. Any verified domain may serve the app, each turned on in Settings,
+Domains. Who sees an asset is said plainly and chosen at upload. An MCP tool
+now refuses an argument it doesn't take: send only what the tool lists. A CLI
+push keeps what changed in the app.
+
+**1.7.** The first release of the roadmap's Analytics milestone, on top of
+1.6.1.
+
+**1.6.** Brand pages and the builder, brand as code (the brand as YAML in a Git
+repository), releases as pages, BrandHub and Insights. 1.6.1 adds joining an
+organization by its email domain, and requiring single sign-on for a domain
+([0015](/decisions/0015-joining-by-email-domain)).
 
 **1.5.** Nothing to do. A pass over the whole app's feel. Brand guidelines
 are edited in place, as in Notion: no Edit mode, "/" to add a rule or a block,

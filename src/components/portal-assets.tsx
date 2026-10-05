@@ -7,7 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { LocalDate, PublicGrid, type PublicItem } from "@/components/public-grid";
 import { Thumb } from "@/components/thumb";
-import { PoweredBy, SiteFooter } from "@/components/site/footer";
+import { PoweredBy, PrivacyLink, SiteFooter } from "@/components/site/footer";
 import { type BrandLook, Looked, Opening } from "@/components/site/looked";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -72,6 +72,7 @@ export function PortalAssets({
   header,
   onNavigate,
   onLost,
+  privacy,
 }: {
   slug: string;
   base: string;
@@ -84,6 +85,8 @@ export function PortalAssets({
   header?: React.ReactNode;
   onNavigate?: (href: string) => void;
   onLost: (body: PortalBody) => void;
+  /** The server's privacy policy (PRIVACY_URL), in the footer. */
+  privacy?: string | null;
 }) {
   const [view, setView] = useState(initial);
   const [q, setQ] = useState(firstQ);
@@ -283,7 +286,7 @@ export function PortalAssets({
       </main>
 
       {portal.look.brand ? (
-        <SiteFooter portal={portal} base={base} onNavigate={onNavigate} />
+        <SiteFooter portal={portal} base={base} onNavigate={onNavigate} privacy={privacy} />
       ) : (
         <footer className="text-muted-foreground border-t text-sm">
           <div className="mx-auto flex w-full max-w-280 flex-wrap justify-between gap-x-6 gap-y-1 px-6 py-8 @3xl/site:px-10">
@@ -293,6 +296,7 @@ export function PortalAssets({
                 Open until <LocalDate at={portal.expiresAt} />
               </p>
             )}
+            {privacy && <PrivacyLink href={privacy} />}
             {portal.madeWith && <PoweredBy slug={portal.slug} />}
           </div>
         </footer>

@@ -16,7 +16,18 @@ const LINK = "hover:text-foreground focus-visible:ring-ring/50 rounded-sm underl
  * brand being read was last published and what that changed, where to send
  * feedback, and the credit line; without white-label, "Powered by Artbucket".
  */
-export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePortal, "slug" | "site" | "brands" | "madeWith">; base: string; onNavigate?: (href: string) => void }) {
+export function SiteFooter({
+  portal,
+  base,
+  onNavigate,
+  privacy,
+}: {
+  portal: Pick<SitePortal, "slug" | "site" | "brands" | "madeWith">;
+  base: string;
+  onNavigate?: (href: string) => void;
+  /** The server's privacy policy (PRIVACY_URL), unless the footer's own links name one. */
+  privacy?: string | null;
+}) {
   const { view } = useSite();
   const f = portal.site.footer ?? {};
   const brand = view.brand.slug;
@@ -62,6 +73,11 @@ export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePort
             </p>
           )}
           {f.credit && <p>{f.credit}</p>}
+          {privacy && !f.links?.some((l) => /privacy/i.test(l.label)) && (
+            <p>
+              <PrivacyLink href={privacy} className={LINK} />
+            </p>
+          )}
           {portal.madeWith && (
             <p className="pt-2">
               <PoweredBy slug={portal.slug} />
@@ -70,6 +86,30 @@ export function SiteFooter({ portal, base, onNavigate }: { portal: Pick<SitePort
         </div>
       </div>
     </footer>
+  );
+}
+
+/** The server's privacy policy (PRIVACY_URL), where visitors without an account land: a plain word, no product mark, so white-label holds. */
+export function PrivacyLink({ href, className }: { href: string; className?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className={className ?? LINK}>
+      Privacy
+    </a>
+  );
+}
+
+/** Under a form that asks a visitor for their email: who gets it, what for, and the policy. */
+export function AskNotice({ privacy }: { privacy?: string | null }) {
+  return (
+    <p className="text-muted-foreground text-xs text-pretty">
+      Sent to the team behind this portal, only to answer you.
+      {privacy && (
+        <>
+          {" "}
+          <PrivacyLink href={privacy} className={`${LINK} underline`} />
+        </>
+      )}
+    </p>
   );
 }
 

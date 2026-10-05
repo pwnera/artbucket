@@ -2,6 +2,7 @@ import { fail, handle } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
 import { validUntil } from "@/lib/core/signing";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
+import { AssetError } from "@/lib/core/errors";
 import { renderAsset } from "@/lib/core/renditions";
 import { countTraffic } from "@/lib/core/usage";
 import { record, referrerOf, who } from "@/lib/core/events";
@@ -137,7 +138,16 @@ export async function GET(req: Request, { params }: Ctx) {
       return fail(415, "unsupported", `Cannot transform ${asset.mime}`);
     }
 
-    const { body, length, contentType } = await renderAsset(asset, kept ? shownSize(parsed) : parsed);
+    const asked = kept ? shownSize(parsed) : parsed;
+    // Made for someone the URL alone let in: kept uncounted and bounded per file (lib/core/renditions.ts).
+    const outside = by.surface === "public" || by.surface === "link";
+    const { body, length, contentType } = await renderAsset(asset, asked, { outside }).catch(async (err) => {
+      // Past that bound, a member who opened such a URL makes what they like, as a member.
+      if (!(outside && err instanceof AssetError && err.code === "forbidden")) throw err;
+      const caller = await callerFrom(req, asset.workspaceId);
+      if (!(caller && (await getAsset(caller, id)))) throw err;
+      return renderAsset(asset, asked);
+    });
     served(length);
     return bytes(etag, cache, body, length, contentType);
   } catch (err) {

@@ -86,8 +86,11 @@ export type Me = {
   /** Where Help's "Send feedback" writes (EMAIL_REPLY_TO) and the version running; null without one, or for nobody. */
   feedback: { email: string; version: string } | null;
   joinable: { organization: { id: string; name: string }; domain: string } | null;
-  auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; google: boolean; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean };
+  auth: { signUp: boolean; open: boolean; oidc: { name: string } | null; google: boolean; sso: boolean; anonymous: Scope | null; passwordReset: boolean; serverEmail: boolean; legal?: Legal | null };
 };
+
+/** The operator's terms and privacy policy, which making an account agrees to. */
+export type Legal = { terms: string | null; privacy: string | null };
 
 /** Go somewhere and redraw it from the server: after signing in or out, or switching workspace, every page's data is someone else's. */
 export function useGo() {

@@ -64,6 +64,12 @@ leaves empty comes from the organization.
 A domain added but not verified within 7 days no longer holds the name:
 anyone else can then add it.
 
+Keep the TXT record after that. The server looks at verified domains' records
+again every few hours, and one whose record is gone at every look for 7 days
+is unverified: it stops serving, and anyone else who proves it may take it.
+Putting the record back and **Check now** verifies it again. A lookup that
+fails (a DNS server down, a timeout) counts for nothing either way.
+
 Once verified, the whole app answers there in the organization's brand. People
 sign in there, and invitations, share links and portal links in email point
 there. It needs a certificate: see [TLS for portals](/guides/portals#tls),
