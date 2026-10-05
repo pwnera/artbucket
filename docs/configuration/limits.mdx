@@ -104,12 +104,14 @@ values (
   'operator'
 )
 on conflict (organization_id, workspace_id, key)
-do update set value = settings.value || excluded.value, updated_by = excluded.updated_by, updated_at = now();
+do update set value = settings.value || excluded.value, updated_at = now();
 ```
 
 `settings.value || excluded.value` keeps what the row already held (a plan's
-limits) and adds the flag. While it is set, within a minute on every server
-process:
+limits) and adds the flag, and `updated_by` stays: a billing integration that
+wrote the row still owns it, and should keep `suspended` whenever it rewrites
+or removes the row for a plan. While it is set, within a minute on every
+server process:
 
 - its portals, at every address (`{slug}.PORTAL_DOMAIN`, `/p/{slug}`, its own
   domains), its share and upload links, and its BrandHub listings answer
@@ -123,11 +125,15 @@ process:
   and the reason: write one they may read.
 
 Nobody in the organization can set or clear it: limits are never written
-through the API. To lift it, remove the key:
+through the API. To lift it, remove the key, and the row if nothing else is
+left in it (an empty row still counts as a plan of its own):
 
 ```sql
-update settings set value = value - 'suspended', updated_by = 'operator', updated_at = now()
+update settings set value = value - 'suspended', updated_at = now()
 where key = 'limits' and workspace_id is null
+  and organization_id = (select id from organizations where slug = 'acme');
+delete from settings
+where key = 'limits' and workspace_id is null and value = '{}'::jsonb
   and organization_id = (select id from organizations where slug = 'acme');
 ```
 
