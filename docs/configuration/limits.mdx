@@ -115,8 +115,8 @@ server process:
 
 - its portals, at every address (`{slug}.PORTAL_DOMAIN`, `/p/{slug}`, its own
   domains), its share and upload links, and its BrandHub listings answer
-  `451` (Unavailable For Legal Reasons) with a plain page, or `{"error":
-  {"code": "suspended"}}` from the API, that names nobody, with
+  `451` (Unavailable For Legal Reasons) with a plain page, or the error code
+  `suspended` from the API, that names nobody, with
   `Cache-Control: no-store`. BrandHub leaves its brands out of every list;
 - its files at `/a/{id}` and `/c/{id}` answer `451` to everyone outside it,
   public or signed alike;
