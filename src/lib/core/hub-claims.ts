@@ -93,7 +93,7 @@ export async function acceptOffer(caller: Caller, org: string, slug: string, inp
   mayManage(caller);
   if (!caller.user) throw new AssetError("forbidden", "A person claims a listing, signed in: not a key");
   const offer = await offerAt(caller, org, slug);
-  const made = await startFrom(caller, { name: offer.name, slug: input.slug ?? offer.brand, from: `${org}/${slug}`, domain: offer.domain });
+  const made = await startFrom(caller, { name: offer.name, slug: input.slug ?? offer.brand, from: `${org}/${slug}`, domain: offer.domain }, { claim: true });
   let hub;
   try {
     await publishBrand(caller, made.slug, { note: `Claimed from ${org}/${slug} on BrandHub, by proving ${offer.proof}` });

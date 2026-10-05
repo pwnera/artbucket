@@ -117,7 +117,8 @@ storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
   slice. Single sign-on in every install, and viewers are never counted.
 - **Portals.** A press kit, partner hub or retailer portal on your own domain,
   plus share and upload links for people without an account.
-- **Review.** Uploads, tags and agent suggestions wait for a person's yes.
+- **Review.** What agents (by default) and contributors upload or suggest
+  waits for a person's yes, and nobody approves their own.
 - **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP
   written back into the file on download. Your files leave with their metadata.
 - **Brand as code.** The brand as YAML in a Git repository, changed on either

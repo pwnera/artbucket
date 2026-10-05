@@ -73,9 +73,9 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
     refresh(() => router.refresh());
   }
 
-  async function test(form: FormData) {
+  async function test() {
     setTesting(true);
-    const r = await send("POST", "/api/v1/email/test", { to: String(form.get("to") ?? "").trim() || undefined });
+    const r = await send("POST", "/api/v1/email/test", {});
     setTesting(false);
     if (r) toast.success(`Sent to ${r.to}`);
   }
@@ -207,18 +207,17 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
         </form>
       </Group>
 
-      <Group title="Send a test" info="Through the settings above, as they are saved.">
+      <Group title="Send a test" info={`Through the settings above, as they are saved, to you${me.user ? ` (${me.user.email})` : ""}.`}>
         <form
           className="grid max-w-lg gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            void test(new FormData(e.currentTarget));
+            void test();
           }}
         >
           <div className="flex gap-2">
-            <Input name="to" type="email" placeholder={me.user?.email ?? "you@example.com"} aria-label="Send the test to" required={!me.user} />
-            <Button type="submit" variant="outline" pending={testing} disabled={!v.enabled} aria-describedby={v.enabled ? undefined : `${id}-test-off`}>
-              <IconSend /> Send
+            <Button type="submit" variant="outline" pending={testing} disabled={!v.enabled || !me.user} aria-describedby={v.enabled ? undefined : `${id}-test-off`}>
+              <IconSend /> Send a test
             </Button>
           </div>
           {!v.enabled && (

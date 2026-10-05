@@ -6,6 +6,7 @@ import type { Caller } from "@/lib/core/access";
 import { resolveBrand } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { env } from "@/lib/env";
+import { gate } from "@/lib/pool";
 import { printToken } from "@/lib/print-token";
 import { guidelinesPath } from "@/lib/site";
 
@@ -41,6 +42,9 @@ const launch = () => {
   return browser;
 };
 
+/** Two tabs at once, a few more waiting: each is a page's worth of browser memory. */
+const tabs = gate(2, 4);
+
 export type Print = { jpeg: Buffer; width: number; height: number; url: string };
 
 /**
@@ -60,30 +64,33 @@ export async function printPage(caller: Caller, brandSlug: string | undefined, s
   const token = printToken(env.BETTER_AUTH_SECRET, { ws, brand: brand.slug, page: slug, ...(o.context && { context: o.context }) });
   const width = WIDTHS[o.width ?? "desktop"];
 
-  let b: Browser;
-  try {
-    b = await launch();
-  } catch (err) {
-    throw new AssetError("unavailable", `No browser to draw the page with (${(err as Error).message.split("\n")[0]}); open ${url} instead`);
-  }
-  // Reduced motion: the theme's scroll-driven reveal (globals.css) would leave every section below the fold invisible in a full-page picture.
-  const tab = await b.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, colorScheme: "light", reducedMotion: "reduce" });
-  try {
-    await tab.goto(`${env.INTERNAL_URL ?? env.APP_URL}/print/${token}`, { waitUntil: "networkidle", timeout: 45_000 });
-    // Scroll through, a screen at a time, so reveal-on-scroll sections and lazy pictures are drawn; then back to the top.
-    await tab.evaluate(async () => {
-      for (let y = 0; y < document.documentElement.scrollHeight; y += 700) {
-        window.scrollTo(0, y);
-        await new Promise((r) => setTimeout(r, 60));
-      }
-      window.scrollTo(0, 0);
-      await document.fonts.ready;
-      await Promise.all(Array.from(document.images, (i) => i.complete || new Promise((r) => i.addEventListener("load", r, { once: true }))));
-    });
-    const height = Math.min(MAX_HEIGHT, await tab.evaluate(() => document.documentElement.scrollHeight));
-    const jpeg = await tab.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: 0, y: 0, width, height }, fullPage: true });
-    return { jpeg, width, height, url };
-  } finally {
-    await tab.close().catch(() => {});
-  }
+  if (tabs.full) throw new AssetError("rate_limited", "Busy drawing other pages: try again in a moment");
+  return tabs.run(1, async () => {
+    let b: Browser;
+    try {
+      b = await launch();
+    } catch (err) {
+      throw new AssetError("unavailable", `No browser to draw the page with (${(err as Error).message.split("\n")[0]}); open ${url} instead`);
+    }
+    // Reduced motion: the theme's scroll-driven reveal (globals.css) would leave every section below the fold invisible in a full-page picture.
+    const tab = await b.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, colorScheme: "light", reducedMotion: "reduce" });
+    try {
+      await tab.goto(`${env.INTERNAL_URL ?? env.APP_URL}/print/${token}`, { waitUntil: "networkidle", timeout: 45_000 });
+      // Scroll through, a screen at a time, so reveal-on-scroll sections and lazy pictures are drawn; then back to the top.
+      await tab.evaluate(async () => {
+        for (let y = 0; y < document.documentElement.scrollHeight; y += 700) {
+          window.scrollTo(0, y);
+          await new Promise((r) => setTimeout(r, 60));
+        }
+        window.scrollTo(0, 0);
+        await document.fonts.ready;
+        await Promise.all(Array.from(document.images, (i) => i.complete || new Promise((r) => i.addEventListener("load", r, { once: true }))));
+      });
+      const height = Math.min(MAX_HEIGHT, await tab.evaluate(() => document.documentElement.scrollHeight));
+      const jpeg = await tab.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: 0, y: 0, width, height }, fullPage: true });
+      return { jpeg, width, height, url };
+    } finally {
+      await tab.close().catch(() => {});
+    }
+  });
 }

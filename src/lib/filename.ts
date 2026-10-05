@@ -54,3 +54,10 @@ export function formatBytes(n: number): string {
   }
   return `${i > 0 && n < 100 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
 }
+
+/** The largest file one upload takes: a single PUT, and finalize reads it whole. */
+export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+
+/** Why a file is too big to upload, in units a person reads; null when it isn't. */
+export const tooLargeToUpload = (size: number) =>
+  size > MAX_UPLOAD_BYTES ? `Files up to ${formatBytes(MAX_UPLOAD_BYTES)}; this one is ${formatBytes(size)}` : null;

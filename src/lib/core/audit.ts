@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { audit, grants } from "@/lib/db/schema";
+import { audit } from "@/lib/db/schema";
 import { AssetError } from "@/lib/core/errors";
 
 /**
@@ -45,14 +45,17 @@ export type AuditAction =
   | "brand.claimed"
   | "domain.added"
   | "domain.verified"
+  | "domain.unverified"
   | "domain.removed"
   | "domain.primary"
   | "domain.app"
   | "email_domain.added"
   | "email_domain.verified"
+  | "email_domain.unverified"
   | "email_domain.removed"
   | "email_domain.opened"
   | "email_domain.closed"
+  | "email_domain.landing"
   | "email_domain.joined"
   | "github.added"
   | "github.verified"
@@ -102,17 +105,19 @@ export async function recordAudit(
 
 /**
  * An organization's trail, newest first: what happened in it, and the
- * sign-ins of its members. A workspace admin who isn't an organization admin
- * sees that workspace's entries only. Page with `before`.
+ * reader's (`self`) own sign-ins. Entries in no organization (sign-ups and
+ * sign-ins, with their address and browser) are the person's alone: an
+ * organization's admins never see another person's, whoever else they work
+ * for. A workspace admin who isn't an organization admin sees that
+ * workspace's entries only. Page with `before`.
  */
 export async function listAudit(
-  scope: { organizationId: string; workspaceId?: string },
+  scope: { organizationId: string; workspaceId?: string; self?: string | null },
   { before, limit = 50 }: { before?: string; limit?: number } = {},
 ) {
   const until = before ? new Date(before) : undefined;
   if (until && Number.isNaN(until.getTime())) throw new AssetError("invalid", `Not a time: "${before}"`);
   const n = Math.min(Math.max(limit, 1), 200);
-  const members = db.selectDistinct({ id: grants.userId }).from(grants).where(eq(grants.organizationId, scope.organizationId));
   const rows = await db
     .select()
     .from(audit)
@@ -120,10 +125,7 @@ export async function listAudit(
       and(
         scope.workspaceId
           ? eq(audit.workspaceId, scope.workspaceId)
-          : or(
-              eq(audit.organizationId, scope.organizationId),
-              and(isNull(audit.organizationId), inArray(audit.userId, members)),
-            ),
+          : or(eq(audit.organizationId, scope.organizationId), scope.self ? and(isNull(audit.organizationId), eq(audit.userId, scope.self)) : undefined),
         until ? lt(audit.at, until) : undefined,
       ),
     )

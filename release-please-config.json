@@ -11,7 +11,8 @@
       "include-component-in-tag": false,
       "extra-files": [
         { "type": "json", "path": "cli/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugin/.claude-plugin/plugin.json", "jsonpath": "$.version" }
+        { "type": "json", "path": "plugin/.claude-plugin/plugin.json", "jsonpath": "$.version" },
+        { "type": "generic", "path": "docs/installation/vps.mdx" }
       ],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },

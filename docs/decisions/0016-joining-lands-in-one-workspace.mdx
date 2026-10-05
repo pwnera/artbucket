@@ -1,0 +1,36 @@
+---
+title: "0016: Joining lands in one workspace, not the organization"
+description: Accepted. Amends 0015.
+---
+
+## Context
+
+[0015](/decisions/0015-joining-by-email-domain) let people join by their email
+domain, and single sign-on let them join through the provider, both at read
+on the whole organization. A grant on an organization opens every workspace
+in it. An agency keeps a workspace per client in one organization: opening a
+client's domain, or pointing single sign-on at a client's provider, gave
+every one of that client's people read on every other client's library,
+brands and portals. Workspaces kept invited people apart; the two doors that
+need no invitation walked around them.
+
+## Decision
+
+- Joining is still at **read**, on one workspace: the **landing workspace**
+  of the email domain, or of the single sign-on provider. Never a grant on
+  the organization.
+- The organization's admin picks it beside the domain and in the single
+  sign-on panel, and the settings show it while there is more than one
+  workspace. Unpicked, or when the workspace picked is deleted, it is the
+  organization's oldest: an organization with one workspace sees no change.
+- Someone who holds any grant in the organization already lands nowhere new:
+  an admin placed them.
+
+## Consequences
+
+- Grants made by joins before this stay on the organization: nothing rewrites
+  access an admin may have counted on. An admin narrows them in Team.
+- A client's people see their workspace and not the rest of the organization:
+  its other workspaces wait for a grant.
+- Still one provider per organization: an agency can't give each client its
+  own. Groups of people, granted together, are a separate decision.
