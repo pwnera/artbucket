@@ -116,7 +116,8 @@
           "decisions/0012-private-delivery",
           "decisions/0013-agpl-and-cla",
           "decisions/0014-agents-fetch-what-they-read",
-          "decisions/0015-joining-by-email-domain"
+          "decisions/0015-joining-by-email-domain",
+          "decisions/0016-joining-lands-in-one-workspace"
         ]
       }
     ]

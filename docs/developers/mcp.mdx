@@ -33,7 +33,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality, and a `fetchUrl` for the agent itself. With `expiresIn`, a URL for someone without access: plain for a public asset, signed about a day for one a public portal shows, signed as asked with share; anything else says what the person can do |
 | `brand_rules` | read | A brand's rules for a context, with their labels and specs |
-| `ingest_asset` | propose | Fetch a public URL into the library, as `proposed`, with provenance and rights |
+| `ingest_asset` | propose | Fetch a public URL into the library, with provenance and rights: `proposed` with a propose key, approved at once with a write key |
 | `import_google_font` | propose | A Google Fonts family, one file per style |
 | `find_icons` | read | Open source icon sets through Iconify, or a set's icons by name, with license and author |
 | `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
@@ -49,7 +49,7 @@ anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `delete_collection` | write, delete | Delete a collection; its assets stay in the library |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
-| `review_asset` | write, approve | Approve or reject a proposal, with a note; apply or drop suggested tags and field values |
+| `review_asset` | write, approve | Approve or reject a proposal, with a note; apply or drop suggested tags and field values. Never one the caller proposed itself |
 | `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, the Brand Agent Score, and every brand's slug |
 | `create_brand` | write | Make a brand, empty, as a copy of another's rules, pages and theme, or from a public BrandHub brand (`from: "rust-lang/rust@12"`) |
 | `update_brand` | write | Rename a brand, change its slug, or make it the default |

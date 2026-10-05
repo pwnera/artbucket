@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fileTypeBadge, formatBytes, truncateFilename } from "./filename.ts";
+import { fileTypeBadge, formatBytes, MAX_UPLOAD_BYTES, tooLargeToUpload, truncateFilename } from "./filename.ts";
 
 test("short names are left alone", () => {
   assert.equal(truncateFilename("hero.png"), "hero.png");
@@ -62,4 +62,9 @@ test("a Content-Disposition any browser reads back, whatever the name", async ()
   // RFC 5987 allows no ' ( ) * in the value: Chrome drops a filename* with a third quote.
   assert.equal(disposition("attachment", "Brand's logo (2)*.png"), "attachment; filename*=UTF-8''Brand%27s%20logo%20%282%29%2A.png");
   assert.equal(disposition("inline", 'a"\r\nSet-Cookie: x.png'), "inline; filename*=UTF-8''a%22%0D%0ASet-Cookie%3A%20x.png");
+});
+
+test("an upload past the limit says so in MB or GB, not bytes", () => {
+  assert.equal(tooLargeToUpload(MAX_UPLOAD_BYTES), null);
+  assert.equal(tooLargeToUpload(1.2 * 1024 ** 3), "Files up to 512 MB; this one is 1.2 GB");
 });

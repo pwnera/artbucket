@@ -5,7 +5,9 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   IconActivity,
   IconBook,
+  IconBook2,
   IconBookmark,
+  IconBug,
   IconDeviceDesktop,
   IconFileSearch,
   IconFileText,
@@ -14,6 +16,7 @@ import {
   IconInbox,
   IconKeyboard,
   IconMailPlus,
+  IconMessage,
   IconMoon,
   IconPhoto,
   IconRobot,
@@ -28,6 +31,7 @@ import {
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { useTheme } from "next-themes";
 import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";
+import { useHelp } from "@/components/account";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { useCan, useMe } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";
@@ -171,6 +175,7 @@ export function CommandPalette({
   const navigate = useNavigate();
   const can = useCan();
   const me = useMe();
+  const help = useHelp(me);
   const workspace = me?.workspace.id ?? "";
   const { setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
@@ -396,12 +401,30 @@ export function CommandPalette({
           <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
             <IconRobot /> Agents: connect one, manage keys
           </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup heading="Help">
+          {help.docs && (
+            <CommandItem value="Docs documentation guide manual help" onSelect={run(() => window.open(help.docs!, "_blank", "noopener"))}>
+              <IconBook2 /> Docs
+            </CommandItem>
+          )}
           <CommandItem value="Keyboard shortcuts keys help" onSelect={run(onShortcuts)}>
             <IconKeyboard /> Keyboard shortcuts
             <CommandShortcut className="tracking-normal">
               <Kbd keys={["?"]} />
             </CommandShortcut>
           </CommandItem>
+          {help.issues && (
+            <CommandItem value="Report an issue bug github help" onSelect={run(() => window.open(help.issues!, "_blank", "noopener"))}>
+              <IconBug /> Report an issue
+            </CommandItem>
+          )}
+          {help.feedback && (
+            <CommandItem value="Send feedback contact support email help" onSelect={run(help.feedback)}>
+              <IconMessage /> Send feedback
+            </CommandItem>
+          )}
         </CommandGroup>
 
         <CommandGroup heading="Go to">

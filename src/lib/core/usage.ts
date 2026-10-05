@@ -1,4 +1,4 @@
-import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, sql, type SQLWrapper } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, or, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
@@ -98,6 +98,22 @@ export async function countRendition(key: string, workspaceId: string, bytes: nu
     .insert(renditions)
     .values({ key, workspaceId, bytes })
     .onConflictDoUpdate({ target: renditions.key, set: { workspaceId, bytes, createdAt: sql`now()` } });
+}
+
+/**
+ * A file deleted from a workspace: its renditions there stop counting with it,
+ * unless another asset there still shows the same bytes (`hash`: what
+ * renditions are keyed by, its still or its original). The bucket expires
+ * them as usual; restored, it counts again those made from then on.
+ */
+export async function uncountRenditions(workspaceId: string, hash: string) {
+  const held = db
+    .select({ id: assets.id })
+    .from(assets)
+    .where(and(eq(assets.workspaceId, workspaceId), isNull(assets.deletedAt), or(eq(assets.sha256, hash), sql`${assets.probe} ->> 'preview' = ${hash}`)));
+  await db
+    .delete(renditions)
+    .where(and(eq(renditions.workspaceId, workspaceId), sql`starts_with(${renditions.key}, ${`renditions/${hash}/`})`, notExists(held)));
 }
 
 /** People with write or admin anywhere in it, and invitations that would make more: a seat is taken when it is offered. */

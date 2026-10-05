@@ -85,6 +85,11 @@ export default async function HubLayout({ children }: { children: React.ReactNod
           <a href={`${base}/index.json`} className="hover:text-foreground underline-offset-2 hover:underline">
             index.json
           </a>
+          {env.PRIVACY_URL && (
+            <a href={env.PRIVACY_URL} target="_blank" rel="noreferrer" className="hover:text-foreground underline-offset-2 hover:underline">
+              Privacy
+            </a>
+          )}
         </div>
       </footer>
     </div>

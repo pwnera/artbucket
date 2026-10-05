@@ -14,6 +14,7 @@ import { SCOPES } from "./scopes.ts";
 import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
+import { MAX_UPLOAD_BYTES } from "./filename.ts";
 import { FITS, FORMATS } from "./transform.ts";
 import { PORTAL_ACCESS, PORTAL_SLUG, PortalSite, PortalTheme, PortalThemePatch, PRESET_IDS } from "./portal.ts";
 import { AUDIENCES, PAGE_LAYOUTS, PageInput, PageOp, pageSlug, REQUEST_KINDS, sectionId, SectionText, WIDTHS } from "./pages.ts";
@@ -31,7 +32,7 @@ import { HUB_REF, REPORT_REASONS } from "./hub.ts";
 
 export { FieldDefInput, FieldDefPatch, PageInput, RuleInput, RuleOrder, RulePatch, ThemePatch, ThemeSettings };
 
-export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+export { MAX_UPLOAD_BYTES };
 const uuid = z.uuid();
 const values = z.record(z.string(), z.unknown()).describe("Custom field values, keyed by field key");
 const tags = z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS);
@@ -43,6 +44,8 @@ export const CreateUpload = z.object({
   mime: z.string().min(1).max(255),
   size: z.number().int().positive().max(MAX_UPLOAD_BYTES),
 });
+/** What the routes parse: the size unbounded, so core answers too_large in MB, not a generic body error. */
+export const CreateUploadInput = CreateUpload.extend({ size: z.number().int().positive() });
 
 const promote = {
   /** Custom field values; validated against the schema, required ones enforced. */
@@ -394,10 +397,12 @@ export const SsoInput = z.strictObject({
   clientId: z.string().trim().min(1).max(500).describe("The app's client ID at the provider"),
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
+  workspaceId: z.uuid().nullable().optional().describe("The workspace its people land in the first time, able to read; null for the organization's oldest. Left out, it stays"),
 });
 export const EmailDomainInput = z.strictObject({ domain: z.string().min(1).max(253).describe("A domain your people have their email at, e.g. acme.com") });
 export const EmailDomainPatch = z.strictObject({
-  join: z.boolean().describe("Let anyone whose address is at exactly this domain join, able to read. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
+  join: z.boolean().optional().describe("Let anyone whose address is at exactly this domain join, able to read its landing workspace. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
+  workspaceId: z.uuid().nullable().optional().describe("The workspace whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays"),
 });
 export const SsoRequiredInput = z.strictObject({
   required: z.boolean().describe("Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"),
@@ -610,7 +615,7 @@ export const Brand = z.object({
 });
 /** POST /api/v1/brands: the brand, and what making it from a brand.json left out, and its release when it was published at once. */
 export const BrandMade = Brand.extend({
-  skipped: z.array(z.string()).optional().describe("From a brand.json: files and portfolio brands that wouldn't read, each with why"),
+  skipped: z.array(z.string()).optional().describe("From a brand.json: files and portfolio brands that wouldn't read; from a BrandHub brand: files shown there but not handed out. Each with why"),
   dropped: z.array(z.string()).optional().describe("From a brand.json: what it says that has no place in the rules, by its path there"),
   published: z.number().int().optional().describe("With publish: the version released"),
   hub: z.object({ visibility: z.enum(["private", "public"]), url: z.string() }).nullable().optional().describe("With publish: where it is on BrandHub"),
@@ -1117,6 +1122,7 @@ export const Usage = z.object({
     workspaces: limit("Workspaces"),
     brands: limit("Brands, over all workspaces"),
     domains: limit("Custom domains, the app's and its portals'"),
+    emails: limit("Emails a day: invitations, share links, tests"),
     features: z.array(z.enum(["agents", "shares", "sso"])).nullable().describe("What it may use; null: everything"),
     readOnly: z.boolean(),
     suspended: z
@@ -1187,6 +1193,10 @@ export const Me = z.object({
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
     .describe("A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"),
+  feedback: z
+    .object({ email: z.email(), version: z.string() })
+    .nullable()
+    .describe("Where to send feedback about this server (EMAIL_REPLY_TO), and the version it runs: set for someone signed in when the server has one, else null"),
   joinable: JoinOffer.nullable().describe("An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),
@@ -1199,6 +1209,18 @@ export const Me = z.object({
     serverEmail: z
       .boolean()
       .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
+    captcha: z
+      .enum(["turnstile", "pow"])
+      .nullable()
+      .describe(
+        "What making an account with a password and sending its email code take at this host, in the x-captcha-response header: a Cloudflare Turnstile token (turnstile), a solved proof of work from GET /api/auth/captcha/challenge, ALTCHA's protocol (pow), or nothing (null)",
+      ),
+    turnstile: z.string().nullable().describe("The Cloudflare Turnstile site key (TURNSTILE_SITE_KEY) when captcha is turnstile, else null"),
+    legal: z
+      .object({ terms: z.url().nullable(), privacy: z.url().nullable() })
+      .nullable()
+      .optional()
+      .describe("The operator's terms and privacy policy (TERMS_URL, PRIVACY_URL), which making an account agrees to; null when neither is set"),
   }),
 });
 
@@ -1519,13 +1541,15 @@ export const Sso = z.object({
   domain: z.string(),
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
   required: z.boolean().describe("Addresses at the domain sign in only through the provider, but for the organization's admins"),
+  workspaceId: z.string().nullable().describe("The workspace its people land in the first time, able to read; null for the organization's oldest"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
 });
 export const EmailDomain = z.object({
   domain: z.string(),
   verified: z.boolean().describe("Proved by its TXT record: single sign-on and joining by domain may use it"),
-  join: z.boolean().describe("Anyone whose address is at exactly this domain may join the organization, able to read"),
+  join: z.boolean().describe("Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"),
+  workspaceId: z.string().nullable().describe("The workspace whoever joins lands in, able to read; null for the organization's oldest"),
   sso: z.boolean().describe("The organization's single sign-on uses it"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
 });
@@ -1727,7 +1751,7 @@ export const SettingItem = z.object({
   own: z.boolean().describe("Set here: resetting it lets what is above apply"),
 });
 export const SettingPatch = z.record(z.string(), z.unknown()).describe("Properties to change; a blank secret keeps it, null clears it");
-export const EmailTest = z.strictObject({ to: z.email().optional().describe("Defaults to you") });
+export const EmailTest = z.strictObject({ to: z.email().optional().describe("Your own address, the only one a test goes to") });
 
 export const Audit = z.object({ data: z.array(AuditEntry), next: date.nullable().describe("Pass as `before` for the next page") });
 

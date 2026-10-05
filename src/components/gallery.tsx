@@ -84,7 +84,7 @@ import { pool } from "@/lib/pool";
 import { expiring, STATE_LABEL, type State, type Status } from "@/lib/lifecycle";
 import type { Origin, Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
-import { fileTypeBadge, formatBytes, truncateFilename } from "@/lib/filename";
+import { fileTypeBadge, formatBytes, tooLargeToUpload, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
@@ -681,6 +681,8 @@ export function Gallery({
       const signal = stop.signal;
       try {
         if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
+        const big = tooLargeToUpload(file.size);
+        if (big) throw new Error(big);
         uploads.patch(id, { status: "uploading", error: undefined, loaded: 0 });
         const ticket = await fetch("/api/v1/uploads", {
           method: "POST",

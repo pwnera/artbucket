@@ -48,6 +48,9 @@ const s3 = origin(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT);
 // Virtual-hosted buckets live at {bucket}.{host}: that is where a presigned PUT goes.
 const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace("://", `://${process.env.S3_BUCKET}.`) : "";
 
+/** Cloudflare Turnstile's script and frame, on sign-up (lib/auth.ts), when TURNSTILE_* is set. */
+const turnstile = process.env.TURNSTILE_SITE_KEY ? " https://challenges.cloudflare.com" : "";
+
 /**
  * Scripts: only those carrying this response's nonce, and what they load
  * ('strict-dynamic'). Next puts the nonce on its own scripts when it sees it
@@ -56,18 +59,19 @@ const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace(":
  * page some other way runs nothing. The Lottie player's WebAssembly, fetched
  * from jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
  * (lib/preview.ts), and an embed section's hosts (lib/pages.ts EMBED_HOSTS).
- * Connections: browser uploads go straight to storage.
+ * Turnstile's script and frame when it is on. Connections: browser uploads
+ * go straight to storage.
  */
 const csp = (nonce: string) => [
   "default-src 'self'",
-  `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}${turnstile}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // The app's own address too: on an organization's domain, asset URLs from the API still point at APP_URL.
   `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
-  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",
+  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com" + turnstile,
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
