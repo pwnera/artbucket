@@ -4,6 +4,67 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.9.0](https://github.com/pwnera/artbucket/compare/v1.8.1...v1.9.0) (2026-10-05)
+
+
+### Features
+
+* an operator can suspend an organization ([6c39c60](https://github.com/pwnera/artbucket/commit/6c39c60a7d5d33b3136ff648db8e5e92e1180a0c))
+* an operator can suspend an organization ([6e39642](https://github.com/pwnera/artbucket/commit/6e39642b58b5a246242cc5515ac2144448d87b16))
+* **app:** a Help menu, in the account menu and the command palette ([acfd3f0](https://github.com/pwnera/artbucket/commit/acfd3f0854456b556dc01a3af2100f2f1c201113))
+* **app:** a Help menu, in the account menu and the command palette ([20a92c4](https://github.com/pwnera/artbucket/commit/20a92c47b722ca58c093f791148aa790040ac84f))
+* **auth:** a proof of work on sign-up where Turnstile isn't ([efb9fda](https://github.com/pwnera/artbucket/commit/efb9fda4d77c0758a20e13e6a81a457d89cecf87))
+* **auth:** a sign-up check, Turnstile on APP_URL, a proof of work elsewhere ([08865e8](https://github.com/pwnera/artbucket/commit/08865e8ffae0806166a933e4d0615fa61d956b1f))
+* **auth:** optional Cloudflare Turnstile on sign-up ([397e353](https://github.com/pwnera/artbucket/commit/397e35379671aefded464d8f9ed9bd2c775f098d))
+* **auth:** sign-up says it agrees to the operator's terms (TERMS_URL, PRIVACY_URL) ([01a4667](https://github.com/pwnera/artbucket/commit/01a4667712b4e6ab08554f43228d66343db34a1e))
+* **auth:** where an account is made, it says going on agrees to the operator's terms ([0ac1c41](https://github.com/pwnera/artbucket/commit/0ac1c41d6d28eb957ef5cd9d7dae7e7da0a614bf))
+* **hub:** BrandHub's footer links the server's privacy policy ([298edbf](https://github.com/pwnera/artbucket/commit/298edbfe0789561c32321553469dae14846eba6f))
+* **login:** /login?mode=up opens on making an account, where sign-up is open ([4468282](https://github.com/pwnera/artbucket/commit/4468282bbf4b0bb99899928c1ca650e0b0aac3b0))
+* **pages:** an embed loads its frame when the reader asks ([f181bd7](https://github.com/pwnera/artbucket/commit/f181bd79c8466ecf34e8d3220b7ad102afe6b94f))
+* **portals:** privacy notice, request retention and click-to-load embeds for visitors ([d281300](https://github.com/pwnera/artbucket/commit/d2813001e7b7e7d1dc9cea3fa8fb9be314f74a27))
+* **portals:** the sweeper forgets portal requests 90 days after their last use ([099695a](https://github.com/pwnera/artbucket/commit/099695ad9fdcd2207dcd72cfb6f27b1454f7520d))
+* **portals:** visitors see where their data goes, and the privacy policy ([270c179](https://github.com/pwnera/artbucket/commit/270c17906403f63dc01f8658cae58f810fde6654))
+
+
+### Fixes
+
+* **access:** a caller who can open no workspace is told none, not the oldest one's name ([7c4c588](https://github.com/pwnera/artbucket/commit/7c4c588090ae305e2eae33bf9acbaa8a5228e3ad))
+* **access:** joining by email domain or single sign-on lands in one workspace ([4ebe450](https://github.com/pwnera/artbucket/commit/4ebe45013937b246ecb9d4ff1403d101a7dd72c5))
+* **access:** joining by email domain or single sign-on lands in one workspace ([6aab3cc](https://github.com/pwnera/artbucket/commit/6aab3cce0a10d22d2d4c48eb7fa6a49db60b87cc))
+* **assets:** fetch URL imports outside the upload gate ([9e1a6b5](https://github.com/pwnera/artbucket/commit/9e1a6b59ca6608e70945eb67774d3cad69ccb06a))
+* audit P0s: a fallback workspace kept private, hub share cards, the default brand off the count, sign-up links, plugin on Cloud ([f67bd05](https://github.com/pwnera/artbucket/commit/f67bd051cb752696978473600fb4ee3311b0058e))
+* **audit:** sign-ins are shown only to the person who signed in ([4144b6d](https://github.com/pwnera/artbucket/commit/4144b6d1be4ff6ce9f7bcfff0cfea549a6733b3c))
+* **auth:** an unbiased secret number for the proof of work ([38661c9](https://github.com/pwnera/artbucket/commit/38661c90bf15543bbbf52ad1df4cfb0a1b80123a))
+* cap each organization's email a day; fetch URL imports outside the upload gate ([f964cfe](https://github.com/pwnera/artbucket/commit/f964cfeba84cd9c28d6098d8b88f51ed5e7606a6))
+* **domains:** re-prove verified domains, unverify one whose TXT record is gone a week ([75bd6eb](https://github.com/pwnera/artbucket/commit/75bd6eb21213b5e85912ad27d13cf8a92c55d242))
+* **hub:** share cards unfurl from the hub's host, and the sitemap is read at request time ([7fdd6c6](https://github.com/pwnera/artbucket/commit/7fdd6c6a92a52e435f8ba1338eaf2dbee66d018c))
+* **hub:** start from a listing copies only files it hands out ([ae3ac4c](https://github.com/pwnera/artbucket/commit/ae3ac4c6444a20cfc592de2bb6c23c9cc67b4eed))
+* **limits:** an untouched default brand does not take the plan's brand slot ([1253734](https://github.com/pwnera/artbucket/commit/1253734ec68b468d9185c79ba7f2f7cd73fc6fb6))
+* **mail:** cap each organization's email a day ([507f79a](https://github.com/pwnera/artbucket/commit/507f79a3a0db944b23f9f4758651f6fb452962ed))
+* **mail:** take the daily email cap from the organization's limits ([b2acc38](https://github.com/pwnera/artbucket/commit/b2acc38e31e761b743b6ee0aab5300b0340ef848))
+* **mcp:** say what each scope does with an upload, and refuse self-approval ([f6e574d](https://github.com/pwnera/artbucket/commit/f6e574d6cfe702fd0cd0d3a546c3f214f8a8be5a))
+* oversized uploads answer too_large in MB; verified domains are re-proved ([d8823cf](https://github.com/pwnera/artbucket/commit/d8823cf09782b106fd6c548c264d2bb518059d44))
+* **plugin:** the Claude Code plugin connects to Artbucket Cloud unless ARTBUCKET_URL says otherwise ([816d536](https://github.com/pwnera/artbucket/commit/816d536582fb48307cd6884635add89483080c89))
+* **portals:** count wrong portal passwords per address ([bde3a63](https://github.com/pwnera/artbucket/commit/bde3a63ed0c6699ebd91c8cab5416042a1a5cd02))
+* **portals:** light by default, and the brand's dark logo in dark mode ([606c05b](https://github.com/pwnera/artbucket/commit/606c05b00852518482f61b5c1d6380211d30b2cd))
+* **previews:** run converters without the server's environment ([d6a0f2a](https://github.com/pwnera/artbucket/commit/d6a0f2adc301e327613deaa28e9bb801efa3b2e7))
+* **print:** draw at most two brand pages at once ([295c459](https://github.com/pwnera/artbucket/commit/295c4596a171ae54712de8f03969dcba0610ac66))
+* **renditions:** bound what a URL alone can make ([61de5dc](https://github.com/pwnera/artbucket/commit/61de5dce2bddab7fe06fea34dbb84eadfdcd9a2f))
+* **renditions:** bound what a URL alone can make ([8d81977](https://github.com/pwnera/artbucket/commit/8d81977e01f798509e9ba05361deb46769859f4c))
+* scope-accurate agent review, and install docs that pin real releases ([c8ea785](https://github.com/pwnera/artbucket/commit/c8ea7851befe4eb66e7ffd2c94b656efc6689bc6))
+* **sites:** light by default, logos that show, readable fades, links first ([cf8ac52](https://github.com/pwnera/artbucket/commit/cf8ac527d058a286e0e304d1db435adda96660cd))
+* **sites:** quiet text that reads on both ends of a fade, and the name said once ([31f5e02](https://github.com/pwnera/artbucket/commit/31f5e02b4ac6516f57d4c931bb0b1bf14e34d186))
+* **sites:** the brand's links first, GitHub leading, extra links in a menu ([6e46064](https://github.com/pwnera/artbucket/commit/6e46064a2b7b8d4960c9b88eacfbe3fc97fa72e7))
+* **uploads:** refuse a file past 512 MB as too_large, in MB ([157320d](https://github.com/pwnera/artbucket/commit/157320d8613b3ef1ecb23cff0a3c3906cc4be8fe))
+
+
+### Documentation
+
+* **install:** pin releases and image tags that exist ([6924e78](https://github.com/pwnera/artbucket/commit/6924e7848ac807045479f465f9aa01fdc3c86ab1))
+* no braces in a code span across lines, which MDX reads as an expression ([267874f](https://github.com/pwnera/artbucket/commit/267874f47b05c673b7ad57c65441e8908f7e9af8))
+* regenerate openapi.json after merging main ([ca7b874](https://github.com/pwnera/artbucket/commit/ca7b874193a80bf6bee6d0f0461b65bcad44d999))
+* suspending keeps the row's writer, lifting drops an empty row ([ca2f87b](https://github.com/pwnera/artbucket/commit/ca2f87bb7968269b1004bf4871e523e0e52742a7))
+
 ## [1.8.1](https://github.com/pwnera/artbucket/compare/v1.8.0...v1.8.1) (2026-10-03)
 
 
