@@ -18,6 +18,7 @@ import { env } from "@/lib/env";
 import type { SnapRule } from "@/lib/history";
 import { readablePages } from "@/lib/page-view";
 import { pool } from "@/lib/pool";
+import { isDownloadable } from "@/lib/rights";
 import { getObject, originalKey } from "@/lib/storage";
 import { provesDomain } from "@/lib/domain-proof";
 import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
@@ -427,10 +428,13 @@ const START_FILES = 200;
  * partners or members), and the files they use that may be delivered,
  * copied into this library (same bytes, stored once). The brand keeps where
  * it came from (`from`), but not the listing's domain, which is its owner's
- * (`domain` is for a claim, which proved it). A file that isn't copied is
- * left out of its rules.
+ * (`domain` is for a claim, which proved it). A file the listing shows but
+ * doesn't hand out (lib/rights.ts isDownloadable: a foundry font, a licensed
+ * photo) isn't copied, unless `claim`: whoever proved the domain takes their
+ * own files back (lib/core/hub-claims.ts). A file that isn't copied is left
+ * out of its rules, and named in `skipped`.
  */
-export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string; domain?: string | null }) {
+export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string; domain?: string | null }, { claim = false } = {}) {
   if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
   const ref = parseHubRef(input.from);
   // Public only, whoever asks: a private brand is its own workspace's to duplicate.
@@ -445,7 +449,7 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
   const files = ids.length
     ? (
         await db
-          .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime, filename: assets.filename, rights: assets.rights })
+          .select({ id: assets.id, sha256: assets.sha256, mime: assets.mime, filename: assets.filename, rights: assets.rights, origin: assets.origin })
           .from(assets)
           .where(
             and(
@@ -458,8 +462,9 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
           )
       ).slice(0, START_FILES)
     : [];
+  const skipped = files.filter((a) => !claim && !isDownloadable(a)).map((a) => `${a.filename}: shown on BrandHub, not handed out`);
   const copied = new Map<string, string>();
-  await pool(files, 4, async (a) => {
+  await pool(claim ? files : files.filter(isDownloadable), 4, async (a) => {
     const bytes = await getObject(originalKey(a.sha256));
     const made = await ingestBytes(caller, { bytes, mime: a.mime, filename: a.filename, rights: a.rights, tags: [ref!.slug], via: "import" });
     copied.set(a.id, made.asset.id);
@@ -467,5 +472,5 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
   const seed = JSON.parse(text.replace(UUID, (id) => copied.get(id.toLowerCase()) ?? id)) as { rules: typeof src.rules; pages: typeof pages; theme: typeof src.theme };
   // The listing's domain is its owner's: a copy names it only when the copy is theirs, a claim (lib/core/hub-claims.ts) says so.
   const made = await createBrand(caller, { name: input.name, slug: input.slug, domain: input.domain ?? null }, { ...seed, forkedFrom: `${hub.org}/${hub.brand}@${hub.version}` });
-  return made;
+  return skipped.length ? { ...made, skipped } : made;
 }

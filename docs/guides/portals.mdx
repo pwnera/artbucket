@@ -336,12 +336,14 @@ Signed in, **Start from this brand** on a public listing makes a new brand in
 the workspace you have open from that release: its rules, its theme, the pages
 and sections anyone may read (none hidden, or for partners or members), and
 the files they use that may be delivered, copied into your library (the same
-bytes, stored once). The new brand is yours to edit, with a history of its
+bytes, stored once). A file the listing shows but doesn't hand out, a foundry
+font or a licensed photo, isn't copied: its rule starts without it, and
+`skipped` names it. The new brand is yours to edit, with a history of its
 own, and keeps where it came from as `from`. An agent does the same with
 `create_brand` and `from: "rust-lang/rust@12"`, or `POST /api/v1/brands` with
 `{"name": "...", "from": "rust-lang/rust@12"}`; leave out `@12` for the
 latest release. A claimant a listing is handed over to starts from it the
-same way.
+same way, and takes every file, since the domain proved them its owner.
 
 ### Pulls, follows, trending and collections
 
