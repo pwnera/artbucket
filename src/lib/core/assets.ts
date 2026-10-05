@@ -30,7 +30,7 @@ import type { Surface } from "@/lib/insights";
 import { fontLicense } from "@/lib/font-license";
 import { isDownloadable, isEmpty, RightsInput, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
-import { isReview, STATES, type State } from "@/lib/lifecycle";
+import { approvesOwn, isReview, STATES, type State } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
 import { MAX_UPLOAD_BYTES, tooLargeToUpload } from "@/lib/filename";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
@@ -847,6 +847,9 @@ export async function updateAsset(
   const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, focus, ...fields });
   if (others.some(([, v]) => v !== undefined) && !can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
   if (publishing && !can(caller, "asset.share", current)) throw new AssetError("forbidden", `Making it public takes ${needs("asset.share")}`);
+  if (status && approvesOwn(current, status, caller.actor)) {
+    throw new AssetError("forbidden", "You proposed it, so someone else approves it");
+  }
   const ws = caller.workspace.id;
   const set: PgUpdateSetSource<typeof assets> = {};
   if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
