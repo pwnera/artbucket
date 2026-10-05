@@ -18,6 +18,7 @@ next to what they use.
 | `emails` | Emails a day: invitations, share links and tests. Sign-up codes, password resets and portal requests to its own admins never count. Counted in each process's memory | One would be sent: an invitation still gives its link to copy, sending a link or a test answers `429` |
 | `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
+| `suspended` | A reason, or `true`: nothing it serves reaches the public, and it is read-only. Only in the database, see [Suspending an organization](#suspending-an-organization) | Every request |
 
 Past a limit, the request is refused with `403` and the code `limit_reached`
 (or `read_only`), naming the limit. Nothing already there is taken away:
@@ -90,6 +91,57 @@ another organization (`LIMIT_ORGANIZATIONS`): for a plan whose payment failed
 or was paused, while that is sorted out. Each server
 process reads settings at most once a minute, so a change made in the
 database applies within a minute; Settings, Usage reads them fresh.
+
+## Suspending an organization
+
+For abuse (phishing, malware, content you must take down), write
+`"suspended"` into its limits row, with a reason:
+
+```sql
+insert into settings (organization_id, key, value, updated_by)
+values (
+  (select id from organizations where slug = 'acme'),
+  'limits',
+  '{"suspended": "Phishing, report of 2026-10-05"}',
+  'operator'
+)
+on conflict (organization_id, workspace_id, key)
+do update set value = settings.value || excluded.value, updated_at = now();
+```
+
+`settings.value || excluded.value` keeps what the row already held (a plan's
+limits) and adds the flag, and `updated_by` stays: a billing integration that
+wrote the row still owns it, and should keep `suspended` whenever it rewrites
+or removes the row for a plan. While it is set, within a minute on every
+server process:
+
+- its portals, at every address (`{slug}.PORTAL_DOMAIN`, `/p/{slug}`, its own
+  domains), its share and upload links, and its BrandHub listings answer
+  `451` (Unavailable For Legal Reasons) with a plain page, or the error code
+  `suspended` from the API, that names nobody, with
+  `Cache-Control: no-store`. BrandHub leaves its brands out of every list;
+- its files at `/a/{id}` and `/c/{id}` answer `451` to everyone outside it,
+  public or signed alike;
+- its people keep the app, read-only, as with `readOnly`; their API keys and
+  agents still read. Settings, Usage shows its admins that it is suspended,
+  and the reason: write one they may read.
+
+Nobody in the organization can set or clear it: limits are never written
+through the API. To lift it, remove the key, and the row if nothing else is
+left in it (an empty row still counts as a plan of its own):
+
+```sql
+update settings set value = value - 'suspended', updated_at = now()
+where key = 'limits' and workspace_id is null
+  and organization_id = (select id from organizations where slug = 'acme');
+delete from settings
+where key = 'limits' and workspace_id is null and value = '{}'::jsonb
+  and organization_id = (select id from organizations where slug = 'acme');
+```
+
+A cache in front of the server (a CDN) may still hold public files it kept
+before the suspension, for up to their `max-age` (an hour at most): purge it
+too.
 
 ## A word to an organization
 

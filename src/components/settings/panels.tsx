@@ -543,10 +543,17 @@ export function UsagePanel({ usage }: { usage: Usage }) {
         description={billing ? "What your plan allows." : "Set by whoever runs this server."}
         info="Deleted assets stop counting at once. Editors are people with write or admin anywhere, invitations included."
       >
-        {l.readOnly && (
+        {l.suspended ? (
           <p role="status" className="text-destructive text-sm font-medium">
-            This organization is read-only: everyone can look, nobody can change anything.
+            This organization is suspended by whoever runs this server ({l.suspended}): its portals, links, BrandHub listings and public files are
+            unavailable, and nobody can change anything.
           </p>
+        ) : (
+          l.readOnly && (
+            <p role="status" className="text-destructive text-sm font-medium">
+              This organization is read-only: everyone can look, nobody can change anything.
+            </p>
+          )
         )}
         <dl className="grid max-w-lg gap-4">
           {rows.map(([label, n, max, fmt]) => {

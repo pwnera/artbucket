@@ -1,6 +1,6 @@
 ---
 title: Security
-description: Rate limits, email, headers, uploaded files, and telemetry.
+description: Rate limits, email, headers, uploaded files, abuse, and telemetry.
 ---
 
 ## Rate limits
@@ -74,6 +74,17 @@ since browsers show them in a viewer the sandbox would stop.
 Writes signed by a session cookie are taken only from `APP_URL`'s origin.
 Fetches from a URL (`ingest_asset`, `POST /api/v1/assets` with `url`) refuse
 loopback, private and link-local addresses, checked on every redirect.
+
+## Abuse
+
+With open sign-up, anyone can publish a portal, share links and public files
+from your server. To take an organization down, suspend it: one key in its
+limits row, `"suspended": "reason"`, and its portals, links, BrandHub listings
+and public files answer `451` on every host, while its people keep the app,
+read-only. Only the operator can set it, in the database. See
+[Suspending an organization](/configuration/limits#suspending-an-organization).
+To take only one brand off BrandHub, delist it instead: set its
+`brands.hub_delisted` to the reason.
 
 ## Telemetry
 

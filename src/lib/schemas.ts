@@ -1125,6 +1125,10 @@ export const Usage = z.object({
     emails: limit("Emails a day: invitations, share links, tests"),
     features: z.array(z.enum(["agents", "shares", "sso"])).nullable().describe("What it may use; null: everything"),
     readOnly: z.boolean(),
+    suspended: z
+      .string()
+      .nullable()
+      .describe("Suspended by whoever runs the server, and why: its portals, links, listings and public files are unavailable (451), and it is read-only; null: not"),
   }).describe("Set by whoever runs the server; never by the organization"),
   billing: z.string().url().nullable().describe("Where the organization's admins manage the plan behind these limits; null when this server has no such place"),
   used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int(), domains: z.number().int() }),

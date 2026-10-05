@@ -26,6 +26,7 @@ const STATUS: Record<AssetError["code"], number> = {
   password: 401,
   limit_reached: 403,
   read_only: 403,
+  suspended: 451,
   rate_limited: 429,
   unavailable: 503,
 };

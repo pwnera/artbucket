@@ -5,6 +5,7 @@ import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit } from "@/lib/core/usage";
+import { suspendedIn } from "@/lib/core/suspension";
 import { brandOfWorkspace } from "@/lib/core/branding";
 import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
@@ -166,9 +167,10 @@ export async function revokeShare(caller: Caller, id: string) {
 // ---- the other side of the link ---------------------------------------------
 
 /**
- * The link a token names, if it may be used: a 404 for no such link, a 410
- * past its date, a 401 for a missing or wrong password. The 401 says what
- * the link is, so the page can ask for the password by name.
+ * The link a token names, if it may be used: a 404 for no such link, a 451
+ * while its organization is suspended, a 410 past its date, a 401 for a
+ * missing or wrong password. The 401 says what the link is, so the page can
+ * ask for the password by name.
  */
 /** Wrong passwords, per link: ten in ten minutes, then it waits, however many addresses guess. */
 const guesses = limiter(10, 10 * 60_000);
@@ -176,6 +178,7 @@ const guesses = limiter(10, 10 * 60_000);
 async function open(token: string, password: string | null) {
   const [link] = await db.select().from(shareLinks).where(eq(shareLinks.token, token));
   if (!link) throw new AssetError("not_found", "This link doesn't exist, or was revoked");
+  if (await suspendedIn(link.workspaceId)) throw new AssetError("suspended", "This content is unavailable");
   const wait = password ? guesses.wait(link.id) : 0;
   if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
   const no = await refusal(link, password);

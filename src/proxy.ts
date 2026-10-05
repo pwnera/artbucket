@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hostTarget, portalHome } from "@/lib/core/domains";
+import { suspendedAt } from "@/lib/core/suspension";
 import { portalRedirect, underDomain } from "@/lib/portal";
 import { limiter } from "@/lib/rate";
+import { suspendable, unavailable } from "@/lib/suspension";
 
 /**
  * In front of every request: a rate limit on /api, the headers that depend
@@ -77,6 +79,8 @@ const csp = (nonce: string) => [
   "frame-ancestors 'none'",
 ].join("; ");
 
+type Target = Awaited<ReturnType<typeof hostTarget>>;
+
 // Asset bytes, and the redirect to the current ones (app/a, app/c).
 const bytes = (path: string) => path.startsWith("/a/") || path.startsWith("/c/");
 
@@ -96,10 +100,9 @@ const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")
  * current one. A members portal stays at /p/ on the host asked: its members
  * sign in there.
  */
-async function portalRoute(req: NextRequest, init?: { request: { headers: Headers } }) {
+async function portalRoute(req: NextRequest, target: Target, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   const { pathname, search } = req.nextUrl;
-  const target = host && host !== appHost ? await hostTarget(host).catch(() => null) : null;
   const asked = target?.portal ?? null;
   // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
   if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
@@ -199,7 +202,17 @@ export async function proxy(req: NextRequest) {
   const policy = csp(nonce);
   init?.request.headers.set("x-nonce", nonce);
   init?.request.headers.set("Content-Security-Policy", policy);
-  const res = hubRoute(req, onHub, init) ?? (onHub ? null : await portalRoute(req, init)) ?? movedGuidelines(req) ?? (page && req.headers.get("host") === appHost ? openWorkspace(req) : null) ?? NextResponse.next(init);
+  const host = req.headers.get("host") ?? "";
+  const target = host && host !== appHost && !onHub ? await hostTarget(host).catch(() => null) : null;
+  // A suspended organization's portals, links and listings, on every host (lib/suspension.ts). A host it uses for the app stays its people's.
+  const off = await suspendedAt(target?.portal ? { organizationId: target.organizationId } : suspendable(pathname, onHub)).catch(() => false);
+  const res =
+    (off ? unavailable(!page) : null) ??
+    hubRoute(req, onHub, init) ??
+    (onHub ? null : await portalRoute(req, target, init)) ??
+    movedGuidelines(req) ??
+    (page && host === appHost ? openWorkspace(req) : null) ??
+    NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
   if (page) res.headers.set("Content-Security-Policy", policy);

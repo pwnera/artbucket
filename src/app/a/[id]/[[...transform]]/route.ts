@@ -1,6 +1,7 @@
 import { fail, handle } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
 import { validUntil } from "@/lib/core/signing";
+import { suspendedIn } from "@/lib/core/suspension";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { renderAsset } from "@/lib/core/renditions";
@@ -31,7 +32,8 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  * Signed or public, only an approved, unexpired asset out of embargo leaves
  * (lib/lifecycle.ts). Expired or archived, the URL answers 410 and every
  * embed breaks on time; a draft, a proposal or an embargoed asset is not
- * there yet (404). Someone who can see it in the library still gets it.
+ * there yet (404); its organization suspended, it is unavailable (451).
+ * Someone who can see it in the library still gets it.
  *
  * A file people may see but not take (lib/rights.ts isDownloadable: a
  * licensed photo, a foundry's font) goes to them only drawn: its renditions
@@ -46,12 +48,14 @@ export async function GET(req: Request, { params }: Ctx) {
     if (!asset) return fail(404, "not_found", "No such asset");
     const url = new URL(req.url);
     const s = url.searchParams.get("s");
+    // A suspended organization's files go to its own people only, neither public nor signed (lib/suspension.ts).
+    const off = await suspendedIn(asset.workspaceId);
     const open = deliverable(asset);
-    const until = open && !asset.public ? validUntil(asset.id, s) : null;
+    const until = open && !asset.public && !off ? validUntil(asset.id, s) : null;
     let cache: string;
     // Who it went to, for Insights (lib/core/events.ts): a kind, never a name or an address.
     let by: { surface: Surface } & ReturnType<typeof who> = { surface: "public", ...who(null) };
-    if (open && asset.public) cache = `public, max-age=${maxAge(asset)}`;
+    if (open && asset.public && !off) cache = `public, max-age=${maxAge(asset)}`;
     // Cached with its query, so for no longer than the signature lasts.
     else if (until) {
       cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
@@ -62,6 +66,7 @@ export async function GET(req: Request, { params }: Ctx) {
       if (!(caller && (await getAsset(caller, id)))) {
         // Made public, unarchived, renewed or approved later, it is back: no cache may remember the refusal.
         const again = { "Cache-Control": "no-cache" };
+        if (off) return fail(451, "suspended", "This content is unavailable", undefined, { "Cache-Control": "no-store" });
         if (retired(asset)) return fail(410, "gone", `${STATE_LABEL[asset.state]}: this asset is no longer in use`, undefined, again);
         if (open && s && Number(s.split(".")[0]) * 1000 <= Date.now()) return fail(410, "gone", "This link has expired", undefined, again);
         return fail(404, "not_found", "No such asset", undefined, again);

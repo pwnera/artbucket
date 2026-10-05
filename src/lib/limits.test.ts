@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatSize, limitsFromEnv, organizationsFromEnv, over, parseSize, UNLIMITED, upgradeUrl } from "./limits.ts";
+import { formatSize, held, limitsFromEnv, organizationsFromEnv, over, parseSize, UNLIMITED, upgradeUrl } from "./limits.ts";
 import { resolve } from "./settings.ts";
 
 test("sizes read the way an operator writes them", () => {
@@ -64,4 +64,19 @@ test("LIMIT_ORGANIZATIONS: how many organizations without a plan one person may 
   // Admin of one without a plan, the limit is 1: a second is over it.
   assert.equal(over(1, 1), true);
   assert.equal(over(1, 0), false);
+});
+
+test("suspended: a reason or true, only from the organization's row, and it holds the organization to read", () => {
+  assert.equal(resolve("limits", {}, { LIMIT_STORAGE: "1GB" }).value.suspended, null, "the environment never suspends");
+  const why = resolve("limits", { organization: { storage: "1TB", suspended: "phishing, report 12" } }, {}).value;
+  assert.equal(why.suspended, "phishing, report 12");
+  assert.equal(why.readOnly, false, "as stored");
+  assert.equal(held(why).readOnly, true);
+  assert.equal(held(why).storage, 1e12, "the plan's limits stay");
+  assert.equal(resolve("limits", { organization: { suspended: true } }, {}).value.suspended, "Suspended");
+  for (const off of [false, null, ""]) {
+    const l = resolve("limits", { organization: { suspended: off } }, {}).value;
+    assert.equal(l.suspended, null);
+    assert.equal(held(l), l);
+  }
 });

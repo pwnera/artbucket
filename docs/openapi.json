@@ -35316,6 +35316,13 @@
                             },
                             "readOnly": {
                               "type": "boolean"
+                            },
+                            "suspended": {
+                              "description": "Suspended by whoever runs the server, and why: its portals, links, listings and public files are unavailable (451), and it is read-only; null: not",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -35326,7 +35333,8 @@
                             "domains",
                             "emails",
                             "features",
-                            "readOnly"
+                            "readOnly",
+                            "suspended"
                           ],
                           "additionalProperties": false,
                           "description": "Set by whoever runs the server; never by the organization"
