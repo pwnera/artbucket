@@ -1683,7 +1683,7 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, " +
-            "workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace " +
+            "workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace " +
             "admin, the workspace's.",
           query: {
             before: { schema: { type: "string", format: "date-time" }, description: "The `next` of the previous page" },
