@@ -431,6 +431,9 @@ organization's verified domains, and the domain then serves that portal and
 nothing else of the app. A domain the app used stops serving it when a portal
 takes it.
 Removing a domain in Settings sends its portal back to `/p/{address}`.
+Keep the TXT record: a domain whose record is gone for 7 days is unverified,
+as [for the app](/configuration/white-labeling#a-domain-for-the-app), and its
+portal stops answering there until it is proved again.
 How many domains an organization may add is the operator's `domains`
 [limit](/configuration/limits).
 

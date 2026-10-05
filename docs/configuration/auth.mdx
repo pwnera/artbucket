@@ -31,6 +31,9 @@ Email domains (`/api/v1/email-domains`): a TXT record at
 organization holds a domain; a claim left unproved for seven days can be taken
 by another. Public suffixes (`co.uk`, `github.io`) are refused. These are not
 the custom domains the app and portals answer at, and no limit counts them.
+Keep the record: the server looks again every few hours, and a domain whose
+record is gone at every look for 7 days is unverified, for single sign-on and
+joining too, until it is proved again; another organization may then claim it.
 
 ### Joining by domain
 

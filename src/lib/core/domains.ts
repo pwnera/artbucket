@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { resolve4, resolve6, resolveCname, resolveTxt } from "node:dns/promises";
+import { resolve4, resolve6, resolveCname } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { domains, portalAliases, portals, workspaces } from "@/lib/db/schema";
@@ -7,6 +7,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
+import { txtAt } from "@/lib/domain-proof";
 import { env } from "@/lib/env";
 import { can, needs } from "@/lib/permissions";
 import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } from "@/lib/portal";
@@ -205,10 +206,7 @@ export async function pointsAt(host: string, target: string): Promise<{ ok: true
 export async function proveHost(by: Caller, d: typeof domains.$inferSelect, detail: Record<string, unknown> = {}) {
   if (d.verifiedAt) return d;
   const [txt, cname] = await Promise.all([
-    resolveTxt(challengeName(d.host)).then(
-      (rs) => rs.map((r) => r.join("")),
-      () => [] as string[],
-    ),
+    txtAt(challengeName(d.host)).then((t) => t ?? []),
     env.DOMAIN_TARGET ? pointsAt(d.host, env.DOMAIN_TARGET) : ({ ok: true } as const),
   ]);
   const missing = [
