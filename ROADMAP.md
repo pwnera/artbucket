@@ -6,8 +6,9 @@ blob store attached - not a blob store with tags.
 Built and run by [Pwnera SAS](LICENSE). Every milestone below is independently
 shippable and demoable.
 
-**Status:** v0.1 to v1.6 shipped. Analytics in progress. Current release: see
-[Releases](https://github.com/pwnera/artbucket/releases) and [CHANGELOG.md](CHANGELOG.md).
+**Status:** milestones v0.1 to v1.6 shipped; releases since, through 1.9, are in
+[CHANGELOG.md](CHANGELOG.md) and [Releases](https://github.com/pwnera/artbucket/releases).
+Analytics is in progress: its foundation and the Insights page shipped.
 
 **Milestones are not versions.** Up to v1.6 each milestone was released as its
 own version, and those headings keep their numbers. From here on, milestones
