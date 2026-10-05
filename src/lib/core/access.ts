@@ -134,7 +134,8 @@ export async function workspacesOf(userId: string) {
 const cookie = (req: Request, name: string) =>
   req.headers.get("cookie")?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
 
-const ipOf = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || null;
+/** The client's address, as the reverse proxy in front reports it. */
+export const ipOf = (h: Headers) => h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
 
 /**
  * Resolve the caller. A key that is presented but unknown is `undefined`, not
@@ -152,7 +153,7 @@ export async function callerFrom(req: Request, workspaceId?: string): Promise<Ca
 }
 
 async function resolve(req: Request, workspaceId?: string): Promise<Caller | undefined> {
-  const ip = ipOf(req);
+  const ip = ipOf(req.headers);
   const authorization = req.headers.get("authorization");
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];

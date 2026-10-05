@@ -8,7 +8,9 @@ description: Rate limits, headers, uploaded files, and telemetry.
 `/api` allows `RATE_LIMIT` requests a minute (1200 by default) per client
 address, API keys included. Past it, a `429` with
 `Retry-After`. Signing in has its own, stricter limits. A share link's password
-allows ten wrong guesses in ten minutes, then waits, whoever is guessing.
+allows ten wrong guesses in ten minutes, then waits, whoever is guessing. A
+portal's password allows ten from one address and two hundred in all in ten
+minutes; only wrong ones count.
 
 The counts live in each process's memory. Behind several instances each counts
 on its own; for a hard limit, put one in your reverse proxy too. Asset URLs
