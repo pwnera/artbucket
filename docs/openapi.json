@@ -54784,7 +54784,7 @@
     "/api/v1/email/test": {
       "post": {
         "summary": "Send a test email",
-        "description": "Through the organization's email settings, to you or `to`. A 422 carries the provider's reason. Organization admin.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Through the organization's email settings, to your own address only. A 422 carries the provider's reason, a 429 says the organization's emails for the day are spent. Organization admin.\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54793,7 +54793,7 @@
                 "type": "object",
                 "properties": {
                   "to": {
-                    "description": "Defaults to you",
+                    "description": "Your own address, the only one a test goes to",
                     "type": "string",
                     "format": "email",
                     "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"

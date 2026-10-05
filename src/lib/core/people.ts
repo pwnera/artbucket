@@ -41,6 +41,8 @@ export async function hasUsers() {
 /** The invite page sets this, so signing up can prove it holds an invitation. */
 export const INVITE_COOKIE = "ab_invite";
 const INVITE_DAYS = 7;
+/** Invitations waiting at once per organization: room for a team, not for mailing a list. */
+const MAX_PENDING = 200;
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 const cookieValue = (header: string | null, name: string) =>
   header?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
@@ -512,6 +514,11 @@ const linkOf = (base: string, sealed: string | null) => {
 export async function createInvitation(caller: Caller, input: { email: string; resource: Resource; resourceId: string; scope: Scope; limits?: Ability[] }) {
   const t = await target(caller, input.resource, input.resourceId);
   if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors");
+  const [{ pending }] = await db
+    .select({ pending: count() })
+    .from(invitations)
+    .where(and(eq(invitations.organizationId, t.organizationId), isNull(invitations.acceptedAt), gt(invitations.expiresAt, new Date())));
+  if (pending >= MAX_PENDING) throw new AssetError("limit_reached", `${MAX_PENDING} invitations are waiting already: revoke some, or wait for them to be accepted`);
   const token = randomBytes(24).toString("base64url");
   const [row] = await db.transaction(async (tx) => {
     if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { tx });

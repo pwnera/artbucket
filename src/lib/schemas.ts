@@ -1723,7 +1723,7 @@ export const SettingItem = z.object({
   own: z.boolean().describe("Set here: resetting it lets what is above apply"),
 });
 export const SettingPatch = z.record(z.string(), z.unknown()).describe("Properties to change; a blank secret keeps it, null clears it");
-export const EmailTest = z.strictObject({ to: z.email().optional().describe("Defaults to you") });
+export const EmailTest = z.strictObject({ to: z.email().optional().describe("Your own address, the only one a test goes to") });
 
 export const Audit = z.object({ data: z.array(AuditEntry), next: date.nullable().describe("Pass as `before` for the next page") });
 

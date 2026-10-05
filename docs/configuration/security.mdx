@@ -1,6 +1,6 @@
 ---
 title: Security
-description: Rate limits, headers, uploaded files, and telemetry.
+description: Rate limits, email, headers, uploaded files, and telemetry.
 ---
 
 ## Rate limits
@@ -21,6 +21,16 @@ since each is read whole.
 
 The server takes the client's address from `X-Forwarded-For`. Run it behind a
 reverse proxy that sets that header, and don't expose its port directly.
+
+## Email
+
+Each organization sends at most `EMAIL_DAILY_LIMIT` emails a day (200 by
+default; `0` turns the cap off): invitations, share links and tests. Past it,
+links are still made to copy, and sending one by email answers `429`. Sign-up
+codes, password resets and portal requests to an organization's admins never
+count, so one organization can't stop them. A test email goes only to whoever
+sends it, and an organization has at most 200 invitations waiting at once. The
+count lives in each process's memory, like the rate limits.
 
 ## Headers
 
