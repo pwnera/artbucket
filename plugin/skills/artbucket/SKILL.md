@@ -32,11 +32,12 @@ Two ways in, same tools:
    (CLI: `artbucket check <id> --channel instagram --territory FR --context dark-background`, which
    exits 1 when it may not). `allowed: false` comes with reasons and a `suggest`ion: use that instead,
    and tell the person why.
-5. **What you add is a suggestion.** `ingest_asset` and `propose_tags` land in Review for a person
-   to approve. `my_proposals` says what they decided and why. Don't treat a proposed asset as final.
+5. **What you add is a suggestion.** With a propose (Suggest) key, `ingest_asset` and `propose_tags` land
+   in Review for a person to approve. `my_proposals` says what they decided and why. Don't treat a proposed
+   asset as final. With a write (Edit) key an upload is in the library at once: say so, never that it waits.
    When the person asks you to review, `search_assets({"review": true})` lists what waits, and `review_asset`
    approves or rejects it (a rejection says why, in `note`) and applies or drops suggested tags and values.
-   Never approve on your own initiative, least of all what you proposed.
+   Never approve on your own initiative. What you proposed yourself, the server refuses to let you approve.
 6. **A new version is not a new asset.** A redrawn logo or a corrected photo goes in with
    `ingest_asset({"url": ..., "versionOf": "<id of the old one>"})` (CLI: `--version-of`): once approved it
    replaces the old one everywhere, and checks point to it. Expired, archived and deleted assets are not

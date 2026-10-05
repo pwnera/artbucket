@@ -67,6 +67,14 @@ export const isReview = (from: Status, to: Status) =>
   !(to === "draft" || to === "proposed") || from === "active" || from === "archived";
 
 /**
+ * Whether this approves the caller's own proposal (a rejected one taken back
+ * too). Whoever proposed it, a key or a person, never decides it: someone
+ * else does (decision 0005). `proposedBy` is how history names them.
+ */
+export const approvesOwn = (a: { status: Status; proposedBy: string | null }, to: Status, actor: string) =>
+  to === "active" && (a.status === "proposed" || a.status === "rejected") && a.proposedBy === actor;
+
+/**
  * "Expires in 5 days": how an approved asset's last day of use reads when it
  * is close (within `within` days), so the library says so before a check has
  * to refuse it. Null when it is not approved, has no end, or is far off.

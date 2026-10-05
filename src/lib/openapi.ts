@@ -311,7 +311,8 @@ export function openapi(serverUrl: string) {
             "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and " +
             "`supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through " +
             "its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking " +
-            "a draft takes write; any other move takes write with the approve ability.",
+            "a draft takes write; any other move takes write with the approve ability. Whoever proposed an asset " +
+            "(`proposedBy`, the same key or person) can't approve it: 403, someone else does.",
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
         }),
@@ -1805,7 +1806,7 @@ export function openapi(serverUrl: string) {
           description:
             "RFC 8628, with a registered `client_id`, form-encoded (or JSON). A person approves `user_code` at `verification_uri`; poll the token " +
             "endpoint meanwhile. `scope` (read, propose or write) is what the consent screen offers first, never more than the person may give; " +
-            "without it, propose. `artbucket login` asks for write.",
+            "without it, propose. `artbucket login` asks for propose unless `--scope` says otherwise.",
           ok: [200, "Codes", z.object({ device_code: z.string(), user_code: z.string(), verification_uri: z.string(), verification_uri_complete: z.string(), expires_in: z.number(), interval: z.number() })],
         }),
       },
