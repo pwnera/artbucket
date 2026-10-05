@@ -34573,6 +34573,32 @@
                           ],
                           "description": "A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"
                         },
+                        "feedback": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "email": {
+                                  "type": "string",
+                                  "format": "email",
+                                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                "version": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "email",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where to send feedback about this server (EMAIL_REPLY_TO), and the version it runs: set for someone signed in when the server has one, else null"
+                        },
                         "joinable": {
                           "anyOf": [
                             {
@@ -34752,6 +34778,7 @@
                         "hub",
                         "hubUrl",
                         "notice",
+                        "feedback",
                         "joinable",
                         "auth"
                       ],

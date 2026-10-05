@@ -1189,6 +1189,10 @@ export const Me = z.object({
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
     .describe("A word from whoever runs the server to the organization's admins (a plan that ends, a payment that failed), shown across the top of the app; null for everyone else, and when there is none"),
+  feedback: z
+    .object({ email: z.email(), version: z.string() })
+    .nullable()
+    .describe("Where to send feedback about this server (EMAIL_REPLY_TO), and the version it runs: set for someone signed in when the server has one, else null"),
   joinable: JoinOffer.nullable().describe("An organization that opened the domain of your address, which you may join able to read (POST /api/v1/join); null when there is none, you're in it, or you turned it down"),
   auth: z.object({
     signUp: z.boolean().describe("Nobody has an account yet: the first one made is the admin of everything"),

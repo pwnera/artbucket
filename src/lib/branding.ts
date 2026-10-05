@@ -3,6 +3,9 @@ import { z } from "zod";
 /** The open-source project every server runs, whoever hosts it: where the fetcher's user agent points. */
 export const PROJECT_URL = "https://github.com/pwnera/artbucket";
 
+/** The product's documentation, for every server: Help's Docs. */
+export const DOCS_URL = "https://docs.artbucket.io";
+
 /** Where "Powered by Artbucket" on a portal points: the product's own page for it, on Artbucket Cloud. */
 export const POWERED_BY_URL = "https://artbucket.io/powered-by";
 
