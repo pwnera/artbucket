@@ -19,8 +19,9 @@ const HELP = `artbucket <command>
 
   login [server] [--scope read|propose|write]
                           sign in through the browser (app.artbucket.io: https is
-                          assumed) and save a key, write unless --scope says less;
-                          later commands use that server
+                          assumed) and save a key, propose unless --scope says
+                          otherwise (brand push takes write); later commands use
+                          that server
   logout [server]         forget it
   search [words] [--tag t]... [--collection id] [--status s]... [--review] [--limit n]
                           --status draft|proposed|active|expired|archived|rejected|deleted
@@ -477,8 +478,8 @@ async function login() {
     grant_types: ["urn:ietf:params:oauth:grant-type:device_code"],
   });
   if (!client.ok) throw new Error(client.json.error_description ?? `Can't reach ${BASE}`);
-  // Write by default: pushing a brand edits it, and --publish releases it.
-  const device = await oauth("/api/v1/oauth/device", { client_id: client.json.client_id, scope: opt.scope ?? "write" });
+  // Propose by default, as an agent connected anywhere else gets (decision 0005): pushing a brand asks for --scope write.
+  const device = await oauth("/api/v1/oauth/device", { client_id: client.json.client_id, scope: opt.scope ?? "propose" });
   if (!device.ok) throw new Error(device.json.error_description ?? "Couldn't start signing in");
   const d = device.json;
   console.log(`Open ${d.verification_uri_complete}\nand check it shows ${d.user_code}. Waiting...`);

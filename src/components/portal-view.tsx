@@ -6,6 +6,7 @@ import { IconCircleCheck, IconLock, IconRefresh, IconSend } from "@tabler/icons-
 import { ThemeToggle, useAccent } from "@/components/brand";
 import { FloatingEdit } from "@/components/floating-edit";
 import { type Access, type AssetsView, PortalAssets, type PortalBody, type Theme } from "@/components/portal-assets";
+import { AskNotice, PrivacyLink } from "@/components/site/footer";
 import { SiteLink } from "@/components/site/nav-tree";
 import { Book } from "@/components/site/book";
 import { SiteView } from "@/components/site/site-view";
@@ -147,6 +148,7 @@ export function PortalView({
   initial,
   ownDomain = false,
   editor,
+  privacy = null,
 }: {
   slug: string;
   /** Where the portal's paths start: /p/{slug}, or "" on its own domain. */
@@ -158,6 +160,8 @@ export function PortalView({
   ownDomain?: boolean;
   /** Whoever is signed in may edit its brands (lib/core/portals.ts portalEditor): their workspace, and the app's address, for the floating Edit. */
   editor?: { workspace: string; app: string } | null;
+  /** The server's privacy policy (PRIVACY_URL): in the footer, on the door, under a request for access. */
+  privacy?: string | null;
 }) {
   const [state, setState] = useState<State>(() => (initial ? next(initial, false, { at: "loading" }) : { at: "loading" }));
   const [pending, setPending] = useState(false);
@@ -364,6 +368,7 @@ export function PortalView({
           here={at(`/p/${slug}`, path ? `/${path}` : "/")}
           state={state}
           ownDomain={ownDomain}
+          privacy={privacy}
           onPassword={(p) => {
             pass.current.password = p;
             return load(new URL(location.href), true);
@@ -389,6 +394,7 @@ export function PortalView({
           headers={headers}
           onLost={lost}
           onNavigate={navigate}
+          privacy={privacy}
           header={
             <PortalHeader name={portal.name} theme={portal.theme} home={at(base, "/")} onNavigate={navigate}>
               {tabs.length > 1 && <PortalNav tabs={tabs} current="" onNavigate={navigate} />}
@@ -435,6 +441,7 @@ export function PortalView({
             canonical={state.data.canonical}
             headers={headers}
             whatsNew={mode === "updates"}
+            privacy={privacy}
             header={
               <PortalHeader name={portal.name} theme={portal.theme} home={at(base, "/")} onNavigate={navigate}>
                 {tabs.length > 1 && <PortalNav tabs={tabs} current={mode === "updates" ? "updates" : brand} onNavigate={navigate} />}
@@ -602,6 +609,7 @@ function Gate({
   here,
   state,
   ownDomain,
+  privacy,
   onPassword,
 }: {
   slug: string;
@@ -609,6 +617,7 @@ function Gate({
   here: string;
   state: Gated;
   ownDomain: boolean;
+  privacy: string | null;
   onPassword: (p: string) => Promise<unknown>;
 }) {
   const id = useId();
@@ -763,6 +772,7 @@ function Gate({
                 {error}
               </p>
             )}
+            <AskNotice privacy={privacy} />
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => (setAsking(false), setError(null))}>
                 Back
@@ -772,6 +782,11 @@ function Gate({
               </Button>
             </div>
           </form>
+        )}
+        {privacy && !(asking && !asked) && (
+          <p className="text-muted-foreground text-center text-xs">
+            <PrivacyLink href={privacy} />
+          </p>
         )}
       </div>
     </main>

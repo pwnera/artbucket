@@ -12,6 +12,7 @@ import type { Asset } from "@/components/gallery";
 import { useEdit, useMedia, usePicked, useSite, type Edit, type Site } from "@/components/site/site-context";
 import { Button } from "@/components/ui/button";
 import { insertItems, removeItem } from "@/lib/builder-ops";
+import { tooLargeToUpload } from "@/lib/filename";
 import { renderMarkdown, SITE_PATH } from "@/lib/markdown";
 import { TEMPLATE_INFO, type Item, type Section, type Template } from "@/lib/pages";
 import { hasPreview } from "@/lib/preview";
@@ -809,6 +810,8 @@ const LibraryPicker = lazy(() => import("@/components/asset-picker").then((m) =>
 
 /** A file into the library, as the gallery sends one: a ticket, the bytes straight to storage, then the asset. */
 export async function upload(file: File): Promise<Asset> {
+  const big = tooLargeToUpload(file.size);
+  if (big) throw new Error(big);
   const mime = file.type || "application/octet-stream";
   const post = (path: string, body: object) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const ticket = await post("/api/v1/uploads", { filename: file.name, mime, size: file.size });

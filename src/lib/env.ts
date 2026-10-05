@@ -135,6 +135,9 @@ const schema = z.object({
   EMAIL_FROM: z.string().optional(),
   EMAIL_REPLY_TO: z.email().optional(),
   EMAIL_API_KEY: z.string().optional(),
+  /** The operator's terms and privacy policy: wherever an account is made, it says that going on agrees to them. The privacy policy is linked from portals, share links and BrandHub too. */
+  TERMS_URL: z.url().optional(),
+  PRIVACY_URL: z.url().optional(),
 }).refine(
   (e) => [e.OIDC_ISSUER, e.OIDC_CLIENT_ID, e.OIDC_CLIENT_SECRET].filter(Boolean).length % 3 === 0,
   "Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together, or none of them",

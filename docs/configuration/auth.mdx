@@ -16,7 +16,7 @@ By default (`SIGNUP=invite`):
 - anyone the OIDC provider vouches for, who arrives with no access until an
   admin gives them some
 - anyone at an organization's verified email domain its own provider vouches
-  for, who joins that organization able to read
+  for, who joins that organization able to read one workspace
 
 `SIGNUP=open` lets anyone make an account from the sign-in page. Each new
 account gets an organization of its own, with a first workspace, and is its
@@ -69,6 +69,9 @@ Email domains (`/api/v1/email-domains`): a TXT record at
 organization holds a domain; a claim left unproved for seven days can be taken
 by another. Public suffixes (`co.uk`, `github.io`) are refused. These are not
 the custom domains the app and portals answer at, and no limit counts them.
+Keep the record: the server looks again every few hours, and a domain whose
+record is gone at every look for 7 days is unverified, for single sign-on and
+joining too, until it is proved again; another organization may then claim it.
 
 ### Joining by domain
 
@@ -77,6 +80,16 @@ Whoever then signs up, or signs in, with an address at exactly that domain is
 offered to join the organization once the email code has confirmed the
 address: on the welcome page, beside starting an organization of their own,
 or in a banner across the app for an account made before. Not now is kept.
+
+Joining is at read on one workspace, the domain's landing workspace, never the
+whole organization: an agency with a workspace per client that opens a
+client's domain lets that client's people into their own workspace and no
+other. An organization with more than one workspace picks it beside the
+domain, once it is open (`workspaceId` in
+`PATCH /api/v1/email-domains/{domain}`); unpicked, or once the workspace is
+deleted, it is the organization's oldest. Moving it moves where the next
+person lands, not anyone who joined already. People who joined the whole
+organization before this keep that access until an admin changes it in Team.
 With sign-up closed, such an address may still make an account: the offer is
 what it is for.
 
@@ -109,7 +122,10 @@ one for a server shared by several organizations. An organization admin:
 
 From then on the sign-in page takes anyone at that domain, or under it, to
 the provider once they type their email. The first time, they join the
-organization able to read; an admin raises their access in Team. An account
+organization able to read one workspace, the provider's landing workspace
+(picked beside the email domain when there is more than one, `workspaceId` in
+`PUT /api/v1/sso`; else the oldest), as joining by domain does; an admin
+raises their access in Team. An account
 made before, with a password, joins at its next sign-in through the provider.
 Signing up with a password at the domain is not on offer: the sign-in page
 takes the address to the provider instead, so nobody there ends up in an

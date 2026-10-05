@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
+import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
 import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
@@ -134,7 +135,8 @@ export async function workspacesOf(userId: string) {
 const cookie = (req: Request, name: string) =>
   req.headers.get("cookie")?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
 
-const ipOf = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || null;
+/** The client's address, as the reverse proxy in front reports it. */
+export const ipOf = (h: Headers) => h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
 
 /**
  * Resolve the caller. A key that is presented but unknown is `undefined`, not
@@ -152,7 +154,7 @@ export async function callerFrom(req: Request, workspaceId?: string): Promise<Ca
 }
 
 async function resolve(req: Request, workspaceId?: string): Promise<Caller | undefined> {
-  const ip = ipOf(req);
+  const ip = ipOf(req.headers);
   const authorization = req.headers.get("authorization");
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -268,6 +270,8 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     joinable,
     // Connecting makes a key for the sync, so it takes admin on the workspace.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
+    // Help's "Send feedback" writes to the operator's reply address, with the version in the mail to say what ran.
+    feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,
     auth: {
       signUp,
       open: env.SIGNUP === "open",
@@ -279,6 +283,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
       serverEmail: lockedBy("email", process.env),
       captcha,
       turnstile: captcha === "turnstile" ? (env.TURNSTILE_SITE_KEY ?? null) : null,
+      legal: env.TERMS_URL || env.PRIVACY_URL ? { terms: env.TERMS_URL ?? null, privacy: env.PRIVACY_URL ?? null } : null,
     },
   };
 }
