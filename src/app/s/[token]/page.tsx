@@ -48,5 +48,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SharePage({ params, searchParams }: Props) {
   const [{ token }, sp] = await Promise.all([params, searchParams]);
   const asset = Array.isArray(sp.asset) ? sp.asset[0] : sp.asset;
-  return <SharedView token={token} initial={await first(token)} asset={asset ?? null} />;
+  return <SharedView token={token} initial={await first(token)} asset={asset ?? null} privacy={env.PRIVACY_URL ?? null} />;
 }

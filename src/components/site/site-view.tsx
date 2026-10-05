@@ -5,7 +5,7 @@ import { IconDots, IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from
 import { PageBody } from "@/components/brand-sections";
 import { LABEL, LookProvider, useSiteLook } from "@/components/brand-sections/look";
 import { goTo, TYPING, useHashFlash } from "@/components/site/anchors";
-import { SiteFooter } from "@/components/site/footer";
+import { AskNotice, SiteFooter } from "@/components/site/footer";
 import { NavBar, NavTree, plain } from "@/components/site/nav-tree";
 import { PageHeader } from "@/components/site/page-header";
 import { Pager } from "@/components/site/pager";
@@ -62,6 +62,8 @@ export type SiteViewProps = {
   headers?: () => HeadersInit;
   /** What's new (?view=updates) in place of the page. */
   whatsNew?: boolean;
+  /** The server's privacy policy (PRIVACY_URL): in the footer, and under a request for access. */
+  privacy?: string | null;
 };
 
 /** Sticky chrome under whatever the host pins above it, and anchors that land clear of both. */
@@ -109,6 +111,7 @@ function Layout({
   canonical,
   headers,
   whatsNew,
+  privacy,
 }: Omit<SiteViewProps, "view" | "href" | "url" | "mode">) {
   const { view, href, idOf, context, mode } = useSite();
   const page = whatsNew ? null : view.page;
@@ -355,7 +358,7 @@ function Layout({
                   {!landing && <Pager roots={roots} current={page.slug} onNavigate={onNavigate} />}
                 </>
               ) : view.locked && portal ? (
-                <Locked portal={portal} base={base} canonical={canonical} roots={roots} />
+                <Locked portal={portal} base={base} canonical={canonical} roots={roots} privacy={privacy} />
               ) : (
                 <div className="mx-auto max-w-(--brand-measure) space-y-2 px-6 py-16">
                   <h1 className="text-2xl font-semibold">{view.locked ? "This page is locked" : "Nothing here yet"}</h1>
@@ -373,7 +376,7 @@ function Layout({
               <OnThisPage sections={sections} />
             </aside>
           )}
-          {portal && <SiteFooter portal={portal} base={base} onNavigate={onNavigate} />}
+          {portal && <SiteFooter portal={portal} base={base} onNavigate={onNavigate} privacy={privacy} />}
         </div>
       </OpenTabProvider>
       <SiteSearch open={searching} onOpenChange={setSearching} go={go} portal={portal} base={base} headers={headers} />
@@ -388,7 +391,19 @@ function Layout({
  * the app's session can't reach); anything else, or there, to ask for
  * access, which the portal's admins answer by email.
  */
-function Locked({ portal, base, canonical, roots }: { portal: SitePortal; base: string; canonical?: string | null; roots: NavNode[] }) {
+function Locked({
+  portal,
+  base,
+  canonical,
+  roots,
+  privacy,
+}: {
+  portal: SitePortal;
+  base: string;
+  canonical?: string | null;
+  roots: NavNode[];
+  privacy?: string | null;
+}) {
   const { view } = useSite();
   // The page a portal path names: the first brand's at the top, the others' under their slug; none, the first locked.
   const at = (canonical ?? "").split("/").filter(Boolean)[view.brand.slug === portal.brands[0]?.slug ? 0 : 1];
@@ -411,13 +426,13 @@ function Locked({ portal, base, canonical, roots }: { portal: SitePortal; base: 
           <a href={`/login?next=${encodeURIComponent(`${base}${canonical ?? ""}`)}`}>Sign in</a>
         </Button>
       ) : (
-        <AskForAccess slug={portal.slug} />
+        <AskForAccess slug={portal.slug} privacy={privacy} />
       )}
     </div>
   );
 }
 
-function AskForAccess({ slug }: { slug: string }) {
+function AskForAccess({ slug, privacy }: { slug: string; privacy?: string | null }) {
   const id = useId();
   const [at, setAt] = useState<"closed" | "open" | "busy" | "sent">("closed");
   const [error, setError] = useState<string | null>(null);
@@ -468,6 +483,7 @@ function AskForAccess({ slug }: { slug: string }) {
           {error}
         </p>
       )}
+      <AskNotice privacy={privacy} />
       <Button type="submit" pending={at === "busy"}>
         <IconSend aria-hidden /> Send
       </Button>
