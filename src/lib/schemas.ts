@@ -1195,6 +1195,10 @@ export const Me = z.object({
     serverEmail: z
       .boolean()
       .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
+    turnstile: z
+      .string()
+      .nullable()
+      .describe("The Cloudflare Turnstile site key (TURNSTILE_SITE_KEY): making an account and sending its email code take a token from its widget, in the x-captcha-response header; null when off"),
   }),
 });
 

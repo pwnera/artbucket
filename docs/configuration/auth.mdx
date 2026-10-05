@@ -23,6 +23,25 @@ account gets an organization of its own, with a first workspace, and is its
 admin. Invitations still work: someone signing up from one joins where it
 points instead.
 
+### A check against scripted sign-ups
+
+With sign-up open, set a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/)
+widget's keys, and making an account with a password takes its check:
+
+```bash
+TURNSTILE_SITE_KEY=0x4AAAAAAA...
+TURNSTILE_SECRET_KEY=0x4AAAAAAA...
+```
+
+The sign-up form (first run and invitations included) shows the widget above
+its button, and the server verifies its token with Cloudflare before the
+account is made. Sending a new email code takes one too, out of sight unless
+Cloudflare asks for a click. Signing in, resetting a password, and signing up
+through Google, the OIDC provider or an organization's own are not checked.
+The widget's hostnames are set on Cloudflare: list every address people sign
+up at (`APP_URL`, and an organization's own domain for the app). Unset: no
+check, and no request to Cloudflare.
+
 ## Email domains
 
 An organization proves the domains its people have their email at in Settings,

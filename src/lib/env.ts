@@ -116,6 +116,14 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().regex(/^[\w-]+\.apps\.googleusercontent\.com$/, "A Google client ID: 1234-abc.apps.googleusercontent.com").optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   /**
+   * Cloudflare Turnstile on making an account and on sending its email code
+   * (lib/auth.ts): a widget's site key and secret key, both or neither, from
+   * dash.cloudflare.com. Against scripted sign-ups where SIGNUP=open. Unset:
+   * no challenge.
+   */
+  TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  /**
    * The server's email, for every organization that doesn't set its own in
    * Settings (lib/settings.ts). Unset: no email until an organization turns
    * it on.
@@ -127,7 +135,8 @@ const schema = z.object({
 }).refine(
   (e) => [e.OIDC_ISSUER, e.OIDC_CLIENT_ID, e.OIDC_CLIENT_SECRET].filter(Boolean).length % 3 === 0,
   "Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together, or none of them",
-).refine((e) => !e.GOOGLE_CLIENT_ID === !e.GOOGLE_CLIENT_SECRET, "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together, or neither");
+).refine((e) => !e.GOOGLE_CLIENT_ID === !e.GOOGLE_CLIENT_SECRET, "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together, or neither")
+  .refine((e) => !e.TURNSTILE_SITE_KEY === !e.TURNSTILE_SECRET_KEY, "Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together, or neither");
 
 const parsed = schema.safeParse(process.env);
 

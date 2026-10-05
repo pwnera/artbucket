@@ -34676,6 +34676,13 @@
                             "serverEmail": {
                               "type": "boolean",
                               "description": "The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"
+                            },
+                            "turnstile": {
+                              "description": "The Cloudflare Turnstile site key (TURNSTILE_SITE_KEY): making an account and sending its email code take a token from its widget, in the x-captcha-response header; null when off",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -34686,7 +34693,8 @@
                             "sso",
                             "anonymous",
                             "passwordReset",
-                            "serverEmail"
+                            "serverEmail",
+                            "turnstile"
                           ],
                           "additionalProperties": false
                         }

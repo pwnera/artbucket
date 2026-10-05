@@ -39,14 +39,19 @@ const COPY: Record<string, string> = {
   INVALID_TOKEN: "This link expired or was used already. Ask for a new one.",
   // Signed in from an address other than the server's own (APP_URL): a proxy, an IP, a second hostname.
   INVALID_ORIGIN: "This page isn't at the address the server is set up for (its APP_URL). Open it there, or ask its operator, then try again.",
+  // The Turnstile check (useTurnstile): not done yet, or refused.
+  MISSING_RESPONSE: "Finish the check above the button, then try again.",
+  VERIFICATION_FAILED: "The check above the button didn't pass. Try it again.",
 };
 
 type AuthResult = { ok: true; data: { url?: string; token?: string | null } } | { ok: false; message: string; code?: string };
 
-async function authPost(path: string, body: unknown): Promise<AuthResult> {
+/** `captcha`: a Turnstile token, for the calls lib/auth.ts guards with one. */
+async function authPost(path: string, body: unknown, captcha?: string | null): Promise<AuthResult> {
   let res: Response;
   try {
-    res = await fetch(`/api/auth/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const headers: Record<string, string> = { "Content-Type": "application/json", ...(captcha ? { "x-captcha-response": captcha } : {}) };
+    res = await fetch(`/api/auth/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
   } catch {
     return { ok: false, code: "NETWORK", message: UNREACHABLE };
   }
@@ -85,6 +90,75 @@ function useCarriedEmail(skip = false) {
     }
   }, [skip]);
   return input;
+}
+
+type Turnstile = {
+  render: (el: HTMLElement, options: Record<string, unknown>) => string | undefined;
+  reset: (id: string) => void;
+  remove: (id: string) => void;
+};
+const turnstileApi = () => (window as { turnstile?: Turnstile }).turnstile;
+let turnstileScript: Promise<Turnstile> | null = null;
+/** Cloudflare's script, once, the first time a form needs it: never on pages that don't. */
+function loadTurnstile() {
+  return (turnstileScript ??= new Promise<Turnstile>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true;
+    s.onload = () => {
+      const ts = turnstileApi();
+      if (ts) resolve(ts);
+      else reject(new Error("Turnstile didn't load"));
+    };
+    s.onerror = () => {
+      turnstileScript = null;
+      reject(new Error("Turnstile didn't load"));
+    };
+    document.head.append(s);
+  }));
+}
+
+/**
+ * The Turnstile widget (TURNSTILE_SITE_KEY, lib/auth.ts) in the element
+ * `box` lands on, while `siteKey` is set. `take` hands over its token for one
+ * guarded call and starts the widget over: a token is good once.
+ */
+function useTurnstile(siteKey: string | null, appearance: "always" | "interaction-only" = "always") {
+  const box = useRef<HTMLDivElement>(null);
+  const widget = useRef<string | undefined>(undefined);
+  const token = useRef<string | null>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!siteKey || !el) return;
+    let gone = false;
+    loadTurnstile()
+      .then((ts) => {
+        if (gone) return;
+        widget.current = ts.render(el, {
+          sitekey: siteKey,
+          size: "flexible",
+          appearance,
+          callback: (t: string) => void (token.current = t),
+          "expired-callback": () => void (token.current = null),
+          "error-callback": () => void (token.current = null),
+        });
+      })
+      // Blocked or offline: the server says the check is missing, and the form shows that.
+      .catch(() => {});
+    return () => {
+      gone = true;
+      if (widget.current) turnstileApi()?.remove(widget.current);
+      widget.current = undefined;
+      token.current = null;
+    };
+  }, [siteKey, appearance]);
+  const take = () => {
+    const t = token.current;
+    token.current = null;
+    if (widget.current) turnstileApi()?.reset(widget.current);
+    return t;
+  };
+  return [box, take] as const;
 }
 
 /** Seconds until a code or link may go again: better-auth sends three a minute, then refuses. */
@@ -201,6 +275,7 @@ export function AuthForm({
   error: initialError,
   below,
   aside,
+  turnstile = null,
 }: {
   heading: (mode: "in" | "up") => Heading;
   mode: "in" | "up";
@@ -232,6 +307,8 @@ export function AuthForm({
   below?: React.ReactNode;
   /** Beside the card on wide screens: see Shell. */
   aside?: React.ReactNode;
+  /** Turnstile's site key (TURNSTILE_SITE_KEY): making an account takes its check. */
+  turnstile?: string | null;
 }) {
   const id = useId();
   const go = useGo();
@@ -255,6 +332,7 @@ export function AuthForm({
   const emailInput = useCarriedEmail(!!fixed);
   const passwordInput = useRef<HTMLInputElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
+  const [checkBox, takeCheck] = useTurnstile(mode === "up" && step === "password" ? turnstile : null);
   const done = () => (then ? then(values.current) : go(callbackURL));
 
   /** On to the password, or back to the email: focus follows, after the step paints. */
@@ -286,7 +364,7 @@ export function AuthForm({
     const r =
       mode === "in"
         ? await authPost("sign-in/email", { email: v.email, password })
-        : await authPost("sign-up/email", { name: v.name || v.email.split("@")[0], email: v.email, password });
+        : await authPost("sign-up/email", { name: v.name || v.email.split("@")[0], email: v.email, password }, takeCheck());
     // Made, or known but unconfirmed: either way a code is on its way.
     if ((r.ok && mode === "up" && !r.data.token) || (!r.ok && r.code === "EMAIL_NOT_VERIFIED")) {
       setBusy(null);
@@ -482,6 +560,7 @@ export function AuthForm({
               )}
             </div>
           )}
+          {turnstile && mode === "up" && step === "password" && <div ref={checkBox} />}
           {error && (
             <FormError id={errorId}>
               {error.text}
@@ -536,6 +615,7 @@ export function AuthForm({
           onDone={done}
           onBack={() => leaveCode()}
           onSignIn={fromUp && signUp ? () => leaveCode("in") : undefined}
+          turnstile={turnstile}
         />
       )}
     </Card>
@@ -543,8 +623,22 @@ export function AuthForm({
 }
 
 /** The six digits mailed to a new account: pasted, typed or autofilled, it goes as soon as all six are in. */
-function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDone: () => void; onBack: () => void; onSignIn?: () => void }) {
+function ConfirmEmail({
+  email,
+  onDone,
+  onBack,
+  onSignIn,
+  turnstile,
+}: {
+  email: string;
+  onDone: () => void;
+  onBack: () => void;
+  onSignIn?: () => void;
+  /** A new code takes Turnstile's check too: out of sight unless it asks for a click. */
+  turnstile: string | null;
+}) {
   const id = useId();
+  const [checkBox, takeCheck] = useTurnstile(turnstile, "interaction-only");
   const input = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -567,7 +661,7 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
 
   async function resend() {
     setSending(true);
-    const r = await authPost("email-otp/send-verification-otp", { email, type: "email-verification" });
+    const r = await authPost("email-otp/send-verification-otp", { email, type: "email-verification" }, takeCheck());
     setSending(false);
     if (r.ok) restart();
     setNote(r.ok ? { error: false, text: "A new code is on its way." } : { error: true, text: r.message });
@@ -633,6 +727,8 @@ function ConfirmEmail({ email, onDone, onBack, onSignIn }: { email: string; onDo
           </button>
         </p>
       )}
+      {/* Last, out of the way: it only shows when Cloudflare wants a click before a new code goes. */}
+      {turnstile && <div ref={checkBox} />}
     </form>
   );
 }
@@ -745,6 +841,7 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
       // A renamed or restyled install gets the card alone: the aside is the product's own pitch.
       aside={brand.custom ? undefined : <SignInAside />}
+      turnstile={auth.turnstile}
     />
   );
 }
@@ -977,6 +1074,7 @@ export function InvitePage({
       then={() => void accept(true)}
       forgot={!!me?.auth.passwordReset}
       error={ssoError ? SSO_FAILED : undefined}
+      turnstile={me?.auth.turnstile ?? null}
     />
   );
 }

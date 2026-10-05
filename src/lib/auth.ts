@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
@@ -95,6 +96,15 @@ const REDIRECTS = ["redirectTo", "callbackURL", "errorCallbackURL", "newUserCall
  * for any host it does not cover, and that host keeps a cookie of its own.
  */
 const shared = cookieDomain(env.APP_URL, env.HUB_URL);
+
+/**
+ * With TURNSTILE_*, making an account with a password and sending its email
+ * code take a Cloudflare Turnstile token, in the x-captcha-response header
+ * (components/sign-in.tsx): against scripted sign-ups. Not signing in, nor a
+ * reset, nor a provider's sign-up: the provider vouched.
+ */
+const CAPTCHA_PATHS = ["/sign-up/email", "/email-otp/send-verification-otp"];
+export const turnstile = env.TURNSTILE_SITE_KEY ?? null;
 
 /** A link better-auth made, on APP_URL instead of the host it was made at. */
 const onApp = (url: string) => {
@@ -190,6 +200,7 @@ export const auth = betterAuth({
   // A session and its person in one query (db/schema.ts relations): every request reads one.
   advanced: { database: { joins: true }, ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}) },
   plugins: [
+    ...(env.TURNSTILE_SECRET_KEY ? [captcha({ provider: "cloudflare-turnstile", secretKey: env.TURNSTILE_SECRET_KEY, endpoints: CAPTCHA_PATHS })] : []),
     ...(verify
       ? [
           emailOTP({
