@@ -19,7 +19,11 @@ a major, served beside the old one rather than instead of it.
   keeps working with one.
 - **Error shape:** `{ "error": { "code", "message", "detail"? } }`, and the codes
   in the [REST API](/developers/api) table keep their meaning and status.
-- **MCP tools:** every tool, by name, with every argument it takes.
+- **MCP tools:** every tool, by name, with every argument it takes. An
+  argument a tool doesn't take is refused, since 1.8.0: before, it was dropped
+  without a word, so a misspelled argument did nothing. That was the one
+  change to the tools' behaviour in 1.x; a call that sends only the arguments
+  its schema lists is unaffected.
 - **Rendition URLs:** `/a/{id}` and `/a/{id}/{transform}`, with the transform
   keys in use today. Who they serve changed once, at 1.4: people who can see
   the asset, signed URLs, and public assets ([0012](/decisions/0012-private-delivery)).
