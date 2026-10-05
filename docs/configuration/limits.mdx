@@ -15,6 +15,7 @@ next to what they use.
 | `workspaces` | Workspaces | One is made |
 | `brands` | Brands, across its workspaces; a workspace's default brand counts once it holds rules, pages or a release | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
+| `emails` | Emails a day: invitations, share links and tests. Sign-up codes, password resets and portal requests to its own admins never count. Counted in each process's memory | One would be sent: an invitation still gives its link to copy, sending a link or a test answers `429` |
 | `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 
@@ -41,6 +42,7 @@ LIMIT_EDITORS=5
 LIMIT_WORKSPACES=3
 LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
+LIMIT_EMAILS=50          # a day
 LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso, branding, domains), or none
 ```
 

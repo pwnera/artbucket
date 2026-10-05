@@ -50,6 +50,8 @@ export const Limits = z.object({
   brands: count.nullable(),
   /** Custom domains, the app's and its portals', verified or not. */
   domains: count.nullable(),
+  /** Emails a day: invitations, share links, tests (lib/core/mail.ts). */
+  emails: count.nullable(),
   /** What it may use; null is everything. */
   features: z.array(z.enum(FEATURES)).nullable(),
   /** Nothing changes: every caller is held to read. */
@@ -57,15 +59,15 @@ export const Limits = z.object({
 });
 export type Limits = z.infer<typeof Limits>;
 
-export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, domains: null, features: null, readOnly: false };
+export const UNLIMITED: Limits = { storage: null, editors: null, workspaces: null, brands: null, domains: null, emails: null, features: null, readOnly: false };
 
 type Env = Record<string, string | undefined>;
 
-/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_EMAILS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
 export function limitsFromEnv(env: Env): Limits | null {
   const out: Record<string, unknown> = {};
   if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
-  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"]] as const) {
+  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"], ["emails", "LIMIT_EMAILS"]] as const) {
     if (env[name]?.trim()) out[k] = Number(env[name]);
   }
   const f = env.LIMIT_FEATURES?.trim();

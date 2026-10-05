@@ -6,7 +6,9 @@ import { effective } from "@/lib/core/settings";
 import { emailBrand } from "@/lib/core/branding";
 import { render, type Draft } from "@/lib/branding";
 import { deliver, unusable } from "@/lib/email";
+import { limiter } from "@/lib/rate";
 import { SETTINGS } from "@/lib/settings";
+import { limitsOf } from "@/lib/core/usage";
 
 /**
  * What the app emails, and through whose settings: an organization's own,
@@ -16,12 +18,32 @@ import { SETTINGS } from "@/lib/settings";
  * failure is logged and audited, not thrown.
  */
 
-export type Sent = { sent: boolean; error?: string };
+/** `limited`: past the organization's emails for the day, so the caller can answer 429. */
+export type Sent = { sent: boolean; error?: string; limited?: true };
 
-export async function sendAs(organizationId: string | null, draft: Draft): Promise<Sent> {
+/**
+ * The organization's `emails` limit a day (lib/limits.ts), so one can't spend
+ * the sender's reputation that everyone's sign-up codes and password resets
+ * depend on. One counter per limit, as plans differ.
+ *
+ * ponytail: in memory, per process (lib/rate.ts): a restart forgets the day,
+ * several instances each allow it, and a new plan starts its count over. A
+ * table when that matters.
+ */
+const daily = new Map<number, ReturnType<typeof limiter>>();
+const counter = (max: number) => daily.get(max) ?? daily.set(max, limiter(max, 24 * 60 * 60_000)).get(max)!;
+
+/** `capped: false` for mail only to the person's own address (a password reset) or the organization's admins. */
+export async function sendAs(organizationId: string | null, draft: Draft, { capped = true } = {}): Promise<Sent> {
   const { value } = organizationId ? await effective("email", { organizationId }) : { value: SETTINGS.email.fromEnv(process.env) ?? SETTINGS.email.default };
   const no = unusable(value);
   if (no) return { sent: false, error: no };
+  const max = organizationId && capped ? (await limitsOf(organizationId)).emails : null;
+  const wait = max === null ? 0 : counter(max).hit(organizationId!);
+  if (wait) {
+    const error = `This organization sent its ${max} emails for today: more can go out in ${Math.ceil(wait / 3600)} h`;
+    return { sent: false, error, limited: true };
+  }
   const message = render(draft, await emailBrand(organizationId));
   try {
     await deliver(value, message);
@@ -61,7 +83,7 @@ export async function sendPasswordReset(user: { id: string; email: string; name:
   };
   for (const o of orgs) {
     const { value } = await effective("email", { organizationId: o.id });
-    if (!unusable(value)) return sendAs(o.id, message);
+    if (!unusable(value)) return sendAs(o.id, message, { capped: false });
   }
   return sendAs(null, message);
 }

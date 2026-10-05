@@ -1727,7 +1727,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Send a test email",
           scope: "any",
-          description: "Through the organization's email settings, to you or `to`. A 422 carries the provider's reason. Organization admin.",
+          description: "Through the organization's email settings, to your own address only. A 422 carries the provider's reason, a 429 says the organization's emails for the day are spent. Organization admin.",
           body: S.EmailTest,
           ok: [200, "Sent", data(z.object({ sent: z.literal(true), to: z.string() }))],
         }),

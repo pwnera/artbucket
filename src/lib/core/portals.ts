@@ -1134,7 +1134,8 @@ export async function requestAccess(
         draft.subject = `${who} ${WANTS[kind]} on ${p.name}`;
         draft.lines[0] = `${who} ${WANTS[kind]}${input.page ? `, from the ${input.page} page` : ""} of the ${p.name} portal.`;
       }
-      await sendAs(ws?.organizationId ?? null, draft);
+      // To its own admins, already limited per portal above: never the organization's cap.
+      await sendAs(ws?.organizationId ?? null, draft, { capped: false });
     }
   }
   return { received: true };
