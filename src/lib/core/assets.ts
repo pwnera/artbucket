@@ -183,6 +183,15 @@ const safeMime = (mime: string) => (MEDIA_TYPE.test(mime) ? mime : "application/
 // ponytail: per process, and the bytes of the file only: probes and previews take more on top.
 const UPLOAD_MEMORY = 2 * MAX_UPLOAD_BYTES;
 const uploads = gate(UPLOAD_MEMORY, 32);
+/**
+ * URL imports fetch two at a time in a line of their own, outside `uploads`:
+ * a remote server can drip for minutes (fetchPublic), and that must never
+ * hold up anyone's upload. The bytes take their turn with uploads once here.
+ *
+ * ponytail: per process and across organizations, and the fetched bytes sit
+ * beside UPLOAD_MEMORY while they wait. Per organization if one hogs it.
+ */
+const imports = gate(2, 8);
 
 type FinalizeInput = {
   token: string;
@@ -417,22 +426,20 @@ export async function ingestFromUrl(
     const name = filename ?? (await linkTitle(url)) ?? `${kept.service === "Figma" ? "Figma" : `Google ${kept.service}`} link`;
     return stageAndFinalize(caller, rest, Buffer.from(`${url}\r\n`), "text/uri-list", name);
   }
-  if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
-  // The size isn't known until it arrives: it takes turns as the largest there can be.
-  return uploads.run(MAX_UPLOAD_BYTES, async () => {
-    let fetched;
+  if (imports.full) throw new AssetError("rate_limited", "Busy importing from URLs: try again in a moment");
+  const fetched = await imports.run(1, async () => {
     try {
-      fetched = await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
+      return await fetchPublic(url, { maxBytes: MAX_UPLOAD_BYTES });
     } catch (err) {
       if (err instanceof FetchError || (err as NodeJS.ErrnoException).code) {
         throw new AssetError("invalid", `Couldn't fetch ${url}: ${(err as Error).message}`);
       }
       throw err;
     }
-    const name =
-      filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
-    return stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name);
   });
+  const name = filename ?? (decodeURIComponent(fetched.url.pathname.split("/").filter(Boolean).pop() ?? "") || "download");
+  if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
+  return uploads.run(fetched.bytes.byteLength, () => stageAndFinalize(caller, rest, fetched.bytes, fetched.mime, name));
 }
 
 /**

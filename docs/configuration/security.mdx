@@ -18,6 +18,9 @@ and quality snap to a few steps, a few renditions are made at once per server
 with a short line behind them (past it, a `429`), and a stored rendition counts
 toward its organization's storage. Uploads being filed take turns too, by size,
 since each is read whole.
+URLs imported into the library are fetched a few at a time
+in a line of their own, so a slow server at the other end never holds up
+anyone's upload.
 
 The server takes the client's address from `X-Forwarded-For`. Run it behind a
 reverse proxy that sets that header, and don't expose its port directly.
