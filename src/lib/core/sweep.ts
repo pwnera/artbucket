@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
 import { db } from "@/lib/db";
-import { assets, grants, instance, invitations, renditions } from "@/lib/db/schema";
+import { assets, grants, instance, invitations, portalRequests, renditions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { rollUp } from "@/lib/core/events";
 import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject, RENDITION_DAYS } from "@/lib/storage";
@@ -22,6 +22,13 @@ import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putOb
  */
 
 export const PURGE_DAYS = 30;
+/**
+ * A portal request, with the visitor's email, name and note, is forgotten this
+ * many days after nothing waits on it: unanswered since it came, answered
+ * since then, or, approved for access, since its key stopped working (a key
+ * always lapses, lib/core/portals.ts decideRequest), so no live key goes early.
+ */
+export const REQUEST_KEEP_DAYS = 90;
 /** Nothing written in the last day is touched: an upload may be between storage and its row. */
 const GRACE_MS = 24 * 60 * 60 * 1000;
 
@@ -63,6 +70,16 @@ async function purge() {
   });
 }
 
+/** Portal requests REQUEST_KEEP_DAYS past their last use: rows only, so swept whoever else shares the bucket. */
+async function forgetRequests() {
+  const last = sql`coalesce(${portalRequests.expiresAt}, ${portalRequests.decidedAt}, ${portalRequests.createdAt})`;
+  const gone = await db
+    .delete(portalRequests)
+    .where(lt(last, sql`now() - make_interval(days => ${REQUEST_KEEP_DAYS})`))
+    .returning({ id: portalRequests.id });
+  return gone.length;
+}
+
 /** What is still held: every row's hash, and every still a row points at. */
 async function held() {
   const rows = await db
@@ -94,13 +111,14 @@ export async function sweep() {
   await ensureBucket();
   // Renditions the bucket has expired by now no longer count toward storage (lib/core/usage.ts).
   await db.delete(renditions).where(lt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`));
+  const forgotten = await forgetRequests();
   const others = await otherOwners();
   if (others.length) {
     console.warn(
       `[artbucket] Sweep skipped: bucket ${env.S3_BUCKET} is also swept by another database (${others.map(ownerKey).join(", ")}). ` +
         "Give each database its own bucket, or delete the marker of one that is gone.",
     );
-    return { purged: 0, removed: 0 };
+    return { purged: 0, removed: 0, forgotten };
   }
   const purged = await purge();
   const { originals, previews } = await held();
@@ -118,7 +136,7 @@ export async function sweep() {
     await deleteObject(o.key);
     removed++;
   }
-  return { purged, removed };
+  return { purged, removed, forgotten };
 }
 
 const EVERY_MS = 6 * 60 * 60 * 1000;
@@ -128,8 +146,8 @@ export function scheduleSweep() {
   const run = () => {
     rollUp().catch((err) => console.warn("[artbucket] Insights rollup stopped:", err instanceof Error ? err.message : err));
     return sweep()
-      .then(({ purged, removed }) => {
-        if (purged || removed) console.info(`[artbucket] Swept: ${purged} deleted assets purged, ${removed} files removed`);
+      .then(({ purged, removed, forgotten }) => {
+        if (purged || removed || forgotten) console.info(`[artbucket] Swept: ${purged} deleted assets purged, ${removed} files removed, ${forgotten} portal requests forgotten`);
       })
       .catch((err) => console.warn("[artbucket] Sweep stopped:", err instanceof Error ? err.message : err));
   };

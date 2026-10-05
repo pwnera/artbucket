@@ -29,8 +29,8 @@ The container:
 - listens on port 3000 as the unprivileged `node` user
 - migrates the database before it serves, under a lock, so several replicas can
   start at once
-- runs the sweeper every six hours (deleted assets past 30 days, and files
-  nothing holds)
+- runs the sweeper every six hours (deleted assets past 30 days, files
+  nothing holds, and portal requests 90 days past their last use)
 - includes `ffmpeg` for video thumbnails. For Word, Excel and PowerPoint
   previews, build on it: `FROM ghcr.io/pwnera/artbucket:1`, then
   `USER root`, `RUN apk add --no-cache libreoffice`, `USER node`.
