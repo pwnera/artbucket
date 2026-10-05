@@ -276,6 +276,7 @@ export async function describeCaller(caller: Caller) {
       anonymous,
       passwordReset,
       serverEmail: lockedBy("email", process.env),
+      legal: env.TERMS_URL || env.PRIVACY_URL ? { terms: env.TERMS_URL ?? null, privacy: env.PRIVACY_URL ?? null } : null,
     },
   };
 }

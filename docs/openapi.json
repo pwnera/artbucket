@@ -34676,6 +34676,46 @@
                             "serverEmail": {
                               "type": "boolean",
                               "description": "The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"
+                            },
+                            "legal": {
+                              "description": "The operator's terms and privacy policy (TERMS_URL, PRIVACY_URL), which making an account agrees to; null when neither is set",
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "terms": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "privacy": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "terms",
+                                    "privacy"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
