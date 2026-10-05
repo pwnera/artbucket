@@ -55,6 +55,7 @@ export type AuditAction =
   | "email_domain.removed"
   | "email_domain.opened"
   | "email_domain.closed"
+  | "email_domain.landing"
   | "email_domain.joined"
   | "github.added"
   | "github.verified"

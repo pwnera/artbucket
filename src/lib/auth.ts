@@ -31,7 +31,7 @@ import { lockedBy } from "@/lib/settings";
  * anyone the OIDC provider vouches for, who arrives with no access until an
  * admin grants some (Google is not that provider: it proves an address, the
  * way an email code does, and opens no door of its own), anyone at an organization's verified domain its own
- * provider vouches for, who joins it able to read, and anyone at a domain an
+ * provider vouches for, who joins it able to read one workspace, and anyone at a domain an
  * organization proved and opened (lib/core/email-domains.ts), offered to join
  * it once the email code proves the address. SIGNUP=open opens it to anyone,
  * each with an organization of their own, but for those two: an address at a

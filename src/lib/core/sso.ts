@@ -4,7 +4,7 @@ import { grants, sessions, ssoProviders, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { appOrigins } from "@/lib/core/domains";
-import { claimEmailDomain, verifyEmailDomain } from "@/lib/core/email-domains";
+import { claimEmailDomain, joinAt, landingIn, verifyEmailDomain } from "@/lib/core/email-domains";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit } from "@/lib/core/usage";
 import { env } from "@/lib/env";
@@ -20,7 +20,8 @@ import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } fr
  * domain. An admin registers this server with the provider, saves the
  * client here, and proves the domain with a TXT record. From then on anyone
  * at that domain signs in through the provider (lib/auth.ts, better-auth's
- * sso plugin), and the first time joins the organization, able to read.
+ * sso plugin), and the first time joins the organization, able to read the
+ * workspace the admin picked (the oldest, unless they did).
  *
  * Free, like the server-wide OIDC_* one: single sign-on is no paid tier.
  */
@@ -42,6 +43,8 @@ export const presentSso = (r: Row) => ({
   domain: r.domain,
   verified: r.domainVerified,
   required: r.required,
+  /** Where its people land the first time, able to read: null for the organization's oldest workspace. */
+  workspaceId: r.workspaceId,
   record: { type: "TXT" as const, name: challengeName(r.domain), value: r.token ?? "" },
   redirectUri: redirectUri(r.organizationId),
 });
@@ -74,7 +77,7 @@ async function discover(issuer: string, client: { clientId: string; clientSecret
   }
 }
 
-export type SsoInput = { issuer: string; clientId: string; clientSecret?: string; domain: string };
+export type SsoInput = { issuer: string; clientId: string; clientSecret?: string; domain: string; workspaceId?: string | null };
 
 /**
  * Set up, or change, the organization's provider. Its domain is one of the
@@ -93,6 +96,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
   const oidc = await discover(issuer, { clientId: input.clientId.trim(), clientSecret });
   // One of the organization's email domains, made if it isn't yet: proved there, it is proved here (lib/core/email-domains.ts).
   const { domain, token, verifiedAt } = await claimEmailDomain(organizationId, input.domain);
+  const workspaceId = await landingIn(organizationId, input.workspaceId);
 
   const moved = !had || had.domain !== domain;
   const values = {
@@ -102,6 +106,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
     token,
     domainVerified: !!verifiedAt,
     userId: caller.user?.id ?? null,
+    ...(workspaceId !== undefined ? { workspaceId } : {}),
     // Nobody at a new domain is held to the provider until an admin says so there.
     ...(moved ? { required: false } : {}),
   };
@@ -112,7 +117,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
         .values({ id: organizationId, providerId: organizationId, organizationId, ...values })
         .returning();
   ssoOffered.forget();
-  await recordAudit(caller, "sso.saved", domain, { issuer });
+  await recordAudit(caller, "sso.saved", domain, { issuer, workspaceId: row.workspaceId });
   return presentSso(row);
 }
 
@@ -214,17 +219,11 @@ export async function ssoAt(email: string) {
   return rows.sort((a, b) => b.domain.length - a.domain.length)[0] ?? null;
 }
 
-/** Someone the organization's provider signed in: a member from now on, able to read, unless they already had a grant there. */
+/** Someone the organization's provider signed in: a member from now on, able to read its landing workspace, unless they already had a grant there. */
 export async function joinThroughSso(user: { id: string; name: string; email: string }, providerId: string) {
   const row = await providerFor(providerId, user.email);
   if (!row) return;
   const organizationId = row.organizationId;
-  const added = await db
-    .insert(grants)
-    .values({ userId: user.id, organizationId, resource: "organization", resourceId: organizationId, scope: "read" })
-    .onConflictDoNothing()
-    .returning({ id: grants.id });
-  if (added.length) {
-    await recordAudit({ actor: user.name || user.email, user }, "sso.joined", user.email, { scope: "read" }, { organizationId, workspaceId: null });
-  }
+  const workspaceId = await joinAt(user.id, organizationId, row.workspaceId);
+  if (workspaceId) await recordAudit({ actor: user.name || user.email, user }, "sso.joined", user.email, { scope: "read" }, { organizationId, workspaceId });
 }
