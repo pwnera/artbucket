@@ -49,6 +49,31 @@ export const PRESETS = [
   { name: "AVIF", spec: "w_1600,f_avif" },
 ] as const;
 
+/**
+ * What pages of this app draw (a width step in WebP, at most SHOWN_MAX high
+ * when shownSize bounds it) or one of `presets` names: a few per file, so
+ * anyone a URL lets in may have one made (lib/core/renditions.ts). Anything
+ * else they ask for counts toward OUTSIDE_RENDITIONS.
+ */
+export function isStock(t: Transform, presets: readonly (string | null)[]) {
+  if (t.f === "webp" && !t.fit && !t.q && (!t.h || t.h === SHOWN_MAX)) return true;
+  const spec = serializeTransform(t);
+  return presets.some((p) => p !== null && serializeTransform(parseTransform(p) ?? {}) === spec);
+}
+
+/** The largest side an AVIF or a drawn SVG gets for people outside the workspace: neither stops at a render's time limit. */
+export const OUTSIDE_MAX = 4096;
+
+/** The sides asked, at most `max`; a side not asked stays unasked. */
+export const capSides = (t: Transform, max: number): Transform => ({
+  ...t,
+  ...(t.w && { w: Math.min(t.w, max) }),
+  ...(t.h && { h: Math.min(t.h, max) }),
+});
+
+/** Renditions of one file, past the stock ones, that people outside its workspace may have made while the bucket keeps them. */
+export const OUTSIDE_RENDITIONS = 16;
+
 /** "Web" for a preset's spec, the spec itself otherwise, "Original" for none. */
 export const renditionLabel = (spec: string | null) =>
   spec === null ? "Original" : (PRESETS.find((p) => p.spec === spec)?.name ?? spec);

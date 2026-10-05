@@ -15,9 +15,24 @@ on its own; for a hard limit, put one in your reverse proxy too. Asset URLs
 (`/a/`) are not limited: put a CDN in front of them on a public install, which
 also caches renditions. What a rendition URL can cost is bounded instead: sizes
 and quality snap to a few steps, a few renditions are made at once per server
-with a short line behind them (past it, a `429`), and a stored rendition counts
-toward its organization's storage. Uploads being filed take turns too, by size,
+with a short line behind them (past it, a `429`), and one that takes longer
+than 30 seconds stops (a `413`). Uploads being filed take turns too, by size,
 since each is read whole.
+
+A rendition your team asks for counts toward its organization's storage. One
+asked by someone a public asset or a signed URL alone let in is kept without
+counting, since the organization doesn't choose what they ask, and bounded
+instead:
+
+- What pages draw, a width in WebP (`w_800,f_webp`), and the presets (the
+  app's and portals' downloads) are always made.
+- Anything else, up to 16 per file while the bucket keeps them; past that,
+  a `403` until some expire. Renditions already made are always served, and
+  a member who opens the URL signed in makes what they like.
+- AVIF and drawn SVG, whose encoding and drawing don't stop at the time
+  limit, at most 4096 px a side.
+
+Deleting an asset stops its renditions counting at once.
 
 The server takes the client's address from `X-Forwarded-For`. Run it behind a
 reverse proxy that sets that header, and don't expose its port directly.
